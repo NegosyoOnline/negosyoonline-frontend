@@ -1,0 +1,26 @@
+/* Shipping page (/settings/shipping/). Scoped to its own view, uses the dash tokens only, so light and dark follow body.dash-app. */
+body.dash-app #view-settings-shipping .ss-root { max-width: 640px; }
+body.dash-app #view-settings-shipping .ss-meta { margin: 2px 0 12px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+body.dash-app #view-settings-shipping .ss-pick { margin: 0 0 16px; }
+body.dash-app #view-settings-shipping .ss-pick-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-settings-shipping .ss-select { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+body.dash-app #view-settings-shipping .ss-group { min-width: 0; margin: 0 0 12px; padding: 0; border: 0; display: grid; gap: 12px; }
+body.dash-app #view-settings-shipping .ss-legend { padding: 0; margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-settings-shipping .ss-card { display: flex; gap: 12px; align-items: flex-start; min-height: 44px; padding: 16px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); cursor: pointer; }
+body.dash-app #view-settings-shipping .ss-card input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; }
+body.dash-app #view-settings-shipping .ss-card:has(input:checked) { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+body.dash-app #view-settings-shipping .ss-card:has(input:focus-visible) { outline: 2px solid var(--link); outline-offset: 2px; }
+body.dash-app #view-settings-shipping .ss-invalid .ss-card { border-color: var(--err-line); }
+body.dash-app #view-settings-shipping .ss-card-body { display: grid; gap: 4px; min-width: 0; }
+body.dash-app #view-settings-shipping .ss-card-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
+body.dash-app #view-settings-shipping .ss-tag { margin-left: 8px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--card-line); font-size: 12px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-settings-shipping .ss-card-copy { font-size: 15px; line-height: 1.5; color: var(--text-2); }
+body.dash-app #view-settings-shipping .ss-note { margin: 0 0 16px; font-size: 14px; line-height: 1.45; color: var(--meta); }
+body.dash-app #view-settings-shipping .ss-error { margin: 0 0 12px; color: var(--err-h); font-size: 14px; line-height: 1.4; }
+body.dash-app #view-settings-shipping .ss-error[hidden], body.dash-app #view-settings-shipping .ss-ok[hidden] { display: none; }
+body.dash-app #view-settings-shipping .ss-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+body.dash-app #view-settings-shipping .ss-ok { margin: 0; font-size: 14px; color: var(--text-2); }
+@media (max-width: 640px) {
+  body.dash-app #view-settings-shipping .ss-actions .no-btn { width: 100%; }
+  body.dash-app #view-settings-shipping .ss-card { padding: 14px; }
+}

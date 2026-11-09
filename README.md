@@ -14,4 +14,4 @@ Vercel linkage and environment variables are intentionally deferred until the co
 
 ## Storefronts staging domains
 
-`negosyoonline-storefronts` has Vercel "Auto-assign Custom Domains" on, so each deploy from `main` is aliased to the project's attached domains. Only explicitly attached hosts (`demo1`-`demo5`, `live4more`) have a valid certificate on staging. The `*.storefronts-staging.negosyonline.com` wildcard has no usable certificate yet, which must be resolved before launch.
+`negosyoonline-storefronts` has Vercel "Auto-assign Custom Domains" on, so each deploy from `main` is aliased to the project's attached domains. The `*.storefronts-staging.negosyonline.com` wildcard has a valid certificate, so any subdomain resolves without being attached individually. This relies on Vercel DNS being enabled for `negosyonline.com` and the `_acme-challenge.storefronts-staging` NS delegation to Vercel in Cloudflare; the production wildcard needs the same setup before launch.

@@ -1,0 +1,42 @@
+name: Frontend CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nextjs:
+    name: ${{ matrix.app }} lint and build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [site, dash, storefronts]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.1"
+          cache: pnpm
+          cache-dependency-path: apps/${{ matrix.app }}/pnpm-lock.yaml
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Build
+        run: pnpm build

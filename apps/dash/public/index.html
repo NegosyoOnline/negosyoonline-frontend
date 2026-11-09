@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard | NegosyoOnline</title>
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/svg+xml" href="/assets/img/negosyoonline-favicon.svg?v=20261028zy">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261028zy">
+<link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261028zy">
+<script src="/assets/js/theme.js?v=20261028zy"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="/assets/css/dash.css?v=20261107ac7">
+<link rel="stylesheet" href="/assets/vendor/cropperjs/cropper.min.css?v=162">
+<link rel="stylesheet" href="/assets/css/storefront-settings.css?v=20261103ss1">
+<link rel="stylesheet" href="/assets/css/earnings.css?v=20261106e8a">
+<noscript><style>#boot{display:none!important}</style></noscript>
+</head>
+<body class="dash dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app" id="dash-app">
+  <aside class="side dash-chrome" id="side" aria-label="Dashboard navigation" hidden>
+    <button type="button" class="side-toggle" id="side-toggle" aria-expanded="true" aria-controls="side" aria-label="Collapse sidebar" data-full hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <a class="wordmark" href="/" aria-label="NegosyoOnline dashboard home"><img src="/assets/img/negosyoonline-wordmark-reversed.svg" alt="NegosyoOnline" width="220" height="48"></a>
+    <a class="side-mark" href="/" aria-label="NegosyoOnline dashboard home"><img src="/assets/img/negosyoonline-icon-reversed.svg" alt="" width="40" height="40"></a>
+    <div class="side-sep side-sep-top" role="separator"></div>
+    <div class="ws-wrap" data-full hidden>
+      <button type="button" class="ws ws-btn" id="ws-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="ws-menu"><span class="ws-tile"><img src="/assets/img/negosyoonline-icon-reversed.svg" alt="" width="40" height="40"></span><span class="ws-text"><span class="ws-name" data-ws-name>My Business</span><span class="chip ws-chip" data-ws-chip hidden></span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="ws-chev"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"/></svg></button>
+      <div class="ws-menu" id="ws-menu" role="menu" aria-label="Your sites" hidden>
+        <p class="ws-empty">No other sites yet</p>
+        <div class="menu-div"></div>
+        <button type="button" class="ws-create" role="menuitem" disabled aria-disabled="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>New Site</button>
+      </div>
+    </div>
+    <div class="side-sep" data-full hidden></div>
+    <nav class="side-nav" aria-label="Dashboard sections" data-full hidden>
+      <a href="/" data-route="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 11l8-7 8 7v9H4z"/></svg>Overview</a>
+      <a href="/orders/" data-route="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg>Orders</a>
+      <a href="/products/" data-route="products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8"/></svg>Products</a>
+      <a href="/storefront/" data-route="storefront"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10l1.5-5h13L20 10M4 10h16M5 10v10h14V10M10 20v-5h4v5"/></svg>Storefront</a>
+      <a href="/media-library/" data-route="media-library"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg>Media Library</a>
+      <a href="/earnings/" data-route="earnings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/></svg>Earnings</a>
+      <div class="side-sep side-sep-nav" role="separator"></div>
+      <a href="/people/" data-route="people"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>People</a>
+      <a href="/usage/" data-route="usage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Usage</a>
+      <a href="/referral/" data-route="referral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>Referral</a>
+      <a href="/settings/general/" id="settings-link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+    </nav>
+    <div class="side-foot" data-full hidden>
+      <div class="acct-menu" id="acct-menu" role="menu" aria-label="Account" hidden>
+        <div class="menu-head"><span class="menu-ini" data-acct-initials aria-hidden="true"></span><span class="menu-info"><span class="menu-name" data-acct-name></span><span class="menu-email" data-acct-email></span></span><span class="chip" data-acct-chip></span></div>
+        <div class="menu-div"></div>
+        <a class="menu-row menu-link" role="menuitem" href="/subscription/" data-menu-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>My Subscription</a>
+        <a class="menu-row menu-link" role="menuitem" href="/account/" data-menu-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account Settings</a>
+        <a class="menu-row menu-link" role="menuitem" href="/help/" data-menu-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>Help Center</a>
+        <div class="menu-div"></div>
+        <div class="menu-actions"><button type="button" class="menu-row" data-theme-toggle><span class="menu-ico" data-ico="sun" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="menu-ico" data-ico="moon" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span data-theme-label>Light theme</span></button><button type="button" class="menu-row menu-out" data-signout><span>Sign out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button></div>
+      </div>
+      <button type="button" class="acct-row" id="acct-row" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu"><span class="acct-row-ini" data-acct-initials aria-hidden="true"></span><span class="acct-row-name" data-acct-name></span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+    </div>
+    <div class="side-foot" data-gate hidden><button type="button" class="no-btn no-btn-ghost no-btn-block" data-signout>Sign out</button></div>
+  </aside>
+  <header class="topbar dash-chrome" id="topbar" hidden>
+    <a class="wordmark" href="/" aria-label="NegosyoOnline dashboard home"><img src="/assets/img/negosyoonline-wordmark-reversed.svg" alt="NegosyoOnline" width="180" height="39"></a>
+    <div class="top-actions"><div class="qs qs-top" data-full hidden><button type="button" class="qs-btn" aria-label="Search quick links" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><div class="qs-field" role="search" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="text" class="qs-input" placeholder="Search quick links..." aria-label="Search quick links" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-autocomplete="list"></div><div class="qs-list" role="listbox" aria-label="Quick links" hidden></div></div><div class="theme-slot theme-top" data-full hidden><button type="button" class="notif-btn theme-btn" data-theme-toggle><span class="menu-ico" data-ico="sun" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="menu-ico" data-ico="moon" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span class="theme-lab" data-theme-label>Light theme</span></button></div><div class="notif notif-top" data-full hidden><button type="button" class="notif-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button><div class="notif-pop" role="region" aria-label="Notifications" hidden><div class="notif-head"><h2 class="notif-h">Notifications</h2></div><div class="notif-list"><div class="notif-empty"><span class="notif-empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><p class="notif-empty-title">No notifications yet</p><p class="notif-empty-sub">When something needs your attention, it will show up here.</p></div></div><div class="notif-foot"><button type="button" class="notif-all" disabled aria-disabled="true">View all notifications</button></div></div></div>
+    <button type="button" class="acct-btn" id="acct-btn" aria-label="Account menu" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu-top" data-full hidden><span id="acct-initials" aria-hidden="true"></span></button></div>
+    <button type="button" class="no-btn no-btn-ghost" data-signout data-gate hidden>Sign out</button>
+  </header>
+  <div class="col">
+    <div class="theme-slot theme-col" data-full hidden><button type="button" class="notif-btn theme-btn" data-theme-toggle><span class="menu-ico" data-ico="sun" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="menu-ico" data-ico="moon" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span class="theme-lab" data-theme-label>Light theme</span></button></div>
+    <div class="qs qs-col" data-full hidden><button type="button" class="qs-btn" aria-label="Search quick links" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><div class="qs-field" role="search" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="text" class="qs-input" placeholder="Search quick links..." aria-label="Search quick links" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-autocomplete="list"></div><div class="qs-list" role="listbox" aria-label="Quick links" hidden></div></div>
+    <div class="notif notif-col" data-full hidden><button type="button" class="notif-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button><div class="notif-pop" role="region" aria-label="Notifications" hidden><div class="notif-head"><h2 class="notif-h">Notifications</h2></div><div class="notif-list"><div class="notif-empty"><span class="notif-empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><p class="notif-empty-title">No notifications yet</p><p class="notif-empty-sub">When something needs your attention, it will show up here.</p></div></div><div class="notif-foot"><button type="button" class="notif-all" disabled aria-disabled="true">View all notifications</button></div></div></div>
+    <main id="main" class="col-main">
+      <noscript><p class="noscript">This dashboard needs JavaScript. Turn it on in your browser, then reload this page.</p></noscript>
+      <nav class="set-tabs" id="set-tabs" aria-label="Settings" hidden>
+        <a href="/settings/general/" data-route="settings-general">General</a>
+        <a href="/settings/plans/" data-route="settings-plans">Plans</a>
+        <a href="/settings/billing/" data-route="settings-billing">Billing</a>
+        <a href="/settings/payments/" data-route="settings-payments">Payments</a>
+        <a href="/settings/shipping/" data-route="settings-shipping">Shipping</a>
+        <a href="/settings/domain/" data-route="settings-domain">Domain</a>
+        <a href="/settings/automation/" data-route="settings-automation">Automation Tools</a>
+        <a href="/settings/notification/" data-route="settings-notification">Notification</a>
+      </nav>
+      <div class="boot" id="boot" role="status"><p>Loading your dashboard...</p><span class="boot-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>
+      <div class="ov-sprite" hidden>
+        <svg id="ov-ico-for_booking" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM9 8h6M9 12h6"/></svg>
+        <svg id="ov-ico-for_pickup" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 15V3M8 7l4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+        <svg id="ov-ico-shipping" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 6h11v10H2zM13 9h4l4 4v3h-8M6 19a1.5 1.5 0 1 0 0-.01M17 19a1.5 1.5 0 1 0 0-.01"/></svg>
+        <svg id="ov-ico-delivered" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8"/></svg>
+      </div>
+      <section class="view" id="view-overview" aria-labelledby="h-overview" hidden>
+        <header class="view-head">
+          <p class="dash-eyebrow">Overview</p>
+          <h1 id="h-overview" tabindex="-1"></h1>
+          <p class="view-sub">Here is what needs your attention today.</p>
+        </header>
+        <div id="ov-body"></div>
+      </section>
+      <section class="view" id="view-orders" aria-labelledby="h-orders" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-orders" tabindex="-1">Orders</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-orders-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-orders-ph">Orders is not available yet</h2>
+          <p>Orders are not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-orders-new" aria-labelledby="h-orders-new" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-orders-new" tabindex="-1">Add order</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-orders-new-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" focusable="false"><path d="M12 5v14M5 12h14"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-orders-new-ph">Adding an order by hand is not available yet</h2>
+          <p>Orders are not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-products" aria-labelledby="h-products" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Products</p><h1 id="h-products" tabindex="-1">Products</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-products-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-products-ph">Products is not available yet</h2>
+          <p>Products are not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-storefront" aria-labelledby="h-storefront" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Storefront</p><h1 id="h-storefront" tabindex="-1">Storefront</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-storefront-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M4 10l1.5-5h13L20 10M4 10h16M5 10v10h14V10M10 20v-5h4v5"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-storefront-ph">Storefront is not available yet</h2>
+          <p>A storefront is not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-media-library" aria-labelledby="h-media-library" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Media Library</p><h1 id="h-media-library" tabindex="-1">Media Library</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-media-library-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-media-library-ph">Media Library is not available yet</h2>
+          <p>A media library is not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-earnings" aria-labelledby="h-earnings" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Earnings</p><h1 id="h-earnings" tabindex="-1">Earnings</h1>
+          <p class="view-sub">Member withdrawal requests: pay them by hand, then record the payment reference.</p></header>
+        <div class="wd-root" id="wd-root"></div>
+        <div class="bl-sr" id="wd-live" aria-live="polite"></div>
+        <div id="wd-dialog-slot"></div>
+      </section>
+      <section class="view" id="view-people" aria-labelledby="h-people" hidden>
+        <header class="view-head"><p class="dash-eyebrow">People</p><h1 id="h-people" tabindex="-1">People</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-people-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-people-ph">People is not available yet</h2>
+          <p>People are not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-usage" aria-labelledby="h-usage" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Usage</p><h1 id="h-usage" tabindex="-1">Usage</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-usage-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-usage-ph">Usage is not available yet</h2>
+          <p>Usage is not part of your dashboard yet. There is nothing to set up here for now.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-subscription" aria-labelledby="h-subscription" hidden>
+        <header class="view-head"><p class="dash-eyebrow">My Subscription</p><h1 id="h-subscription" tabindex="-1">My Subscription</h1></header>
+        <div id="sub-body"></div>
+      </section>
+      <section class="view" id="view-account" aria-labelledby="h-account" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Account Settings</p><h1 id="h-account" tabindex="-1">Account Settings</h1></header>
+        <div id="acct-body"></div>
+      </section>
+      <section class="view" id="view-help" aria-labelledby="h-help" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Help Center</p><h1 id="h-help" tabindex="-1">Help Center</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-help-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-help-ph">Help Center is not available yet</h2>
+          <p>Help articles and support requests are not part of your dashboard yet.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-referral" aria-labelledby="h-referral" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Referral</p><h1 id="h-referral" tabindex="-1">Referral</h1></header>
+        <div id="ref-body"></div>
+      </section>
+      <section class="view" id="view-settings-general" aria-labelledby="h-settings-general" hidden>
+        <h1 class="bl-sr" id="h-settings-general" tabindex="-1">General</h1>
+        <div class="pm-root" id="bd-root"></div>
+        <div class="bl-sr" id="bd-live" aria-live="polite"></div>
+      </section>
+      <section class="view" id="view-settings-plans" aria-labelledby="h-settings-plans" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-plans" tabindex="-1">Plans</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-settings-plans-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-settings-plans-ph">Plans is not available yet</h2>
+          <p>Plans are not part of your dashboard yet.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-settings-billing" aria-labelledby="h-settings-billing" hidden>
+        <h1 class="bl-sr" id="h-settings-billing" tabindex="-1">Billing</h1>
+        <div class="bl-root" id="bl-root"></div>
+        <div class="bl-sr" id="bl-live" aria-live="polite"></div>
+        <div class="bl-dialog-slot" id="bl-dialog-slot"></div>
+      </section>
+      <section class="view" id="view-settings-payments" aria-labelledby="h-settings-payments" hidden>
+        <h1 class="bl-sr" id="h-settings-payments" tabindex="-1">Payments</h1>
+        <div class="pm-root" id="pm-root"></div>
+        <div id="pm-dialog-slot"></div>
+        <div class="bl-sr" id="pm-live" aria-live="polite"></div>
+      </section>
+      <section class="view" id="view-settings-shipping" aria-labelledby="h-settings-shipping" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-shipping" tabindex="-1">Shipping</h1></header>
+        <div class="ss-root" id="ss-root"></div>
+        <div class="bl-sr" id="ss-live" aria-live="polite"></div>
+      </section>
+      <section class="view" id="view-settings-domain" aria-labelledby="h-settings-domain" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-domain" tabindex="-1">Domain</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-settings-domain-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-settings-domain-ph">Domain is not available yet</h2>
+          <p>Domains are not part of your dashboard yet.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-settings-automation" aria-labelledby="h-settings-automation" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-automation" tabindex="-1">Automation Tools</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-settings-automation-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-settings-automation-ph">Automation Tools is not available yet</h2>
+          <p>Automation tools are not part of your dashboard yet.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+      <section class="view" id="view-settings-notification" aria-labelledby="h-settings-notification" hidden>
+        <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-notification" tabindex="-1">Notification</h1></header>
+        <section class="dash-card ph-card" aria-labelledby="h-settings-notification-ph">
+          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span>
+          <span class="chip chip-neutral">Not available yet</span>
+          <h2 id="h-settings-notification-ph">Notification is not available yet</h2>
+          <p>Notification settings are not part of your dashboard yet.</p>
+          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
+        </section>
+      </section>
+    </main>
+    <footer class="dash-foot" id="site-footer" hidden></footer>
+  </div>
+</div>
+<nav class="tabs dash-chrome" id="tabs" aria-label="Dashboard sections" data-full hidden>
+  <a href="/" data-route="overview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 11l8-7 8 7v9H4z"/></svg>Overview</a>
+  <a href="/orders/" data-route="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg>Orders</a>
+  <a class="tab-add" href="/orders/new/" data-route="orders-new" aria-label="Add order manually"><span class="tab-add-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></span>Add order</a>
+  <a href="/products/" data-route="products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8"/></svg>Products</a>
+  <button type="button" id="tab-more" aria-haspopup="dialog" aria-expanded="false" data-sheet-open><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>More</button>
+</nav>
+<dialog class="sheet dash-chrome" id="more-sheet" aria-label="More">
+  <div class="sheet-inner">
+    <h3 class="sheet-label">Main Menu</h3>
+    <div class="sheet-grid"><a class="sheet-tile" href="/storefront/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 10l1.5-5h13L20 10M4 10h16M5 10v10h14V10M10 20v-5h4v5"/></svg>Storefront</a><a class="sheet-tile" href="/media-library/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M21 16l-5-5-8 8"/></svg>Media Library</a><a class="sheet-tile" href="/earnings/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 14.5h2"/></svg>Earnings</a><a class="sheet-tile" href="/people/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>People</a><a class="sheet-tile" href="/usage/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Usage</a><a class="sheet-tile" href="/referral/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>Referral</a></div>
+    <h3 class="sheet-label">Settings</h3>
+    <div class="sheet-grid"><a class="sheet-tile" href="/settings/general/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>General</a><a class="sheet-tile" href="/settings/plans/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Plans</a><a class="sheet-tile" href="/settings/billing/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Billing</a><a class="sheet-tile" href="/settings/payments/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Payments</a><a class="sheet-tile" href="/settings/domain/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>Domain</a><a class="sheet-tile" href="/settings/automation/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>Automation</a><a class="sheet-tile" href="/settings/notification/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg>Notification</a></div>
+    <button type="button" class="no-btn no-btn-ghost no-btn-block" data-sheet-close>Close</button>
+  </div>
+</dialog>
+<script src="/assets/js/config.js?v=20261028zy"></script>
+<script src="/assets/js/app.js?v=20261107oi540"></script>
+<script src="/assets/js/dashboard.js?v=20261110e8b"></script>
+<script src="/assets/js/account.js?v=20261107ac7"></script>
+<script src="/assets/js/billing.js?v=20261107oi540"></script>
+<script src="/assets/vendor/cropperjs/cropper.min.js?v=162"></script>
+<script src="/assets/js/payments.js?v=20261105pm2"></script>
+<script src="/assets/js/business.js?v=20261104ob4"></script>
+<script src="/assets/js/storefront-settings.js?v=20261103ss1"></script>
+<script src="/assets/js/earnings.js?v=20261106e8a"></script>
+</body>
+</html>

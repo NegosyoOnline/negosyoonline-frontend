@@ -1,0 +1,526 @@
+/* Shared dashboard helpers: API client, auth token, page shell, formatting. No dependencies, no secrets.
+   Every status, date and amount shown comes from the API; nothing is computed or assumed in the browser. */
+(function () {
+  var cfg = window.NO_CONFIG || {};
+  var TOKEN_KEY = "no_dash_token";
+
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
+  function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ } }
+
+  function el(tag, attrs, text) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  /* There is no dash login page: a signed-out visitor goes to the home site, which opens its sign-in popup. */
+  function goSignIn() { location.replace((cfg.siteUrl || "") + "/?signin=1"); }
+
+  /* Resolves {ok, status, data}. A 401 on an authenticated call clears the token and goes to the home site sign-in.
+     `credentials` is passed only by the verify page (verify and link POSTs), so the API host's HttpOnly cookies ride those calls. */
+  function call(method, path, body, auth, credentials) {
+    var headers = { "Content-Type": "application/json" };
+    if (auth) headers.Authorization = "Bearer " + getToken();
+    var opts = { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined };
+    if (credentials) opts.credentials = "include";
+    return fetch(cfg.apiBase + path, opts)
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (auth && r.status === 401) { setToken(""); goSignIn(); }
+          return { ok: r.ok, status: r.status, data: data };
+        });
+      })
+      .catch(function () { return { ok: false, status: 0, data: { message: "We could not reach the server. Please check your connection and try again." } }; });
+  }
+
+  /* call() for a multipart body (a FormData, e.g. a QR image upload): same token, 401 and network handling, and the
+     browser sets the multipart Content-Type itself. */
+  function send(method, path, form) {
+    return fetch(cfg.apiBase + path, { method: method, headers: { Authorization: "Bearer " + getToken() }, body: form })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (r.status === 401) { setToken(""); goSignIn(); }
+          return { ok: r.ok, status: r.status, data: data };
+        });
+      })
+      .catch(function () { return { ok: false, status: 0, data: { message: "We could not reach the server. Please check your connection and try again." } }; });
+  }
+
+  var PH = { timeZone: "Asia/Manila" };
+  function date(iso) {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleDateString("en-PH", Object.assign({ year: "numeric", month: "long", day: "numeric" }, PH)); } catch (e) { return ""; }
+  }
+  function nextPath() {
+    var n = new URLSearchParams(location.search).get("next") || "";
+    return /^\/[A-Za-z0-9\-_/]*$/.test(n) && n.indexOf("//") !== 0 ? n : "/";
+  }
+
+  function messageOf(res, fallback) {
+    var m = res && res.data && res.data.message;
+    return typeof m === "string" && m ? m : fallback;
+  }
+
+  function initials(a) {
+    var f = (a.first_name || "").trim(), l = (a.last_name || "").trim();
+    return ((f.charAt(0) + l.charAt(0)) || (a.email || "").charAt(0)).toUpperCase();
+  }
+
+  function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
+
+  /* Workspace block and account text. The markup is static in index.html; every value lands via textContent.
+     The trial chip reads /me/ trial_status already in hand (no extra request); an unknown or missing status shows no chip. */
+  var TRIAL_CHIP = { trial_active: ["info", "Free trial"], trial_ended: ["neutral", "Trial ended"], pending_verification: ["neutral", "Free trial"] };
+  function fillAccount(a) {
+    var name = ((a.first_name || "") + " " + (a.last_name || "")).trim();
+    var t = Object.prototype.hasOwnProperty.call(TRIAL_CHIP, a.trial_status) ? TRIAL_CHIP[a.trial_status] : null;
+    /* The workspace label is the site's business name from /me/ (site_name); blank until it is saved, so "My Business". */
+    var site = typeof a.site_name === "string" ? a.site_name.trim() : "";
+    each("[data-ws-name]", function (n) { n.textContent = site || "My Business"; });
+    each("[data-acct-initials]", function (n) { n.textContent = initials(a); });
+    each("[data-acct-name]", function (n) { n.textContent = name || a.email || ""; });
+    each("[data-acct-email]", function (n) { n.textContent = a.email || ""; n.hidden = !name; });
+    each("[data-acct-chip]", function (n) {
+      n.setAttribute("class", "chip " + (a.email_verified ? "chip-ok" : "chip-neutral"));
+      n.textContent = a.email_verified ? "Verified" : "Not verified";
+    });
+    each("[data-ws-chip]", function (n) {
+      if (!t) { n.hidden = true; return; }
+      n.setAttribute("class", "chip ws-chip chip-" + t[0]);
+      n.textContent = t[1];
+      n.hidden = false;
+    });
+    var row = document.getElementById("acct-row");
+    if (row) row.setAttribute("aria-label", "Account menu: " + (name || a.email || ""));
+  }
+
+  /* Theme toggle (account menus and the topbar icon button). Shows the theme you would switch to; theme.js owns the choice and storage. */
+  function themeToggles() {
+    var api = window.NODashTheme, btns = [];
+    each("[data-theme-toggle]", function (b) { btns.push(b); });
+    if (!api) { btns.forEach(function (b) { b.hidden = true; }); return; }
+    function paint(current) {
+      var toLight = current === "dark";
+      btns.forEach(function (b) {
+        Array.prototype.forEach.call(b.querySelectorAll("[data-theme-label]"), function (n) { n.textContent = toLight ? "Light theme" : "Dark theme"; });
+        Array.prototype.forEach.call(b.querySelectorAll("[data-ico]"), function (n) { n.hidden = n.getAttribute("data-ico") !== (toLight ? "sun" : "moon"); });
+      });
+    }
+    btns.forEach(function (b) { b.addEventListener("click", function () { api.set(api.current() === "dark" ? "light" : "dark"); }); });
+    api.onChange(paint);
+    paint(api.current());
+  }
+
+  /* Sidebar collapse (desktop): the edge button squeezes the sidebar to an icon rail and back. Held in memory only, so a reload
+     starts expanded; the spec allows just the token and theme storage keys. In the rail the link labels are hidden by CSS, so
+     each link gets a title for hover and the toggle keeps an accurate aria-expanded and label. */
+  function sideToggle() {
+    var side = document.getElementById("side"), btn = document.getElementById("side-toggle");
+    if (!side || !btn) return;
+    function setRail(rail) {
+      if (rail) side.setAttribute("data-collapsed", ""); else side.removeAttribute("data-collapsed");
+      btn.setAttribute("aria-expanded", String(!rail));
+      btn.setAttribute("aria-label", rail ? "Expand sidebar" : "Collapse sidebar");
+      Array.prototype.forEach.call(side.querySelectorAll(".side-nav > a, .side-group"), function (a) {
+        if (rail) a.setAttribute("title", a.textContent.trim()); else a.removeAttribute("title");
+      });
+      if (rail && closeWorkspaceMenu) closeWorkspaceMenu();
+    }
+    btn.addEventListener("click", function () { setRail(!side.hasAttribute("data-collapsed")); });
+    /* Choosing a menu item (or the Settings group, or the workspace button) in the rail brings back the full menu. */
+    Array.prototype.forEach.call(side.querySelectorAll(".side-nav > a, .side-group, .ws-btn"), function (a) {
+      a.addEventListener("click", function () { if (side.hasAttribute("data-collapsed")) setRail(false); });
+    });
+  }
+
+  /* Desktop account menu: popover above the account row. Escape (focus returns to the row), a click outside, or
+     the row itself closes it; opening moves focus to the first menu button. Listeners exist only while it is open. */
+  function accountMenu(rowId, menuId) {
+    var row = document.getElementById(rowId), menu = document.getElementById(menuId);
+    if (!row || !menu) return;
+    function onKey(e) { if (e.key === "Escape") close(true); }
+    function onDoc(e) { if (!menu.contains(e.target) && !row.contains(e.target)) close(false); }
+    function close(refocus) {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      row.setAttribute("aria-expanded", "false");
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onDoc);
+      if (refocus) row.focus();
+    }
+    function open() {
+      menu.hidden = false;
+      row.setAttribute("aria-expanded", "true");
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("click", onDoc);
+      var first = menu.querySelector("a[href], button");
+      if (first) first.focus();
+    }
+    row.addEventListener("click", function () { if (menu.hidden) open(); else close(false); });
+    /* A menu row is a link to a panel: close the menu and leave focus to the router (it focuses the panel h1). */
+    Array.prototype.forEach.call(menu.querySelectorAll("[data-menu-link]"), function (a) {
+      a.addEventListener("click", function () { close(false); });
+    });
+  }
+
+  /* Workspace switcher: the logo and name are a button that opens a small menu with the other sites (none yet) and a disabled
+     Create Site. Escape (focus returns to the button) or a click outside closes it. Listeners exist only while open. */
+  var closeWorkspaceMenu = null; /* set by workspaceMenu(); the sidebar rail closes an open menu through it, never by clicking the button */
+  function workspaceMenu() {
+    var btn = document.getElementById("ws-btn"), menu = document.getElementById("ws-menu");
+    if (!btn || !menu) return;
+    function onKey(e) { if (e.key === "Escape") close(true); }
+    function onDoc(e) { if (!menu.contains(e.target) && !btn.contains(e.target)) close(false); }
+    function close(refocus) {
+      if (menu.hidden) return;
+      menu.hidden = true;
+      btn.setAttribute("aria-expanded", "false");
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("click", onDoc);
+      if (refocus) btn.focus();
+    }
+    function open() {
+      menu.hidden = false;
+      btn.setAttribute("aria-expanded", "true");
+      document.addEventListener("keydown", onKey);
+      document.addEventListener("click", onDoc);
+    }
+    btn.addEventListener("click", function () { if (menu.hidden) open(); else close(false); });
+    closeWorkspaceMenu = function () { close(false); };
+  }
+
+  /* Notification bell: opens a small panel. There is no notification feed yet, so it only says so. Escape (focus returns
+     to the bell) or a click outside closes it. Listeners exist only while it is open. */
+  function notifMenus() {
+    Array.prototype.forEach.call(document.querySelectorAll(".notif"), function (box) {
+      var btn = box.querySelector(".notif-btn"), pop = box.querySelector(".notif-pop");
+      if (!btn || !pop) return;
+      function onKey(e) { if (e.key === "Escape") close(true); }
+      function onDoc(e) { if (!box.contains(e.target)) close(false); }
+      function close(refocus) {
+        if (pop.hidden) return;
+        pop.hidden = true;
+        btn.setAttribute("aria-expanded", "false");
+        document.removeEventListener("keydown", onKey);
+        document.removeEventListener("click", onDoc);
+        if (refocus) btn.focus();
+      }
+      btn.addEventListener("click", function () {
+        if (!pop.hidden) { close(false); return; }
+        pop.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        document.addEventListener("keydown", onKey);
+        document.addEventListener("click", onDoc);
+      });
+    });
+  }
+
+
+  /* Quick links search: a button that opens a field; typing filters the dashboard pages and Enter or a click opens one.
+     Static list (no request). Arrow keys move the highlight, Escape closes and returns focus to the button, and a click
+     outside closes it. Labels reach the page through textContent only; hrefs come from this fixed list. */
+  var QUICK_LINKS = [
+    ["Overview", "", "/"], ["Orders", "", "/orders/"], ["Products", "", "/products/"], ["Storefront", "", "/storefront/"], ["Media Library", "", "/media-library/"],
+    ["Earnings", "", "/earnings/"], ["People", "", "/people/"], ["Usage", "", "/usage/"], ["Referral", "", "/referral/"],
+    ["My Subscription", "Account", "/subscription/"], ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
+    ["General", "Settings", "/settings/general/"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
+    ["Domain", "Settings", "/settings/domain/"], ["Automation Tools", "Settings", "/settings/automation/"], ["Notification", "Settings", "/settings/notification/"]
+  ];
+  function quickSearch() {
+    Array.prototype.forEach.call(document.querySelectorAll(".qs"), function (box, n) {
+      var btn = box.querySelector(".qs-btn"), field = box.querySelector(".qs-field"), input = box.querySelector(".qs-input"), list = box.querySelector(".qs-list");
+      if (!btn || !field || !input || !list) return;
+      var active = -1, rows = [];
+      list.id = "qs-list-" + n;
+      input.setAttribute("aria-controls", list.id);
+      function setActive(i) {
+        if (!rows.length) { active = -1; input.removeAttribute("aria-activedescendant"); return; }
+        active = (i + rows.length) % rows.length;
+        rows.forEach(function (r, k) {
+          if (k === active) { r.setAttribute("aria-selected", "true"); input.setAttribute("aria-activedescendant", r.id); r.scrollIntoView && r.scrollIntoView({ block: "nearest" }); }
+          else r.removeAttribute("aria-selected");
+        });
+      }
+      function render() {
+        var q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        list.textContent = "";
+        rows = [];
+        QUICK_LINKS.forEach(function (l) {
+          var hay = (l[0] + " " + l[1]).toLowerCase();
+          if (!q.every(function (t) { return hay.indexOf(t) >= 0; })) return;
+          var a = el("a", { "class": "qs-row", href: l[2], role: "option", id: list.id + "-" + rows.length });
+          a.appendChild(el("span", { "class": "qs-label" }, l[0]));
+          if (l[1]) a.appendChild(el("span", { "class": "qs-hint" }, l[1]));
+          a.addEventListener("click", function () { close(false); });
+          list.appendChild(a);
+          rows.push(a);
+        });
+        if (!rows.length) list.appendChild(el("p", { "class": "qs-none" }, "No matching pages."));
+        setActive(rows.length ? 0 : -1);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") { close(true); }
+        else if (e.target !== input) return; /* arrows and Enter belong to the search box only, so other controls keep their keys */
+        else if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
+        else if (e.key === "Enter" && rows[active]) { e.preventDefault(); rows[active].click(); }
+      }
+      function onDoc(e) { if (!box.contains(e.target)) close(false); }
+      function close(refocus) {
+        if (field.hidden) return;
+        field.hidden = true; list.hidden = true; btn.hidden = false;
+        btn.setAttribute("aria-expanded", "false"); input.setAttribute("aria-expanded", "false");
+        input.value = "";
+        document.removeEventListener("keydown", onKey);
+        document.removeEventListener("click", onDoc);
+        if (refocus) btn.focus();
+      }
+      btn.addEventListener("click", function () {
+        field.hidden = false; list.hidden = false; btn.hidden = true;
+        btn.setAttribute("aria-expanded", "true"); input.setAttribute("aria-expanded", "true");
+        render();
+        document.addEventListener("keydown", onKey);
+        document.addEventListener("click", onDoc);
+        input.focus();
+      });
+      input.addEventListener("input", render);
+    });
+  }
+
+  /* Mobile More sheet: native <dialog>, falls back to the open attribute. Focus returns to the opener on close. */
+  function moreSheet() {
+    var sheet = document.getElementById("more-sheet");
+    if (!sheet) return;
+    var openers = Array.prototype.slice.call(document.querySelectorAll("[data-sheet-open]")), opener = null;
+    var modal = typeof sheet.showModal === "function";
+    function expanded(v) { openers.forEach(function (b) { b.setAttribute("aria-expanded", String(v)); }); }
+    /* Fallback only: Escape anywhere closes the sheet; the listener exists only while the sheet is open. */
+    function onKey(e) { if (e.key === "Escape") close(); }
+    function closed() {
+      if (!modal) document.removeEventListener("keydown", onKey);
+      expanded(false);
+      if (opener) { opener.focus(); opener = null; }
+    }
+    function close() { if (modal) sheet.close(); else if (sheet.hasAttribute("open")) { sheet.removeAttribute("open"); closed(); } }
+    openers.forEach(function (b) {
+      b.addEventListener("click", function () {
+        opener = b;
+        if (modal) sheet.showModal();
+        else {
+          sheet.setAttribute("open", "");
+          document.addEventListener("keydown", onKey);
+          var first = sheet.querySelector("a[href], button");
+          if (first) first.focus();
+        }
+        expanded(true);
+      });
+    });
+    sheet.addEventListener("close", closed);
+    Array.prototype.forEach.call(sheet.querySelectorAll("[data-sheet-close]"), function (b) {
+      b.addEventListener("click", function () {
+        /* A link that changes the path hands focus to the router (panel h1), so do not send it back to the opener. */
+        if (b.tagName === "A" && location.pathname !== b.getAttribute("href")) opener = null;
+        close();
+      });
+    });
+    sheet.addEventListener("click", function (e) { if (e.target === sheet) close(); });
+  }
+
+  /* Dashboard chrome (index.html). A verified account gets the workspace block, nav, account menu, tab bar and More sheet;
+     an unverified one gets the wordmark and a plain Sign out only. `current` is kept for callers. */
+  var LEGAL = [["/terms", "Terms"], ["/privacy", "Privacy"], ["/cancellation-refund", "Cancellation and Refund Policy"], ["/referral-terms", "Referral Program Terms"]];
+  function shell(account, current) {
+    if (!document.getElementById("dash-app")) return;
+    var boot = document.getElementById("boot");
+    if (boot) boot.remove();
+    var full = !!account.email_verified;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-full]"), function (n) { n.hidden = !full; });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-gate]"), function (n) { n.hidden = full; });
+    ["side", "topbar", "site-footer"].forEach(function (id) { var n = document.getElementById(id); if (n) n.hidden = false; });
+    if (full) {
+      /* Mobile: the topbar avatar opens a copy of the account menu (not the More sheet). The copy is made before the
+         account text, theme toggles and sign-out are wired so it gets the same values and handlers. */
+      var src = document.getElementById("acct-menu"), bar = document.getElementById("topbar");
+      if (src && bar && !document.getElementById("acct-menu-top")) {
+        var copy = src.cloneNode(true);
+        copy.id = "acct-menu-top";
+        copy.className += " acct-menu-top";
+        copy.hidden = true;
+        /* The page footer is hidden on phones, so the legal links live at the bottom of this menu instead. */
+        copy.appendChild(el("div", { "class": "menu-div" }));
+        LEGAL.forEach(function (l) {
+          copy.appendChild(el("a", { "class": "menu-row menu-link menu-legal", role: "menuitem", href: (cfg.siteUrl || "") + l[0] }, l[1]));
+        });
+        bar.appendChild(copy);
+      }
+      fillAccount(account);
+      themeToggles();
+      sideToggle();
+      accountMenu("acct-row", "acct-menu");
+      accountMenu("acct-btn", "acct-menu-top");
+      workspaceMenu();
+      notifMenus();
+      quickSearch();
+      var ini = document.getElementById("acct-initials");
+      if (ini) ini.textContent = initials(account);
+      moreSheet();
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-signout]"), function (b) { b.addEventListener("click", signOut); });
+    var footer = document.getElementById("site-footer");
+    if (footer) {
+      footer.textContent = "";
+      footer.appendChild(el("p", { "class": "foot-copy" }, "© 2026 NegosyoOnline."));
+      var legal = el("nav", { "aria-label": "Legal", "class": "foot-links" });
+      LEGAL.forEach(function (l) {
+        legal.appendChild(el("a", { href: (cfg.siteUrl || "") + l[0] }, l[1]));
+      });
+      footer.appendChild(legal);
+    }
+  }
+
+  function signOut() {
+    call("POST", "/auth/logout/", null, true).then(function () { setToken(""); location.replace(cfg.siteUrl || "/"); });
+  }
+
+  /* "Check your email": the whole page for an account whose email is not verified yet.
+     The API refuses the dashboard until it is, so this is a courtesy, not the lock. */
+  function verifyGate(account) {
+    var main = document.getElementById("main");
+    if (!main) return;
+    main.textContent = "";
+    var card = el("div", { "class": "gate-card", "aria-live": "polite" });
+    var h = el("h1", { tabindex: "-1" }, "Check your email");
+    card.appendChild(h);
+    var p = el("p"); p.appendChild(document.createTextNode("We sent a verification link to "));
+    p.appendChild(el("strong", {}, account.email));
+    p.appendChild(document.createTextNode(". Open it to unlock your dashboard. Your 14-day free trial started when you created your account. No credit card is needed."));
+    card.appendChild(p);
+    card.appendChild(el("p", { "class": "gate-hint" }, "The link works once and expires in 48 hours. Check your spam folder if you do not see it."));
+    var msg = el("p", { "class": "gate-hint gate-status", role: "status" });
+    var row = el("div", { "class": "gate-actions" });
+    var resend = el("button", { type: "button", "class": "no-btn no-btn-primary" }, "Resend verification email");
+    var done = el("button", { type: "button", "class": "no-btn no-btn-ghost" }, "I have verified my email");
+    resend.addEventListener("click", function () {
+      resend.disabled = true;
+      call("POST", "/auth/resend-verification/", null, true).then(function (res) {
+        resend.disabled = false;
+        msg.textContent = res.ok ? "A new link is on its way. Check your inbox."
+          : res.status === 429 ? "Too many requests. Please try again later." : (res.data.message || "We could not send the email. Please try again.");
+      });
+    });
+    done.addEventListener("click", function () { location.reload(); });
+    row.appendChild(resend); row.appendChild(done);
+    card.appendChild(row); card.appendChild(msg);
+    main.appendChild(card);
+    h.focus();
+  }
+
+  /* Gate a page: needs a token, a valid /me/ and a verified email. Resolves the account, or redirects/stops. */
+  function requireAccount(current) {
+    if (!getToken()) { goSignIn(); return new Promise(function () {}); }
+    return call("GET", "/me/", null, true).then(function (res) {
+      if (!res.ok) {
+        if (res.status === 401) return new Promise(function () {});
+        var main = document.getElementById("main");
+        if (main) {
+          main.textContent = "";
+          var box = el("div", { "class": "err-box err-box-center", role: "alert" });
+          box.appendChild(el("h2", {}, "We could not load your account"));
+          box.appendChild(el("p", {}, messageOf(res, "We could not load your account.")));
+          var again = el("button", { type: "button", "class": "no-btn no-btn-ghost" }, "Try again");
+          again.addEventListener("click", function () { location.reload(); });
+          box.appendChild(again);
+          main.appendChild(box);
+        }
+        return new Promise(function () {});
+      }
+      shell(res.data, current);
+      if (!res.data.email_verified) { verifyGate(res.data); return new Promise(function () {}); }
+      return res.data;
+    });
+  }
+
+  var SOCIAL_ERRORS = {
+    not_configured: "That sign-in option is not available yet. Please use an email code instead.",
+    cancelled: "Sign-in was cancelled. You can try again or use an email code.",
+    failed: "We could not complete that sign-in. Please try again.",
+    invalid_state: "That sign-in session expired. Please try again.",
+    policies: "Please agree to the policies to create your account.",
+    no_account: "We could not find an account for that sign-in. Start your free trial to create one.",
+    email_exists: "An account with that email already exists. Sign in with an email code instead.",
+    no_email: "That account did not share an email address, so we cannot create your NegosyoOnline account. Please use another option.",
+    disabled: "This account is not active. Please contact support.",
+    in_use: "That Facebook account is already connected to another NegosyoOnline account."
+  };
+  function socialErrorMessage(code) { return SOCIAL_ERRORS[code] || "We could not complete that sign-in. Please try again."; }
+
+  /* "Continue with Facebook / Google". Shows only providers the API says are configured.
+     `getQuery` returns the start-URL query string, or null to block the click (it shows its own message). */
+  function socialButtons(container, getQuery) {
+    return call("GET", "/auth/social/providers/").then(function (res) {
+      var list = res.ok && res.data.providers ? res.data.providers : [];
+      container.textContent = "";
+      list.forEach(function (p) {
+        var b = el("button", { type: "button", "class": "btn social-btn" }, "Continue with " + p.label);
+        b.addEventListener("click", function () {
+          var q = getQuery();
+          if (q === null) return;
+          b.disabled = true;
+          location.assign(cfg.apiBase + "/auth/social/" + encodeURIComponent(p.id) + "/start/?" + q);
+        });
+        container.appendChild(b);
+      });
+      return list.length;
+    });
+  }
+
+  function errorSummary(container, fields, labels, message) {
+    container.textContent = "";
+    var box = el("div", { "class": "error-summary", role: "alert" });
+    box.appendChild(el("h2", {}, message || "Please correct the highlighted fields."));
+    var keys = Object.keys(fields || {}).filter(function (k) { return labels[k]; });
+    if (keys.length) {
+      var ul = el("ul");
+      keys.forEach(function (k) { var li = el("li"); li.appendChild(el("a", { href: "#" + k }, labels[k] + ": " + fields[k])); ul.appendChild(li); });
+      box.appendChild(ul);
+    }
+    container.appendChild(box); container.focus();
+  }
+
+  /* A one-time confirmation after sign-in (set by social-complete, shown on the next page, then forgotten). */
+  function toast(title, sub, kind) {
+    var failed = kind === "error"; /* optional third argument; no argument keeps today's success toast byte for byte */
+    var t = el("div", { "class": failed ? "toast toast-error" : "toast", role: "status" });
+    t.innerHTML = '<span class="toast-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + (failed ? "M12 7v6M12 17h.01" : "M5 12.5l4.5 4.5L19 7.5") + '"/></svg></span>' +
+      '<div class="toast-body"><p class="toast-title"></p><p class="toast-sub"></p></div>' +
+      '<button type="button" class="toast-close" aria-label="Dismiss"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
+      '<span class="toast-bar" aria-hidden="true"></span>';
+    t.querySelector(".toast-title").textContent = title;
+    if (sub) t.querySelector(".toast-sub").textContent = sub; else t.querySelector(".toast-sub").remove();
+    document.body.appendChild(t);
+    var gone = false;
+    function close() { if (gone) return; gone = true; t.classList.remove("show"); setTimeout(function () { t.remove(); }, 320); }
+    t.querySelector(".toast-close").addEventListener("click", close);
+    requestAnimationFrame(function () { t.classList.add("show"); });
+    setTimeout(close, 4500);
+  }
+  try {
+    var flash = sessionStorage.getItem("no_toast"), flashSub = sessionStorage.getItem("no_toast_sub");
+    if (flashSub) sessionStorage.removeItem("no_toast_sub");
+    if (flash) { sessionStorage.removeItem("no_toast"); toast(flash, flashSub || "Welcome to your NegosyoOnline dashboard."); }
+  } catch (e) { /* private mode */ }
+
+  /* After an in-page change that moves the trial status (a cancel on the Billing page), re-read /me/ and refresh the
+     sidebar text and trial chip only. Never shell(): that would build the menu a second time. A 401 is handled by call();
+     any other failure is a silent no-op and the chip simply stays until the next page load. */
+  function refreshAccount() {
+    return call("GET", "/me/", null, true).then(function (res) {
+      if (res && res.ok && res.data) fillAccount(res.data);
+    });
+  }
+
+  window.NODash = { call: call, send: send, el: el, date: date, nextPath: nextPath,
+    getToken: getToken, setToken: setToken, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
+    socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, cfg: cfg, toast: toast, signOut: signOut, refreshAccount: refreshAccount };
+})();

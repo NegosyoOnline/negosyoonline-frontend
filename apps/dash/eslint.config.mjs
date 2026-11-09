@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static site files, served as is and not part of the app source.
+    "public/**",
   ]),
 ]);
 

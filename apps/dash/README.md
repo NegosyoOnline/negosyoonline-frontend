@@ -39,10 +39,14 @@ The CSP allows images from one public Vercel Blob media host, set as `mediaOrigi
 - The sign-in token lives in `localStorage` (`no_dash_token`). A 401 clears it and sends the visitor to the public site, which opens its sign-in popup (`/?signin=1`). The dashboard has no login page.
 - Statuses, dates, amounts and the referral link come from the API; the browser only formats them.
 
+## Temporary staging preview
+
+`public/assets/js/preview.js` exists only until sign-in works against the NegosyoOnline API. On `dash-staging.negosyonline.com` and `localhost` it opens the dashboard with a placeholder account and no data instead of leaving for the public site, and answers every API call itself. On any other host it does nothing. Remove the file and its `<script>` tag in `index.html` when sign-in is ready. It is the only difference between `index.html` and the TWCinc original.
+
 ## Local preview
 
 ```bash
 pnpm dev
 ```
 
-Open http://localhost:3001. Without a sign-in token it redirects to the public site.
+Open http://localhost:3001.

@@ -1,0 +1,48 @@
+name: Promote to production
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promote-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify tagged commit
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Require the tagged commit to be on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: Require a passing CI run for the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Frontend CI" \
+            --commit "$GITHUB_SHA" --status success --json databaseId --jq 'length')
+          test "$passed" -ge 1
+
+  promote:
+    name: Fast-forward production branch
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Fast-forward production to the tag (no force)
+        run: git push origin "$GITHUB_SHA:refs/heads/production"

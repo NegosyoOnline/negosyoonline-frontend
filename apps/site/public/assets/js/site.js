@@ -1,0 +1,193 @@
+/* Shared header, footer, mobile menu, FAQ accordion, asset slots. No dependencies. */
+(function () {
+  var cfg = window.NO_CONFIG || {};
+  var ANNUAL_PLAN_ENABLED = cfg.ANNUAL_PLAN_ENABLED === true;
+  var onHome = location.pathname === "/" || /\/index\.html$/.test(location.pathname);
+  var base = onHome ? "" : "/";
+
+  /* Header logo: the approved reversed wordmark from Vercel Blob; text wordmark if it is not configured. */
+  var logoUrl = (cfg.assets || {}).logoReversed;
+  var logoMarkup = logoUrl
+    ? '<img src="' + logoUrl + '" alt="NegosyoOnline" width="1728" height="379" decoding="async" fetchpriority="high">'
+    : 'Negosyo<span>Online</span>';
+
+  var header =
+    '<a class="skip" href="#main">Skip to content</a>' +
+    '<div class="wrap">' +
+    '<a class="logo" href="/" aria-label="NegosyoOnline home">' + logoMarkup + '</a>' +
+    '<button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>' +
+    '<nav class="nav" id="site-nav" aria-label="Main">' +
+    '<a href="' + base + '#solution">Shop</a>' +
+    '<a href="' + base + '#pricing">Pricing</a>' +
+    '<a href="' + base + '#about">About</a>' +
+    '<a href="' + base + '#faqs">FAQs</a>' +
+    '<a href="/contact">Contact Us</a>' +
+    '<a href="/?signin=1">Login</a>' +
+    '<a class="btn btn-primary" href="/?signup=1">Start Free Trial</a>' +
+    "</nav></div>";
+
+  var footer =
+    '<div class="wrap"><div class="footer-grid">' +
+    '<div><a class="logo" href="/" aria-label="NegosyoOnline home">' + logoMarkup + '</a>' +
+    "<p>Built for Philippine business owners. Run your store, products, orders, and deliveries from one dashboard, with hosting and security included, for one clear " + (ANNUAL_PLAN_ENABLED ? "price" : "monthly price") + ".</p><p class='footer-tagline'>The All-in-One System for Selling Online.</p></div>" +
+    '<div><h3>Company</h3><ul><li><a href="/#about">About NegosyoOnline</a></li><li><a href="/contact">Contact Us</a></li></ul>' +
+    '<ul class="footer-contact"><li><a href="mailto:support@negosyoonline.com"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span>support@negosyoonline.com</span></a></li><li><a href="tel:+639173098619"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2z"/></svg><span>+63 917 309 8619</span></a></li><li><a href="https://www.facebook.com/negosyoonlineofficial" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 8h3V4h-3a4 4 0 00-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8a1 1 0 011-1z"/></svg><span>facebook.com/negosyoonlineofficial</span></a></li></ul></div>' +
+    '<div><h3>Platform</h3><ul>' +
+    '<li><a href="/#solution">NegosyoOnline Shop</a></li>' +
+    '<li><a href="/#pricing">Pricing</a></li><li><a href="/#faqs">FAQs</a></li></ul></div>' +
+    '<div><h3>Legal</h3><ul><li><a href="/terms">Terms of Service</a></li><li><a href="/privacy">Privacy Policy</a></li>' +
+    '<li><a href="/cancellation-refund">Cancellation and Refund Policy</a></li>' +
+    '<li><a href="/referral-terms">Referral Program Terms</a></li></ul></div>' +
+    '</div>' +
+    '<div class="footer-reg"><div class="footer-reg-ids">' +'<div class="footer-reg-item"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg><div><span>DTI Registration No.</span><b>8526742</b></div></div>' +'<div class="footer-reg-item"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 12h7M9 16h7"/></svg><div><span>BIR Tax ID No. (TIN)</span><b>273 993 013 00000</b></div></div>' +'</div><img class="footer-seal" src="/assets/img/bir-online-seal.png" alt="BIR Online Registration and Update System seal, registered 2026" width="998" height="336" loading="lazy"></div>' +
+    '<div class="legal">&copy; 2026 NegosyoOnline IT Solutions. All rights reserved.</div></div>';
+
+  var h = document.getElementById("site-header");
+  if (h) {
+    h.className = "site-header"; h.innerHTML = header;
+    /* Shadow only once the page has scrolled; the header height never changes. */
+    var onScroll = function () { h.classList.toggle("scrolled", window.scrollY > 4); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+  }
+  var f = document.getElementById("site-footer");
+  if (f) { f.className = "site-footer"; f.innerHTML = footer; }
+
+  var btn = document.querySelector(".menu-btn"), nav = document.getElementById("site-nav");
+  if (btn && nav) {
+    var setOpen = function (open) {
+      nav.classList.toggle("open", open);
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      btn.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    };
+    btn.addEventListener("click", function () { setOpen(!nav.classList.contains("open")); });
+    nav.addEventListener("click", function (e) { if (e.target.tagName === "A") setOpen(false); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && nav.classList.contains("open")) { setOpen(false); btn.focus(); }
+    });
+  }
+
+  /* Approved FAQ, identical on the homepage and /contact. Each entry: [question, answer, category]. */
+  window.NO_FAQ_CATS = ["Getting started", "Pricing and billing", "Payments and shipping", "Your store"];
+  window.NO_FAQ = [
+    ["What is NegosyoOnline?", "NegosyoOnline is the all-in-one system for selling online. It puts your storefront, products and inventory, orders, delivery tools, hosting, and security into one clear subscription.", 0],
+    ["What is currently available?", "NegosyoOnline Shop is currently available for product-based businesses that want to set up and manage an online store.", 0],
+    ["How do I start, and how does the 14-day free trial work?", "Review the subscription details and create your NegosyoOnline account to begin your 14-day free trial. Each website you add later gets its own 14-day trial. No credit card is needed to sign up, so you can try the service first. You will add your payment method later from inside your account, and you will not be charged during the trial.", 0],
+    ["Do I need to be technical to set up my shop?", "No. NegosyoOnline provides guided setup videos and a setup checklist to help you complete your store step by step, from your store profile and products to payment methods and your first test order.", 0],
+    ["Where can I get help after I register?", "After you register, use the Help Center inside your NegosyoOnline dashboard for setup guidance, account questions, billing concerns, and support requests.", 0],
+    ["Will NegosyoOnline Bookings and University be available?", "These are planned future solutions. We will announce them only when they are ready to launch.", 0],
+
+    ["What is included in the subscription?", "Each website is one online shop with its own " + (ANNUAL_PLAN_ENABLED ? "subscription: PHP 2,499 a month on the Monthly Plan, or PHP 24,990 a year on the Annual Plan, which gives you 2 months free and saves PHP 4,998, or 16.7%" : "PHP 2,499 monthly subscription") + ". No VAT is added. Each subscription includes a storefront, product and inventory management, order and sales monitoring, logistics management tools, one .com domain registered for you, a free yourbusiness.negosyoonline.com address, hosting, security updates, standard support, and the stated usage limits. Payment-provider fees and usage above your plan limits are charged separately and shown clearly. Each website is billed, renewed and cancelled on its own.", 1],
+    ["Do I need a card to start the free trial?", "No. Your first website's 14-day free trial begins when you create your account, and each website you add later gets its own. Verify your email to open your dashboard. No credit card is needed to sign up, so you can try the service first.", 1],
+    ["Do you take a commission on my sales?", "No. NegosyoOnline charges " + (ANNUAL_PLAN_ENABLED ? "one subscription, monthly or annual," : "one monthly subscription") + " and does not take a percentage of your sales. Payment-provider fees are charged by the provider you choose.", 1],
+    ["Are there hidden fees?", "No. NegosyoOnline is designed to show clear pricing, inclusions, and usage limits before you subscribe. Any usage beyond your included limits is shown clearly before it is added to your next bill.", 1],
+    ["What if I get more than 1,000 orders in a month?", "Your plan includes 1,000 orders each billing cycle. Each additional order is PHP 5, with SMS notifications included. Extra usage is added up during the billing cycle and shown on your next bill, and your dashboard shows your usage and remaining allowance." + (ANNUAL_PLAN_ENABLED ? " On the Annual Plan, each month of your term has its own 1,000 orders, 5 GB of storage and 50 GB of video, and any extra usage is billed on a separate usage-only statement the following month." : ""), 1],
+    ["Can I cancel anytime, and can I get my data?", "Yes. You can cancel a website in Billing at any time, and your other websites continue. Nothing is charged during the free trial, and cancelling then ends the service right away. If a payment needs attention or your subscription is suspended, cancelling ends the service right away. The unpaid cycle is not charged, but any unpaid usage from your last paid cycle is still settled. Once you are subscribed, cancelling stops the next renewal, and you keep access until the end of the " + (ANNUAL_PLAN_ENABLED ? "billing cycle or annual term you paid for, with no prorated refund for unused time" : "billing cycle you paid for") + ". After the service ends, or from the day your subscription is suspended if you do not reactivate it, you have 30 days to download your store data, and you can come back before 90 days have passed (30 days if you never paid). Cancelling after a suspension does not extend these periods.", 1],
+
+    ["How do customers pay?", "Customers can pay by cash on delivery, by bank transfer, or online. For online payments you connect your own Xendit account. For bank transfer, customers upload proof of payment and you verify it before the order is booked. E-wallet and bank payments can also be accepted with manual approval, where you confirm each payment yourself.", 2],
+    ["Who receives my customers' payments?", "You do. Customer payments go to your own accounts, not to NegosyoOnline. We provide the platform for a " + (ANNUAL_PLAN_ENABLED ? "subscription" : "monthly subscription") + ".", 2],
+    ["How does shipping work?", "Customers see a shipping fee at checkout based on their address and the weight and size of your products. You book the courier with your own J&T account and record the tracking number in your dashboard. Customers then follow the status in Track Order. Auto Courier Tracking is available as an optional add-on at PHP 399 per month.", 2],
+    ["How do my customers track their orders?", "Customers open Track Order and verify their mobile number. They can then see their orders from your store, but nothing else. Track Order is view-only, so customers contact you to ask for a cancellation.", 2],
+    ["What about cancellations and refunds?", "You can cancel an order before it ships. Once an order has shipped, it can no longer be cancelled. Refunds are full refunds, made through your connected payment account. Returned items are checked first, and good items go back into your stock.", 2],
+
+    ["What happens when a delivery fails or an order is returned?", "Once the returned item reaches you, you inspect it and mark it as returned. Items in good condition go back into your available stock, and damaged items are tracked separately. A refund and a physical return are two separate steps, so refunding a customer never changes your stock by itself.", 2],
+
+    ["Can I use my own domain, like yourbusiness.com?", "Yes. Each website's plan includes one .com domain, like yourbusiness.com, and you also get a free yourbusiness.negosyoonline.com address. We register it after that website's first payment and connect it to your store for you, with no technical steps. The domain stays active while your subscription is active. NegosyoOnline holds the registration, so the domain is not transferred to you if you cancel.", 3],
+    ["Can I add products in bulk?", "Yes. You can import products in bulk, and any rows with errors are shown so you can fix them before publishing. Each product needs a price, stock, weight, and size so shipping can be calculated correctly.", 3],
+    ["Can my team help run the store?", "Yes. You can give staff their own roles, such as manager, fulfillment, support, or a finance-enabled manager. Each person only sees what their role allows.", 3],
+    ["Will my store work well on mobile phones?", "Yes. Your storefront is built to be mobile-friendly, so customers can browse, check out, and track their orders comfortably from their phones.", 3],
+    ["Can I offer discounts and run ads?", "Yes. You can set up basic discounts, show product reviews and upsell offers, and connect marketing pixels so you can measure your ads.", 3],
+    ["Will I be notified when I get an order?", "Yes. Customers receive order updates by SMS and email, and you receive alerts about new orders and anything that needs your attention.", 3]
+  ];
+
+  var faq = document.getElementById("faq-list");
+  if (faq) {
+    var activeCat = 0;
+    var tabs = document.createElement("div");
+    tabs.className = "faq-tabs";
+    tabs.setAttribute("role", "tablist");
+    tabs.setAttribute("aria-label", "FAQ topics");
+    window.NO_FAQ_CATS.forEach(function (name, c) {
+      var t = document.createElement("button");
+      t.type = "button";
+      t.className = "faq-tab" + (c === 0 ? " is-active" : "");
+      t.setAttribute("role", "tab");
+      t.setAttribute("aria-selected", c === 0 ? "true" : "false");
+      t.dataset.cat = String(c);
+      t.textContent = name;
+      tabs.appendChild(t);
+    });
+    faq.parentNode.insertBefore(tabs, faq);
+    window.NO_FAQ.forEach(function (qa, i) {
+      var item = document.createElement("div");
+      item.className = "faq-item";
+      item.dataset.cat = String(qa[2]);
+      var open = false; /* all closed by default */
+      item.innerHTML =
+        '<h3><button class="faq-q" type="button" aria-expanded="' + open + '" aria-controls="faq-a' + i + '" id="faq-q' + i + '"></button></h3>' +
+        '<div class="faq-a" id="faq-a' + i + '" role="region" aria-labelledby="faq-q' + i + '"' + (open ? "" : " hidden") + "></div>";
+      item.querySelector(".faq-q").textContent = qa[0];
+      item.querySelector(".faq-a").textContent = qa[1];
+      faq.appendChild(item);
+    });
+    var showCat = function (c) {
+      activeCat = c;
+      tabs.querySelectorAll(".faq-tab").forEach(function (t) {
+        var on = t.dataset.cat === String(c);
+        t.classList.toggle("is-active", on);
+        t.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      faq.querySelectorAll(".faq-item").forEach(function (it) { it.hidden = it.dataset.cat !== String(c); });
+    };
+    tabs.addEventListener("click", function (e) {
+      var t = e.target.closest(".faq-tab");
+      if (t) showCat(Number(t.dataset.cat));
+    });
+    showCat(0);
+    faq.addEventListener("click", function (e) {
+      var q = e.target.closest(".faq-q");
+      if (!q) return;
+      var a = document.getElementById(q.getAttribute("aria-controls"));
+      var open = q.getAttribute("aria-expanded") === "true";
+      faq.querySelectorAll(".faq-q[aria-expanded='true']").forEach(function (other) {
+        other.setAttribute("aria-expanded", "false");
+        document.getElementById(other.getAttribute("aria-controls")).hidden = true;
+      });
+      q.setAttribute("aria-expanded", String(!open));
+      a.hidden = open;
+    });
+  }
+
+  /* Background image slots: the Blob URL becomes the section background; without one the plain gradient stays. */
+  document.querySelectorAll("[data-bg-asset]").forEach(function (el) {
+    var url = (cfg.assets || {})[el.getAttribute("data-bg-asset")];
+    if (!url) return;
+    var pre = new Image();
+    pre.fetchPriority = "high";
+    pre.onload = function () { el.style.setProperty("--hero-img", "url(\"" + url + "\")"); el.classList.add("has-bg"); };
+    pre.src = url;
+  });
+
+  /* Image slots: use the Vercel Blob URL when configured, else a marked placeholder. */
+  document.querySelectorAll("[data-asset]").forEach(function (el) {
+    var url = (cfg.assets || {})[el.getAttribute("data-asset")];
+    var alt = el.getAttribute("data-alt") || "";
+    if (url) {
+      var img = new Image();
+      img.src = url; img.alt = alt;
+      if (el.hasAttribute("data-eager")) { img.loading = "eager"; img.fetchPriority = "high"; } else { img.loading = "lazy"; }
+      img.decoding = "async";
+      el.textContent = ""; el.appendChild(img);
+    } else {
+      el.textContent = "Approved image pending upload to Vercel Blob: " + (el.getAttribute("data-label") || alt);
+    }
+  });
+})();
+
+/* Every "Start Free Trial" link (/?signup=1) opens the sign-up popup. The /start/ payment return pages do not need it. */
+if (!/^\/start(\/|$)/.test(location.pathname)) {
+  var signupScript = document.createElement("script");
+  signupScript.src = "/assets/js/signup-modal.js";
+  document.body.appendChild(signupScript);
+}

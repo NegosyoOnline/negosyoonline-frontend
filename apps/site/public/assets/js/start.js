@@ -1,0 +1,205 @@
+/* The Start Free Trial popup: email, then the 6-digit code we mail, then the dashboard.
+   Google and Facebook go straight through the provider. Name and mobile are completed later in the dashboard.
+   Account creation and every state decision is server-side. */
+(function () {
+  var cfg = window.NO_CONFIG || {}, A = window.NOApi;
+  var $ = function (id) { return document.getElementById(id); };
+  var status = $("status");
+  var preview = null, validRef = "", email = "", cooldown = null, mode = "signup";
+  var POLICIES = ["terms", "privacy", "cancellation_refund", "referral_terms"];
+  var POLICY_MSG = "You must agree to the Terms of Service, Privacy Policy, Cancellation and Refund Policy, and Referral Program Terms.";
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function clearErrors() {
+    status.textContent = "";
+    ["email-err", "accept-err", "code-err"].forEach(function (id) { var e = $(id); e.hidden = true; e.textContent = ""; });
+    document.querySelectorAll(".field.invalid").forEach(function (f) { f.classList.remove("invalid"); });
+    $("email").parentNode.classList.remove("is-invalid");
+  }
+  function fieldError(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
+  function showBanner(message) {
+    clearErrors();
+    var box = A.el("div", { "class": "error-summary", role: "alert" });
+    box.appendChild(A.el("h2", {}, message));
+    status.appendChild(box); status.focus();
+  }
+
+  function show(step) {
+    ["step1", "code"].forEach(function (id) { $(id).hidden = id !== step; });
+    var h = $(step).querySelector("h1"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
+  }
+
+  /* ---------- referral and policy version ---------- */
+  function initReferral() {
+    var param = new URLSearchParams(location.search).get("ref");
+    var code = (param || A.getRefCookie() || "").trim();
+    if (!code || code.length > 32) return;
+    A.call("GET", "/referrals/" + encodeURIComponent(code) + "/").then(function (res) {
+      if (res.ok && res.data.valid) {
+        validRef = code;
+        if (param) A.setRefCookie(code);  /* only a validated code is saved; 30 days */
+        $("ref-banner").textContent = "Referred by: " + res.data.referrer_first_name;
+        $("ref-banner").hidden = false;
+      }
+    });
+  }
+  function loadPreview() {
+    return A.call("GET", "/plan/preview/").then(function (res) {
+      if (res.ok) preview = res.data;
+      return res;
+    });
+  }
+
+  /* ---------- step 1: email ---------- */
+  /* Continuing is the agreement (the notice under the button). The server still records the policies and
+     version, and rejects a sign-up that does not send them. */
+  $("email").addEventListener("input", function () {
+    $("email-err").hidden = true; this.parentNode.classList.remove("is-invalid");
+    this.parentNode.classList.toggle("is-valid", EMAIL_RE.test(this.value.trim()));
+  });
+
+  function sendCode(btn, label, done) {
+    if (!preview) { loadPreview().then(function (r) { if (r.ok) sendCode(btn, label, done); else showBanner("We could not load the policy details. Please try again."); }); return; }
+    btn.disabled = true; btn.textContent = "Sending...";
+    var body = mode === "signin"
+      ? { email: email, mode: "signin", accepted_policies: [], policy_version: preview.policy_version, referral_code: null }
+      : { email: email, mode: "signup", accepted_policies: POLICIES, policy_version: preview.policy_version, referral_code: validRef || null };
+    A.call("POST", "/auth/email-code/request/", body).then(function (res) {
+      btn.disabled = false; btn.textContent = label;
+      if (res.ok) { clearErrors(); done(); return; }
+      var f = res.data.fields || {};
+      if (f.email) { fieldError("email-err", f.email); $("email").parentNode.classList.add("is-invalid"); show("step1"); }
+      else if (f.policy_version) { loadPreview(); showBanner(f.policy_version); show("step1"); }
+      else if (f.accepted_policies) { fieldError("accept-err", f.accepted_policies); show("step1"); }
+      else showBanner(res.status === 429 ? "Too many attempts. Please try again in a few minutes." : (res.data.message || "We could not send the code. Please try again."));
+    });
+  }
+
+  $("form1").addEventListener("submit", function (e) {
+    e.preventDefault();
+    clearErrors();
+    email = $("email").value.trim();
+    if (!EMAIL_RE.test(email)) { fieldError("email-err", "Enter a valid email address."); $("email").parentNode.classList.add("is-invalid"); $("email").focus(); return; }
+    sendCode($("btn1"), "Continue", showCode);
+  });
+
+  /* ---------- step 2: the code ---------- */
+  var boxes = Array.prototype.slice.call(document.querySelectorAll("#otp input"));
+  function codeValue() { return boxes.map(function (b) { return b.value; }).join(""); }
+  function resetBoxes() { boxes.forEach(function (b) { b.value = ""; b.removeAttribute("aria-invalid"); }); }
+  function startCooldown() {
+    var btn = $("code-resend"), wait = $("code-wait"), count = $("code-count"), left = 30;
+    clearInterval(cooldown);
+    btn.hidden = true; wait.hidden = false; count.textContent = "0:30";
+    cooldown = setInterval(function () {
+      left -= 1;
+      if (left <= 0) { clearInterval(cooldown); wait.hidden = true; btn.hidden = false; }
+      else count.textContent = "0:" + (left < 10 ? "0" : "") + left;
+    }, 1000);
+  }
+  function showCode() {
+    $("code-email").textContent = email;
+    $("code-msg").textContent = "";
+    resetBoxes(); show("code"); boxes[0].focus(); startCooldown();
+  }
+  function submitCode() {
+    var code = codeValue();
+    if (code.length !== 6) { fieldError("code-err", "Enter all 6 digits of the code."); return; }
+    boxes.forEach(function (b) { b.disabled = true; });
+    $("code-err").hidden = true;
+    A.call("POST", "/auth/email-code/verify/", { email: email, code: code }, false, true).then(function (res) {
+      if (res.ok) {
+        $("code-msg").textContent = res.data.created ? "Your account is ready. Opening your dashboard..." : "Welcome back. Opening your dashboard...";
+        location.assign(cfg.dashUrl + "/social-complete#code=" + encodeURIComponent(res.data.exchange_code));
+        return;
+      }
+      boxes.forEach(function (b) { b.disabled = false; b.setAttribute("aria-invalid", "true"); });
+      fieldError("code-err", res.status === 429 ? "Too many attempts. Please try again in a few minutes." :
+        res.status === 404 ? "We could not find an account for that email. Start your free trial to create one." :
+        (res.data.message || "That code did not work. Please try again."));
+      resetBoxes(); boxes.forEach(function (b) { b.setAttribute("aria-invalid", "true"); }); boxes[0].focus();
+    });
+  }
+  boxes.forEach(function (box, i) {
+    box.addEventListener("input", function () {
+      box.value = box.value.replace(/\D/g, "").slice(-1);
+      if (box.value && i < boxes.length - 1) boxes[i + 1].focus();
+      if (codeValue().length === 6) submitCode();
+    });
+    box.addEventListener("keydown", function (ev) {
+      if (ev.key === "Backspace" && !box.value && i > 0) { boxes[i - 1].focus(); boxes[i - 1].value = ""; }
+      else if (ev.key === "ArrowLeft" && i > 0) boxes[i - 1].focus();
+      else if (ev.key === "ArrowRight" && i < boxes.length - 1) boxes[i + 1].focus();
+    });
+    box.addEventListener("paste", function (ev) {
+      var text = ((ev.clipboardData || window.clipboardData).getData("text") || "").replace(/\D/g, "").slice(0, 6);
+      if (!text) return;
+      ev.preventDefault();
+      text.split("").forEach(function (d, k) { boxes[k].value = d; });
+      boxes[Math.min(text.length, 5)].focus();
+      if (text.length === 6) submitCode();
+    });
+  });
+  $("code-verify").addEventListener("click", submitCode);
+  $("code-resend").addEventListener("click", function () {
+    var btn = this;
+    sendCode(btn, "Resend the code", function () { $("code-msg").textContent = "A new code is on its way."; resetBoxes(); boxes[0].focus(); startCooldown(); });
+  });
+  $("code-back").addEventListener("click", function () { clearInterval(cooldown); if (!keepErrors) clearErrors(); show("step1"); $("email").focus(); });
+
+  /* ---------- social sign-up ---------- */
+  A.socialButtons($("social-btns"), function () {
+    if (!preview) { fieldError("accept-err", "We could not load the policy details. Please refresh and try again."); return null; }
+    if (mode === "signin") return "mode=signin";
+    return "mode=signup&policy_version=" + encodeURIComponent(preview.policy_version) +
+      "&accepted=" + POLICIES.join(",") + (validRef ? "&ref=" + encodeURIComponent(validRef) : "");
+  }).then(function (n) {
+    $("social-signup").hidden = !n;
+    if (!n) return;  /* no provider configured: the email form stays open */
+    $("form1").hidden = true;
+    $("show-email").hidden = false;
+  });
+  /* "Register using email" swaps the provider buttons for the email form; the link below swaps them back. */
+  function emailMode(on) {
+    $("social-signup").hidden = on;
+    $("show-email").hidden = on;
+    $("form1").hidden = !on;
+    $("show-social").hidden = !on;
+    $("show-email").setAttribute("aria-expanded", on ? "true" : "false");
+    clearErrors();
+    if (on) {
+      var names = Array.prototype.map.call(document.querySelectorAll("#social-btns .social-btn span:last-child"), function (s) { return s.textContent.replace("Continue with ", ""); });
+      $("show-social").textContent = (mode === "signin" ? "Sign in using " : "Sign up using ") + names.join(" or ");
+      $("email").focus();
+    }
+  }
+  $("show-email").addEventListener("click", function () { emailMode(true); });
+  $("show-social").addEventListener("click", function () { emailMode(false); });
+
+
+  /* The same popup serves "Start Free Trial" (signup) and "Login" (signin); only the copy and the request differ. */
+  function setMode(m, keepErrors) {
+    mode = m === "signin" ? "signin" : "signup";
+    var signin = mode === "signin";
+    $("h-step1").textContent = signin ? "Welcome back" : "Create your account";
+    $("sub1").innerHTML = signin ? "Sign in to your NegosyoOnline dashboard." :
+      'Start your 14-day free trial.<br class="br-sm"> No credit card needed. <span class="trial-price">' + (((window.NO_CONFIG || {}).ANNUAL_PLAN_ENABLED === true) ? '&#8369;2,499 a month or &#8369;24,990 a year after the trial.' : '&#8369;2,499 per month after the trial.') + '</span>';
+    $("agree").hidden = signin;
+    $("show-email").textContent = signin ? "Sign in using email" : "Register using email";
+    $("switch-mode-text").textContent = signin ? "New to NegosyoOnline?" : "Already have an account?";
+    $("switch-mode").textContent = signin ? "Start your free trial" : "Sign in";
+    $("ref-banner").style.display = signin ? "none" : "";
+    clearInterval(cooldown); if (!keepErrors) clearErrors(); show("step1");
+    if (!$("show-social").hidden) emailMode(true);
+  }
+  $("switch-mode").addEventListener("click", function () { setMode(mode === "signin" ? "signup" : "signin"); });
+  window.NOSignup = { setMode: setMode };
+
+  initReferral();
+  loadPreview();
+  var socialError = new URLSearchParams(location.search).get("social_error");
+  if (socialError) { /* a social sign-up that ended in an error lands back here */
+    try { history.replaceState(null, "", location.pathname); } catch (e) { /* ignore */ }
+    showBanner(A.socialErrorMessage(socialError));
+  }
+})();

@@ -1,0 +1,47 @@
+<div class="form-card">
+  <div id="status" tabindex="-1" aria-live="polite"></div>
+  <p class="banner" id="ref-banner" hidden></p>
+
+  <!-- Email -->
+  <section id="step1" aria-labelledby="h-step1">
+    <img class="reg-logo" src="https://pemdcws76uzmwk7c.public.blob.vercel-storage.com/site/brand/negosyoonline-icon-on-blue.svg" width="64" height="64" alt="NegosyoOnline">
+    <h1 id="h-step1" class="reg-title">Create your account</h1>
+    <p class="lead reg-sub" id="sub1">Start your 14-day free trial.<br class="br-sm"> No credit card needed. <span class="trial-price">&#8369;2,499 a month or &#8369;24,990 a year after the trial.</span></p>
+    <div id="social-signup" hidden>
+      <div id="social-btns" class="social-btns"></div>
+    </div>
+    <button class="link-email" type="button" id="show-email" aria-controls="form1" aria-expanded="false" hidden>Register using email</button>
+    <form id="form1" novalidate>
+      <fieldset class="reg-card">
+        <label for="email" class="lbl-caps">Email address <span class="req" aria-hidden="true">*</span></label>
+        <div class="phone-input plain"><input id="email" name="email" type="email" autocomplete="email" placeholder="e.g. juan@email.com" required></div>
+        <p class="err" id="email-err" hidden></p>
+      </fieldset>
+      <p class="err" id="accept-err" role="alert" hidden></p>
+      <button class="btn btn-primary btn-pill" type="submit" id="btn1">Continue <span aria-hidden="true">&rarr;</span></button>
+    </form>
+    <button class="link-email" type="button" id="show-social" hidden></button>
+    <p class="agree-note" id="agree">By continuing, you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a>, <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>, <a href="/cancellation-refund" target="_blank" rel="noopener">Cancellation and Refund Policy</a>, and <a href="/referral-terms" target="_blank" rel="noopener">Referral Program Terms</a>.</p>
+    <p class="switch-mode" id="switch-mode-wrap"><span id="switch-mode-text"></span> <button class="link-inline" type="button" id="switch-mode"></button></p>
+  </section>
+
+  <!-- Code from the email -->
+  <section id="code" aria-labelledby="h-code" hidden>
+    <svg class="code-icon" viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+    <h1 id="h-code" style="font-size:1.5rem">Enter the code we emailed</h1>
+    <p class="lead" style="font-size:1rem">We sent a 6-digit code to <strong id="code-email"></strong>. It works once and expires in 10 minutes.</p>
+    <div class="otp" id="otp" role="group" aria-label="6-digit code">
+      <input id="code-d1" inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 2">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 3">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 4">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 5">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+    </div>
+    <p class="err" id="code-err" role="alert" hidden></p>
+    <p class="hint code-hint" id="code-msg" role="status"></p>
+    <p class="hint code-hint">Didn&rsquo;t arrive? <span id="code-wait">You can resend in <span id="code-count">0:30</span>.</span><button class="link-inline" type="button" id="code-resend" hidden>Resend the code</button></p>
+    <button class="btn btn-primary btn-pill" type="button" id="code-verify">Verify <span aria-hidden="true">&rarr;</span></button>
+    <button class="link-cancel" type="button" id="code-back">Use a different email</button>
+  </section>
+</div>

@@ -20,7 +20,6 @@
       ["instagram_url", "Instagram link"], ["tiktok_url", "TikTok link"]]]
   ];
   var SITE_FIELDS = ["contact_email", "contact_mobile", "instagram_url", "tiktok_url"];
-  var SITE_RE = /^[1-9][0-9]{0,9}$/;
   /* CR-1: every contact box here is the shared group from dashboard.js (window.NOContact): +63 mobile, envelope email. */
   var KINDS = { contact_email: "email", privacy_contact_email: "email", contact_mobile: "phone" };
 
@@ -77,7 +76,7 @@
         (SITE_FIELDS.indexOf(f[0]) >= 0 ? contact : biz)[f[0]] = KINDS[f[0]] === "phone" && window.NOContact ? window.NOContact.phoneValue(raw) : raw.trim();
       }); });
       save.disabled = true;
-      D.call("PATCH", "/sites/" + site + "/settings/", contact, true).then(function (a) {
+      D.call("PATCH", "/sites/" + site + "/", contact, true).then(function (a) {
         if (!a.ok) return a;
         return D.call("PATCH", "/sites/" + site + "/business-profile/", biz, true);
       }).then(function (res) {
@@ -94,14 +93,13 @@
     clear(root()).appendChild(h("p", "pm-meta", "Loading your business details…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (mine !== token || res.status === 401) return;
-      var sites = (res.data && res.data.sites) || [];
+      var sites = D.sitesOf(res);
       if (!res.ok || !sites.length) { clear(root()).appendChild(h("p", "pm-meta", "Business details are not available for this account yet.")); return; }
-      var m = /[?&]site=([^&#]*)/.exec(location.search), ids = sites.map(function (s) { return s.id; });
-      site = m && SITE_RE.test(m[1]) && ids.indexOf(parseInt(m[1], 10)) >= 0 ? parseInt(m[1], 10) : ids[0];
+      site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
       Promise.all([D.call("GET", "/sites/" + site + "/business-profile/", null, true), D.call("GET", "/sites/" + site + "/", null, true)]).then(function (r) {
         if (mine !== token) return;
         if (!r[0].ok || !r[1].ok) { clear(root()).appendChild(h("p", "pm-meta", "We couldn’t load your business details. Try again.")); return; }
-        render(r[0].data, r[1].data.settings || {}, r[1].data.display_name || r[1].data.subdomain || "");
+        render(r[0].data, r[1].data, r[1].data.display_name || r[1].data.subdomain || "");
       });
     });
   }

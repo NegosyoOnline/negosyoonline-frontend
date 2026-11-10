@@ -9,10 +9,10 @@
   function show(title, text) { $("h").textContent = title; $("msg").textContent = text; $("h").focus(); }
   function button(label, href, cls) { var go = $("go"); go.textContent = label; go.href = href; go.className = cls; go.hidden = false; }
   function signInButton() { button("Sign In", (cfg.siteUrl || "") + "/?signin=1", "btn btn-primary"); }
-  /* Rule G: a browser that holds a token may try the dashboard; anyone else signs in. */
+  /* The dashboard keeps no token in the browser any more, so a stopped link always offers Sign In. */
   function stop(title, text) {
     show(title, text);
-    if (D.getToken()) button("Go to Dashboard", "/", "btn btn-primary"); else signInButton();
+    signInButton();
   }
   function signedIn(kept) {
     show("Your email is verified.", "Opening your dashboard...");

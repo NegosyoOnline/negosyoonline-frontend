@@ -2,7 +2,7 @@
 
 The subscriber dashboard. Staging is `dash-staging.negosyonline.com` (Vercel project `negosyoonline-dash-staging`, deployed from `main`).
 
-The dashboard is static HTML, CSS and JavaScript in `public/`, moved as is from the TWCinc `negosyoonline-dash` folder. Next.js only serves it: `next.config.ts` supplies the routing, the security headers and the CSP. It signs in against the API with a bearer token and shows only real API data. It holds no secrets.
+The dashboard is static HTML, CSS and JavaScript in `public/`, moved as is from the TWCinc `negosyoonline-dash` folder. Next.js only serves it: `next.config.ts` supplies the routing, the security headers and the CSP. It uses the API's HttpOnly session cookie, set when the visitor signs in on the public site, and shows only real API data. It holds no secrets.
 
 ## Pages
 
@@ -36,12 +36,11 @@ The CSP allows images from one public Vercel Blob media host, set as `mediaOrigi
 
 ## Behaviour notes
 
-- The sign-in token lives in `localStorage` (`no_dash_token`). A 401 clears it and sends the visitor to the public site, which opens its sign-in popup (`/?signin=1`). The dashboard has no login page.
+- The session is the API's own HttpOnly cookie, sent with every call (`credentials: "include"`). Nothing is stored in the browser except the theme. A 401 sends the visitor to the public site, which opens its sign-in popup (`/?signin=1`). The dashboard has no login page.
+- The API answers errors as `{error: {code, message, fields}}`; `app.js` converts that once into the flat shape the screens read.
+- Site ids are opaque strings (`site_…`). `GET /sites/` answers `{items, next_cursor}`.
+- Billing, Payments, Earnings, Shipping and Account Settings editing call endpoints the API does not serve yet; each shows its existing "could not load" or read-only panel until its slice lands.
 - Statuses, dates, amounts and the referral link come from the API; the browser only formats them.
-
-## Temporary staging preview
-
-`public/assets/js/preview.js` exists only until sign-in works against the NegosyoOnline API. On `dash-staging.negosyonline.com` and `localhost` it opens the dashboard with a placeholder account and sample data (a site in its free trial with nothing filled in) instead of leaving for the public site, and answers every API call itself. On any other host it does nothing. Remove the file and its `<script>` tag in `index.html` when sign-in is ready. It is the only difference between `index.html` and the TWCinc original.
 
 ## Local preview
 
@@ -49,4 +48,6 @@ The CSP allows images from one public Vercel Blob media host, set as `mediaOrigi
 pnpm dev
 ```
 
-Open http://localhost:3001.
+Open http://localhost:3001. Signing in needs an API that lists this origin in `API_ALLOWED_ORIGINS`; the staging API does not list a local origin.
+
+Tests for the client and onboarding helpers: `pnpm test` (`node --test`, no extra dependency).

@@ -686,7 +686,7 @@ function call(method, path, body) {
 - Create: `apps/dash/tests/onboarding.test.mjs`
 - Modify: `dashboard.js:477-518, 536, 541-563, 568-594, 855-863, 889-893, 1121-1131, 1180-1202`
 
-- [ ] **Step 1: Write the failing tests.** `apps/dash/tests/onboarding.test.mjs` (the loader's stub `NODash.requireAccount` never resolves, so the file loads without a page):
+- [ ] **Step 1: Write the failing tests.** `apps/dash/tests/onboarding.test.mjs` (the stubbed `fetch` answers 401 to the `/me/` read that `dashboard.js` makes when it loads, so the page never starts and only the exported helpers are exercised; loading both real files this way was tried on 2026-11-10 and works):
 
 ```js
 import test from "node:test";

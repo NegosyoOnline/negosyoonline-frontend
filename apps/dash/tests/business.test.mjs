@@ -322,3 +322,13 @@ test("layout: no scope card, the tag legend is one plain line, readiness has the
   assert.deepEqual(labels("bs-h-contact"), ["Store email", "Store mobile", "Instagram", "TikTok"]);
   assert.ok(d.$("bs-edit-address"));
 });
+
+test("the BIR number is labelled Official Control Number (OCN) on the row and in the dialog", async () => {
+  const d = boot();
+  await d.show();
+  assert.ok(d.rows().map(labelOf).includes("BIR Official Control Number (OCN)"));
+  const dialog = d.open("bs-edit-legal").textContent;
+  assert.ok(dialog.includes("BIR Official Control Number (OCN)"));
+  assert.ok(!d.doc.body.textContent.includes("registration serial") && !SRC.includes("registration serial"));
+  assert.ok(dialog.includes("Complaints contact or office"));
+});

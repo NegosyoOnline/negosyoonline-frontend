@@ -11,6 +11,7 @@ const config = {
   apiBase: siteEnv.apiBase,
   siteUrl: siteEnv.siteUrl,
   dashUrl: siteEnv.dashUrl,
+  googleSignIn: siteEnv.googleSignIn,
   /* Final separately stored images live in Vercel Blob. An empty value renders a clearly marked
      placeholder instead of a stock or generated image. */
   assets: {

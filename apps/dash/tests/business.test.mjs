@@ -30,7 +30,7 @@ const DIALOGS = [
   ["bs-edit-contact", "", ["contact_email", "contact_mobile"]],
   ["bs-edit-address", "business-profile/", ["business_address"]],
   ["bs-edit-social", "", ["instagram_url", "tiktok_url"]],
-  ["bs-edit-legal", "business-profile/", ["registered_name", "dti_business_number", "bir_rsn", "tin", "privacy_contact_email", "complaints_contact_name"]],
+  ["bs-edit-legal", "business-profile/", ["registered_name", "dti_business_number", "bir_rsn", "tin", "privacy_contact_email"]],
   ["bs-edit-delivery", "business-profile/", ["shipping_processing_time", "shipping_metro_manila_estimate", "shipping_luzon_estimate",
     "shipping_visayas_estimate", "shipping_mindanao_estimate", "shipping_other_areas_estimate", "shipping_estimates_confirmed"]],
 ];
@@ -221,7 +221,7 @@ test("8. every row carries a Public or Private tag; TIN, Site type and the Shipp
   const d = boot();
   await d.show();
   const rows = d.rows();
-  assert.equal(rows.length, 23);
+  assert.equal(rows.length, 22);
   for (const r of rows) {
     assert.equal(tagOf(r).length, 1, labelOf(r));
     assert.ok(["Public", "Private"].includes(tagOf(r)[0]), labelOf(r));
@@ -268,7 +268,7 @@ test("10. the page has no colour input and never sends an accent colour", async 
   await d.show();
   const inputs = [];
   for (const [button] of DIALOGS) { inputs.push(...d.open(button).all((n) => n.tagName === "INPUT")); await d.save(); }
-  assert.equal(inputs.length, 20);
+  assert.equal(inputs.length, 19);
   assert.ok(inputs.every((i) => i.getAttribute("type") !== "color" && !/colou?r|logo/i.test(i.getAttribute("name"))));
   assert.ok(!JSON.stringify(d.calls).includes("accent_color"));
   assert.ok(!/accent_color|type="color"|"color"/.test(SRC));
@@ -285,7 +285,7 @@ test("page states: no site yet, a failed load, and the readiness list", async ()
   assert.ok(failed.root.textContent.includes("Nothing was changed."));
   const U = boot().B.util, r = U.readiness(SITE_A, profile("Nena"));
   assert.deepEqual(JSON.parse(JSON.stringify(r.items.map((i) => [i.label, i.done, i.text]))), [["Business name", true, "Done"], ["Site name", true, "Done"],
-    ["Store email and mobile", true, "Done"], ["Business address", true, "Done"], ["Legal page details", false, "2 blank"], ["Shipping Policy", false, "Not reviewed"]]);
+    ["Store email and mobile", true, "Done"], ["Business address", true, "Done"], ["Legal page details", false, "1 blank"], ["Shipping Policy", false, "Not reviewed"]]);
   assert.equal(r.left, 2);
   assert.equal(U.mobileShown("+639175550142"), "+63 917 555 0142");
 });
@@ -323,12 +323,15 @@ test("layout: no scope card, the tag legend is one plain line, readiness has the
   assert.ok(d.$("bs-edit-address"));
 });
 
-test("the BIR number is labelled Official Control Number (OCN) on the row and in the dialog", async () => {
+test("the BIR number is labelled Official Control Number (OCN); the complaints contact is not on the page or in the save", async () => {
   const d = boot();
   await d.show();
   assert.ok(d.rows().map(labelOf).includes("BIR Official Control Number (OCN)"));
   const dialog = d.open("bs-edit-legal").textContent;
   assert.ok(dialog.includes("BIR Official Control Number (OCN)"));
   assert.ok(!d.doc.body.textContent.includes("registration serial") && !SRC.includes("registration serial"));
-  assert.ok(dialog.includes("Complaints contact or office"));
+  /* Coach Ed's ruling, 2026-11-11: the complaints contact is not on this page; the API field stays, unused. */
+  assert.ok(!d.doc.body.textContent.includes("Complaints") && !SRC.includes("complaints"));
+  await d.save();
+  assert.ok(!JSON.stringify(d.calls).includes("complaints_contact_name"));
 });

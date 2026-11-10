@@ -18,8 +18,7 @@
     ["dti_business_number", "DTI business name number", PUB, "", ""],
     ["bir_rsn", "BIR Official Control Number (OCN)", PUB, "", ""],
     ["tin", "TIN", PRIV, "", ""],
-    ["privacy_contact_email", "Privacy contact email", PUB, "email", ""],
-    ["complaints_contact_name", "Complaints contact or office", PUB, "", " (optional)"]
+    ["privacy_contact_email", "Privacy contact email", PUB, "email", ""]
   ];
   var ESTIMATES = [
     ["shipping_processing_time", "Order processing", PUB, "", ""],

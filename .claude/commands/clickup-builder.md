@@ -68,11 +68,13 @@ A task with nothing to look at skips this status.
 
 After Coach Ed's local acceptance, or straight after verification for a task with nothing to look at:
 
+- Update first, every time. Run `git fetch origin`, merge the latest `origin/main` into the branch, resolve any conflict, and rerun the targeted tests and the repository checks on the result. Open the PR only when they pass.
+- If a conflict touches another session's work, do not choose a side. Stop and report it to the coordinator.
 - Open the PR. Its description must carry the ClickUp task ID and the task URL, what was built against which acceptance criteria, and what was verified where.
 - Post one comment on the ClickUp task with the PR link and one line on what it delivers. Before posting, check the existing comments so a re-run does not post it twice, and check the text holds no secret, token or environment value.
 - Set the ClickUp status to `ACCEPTED`.
 
-Merging and the staging check then follow `/push-staging`.
+Merging and the staging check then follow `/push-staging`. If `main` moved after the PR was opened, update the branch the same way before merging. GitHub refuses the merge until the branch has the latest `main` and CI has passed on it, so a stale PR only costs a second CI wait.
 
 ## ClickUp status rules
 

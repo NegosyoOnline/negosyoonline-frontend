@@ -1861,7 +1861,8 @@ body.dash-app #view-settings-general .bs-card-h { display: flex; flex-wrap: wrap
 body.dash-app #view-settings-general .bs-row-help { flex: 1 1 100%; font-size: 14px; font-weight: 500; color: var(--meta); overflow-wrap: anywhere; }
 body.dash-app #view-settings-general .bs-none { color: var(--meta); font-weight: 500; }
 body.dash-app #view-settings-general .bs-notice { margin: 0; }
-body.dash-app #view-settings-general .bs-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; font-size: 14px; color: var(--text-2); }
+body.dash-app #view-settings-general .bs-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; font-size: 14px; color: var(--text-2); }
+body.dash-app #view-settings-general .bs-ready-card { border-color: var(--ov-gold); box-shadow: inset 4px 0 0 var(--ov-gold); }
 body.dash-app #view-settings-general .bs-legend > span { display: inline-flex; align-items: center; gap: 8px; }
 body.dash-app #view-settings-general .bs-ready { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
 body.dash-app #view-settings-general .bs-ready li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px 0; border-top: 1px solid var(--card-line); font-weight: 600; }

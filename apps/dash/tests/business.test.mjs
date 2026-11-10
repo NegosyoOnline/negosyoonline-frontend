@@ -202,14 +202,12 @@ test("6. the page stores nothing in the browser", async () => {
   assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(SRC));
 });
 
-test("7. the site line, the scope notice and every dialog name the site from the API, never a fixed name", async () => {
+test("7. the site line and every dialog name the site from the API, never a fixed name", async () => {
   const d = boot({ sites: [{ ...SITE_A, display_name: "Tindahan ni Aling Nena" }] });
   await d.show();
   assert.ok(d.$("bs-site-line").textContent.includes("Tindahan ni Aling Nena"));
   assert.ok(d.$("bs-site-line").textContent.includes("nenabarley.negosyotest.com"));
   assert.ok(d.$("bs-site-line").textContent.includes("Santé"));
-  const scope = d.root.all((n) => n.classList.contains("acct-scope"))[0];
-  assert.ok(scope.textContent.startsWith("These settings apply to this site only: Tindahan ni Aling Nena."));
   for (const [button] of DIALOGS) {
     const lead = d.open(button).children[0].textContent;
     assert.ok(lead.startsWith("For Tindahan ni Aling Nena. "), button + ": " + lead);
@@ -301,4 +299,26 @@ test("the old address still opens the page, and every Business Settings link use
   assert.ok(read("app.js").includes('["Business Settings", "Settings", "/settings/business/"]'));
   assert.ok(html.includes('<a href="/settings/business/" data-route="settings-general">Business Settings</a>'));
   assert.ok(!html.includes("/settings/general/"));
+});
+
+/* Coach Ed's layout rulings of 2026-11-11, after the local review. */
+test("layout: no scope card, the tag legend is one plain line, readiness has the gold edge, the address sits in Business identity", async () => {
+  const d = boot();
+  await d.show();
+  assert.equal(d.root.all((n) => n.classList.contains("acct-scope")).length, 0);
+  assert.ok(!d.root.textContent.includes("These settings apply to this site only"));
+  assert.ok(!d.root.textContent.includes("Account Settings"));
+  const legend = d.root.all((n) => n.classList.contains("bs-legend"));
+  assert.equal(legend.length, 1);
+  assert.equal(legend[0].tagName, "P");
+  assert.ok(!legend[0].classList.contains("dash-card"));
+  assert.equal(legend[0].textContent, "PublicCustomers can see this on your site.PrivateOnly you and NegosyoOnline see this.");
+  assert.equal(d.root.children[0].children[0], legend[0]);
+  const cardOf = (id) => d.root.all((n) => n.getAttribute("aria-labelledby") === id)[0];
+  assert.ok(cardOf("bs-h-ready").classList.contains("bs-ready-card"));
+  assert.ok(!cardOf("bs-h-id").classList.contains("bs-ready-card"));
+  const labels = (id) => d.rows().filter((r) => { let n = r; while (n && n !== cardOf(id)) n = n.parentNode; return !!n; }).map(labelOf);
+  assert.deepEqual(labels("bs-h-id"), ["Business name", "Site name", "Business address", "Site type"]);
+  assert.deepEqual(labels("bs-h-contact"), ["Store email", "Store mobile", "Instagram", "TikTok"]);
+  assert.ok(d.$("bs-edit-address"));
 });

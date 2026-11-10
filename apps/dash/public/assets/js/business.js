@@ -10,7 +10,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var SUPPORT_EMAIL = "support@negosyoonline.com";
-  var ACCOUNT_PATH = "/account/", BILLING_PATH = "/settings/billing/", DOMAIN_PATH = "/settings/domain/";
+  var DOMAIN_PATH = "/settings/domain/";
   var PUB = "Public", PRIV = "Private";
   /* [key, label, tag, input kind, note after the label in the dialog] */
   var LEGAL = [
@@ -245,7 +245,7 @@
     body.textContent = "";
     var wrap = D.el("div", { "class": "stack bs-page" }), grid = D.el("div", { "class": "acct-grid" });
     takeNotice(wrap);
-    wrap.appendChild(scopeNotice(site));
+    wrap.appendChild(legendLine());
     wrap.appendChild(readyCard(site, profile));
     /* Reading order is the DOM order, so the stacked phone page and the Tab order match the wide grid. */
     [identityCard(site, profile), contactCard(site, profile), webCard(site), legalCard(profile), deliveryCard(profile)].forEach(function (n) { grid.appendChild(n); });
@@ -254,29 +254,22 @@
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }
-  function scopeNotice(site) {
-    var p = D.el("p", { "class": "dash-card acct-scope" });
-    p.appendChild(D.el("strong", {}, "These settings apply to this site only: " + siteLabel(site) + "."));
-    p.appendChild(D.el("br", {}));
-    p.appendChild(txt("Your name, sign-in email, mobile and connected accounts are in "));
-    p.appendChild(D.el("a", { "class": "acct-link", href: ACCOUNT_PATH }, "Account Settings"));
-    p.appendChild(txt(", in the profile menu. Payment method and invoices are in "));
-    p.appendChild(D.el("a", { "class": "acct-link", href: BILLING_PATH }, "Billing"));
-    p.appendChild(txt("."));
-    var legend = D.el("span", { "class": "bs-legend" });
+  /* What the two tags mean, as one plain line under the Site line (Coach Ed's ruling, 2026-11-11: no scope card). */
+  function legendLine() {
+    var legend = D.el("p", { "class": "bs-legend" });
     [[PUB, "Customers can see this on your site."], [PRIV, "Only you and NegosyoOnline see this."]].forEach(function (l) {
       var item = D.el("span", {});
       item.appendChild(tag(l[0]));
       item.appendChild(txt(l[1]));
       legend.appendChild(item);
     });
-    p.appendChild(legend);
-    return p;
+    return legend;
   }
   function readyCard(site, profile) {
     var r = readiness(site, profile);
     var c = card("bs-h-ready", "Site readiness", "What this site has and what it still needs. Nothing here is switched on or off by this list.",
       r.left ? chip("warn", r.left + (r.left === 1 ? " item left" : " items left")) : chip("ok", "All done"));
+    c.classList.add("bs-ready-card");
     var ul = D.el("ul", { "class": "bs-ready" });
     r.items.forEach(function (i) {
       var li = D.el("li", {});
@@ -292,6 +285,7 @@
     c.appendChild(row("Business name", PUB, [value(profile.business_name)], editBtn("bs-edit-name", "name", "Edit business name")));
     c.appendChild(row("Site name", PUB, [value(site.display_name)], editBtn("bs-edit-site", "site", "Edit site name"),
       "Shown at the top of your site and in this dashboard."));
+    c.appendChild(row("Business address", PUB, [value(profile.business_address)], editBtn("bs-edit-address", "address", "Edit business address")));
     c.appendChild(row("Site type", PRIV, [value(site.template_label), chip("neutral", "Set at setup")], null,
       "Chosen when the site was created. It cannot be changed here."));
     return c;
@@ -300,7 +294,6 @@
     var c = card("bs-h-contact", "Customer contact", "How customers reach this business.");
     c.appendChild(row("Store email", PUB, [value(site.contact_email)], editBtn("bs-edit-contact", "contact", "Edit store email and mobile")));
     c.appendChild(row("Store mobile", PUB, [value(site.contact_mobile, mobileShown(site.contact_mobile))]));
-    c.appendChild(row("Business address", PUB, [value(profile.business_address)], editBtn("bs-edit-address", "address", "Edit business address")));
     c.appendChild(row("Instagram", PUB, [value(site.instagram_url)], editBtn("bs-edit-social", "social", "Edit social links")));
     c.appendChild(row("TikTok", PUB, [value(site.tiktok_url)]));
     return c;

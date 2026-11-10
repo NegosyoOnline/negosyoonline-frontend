@@ -20,7 +20,8 @@
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
     "/help/": { view: "help", title: "Help Center | NegosyoOnline" },
     "/referral/": { view: "referral", title: "Referral | NegosyoOnline" },
-    "/settings/general/": { view: "settings-general", title: "General | NegosyoOnline" },
+    "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
+    "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
     "/settings/plans/": { view: "settings-plans", title: "Plans | NegosyoOnline" },
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
     "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
@@ -610,21 +611,20 @@
   }
   /* One setup notice for a FINISHED Account whose setup answer lists missing data (Phase 3 N1-N5): the trial-strip
      markup with its own heading id. The server's missing list is shown as received, never re-derived. The popup is
-     never reopened for a finished Account (CR-2). Contacts link to Settings > General; a business or site name gap
-     links to support, because no dash page edits those after onboarding (O2, until Phase 5). */
+     never reopened for a finished Account (CR-2). Every gap links to Business Settings, which edits the business
+     name, the site name and the store contacts (Phase 5, ClickUp z8uq9machb). */
   var SETUP_LABELS = [["business_name", "business name"], ["site_name", "site name"], ["public_contact", "store email and mobile"]];
   function setupNote(setup) {
     var s = setup && typeof setup === "object" ? setup : null;
     if (!s || s.state !== "in_progress" || !s.minimum_completed_at || !Array.isArray(s.missing)) return null;
     var labels = SETUP_LABELS.filter(function (l) { return s.missing.indexOf(l[0]) >= 0; }).map(function (l) { return l[1]; });
     if (!labels.length) return null;
-    var contact = s.missing.indexOf("public_contact") >= 0;
     var box = D.el("section", { "class": "ov-trial ov-setup", "aria-labelledby": "h-setup-note" });
     var ico = D.el("span", { "class": "ov-trial-ico", "aria-hidden": "true" }, "!");
     var txt = D.el("div", { "class": "ov-trial-txt" });
     txt.appendChild(D.el("h2", { id: "h-setup-note" }, "Setup needs attention"));
     txt.appendChild(D.el("p", {}, "Missing: " + labels.join(", ")));
-    var link = D.el("a", { "class": "ov-trial-link", href: contact ? "/settings/general/" : "mailto:" + SUPPORT_EMAIL }, contact ? "Settings" : "Contact support");
+    var link = D.el("a", { "class": "ov-trial-link", href: "/settings/business/" }, "Business Settings");
     link.appendChild(D.el("span", { "aria-hidden": "true" }, " ›"));
     box.appendChild(ico); box.appendChild(txt); box.appendChild(link);
     return box;
@@ -1230,7 +1230,7 @@
     $("h-done").focus();
   }
   var OPTIONAL = [
-    ["Add your socials", "Links to your social media pages", "/settings/general/"],
+    ["Add your socials", "Links to your social media pages", "/settings/business/"],
     ["See your Santé products", "The Santé catalog your site sells", ""],
     ["Set up Billing", "Your plan and payment method", "/settings/billing/"],
     ["Your own domain", "Use a .com address for your site", ""],

@@ -1680,19 +1680,12 @@ body.dash-app .ob-addr.ob-addr-err { border: 2px solid var(--err-line); backgrou
 body.dash-app .ob-suffix { display: flex; align-items: center; padding: 0 12px; border-left: 1px solid var(--switch-line); background: var(--tile); color: var(--meta); font-size: 14px; white-space: nowrap; }
 /* CR-1 contact inputs: one grouped box for every phone (fixed +63 cell) and email (envelope cell) in the dash. Same shape as the Web address group. */
 body.dash-app .ct-group { display: flex; align-items: stretch; box-sizing: border-box; min-height: 48px; border: 1px solid var(--switch-line); border-radius: 10px; overflow: hidden; background: var(--switch-bg); }
-body.dash-app #view-settings-general .ct-group { border-color: var(--bl-select-line); background: var(--bl-select-bg); }
-body.dash-app #view-settings-general .ct-group.ct-group-err { border-color: var(--err-line); background: var(--err-bg); }
-body.dash-app #view-settings-general .ct-group .pm-input { color: var(--bl-select-text); }
-body.dash-app #view-settings-general .ct-group .ct-pre { border-right-color: var(--bl-select-line); }
 body.dash-app .ct-group:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 body.dash-app .ct-group .ob-input, body.dash-app .ct-group .pm-input { flex: 1 1 auto; width: auto; min-width: 0; min-height: 46px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--text); font: inherit; font-size: 16px; }
 body.dash-app .ct-group .ob-input:focus, body.dash-app .ct-group .ob-input:focus-visible, body.dash-app .ct-group .pm-input:focus, body.dash-app .ct-group .pm-input:focus-visible { outline: none; box-shadow: none; }
 body.dash-app .ct-group .ob-input.ob-invalid, body.dash-app .ct-group .pm-input.pm-invalid { border: 0; background: transparent; }
 body.dash-app .ct-group.ct-group-err { border: 2px solid var(--err-line); background: var(--err-bg); }
 body.dash-app .ct-group.ct-group-err:focus-within { border-color: var(--err-line); box-shadow: 0 0 0 1px var(--err-line); }
-body.dash-app #view-settings-general .ct-group .pm-input { width: auto; min-height: 46px; padding: 0 12px; border: 0; border-radius: 0; background: transparent; }
-body.dash-app #view-settings-general .ct-group .pm-input:focus, body.dash-app #view-settings-general .ct-group .pm-input:focus-visible { border: 0; box-shadow: none; outline: none; }
-body.dash-app #view-settings-general .ct-group .pm-input.pm-invalid { border: 0; }
 body.dash-app .ct-pre { display: flex; align-items: center; justify-content: center; box-sizing: border-box; flex: 0 0 64px; width: 64px; min-width: 64px; padding: 0; border-right: 1px solid var(--switch-line); background: var(--tile); color: var(--meta); font-size: 16px; font-weight: 600; white-space: nowrap; }
 body.dash-app .ct-pre svg { display: block; }
 body.dash-app .ob-status { margin: 0; min-height: 18px; font-size: 13px; font-weight: 600; color: var(--meta); }
@@ -1783,20 +1776,20 @@ body.dash-app .ob-dialog .ob-stack { max-width: none; }
 /* Programmatic focus (headings, containers) must not paint a ring on any dash page (CR-4): only non-control elements with tabindex="-1". Real controls keep the :focus-visible ring above. */
 [tabindex="-1"]:not(button, a, input, select, textarea, summary, [role="tab"], [role="menuitem"]):focus, [tabindex="-1"]:not(button, a, input, select, textarea, summary, [role="tab"], [role="menuitem"]):focus-visible { outline: none; }
 /* Account Settings (Onboarding Phase 4) */
-body.dash-app #view-account .acct-scope { margin: 0; padding: 16px 20px; border-color: var(--ov-gold); box-shadow: inset 4px 0 0 var(--ov-gold); line-height: 1.5; }
-body.dash-app #view-account .acct-link { color: var(--link); font-weight: 700; }
-body.dash-app #view-account .acct-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-body.dash-app #view-account .acct-grid > .acct-card { min-width: 0; }
-body.dash-app #view-account .acct-grid > .acct-card-wide { grid-column: 1 / -1; }
-body.dash-app #view-account .acct-card > h2 { margin: 0; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
-body.dash-app #view-account .acct-card > .dash-copy { margin: 12px 0 8px; }
-body.dash-app #view-account .acct-set-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 12px 0; border-top: 1px solid var(--card-line); }
-body.dash-app #view-account .acct-set-row:first-of-type { border-top: 0; }
-body.dash-app #view-account .acct-set-label { flex: 1 1 100%; font-size: 14px; font-weight: 600; color: var(--meta); }
-body.dash-app #view-account .acct-set-value { display: flex; flex: 1 1 160px; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
-body.dash-app #view-account .acct-set-action { flex: 0 0 auto; margin-left: auto; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-scope { margin: 0; padding: 16px 20px; border-color: var(--ov-gold); box-shadow: inset 4px 0 0 var(--ov-gold); line-height: 1.5; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-link { color: var(--link); font-weight: 700; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-grid > .acct-card { min-width: 0; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-grid > .acct-card-wide { grid-column: 1 / -1; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-card > h2 { margin: 0; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+body.dash-app :is(#view-account, #view-settings-general) .acct-card > .dash-copy { margin: 12px 0 8px; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-set-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 12px 0; border-top: 1px solid var(--card-line); }
+body.dash-app :is(#view-account, #view-settings-general) .acct-set-row:first-of-type { border-top: 0; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-set-label { flex: 1 1 100%; font-size: 14px; font-weight: 600; color: var(--meta); }
+body.dash-app :is(#view-account, #view-settings-general) .acct-set-value { display: flex; flex: 1 1 160px; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-set-action { flex: 0 0 auto; margin-left: auto; }
 body.dash-app #view-account .acct-cool { flex: 1 1 100%; font-size: 14px; font-weight: 500; color: var(--meta); }
-body.dash-app #view-account .chip { white-space: nowrap; }
+body.dash-app :is(#view-account, #view-settings-general) .chip { white-space: nowrap; }
 body.dash-app #view-account .acct-disc-wrap { margin-top: 12px; border-top: 1px solid var(--card-line); }
 body.dash-app #view-account .acct-disc { box-sizing: border-box; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; width: 100%; min-height: 48px; margin: 0; padding: 8px 0; border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
 body.dash-app #view-account .acct-disc:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
@@ -1806,14 +1799,14 @@ body.dash-app #view-account .acct-disc-chev { flex: 0 0 auto; margin-left: auto;
 body.dash-app #view-account .acct-disc-open .acct-disc-chev { transform: rotate(-135deg); }
 body.dash-app #view-account .acct-disc-panel[hidden] { display: none; }
 body.dash-app #view-account .acct-disc-panel .acct-set-row:first-of-type { border-top: 1px solid var(--card-line); }
-body.dash-app #view-account .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+body.dash-app :is(#view-account, #view-settings-general) .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
 body.dash-app #view-account .acct-note { margin: 12px 0 0; }
 body.dash-app #view-account .acct-notices { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 body.dash-app #view-account .acct-notices li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--card-line); }
 body.dash-app #view-account .acct-notices li:first-child { border-top: 0; }
 body.dash-app #view-account .acct-notice-txt strong { display: block; }
 body.dash-app #view-account .acct-notice-txt span { display: block; font-size: 14px; color: var(--meta); }
-body.dash-app #view-account .acct-skel-card { height: 180px; }
+body.dash-app :is(#view-account, #view-settings-general) .acct-skel-card { height: 180px; }
 body.dash-app #view-account .acct-devices { margin: 0; padding: 0; list-style: none; }
 body.dash-app #view-account .acct-device { display: flex; flex-direction: column; gap: 2px; padding: 12px 0; border-top: 1px solid var(--card-line); }
 body.dash-app #view-account .acct-device-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
@@ -1822,7 +1815,7 @@ body.dash-app #view-account .acct-dev-empty { margin: 12px 0 0; font-size: 14px;
 body.dash-app #view-account .acct-full { box-sizing: border-box; width: 100%; margin-top: 12px; }
 body.dash-app #view-account .acct-con-result { margin: 12px 0 0; }
 @media (max-width: 760px) {
-  body.dash-app #view-account .acct-grid { grid-template-columns: minmax(0, 1fr); }
+  body.dash-app :is(#view-account, #view-settings-general) .acct-grid { grid-template-columns: minmax(0, 1fr); }
 }
 body.dash-app.acct-lock { overflow: hidden; }
 body.dash-app .acct-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(2,5,16,.78); }
@@ -1833,10 +1826,10 @@ body.dash-app .acct-dlg-head h2, body.dash-app .acct-dlg-x { color: #fff; }
 body.dash-app .acct-dlg-x { flex: none; display: grid; place-items: center; margin: -8px -10px -8px 0; padding: 2px 12px 4px; border: 0; border-radius: 8px; background: transparent; font-size: 28px; line-height: 1; cursor: pointer; }
 body.dash-app .acct-dlg-x:hover { opacity: .75; }
 /* revision 4: the Account page and its dialogs focus in the blue of the grouped contact input, not the gold ring */
-body.dash-app #view-account :focus-visible, body.dash-app .acct-overlay :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-body.dash-app #view-account .ob-input:focus-visible, body.dash-app .acct-overlay .ob-input:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
-body.dash-app #view-account .ct-group .ob-input:focus-visible, body.dash-app .acct-overlay .ct-group .ob-input:focus-visible { box-shadow: none; } /* the group draws the ring, as in the grouped contact input */
-body.dash-app #view-account .ob-input.ob-invalid:focus-visible, body.dash-app .acct-overlay .ob-input.ob-invalid:focus-visible { border-color: var(--err-line); box-shadow: 0 0 0 1px var(--err-line); }
+body.dash-app :is(#view-account, #view-settings-general) :focus-visible, body.dash-app .acct-overlay :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+body.dash-app :is(#view-account, #view-settings-general) .ob-input:focus-visible, body.dash-app .acct-overlay .ob-input:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+body.dash-app :is(#view-account, #view-settings-general) .ct-group .ob-input:focus-visible, body.dash-app .acct-overlay .ct-group .ob-input:focus-visible { box-shadow: none; } /* the group draws the ring, as in the grouped contact input */
+body.dash-app :is(#view-account, #view-settings-general) .ob-input.ob-invalid:focus-visible, body.dash-app .acct-overlay .ob-input.ob-invalid:focus-visible { border-color: var(--err-line); box-shadow: 0 0 0 1px var(--err-line); }
 body.dash-app .acct-dlg-x:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
 body.dash-app .acct-dlg-body { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
 body.dash-app .acct-dlg-form { display: flex; flex-direction: column; gap: 14px; margin: 0; }
@@ -1853,3 +1846,40 @@ body.dash-app .acct-otp:focus-within .acct-code-box-on { border-color: var(--pri
 body.dash-app .acct-otp.acct-otp-err .acct-code-box { border: 2px solid var(--err-line); background: var(--err-bg); }
 body.dash-app .acct-otp.acct-otp-err:focus-within .acct-code-box-on { border-color: var(--err-h); box-shadow: 0 0 0 1px var(--err-h); }
 /* Account Settings (Onboarding Phase 4) end */
+/* Business Settings (Phase 5, ClickUp z8uq9machb): the rows, cards and dialog are the Account Settings ones (the
+   rules above are shared by both views). Only what is new to this page is here: the site line, the Public and
+   Private tag, the readiness list and the delivery grid. */
+body.dash-app #view-settings-general .bs-site-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; margin: 10px 0 0; font-size: 16px; color: var(--text-2); }
+body.dash-app #view-settings-general .bs-site-line[hidden], body.dash-app #view-settings-general .bs-pick[hidden] { display: none; }
+body.dash-app #view-settings-general .bs-site-line strong { color: var(--text); overflow-wrap: anywhere; }
+body.dash-app #view-settings-general .bs-host { overflow-wrap: anywhere; }
+body.dash-app #view-settings-general .bs-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+body.dash-app #view-settings-general .bs-pick label { font-size: 14px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-settings-general .bs-select { min-height: 44px; max-width: 100%; padding: 0 12px; border: 1px solid var(--switch-line); border-radius: 8px; background: var(--switch-bg); color: var(--text); font: inherit; }
+body.dash-app #view-settings-general .acct-grid { align-items: start; }
+body.dash-app #view-settings-general .bs-card-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+body.dash-app #view-settings-general .bs-row-help { flex: 1 1 100%; font-size: 14px; font-weight: 500; color: var(--meta); overflow-wrap: anywhere; }
+body.dash-app #view-settings-general .bs-none { color: var(--meta); font-weight: 500; }
+body.dash-app #view-settings-general .bs-notice { margin: 0; }
+body.dash-app #view-settings-general .bs-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; font-size: 14px; color: var(--text-2); }
+body.dash-app #view-settings-general .bs-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+body.dash-app #view-settings-general .bs-ready { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+body.dash-app #view-settings-general .bs-ready li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px 0; border-top: 1px solid var(--card-line); font-weight: 600; }
+body.dash-app #view-settings-general .bs-ready li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+body.dash-app #view-settings-general .bs-ready li:nth-child(-n+2) { border-top: 0; }
+body.dash-app #view-settings-general .bs-est { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--card-line); }
+body.dash-app #view-settings-general .bs-est .acct-set-row { border-top: 1px solid var(--card-line); }
+body.dash-app #view-settings-general .bs-est .acct-set-row:nth-child(-n+3) { border-top: 0; }
+body.dash-app .bs-tag { display: inline-flex; align-items: center; min-height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+body.dash-app .bs-tag-pub { background: var(--chip-info-bg); color: var(--chip-info); }
+body.dash-app .bs-tag-priv { background: var(--chip-neutral-bg); color: var(--chip-neutral); }
+body.dash-app .bs-label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+body.dash-app .acct-overlay .bs-check { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; }
+body.dash-app .acct-overlay .bs-check input { flex: none; width: 20px; height: 20px; margin: 2px 0 0; }
+body.dash-app .acct-overlay .bs-dlg-err[hidden] { display: none; }
+@media (max-width: 760px) {
+  body.dash-app #view-settings-general .bs-ready, body.dash-app #view-settings-general .bs-est { grid-template-columns: minmax(0, 1fr); }
+  body.dash-app #view-settings-general .bs-ready li:nth-child(2) { border-top: 1px solid var(--card-line); }
+  body.dash-app #view-settings-general .bs-est .acct-set-row:nth-child(-n+3) { border-top: 1px solid var(--card-line); }
+  body.dash-app #view-settings-general .bs-est .acct-set-row:first-child { border-top: 0; }
+}

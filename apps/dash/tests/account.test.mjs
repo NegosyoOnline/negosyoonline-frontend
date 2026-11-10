@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { load, answer } from "./load.mjs";
 
 /* account.js makes no request when it loads; only its exported helpers are exercised here. */
@@ -66,4 +67,13 @@ test("a provider return is shown only as far as the read confirms it", () => {
   assert.equal(U.returnLine({ provider: "facebook", result: "<script>" }, a), null);
   assert.equal(U.returnLine({ provider: "twitter", result: "connected" }, a), null);
   assert.equal(U.returnLine(null, a), null);
+});
+
+test("account security notices are promised by email only, never to a mobile number", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  assert.ok(src.includes('"Sign-in, email, mobile and connected account changes. Sent to your email."'));
+  assert.ok(src.includes("Changing your mobile sends a notice to your email."));
+  assert.ok(src.includes('"After you confirm, we send a notice to your email."'));
+  assert.ok(!/old number/i.test(src), "no notice is promised to the old number");
+  assert.ok(!/Sent to your email and mobile/i.test(src), "alerts are not promised to the mobile");
 });

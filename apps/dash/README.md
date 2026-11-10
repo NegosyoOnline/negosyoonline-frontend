@@ -39,7 +39,8 @@ The CSP allows images from one public Vercel Blob media host, set as `mediaOrigi
 - The session is the API's own HttpOnly cookie, sent with every call (`credentials: "include"`). Nothing is stored in the browser except the theme. A 401 sends the visitor to the public site, which opens its sign-in popup (`/?signin=1`). The dashboard has no login page.
 - The API answers errors as `{error: {code, message, fields}}`; `app.js` converts that once into the flat shape the screens read.
 - Site ids are opaque strings (`site_…`). `GET /sites/` answers `{items, next_cursor}`.
-- Billing, Payments, Earnings, Shipping and Account Settings editing call endpoints the API does not serve yet; each shows its existing "could not load" or read-only panel until its slice lands.
+- Billing, Payments, Earnings and Shipping call endpoints the API does not serve yet; each shows its existing "could not load" or read-only panel until its slice lands.
+- Account Settings (`/account/`, `assets/js/account.js`) reads `GET /account/` and writes through the API: name, email change, sign out other devices, connect and disconnect Facebook and Google. The API keeps one `name`; the page splits it into its two boxes and joins them on save. Connecting leaves for the address the API answers with (Google or Facebook only) and returns to `/account/#connect=<provider>&result=<result>`. The mobile row calls `/account/mobile/*`, which the API does not serve yet.
 - Statuses, dates, amounts and the referral link come from the API; the browser only formats them.
 
 ## Local preview

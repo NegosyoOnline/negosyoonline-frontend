@@ -2,11 +2,12 @@
    dashboard.js route() calls window.NOAccount.show() when the Account view is entered (spec D15); this file makes no
    request at boot or on another route. GET /account/ picks the page: writes_open true draws the scope notice and five
    cards; a 404 or writes_open false puts back today's read-only panel unchanged (S11, the node renderAccountPanel drew);
-   anything else draws the load error (S10). Plain ES5. API strings reach the page through D.el, textContent or
+   anything else draws the load error (S10). The API keeps one name; U.view splits it into the two boxes the page shows
+   and U.nameBody joins them again on save, the same rule app.js accountView uses for /me/. Plain ES5. API strings reach the page through D.el, textContent or
    input.value only; nothing is stored; an email or a code only travels in a JSON body, never a URL, a toast or a log.
    Revision 3 (spec 5.15): the Sign-in and security card lists the signed-in devices behind a collapsed disclosure with a
    full-width Sign out other devices button; the second card connects and disconnects Facebook and Google (a credentialed
-   start, then the provider in this tab); a return from the provider is read once from the address fragment, removed at
+   start that answers with the provider's address, then the provider in this tab); a return from the provider is read once from the address fragment, removed at
    once, and shown only as far as the read confirms it. */
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
@@ -23,8 +24,25 @@
   var SEC_NOTE = "Changing your email signs you out on every other device, sends a notice to your old address and pauses further email changes for 24 hours. Changing your mobile sends a notice to your old number and your email.";
   var LABEL = { facebook: "Facebook", google: "Google" };
   var ACTION_ID = { facebook: "acct-fb-action", google: "acct-google-action" };
-  var START_URL = { facebook: "/auth/social/facebook/start/?mode=connect&link=", google: "/auth/social/google/start/?mode=connect&link=" };
+  var PROVIDER_URL = { facebook: "https://www.facebook.com/", google: "https://accounts.google.com/" }; /* the only places a connect may leave for */
   var RETURN_FAIL = ["cancelled", "failed", "invalid_state", "not_configured", "already_connected"]; /* spec 5.11 slugs other than connected and in_use (ruling F10 = B: no link_window_closed) */
+
+  /* ---- the API's shapes (pure; tested in tests/account.test.mjs) ---- */
+  /* The account as the page reads it: the API's one name becomes first_name (the first word) and last_name (the rest). */
+  function view(data) {
+    var a = {}, parts = String((data && data.name) || "").trim().split(/\s+/).filter(Boolean);
+    Object.keys(data || {}).forEach(function (k) { a[k] = data[k]; });
+    a.first_name = parts[0] || "";
+    a.last_name = parts.slice(1).join(" ");
+    return a;
+  }
+  function nameBody(first, last) { return { name: [first, last].map(function (v) { return String(v || "").trim(); }).filter(Boolean).join(" ") }; }
+  function emailConfirmBody(email, code) { return { email: email, code: String(code || "") }; }
+  /* The provider's own address from a connect start, or "" when the answer is anything else. */
+  function providerUrl(name, res) {
+    var u = res && res.ok && res.data ? res.data.url : null;
+    return typeof u === "string" && PROVIDER_URL.hasOwnProperty(name) && u.indexOf(PROVIDER_URL[name]) === 0 ? u : "";
+  }
 
   /* ---- helpers ---- */
   function messageOf(res, fallback) { var m = res && res.data && res.data.message; return typeof m === "string" && m ? m : fallback; }
@@ -58,7 +76,6 @@
     return m ? "+63 " + m[1] + " ••• " + m[2] : (masked || "");
   }
   function hasMobile(a) { var m = (a && a.mobile) || {}; return !!(m.verified && m.mobile_masked); }
-  function triesLine(n) { return "That code did not work. You have " + n + (n === 1 ? " try left." : " tries left."); }
   /* The first id that exists gets focus, else the page heading: a redraw never leaves focus on a removed node (P-08). */
   function focusTo(ids) {
     for (var i = 0; i < ids.length; i++) { var t = $(ids[i]); if (t) { t.focus(); return; } }
@@ -78,8 +95,8 @@
       var ret = S.ret; S.ret = null; /* a provider return is shown on this read's draw only (spec 5.15) */
       if (res.status === 404 || (res.ok && !(res.data && res.data.writes_open === true))) { drawS11(body); if (focusId) focusTo([]); return; }
       if (!res.ok || !res.data) { drawError(body); if (focusId) focusTo([]); return; }
-      S.data = res.data;
-      S.result = returnLine(ret, res.data);
+      S.data = view(res.data);
+      S.result = returnLine(ret, S.data);
       draw(S.result ? "acct-con-result" : focusId);
     });
   }
@@ -462,14 +479,14 @@
     var f = dlgForm(function () {
       setErrors(fields, null);
       confirm.disabled = true;
-      D.call("POST", "/account/email/confirm/", { code: code.input.value }, true).then(function (res) {
+      D.call("POST", "/account/email/confirm/", emailConfirmBody(email, code.input.value), true).then(function (res) {
         confirm.disabled = false;
-        if (res.ok && res.data) { S.data = res.data; closeDialog(); draw("acct-cool"); D.toast("Email changed", "Your other devices were signed out."); return; }
+        if (res.ok && res.data) { S.data = view(res.data); closeDialog(); draw("acct-cool"); D.toast("Email changed", "Your other devices were signed out."); if (D.refreshAccount) D.refreshAccount(); return; } /* the menu shows the new email */
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
-        var c = codeOf(res), n = res.data && res.data.attempts_left;
+        var c = codeOf(res);
         if (c === "email_change_cooldown") { cooldownRefused(body, email, res); return; }
-        if (c === "email_in_use") { emailStep1(body, email, fieldMsg(res, "email")); return; }
-        setErrors(fields, { code: c === "wrong_code" && typeof n === "number" && n > 0 ? triesLine(n) : fieldMsg(res, "code") });
+        if (c === "email_taken") { emailStep1(body, email, fieldMsg(res, "email")); return; }
+        setErrors(fields, { code: fieldMsg(res, "code") });
       });
     });
     f.appendChild(lead);
@@ -505,12 +522,12 @@
     var f = dlgForm(function () {
       setErrors(fields, null);
       save.disabled = true;
-      D.call("PATCH", "/account/", { first_name: fields.first_name.input.value, last_name: fields.last_name.input.value }, true).then(function (res) {
+      D.call("PATCH", "/account/", nameBody(fields.first_name.input.value, fields.last_name.input.value), true).then(function (res) {
         save.disabled = false;
-        if (res.ok && res.data) { S.data = res.data; closeDialog(); draw("acct-name-edit"); D.toast("Saved", "Your name was saved."); return; }
+        if (res.ok && res.data) { S.data = view(res.data); closeDialog(); draw("acct-name-edit"); D.toast("Saved", "Your name was saved."); if (D.refreshAccount) D.refreshAccount(); return; } /* the menu shows the new name */
         if (res.status === 404) { closeDialog(); load("h-account"); return; } /* X10: data entry closed meanwhile; the read draws today's page */
         var map = res.data && res.data.fields;
-        if (!(map && (map.first_name || map.last_name))) map = { first_name: messageOf(res, "That did not work. Please try again.") };
+        if (!(map && (map.first_name || map.last_name))) map = { first_name: fieldMsg(res, "name") }; /* the API has one name field */
         setErrors(fields, map);
       });
     });
@@ -599,7 +616,6 @@
   }
 
   /* ---- connect and disconnect (S16, S17; spec 5.15, D25): fixed request paths only, so nothing rides a URL ---- */
-  function apiBase() { return D.cfg && typeof D.cfg.apiBase === "string" ? D.cfg.apiBase : ""; }
   function connectCall(name) {
     return name === "facebook" ? D.call("POST", "/account/connections/facebook/start/", {}, true, true)
       : D.call("POST", "/account/connections/google/start/", {}, true, true);
@@ -641,8 +657,8 @@
     var go = btn("Continue to " + label, true, function (b) {
       b.disabled = true; err.hidden = true;
       connectCall(p.provider).then(function (res) {
-        var code = res.ok && res.data ? res.data.link_code : null;
-        if (typeof code === "string" && code) { location.assign(apiBase() + START_URL[p.provider] + encodeURIComponent(code)); return; }
+        var url = providerUrl(p.provider, res);
+        if (url) { location.assign(url); return; }
         b.disabled = false;
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         err.textContent = messageOf(res, "That did not work. Please try again.");
@@ -669,7 +685,7 @@
       disconnectCall(p.provider).then(function (res) {
         b.disabled = false;
         if (res.ok && res.data && Array.isArray(res.data.providers)) {
-          S.data = res.data;
+          S.data = view(res.data);
           closeDialog();
           draw(ACTION_ID[p.provider]);
           D.toast("Disconnected", label + " was disconnected.");
@@ -687,5 +703,6 @@
   }
 
   window.addEventListener("popstate", function () { closeDialog(); }); /* leaving the view by history never leaves a dialog open */
-  window.NOAccount = { show: function () { S.devices = false; S.ret = takeReturn(); load(); } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
+  window.NOAccount = { show: function () { S.devices = false; S.ret = takeReturn(); load(); },
+    util: { view: view, nameBody: nameBody, emailConfirmBody: emailConfirmBody, providerUrl: providerUrl, returnLine: returnLine } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
 })();

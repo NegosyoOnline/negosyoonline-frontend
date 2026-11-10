@@ -29,6 +29,15 @@ Write down, from the sources above, the deliverable, its acceptance criteria and
 - Missing implementation inside the approved scope is work to complete, not a question.
 - For reversible implementation details inside the scope, choose the smallest suitable solution and note the choice.
 
+### Addition: update from the latest `main` before every PR
+
+Coach Ed's ruling (2026-11-10): more than one session opens PRs in this repository, and no session's work may override or conflict with another's.
+
+- Before opening a PR, and again before merging one, fetch `origin/main`. If `main` has moved since the branch was cut or last updated, bring the branch up to date with it first, then re-run the tests and checks on the updated branch.
+- Start every new branch from the latest `origin/main`, not from an older local copy or from another unmerged branch, unless the coordinator says otherwise.
+- Before opening the PR, list the open PRs in this repository with their changed files. If one touches a file this work also changes, tell the coordinator before opening the PR and say which PR and which files.
+- Resolve a conflict by keeping both sides' approved work. Never drop, revert or overwrite another session's change to make a merge pass, and never force-push over a branch another session uses. If both cannot be kept, stop and report it to the coordinator.
+
 ## 3. Report to the coordinator, not to Coach Ed
 
 Questions, blockers and milestone reports go to the coordinator session first. Check the task, its comments and the linked documents before asking: most answers are already there.

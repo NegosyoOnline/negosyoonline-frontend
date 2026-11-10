@@ -3,3 +3,6 @@ node_modules/
 .env
 .env.local
 .vercel/
+
+# /handover session state files: local only, removed with the worktree
+docs/session-state/

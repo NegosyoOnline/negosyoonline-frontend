@@ -18,12 +18,13 @@
   function root() { return document.getElementById("ss-root"); }
   function say(text) { var n = document.getElementById("ss-live"); if (n) n.textContent = text; }
 
-  /* The API sends {message, fields, code}; a plain 404 or 401 body carries no message. */
+  /* The API sends {message, fields, code}. A 404 keeps this screen's own sentence: the API's 404 body now
+     carries a message of its own ("No such endpoint." while this endpoint is not built). */
   function failText(res) {
     var d = res && res.data, f = d && d.fields && d.fields.customer_shipping;
     if (typeof f === "string" && f) return f;
-    if (d && typeof d.message === "string" && d.message) return d.message;
     if (res && res.status === 404) return "Shipping settings are not available for this store yet.";
+    if (d && typeof d.message === "string" && d.message) return d.message;
     if (res && res.status === 403) return "Shipping settings can't be changed for this store right now.";
     return "We couldn’t save. Check your connection and try again.";
   }

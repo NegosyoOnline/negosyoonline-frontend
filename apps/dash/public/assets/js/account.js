@@ -15,13 +15,13 @@
   var BILLING_PATH = "/settings/billing/";
   var SUPPORT_EMAIL = "support@negosyoonline.com";
   var NOTICES = [
-    ["Security alerts", "Sign-in, email, mobile and connected account changes. Sent to your email and mobile."],
+    ["Security alerts", "Sign-in, email, mobile and connected account changes. Sent to your email."],
     ["Payment and billing notices", "Trial end, payment problems, cancellation and reactivation."],
     ["Statements and receipts", "Each statement and receipt is emailed to you."],
     ["Site status", "When a site is suspended, cancelled or removed."]
   ];
   var S = { s11: null, data: null, seq: 0, dlg: null, devices: false, ret: null, result: null }; /* memory only, never stored */
-  var SEC_NOTE = "Changing your email signs you out on every other device, sends a notice to your old address and pauses further email changes for 24 hours. Changing your mobile sends a notice to your old number and your email.";
+  var SEC_NOTE = "Changing your email signs you out on every other device, sends a notice to your old address and pauses further email changes for 24 hours. Changing your mobile sends a notice to your email.";
   var LABEL = { facebook: "Facebook", google: "Google" };
   var ACTION_ID = { facebook: "acct-fb-action", google: "acct-google-action" };
   var PROVIDER_URL = { facebook: "https://www.facebook.com/", google: "https://accounts.google.com/" }; /* the only places a connect may leave for */
@@ -609,7 +609,7 @@
     });
     f.appendChild(D.el("p", { "class": "dash-copy" }, "We sent a 6-digit code to the number ending in " + String(number).slice(-4) + ". Enter it to confirm this number."));
     f.appendChild(code.box);
-    if (hasMobile(S.data)) f.appendChild(note("After you confirm, we send a notice to your old number and your email."));
+    if (hasMobile(S.data)) f.appendChild(note("After you confirm, we send a notice to your email."));
     footer(f, [confirm]);
     body.appendChild(f);
     code.input.focus();

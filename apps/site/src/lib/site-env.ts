@@ -10,6 +10,9 @@ export const siteEnv = {
   apiBase: clean(process.env.SITE_API_BASE, "https://api-staging.negosyonline.com/v1"),
   siteUrl: clean(process.env.SITE_URL, "https://www-staging.negosyonline.com"),
   dashUrl: clean(process.env.SITE_DASH_URL, "https://dash-staging.negosyonline.com"),
+  /* Whether the popup offers "Continue with Google". Off unless set to "true": the API answers a
+     404 page on an environment where its Google variables are not set. */
+  googleSignIn: process.env.SITE_GOOGLE_SIGNIN === "true",
 };
 
 export const apiOrigin = new URL(siteEnv.apiBase).origin;

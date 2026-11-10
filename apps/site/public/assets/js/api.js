@@ -1,24 +1,30 @@
 /* Shared API helper for the sign-up popup. No dependencies, no secrets.
-   The bearer token lives in sessionStorage only so the "Check your email" screen can resend
-   the verification link; it is never put in a URL. */
+   Signing in sets the API's own HttpOnly session cookie; nothing is stored here but the referral cookie. */
 (function () {
   var cfg = window.NO_CONFIG || {};
-  var TOKEN_KEY = "no_token";
 
-  function getToken() { try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
-  function setToken(t) { try { if (t) sessionStorage.setItem(TOKEN_KEY, t); else sessionStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ } }
+  /* The API answers errors as {error: {code, message, fields: {name: [messages]}}}. The popup reads
+     data.code, data.message and data.fields[name] as one string, so the shape is converted here, once. */
+  function flatten(data) {
+    var e = data && data.error;
+    if (!e || typeof e !== "object") return data || {};
+    var fields = {};
+    Object.keys(e.fields || {}).forEach(function (k) {
+      var v = e.fields[k];
+      fields[k] = Array.isArray(v) ? v.join(" ") : String(v);
+    });
+    return { code: e.code, message: e.message, fields: fields };
+  }
 
   /* Resolves {ok, status, data}. Network failure resolves {ok:false, status:0}.
-     `credentials` is passed only by the email-code verify call, so the API host's HttpOnly bind cookie
-     (login CSRF fix, CA2-09) is stored for the dashboard's code exchange. */
+     `credentials` is passed by the email-code verify call, so the API host's session cookie is stored.
+     The fourth argument is no longer used. */
   function call(method, path, body, auth, credentials) {
-    var headers = { "Content-Type": "application/json" };
-    if (auth) headers.Authorization = "Bearer " + getToken();
-    var opts = { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined };
+    var opts = { method: method, headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined };
     if (credentials) opts.credentials = "include";
     return fetch(cfg.apiBase + path, opts)
       .then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (data) { return { ok: r.ok, status: r.status, data: data }; });
+        return r.json().catch(function () { return {}; }).then(function (data) { return { ok: r.ok, status: r.status, data: flatten(data) }; });
       })
       .catch(function () { return { ok: false, status: 0, data: { message: "We could not reach the server. Please check your connection and try again." } }; });
   }
@@ -46,16 +52,14 @@
     return n;
   }
 
+  /* Keyed by the ?error= code the API's Google callback sends back to the site. */
   var SOCIAL_ERRORS = {
-    not_configured: "That sign-up option is not available yet. Please use an email code instead.",
-    cancelled: "Sign-in was cancelled. You can try again or use an email code.",
-    failed: "We could not complete that sign-in. Please try again.",
-    invalid_state: "That sign-in session expired. Please try again.",
-    policies: "Please agree to the policies to create your account.",
-    no_account: "We could not find an account for that sign-in. Create your account to start your free trial.",
-    email_exists: "An account with that email already exists. Sign in with an email code instead.",
-    no_email: "That account did not share an email address, so we cannot create your NegosyoOnline account. Please use another option.",
-    disabled: "This account is not active. Please contact support."
+    google_cancelled: "Sign-in was cancelled. You can try again or use an email code.",
+    google_failed: "We could not complete that sign-in. Please try again.",
+    google_state_invalid: "That sign-in session expired. Please try again.",
+    policies_required: "We could not find an account for that sign-in. Create your account to start your free trial.",
+    google_account_mismatch: "An account with that email already exists. Sign in with an email code instead.",
+    account_closed: "This account is not active. Please contact support."
   };
   var SOCIAL_ICONS = {
     google: '<svg viewBox="0 0 48 48" width="22" height="22"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>',
@@ -63,28 +67,28 @@
   };
   function socialErrorMessage(code) { return SOCIAL_ERRORS[code] || "We could not complete that sign-in. Please try again."; }
 
-  /* "Continue with Facebook / Google". Only providers the API reports as configured are shown.
-     `getQuery` returns the start-URL query string, or null to block the click (it shows its own message).
-     Resolves the number of buttons shown. */
-  function socialButtons(container, getQuery) {
-    return call("GET", "/auth/social/providers/").then(function (res) {
-      var list = res.ok && res.data.providers ? res.data.providers : [];
-      container.textContent = "";
-      list.forEach(function (p) {
-        var b = el("button", { type: "button", "class": "btn social-btn" });
-        if (SOCIAL_ICONS[p.id]) { var ic = el("span", { "class": "social-ico", "aria-hidden": "true" }); ic.innerHTML = SOCIAL_ICONS[p.id]; b.appendChild(ic); }
-        b.appendChild(el("span", {}, "Continue with " + p.label));
-        b.addEventListener("click", function () {
-          var q = getQuery();
-          if (q === null) return;
-          b.disabled = true;
-          location.assign(cfg.apiBase + "/auth/social/" + encodeURIComponent(p.id) + "/start/?" + q);
-        });
-        container.appendChild(b);
-      });
-      return list.length;
-    });
+  /* Google sign-in is a browser navigation to the API, which redirects to Google and back.
+     accept_policies is sent only in sign-up mode, where the notice under the button is the agreement. */
+  function googleStartUrl(mode) {
+    return cfg.apiBase + "/auth/google/start/" + (mode === "signup" ? "?accept_policies=true" : "");
   }
 
-  window.NOApi = { socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, call: call, getToken: getToken, setToken: setToken, setRefCookie: setRefCookie, getRefCookie: getRefCookie, phDate: phDate, el: el };
+  /* "Continue with Google". Drawn only when this environment says Google sign-in is set up
+     (NO_CONFIG.googleSignIn); the API has no endpoint to ask. `getMode` returns "signup" or "signin".
+     Resolves the number of buttons shown. */
+  function socialButtons(container, getMode) {
+    container.textContent = "";
+    if (cfg.googleSignIn !== true) return Promise.resolve(0);
+    var b = el("button", { type: "button", "class": "btn social-btn" });
+    var ic = el("span", { "class": "social-ico", "aria-hidden": "true" }); ic.innerHTML = SOCIAL_ICONS.google; b.appendChild(ic);
+    b.appendChild(el("span", {}, "Continue with Google"));
+    b.addEventListener("click", function () {
+      b.disabled = true;
+      location.assign(googleStartUrl(getMode()));
+    });
+    container.appendChild(b);
+    return Promise.resolve(1);
+  }
+
+  window.NOApi = { socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, call: call, flatten: flatten, googleStartUrl: googleStartUrl, setRefCookie: setRefCookie, getRefCookie: getRefCookie, phDate: phDate, el: el };
 })();

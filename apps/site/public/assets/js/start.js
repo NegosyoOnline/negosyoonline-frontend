@@ -1,13 +1,11 @@
 /* The Start Free Trial popup: email, then the 6-digit code we mail, then the dashboard.
-   Google and Facebook go straight through the provider. Name and mobile are completed later in the dashboard.
+   Google goes straight through the provider. Name and mobile are completed later in the dashboard.
    Account creation and every state decision is server-side. */
 (function () {
   var cfg = window.NO_CONFIG || {}, A = window.NOApi;
   var $ = function (id) { return document.getElementById(id); };
   var status = $("status");
-  var preview = null, validRef = "", email = "", cooldown = null, mode = "signup";
-  var POLICIES = ["terms", "privacy", "cancellation_refund", "referral_terms"];
-  var POLICY_MSG = "You must agree to the Terms of Service, Privacy Policy, Cancellation and Refund Policy, and Referral Program Terms.";
+  var validRef = "", email = "", cooldown = null, mode = "signup";
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function clearErrors() {
@@ -29,7 +27,7 @@
     var h = $(step).querySelector("h1"); if (h) { h.setAttribute("tabindex", "-1"); h.focus(); }
   }
 
-  /* ---------- referral and policy version ---------- */
+  /* ---------- referral ---------- */
   function initReferral() {
     var param = new URLSearchParams(location.search).get("ref");
     var code = (param || A.getRefCookie() || "").trim();
@@ -43,34 +41,22 @@
       }
     });
   }
-  function loadPreview() {
-    return A.call("GET", "/plan/preview/").then(function (res) {
-      if (res.ok) preview = res.data;
-      return res;
-    });
-  }
 
   /* ---------- step 1: email ---------- */
-  /* Continuing is the agreement (the notice under the button). The server still records the policies and
-     version, and rejects a sign-up that does not send them. */
+  /* Continuing is the agreement (the notice under the button). The server records its own policy list and
+     version when the code is verified with accept_policies. */
   $("email").addEventListener("input", function () {
     $("email-err").hidden = true; this.parentNode.classList.remove("is-invalid");
     this.parentNode.classList.toggle("is-valid", EMAIL_RE.test(this.value.trim()));
   });
 
   function sendCode(btn, label, done) {
-    if (!preview) { loadPreview().then(function (r) { if (r.ok) sendCode(btn, label, done); else showBanner("We could not load the policy details. Please try again."); }); return; }
     btn.disabled = true; btn.textContent = "Sending...";
-    var body = mode === "signin"
-      ? { email: email, mode: "signin", accepted_policies: [], policy_version: preview.policy_version, referral_code: null }
-      : { email: email, mode: "signup", accepted_policies: POLICIES, policy_version: preview.policy_version, referral_code: validRef || null };
-    A.call("POST", "/auth/email-code/request/", body).then(function (res) {
+    A.call("POST", "/auth/email-code/request/", { email: email }).then(function (res) {
       btn.disabled = false; btn.textContent = label;
       if (res.ok) { clearErrors(); done(); return; }
       var f = res.data.fields || {};
       if (f.email) { fieldError("email-err", f.email); $("email").parentNode.classList.add("is-invalid"); show("step1"); }
-      else if (f.policy_version) { loadPreview(); showBanner(f.policy_version); show("step1"); }
-      else if (f.accepted_policies) { fieldError("accept-err", f.accepted_policies); show("step1"); }
       else showBanner(res.status === 429 ? "Too many attempts. Please try again in a few minutes." : (res.data.message || "We could not send the code. Please try again."));
     });
   }
@@ -87,10 +73,11 @@
   var boxes = Array.prototype.slice.call(document.querySelectorAll("#otp input"));
   function codeValue() { return boxes.map(function (b) { return b.value; }).join(""); }
   function resetBoxes() { boxes.forEach(function (b) { b.value = ""; b.removeAttribute("aria-invalid"); }); }
+  /* The API refuses a second code inside 60 seconds, so the resend button waits that long. */
   function startCooldown() {
-    var btn = $("code-resend"), wait = $("code-wait"), count = $("code-count"), left = 30;
+    var btn = $("code-resend"), wait = $("code-wait"), count = $("code-count"), left = 60;
     clearInterval(cooldown);
-    btn.hidden = true; wait.hidden = false; count.textContent = "0:30";
+    btn.hidden = true; wait.hidden = false; count.textContent = "1:00";
     cooldown = setInterval(function () {
       left -= 1;
       if (left <= 0) { clearInterval(cooldown); wait.hidden = true; btn.hidden = false; }
@@ -107,15 +94,15 @@
     if (code.length !== 6) { fieldError("code-err", "Enter all 6 digits of the code."); return; }
     boxes.forEach(function (b) { b.disabled = true; });
     $("code-err").hidden = true;
-    A.call("POST", "/auth/email-code/verify/", { email: email, code: code }, false, true).then(function (res) {
+    A.call("POST", "/auth/email-code/verify/", { email: email, code: code, accept_policies: mode === "signup" }, false, true).then(function (res) {
       if (res.ok) {
         $("code-msg").textContent = res.data.created ? "Your account is ready. Opening your dashboard..." : "Welcome back. Opening your dashboard...";
-        location.assign(cfg.dashUrl + "/social-complete#code=" + encodeURIComponent(res.data.exchange_code));
+        location.assign(cfg.dashUrl + "/");
         return;
       }
       boxes.forEach(function (b) { b.disabled = false; b.setAttribute("aria-invalid", "true"); });
       fieldError("code-err", res.status === 429 ? "Too many attempts. Please try again in a few minutes." :
-        res.status === 404 ? "We could not find an account for that email. Start your free trial to create one." :
+        res.data.code === "policies_required" ? "We could not find an account for that email. Start your free trial to create one." :
         (res.data.message || "That code did not work. Please try again."));
       resetBoxes(); boxes.forEach(function (b) { b.setAttribute("aria-invalid", "true"); }); boxes[0].focus();
     });
@@ -145,15 +132,10 @@
     var btn = this;
     sendCode(btn, "Resend the code", function () { $("code-msg").textContent = "A new code is on its way."; resetBoxes(); boxes[0].focus(); startCooldown(); });
   });
-  $("code-back").addEventListener("click", function () { clearInterval(cooldown); if (!keepErrors) clearErrors(); show("step1"); $("email").focus(); });
+  $("code-back").addEventListener("click", function () { clearInterval(cooldown); clearErrors(); show("step1"); $("email").focus(); });
 
   /* ---------- social sign-up ---------- */
-  A.socialButtons($("social-btns"), function () {
-    if (!preview) { fieldError("accept-err", "We could not load the policy details. Please refresh and try again."); return null; }
-    if (mode === "signin") return "mode=signin";
-    return "mode=signup&policy_version=" + encodeURIComponent(preview.policy_version) +
-      "&accepted=" + POLICIES.join(",") + (validRef ? "&ref=" + encodeURIComponent(validRef) : "");
-  }).then(function (n) {
+  A.socialButtons($("social-btns"), function () { return mode; }).then(function (n) {
     $("social-signup").hidden = !n;
     if (!n) return;  /* no provider configured: the email form stays open */
     $("form1").hidden = true;
@@ -196,9 +178,8 @@
   window.NOSignup = { setMode: setMode };
 
   initReferral();
-  loadPreview();
-  var socialError = new URLSearchParams(location.search).get("social_error");
-  if (socialError) { /* a social sign-up that ended in an error lands back here */
+  var socialError = new URLSearchParams(location.search).get("error");
+  if (socialError) { /* a Google sign-in that ended in an error lands back here as /?signin=1&error=<code> */
     try { history.replaceState(null, "", location.pathname); } catch (e) { /* ignore */ }
     showBanner(A.socialErrorMessage(socialError));
   }

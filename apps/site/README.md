@@ -12,7 +12,7 @@ The site is static HTML, CSS and JavaScript in `public/`, moved as is from the T
 | `/contact` | `public/contact.html` + `public/assets/js/contact.js` |
 | `/terms`, `/privacy`, `/cancellation-refund`, `/referral-terms`, `/data-deletion` | policy pages, text ruled final by Coach Ed |
 
-Shared: `assets/js/site.js` (header, footer, FAQ), `assets/js/api.js` (API helper, sign-in form), `assets/css/site.css`.
+Shared: `assets/js/site.js` (header, footer, FAQ), `assets/js/api.js` (API helper for the sign-up and sign-in popup), `assets/css/site.css`.
 
 A new page needs its `.html` file in `public/` and its name in the `pages` list in `next.config.ts`.
 
@@ -25,8 +25,9 @@ A new page needs its `.html` file in `public/` and its name in the `pages` list 
 | `SITE_API_BASE` | `https://api-staging.negosyonline.com/v1` |
 | `SITE_URL` | `https://www-staging.negosyonline.com` |
 | `SITE_DASH_URL` | `https://dash-staging.negosyonline.com` |
+| `SITE_GOOGLE_SIGNIN` | unset (off). `true` draws "Continue with Google" in the popup; set it only where the API's Google variables are set. |
 
-The CSP `connect-src` follows `SITE_API_BASE`. Production must set all three. The API must list the site origin in CORS.
+The CSP `connect-src` follows `SITE_API_BASE`. Production must set the three URLs. The API must list the site origin in CORS.
 
 Images that are not committed live in Vercel Blob; their public URLs are in the same route file. An empty value renders a clearly marked placeholder, never a stock image.
 
@@ -38,8 +39,11 @@ pnpm dev
 
 Open http://localhost:3000.
 
+Tests for the popup's helpers: `pnpm test` (`node --test`, no extra dependency).
+
 ## Before launch
 
-- The sign-up, sign-in and contact forms need the API at `SITE_API_BASE`. Verify them against the real API.
+- The sign-up and sign-in popup uses the API at `SITE_API_BASE`: an emailed 6-digit code, then the API's own HttpOnly session cookie. The site stores nothing in the browser except the referral cookie. Verify it against the real API.
+- The contact form needs the API at `SITE_API_BASE`. Verify it against the real API.
 - The policy pages carry the effective date October 26, 2026. Update it, and the backend policy version, when the text changes.
 - Canonical links in the HTML point at `https://www.negosyoonline.com`.

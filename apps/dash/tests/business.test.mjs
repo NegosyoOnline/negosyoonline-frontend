@@ -13,7 +13,7 @@ const SRC = fs.readFileSync(path.join(JS, "business.js"), "utf8");
 const A = "site_aaaaaaaaaaaaaaaaaaaa", B = "site_bbbbbbbbbbbbbbbbbbbb", FOREIGN = "site_zzzzzzzzzzzzzzzzzzzz";
 const site = (id, name, sub) => ({ id, template: "sante", template_label: "Santé", display_name: name, subdomain: sub,
   host: sub + ".negosyotest.com", business_name: name + " Trading", contact_email: "hello@" + sub + ".test",
-  contact_mobile: "+639175550142", accent_color: "", instagram_url: "https://www.instagram.com/" + sub, tiktok_url: "",
+  contact_mobile: "+639175550142", accent_color: "", facebook_url: "", instagram_url: "https://www.instagram.com/" + sub, tiktok_url: "",
   created_at: "2026-11-01T00:00:00Z" });
 const SITE_A = site(A, "Nena's Barley Shop", "nenabarley"), SITE_B = site(B, "Nena's Wellness Marikina", "nenamarikina");
 const profile = (name) => ({ business_name: name, registered_name: name + " Inc.", tin: "123-456-789", dti_business_number: "5237841",
@@ -29,7 +29,7 @@ const DIALOGS = [
   ["bs-edit-site", "", ["display_name"]],
   ["bs-edit-contact", "", ["contact_email", "contact_mobile"]],
   ["bs-edit-address", "business-profile/", ["business_address"]],
-  ["bs-edit-social", "", ["instagram_url", "tiktok_url"]],
+  ["bs-edit-social", "", ["facebook_url", "instagram_url", "tiktok_url"]],
   ["bs-edit-legal", "business-profile/", ["registered_name", "dti_business_number", "bir_rsn", "tin", "privacy_contact_email"]],
   ["bs-edit-delivery", "business-profile/", ["shipping_processing_time", "shipping_metro_manila_estimate", "shipping_luzon_estimate",
     "shipping_visayas_estimate", "shipping_mindanao_estimate", "shipping_other_areas_estimate", "shipping_estimates_confirmed"]],
@@ -221,7 +221,7 @@ test("8. every row carries a Public or Private tag; TIN, Site type and the Shipp
   const d = boot();
   await d.show();
   const rows = d.rows();
-  assert.equal(rows.length, 22);
+  assert.equal(rows.length, 23);
   for (const r of rows) {
     assert.equal(tagOf(r).length, 1, labelOf(r));
     assert.ok(["Public", "Private"].includes(tagOf(r)[0]), labelOf(r));
@@ -268,7 +268,7 @@ test("10. the page has no colour input and never sends an accent colour", async 
   await d.show();
   const inputs = [];
   for (const [button] of DIALOGS) { inputs.push(...d.open(button).all((n) => n.tagName === "INPUT")); await d.save(); }
-  assert.equal(inputs.length, 19);
+  assert.equal(inputs.length, 20);
   assert.ok(inputs.every((i) => i.getAttribute("type") !== "color" && !/colou?r|logo/i.test(i.getAttribute("name"))));
   assert.ok(!JSON.stringify(d.calls).includes("accent_color"));
   assert.ok(!/accent_color|type="color"|"color"/.test(SRC));
@@ -319,7 +319,7 @@ test("layout: no scope card, the tag legend is one plain line, readiness has the
   assert.ok(!cardOf("bs-h-id").classList.contains("bs-ready-card"));
   const labels = (id) => d.rows().filter((r) => { let n = r; while (n && n !== cardOf(id)) n = n.parentNode; return !!n; }).map(labelOf);
   assert.deepEqual(labels("bs-h-id"), ["Business name", "Site name", "Business address", "Site type"]);
-  assert.deepEqual(labels("bs-h-contact"), ["Store email", "Store mobile", "Instagram", "TikTok"]);
+  assert.deepEqual(labels("bs-h-contact"), ["Store email", "Store mobile", "Facebook", "Instagram", "TikTok"]);
   assert.ok(d.$("bs-edit-address"));
 });
 
@@ -334,4 +334,19 @@ test("the BIR number is labelled Official Control Number (OCN); the complaints c
   assert.ok(!d.doc.body.textContent.includes("Complaints") && !SRC.includes("complaints"));
   await d.save();
   assert.ok(!JSON.stringify(d.calls).includes("complaints_contact_name"));
+});
+
+test("the social links dialog has Facebook first and saves the three links in one request", async () => {
+  const d = boot();
+  await d.show();
+  const dialog = d.open("bs-edit-social");
+  assert.deepEqual(dialog.all((n) => n.tagName === "INPUT").map((i) => i.id), ["bs-f-facebook_url", "bs-f-instagram_url", "bs-f-tiktok_url"]);
+  assert.ok(dialog.textContent.includes("The full https link to your Facebook page."));
+  d.$("bs-f-facebook_url").value = "https://www.facebook.com/nenabarley";
+  const before = d.calls.length;
+  await d.save();
+  const sent = d.calls.slice(before).filter((c) => JSON.stringify(c).includes("PATCH"));
+  assert.equal(sent.length, 1);
+  assert.ok(JSON.stringify(sent[0]).includes("https://www.facebook.com/nenabarley"));
+  for (const key of ["facebook_url", "instagram_url", "tiktok_url"]) assert.ok(JSON.stringify(sent[0]).includes(key), key);
 });

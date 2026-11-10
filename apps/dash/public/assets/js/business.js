@@ -78,7 +78,8 @@
       address: { title: "Edit business address", lead: "Customers see this address on your site.", path: "business-profile/",
         fields: [{ key: "business_address", label: "Business address", tag: PUB, value: p.business_address }] },
       social: { title: "Edit social links", lead: "Links to your social media pages. Leave a box blank to remove its link.", path: "",
-        fields: [{ key: "instagram_url", label: "Instagram", tag: PUB, value: s.instagram_url, hint: "The full https link to your Instagram page." },
+        fields: [{ key: "facebook_url", label: "Facebook", tag: PUB, value: s.facebook_url, hint: "The full https link to your Facebook page." },
+          { key: "instagram_url", label: "Instagram", tag: PUB, value: s.instagram_url, hint: "The full https link to your Instagram page." },
           { key: "tiktok_url", label: "TikTok", tag: PUB, value: s.tiktok_url, hint: "The full https link to your TikTok page." }] },
       legal: { title: "Edit legal page details", lead: "Printed on this site’s legal pages, except your TIN.", path: "business-profile/",
         fields: LEGAL.map(function (r) { return fieldSpec(r, p); }) },
@@ -293,7 +294,8 @@
     var c = card("bs-h-contact", "Customer contact", "How customers reach this business.");
     c.appendChild(row("Store email", PUB, [value(site.contact_email)], editBtn("bs-edit-contact", "contact", "Edit store email and mobile")));
     c.appendChild(row("Store mobile", PUB, [value(site.contact_mobile, mobileShown(site.contact_mobile))]));
-    c.appendChild(row("Instagram", PUB, [value(site.instagram_url)], editBtn("bs-edit-social", "social", "Edit social links")));
+    c.appendChild(row("Facebook", PUB, [value(site.facebook_url)], editBtn("bs-edit-social", "social", "Edit social links")));
+    c.appendChild(row("Instagram", PUB, [value(site.instagram_url)]));
     c.appendChild(row("TikTok", PUB, [value(site.tiktok_url)]));
     return c;
   }

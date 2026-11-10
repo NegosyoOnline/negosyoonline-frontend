@@ -495,9 +495,10 @@
   /* Runs once per page load and on "Try again"; switching panels never refetches. Only GET /account/setup/ is
      read: the API has no /dashboard/ yet, so the Overview renders from an empty payload (no trial strip, no
      figures) through the same render() as before. The first load always shows today's skeleton (spec 6.1
-     item 8, D13), and a failed first setup read (not 404 or 401) renders exactly today's result (spec r3 6.1 item 2,
-     D16): the setup load-error card is only for follow-up reads. On a retry the clicked button is about to be
-     removed, so focus moves to the Overview h1, which stays in place (audit F8). */
+     item 8, D13). A setup read that fails, or answers a state or shape this page does not know, never draws the
+     normal Overview: it draws the setup load-error state with "Try again" (Phase 7 B1, ClickUp z8uq9machp). On a
+     retry the clicked button is about to be removed, so focus moves to the Overview h1, which stays in place
+     (audit F8). */
   function load(retry) {
     OB.reopen = false; /* Phase 3 N7: any load clears the return re-read; a redraw that still shows the strip sets it again */
     var body = $("ov-body");
@@ -511,13 +512,25 @@
       renderSubscription(null);
       renderReferral(true, null);
       var v = setupView(st);
-      obRoute(v === "error" ? "today" : v, st.data); /* D16: a first-read outage never replaces a working Overview */
+      if (v === "error") return setupFailed(body); /* Phase 7 B1: an Account whose setup is unknown never sees the normal Overview */
+      obRoute(v, st.data);
     });
+  }
+  /* The Overview's own setup load-error state, in the dashboard's error box. Leaving and returning to "/" reads again. */
+  function setupFailed(body) {
+    obHeader();
+    body.textContent = "";
+    var box = D.el("div", { "class": "err-box", role: "alert" });
+    box.appendChild(D.el("h2", {}, "We couldn't load your setup"));
+    var again = D.el("button", { type: "button", "class": "no-btn no-btn-ghost" }, "Try again");
+    again.addEventListener("click", function () { load(true); });
+    box.appendChild(again);
+    body.appendChild(box);
+    OB.reopen = true;
   }
 
   /* ---- Subscriber onboarding (Phase 2, ClickUp z8uq9mach7) ----------------------------------------------------
-     GET /account/setup/ decides what the Overview shows. A 404 (the launch gate is closed for this caller) keeps
-     today's Overview exactly. Resume is from server state only: OB.started ("Get started" tapped) and
+     GET /account/setup/ decides what the Overview shows. Resume is from server state only: OB.started ("Get started" tapped) and
      OB.completedName (the save that finished setup) live in memory and are lost on reload by design; nothing is
      stored in the browser. Santé is the only Site type (owner ruling 2026-11-04): the create body always carries
      template "sante" and there is no type control. API strings reach the page only through textContent, D.el or
@@ -539,15 +552,14 @@
 
   function setupView(res) {
     if (!res) return "error";
-    if (res.status === 404) return "today";
     if (res.status === 401) return "signout";
     if (!res.ok) return "error";
     var d = obj(res.data), fs = obj(d.first_site);
     if (d.state === "not_started") return "not_started";
-    if (d.state === "in_progress") return d.minimum_completed_at ? "complete" : typeof fs.id === "string" && fs.id !== "" ? "step3" : "today"; /* CR-2 11.4: a finished Account that cleared one contact in Settings > General keeps the normal Overview */
+    if (d.state === "in_progress") return d.minimum_completed_at ? "complete" : typeof fs.id === "string" && fs.id !== "" ? "step3" : "error"; /* CR-2 11.4: a finished Account that cleared one contact in Business Settings keeps the normal Overview */
     if (d.state === "minimum_complete") return "complete";
     if (d.state === "blocked" && has(BLOCKED_VIEW, d.blocked_reason)) return BLOCKED_VIEW[d.blocked_reason];
-    return "today"; /* an unknown state or reason fails toward today's Overview (spec 6.1 item 2) */
+    return "error"; /* an unknown state, shape or blocked reason is a failed read, never the normal Overview (Phase 7 B1) */
   }
   /* The setup answer says whether a first site can be created (can_create_site); there is no launch gate or trial check. */
   function step2Slot(elig) { return obj(elig).can_create_site === true ? "step2" : "reread"; }
@@ -670,8 +682,8 @@
     sk.appendChild(card);
     body.appendChild(sk);
   }
-  /* The setup load-error card, only for a failed follow-up read made after setup returned an onboarding state
-     (spec r3 6.1 item 2). retry re-runs exactly that follow-up read; every retry function starts with obSkeleton(),
+  /* The setup load-error card inside the popup, for a failed follow-up read made after setup returned an onboarding
+     state (spec r3 6.1 item 2); the first read's failure is drawn on the Overview by setupFailed(). retry re-runs exactly that follow-up read; every retry function starts with obSkeleton(),
      so "Try again" shows the setup skeleton (D13). */
   function drawSetupError(retry) {
     var body = dlgOpen();
@@ -687,7 +699,7 @@
     body.appendChild(box);
   }
   /* Every onboarding render goes through here; an unknown view fails toward the blocked card path. The first load
-     never passes "error" here (D16). */
+     never passes "error" here: load() draws setupFailed() instead. */
   function obRoute(view, data, why) {
     if (view === "today") return toToday(false);
     if (view === "complete") return toToday(true);
@@ -1157,7 +1169,7 @@
     form.appendChild(alertSlot);
     var btn = D.el("button", { type: "submit", "class": "no-btn no-btn-primary no-btn-block ob-primary" }, "Save and finish");
     form.appendChild(btn);
-    form.appendChild(D.el("p", { "class": "ob-note" }, "You can change your email and mobile number later in Settings › General."));
+    form.appendChild(D.el("p", { "class": "ob-note" }, "You can change your email and mobile number later in Settings › Business Settings."));
     s.appendChild(form);
     if (arrival === "notdone") alertSlot.appendChild(alertBox("We couldn't save your details", "Check your details and tap Save and finish again."));
     form.addEventListener("submit", function (ev) { ev.preventDefault(); onSave(first, f, btn, alertSlot); });

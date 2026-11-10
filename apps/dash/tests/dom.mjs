@@ -4,6 +4,7 @@ class Node {
   constructor(tag) {
     this.tagName = String(tag).toUpperCase(); this.attrs = {}; this.childNodes = []; this.parentNode = null;
     this.listeners = {}; this.hidden = false; this.value = ""; this.checked = false; this.disabled = false; this.text = null;
+    this.style = {};
     const list = () => (this.attrs["class"] || "").split(/\s+/).filter(Boolean);
     const set = (names) => { this.attrs["class"] = names.join(" "); };
     this.classList = {
@@ -21,6 +22,12 @@ class Node {
   hasAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attrs, k); }
   removeAttribute(k) { delete this.attrs[k]; }
   appendChild(n) { if (n.parentNode) n.remove(); n.parentNode = this; this.childNodes.push(n); return n; }
+  insertBefore(n, ref) {
+    if (!ref) return this.appendChild(n);
+    if (n.parentNode) n.remove();
+    n.parentNode = this; this.childNodes.splice(this.childNodes.indexOf(ref), 0, n);
+    return n;
+  }
   removeChild(n) { this.childNodes = this.childNodes.filter((c) => c !== n); n.parentNode = null; return n; }
   remove() { if (this.parentNode) this.parentNode.removeChild(this); }
   get textContent() { return this.text !== null ? this.text : this.childNodes.map((n) => n.textContent).join(""); }
@@ -41,6 +48,10 @@ class Node {
     for (const n of this.children) { if (test(n)) out.push(n); n.all(test, out); }
     return out;
   }
+  /* One ".class" or "#id" only, which is all dashboard.js asks of these two. */
+  matches(sel) { return sel.charAt(0) === "." ? this.classList.contains(sel.slice(1)) : sel.charAt(0) === "#" && this.id === sel.slice(1); }
+  querySelector(sel) { return this.all((n) => n.matches(sel))[0] || null; }
+  closest(sel) { return this.matches(sel) ? this : this.parentNode ? this.parentNode.closest(sel) : null; }
   /* Only the form of selector the scripts use: a comma list of tag names, with an optional [attribute]. */
   querySelectorAll(sel) {
     const parts = sel.split(",").map((s) => /^\s*([a-z0-9]+)(?:\[([a-z-]+)\])?\s*$/i.exec(s)).filter(Boolean);
@@ -51,6 +62,7 @@ class Node {
 export function makeDocument() {
   const doc = { activeElement: null, listeners: {}, cookie: "" };
   doc.createElement = (tag) => { const n = new Node(tag); n.doc = doc; return n; };
+  doc.createElementNS = (ns, tag) => doc.createElement(tag);
   doc.body = doc.createElement("body");
   doc.getElementById = (id) => doc.body.all((n) => n.attrs.id === id)[0] || null;
   doc.querySelectorAll = () => [];

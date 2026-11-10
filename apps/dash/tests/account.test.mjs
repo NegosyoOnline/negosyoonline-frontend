@@ -77,3 +77,19 @@ test("account security notices are promised by email only, never to a mobile num
   assert.ok(!/old number/i.test(src), "no notice is promised to the old number");
   assert.ok(!/Sent to your email and mobile/i.test(src), "alerts are not promised to the mobile");
 });
+
+/* Phase 7 B2 (ClickUp z8uq9machp): Account Settings is Account-owned. Every request in account.js is written as
+   D.call or D.send with the path as a string that starts the second argument, so the source is the full list. */
+test("the page calls only /account/ and /me/ routes", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const calls = [...src.matchAll(/\bD\.(?:call|send)\(\s*"([A-Z]+)"\s*,\s*([^,]+),/g)].map((m) => [m[1], m[2].trim()]);
+  assert.ok(calls.length >= 10, "the request list was read");
+  assert.equal(calls.length, (src.match(/\bD\.(?:call|send)\(/g) || []).length, "every request was read");
+  for (const [method, first] of calls) {
+    assert.match(first, /^"\/(account|me)\/[a-z\/-]*"$/, method + " " + first);
+  }
+  assert.ok(calls.some(([m, p]) => m === "GET" && p === '"/account/"'), "the page loads from GET /account/");
+  assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon/.test(src), "no request is made any other way");
+  assert.ok(!/["'`]\/sites\//.test(src), "no site route, as a request or as a link");
+  assert.ok(!/siteFromQuery|sitesOf|\?site=/.test(src), "the page reads no selected site");
+});

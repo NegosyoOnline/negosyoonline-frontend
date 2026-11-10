@@ -11,7 +11,7 @@
    once, and shown only as far as the read confirms it. */
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
-  var BUSINESS_SETTINGS_PATH = "/settings/general/"; /* spec D2: the one target of every Business Settings link; Phase 5 repoints it */
+  var BUSINESS_SETTINGS_PATH = "/settings/business/"; /* spec D2: the one target of every Business Settings link (repointed by Phase 5) */
   var BILLING_PATH = "/settings/billing/";
   var SUPPORT_EMAIL = "support@negosyoonline.com";
   var NOTICES = [

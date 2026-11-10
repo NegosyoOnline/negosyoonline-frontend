@@ -261,7 +261,7 @@
     ["Overview", "", "/"], ["Orders", "", "/orders/"], ["Products", "", "/products/"], ["Storefront", "", "/storefront/"], ["Media Library", "", "/media-library/"],
     ["Earnings", "", "/earnings/"], ["People", "", "/people/"], ["Usage", "", "/usage/"], ["Referral", "", "/referral/"],
     ["My Subscription", "Account", "/subscription/"], ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
-    ["General", "Settings", "/settings/general/"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
+    ["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
     ["Domain", "Settings", "/settings/domain/"], ["Automation Tools", "Settings", "/settings/automation/"], ["Notification", "Settings", "/settings/notification/"]
   ];
   function quickSearch() {

@@ -132,7 +132,7 @@
     var btn = this;
     sendCode(btn, "Resend the code", function () { $("code-msg").textContent = "A new code is on its way."; resetBoxes(); boxes[0].focus(); startCooldown(); });
   });
-  $("code-back").addEventListener("click", function () { clearInterval(cooldown); if (!keepErrors) clearErrors(); show("step1"); $("email").focus(); });
+  $("code-back").addEventListener("click", function () { clearInterval(cooldown); clearErrors(); show("step1"); $("email").focus(); });
 
   /* ---------- social sign-up ---------- */
   A.socialButtons($("social-btns"), function () { return mode; }).then(function (n) {

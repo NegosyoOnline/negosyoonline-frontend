@@ -4,13 +4,13 @@ class Node {
   constructor(tag) {
     this.tagName = String(tag).toUpperCase(); this.attrs = {}; this.childNodes = []; this.parentNode = null;
     this.listeners = {}; this.hidden = false; this.value = ""; this.checked = false; this.disabled = false; this.text = null;
-    const self = this;
+    const list = () => (this.attrs["class"] || "").split(/\s+/).filter(Boolean);
+    const set = (names) => { this.attrs["class"] = names.join(" "); };
     this.classList = {
-      list() { return (self.attrs["class"] || "").split(/\s+/).filter(Boolean); },
-      contains(c) { return this.list().includes(c); },
-      add(c) { if (!this.contains(c)) self.attrs["class"] = [...this.list(), c].join(" "); },
-      remove(c) { self.attrs["class"] = this.list().filter((x) => x !== c).join(" "); },
-      toggle(c, on) { if (on === undefined ? !this.contains(c) : on) this.add(c); else this.remove(c); },
+      contains: (c) => list().includes(c),
+      add: (c) => { if (!list().includes(c)) set([...list(), c]); },
+      remove: (c) => { set(list().filter((x) => x !== c)); },
+      toggle: (c, on) => { if (on === undefined ? !list().includes(c) : on) set([...new Set([...list(), c])]); else set(list().filter((x) => x !== c)); },
     };
   }
   get children() { return this.childNodes.filter((n) => n.text === null); }

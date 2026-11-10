@@ -816,6 +816,31 @@ Only what the ClickUp task, the backend spec and plans, and the rulings do not s
 **D9. Tests in CI.** The repository has no JavaScript tests today. This plan adds `node --test` files with no new dependency.
 - Recommended: also add a "Test" step (`pnpm test`) to the `site` and `dash` jobs in `.github/workflows/ci.yml`. That file is shared, so the coordinator decides whether it goes in these PRs or in a separate one.
 
+### Rulings (coordinator, 2026-11-10)
+
+The plan at `b846cb2` was approved by the coordinator on 2026-11-10 under Coach Ed's instruction of the same day to proceed through the tasks under `z8uq9mach5`. All nine decisions are settled:
+
+| # | Ruling |
+|---|---|
+| D1 | Change nothing on Billing, Payments, Earnings, Shipping and Account Settings. No new card, no new wording, no hidden menu items. The coordinator tells Coach Ed what those screens say meanwhile. |
+| D2 | As recommended: the first word for the greeting; initials from the first and last word, else the email's first letter; the whole name in the Account panel. |
+| D3 | As recommended: `SITE_GOOGLE_SIGNIN`, default off. No Vercel variable is set by this work; switching it on is for Coach Ed with the backend sign-in session. |
+| D4 | The mapping to existing strings exactly as written in sections 6.1 and 6.2. No new copy. |
+| D5 | The popup waits 60 seconds before a resend. |
+| D6 | The popup's referral code is left untouched. The coordinator tells Coach Ed attribution is not recorded until the backend's referral slice. |
+| D7 | Fix it in PR 1, one line, stated in the PR. Confirm in a browser that it was broken before and works after. |
+| D8 | The builder runs the local API on port 8000 from a throwaway copy of backend `origin/main` placed outside both repositories (not a worktree inside them), SQLite only, with the values in section 9. The backend's shared working copy is never touched, nothing is pushed from the copy, and it is deleted when the check is accepted. Until backend PR 30 is merged the copy uses branch `feat/z8uq9mach6-sites-endpoints`, then `main`. If a `negosyotest.com` name does not resolve to 127.0.0.1, tell the coordinator: do not edit `/etc/hosts` and do not substitute another name. |
+| D9 | Add the Test step to the `site` job in PR 1 and the `dash` job in PR 2 of `.github/workflows/ci.yml`. Do not rename jobs or checks. |
+
+N2 (deleting the dead legacy pages) and N5 (the contact form) stay out of this plan; the coordinator raises them with Coach Ed.
+
+Order and gates set with the rulings:
+
+1. Build Tasks 1 to 7 on two branches whose names carry `z8uq9mach6`. Open PR 1 and PR 2 when each is ready so CI runs. **Merge neither**: a merge to `main` deploys staging, and the local visual check comes first.
+2. Run Task 8 locally at desktop width and at 390 by 844 in device emulation (stated as emulation). Send the coordinator the review packet and leave the three servers running for Coach Ed's own check.
+3. Merging and the staging run follow Coach Ed's local acceptance.
+4. No ClickUp status change on `z8uq9mach6`.
+
 Notes, not decisions:
 
 - **N1.** `verifyGate()` and its resend button (`app.js:388-417`) are unreachable with the new sign-in and are left in place.

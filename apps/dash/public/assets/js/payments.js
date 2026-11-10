@@ -5,7 +5,6 @@
    up (`available`). API strings reach the page through textContent or D.el only. Secrets are never kept or shown. */
 (function () {
   var D = window.NODash;
-  var SITE_RE = /^[1-9][0-9]{0,9}$/;
   var token = 0, site = null, data = null, closeDialog = null;
 
   function byId(id) { return document.getElementById(id); }
@@ -67,10 +66,9 @@
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (mine !== token || res.status === 401) return;
       if (!res.ok) { failedPanel(); return; }
-      var sites = (res.data && res.data.sites) || [];
+      var sites = D.sitesOf(res);
       if (!sites.length) { noSite(); return; }
-      var m = /[?&]site=([^&#]*)/.exec(location.search), ids = sites.map(function (s) { return s.id; });
-      site = m && SITE_RE.test(m[1]) && ids.indexOf(parseInt(m[1], 10)) >= 0 ? parseInt(m[1], 10) : ids[0];
+      site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
       D.call("GET", base(), null, true).then(function (r) {
         if (mine !== token || r.status === 401) return;
         if (!r.ok) { failedPanel(); return; }

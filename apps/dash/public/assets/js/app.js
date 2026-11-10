@@ -1,11 +1,8 @@
-/* Shared dashboard helpers: API client, auth token, page shell, formatting. No dependencies, no secrets.
+/* Shared dashboard helpers: API client, page shell, formatting. No dependencies, no secrets.
+   The API's HttpOnly session cookie signs every call; nothing is stored in the browser but the theme.
    Every status, date and amount shown comes from the API; nothing is computed or assumed in the browser. */
 (function () {
   var cfg = window.NO_CONFIG || {};
-  var TOKEN_KEY = "no_dash_token";
-
-  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch (e) { return ""; } }
-  function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ } }
 
   function el(tag, attrs, text) {
     var n = document.createElement(tag);
@@ -17,34 +14,67 @@
   /* There is no dash login page: a signed-out visitor goes to the home site, which opens its sign-in popup. */
   function goSignIn() { location.replace((cfg.siteUrl || "") + "/?signin=1"); }
 
-  /* Resolves {ok, status, data}. A 401 on an authenticated call clears the token and goes to the home site sign-in.
-     `credentials` is passed only by the verify page (verify and link POSTs), so the API host's HttpOnly cookies ride those calls. */
-  function call(method, path, body, auth, credentials) {
-    var headers = { "Content-Type": "application/json" };
-    if (auth) headers.Authorization = "Bearer " + getToken();
-    var opts = { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined };
-    if (credentials) opts.credentials = "include";
+  /* The API answers errors as {error: {code, message, fields: {name: [messages]}}}. The screens read
+     data.code, data.message and data.fields[name] as one string, so the shape is converted here, once. */
+  function flatten(data) {
+    var e = data && data.error;
+    if (!e || typeof e !== "object") return data || {};
+    var fields = {};
+    Object.keys(e.fields || {}).forEach(function (k) {
+      var v = e.fields[k];
+      fields[k] = Array.isArray(v) ? v.join(" ") : String(v);
+    });
+    return { code: e.code, message: e.message, fields: fields };
+  }
+
+  /* Resolves {ok, status, data}. The API's session cookie rides every call; nothing is stored here.
+     A 401 leaves for the public site, which opens its sign-in popup. The fourth and fifth arguments
+     are no longer used; call sites still pass them. */
+  function call(method, path, body) {
+    var opts = { method: method, credentials: "include" };
+    if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
     return fetch(cfg.apiBase + path, opts)
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) {
-          if (auth && r.status === 401) { setToken(""); goSignIn(); }
-          return { ok: r.ok, status: r.status, data: data };
+          if (r.status === 401) goSignIn();
+          return { ok: r.ok, status: r.status, data: flatten(data) };
         });
       })
       .catch(function () { return { ok: false, status: 0, data: { message: "We could not reach the server. Please check your connection and try again." } }; });
   }
 
-  /* call() for a multipart body (a FormData, e.g. a QR image upload): same token, 401 and network handling, and the
+  /* call() for a multipart body (a FormData, e.g. a QR image upload): same cookie, 401 and network handling, and the
      browser sets the multipart Content-Type itself. */
   function send(method, path, form) {
-    return fetch(cfg.apiBase + path, { method: method, headers: { Authorization: "Bearer " + getToken() }, body: form })
+    return fetch(cfg.apiBase + path, { method: method, credentials: "include", body: form })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) {
-          if (r.status === 401) { setToken(""); goSignIn(); }
-          return { ok: r.ok, status: r.status, data: data };
+          if (r.status === 401) goSignIn();
+          return { ok: r.ok, status: r.status, data: flatten(data) };
         });
       })
       .catch(function () { return { ok: false, status: 0, data: { message: "We could not reach the server. Please check your connection and try again." } }; });
+  }
+
+  /* /me/ answers {account: {id, email, name, email_verified, created_at}}. The screens read first_name and
+     last_name, so the one name is split here: the first word, and everything after it. */
+  function accountView(data) {
+    var a = (data && data.account) || {};
+    var parts = String(a.name || "").trim().split(/\s+/).filter(Boolean);
+    return { id: a.id, email: a.email || "", email_verified: a.email_verified === true, created_at: a.created_at,
+      name: parts.join(" "), first_name: parts[0] || "", last_name: parts.slice(1).join(" ") };
+  }
+
+  /* GET /sites/ answers {items: [...], next_cursor}. One page is enough: an account has one site in the MVP
+     (the API's default page is 20). */
+  function sitesOf(res) { var d = res && res.data; return d && Array.isArray(d.items) ? d.items : []; }
+
+  /* The site named by ?site= when it is one of the caller's own (ids from GET /sites/), else the first.
+     The API checks ownership on every call; this only keeps a pasted or stale id out of the request path. */
+  var SITE_ID_RE = /^site_[0-9a-z]{20}$/;
+  function siteFromQuery(ids, search) {
+    var m = /[?&]site=([^&#]*)/.exec(search == null ? location.search : search);
+    return m && SITE_ID_RE.test(m[1]) && ids.indexOf(m[1]) >= 0 ? m[1] : ids[0];
   }
 
   var PH = { timeZone: "Asia/Manila" };
@@ -62,22 +92,22 @@
     return typeof m === "string" && m ? m : fallback;
   }
 
+  /* First letters of the first and the last word of the name; the email's first letter when there is no name. */
   function initials(a) {
-    var f = (a.first_name || "").trim(), l = (a.last_name || "").trim();
+    var f = (a.first_name || "").trim(), l = (a.last_name || "").trim().split(/\s+/).pop();
     return ((f.charAt(0) + l.charAt(0)) || (a.email || "").charAt(0)).toUpperCase();
   }
 
   function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
 
   /* Workspace block and account text. The markup is static in index.html; every value lands via textContent.
-     The trial chip reads /me/ trial_status already in hand (no extra request); an unknown or missing status shows no chip. */
+     The trial chip reads trial_status; /me/ does not carry one until the billing slice, and a missing status shows no chip. */
   var TRIAL_CHIP = { trial_active: ["info", "Free trial"], trial_ended: ["neutral", "Trial ended"], pending_verification: ["neutral", "Free trial"] };
   function fillAccount(a) {
     var name = ((a.first_name || "") + " " + (a.last_name || "")).trim();
     var t = Object.prototype.hasOwnProperty.call(TRIAL_CHIP, a.trial_status) ? TRIAL_CHIP[a.trial_status] : null;
-    /* The workspace label is the site's business name from /me/ (site_name); blank until it is saved, so "My Business". */
-    var site = typeof a.site_name === "string" ? a.site_name.trim() : "";
-    each("[data-ws-name]", function (n) { n.textContent = site || "My Business"; });
+    /* The workspace label is the first site's name, set by setWorkspace(); "My Business" until one is known. */
+    each("[data-ws-name]", function (n) { n.textContent = workspace || "My Business"; });
     each("[data-acct-initials]", function (n) { n.textContent = initials(a); });
     each("[data-acct-name]", function (n) { n.textContent = name || a.email || ""; });
     each("[data-acct-email]", function (n) { n.textContent = a.email || ""; n.hidden = !name; });
@@ -93,6 +123,13 @@
     });
     var row = document.getElementById("acct-row");
     if (row) row.setAttribute("aria-label", "Account menu: " + (name || a.email || ""));
+  }
+
+  /* The workspace label comes from the setup answer (first_site.display_name), which the Overview reads. */
+  var workspace = "";
+  function setWorkspace(name) {
+    workspace = typeof name === "string" ? name.trim() : "";
+    each("[data-ws-name]", function (n) { n.textContent = workspace || "My Business"; });
   }
 
   /* Theme toggle (account menus and the topbar icon button). Shows the theme you would switch to; theme.js owns the choice and storage. */
@@ -380,7 +417,7 @@
   }
 
   function signOut() {
-    call("POST", "/auth/logout/", null, true).then(function () { setToken(""); location.replace(cfg.siteUrl || "/"); });
+    call("POST", "/auth/logout/", null, true).then(function () { location.replace(cfg.siteUrl || "/"); });
   }
 
   /* "Check your email": the whole page for an account whose email is not verified yet.
@@ -416,9 +453,8 @@
     h.focus();
   }
 
-  /* Gate a page: needs a token, a valid /me/ and a verified email. Resolves the account, or redirects/stops. */
+  /* Gate a page: needs a valid /me/ (the session cookie) and a verified email. Resolves the account, or redirects/stops. */
   function requireAccount(current) {
-    if (!getToken()) { goSignIn(); return new Promise(function () {}); }
     return call("GET", "/me/", null, true).then(function (res) {
       if (!res.ok) {
         if (res.status === 401) return new Promise(function () {});
@@ -435,9 +471,10 @@
         }
         return new Promise(function () {});
       }
-      shell(res.data, current);
-      if (!res.data.email_verified) { verifyGate(res.data); return new Promise(function () {}); }
-      return res.data;
+      var account = accountView(res.data);
+      shell(account, current);
+      if (!account.email_verified) { verifyGate(account); return new Promise(function () {}); }
+      return account;
     });
   }
 
@@ -516,11 +553,12 @@
      any other failure is a silent no-op and the chip simply stays until the next page load. */
   function refreshAccount() {
     return call("GET", "/me/", null, true).then(function (res) {
-      if (res && res.ok && res.data) fillAccount(res.data);
+      if (res && res.ok && res.data) fillAccount(accountView(res.data));
     });
   }
 
   window.NODash = { call: call, send: send, el: el, date: date, nextPath: nextPath,
-    getToken: getToken, setToken: setToken, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
+    flatten: flatten, accountView: accountView, initials: initials, sitesOf: sitesOf, siteFromQuery: siteFromQuery, SITE_ID_RE: SITE_ID_RE,
+    setWorkspace: setWorkspace, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
     socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, cfg: cfg, toast: toast, signOut: signOut, refreshAccount: refreshAccount };
 })();

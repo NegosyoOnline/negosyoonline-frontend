@@ -6,7 +6,6 @@
    reach the page through textContent or D.el only; no storage key. The manual earning reversal stays API-only. */
 (function () {
   var D = window.NODash;
-  var SITE_RE = /^[1-9][0-9]{0,9}$/;
   var FILTERS = [["pending", "Pending"], ["paid", "Paid"], ["rejected", "Rejected"], ["all", "All"]];
   var EMPTY = { pending: "No pending withdrawal requests.", paid: "No paid withdrawal requests.",
                 rejected: "No rejected withdrawal requests.", all: "No withdrawal requests yet." };
@@ -239,11 +238,9 @@
     clear(root()).appendChild(h("p", "wd-meta", "Loading withdrawal requests…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (mine !== token || res.status === 401) return;
-      var sites = ((res.data && res.data.sites) || []).filter(function (s) { return s.template === "sante"; });
+      var sites = D.sitesOf(res).filter(function (s) { return s.template === "sante"; });
       if (!res.ok || !sites.length) { clear(root()).appendChild(h("p", "wd-meta", "Earnings are not available for this account yet.")); return; }
-      var ids = sites.map(function (s) { return s.id; });
-      var m = /[?&]site=([^&#]*)/.exec(location.search);
-      site = m && SITE_RE.test(m[1]) && ids.indexOf(parseInt(m[1], 10)) >= 0 ? parseInt(m[1], 10) : ids[0];
+      site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
       load(mine);
     });
   }
@@ -254,7 +251,7 @@
     D.call("GET", "/account/mobile/", null, true).then(function (res) {
       if (!res.ok || res.data.verified || !wrap.isConnected) return;
       D.call("GET", "/sites/", null, true).then(function (s) {
-        var any = s.ok && ((s.data && s.data.sites) || []).some(function (x) { return x.template === "sante"; });
+        var any = s.ok && D.sitesOf(s).some(function (x) { return x.template === "sante"; });
         if (!any || !wrap.isConnected || wrap.querySelector("#h-wd-note")) return;
         var box = D.el("section", { "class": "ov-trial ov-setup", "aria-labelledby": "h-wd-note" });
         var txt = D.el("div", { "class": "ov-trial-txt" });

@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash;
   var LABEL = "Internal Billing Statement — Not an Official BIR Receipt or BIR Electronic Invoice.";
-  var SITE_RE = /^[1-9][0-9]{0,9}$/, NUMBER_RE = /^NO(BS|CN)(-TEST)?-\d{4}-\d{6}$/;
+  var NUMBER_RE = /^NO(BS|CN)(-TEST)?-\d{4}-\d{6}$/;
   var TZ = "Asia/Manila";
 
   /* ---- pure helpers (no document access; exported as NOBilling.util and node-tested) ---- */
@@ -29,7 +29,7 @@
   function attentionLead(n, endsIso) { return (n === 0 ? "Fix it today" : "Fix it within " + (n === 1 ? "1 day" : n + " days")) + ", by " + dateShort(endsIso) + ","; }
   function pickSite(search, sites) {
     var raw = q(search, "site"), ids = sites.map(function (s) { return s.id; });
-    if (raw !== null && SITE_RE.test(raw) && ids.indexOf(parseInt(raw, 10)) >= 0) return { id: parseInt(raw, 10), corrected: false };
+    if (raw !== null && D.SITE_ID_RE.test(raw) && ids.indexOf(raw) >= 0) return { id: raw, corrected: false };
     return { id: ids[0], corrected: true };
   }
   function pickStatement(search) { var n = q(search, "statement"); return n !== null && NUMBER_RE.test(n) ? n : null; }
@@ -678,7 +678,7 @@
     if (focusTarget === "method") { var t = byId("bl-h-method"); if (t) t.focus(); }
   }
 
-  /* ---- authenticated downloads and the receipt image (spec 8.8): fetch with the bearer header, read a Blob ---- */
+  /* ---- authenticated downloads and the receipt image (spec 8.8): fetch with the session cookie, read a Blob ---- */
   function receiptAbsent() {
     var host = byId("bl-receipt"); if (!host) return;
     clear(host); add(host, para("No physical receipt has been attached to this statement yet."));
@@ -686,10 +686,11 @@
   function fetchBlob(path, filename, b, asImage) {
     if (b && b.getAttribute("aria-busy") === "true") return Promise.resolve(null);
     if (b) b.setAttribute("aria-busy", "true");
-    return fetch(D.cfg.apiBase + path, { headers: { Authorization: "Bearer " + D.getToken() } }).then(function (r) {
-      if (r.status === 401) { D.setToken(""); location.replace((D.cfg.siteUrl || "") + "/?signin=1"); return null; }
+    return fetch(D.cfg.apiBase + path, { credentials: "include" }).then(function (r) {
+      if (r.status === 401) { location.replace((D.cfg.siteUrl || "") + "/?signin=1"); return null; }
       if (!r.ok) {
-        return r.json().catch(function () { return {}; }).then(function (data) {
+        return r.json().catch(function () { return {}; }).then(function (raw) {
+          var data = D.flatten(raw);
           if (r.status === 500 && data && data.code === "statement_integrity_error") panelI();
           else if (data && data.code === "receipt_not_found") receiptAbsent();
           else D.toast("That did not work", typeof data.message === "string" ? data.message : "", "error");

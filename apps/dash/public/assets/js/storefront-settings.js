@@ -7,7 +7,6 @@
 (function () {
   var D = window.NODash;
   var token = 0;
-  var SITE_RE = /^[1-9][0-9]{0,9}$/;
   var OPTIONS = [
     { value: "charge", title: "Calculated shipping", copy: "Customers pay the J&T shipping fee calculated at checkout.", tag: "Default" },
     { value: "zero", title: "₱0 shipping", copy: "Your store pays the shipping, customers see ₱0.00." }
@@ -19,12 +18,13 @@
   function root() { return document.getElementById("ss-root"); }
   function say(text) { var n = document.getElementById("ss-live"); if (n) n.textContent = text; }
 
-  /* The API sends {message, fields, code}; a plain 404 or 401 body carries no message. */
+  /* The API sends {message, fields, code}. A 404 keeps this screen's own sentence: the API's 404 body now
+     carries a message of its own ("No such endpoint." while this endpoint is not built). */
   function failText(res) {
     var d = res && res.data, f = d && d.fields && d.fields.customer_shipping;
     if (typeof f === "string" && f) return f;
-    if (d && typeof d.message === "string" && d.message) return d.message;
     if (res && res.status === 404) return "Shipping settings are not available for this store yet.";
+    if (d && typeof d.message === "string" && d.message) return d.message;
     if (res && res.status === 403) return "Shipping settings can't be changed for this store right now.";
     return "We couldn’t save. Check your connection and try again.";
   }
@@ -83,7 +83,7 @@
     clear(container).appendChild(f);
   }
 
-  /* The Shipping section for one site. siteId is the numeric id of a site the Subscriber owns. */
+  /* The Shipping section for one site. siteId is the id of a site the Subscriber owns. */
   function render(container, siteId) {
     var mine = ++token;
     clear(container).appendChild(h("p", "ss-meta", "Loading your shipping setting…"));
@@ -109,14 +109,13 @@
     clear(host).appendChild(h("p", "ss-meta", "Loading your stores…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (mine !== token || res.status === 401) return;
-      var sites = (res.data && res.data.sites) || [];
+      var sites = D.sitesOf(res);
       if (!res.ok || !sites.length) {
         clear(host).appendChild(h("p", "ss-meta", "Shipping is not available for this account yet."));
         return;
       }
       var ids = sites.map(function (s) { return s.id; });
-      var m = /[?&]site=([^&#]*)/.exec(location.search);
-      var first = m && SITE_RE.test(m[1]) && ids.indexOf(parseInt(m[1], 10)) >= 0 ? parseInt(m[1], 10) : ids[0];
+      var first = D.siteFromQuery(ids);
       clear(host);
       var body = h("div", "ss-body");
       if (sites.length > 1) {
@@ -129,7 +128,7 @@
           sel.appendChild(o);
         });
         sel.addEventListener("change", function () {
-          var id = parseInt(sel.value, 10);
+          var id = sel.value;
           if (ids.indexOf(id) < 0) return;
           try { history.replaceState(null, "", "/settings/shipping/?site=" + id); } catch (e) { /* ignore */ }
           render(body, id);

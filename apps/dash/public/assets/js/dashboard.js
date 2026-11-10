@@ -98,7 +98,7 @@
     if (!href || !has(ROUTES, href) || (a.target && a.target !== "_self")) return;
     e.preventDefault();
     /* Moving between Settings tabs keeps ?site= so General, Billing and Payments stay on the same store. */
-    var store = /[?&]site=[1-9][0-9]*/.exec(location.search), keep = store && href.indexOf("/settings/") === 0 && currentPath().indexOf("/settings/") === 0;
+    var store = /[?&]site=site_[0-9a-z]{20}/.exec(location.search), keep = store && href.indexOf("/settings/") === 0 && currentPath().indexOf("/settings/") === 0;
     if (href !== currentPath() && typeof history !== "undefined" && history.pushState) history.pushState(null, "", keep ? href + "?" + store[0].slice(1) : href);
     route(false);
   }
@@ -477,7 +477,7 @@
   function render(body, data) {
     body.textContent = "";
     var k = obj(data.kpis), wrap = D.el("div", { "class": "ov-stack" });
-    wrap.appendChild(trialStrip(data.trial));
+    if (data.trial) wrap.appendChild(trialStrip(data.trial)); /* no trial data until the billing slice: no strip */
     wrap.appendChild(kpiTiles(k));
     wrap.appendChild(needsAction(k));
     var bottom = D.el("div", { "class": "ov-bottom" });
@@ -491,9 +491,9 @@
     body.appendChild(wrap);
   }
 
-  /* Runs once per page load and on "Try again"; switching panels never refetches. GET /dashboard/ and
-     GET /account/setup/ run in parallel; a setup 404 (every caller the closed launch gate does not admit) renders
-     today's Overview through the same render() as before. The first load always shows today's skeleton (spec 6.1
+  /* Runs once per page load and on "Try again"; switching panels never refetches. Only GET /account/setup/ is
+     read: the API has no /dashboard/ yet, so the Overview renders from an empty payload (no trial strip, no
+     figures) through the same render() as before. The first load always shows today's skeleton (spec 6.1
      item 8, D13), and a failed first setup read (not 404 or 401) renders exactly today's result (spec r3 6.1 item 2,
      D16): the setup load-error card is only for follow-up reads. On a retry the clicked button is about to be
      removed, so focus moves to the Overview h1, which stays in place (audit F8). */
@@ -502,15 +502,13 @@
     var body = $("ov-body");
     skeleton(body);
     if (retry) $("h-overview").focus();
-    Promise.all([D.call("GET", "/dashboard/", null, true), D.call("GET", "/account/setup/", null, true)]).then(function (r) {
-      var dash = r[0], st = r[1];
-      if (dash.status === 401 || st.status === 401) return; /* call() cleared the token and is leaving for sign-in */
+    D.call("GET", "/account/setup/", null, true).then(function (st) {
+      if (st.status === 401) return; /* call() is leaving for sign-in */
       lastSetup = st.ok ? obj(st.data) : null; /* Phase 3 S2: every handled setup answer, before routing */
-      lastDash = dash;
-      if (dash.ok) {
-        renderSubscription((dash.data || {}).trial || null);
-        renderReferral(true, (dash.data || {}).referral);
-      }
+      D.setWorkspace(siteName(lastSetup));
+      lastDash = { ok: true, status: 200, data: {} };
+      renderSubscription(null);
+      renderReferral(true, null);
       var v = setupView(st);
       obRoute(v === "error" ? "today" : v, st.data); /* D16: a first-read outage never replaces a working Overview */
     });
@@ -533,7 +531,7 @@
   var MOBILE_BAD = "Enter a valid Philippine mobile number.";
   var CREATE_FB = "Check your connection and tap Create again. Nothing was lost.";
   var SAVE_FB = "Check your connection and try again. Nothing was lost.";
-  var BLOCKED_VIEW = { business_identity_unavailable: "b2", first_site_removed: "b3", site_billing_only: "b4" };
+  var BLOCKED_VIEW = { first_site_removed: "b3" };
   var OB = { started: false, completedName: null, elig: null, busy: false, timer: null, seq: 0, lastChecked: "", lastResult: null, reopen: false };
   var account0 = {}, lastDash = null, lastSetup = null; /* lastSetup: the latest GET /account/setup/ answer of this page load (Phase 3 spec S1-S3); memory only, never stored */
   var optOpen = false; /* the setup card: collapsed on page load, kept across redraws of this page load; memory only, never stored */
@@ -545,22 +543,14 @@
     if (!res.ok) return "error";
     var d = obj(res.data), fs = obj(d.first_site);
     if (d.state === "not_started") return "not_started";
-    if (d.state === "in_progress") return d.minimum_completed_at ? "complete" : typeof fs.id === "number" ? "step3" : "today"; /* CR-2 11.4: a finished Account that cleared one contact in Settings > General keeps the normal Overview */
+    if (d.state === "in_progress") return d.minimum_completed_at ? "complete" : typeof fs.id === "string" && fs.id !== "" ? "step3" : "today"; /* CR-2 11.4: a finished Account that cleared one contact in Settings > General keeps the normal Overview */
     if (d.state === "minimum_complete") return "complete";
-    /* Spec 6.1 item 6: business_identity_unavailable with a first_site is an operator test-Site owner (create_first_site
-       always links, so only an operator-made Site is unlinked): nothing to onboard, today's Overview unchanged. */
-    if (d.state === "blocked" && d.blocked_reason === "business_identity_unavailable" && d.first_site) return "today";
     if (d.state === "blocked" && has(BLOCKED_VIEW, d.blocked_reason)) return BLOCKED_VIEW[d.blocked_reason];
     return "today"; /* an unknown state or reason fails toward today's Overview (spec 6.1 item 2) */
   }
-  function step2Slot(elig) {
-    var e = obj(elig);
-    if (e.data_entry_open !== true) return "b1";
-    if (e.first_site_entitlement === "none") return "b5";
-    if (e.can_create !== true) return "reread";
-    return "step2";
-  }
-  function countOf(setup) { var f = obj(obj(setup).first_site); return 1 + (typeof f.id === "number" && !f.deleted ? 1 : 0); }
+  /* The setup answer says whether a first site can be created (can_create_site); there is no launch gate or trial check. */
+  function step2Slot(elig) { return obj(elig).can_create_site === true ? "step2" : "reread"; }
+  function countOf(setup) { var f = obj(obj(setup).first_site); return 1 + (typeof f.id === "string" && f.id !== "" && !f.deleted ? 1 : 0); }
   function siteNameError(v) { var t = String(v == null ? "" : v).trim(); return t.length >= 1 && t.length <= 80 ? "" : NAME_ERR; }
   function createBody(name, address) {
     return { template: "sante", subdomain: String(address == null ? "" : address).trim().toLowerCase(), display_name: String(name == null ? "" : name).trim() };
@@ -570,9 +560,8 @@
     if (st === 201) return { kind: "created", subdomain: typeof d.subdomain === "string" ? d.subdomain : "" };
     if ((st === 400 || st === 409) && typeof f.subdomain === "string") return { kind: "field", field: "subdomain", text: f.subdomain };
     if (st === 400 && typeof f.display_name === "string") return { kind: "field", field: "display_name", text: f.display_name };
-    if (st === 409 && d.code === "add_site_unavailable") return { kind: "already" };
-    if (st === 409 && d.code === "subscription_inactive") return { kind: "inactive" };
-    if (st === 409 && (d.code === "first_site_removed" || d.code === "business_identity_unavailable")) return { kind: "reread" };
+    if (st === 409 && d.code === "site_limit_reached") return { kind: "already" };
+    if (st === 409 && d.code === "first_site_removed") return { kind: "reread" };
     if (st === 404) return { kind: "gone" };
     if (st === 401) return { kind: "signout" };
     return { kind: "alert", text: st ? messageOf(res, CREATE_FB) : CREATE_FB };
@@ -581,16 +570,16 @@
     var st = res ? res.status : 0, d = obj(res && res.data), f = obj(d.fields);
     if (st === 200) return { kind: "saved" };
     if (st === 400 && Object.keys(f).length) return { kind: "fields", fields: f };
-    if ((st === 403 && d.code === "billing_only") || st === 404) return { kind: "reread" };
+    if (st === 404) return { kind: "reread" };
     if (st === 401) return { kind: "signout" };
     return { kind: "alert", text: st ? messageOf(res, SAVE_FB) : SAVE_FB };
   }
   function prefill(detail, first) {
-    var d = obj(detail), s = obj(d.settings), f = obj(first);
+    var d = obj(detail), f = obj(first);
     var biz = typeof d.business_name === "string" ? d.business_name.trim() : "";
     if (!biz && typeof f.display_name === "string" && f.display_name.trim() && f.display_name !== f.subdomain) biz = f.display_name.trim();
-    return { business_name: biz, contact_email: typeof s.contact_email === "string" ? s.contact_email : "",
-      contact_mobile: typeof s.contact_mobile === "string" ? s.contact_mobile : "" };
+    return { business_name: biz, contact_email: typeof d.contact_email === "string" ? d.contact_email : "",
+      contact_mobile: typeof d.contact_mobile === "string" ? d.contact_mobile : "" };
   }
   function detailsErrors(v) {
     var e = {};
@@ -852,15 +841,11 @@
     s.appendChild(card);
     if (was) $(focus ? "ob-h-blocked" : "ob-dlg-h").focus();
   }
+  /* No request: the setup answer already in hand carries can_create_site and site_host_suffix. */
   function loadEligibility(focus) {
-    obSkeleton();
-    D.call("GET", "/platform/eligibility/", null, true).then(function (e) {
-      if (e.status === 401) return;
-      if (!e.ok) return drawSetupError(function () { loadEligibility(focus); });
-      OB.elig = obj(e.data);
-      if (!OB.started) return drawStep1();
-      drawSlot(false, focus);
-    });
+    OB.elig = obj(lastSetup);
+    if (!OB.started) return drawStep1();
+    drawSlot(false, focus);
   }
   function drawSlot(afterReread, focus) {
     var slot = step2Slot(OB.elig);
@@ -868,13 +853,14 @@
     if (slot === "reread") return afterReread ? drawBlocked("b2", 1, focus) : reread("can_create");
     drawBlocked(slot, 1, focus);
   }
-  /* why: "can_create" (eligibility said no), "already" (409 add_site_unavailable), "reread" (409 removed/identity),
+  /* why: "can_create" (the setup answer said no), "already" (409 site_limit_reached), "reread" (409 first_site_removed),
      "gone" (404 on a write), "save" (after a save that was refused or did not complete). */
   function reread(why) {
     obSkeleton();
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
+      D.setWorkspace(siteName(lastSetup));
       var v = setupView(st);
       if (v === "not_started" && why === "can_create") return drawBlocked("b2", 1, true);
       if (v === "not_started") return loadEligibility(true);
@@ -888,7 +874,7 @@
   function checkRemoved(data, why) {
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (res.status === 401) return;
-      var list = res.ok && Array.isArray(obj(res.data).sites) ? res.data.sites : null;
+      var list = res.ok ? D.sitesOf(res) : null;
       if (list && list.length === 0) return drawBlocked("b3", countOf(data), !!why);
       toToday(false);
     });
@@ -1122,12 +1108,11 @@
       OB.busy = false; btn.disabled = false; btn.textContent = "Create my site";
       var o = createOutcome(res), d = obj(res.data);
       if (o.kind === "signout") return;
-      if (o.kind === "created" && typeof d.id === "number") return drawStep3Load({ id: d.id, subdomain: o.subdomain, display_name: d.display_name }, "created", o.subdomain);
+      if (o.kind === "created" && typeof d.id === "string" && d.id !== "") return drawStep3Load({ id: d.id, subdomain: o.subdomain, display_name: d.display_name }, "created", o.subdomain);
       if (o.kind === "created") return reread("save");
       if (o.kind === "field" && o.field === "subdomain") { OB.seq++; OB.lastChecked = ""; OB.lastResult = null; setAddress(addr, { kind: "error", text: o.text }); addr.input.focus(); return; }
       if (o.kind === "field") { setFieldError(name, o.text); name.input.focus(); return; }
       if (o.kind === "already") return reread("already");
-      if (o.kind === "inactive") return drawBlocked("b5", 1, true);
       if (o.kind === "reread" || o.kind === "gone") return reread(o.kind);
       alertSlot.appendChild(alertBox("We couldn't create your site", o.text));
     });
@@ -1190,7 +1175,13 @@
     });
     if (bad) { bad.input.focus(); return; } /* first invalid field, order Business name, Email, Mobile number (spec 11.5) */
     OB.busy = true; btn.disabled = true; btn.textContent = "Saving…";
-    D.call("PATCH", "/sites/" + first.id + "/settings/", values, true).then(function (res) {
+    /* Two calls: the contacts live on the site, the business name on its business profile. The first failure
+       is shown as before; saving again repeats both, which is harmless. */
+    var contacts = { contact_email: values.contact_email, contact_mobile: values.contact_mobile };
+    D.call("PATCH", "/sites/" + first.id + "/", contacts, true).then(function (a) {
+      if (!a.ok) return a;
+      return D.call("PATCH", "/sites/" + first.id + "/business-profile/", { business_name: values.business_name }, true);
+    }).then(function (res) {
       OB.busy = false; btn.disabled = false; btn.textContent = "Save and finish";
       var o = saveOutcome(res);
       if (o.kind === "signout") return;
@@ -1214,6 +1205,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
+      D.setWorkspace(siteName(lastSetup));
       var v = setupView(st), fsx = obj(obj(st.data).first_site);
       if (v === "complete") { OB.completedName = fsx.display_name || first.display_name || "Your site"; return drawCompletion(); }
       if (v === "step3") return drawStep3Load(first, "notdone", null);

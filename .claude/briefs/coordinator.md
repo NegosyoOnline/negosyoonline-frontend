@@ -87,6 +87,15 @@ Preserve completed work and acceptance of unchanged screens. Investigate failed 
 
 For Sante visual work, follow my approved TWCinc merchant Sante design exactly unless I explicitly approve a change. Adapt it to NegosyoOnline’s architecture and settled business rules without introducing TWC runtime dependencies.
 
+### Addition: check for overlap with other sessions
+
+Coach Ed's ruling (2026-11-10): other sessions outside this coordinator's hierarchy also open PRs in the same repositories, and no session's work may override or conflict with another's.
+
+- Before starting a builder, and again before a PR is merged, list the open PRs in that repository with their changed files and compare them with the files the work touches.
+- Have every builder start from the latest `origin/main` and update its branch from `main` before it opens a PR and before it merges (builder brief, section 2).
+- When another session's open PR touches the same file, message the session that owns it before either side merges, agree the order, and record it. Tell Coach Ed plainly when a real overlap cannot be settled between the sessions.
+- A conflict is resolved by keeping both sides' approved work, never by dropping the other session's change.
+
 ## 7. Use the designated testing domains
 
 Use these domains for their respective surfaces:

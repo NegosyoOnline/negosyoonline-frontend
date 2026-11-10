@@ -223,7 +223,7 @@ test("8. every row carries a Public or Private tag; TIN, Site type and the Shipp
   const d = boot();
   await d.show();
   const rows = d.rows();
-  assert.equal(rows.length, 22);
+  assert.equal(rows.length, 23);
   for (const r of rows) {
     assert.equal(tagOf(r).length, 1, labelOf(r));
     assert.ok(["Public", "Private"].includes(tagOf(r)[0]), labelOf(r));
@@ -270,7 +270,7 @@ test("10. the page has no colour input and never sends an accent colour", async 
   await d.show();
   const inputs = [];
   for (const [button] of DIALOGS) { inputs.push(...d.open(button).all((n) => n.tagName === "INPUT")); await d.save(); }
-  assert.equal(inputs.length, 19);
+  assert.equal(inputs.length, 20);
   assert.ok(inputs.every((i) => i.getAttribute("type") !== "color" && !/colou?r|logo/i.test(i.getAttribute("name"))));
   assert.ok(!JSON.stringify(d.calls).includes("accent_color"));
   assert.ok(!/accent_color|type="color"|"color"/.test(SRC));

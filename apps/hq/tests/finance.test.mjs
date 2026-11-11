@@ -551,3 +551,11 @@ test("the page calls the backend only through NOHq, and keeps nothing: no storag
   assert.doesNotMatch(js, /\bfetch\(|XMLHttpRequest|localStorage|sessionStorage|document\.cookie|console\.|history\.|location\.(search|hash|href)|window\.open/);
   assert.match(js, /H\.file\("finance\/payments\/proof\/"/);
 });
+
+test("the page has no visible heading block: the tab row is the top of the body, with a heading for screen readers only", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /view-head|view-sub|<p[^>]*>Bank transfer payments<\/p>/);
+  assert.match(html, /<h1 class="sr-only">Finance[^<]*<\/h1>/);
+  assert.equal(html.match(/<h1/g).length, 1);
+  assert.ok(html.indexOf('class="fin-tabs"') < html.indexOf('id="v-pay"'), "the tabs lead the first view");
+});

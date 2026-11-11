@@ -209,11 +209,11 @@ test("pesos writes centavos as TWCinc writes money", () => {
 });
 
 const HOME = {
-  summary: { total_spent: "1,488.00", total_orders: 1, delivered: 0, needs_attention: 0 },
+  summary: { total_spent: 1488, total_spent_text: "1,488.00", total_spent_centavos: 148800, total_orders: 1, delivered: 0, needs_attention: 0 },
   order_monitor: { delta: 1, awaiting_approval: 1, for_booking: 0, for_shipping: 0, delivered: 0, has_orders: true, series: [{ label: "Sun", count: 0, h: 0 }, { label: "Mon", count: 1, h: 100 }] },
 };
 const CARD = {
-  order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: "1,488.00", payment_label: "Bank transfer", headline: "Membership Pack",
+  order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: 1488, total_text: "1,488.00", total_centavos: 148800, payment_label: "Bank transfer", headline: "Membership Pack",
   chip_class: "is-review", chip_label: "Under review", problem: false, problem_line: "", note: "", awaiting_payment: false, under_review: true, steps: [],
   courier: "", tracking: "", shipping_label: "Free", item_count: 1, item_lines: [{ qty: 1, name: "Membership Pack" }],
   address: "1 Rizal St, Manila", receiver_name: "Juan Dela Cruz", receiver_mobile: "+639171234567",
@@ -253,4 +253,9 @@ test("My Orders lists the cards; with none it says so; a rejected order sends it
   assert.match((await (await ordersPage(dashOf(f))).text()), /No orders on your dashboard yet\./);
   const locked = await ordersPage(dashOf(f));
   assert.equal(locked.headers.get("location"), "/dashboard/");
+});
+
+test("money falls back to the centavos when the backend sends no text", async () => {
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/home": [ok({ summary: { total_spent_centavos: 148800, total_orders: 1, delivered: 0, needs_attention: 0 }, order_monitor: { delta: 0, awaiting_approval: 0, for_booking: 0, for_shipping: 0, delivered: 0, series: [], has_orders: true } })] });
+  assert.match(await (await homePage(dashOf(f))).text(), /acct-kpi-value">&#8369;1,488\.00</);
 });

@@ -520,7 +520,7 @@ export async function fetchOwnProof(args: Member & { proof_id: string }, c: Call
 }
 
 /* ---- the member Home figures and the My Orders cards (routes doc: member/home, member/orders) ----------------------------
-   TWCinc's field names; money arrives already formatted ("1,488.00") beside its centavos. */
+   TWCinc's field names; money is read from the backend's `total_text` / `total_spent_text` (centavos beside them). */
 
 export type HomeSummary = { total_spent: string; total_orders: number; delivered: number; needs_attention: number };
 export type OrderMonitor = {
@@ -535,6 +535,13 @@ export type OrderCard = {
   address: string; receiver_name: string; receiver_mobile: string;
   membership: { label: string; line: string; registered: boolean; sante_member_id: string; act: boolean } | null;
 };
+
+/** TWCinc's money text ("1,488.00"): the backend's own `*_text`, else the centavos written the same way. */
+function moneyText(text: unknown, centavos: unknown): string {
+  if (typeof text === "string" && text) return text;
+  const c = num(centavos, 0);
+  return `${Math.trunc(c / 100).toLocaleString("en-US")}.${String(Math.abs(c) % 100).padStart(2, "0")}`;
+}
 
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
@@ -551,7 +558,7 @@ function parseCard(v: unknown): OrderCard | null {
   if (!record(v) || typeof v.order_number !== "string") return null;
   const m = record(v.membership) ? v.membership : null;
   return {
-    order_number: v.order_number, created_at: str(v.created_at), total: str(v.total),
+    order_number: v.order_number, created_at: str(v.created_at), total: moneyText(v.total_text, v.total_centavos),
     payment_label: str(v.payment_label), headline: str(v.headline), chip_class: str(v.chip_class), chip_label: str(v.chip_label),
     problem: v.problem === true, problem_line: str(v.problem_line), note: str(v.note), awaiting_payment: v.awaiting_payment === true,
     under_review: v.under_review === true,
@@ -569,7 +576,7 @@ export function memberHome(args: Member, c: Calls) {
     const monitor = parseMonitor(b.order_monitor);
     if (!monitor) return null;
     const s = b.summary;
-    return { summary: { total_spent: str(s.total_spent), total_orders: num(s.total_orders, 0), delivered: num(s.delivered, 0), needs_attention: num(s.needs_attention, 0) }, monitor };
+    return { summary: { total_spent: moneyText(s.total_spent_text, s.total_spent_centavos), total_orders: num(s.total_orders, 0), delivered: num(s.delivered, 0), needs_attention: num(s.needs_attention, 0) }, monitor };
   }, c);
 }
 

@@ -78,7 +78,7 @@ Read, not run. Each row matters to this plan. Rows 1 to 4 are where this reposit
 | 5 | **The address typed on `/sign-in/` must be shown on `/code/` from the page's memory only** (design 22.3). Separate HTML files would lose it on the way | `/sign-in/`, `/code/` and `/verify/` are one document, `auth.html`, that changes view in the browser with the History API, as the dashboard routes its sections. After a reload the page says "Code sent to your email." |
 | 6 | **The routes as merged** (`staff_views.py` at `8bd7ec3`): `POST sign-in/` 204, 400 `invalid_email`; `POST sign-in/code/` 204, 400 `invalid_code`; `POST sign-in/verify/` 204, 400 `invalid_code`, 403 `sign_in_paused`, 401 `unauthenticated`; `POST sign-out/` 204; `GET me/` 200 `{"email", "expires_at"}`, 401 `unauthenticated` or `second_step_required`; `GET console/` 200 `{"email", "verified_at", "expires_at", "events": [{"action", "surface", "step", "at"}]}`, the same two 401s. A signed-in person calling a sign-in route gets 409 `already_signed_in`. Any call from another origin gets 403 `origin_not_allowed`. The preflight allows the one header `content-type` | The pages send `Content-Type: application/json` and no other header. Section 5 lists what the page does with each answer |
 | 7 | **With the routes off** (`HQ_STAFF_ORIGIN` unset, which is staging today) the HQ host answers the plain HTML "Page not found" with no cross-origin header. A browser reports that to the page as a failed call, with no status | The page shows "This page is not available right now.", the HQ host's own words for an error. The same for an unreachable server, a refused origin and a 5xx |
-| 8 | **Each app is installed on its own.** CI runs `pnpm install --frozen-lockfile` inside `apps/<app>`, and every app has its own `pnpm-lock.yaml` and `pnpm-workspace.yaml`. The root `pnpm-lock.yaml` also lists each app as an importer, last changed by the foundation commit | `apps/hq` gets its own lockfile, and the root lockfile gains one importer (task 1, with a stop if anything else in it changes) |
+| 8 | **Each app is installed on its own.** CI runs `pnpm install --frozen-lockfile` inside `apps/<app>`, and every app has its own `pnpm-lock.yaml` and `pnpm-workspace.yaml`. The root `pnpm-lock.yaml` also lists each app as an importer, last changed by the foundation commit | `apps/hq` gets its own lockfile, and the root lockfile gains one importer (task 1, with a stop if anything in it differs from the latest `origin/main` other than that importer; 7.2 gives the order agreed with Santé slice 3, which changes the same file) |
 | 9 | **The branch protection of `main` requires three checks by name**: "site lint and build", "dash lint and build", "storefronts lint and build" (read with `gh api`, 2026-11-11) | Adding `hq` to the CI matrix makes a fourth check, "hq lint and build". It runs on every PR but is not required until someone with admin rights adds it. That is a repository setting, listed in 8.2 |
 | 10 | **`scripts/wait_vercel_deploy.sh` waits for exactly three Vercel projects by name** | Not edited by the build. It gains the staff project only after that project exists (8.2); adding it earlier would make the script wait for a status that never comes |
 | 11 | **Local names.** `/etc/hosts` on Coach Ed's computer already has `hq.negosyotest.com` and `ggwp.negosyotest.com` (read 2026-11-11). `hq` is a reserved name in the backend (`apps/sites/subdomains.py`), which the start-up check needs of a staff origin under the site parent | The local check uses `http://hq.negosyotest.com:3003` for the staff app and `http://ggwp.negosyotest.com:8000` for the HQ host, as plan 1's local check did. Plan 1 wrote port 3002 in its example; that is `apps/storefronts`' port, so this plan uses 3003 |
@@ -198,13 +198,21 @@ Steps 7 and 8 are done by a person who holds an enrolled staging admin identity,
 | File | Change | Stage |
 |---|---|---|
 | `package.json` (root) | One added line: `"dev:hq": "pnpm --dir apps/hq dev",` | A |
-| `pnpm-lock.yaml` (root) | One added importer, `apps/hq`. Nothing else may change (task 1, step 5) | A |
+| `pnpm-lock.yaml` (root) | One added importer, `apps/hq`. Compared with the latest `origin/main`, nothing else may differ (task 1, step 5). **Shared with Santé slice 3; see the order below** | A |
 | `.github/workflows/ci.yml` | `app: [site, dash, storefronts]` becomes `app: [site, dash, storefronts, hq]`. Nothing else | A |
 | `README.md` (root) | One added row in the apps table | A |
 | `AGENTS.md` (root) | One added line in the scope list | A |
 | `pnpm-workspace.yaml` (root) | **Not edited.** It already says `apps/*` | |
 | `scripts/wait_vercel_deploy.sh` | **Not edited by the build.** One name added later, only after the Vercel project exists (8.2) | |
 | `.github/workflows/promote-production.yml` | Not edited | |
+
+**The one file shared with Santé slice 3 (ClickUp z8uq9me4yt), and the agreed order.** As relayed by the coordinator from the Santé coordinator on 2026-11-11 (this session did not read that task or its PRs): slice 3 opens two PRs inside `apps/storefronts/` only. The first edits `apps/storefronts/package.json` and `apps/storefronts/next.config.ts`, and so changes the root `pnpm-lock.yaml`. It does not touch `pnpm-workspace.yaml`, the root `package.json`, `.github/workflows/ci.yml`, `apps/dash` or `apps/site`. So the root `pnpm-lock.yaml` is the only file both pieces of work change. Agreed between the two coordinators:
+
+1. Whichever PR is ready first merges first.
+2. The other then updates its branch from `origin/main` and **regenerates the root lockfile with `pnpm install`. The file is never merged by hand.** If Git reports a conflict in it, the branch takes `main`'s copy whole and the install adds this work's part again (task 1, step 5 gives the commands for this plan's side).
+3. Both sides are kept: after either order, the root lockfile carries Santé's `apps/storefronts` change and the `apps/hq` importer.
+
+The Santé coordinator is told of the exact lines of this table before stage A's build PR opens (section 13).
 
 No file of `apps/dash`, `apps/site` or `apps/storefronts` is edited. `tests/dom.mjs` is a copy of `apps/dash/tests/dom.mjs`, not a shared file: the apps share no code today, and this plan does not start that.
 
@@ -305,14 +313,31 @@ In `.github/workflows/ci.yml`, the one line:
         app: [site, dash, storefronts, hq]
 ```
 
-- [ ] **Step 5: Add the app to the root lockfile, and check nothing else moved**
+- [ ] **Step 5: Add the app to the root lockfile, and check nothing else differs from `main`**
+
+The comparison is with the latest `origin/main`, not with the file as it was when the branch was cut: Santé slice 3 changes the `apps/storefronts` importer of this same file (7.2), and a root lockfile that carries that change is expected once it is on `main`.
+
+```bash
+git fetch origin
+git merge origin/main
+```
+If the merge stops on a conflict in `pnpm-lock.yaml`, do not edit the file by hand. Take `main`'s copy whole and go on; the install below adds `apps/hq` to it again:
+
+```bash
+git checkout origin/main -- pnpm-lock.yaml
+git commit --no-edit
+```
+
+Then, in either case:
 
 ```bash
 pnpm install --lockfile-only
-git diff --stat pnpm-lock.yaml
-git diff pnpm-lock.yaml | grep -E '^[+-]' | grep -v -E '^(\+\+\+|---)' | grep -c '^-'
+git diff --stat origin/main -- pnpm-lock.yaml
+git diff origin/main -- pnpm-lock.yaml | grep -E '^[+-]' | grep -v -E '^(\+\+\+|---)' | grep -c '^-'
 ```
-Expected: the last command prints `0` (no line removed), and the diff is one added `apps/hq:` importer whose versions equal the `apps/dash:` importer's. **If any other importer or any package version changed, restore the file with `git checkout pnpm-lock.yaml`, stop, and tell the coordinator:** the root lockfile is shared with every app.
+Expected: the last command prints `0` (no line of `main`'s file removed), and the diff against `origin/main` is one added `apps/hq:` importer whose versions equal the `apps/dash:` importer's. The `apps/storefronts:` importer is whatever `main` has, with or without Santé's change. **If any importer other than `apps/hq` differs from `origin/main`'s, or any package version of `origin/main`'s file changed, restore the file with `git checkout origin/main -- pnpm-lock.yaml`, stop, and tell the coordinator:** the root lockfile is shared with every app.
+
+The same is done again whenever `main` moves before the build PR merges (section 13): update from `main`, take `main`'s lockfile if Git reports a conflict in it, run the install, run the two checks.
 
 - [ ] **Step 6: Commit**
 
@@ -1959,7 +1984,7 @@ Unverified, said plainly:
 10. An event the page has no words for is left out of the console's list.
 11. A failed sign-out says so and stays on the page.
 12. The local port is 3003.
-13. The root lockfile gains one importer, and the build stops if anything else in it moves.
+13. The root lockfile gains one importer, and the build stops if anything else in it differs from the latest `main`. Santé slice 3's change to the same file, once on `main`, is expected and kept (7.2).
 14. Stage A carries the one line "Signed in as …" so the phone proof can be run on it.
 
 ### 11.2 What approving this plan approves
@@ -1982,7 +2007,9 @@ Every row of 8.2 after the first. In particular: the Vercel project, the names, 
 ## 13. Shared files and other sessions
 
 - The files of 7.2, by name: root `package.json`, root `pnpm-lock.yaml`, `.github/workflows/ci.yml`, root `README.md`, root `AGENTS.md`. Each gains lines; none is reordered.
-- No open PR in this repository when this plan was written (`gh pr list`, 2026-11-11, `origin/main` at `0a943b0`).
+- No open PR in this repository when this plan was written (`gh pr list`, 2026-11-11, `origin/main` at `0a943b0`). Read again later the same day: this plan's draft PR 33 was the only one open, and `origin/main` was still `0a943b0`.
+- **Santé slice 3 (ClickUp z8uq9me4yt)** is about to open two PRs inside `apps/storefronts/` only (relayed, not read by this session). The one file it shares with this build is the root `pnpm-lock.yaml`. The order of 7.2 applies: first ready merges first; the other updates from `main` and regenerates the lockfile with `pnpm install`, never by hand; both sides are kept.
+- **Before stage A's build PR opens, the coordinator tells the Santé coordinator these exact changes**, so nothing in a shared file is a surprise: root `package.json` gains the one line `"dev:hq": "pnpm --dir apps/hq dev",` after the `"dev:storefronts"` line; `.github/workflows/ci.yml` changes the one line `app: [site, dash, storefronts]` to `app: [site, dash, storefronts, hq]`; root `pnpm-lock.yaml` gains the one importer `apps/hq`; root `README.md` gains one row and root `AGENTS.md` one line; `pnpm-workspace.yaml` is not edited (it already says `apps/*`); no file under `apps/storefronts`, `apps/dash` or `apps/site` is edited.
 - Reviewers before this plan goes to Coach Ed, and again on each build PR: the Santé/onboarding coordinator, who owns this repository's other work, and the NPC coordinator.
 - Before each build PR is opened, and again before it merges: fetch `origin/main`, bring the branch up to date, re-run lint, tests and build, list the open PRs with their files, and tell the coordinator of any that touch a file of 7.2.
 

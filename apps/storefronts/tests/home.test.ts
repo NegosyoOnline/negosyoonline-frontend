@@ -125,9 +125,10 @@ test("policy links: none now; listed when the answer has them, local paths only"
   assert.doesNotMatch(page, /Elsewhere|Odd|example\.com/);
 });
 
-test("the contact form as first shown: posts to /contact/, empty, no note", () => {
+test("the contact form as first shown: posts to /contact/ and returns to the contact section, empty, no note", () => {
   const page = render();
-  assert.match(page, /<form method="post" action="\/contact\/" novalidate /);
+  assert.match(page, /<form method="post" action="\/contact\/#contact" novalidate /);
+  assert.match(page, /<section class="section contact-section" id="contact"/); // the place the answer scrolls to
   assert.match(page, /<input type="text" name="name" value="" placeholder="Your Name"/);
   assert.match(page, /<textarea name="message"[^>]*><\/textarea>/);
   assert.match(page, /<input type="text" name="website" tabindex="-1" autocomplete="off">/);

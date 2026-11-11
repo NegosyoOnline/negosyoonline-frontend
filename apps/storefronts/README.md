@@ -17,7 +17,7 @@ Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pag
 | Path | Answer |
 | --- | --- |
 | `/` | A served Santé site: the Santé home. Otherwise the neutral 404. |
-| `/contact/` | A post from a served Santé site: the home again with the "could not send" note and the typed values kept. Nothing is sent or stored; the sending is a later task. Any other method, or any other host: the neutral 404. |
+| `/contact/` | A post from a served Santé site: the home again with the "could not send" note and the typed values kept. The form's address is `/contact/#contact`, so the browser shows the answer at the contact section, where the note is. Nothing is sent or stored; the sending is a later task. Any other method, or any other host: the neutral 404. |
 | `/assets/sante/*` | The approved Santé files, served as static files. |
 | anything else | The neutral 404, with or without a trailing slash, any method. |
 

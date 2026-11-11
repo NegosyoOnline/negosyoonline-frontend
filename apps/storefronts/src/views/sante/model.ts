@@ -29,7 +29,11 @@ export type HomeModel = {
   };
 };
 
-export const CONTACT_PATH = "/contact/";
+/* Where the form posts. The "#contact" part is not sent to the server: the browser posts to
+   /contact/ and then scrolls the answer to the contact section, so the note under the form is in
+   view. Without it the answer opens at the top of the page and the post looks like nothing
+   happened. TWCinc's own answer after a sent message goes to the same place ("/?contact=sent#contact"). */
+export const CONTACT_PATH = "/contact/#contact";
 export const CONTACT_FAILED_NOTE = "We could not send your message. Please try again in a moment.";
 
 const MAX_NAME = 120;

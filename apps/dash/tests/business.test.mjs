@@ -319,6 +319,7 @@ test("layout: no scope card, the tag legend is one plain line, readiness has the
   assert.ok(!cardOf("bs-h-id").classList.contains("bs-ready-card"));
   const labels = (id) => d.rows().filter((r) => { let n = r; while (n && n !== cardOf(id)) n = n.parentNode; return !!n; }).map(labelOf);
   assert.deepEqual(labels("bs-h-id"), ["Business name", "Site name", "Business address", "Site type"]);
+  assert.equal(d.$("bs-row-type").parentNode, d.$("bs-h-id").parentNode, "the Site type row is marked: sante.js (not loaded here) puts the Sponsor ID row in its place for a Santé site");
   assert.deepEqual(labels("bs-h-contact"), ["Store email", "Store mobile", "Facebook", "Instagram", "TikTok"]);
   assert.ok(d.$("bs-edit-address"));
 });

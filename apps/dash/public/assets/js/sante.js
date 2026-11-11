@@ -1,12 +1,14 @@
-/* The Santé "Sponsor ID" card on Business Settings (ClickUp z8uq9m92ez; mockup approved by Coach Ed 2026-11-11, moved
-   into Business Settings by his ruling of the same day). The last card on /settings/business/, shown only when the
-   selected site is a Santé site: one row, the site's Sponsor ID, and an Edit dialog. business.js (loaded before this
-   file) draws the page, tells this file which site it drew (NOSante.mount) and shares its dialog and field through
-   NOBusiness.ui. Reads GET /sites/{id}/sante/settings/; a save is ONE PATCH to that address with {sponsor_id}.
+/* The Santé "Sponsor ID" row on Business Settings (ClickUp z8uq9m92ez; mockup approved by Coach Ed 2026-11-11, moved
+   into Business Settings and then into the Business identity card by his rulings of the same day). For a Santé site
+   it is the last row of the Business identity card, in the place of the "Site type" row: the site's Sponsor ID and
+   an Edit dialog. business.js (loaded before this file) draws the page, hands this file the site and its Site type
+   row (NOSante.mount) and shares its dialog and field through NOBusiness.ui. Reads GET /sites/{id}/sante/settings/;
+   a save is ONE PATCH to that address with {sponsor_id}.
    "A Santé site" is decided from `template` in GET /sites/ (the answer business.js already has), never from a 404:
    the API answers 404 alike for a missing site, a site that is not a Santé site and a switched-off surface. A 404
-   on the read shows no card; a 404 on a save reads the whole page again, and Business Settings says what it finds.
-   The card adds no rule of its own: the value is trimmed, its case kept, and a refusal is the server's own message.
+   on the read puts the Site type row back; a 404 on a save reads the whole page again, and Business Settings says
+   what it finds. The row adds no rule of its own: the value is trimmed, its case kept, and a refusal is the server's
+   own message.
    Tenant safety as in business.js: the site comes only from business.js's GET /sites/, a dialog keeps the id it was
    opened for, an answer for an older read is dropped, nothing is stored in the browser.
    Plain ES5. API strings reach the page through D.el, textContent or input.value only. */
@@ -14,7 +16,7 @@
   var D = window.NODash, G = window.NOBusiness, U = G.ui, $ = function (id) { return document.getElementById(id); };
   var PATH = "/sante/settings/";
   var SAVE_FAILED = "We couldn’t save. Check your connection and try again.";
-  var S = { seq: 0, site: null, settings: null, parent: null, node: null }; /* memory only, never stored */
+  var S = { seq: 0, site: null, settings: null, type: null, node: null }; /* memory only, never stored */
 
   function str(v) { return typeof v === "string" ? v.trim() : ""; }
   function isSante(site) { return !!site && site.template === "sante"; }
@@ -22,77 +24,67 @@
   function chip(kind, text) { return D.el("span", { "class": "chip chip-" + kind }, text); }
   function say(text) { var n = $("bs-live"); if (n) n.textContent = text; } /* Business Settings' own live region */
 
-  /* business.js calls this each time it draws the page for a site: `parent` is its card grid. A site that is not a
-     Santé site gets nothing. The same site drawn again (after a Business Settings save) reuses what was read. */
-  function mount(site, parent) {
-    S.parent = parent || null;
-    S.node = null;
-    if (!S.parent || !isSante(site)) { S.seq++; S.site = null; S.settings = null; return; }
+  /* business.js calls this each time it draws the page for a site: `slot` is the Site type row it just drew in the
+     Business identity card. A site that is not a Santé site keeps that row and gets nothing. For a Santé site the
+     Sponsor ID row takes its place at once, so the card does not change shape when the read answers. The same site
+     drawn again (after a Business Settings save) reuses what was read. */
+  function mount(site, slot) {
+    S.type = slot || null;
+    S.node = S.type;
+    if (!S.type || !isSante(site)) { S.seq++; S.site = null; S.settings = null; S.type = null; S.node = null; return; }
     if (S.site && S.site.id === site.id && S.settings) { S.site = site; draw(); return; }
     S.site = site;
     S.settings = null;
+    place(shell([D.el("span", { "class": "bs-none" }, "Loading…")]));
     load();
   }
   /* business.js calls this when it starts a new read or the page is left: nothing from before is drawn afterwards. */
-  function reset() { S.seq++; S.site = null; S.settings = null; S.parent = null; S.node = null; }
+  function reset() { S.seq++; S.site = null; S.settings = null; S.type = null; S.node = null; }
 
   function load() {
     var my = ++S.seq, site = S.site;
     if (!site) return;
     D.call("GET", "/sites/" + site.id + PATH, null, true).then(function (r) {
-      if (my !== S.seq || r.status === 401) return; /* a newer read owns the card, or app.js is already signing out */
-      if (r.status === 404) { place(null); return; } /* no Santé settings here: no card, the page is otherwise as it was */
+      if (my !== S.seq || r.status === 401) return; /* a newer read owns the row, or app.js is already signing out */
+      if (r.status === 404) { place(S.type); return; } /* no Santé settings here: the Site type row is back, the page is as it was */
       if (!r.ok || !r.data) { drawError(); return; }
       S.settings = r.data;
       draw();
     });
   }
-  /* The card takes the last place in the grid; drawn again, it replaces itself. */
-  function place(card) {
-    var parent = S.parent, old = S.node;
-    if (!parent) return;
-    if (card) parent.insertBefore(card, old && old.parentNode === parent ? old : null);
-    if (old && old.parentNode === parent) parent.removeChild(old);
-    S.node = card;
+  /* One row holds the place at the end of the Business identity card; a new one replaces the one there. */
+  function place(row) {
+    var old = S.node, parent = old && old.parentNode;
+    if (!parent || !row || row === old) return;
+    parent.insertBefore(row, old);
+    parent.removeChild(old);
+    S.node = row;
   }
-  function shell() {
-    var card = D.el("section", { "class": "dash-card acct-card", id: "st-card", "aria-labelledby": "st-h-sponsor" });
-    card.appendChild(D.el("h2", { id: "st-h-sponsor" }, "Sponsor ID"));
-    return card;
+  /* The card's own row pattern: label, value, an action to its right, a help line under it. No Public or Private tag. */
+  function shell(values, action, help) {
+    var row = D.el("div", { "class": "acct-set-row", id: "st-row" });
+    row.appendChild(D.el("div", { "class": "acct-set-label" }, "Sponsor ID"));
+    var value = D.el("div", { "class": "acct-set-value" });
+    values.forEach(function (n) { value.appendChild(n); });
+    row.appendChild(value);
+    if (action) { var a = D.el("div", { "class": "acct-set-action" }); a.appendChild(action); row.appendChild(a); }
+    if (help) row.appendChild(D.el("div", { "class": "bs-row-help" }, help));
+    return row;
   }
   function drawError() {
-    var card = shell();
-    var box = D.el("div", { "class": "err-box", role: "alert" });
-    box.appendChild(D.el("p", {}, "We could not load the sponsor ID. Check your connection and try again. Nothing was changed."));
-    var again = D.el("button", { type: "button", "class": "no-btn no-btn-primary", id: "st-retry" }, "Try again");
+    var again = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "st-retry" }, "Try again");
     again.addEventListener("click", function () { load(); });
-    box.appendChild(again);
-    card.appendChild(box);
-    place(card);
+    place(shell([D.el("span", { "class": "bs-none", role: "alert" }, "We could not load the sponsor ID.")], again));
   }
   function draw(focusId) {
     var settings = S.settings;
-    if (!S.parent || !S.site || !settings) return;
-    var card = shell();
-    card.appendChild(D.el("p", { "class": "dash-copy" }, "New members who register through this site are registered under your own Santé sponsor ID."));
+    if (!S.node || !S.site || !settings) return;
     var sponsor = str(settings.sponsor_id);
-    var row = D.el("div", { "class": "acct-set-row" });
-    row.appendChild(D.el("div", { "class": "acct-set-label" }, "Sponsor ID"));
-    var value = D.el("div", { "class": "acct-set-value" });
-    if (sponsor) value.appendChild(txt(sponsor));
-    else {
-      value.appendChild(D.el("span", { "class": "bs-none" }, "Not added"));
-      value.appendChild(chip("warn", "Needed for member registration"));
-    }
-    row.appendChild(value);
-    var action = D.el("div", { "class": "acct-set-action" });
     var edit = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "st-edit", "aria-label": "Edit sponsor ID" }, "Edit");
     edit.addEventListener("click", function () { openEdit(edit); });
-    action.appendChild(edit);
-    row.appendChild(action);
-    if (!sponsor) row.appendChild(D.el("div", { "class": "bs-row-help" }, "Member registration on this site cannot start until you add it. Nothing else on your site waits for it."));
-    card.appendChild(row);
-    place(card);
+    place(sponsor ? shell([txt(sponsor)], edit)
+      : shell([D.el("span", { "class": "bs-none" }, "Not added"), chip("warn", "Needed for member registration")], edit,
+        "Member registration on this site cannot start until you add it. Nothing else on your site waits for it."));
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }

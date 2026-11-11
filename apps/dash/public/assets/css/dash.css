@@ -1870,6 +1870,9 @@ body.dash-app #view-settings-general .bs-pick { display: flex; flex-wrap: wrap; 
 body.dash-app #view-settings-general .bs-pick label { font-size: 14px; font-weight: 600; color: var(--text-2); }
 body.dash-app #view-settings-general .bs-select { min-height: 44px; max-width: 100%; padding: 0 12px; border: 1px solid var(--switch-line); border-radius: 8px; background: var(--switch-bg); color: var(--text); font: inherit; }
 body.dash-app #view-settings-general .acct-grid { align-items: start; }
+/* Business identity and Customer contact share a row of the grid and end at the same height (Coach Ed's ruling, 2026-11-11,
+   ClickUp z8uq9m92ez): the shorter one takes the row's height. Every other card keeps its own height. */
+body.dash-app #view-settings-general .acct-grid > :is([aria-labelledby="bs-h-id"], [aria-labelledby="bs-h-contact"]) { align-self: stretch; }
 body.dash-app #view-settings-general .bs-card-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 body.dash-app #view-settings-general .bs-row-help { flex: 1 1 100%; font-size: 14px; font-weight: 500; color: var(--meta); overflow-wrap: anywhere; }
 body.dash-app #view-settings-general .bs-none { color: var(--meta); font-weight: 500; }

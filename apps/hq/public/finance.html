@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
 <link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
 <script src="/assets/js/theme.js?v=20261111a"></script>
-<link rel="stylesheet" href="/assets/css/hq.css?v=20261111f">
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261111g">
 </head>
 <body class="dash-app">
 <a class="skip" href="#main">Skip to content</a>
@@ -59,9 +59,8 @@
 
       <div class="view" id="v-pay" hidden>
         <p><a class="back" href="/finance/" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>Back to payments</a></p>
-        <p class="banner fin-msg" id="p-msg" role="status" hidden></p>
         <p class="dash-copy" id="p-loading" hidden>Loading the payment…</p>
-        <div class="view" id="p-body" hidden>
+        <div class="fin-split" id="p-body" hidden>
           <section class="dash-card fin-pay" aria-labelledby="p-site">
             <div class="batch-title"><h2 id="p-site"></h2><span class="chip chip-neutral" id="p-status"></span></div>
             <p class="small" id="p-site-id"></p>
@@ -74,50 +73,22 @@
               <div><dt>Subscriber email</dt><dd id="p-email"></dd></div>
             </dl>
             <p class="dash-copy" id="p-decided" hidden></p>
+            <div class="fin-hist"><h3 id="history-h">History</h3><ol class="list" id="history" aria-labelledby="history-h"></ol></div>
+            <div class="fin-row fin-cta" id="act" hidden>
+              <button type="button" class="no-btn no-btn-primary" id="open-confirm" aria-haspopup="dialog">Confirm payment</button>
+              <button type="button" class="no-btn no-btn-ghost stop" id="open-reject" aria-haspopup="dialog">Reject payment</button>
+            </div>
           </section>
 
-          <section class="dash-card" aria-labelledby="proof-h">
+          <section class="dash-card fin-proofcard" aria-labelledby="proof-h">
             <h2 id="proof-h">Proof of payment</h2>
-            <p class="dash-copy" id="proof-loading" hidden>Loading the proof…</p>
-            <img class="fin-proof" id="proof-img" alt="The proof of payment the Subscriber sent" hidden>
-            <p><a class="no-btn no-btn-ghost" id="proof-pdf" target="_blank" rel="noopener" hidden>Open the proof (PDF)</a></p>
-            <div class="fin-row" id="proof-err" hidden><p class="field-err" role="alert">The proof could not be loaded.</p><button type="button" class="no-btn no-btn-ghost" id="proof-retry">Try again</button></div>
-          </section>
-
-          <div class="pair" id="act" hidden>
-            <section class="dash-card form-card" aria-labelledby="confirm-h">
-              <h2 id="confirm-h">Confirm</h2>
-              <form class="form-card" id="confirm-form" novalidate>
-                <div class="field"><label for="amount">Amount received (PHP)</label><input class="input num" id="amount" type="text" inputmode="decimal" autocomplete="off" maxlength="16" aria-describedby="amount-err amount-hint"><p class="field-err" id="amount-err" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
-                <button class="no-btn no-btn-primary" type="submit" id="confirm-go">Confirm payment</button>
-              </form>
-              <div class="banner" id="confirm-step" hidden>
-                <p id="confirm-ask"></p>
-                <div class="fin-row"><button type="button" class="no-btn no-btn-primary" id="confirm-yes">Confirm payment</button><button type="button" class="no-btn no-btn-ghost" id="confirm-no">Cancel</button></div>
-              </div>
-            </section>
-            <section class="dash-card form-card" aria-labelledby="reject-h">
-              <h2 id="reject-h">Reject</h2>
-              <form class="form-card" id="reject-form" novalidate>
-                <div class="field"><label for="reason">Reason</label><select class="input" id="reason" aria-describedby="reject-err">
-                  <option value="">Choose a reason</option>
-                  <option value="unreadable">The proof cannot be read</option>
-                  <option value="amount_mismatch">The amount is not the amount due</option>
-                  <option value="not_received">The money has not arrived</option>
-                  <option value="wrong_account">Sent to a different account</option>
-                  <option value="duplicate">This payment was already counted</option>
-                  <option value="other">Another reason (write a note)</option>
-                </select></div>
-                <div class="field"><label for="note">Note to the Subscriber (optional)</label><textarea class="textarea short" id="note" maxlength="300" aria-describedby="note-hint reject-err"></textarea><p class="hint" id="note-hint">The Subscriber sees the reason and this note.</p></div>
-                <p class="field-err" id="reject-err" role="alert" hidden></p>
-                <button class="no-btn no-btn-ghost stop" type="submit" id="reject-go">Reject proof</button>
-              </form>
-            </section>
-          </div>
-
-          <section class="dash-card list-card" aria-labelledby="history-h">
-            <div class="list-head"><h2 id="history-h">History</h2></div>
-            <ol class="list" id="history"></ol>
+            <div class="fin-frame">
+              <p class="dash-copy" id="proof-loading" hidden>Loading the proof…</p>
+              <img class="fin-proof" id="proof-img" alt="The proof of payment the Subscriber sent" hidden>
+              <div class="fin-file" id="proof-file" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6"/></svg><span>PDF document</span></div>
+              <div class="fin-row" id="proof-err" hidden><p class="field-err" role="alert">The proof could not be loaded.</p><button type="button" class="no-btn no-btn-ghost" id="proof-retry">Try again</button></div>
+            </div>
+            <a class="no-btn no-btn-ghost" id="proof-preview" target="_blank" rel="noopener" hidden>Preview</a>
           </section>
         </div>
       </div>
@@ -133,10 +104,42 @@
     </main>
   </div>
 </div>
+<div class="modal" id="m-confirm" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mc-h" aria-describedby="mc-sub">
+    <h2 id="mc-h">Confirm payment</h2>
+    <p class="small" id="mc-sub"></p>
+    <form class="form-card" id="confirm-form" novalidate>
+      <div class="field"><label for="amount">Amount received (PHP)</label><input class="input num" id="amount" type="text" inputmode="decimal" autocomplete="off" maxlength="16" aria-describedby="amount-err amount-hint"><p class="field-err" id="amount-err" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
+      <p class="field-err" id="confirm-err" role="alert" hidden></p>
+      <div class="fin-progress" id="confirm-bar" role="progressbar" aria-label="Confirming the payment" hidden><span></span></div>
+      <div class="fin-row"><button class="no-btn no-btn-primary" type="submit" id="confirm-go">Confirm payment</button><button type="button" class="no-btn no-btn-ghost" id="confirm-cancel">Cancel</button></div>
+    </form>
+  </div>
+</div>
+<div class="modal" id="m-reject" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mr-h" aria-describedby="mr-sub">
+    <h2 id="mr-h">Reject payment</h2>
+    <p class="small" id="mr-sub"></p>
+    <form class="form-card" id="reject-form" novalidate>
+      <div class="field"><label for="reason">Reason</label><select class="input" id="reason" aria-describedby="reject-err">
+        <option value="">Choose a reason</option>
+        <option value="unreadable">The proof cannot be read</option>
+        <option value="amount_mismatch">The amount is not the amount due</option>
+        <option value="not_received">The money has not arrived</option>
+        <option value="wrong_account">Sent to a different account</option>
+        <option value="duplicate">This payment was already counted</option>
+        <option value="other">Another reason (write a note)</option>
+      </select></div>
+      <div class="field"><label for="note">Note to the Subscriber (optional)</label><textarea class="textarea short" id="note" maxlength="300" aria-describedby="note-hint reject-err"></textarea><p class="hint" id="note-hint">The Subscriber sees the reason and this note.</p></div>
+      <p class="field-err" id="reject-err" role="alert" hidden></p>
+      <div class="fin-row"><button class="no-btn no-btn-ghost stop" type="submit" id="reject-go">Reject payment</button><button type="button" class="no-btn no-btn-ghost" id="reject-cancel">Cancel</button></div>
+    </form>
+  </div>
+</div>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111c"></script>
 <script src="/assets/js/menu.js?v=20261111c"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
-<script src="/assets/js/finance.js?v=20261111a"></script>
+<script src="/assets/js/finance.js?v=20261111b"></script>
 </body>
 </html>

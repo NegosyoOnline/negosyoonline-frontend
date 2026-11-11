@@ -15,7 +15,7 @@ Staff sign in here with an emailed code and an authenticator or recovery code. *
 
 `tests/rules.test.mjs` holds these on the served files.
 
-**A proof of payment has no address.** `finance.js` reads it through `NOHq.file`, holds it in the tab's memory and shows it from an object address (`blob:`), which it releases when the payment is closed. Only `image/jpeg` and `image/png` go into the `<img>`; `application/pdf` alone is opened in a new tab; any other type is never shown or opened. For this the CSP has `img-src 'self' blob:` and nothing else was added (Coach Ed, 2026-11-11). A frame, `object-src` or any other CSP word needs its own approval.
+**A proof of payment has no address.** `finance.js` reads it through `NOHq.file`, holds it in the tab's memory and shows it from an object address (`blob:`), which it releases when the payment is closed. Only `image/jpeg` and `image/png` go into the `<img>`; `application/pdf` is shown as a file tile (the CSP has no frame or object), and the Preview button opens the held object in a new tab with no second call; any other type is never shown or opened. For this the CSP has `img-src 'self' blob:` and nothing else was added (Coach Ed, 2026-11-11). A frame, `object-src` or any other CSP word needs its own approval.
 
 ## Pages
 
@@ -23,7 +23,7 @@ Staff sign in here with an emailed code and an authenticator or recovery code. *
 | --- | --- |
 | `/sign-in/`, `/code/`, `/verify/` | `public/auth.html`, `assets/js/auth.js` |
 | `/` | `public/index.html`, `assets/js/console.js`, the side menu from `assets/js/menu.js` (one line per page), and the user chip, its pop-up card (name, email, theme, Sign out) and every Sign out button from `assets/js/shell.js` (loaded after `hq.js` and `menu.js`, before the page's own script, which calls `NOHqShell.signedIn(email)`) |
-| `/finance/` | `public/finance.html`, `assets/js/finance.js`: the bank transfer payments an operator reviews (ClickUp z8uq9me581). One address; the open payment is held in memory, so a reload returns to the queue. It asks `me/` who is signed in, then calls the `finance/payments/` routes |
+| `/finance/` | `public/finance.html`, `assets/js/finance.js`: the bank transfer payments an operator reviews (ClickUp z8uq9me581): the one-payment view is two cards (details, proof), and Confirm and Reject payment open dialogs. One address; the open payment is held in memory, so a reload returns to the queue. It asks `me/` who is signed in, then calls the `finance/payments/` routes |
 | any other path | `public/not-found.html` |
 
 Shared: `assets/js/hq.js` (the client), `assets/js/theme.js`, `assets/css/hq.css`.

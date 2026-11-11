@@ -8,10 +8,11 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "tab-submitted", "tab-confirmed", "tab-rejected", "tab-replaced", "q-msg", "q-loading", "rows", "q-empty", "more-row", "more",
-  "back", "p-loading", "p-body", "p-msg", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
-  "p-submitted", "p-email", "p-decided", "proof-loading", "proof-img", "proof-pdf", "proof-err", "proof-retry",
-  "act", "confirm-form", "amount", "amount-err", "confirm-go", "confirm-step", "confirm-ask", "confirm-yes", "confirm-no",
-  "reject-form", "reason", "note", "reject-err", "reject-go", "history",
+  "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
+  "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
+  "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
+  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-cancel",
+  "m-reject", "mr-h", "mr-sub", "reject-form", "reason", "note", "reject-err", "reject-go", "reject-cancel",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const VIEWS = ["boot", "v-queue", "v-pay", "v-closed", "v-down"];
@@ -39,9 +40,12 @@ const L = "POST finance/payments/list/", D = "POST finance/payments/detail/", P 
 
 /* table: what each route answers, a reply or a function of the call. */
 async function page(table) {
-  const made = [], freed = [];
+  const made = [], freed = [], timers = [];
+  /* The two-second hold is driven by hand: tick() runs what was waiting. */
+  const setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  const tick = () => { timers.splice(0).forEach((t) => t.fn()); };
   const URL = { createObjectURL(blob) { made.push(blob); return "blob:held/" + made.length; }, revokeObjectURL(u) { freed.push(u); } };
-  const p = open(["hq.js", "shell.js", "finance.js"], { ids: IDS, pathname: "/finance/", globals: { URL }, answers: (call) => {
+  const p = open(["hq.js", "shell.js", "finance.js"], { ids: IDS, pathname: "/finance/", globals: { URL, setTimeout, clearTimeout() {} }, answers: (call) => {
     const key = call.method + " " + call.url.slice(BASE.length + 1);
     const reply = Object.prototype.hasOwnProperty.call(table, key) ? table[key] : undefined;
     assert.ok(reply !== undefined, "unexpected call: " + key);
@@ -50,7 +54,7 @@ async function page(table) {
   await settle();
   const shown = () => VIEWS.filter((id) => !p.node[id].hidden);
   const sent = (key) => p.calls.filter((c) => c.method + " " + c.url.slice(BASE.length + 1) === key);
-  return { ...p, made, freed, shown, sent, table };
+  return { ...p, made, freed, timers, tick, shown, sent, table };
 }
 /* The queue with one payment under review, then that payment opened. */
 async function opened(table = {}, one = detail()) {
@@ -59,11 +63,17 @@ async function opened(table = {}, one = detail()) {
   await settle();
   return p;
 }
-async function confirmWith(p, typed) {
+/* Opens the Confirm dialog, types an amount and submits it. */
+function confirmDialog(p, typed) {
+  p.node["open-confirm"].fire("click");
   p.node.amount.value = typed;
   p.node["confirm-form"].fire("submit");
-  if (!p.node["confirm-step"].hidden) p.node["confirm-yes"].fire("click");
-  await settle();
+}
+function rejectDialog(p, reason, note = "") {
+  p.node["open-reject"].fire("click");
+  p.node.reason.value = reason;
+  p.node.note.value = note;
+  p.node["reject-form"].fire("submit");
 }
 
 /* ---- the queue ---- */
@@ -179,8 +189,9 @@ test("a payment opens with its facts, the Subscriber's email, its history and th
   assert.equal(p.node["p-decided"].hidden, true);
   assert.deepEqual(p.node.history.children.map((li) => li.textContent), ["Submitted by the Subscriber, 11 Nov 2026, 9:02 AM"]);
   assert.equal(p.node.act.hidden, false);
-  assert.equal(p.node.amount.value, "", "the page never fills in the amount");
-  assert.equal(p.node["confirm-step"].hidden, true);
+  assert.equal(p.node["m-confirm"].hidden, true);
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.equal(p.node["p-body"].hidden, false);
 });
 
 test("a payment with no reference says so, and a one-month plan is said in the singular", async () => {
@@ -226,7 +237,7 @@ test("an image proof is shown from an object address, which is released when the
     assert.equal(p.made.length, 1);
     assert.equal(p.node["proof-img"].getAttribute("src"), "blob:held/1");
     assert.equal(p.node["proof-img"].hidden, false);
-    assert.equal(p.node["proof-pdf"].hidden, true);
+    assert.equal(p.node["proof-file"].hidden, true);
     assert.equal(p.node["proof-loading"].hidden, true);
     assert.equal(p.node["proof-err"].hidden, true);
     assert.deepEqual(p.freed, []);
@@ -235,19 +246,38 @@ test("an image proof is shown from an object address, which is released when the
     assert.deepEqual(p.freed, ["blob:held/1"]);
     assert.equal(p.node["proof-img"].hasAttribute("src"), false);
     assert.equal(p.node["proof-img"].hidden, true);
+    assert.equal(p.node["proof-preview"].hidden, true);
   }
 });
 
-test("a PDF proof is not shown in the page: it is a link that opens in a new tab", async () => {
+test("a PDF proof is not drawn in the page: it is a file tile, and Preview opens it in a new tab", async () => {
   const p = await opened({ [P]: [200, { type: "application/pdf", size: 3 }] });
   assert.equal(p.node["proof-img"].hidden, true);
   assert.equal(p.node["proof-img"].hasAttribute("src"), false);
-  assert.equal(p.node["proof-pdf"].hidden, false);
-  assert.equal(p.node["proof-pdf"].getAttribute("href"), "blob:held/1");
+  assert.equal(p.node["proof-file"].hidden, false);
+  assert.equal(p.node["proof-preview"].hidden, false);
+  assert.equal(p.node["proof-preview"].getAttribute("href"), "blob:held/1");
   p.node.back.fire("click");
   await settle();
   assert.deepEqual(p.freed, ["blob:held/1"]);
-  assert.equal(p.node["proof-pdf"].hasAttribute("href"), false);
+  assert.equal(p.node["proof-preview"].hasAttribute("href"), false);
+  assert.equal(p.node["proof-preview"].hidden, true);
+  assert.equal(p.node["proof-file"].hidden, true);
+});
+
+test("Preview opens the proof already loaded in a new tab: same object, no second call", async () => {
+  const p = await opened();
+  const a = p.node["proof-preview"];
+  assert.equal(a.hidden, false);
+  assert.equal(a.getAttribute("href"), "blob:held/1");
+  assert.equal(a.getAttribute("href"), p.node["proof-img"].getAttribute("src"), "the image and the tab share one object");
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const tag = (html.match(/<a [^>]*id="proof-preview"[^>]*>/) || [""])[0];
+  assert.match(tag, /target="_blank"/);
+  assert.match(tag, /rel="noopener"/);
+  assert.doesNotMatch(tag, /href=/, "no address in the file");
+  assert.equal(p.made.length, 1);
+  assert.equal(p.sent(P).length, 1, "Preview makes no backend call");
 });
 
 test("any other type is never shown or opened, and no object address is made for it", async () => {
@@ -255,7 +285,8 @@ test("any other type is never shown or opened, and no object address is made for
     const p = await opened({ [P]: [200, { type, size: 3 }] });
     assert.equal(p.node["proof-err"].hidden, false, type);
     assert.equal(p.node["proof-img"].hidden, true, type);
-    assert.equal(p.node["proof-pdf"].hidden, true, type);
+    assert.equal(p.node["proof-file"].hidden, true, type);
+    assert.equal(p.node["proof-preview"].hidden, true, type);
     assert.deepEqual(p.made, [], type);
   }
 });
@@ -265,12 +296,14 @@ test("a proof that fails to load says so, and Try again reads it once more", asy
     const p = await opened({ [P]: reply });
     assert.equal(p.node["proof-err"].hidden, false);
     assert.equal(p.node["proof-loading"].hidden, true);
+    assert.equal(p.node["proof-preview"].hidden, true, "no Preview when the proof did not load");
     assert.equal(p.node.act.hidden, false, "the payment stays open");
     p.table[P] = [200, JPEG];
     p.node["proof-retry"].fire("click");
     await settle();
     assert.equal(p.node["proof-err"].hidden, true);
     assert.equal(p.node["proof-img"].getAttribute("src"), "blob:held/1");
+    assert.equal(p.node["proof-preview"].hidden, false);
     assert.equal(p.sent(P).length, 2);
   }
 });
@@ -307,41 +340,45 @@ test("what is typed becomes centavos as text, never through a decimal number", a
 
 /* ---- confirm ---- */
 
-test("confirming asks once more in the page, then sends the amount typed and shows the paid period", async () => {
-  const p = await opened({ [C]: [200, payment(CONFIRMED)] });
-  p.node.amount.value = "4,999.00";
-  p.node["confirm-form"].fire("submit");
-  assert.equal(p.sent(C).length, 0, "nothing is sent before the second step");
-  assert.equal(p.node["confirm-step"].hidden, false);
-  assert.equal(p.node["confirm-form"].hidden, true);
-  assert.equal(p.node["confirm-ask"].textContent,
-    "Confirm PHP 4,999.00 received for Ana's Store? This starts the paid period and cannot be undone.");
-  p.table[D] = [200, detail(CONFIRMED)];
-  p.node["confirm-yes"].fire("click");
-  await settle();
-  assert.deepEqual(p.sent(C)[0].body, { payment: "btp_one", amount_received_centavos: 499900 });
-  assert.equal(p.node["p-msg"].textContent, "Payment confirmed. The paid period runs 1 Dec 2026 to 1 Jun 2027.");
-  assert.equal(p.node["p-msg"].hidden, false);
-  assert.equal(p.node["p-status"].textContent, "Confirmed");
-  assert.equal(p.node.act.hidden, true);
-  assert.equal(p.sent(D).length, 2, "the payment is read again");
-  assert.equal(p.sent(P).length, 1, "the proof is not read a second time");
-  assert.deepEqual(p.freed, []);
-});
+const DUE = "Ana's Store · amount due PHP 4,999.00";
 
-test("Cancel in the second step sends nothing and returns to the field", async () => {
+test("Confirm payment opens a dialog for the amount received; nothing is sent until it is submitted", async () => {
   const p = await opened();
-  p.node.amount.value = "4999";
-  p.node["confirm-form"].fire("submit");
-  p.node["confirm-no"].fire("click");
-  await settle();
-  assert.equal(p.node["confirm-step"].hidden, true);
-  assert.equal(p.node["confirm-form"].hidden, false);
+  assert.equal(p.node["m-confirm"].hidden, true);
+  p.node["open-confirm"].fire("click");
+  assert.equal(p.node["m-confirm"].hidden, false);
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.equal(p.node["mc-sub"].textContent, DUE);
+  assert.equal(p.node.amount.value, "", "the page never fills in the amount");
+  assert.equal(p.doc.activeElement, p.node.amount, "focus goes into the dialog");
+  assert.equal(p.doc.body.classList.contains("modal-open"), true, "the page behind does not scroll");
+  assert.equal(p.node["confirm-bar"].hidden, true);
   assert.equal(p.sent(C).length, 0);
 });
 
-test("an amount that is not money is refused in the page and nothing is sent", async () => {
+test("the confirm dialog closes with Cancel, Escape or a click outside, and focus returns to the button that opened it", async () => {
   const p = await opened();
+  const ways = [() => p.node["confirm-cancel"].fire("click"), () => p.doc.fire("keydown", { key: "Escape" }),
+    () => p.node["m-confirm"].fire("click")];
+  for (const close of ways) {
+    p.node["open-confirm"].fire("click");
+    assert.equal(p.node["m-confirm"].hidden, false);
+    close();
+    assert.equal(p.node["m-confirm"].hidden, true);
+    assert.equal(p.doc.body.classList.contains("modal-open"), false);
+    assert.equal(p.doc.activeElement, p.node["open-confirm"]);
+  }
+  /* A click inside the box (a different target) does not close it. */
+  p.node["open-confirm"].fire("click");
+  p.node.amount.fire("click");
+  assert.equal(p.node["m-confirm"].hidden, false);
+  assert.equal(p.sent(C).length, 0);
+  assert.deepEqual(p.doc.listeners.keydown.length, 1, "one key handler while open");
+});
+
+test("an amount that is not money is refused in the dialog and nothing is sent", async () => {
+  const p = await opened({ [C]: [200, payment(CONFIRMED)] });
+  p.node["open-confirm"].fire("click");
   for (const typed of ["", "abc", "4999.555", "0"]) {
     p.node.amount.value = typed;
     const e = p.node["confirm-form"].fire("submit");
@@ -349,7 +386,8 @@ test("an amount that is not money is refused in the page and nothing is sent", a
     assert.equal(p.node["amount-err"].hidden, false, typed);
     assert.equal(p.node["amount-err"].textContent, "Enter the amount received, for example 4,999.00.");
     assert.equal(p.node.amount.getAttribute("aria-invalid"), "true");
-    assert.equal(p.node["confirm-step"].hidden, true, typed);
+    assert.equal(p.node["m-confirm"].hidden, false, typed);
+    assert.equal(p.node["confirm-bar"].hidden, true, typed);
   }
   assert.equal(p.sent(C).length, 0);
   p.node.amount.value = "4999";
@@ -358,32 +396,51 @@ test("an amount that is not money is refused in the page and nothing is sent", a
   assert.equal(p.node.amount.hasAttribute("aria-invalid"), false);
 });
 
-test("the buttons are disabled while a confirmation runs, so a double click sends one call", async () => {
+test("a confirmation runs a progress bar for two seconds at least, then shows the result on the Under review list", async () => {
   const p = await opened({ [C]: [200, payment(CONFIRMED)] });
+  confirmDialog(p, "4,999.00");
+  await settle();
+  assert.deepEqual(p.sent(C)[0].body, { payment: "btp_one", amount_received_centavos: 499900 });
+  assert.deepEqual(p.timers.map((t) => t.ms), [2000], "the least time is two seconds");
+  /* The backend has answered yes, but the two seconds are not over: the dialog stays, busy, with the bar. */
+  assert.equal(p.node["m-confirm"].hidden, false);
+  assert.equal(p.node["confirm-bar"].hidden, false);
+  for (const id of ["confirm-go", "confirm-cancel", "reject-go", "reject-cancel"]) assert.equal(p.node[id].disabled, true, id);
+  assert.deepEqual(p.shown(), ["v-pay"]);
+  assert.equal(p.node["q-msg"].hidden, true, "no success is told before the time is up");
+  p.doc.fire("keydown", { key: "Escape" });
+  p.node["m-confirm"].fire("click");
+  assert.equal(p.node["m-confirm"].hidden, false, "Escape and a click outside do nothing while the bar runs");
+  p.table[L] = list([], { under_review_count: 0 });
+  p.tick();
+  await settle();
+  assert.equal(p.node["m-confirm"].hidden, true);
+  assert.equal(p.node["confirm-bar"].hidden, true);
+  assert.equal(p.doc.body.classList.contains("modal-open"), false);
+  assert.deepEqual(p.shown(), ["v-queue"]);
+  assert.equal(p.node["q-msg"].textContent, "Payment confirmed: PHP 4,999.00 received for Ana's Store. The paid period runs 1 Dec 2026 to 1 Jun 2027.");
+  assert.equal(p.node["q-msg"].hidden, false);
+  assert.equal(p.node["tab-submitted"].textContent, "Under review (0)", "the count is read again");
+  assert.equal(p.sent(L).length, 2);
+  assert.deepEqual(p.freed, ["blob:held/1"], "the proof is released");
+  assert.equal(p.sent(C).length, 1);
+});
+
+test("while a confirmation runs, a second submit, a reject submit and the Reject button do nothing", async () => {
+  const p = await opened({ [C]: [200, payment(CONFIRMED)] });
+  p.node["open-confirm"].fire("click");
   p.node.amount.value = "4999";
   p.node["confirm-form"].fire("submit");
-  p.node["confirm-yes"].fire("click");
-  for (const id of ["confirm-yes", "confirm-no", "confirm-go", "reject-go"]) assert.equal(p.node[id].disabled, true, id);
-  p.node["confirm-yes"].fire("click");
+  p.node["confirm-form"].fire("submit");
   p.node["reject-form"].fire("submit");
+  p.node["open-reject"].fire("click");
   await settle();
   assert.equal(p.sent(C).length, 1);
   assert.equal(p.sent(R).length, 0);
-  for (const id of ["confirm-yes", "confirm-no", "confirm-go", "reject-go"]) assert.equal(p.node[id].disabled, false, id);
+  assert.equal(p.node["m-reject"].hidden, true, "a second dialog does not open over the first");
 });
 
-test("what an action answers is brought into view, because the operator is at the forms below the message", async () => {
-  for (const reply of [[409, refused("amount_mismatch")], [200, detail(CONFIRMED)], "offline"]) {
-    const p = await opened({ [C]: reply });
-    const seen = [];
-    p.node["p-msg"].scrollIntoView = (how) => seen.push(how.block);
-    await confirmWith(p, "4999");
-    assert.equal(p.node["p-msg"].hidden, false, String(reply));
-    assert.deepEqual(seen, ["center"], String(reply));
-  }
-});
-
-test("each refusal of a confirmation has its own words, and the payment stays open", async () => {
+test("a refusal stops the bar and stays in the dialog: it is never shown as a success", async () => {
   const words = {
     amount_mismatch: "That is not the amount due (PHP 4,999.00). If a different amount arrived, reject the proof.",
     plan_not_offered: "This site already used the Launch Promo. Reject this proof.",
@@ -395,24 +452,50 @@ test("each refusal of a confirmation has its own words, and the payment stays op
   };
   for (const [code, said] of Object.entries(words)) {
     const p = await opened({ [C]: [409, refused(code)] });
-    await confirmWith(p, "5000");
-    assert.equal(p.node["p-msg"].textContent, said, code);
-    assert.equal(p.node["p-msg"].hidden, false, code);
+    confirmDialog(p, "5000");
+    await settle();
+    p.tick();
+    await settle();
+    assert.equal(p.node["confirm-err"].textContent, said, code);
+    assert.equal(p.node["confirm-err"].hidden, false, code);
+    assert.equal(p.node["m-confirm"].hidden, false, code);
+    assert.equal(p.node["confirm-bar"].hidden, true, code);
+    assert.equal(p.node["confirm-go"].disabled, false, code);
+    assert.equal(p.node["confirm-cancel"].disabled, false, code);
     assert.deepEqual(p.shown(), ["v-pay"], code);
-    assert.equal(p.node.act.hidden, false, code);
-    assert.equal(p.node["confirm-step"].hidden, true, code);
-    assert.equal(p.node["confirm-form"].hidden, false, code);
+    assert.equal(p.node["q-msg"].hidden, true, code);
     assert.equal(p.sent(D).length, 1, code);
+    assert.equal(p.node.act.hidden, false, code);
     assert.equal(p.node.reason.value, code === "plan_not_offered" ? "duplicate" : "", code);
   }
+});
+
+test("a refusal can be corrected and sent again from the same dialog", async () => {
+  const p = await opened({ [C]: [409, refused("amount_mismatch")] });
+  confirmDialog(p, "5000");
+  await settle();
+  assert.equal(p.node["confirm-err"].hidden, false);
+  p.table[C] = [200, payment(CONFIRMED)];
+  p.node.amount.value = "4999";
+  p.node["confirm-form"].fire("submit");
+  assert.equal(p.node["confirm-err"].hidden, true, "the old refusal is cleared when it is sent again");
+  await settle();
+  p.tick();
+  await settle();
+  assert.deepEqual(p.sent(C).map((c) => c.body.amount_received_centavos), [500000, 499900]);
+  assert.deepEqual(p.shown(), ["v-queue"]);
 });
 
 test("a payment that is no longer under review says so and the queue is read again", async () => {
   for (const key of [C, R]) {
     const p = await opened({ [key]: [409, refused("not_under_review")] });
-    if (key === C) await confirmWith(p, "4999");
-    else { p.node.reason.value = "unreadable"; p.node["reject-form"].fire("submit"); await settle(); }
+    if (key === C) confirmDialog(p, "4999"); else rejectDialog(p, "unreadable");
+    await settle();
+    p.tick();
+    await settle();
     assert.deepEqual(p.shown(), ["v-queue"]);
+    assert.equal(p.node["m-confirm"].hidden, true);
+    assert.equal(p.node["m-reject"].hidden, true);
     assert.equal(p.node["q-msg"].textContent, "This payment is no longer under review. It was decided or replaced by a newer proof.");
     assert.equal(p.node["q-msg"].hidden, false);
     assert.equal(p.sent(L).length, 2);
@@ -423,12 +506,15 @@ test("a payment that is no longer under review says so and the queue is read aga
   }
 });
 
-test("a lost answer says so and reads the payment again, so the operator sees what was written", async () => {
+test("a lost answer says so inside the dialog and reads the payment again, so the operator sees what was written", async () => {
   for (const reply of ["offline", [500, refused("server_error")]]) {
     const p = await opened({ [C]: reply });
     p.table[D] = [200, detail(CONFIRMED)];
-    await confirmWith(p, "4999");
-    assert.equal(p.node["p-msg"].textContent, "That did not go through. Check the payment before trying again.");
+    confirmDialog(p, "4999");
+    await settle();
+    assert.equal(p.node["confirm-err"].textContent, "That did not go through. Check the payment before trying again.");
+    assert.equal(p.node["m-confirm"].hidden, false);
+    assert.equal(p.node["confirm-bar"].hidden, true);
     assert.equal(p.sent(D).length, 2);
     assert.equal(p.node["p-status"].textContent, "Confirmed", "it was written after all");
     assert.equal(p.node.act.hidden, true);
@@ -436,45 +522,56 @@ test("a lost answer says so and reads the payment again, so the operator sees wh
   }
 });
 
-test("a confirmation the backend calls invalid shows the field's message", async () => {
+test("a confirmation the backend calls invalid shows the field's message in the dialog", async () => {
   const p = await opened({ [C]: [400, refused("invalid_request")] });
-  await confirmWith(p, "4999");
+  confirmDialog(p, "4999");
+  await settle();
   assert.equal(p.node["amount-err"].hidden, false);
   assert.equal(p.node["amount-err"].textContent, "Enter the amount received, for example 4,999.00.");
-  assert.equal(p.node["confirm-form"].hidden, false);
+  assert.equal(p.node["m-confirm"].hidden, false);
+  assert.equal(p.node["confirm-bar"].hidden, true);
 });
 
 test("signed out in the middle of an action goes to sign-in; the routes switched off shows the closed state", async () => {
   const out = await opened({ [C]: [401, refused("unauthenticated")] });
-  await confirmWith(out, "4999");
+  confirmDialog(out, "4999");
+  await settle();
   assert.equal(out.location.replaced, "/sign-in/");
   const off = await opened({ [C]: [404, refused("not_found")] });
   off.table[L] = [404, refused("not_found")];
-  await confirmWith(off, "4999");
+  confirmDialog(off, "4999");
+  await settle();
   assert.deepEqual(off.shown(), ["v-closed"]);
+  assert.equal(off.node["m-confirm"].hidden, true);
 });
 
 /* ---- reject ---- */
 
-test("rejecting sends the reason and the note, and says the Subscriber can send another", async () => {
-  const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
-  p.table[D] = [200, detail({ status: "rejected", decided_at: "2026-11-12T10:00:00+08:00", decided_by: "sample.staff",
-    reject_reason: "unreadable", reject_note: "" })];
-  p.node.reason.value = "unreadable";
-  p.node.note.value = "  ";
-  const e = p.node["reject-form"].fire("submit");
-  assert.equal(e.prevented, true);
-  assert.equal(p.node["reject-go"].disabled, true);
-  await settle();
-  assert.deepEqual(p.sent(R)[0].body, { payment: "btp_one", reason: "unreadable", note: "" });
-  assert.equal(p.node["p-msg"].textContent, "Proof rejected. The Subscriber can send another.");
-  assert.equal(p.node["p-decided"].textContent, "Rejected by sample.staff, 12 Nov 2026, 10:00 AM. Reason: The proof cannot be read.");
-  assert.equal(p.node.act.hidden, true);
-  assert.equal(p.sent(P).length, 1);
+test("Reject payment opens a dialog with the reason list at its first line and an empty note", async () => {
+  const p = await opened();
+  p.node["open-reject"].fire("click");
+  assert.equal(p.node["m-reject"].hidden, false);
+  assert.equal(p.node["m-confirm"].hidden, true);
+  assert.equal(p.node["mr-sub"].textContent, "Ana's Store");
+  assert.equal(p.node.reason.value, "");
+  assert.equal(p.node.note.value, "");
+  assert.equal(p.doc.activeElement, p.node.reason);
+  assert.equal(p.doc.body.classList.contains("modal-open"), true);
+  p.node["reject-cancel"].fire("click");
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.equal(p.doc.activeElement, p.node["open-reject"]);
+  p.node["open-reject"].fire("click");
+  p.doc.fire("keydown", { key: "Escape" });
+  assert.equal(p.node["m-reject"].hidden, true);
+  p.node["open-reject"].fire("click");
+  p.node["m-reject"].fire("click");
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.equal(p.sent(R).length, 0);
 });
 
 test("a rejection needs a reason, a note for Another reason, and a note of 300 characters at most", async () => {
   const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
+  p.node["open-reject"].fire("click");
   const tries = [["", "", "Choose a reason."], ["other", " ", "Write a note for this reason."],
     ["unreadable", "x".repeat(301), "Keep the note to 300 characters."]];
   for (const [reason, note, said] of tries) {
@@ -484,6 +581,7 @@ test("a rejection needs a reason, a note for Another reason, and a note of 300 c
     await settle();
     assert.equal(p.node["reject-err"].textContent, said);
     assert.equal(p.node["reject-err"].hidden, false);
+    assert.equal(p.node["m-reject"].hidden, false);
   }
   assert.equal(p.sent(R).length, 0);
   p.node.reason.value = "other";
@@ -494,19 +592,57 @@ test("a rejection needs a reason, a note for Another reason, and a note of 300 c
   assert.equal(p.node["reject-err"].hidden, true);
 });
 
-test("a rejection the backend calls invalid, and a lost answer, are told apart", async () => {
+test("rejecting sends the reason and the note, waits for nothing, and returns to the list with a confirmation", async () => {
+  const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
+  p.table[L] = list([], { under_review_count: 0 });
+  p.node["open-reject"].fire("click");
+  p.node.reason.value = "unreadable";
+  p.node.note.value = "  ";
+  const e = p.node["reject-form"].fire("submit");
+  assert.equal(e.prevented, true);
+  assert.equal(p.node["reject-go"].disabled, true);
+  await settle();
+  assert.deepEqual(p.sent(R)[0].body, { payment: "btp_one", reason: "unreadable", note: "" });
+  assert.deepEqual(p.timers, [], "no forced wait for a rejection");
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.deepEqual(p.shown(), ["v-queue"]);
+  assert.equal(p.node["q-msg"].textContent, "Payment rejected. The Subscriber can send another.");
+  assert.equal(p.node["q-msg"].hidden, false);
+  assert.equal(p.node["tab-submitted"].textContent, "Under review (0)");
+  assert.equal(p.sent(L).length, 2);
+  assert.equal(p.sent(P).length, 1);
+  assert.equal(p.doc.body.classList.contains("modal-open"), false);
+});
+
+test("a rejection the backend calls invalid, and a lost answer, are told apart, inside the dialog", async () => {
   const bad = await opened({ [R]: [400, refused("invalid_request")] });
-  bad.node.reason.value = "duplicate";
-  bad.node["reject-form"].fire("submit");
+  rejectDialog(bad, "duplicate");
   await settle();
   assert.equal(bad.node["reject-err"].textContent, "Check the reason and the note.");
+  assert.equal(bad.node["m-reject"].hidden, false);
   assert.equal(bad.sent(D).length, 1);
+  assert.equal(bad.node["reject-go"].disabled, false);
   const lost = await opened({ [R]: "offline" });
-  lost.node.reason.value = "duplicate";
-  lost.node["reject-form"].fire("submit");
+  rejectDialog(lost, "duplicate");
   await settle();
-  assert.equal(lost.node["p-msg"].textContent, "That did not go through. Check the payment before trying again.");
+  assert.equal(lost.node["reject-err"].textContent, "That did not go through. Check the payment before trying again.");
+  assert.equal(lost.node["m-reject"].hidden, false);
   assert.equal(lost.sent(D).length, 2);
+  const refusedNow = await opened({ [R]: [409, refused("invalid_transition")] });
+  rejectDialog(refusedNow, "duplicate");
+  await settle();
+  assert.equal(refusedNow.node["reject-err"].textContent, "This subscription cannot take a payment in its current state.");
+  assert.equal(refusedNow.node["q-msg"].hidden, true, "a refusal is never a success");
+});
+
+test("a double submit of the reject dialog sends one call", async () => {
+  const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
+  rejectDialog(p, "duplicate");
+  p.node["reject-form"].fire("submit");
+  p.node["confirm-form"].fire("submit");
+  await settle();
+  assert.equal(p.sent(R).length, 1);
+  assert.equal(p.sent(C).length, 0);
 });
 
 test("the six reasons are offered in the plan's words, after a first line that is no reason", () => {
@@ -541,9 +677,10 @@ test("the page has the shell's ids, loads the five scripts in order, and leaves 
   assert.match(html, /<p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-2">Sign out<\/button><\/p>\s*<\/main>/);
   /* The proof image and link carry no address in the file; the action views start hidden. */
   assert.doesNotMatch(tag("proof-img"), /src=/);
-  assert.doesNotMatch(tag("proof-pdf"), /href=/);
-  assert.match(tag("proof-pdf"), /target="_blank"/);
-  for (const id of ["v-queue", "v-pay", "v-closed", "v-down", "act", "confirm-step", "proof-img", "proof-pdf"]) assert.match(tag(id), / hidden>$/, id);
+  assert.doesNotMatch(tag("proof-preview"), /href=/);
+  assert.match(tag("proof-preview"), /target="_blank"/);
+  assert.match(tag("proof-preview"), /rel="noopener"/);
+  for (const id of ["v-queue", "v-pay", "v-closed", "v-down", "act", "proof-img", "proof-file", "proof-preview", "m-confirm", "m-reject", "confirm-bar"]) assert.match(tag(id), / hidden>$/, id);
 });
 
 test("the page calls the backend only through NOHq, and keeps nothing: no storage, no address, no console", () => {
@@ -558,4 +695,31 @@ test("the page has no visible heading block: the tab row is the top of the body,
   assert.match(html, /<h1 class="sr-only">Finance[^<]*<\/h1>/);
   assert.equal(html.match(/<h1/g).length, 1);
   assert.ok(html.indexOf('class="fin-tabs"') < html.indexOf('id="v-pay"'), "the tabs lead the first view");
+});
+
+test("the one-payment view is two cards: details at 7/12 on the left, the proof at 5/12 on the right, details first", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  const body = html.slice(html.indexOf('id="p-body"'), html.indexOf('<section class="dash-card" id="v-closed"'));
+  assert.equal((body.match(/<section /g) || []).length, 2, "two cards, no third");
+  assert.ok(body.indexOf("fin-pay") < body.indexOf("fin-proofcard"), "details come first, so they stack first on a phone");
+  const pay = body.slice(body.indexOf("fin-pay"), body.indexOf("fin-proofcard"));
+  assert.ok(pay.includes('id="open-confirm"') && pay.includes('id="open-reject"'), "the two buttons are in the details card");
+  assert.ok(pay.includes('id="history"'), "History is inside the details card");
+  assert.match(css, /\.fin-split\s*\{[^}]*grid-template-columns:\s*1fr[;\s]/);
+  assert.match(css, /@media[^{]*min-width:\s*900px[^{]*\{[^@]*\.fin-split\s*\{[^}]*grid-template-columns:\s*7fr 5fr/);
+  assert.match(css, /\.fin-proof\s*\{[^}]*object-fit:\s*contain/);
+});
+
+test("the dialogs are real dialogs: labelled, modal, and the confirm bar is a progress bar", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  for (const [id, h] of [["m-confirm", "mc-h"], ["m-reject", "mr-h"]]) {
+    const start = html.indexOf('id="' + id + '"');
+    const box = html.slice(start, html.indexOf("</form>", start));
+    assert.match(box, /role="dialog" aria-modal="true"/, id);
+    assert.ok(box.includes('aria-labelledby="' + h + '"'), id);
+  }
+  assert.match(html, /id="confirm-bar" role="progressbar"/);
+  assert.match(html.slice(html.indexOf('id="confirm-go"'), html.indexOf('id="confirm-go"') + 80), /Confirm payment/);
+  assert.match(html.slice(html.indexOf('id="reject-go"'), html.indexOf('id="reject-go"') + 80), /Reject payment/);
 });

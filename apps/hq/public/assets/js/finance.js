@@ -4,7 +4,9 @@
    nothing about access: the backend does, and the page follows its answer. The user card and Sign out are
    shell.js's.
    The proof has no address. It is read through NOHq.file, held in this tab's memory, shown from an object
-   address, and released when the payment is closed. Only the three exact types are ever shown or opened. */
+   address, and released when the payment is closed. Only the three exact types are ever shown or opened.
+   The Preview button opens that same held object in a new tab: no second call, no second audited view.
+   Confirm and Reject each open a dialog; Confirm keeps a progress bar up for two seconds at least. */
 (function () {
   var H = window.NOHq, $ = function (id) { return document.getElementById(id); };
   var TABS = ["submitted", "confirmed", "rejected", "replaced"];
@@ -32,7 +34,8 @@
 
   var known = false;      /* the backend has said who is signed in */
   var tab = "submitted", cursor = null, listRun = 0;
-  var current = null, payRun = 0, proofUrl = null, pending = null, busy = false;
+  var current = null, payRun = 0, proofUrl = null, busy = false, opener = null, dialog = null;
+  var HOLD = 2000;        /* how long Confirm's progress bar runs at least, in milliseconds */
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -42,14 +45,6 @@
   }
   function show(view) { VIEWS.forEach(function (id) { $(id).hidden = id !== view; }); }
   function say(id, text) { $(id).textContent = text || ""; $(id).hidden = !text; }
-  /* What an action answered. The message sits above the payment and the operator is at the forms below,
-     so it is brought to the middle of the view, clear of the phone header: an answer nobody sees reads as a button that did nothing. */
-  function tell(text) {
-    var m = $("p-msg");
-    say("p-msg", text);
-    if (text && typeof m.scrollIntoView === "function") m.scrollIntoView({ block: "center" });
-  }
-
   /* "PHP 4,999.00" from whole centavos, or "" for anything else. */
   function money(c) {
     if (typeof c !== "number" || !isFinite(c) || c < 0 || c % 1 !== 0) return "";
@@ -150,11 +145,8 @@
     if (proofUrl) URL.revokeObjectURL(proofUrl);
     proofUrl = null;
     $("proof-img").removeAttribute("src");
-    $("proof-pdf").removeAttribute("href");
-    $("proof-img").hidden = true;
-    $("proof-pdf").hidden = true;
-    $("proof-err").hidden = true;
-    $("proof-loading").hidden = true;
+    $("proof-preview").removeAttribute("href");
+    ["proof-img", "proof-file", "proof-preview", "proof-err", "proof-loading"].forEach(function (id) { $(id).hidden = true; });
   }
 
   function loadProof(id, run) {
@@ -167,8 +159,11 @@
       var kind = res.ok && res.blob ? words(SHOWN, res.blob.type) : "";
       if (!kind) { $("proof-err").hidden = false; return; }
       proofUrl = URL.createObjectURL(res.blob);
-      if (kind === "pdf") { $("proof-pdf").setAttribute("href", proofUrl); $("proof-pdf").hidden = false; }
+      /* A PDF is not drawn in the page (the CSP allows no frame or object): it is a file tile. Both open from the held object. */
+      if (kind === "pdf") $("proof-file").hidden = false;
       else { $("proof-img").setAttribute("src", proofUrl); $("proof-img").hidden = false; }
+      $("proof-preview").setAttribute("href", proofUrl);
+      $("proof-preview").hidden = false;
     });
   }
 
@@ -181,15 +176,6 @@
       return "Rejected by " + by + " Reason: " + words(REASON, d.reject_reason) + "." + (d.reject_note ? " " + d.reject_note : "");
     }
     return d.status === "replaced" ? "The Subscriber sent a newer proof." : "";
-  }
-
-  function resetActions() {
-    pending = null;
-    $("confirm-step").hidden = true;
-    $("confirm-form").hidden = false;
-    say("amount-err", "");
-    $("amount").removeAttribute("aria-invalid");
-    say("reject-err", "");
   }
 
   function paint(d) {
@@ -211,7 +197,6 @@
       var what = words(EVENT, e && e.code), who = words(ACTOR, e && e.actor);
       if (what && who) list.appendChild(el("li", "event", what + " by " + who + ", " + H.when(e.at)));
     });
-    resetActions();
     $("act").hidden = d.status !== "submitted";
     $("p-loading").hidden = true;
     $("p-body").hidden = false;
@@ -233,71 +218,139 @@
     payRun++;
     closeProof();
     current = null;
-    say("p-msg", "");
-    $("amount").value = "";
-    $("reason").value = "";
-    $("note").value = "";
     $("p-body").hidden = true;
     $("p-loading").hidden = false;
     show("v-pay");
     readPayment(id, true);
   }
 
+  /* ---- the two dialogs ---- */
+
+  function focusables(box) {
+    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "SELECT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
+  }
+  function inside(box, n) { for (; n; n = n.parentNode) if (n === box) return true; return false; }
+  function onKey(e) {
+    if (!dialog) return;
+    if (e.key === "Escape") { if (!busy) closeDialog(true); return; }
+    if (e.key !== "Tab") return;
+    var f = focusables(dialog), first = f[0], last = f[f.length - 1], at = document.activeElement;
+    if (!f.length) { e.preventDefault(); return; }
+    if (!inside(dialog, at)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+  }
+  function openDialog(id, from, first) {
+    opener = from;
+    dialog = $(id);
+    dialog.hidden = false;
+    document.body.classList.add("modal-open");
+    document.addEventListener("keydown", onKey);
+    first.focus();
+  }
+  /* refocus: put focus back on the button that opened it (not when the payment is gone). */
+  function closeDialog(refocus) {
+    if (!dialog) return;
+    dialog.hidden = true;
+    dialog = null;
+    document.body.classList.remove("modal-open");
+    document.removeEventListener("keydown", onKey);
+    if (refocus && opener && !$("act").hidden) opener.focus();
+  }
+  ["m-confirm", "m-reject"].forEach(function (id) {
+    $(id).addEventListener("click", function (e) { if (e.target === $(id) && !busy) closeDialog(true); });
+  });
+
   function lock(on) {
     busy = on;
-    ["confirm-go", "confirm-yes", "confirm-no", "reject-go"].forEach(function (id) { $(id).disabled = on; });
+    ["confirm-go", "confirm-cancel", "reject-go", "reject-cancel"].forEach(function (id) { $(id).disabled = on; });
   }
 
-  /* One decision at a time. done(res) handles what only that action answers. */
-  function act(path, body, done) {
-    var run = payRun, id = current.id;
+  /* One decision at a time. where.fail(text) shows a message in the open dialog; where.field() in the field it is about.
+     hold: the least time, in milliseconds, the dialog stays busy when the backend says yes. A refusal never waits. */
+  function act(path, body, hold, where, ok) {
+    var run = payRun, id = current.id, wait = hold ? new Promise(function (go) { setTimeout(go, hold); }) : Promise.resolve();
     lock(true);
-    say("p-msg", "");
+    where.bar(true);
+    where.fail("");
     H.call("POST", "finance/payments/" + path, body).then(function (res) {
-      lock(false);
-      if (run !== payRun || left(res)) return;
-      if (res.ok) { $("act").hidden = true; tell(done(res.data)); readPayment(id, false); return; }
-      if (res.status === 404) { toQueue(""); return; }
-      if (res.status === 409 && res.code === "not_under_review") { toQueue(GONE); return; }
-      if (res.status === 400 && res.code === "invalid_request") { resetActions(); done(null); return; }
-      resetActions();
+      function stop() { lock(false); where.bar(false); }
+      if (run !== payRun) { stop(); return; }
+      if (left(res)) return;
+      if (res.ok) {
+        wait.then(function () {
+          stop();
+          if (run !== payRun) return;
+          closeDialog(false);
+          toQueue(ok(res.data));
+        });
+        return;
+      }
+      stop();
+      if (res.status === 404) { closeDialog(false); toQueue(""); return; }
+      if (res.status === 409 && res.code === "not_under_review") { closeDialog(false); toQueue(GONE); return; }
+      if (res.status === 400 && res.code === "invalid_request") { where.field(); return; }
       if (res.status === 409 && res.code === "amount_mismatch") {
-        tell("That is not the amount due (" + money(current.amount_centavos) + "). If a different amount arrived, reject the proof.");
+        where.fail("That is not the amount due (" + money(current.amount_centavos) + "). If a different amount arrived, reject the proof.");
         return;
       }
       if (res.status === 409 && words(REFUSED, res.code)) {
-        tell(REFUSED[res.code]);
+        where.fail(REFUSED[res.code]);
         if (res.code === "plan_not_offered") $("reason").value = "duplicate";
         return;
       }
-      tell(LOST);
+      where.fail(LOST);
       readPayment(id, false);
     });
   }
 
+  /* Confirm payment */
   function badAmount() { say("amount-err", AMOUNT); $("amount").setAttribute("aria-invalid", "true"); }
-
+  var CONFIRM = {
+    bar: function (on) { $("confirm-bar").hidden = !on; },
+    fail: function (text) { say("confirm-err", text); },
+    field: badAmount
+  };
+  $("open-confirm").addEventListener("click", function () {
+    if (busy || !current) return;
+    $("amount").value = "";
+    $("amount").removeAttribute("aria-invalid");
+    say("amount-err", "");
+    say("confirm-err", "");
+    $("confirm-bar").hidden = true;
+    $("mc-sub").textContent = ((current.site || {}).name || "") + " · amount due " + money(current.amount_centavos);
+    openDialog("m-confirm", $("open-confirm"), $("amount"));
+  });
+  $("confirm-cancel").addEventListener("click", function () { if (!busy) closeDialog(true); });
   $("confirm-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || !current) return;
-    var amount = centavos($("amount").value);
-    resetActions();
+    var amount = centavos($("amount").value), site = (current.site || {}).name || "";
+    say("confirm-err", "");
+    say("amount-err", "");
+    $("amount").removeAttribute("aria-invalid");
     if (amount === null) { badAmount(); return; }
-    pending = amount;
-    $("confirm-ask").textContent = "Confirm " + money(amount) + " received for " + ((current.site || {}).name || "") +
-      "? This starts the paid period and cannot be undone.";
-    $("confirm-form").hidden = true;
-    $("confirm-step").hidden = false;
-  });
-  $("confirm-no").addEventListener("click", function () { if (!busy) resetActions(); });
-  $("confirm-yes").addEventListener("click", function () {
-    if (busy || !current || pending === null) return;
-    act("confirm/", { payment: current.id, amount_received_centavos: pending }, function (paid) {
-      if (!paid) { badAmount(); return ""; }
-      return "Payment confirmed." + (paid.cycle ? " The paid period runs " + dayOf(paid.cycle.start_at) + " to " + dayOf(paid.cycle.end_at) + "." : "");
+    act("confirm/", { payment: current.id, amount_received_centavos: amount }, HOLD, CONFIRM, function (paid) {
+      return "Payment confirmed: " + money(amount) + " received for " + site + "." +
+        (paid && paid.cycle ? " The paid period runs " + dayOf(paid.cycle.start_at) + " to " + dayOf(paid.cycle.end_at) + "." : "");
     });
   });
 
+  /* Reject payment */
+  var REJECT = {
+    bar: function () {},
+    fail: function (text) { say("reject-err", text); },
+    field: function () { say("reject-err", "Check the reason and the note."); }
+  };
+  $("open-reject").addEventListener("click", function () {
+    if (busy || !current) return;
+    $("reason").value = "";
+    $("note").value = "";
+    say("reject-err", "");
+    $("mr-sub").textContent = (current.site || {}).name || "";
+    openDialog("m-reject", $("open-reject"), $("reason"));
+  });
+  $("reject-cancel").addEventListener("click", function () { if (!busy) closeDialog(true); });
   $("reject-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || !current) return;
@@ -306,9 +359,8 @@
       : note.length > 300 ? "Keep the note to 300 characters." : "";
     say("reject-err", wrong);
     if (wrong) return;
-    act("reject/", { payment: current.id, reason: reason, note: note }, function (rejected) {
-      if (!rejected) { say("reject-err", "Check the reason and the note."); return ""; }
-      return "Proof rejected. The Subscriber can send another.";
+    act("reject/", { payment: current.id, reason: reason, note: note }, 0, REJECT, function () {
+      return "Payment rejected. The Subscriber can send another.";
     });
   });
 

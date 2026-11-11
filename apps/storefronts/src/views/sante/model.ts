@@ -29,11 +29,11 @@ export type HomeModel = {
   };
 };
 
-/* Where the form posts. The "#contact" part is not sent to the server: the browser posts to
-   /contact/ and then scrolls the answer to the contact section, so the note under the form is in
-   view. Without it the answer opens at the top of the page and the post looks like nothing
-   happened. TWCinc's own answer after a sent message goes to the same place ("/?contact=sent#contact"). */
-export const CONTACT_PATH = "/contact/#contact";
+/* Where the form posts. The "#contact-form" part is not sent to the server: the browser posts to
+   /contact/ and then scrolls the answer to the "Send a Message" card (id="contact-form" in
+   home.ts), so the note under the form is in view, on a phone too. Without it the answer opens
+   at the top of the page and the post looks like nothing happened. */
+export const CONTACT_PATH = "/contact/#contact-form";
 export const CONTACT_FAILED_NOTE = "We could not send your message. Please try again in a moment.";
 
 const MAX_NAME = 120;

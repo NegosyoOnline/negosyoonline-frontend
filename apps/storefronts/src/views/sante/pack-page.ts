@@ -109,10 +109,10 @@ ${(c.policy_links.length > 0) ? html`
 `;
 }
 
-/** A pack page: base.html. `afterShell` and `scripts` are its blocks of those names. */
+/** A pack page: base.html. `head`, `afterShell` and `scripts` are its blocks of those names. */
 export function packDocument(
   c: PackCtx,
-  args: { title: string; content: Markup; afterShell?: Markup; scripts?: string[] },
+  args: { title: string; content: Markup; head?: Markup; afterShell?: Markup; scripts?: string[] },
 ): Markup {
   return html`<!doctype html>
 <html lang="en">
@@ -130,6 +130,7 @@ export function packDocument(
 <link rel="stylesheet" href="${asset("css/pack-forms.css")}">
 <link rel="stylesheet" href="${asset("css/pack-registration.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
+${args.head ?? ""}
 </head>
 <body class="pp-pack">
 <div class="pb pp-shell">

@@ -37,6 +37,11 @@ const VERSIONS: Record<string, string> = {
   "img/hero-nz-tall-40pct-2000.webp": "fc680919",
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
+  "js/pack-select.js": "ff1d7b9e",
+  "js/pack-agreement-popup.js": "4ef9cb59",
+  "js/pack-checkout.js": "47e9b86f", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "img/order-summary-pack-640.webp": "66a9cf4a",
+  "img/order-summary-pack-960.webp": "46396612",
   "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",

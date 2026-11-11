@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // pdf.js, vendored unchanged for the Membership Terms popup (public/agreement-viewer/VERSION in TWCinc): not our code.
+    "public/agreement-viewer/**",
   ]),
 ]);
 

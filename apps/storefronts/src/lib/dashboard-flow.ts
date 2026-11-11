@@ -9,15 +9,17 @@ import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
 import { memberMe } from "./django.ts";
 import type { Member } from "./django.ts";
-import { htmlResponse } from "./html.ts";
+import { html, htmlResponse } from "./html.ts";
 import { redirect, type Call } from "./member.ts";
 import {
-  PROOF_MAX_BYTES, fetchOwnProof, memberPack, memberPackResubmit, memberRegistration, registrationDetails,
+  PROOF_MAX_BYTES, fetchOwnProof, memberHome, memberOrders, memberPack, memberPackResubmit, memberRegistration, registrationDetails,
   registrationMobileSend, registrationMobileVerify,
   type Calls, type MemberPack, type MobileCheck, type PackRefusal, type RegistrationCard,
 } from "./pack-api.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
+import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
+import { memberDocument } from "../views/sante/member.ts";
 import { NO_ERRORS, homePanels, type PanelErrors } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
 
@@ -58,10 +60,15 @@ const args = (d: Dash): Args => ({ host: d.call.host, visitor_ip: d.call.visitor
 
 type Over = { pack_errors?: PanelErrors; reg_errors?: PanelErrors; posted?: Record<string, string> };
 
-function render(d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200): Response {
+type Figures = Extract<Awaited<ReturnType<typeof memberHome>>, { state: "ok" }> | null;
+
+function render(d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200, figures: Figures = null): Response {
   const posted = { ...(over.posted ?? {}), submit_key: randomBytes(12).toString("base64url") };
   const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted });
-  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, pack?.lock ? HOME_SCRIPTS : []), status);
+  const locked = !!pack?.lock;
+  const tiles = figures ? heroTiles(figures.summary) : undefined;
+  const after = figures && !locked ? html`${orderMonitor(figures.monitor)}${viewAllLink()}` : undefined;
+  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, locked ? HOME_SCRIPTS : [], tiles, after), status);
 }
 
 /** The Home: the member's payment card, and the registration card with its mobile check while the form is open. */
@@ -77,7 +84,23 @@ export async function homePage(d: Dash, over: Over = {}, status = 200): Promise<
     const r = await memberRegistration(args(d), d.calls);
     if (r.state === "ok") mobile = r.mobile;
   }
-  return render(d, s.member, p.pack, p.registration, mobile, over, status);
+  // The tiles and Order Monitoring are the backend's member/home figures; without them the Home still shows its cards.
+  const h = await memberHome(args(d), d.calls);
+  return render(d, s.member, p.pack, p.registration, mobile, over, status, h.state === "ok" ? h : null);
+}
+
+/** My Orders: every order as a card, newest first. A rejected order locks the dashboard to Home, so it goes there. */
+export async function ordersPage(d: Dash): Promise<Response> {
+  const s = await session(d);
+  if ("response" in s) return s.response;
+  const locked = await lockedHome(d);
+  if (locked) return locked;
+  const o = await memberOrders(args(d), d.calls);
+  if (o.state === "refused" && o.status === 401) return signedOut(d);
+  if (o.state === "unavailable") return neutralNotFound();
+  if (o.state !== "ok") return tryAgain();
+  const content = ordersContent(s.member.full_name, o.cards);
+  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Orders", member: s.member.full_name, current: "orders", content, scripts: ["js/pack-dashboard.js"] }));
 }
 
 /** Whether the dashboard is locked to Home (the order is rejected): other member pages use this. */

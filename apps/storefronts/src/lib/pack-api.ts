@@ -470,3 +470,63 @@ export async function fetchOwnProof(args: Member & { proof_id: string }, c: Call
     return null;
   }
 }
+
+/* ---- the member Home figures and the My Orders cards ------------------------------------------------------------------
+   TWCinc's dashboard.summary, dashboard.order_monitor and dashboard.card, with TWCinc's field names. The route names
+   (member/home, member/orders) and the unit of total_spent (pesos here) wait for the backend routes doc; only the two
+   wrappers below and `total_spent` change when it lands. */
+
+export type HomeSummary = { total_spent: number; total_orders: number; delivered: number; needs_attention: number };
+export type OrderMonitor = {
+  delta: number; awaiting_approval: number; for_booking: number; for_shipping: number; delivered: number;
+  series: { label: string; count: number; h: number }[]; has_orders: boolean;
+};
+export type OrderStep = { state: string; num: number; label: string; date: string };
+export type OrderCard = {
+  order_number: string; created_at: string; total: number; payment_label: string; headline: string; chip_class: string; chip_label: string;
+  problem: boolean; problem_line: string; note: string; awaiting_payment: boolean; under_review: boolean; steps: OrderStep[];
+  courier: string; tracking: string; shipping_label: string; item_count: number; item_lines: { qty: number; name: string }[];
+  address: string; receiver_name: string; receiver_mobile: string;
+  membership: { label: string; line: string; registered: boolean; sante_member_id: string; act: boolean } | null;
+};
+
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+function parseMonitor(v: unknown): OrderMonitor | null {
+  if (!record(v)) return null;
+  return {
+    delta: num(v.delta, 0), awaiting_approval: num(v.awaiting_approval, 0), for_booking: num(v.for_booking, 0),
+    for_shipping: num(v.for_shipping, 0), delivered: num(v.delivered, 0), has_orders: v.has_orders === true,
+    series: arr(v.series).flatMap((d) => (record(d) ? [{ label: str(d.label), count: num(d.count, 0), h: Math.min(100, Math.max(0, Math.round(num(d.h, 0)))) }] : [])),
+  };
+}
+
+function parseCard(v: unknown): OrderCard | null {
+  if (!record(v) || !record(v.order) || typeof v.order.order_number !== "string") return null;
+  const m = record(v.membership) ? v.membership : null;
+  return {
+    order_number: v.order.order_number, created_at: str(v.order.created_at), total: num(v.order.total, 0),
+    payment_label: str(v.payment_label), headline: str(v.headline), chip_class: str(v.chip_class), chip_label: str(v.chip_label),
+    problem: v.problem === true, problem_line: str(v.problem_line), note: str(v.note), awaiting_payment: v.awaiting_payment === true,
+    under_review: v.under_review === true,
+    steps: arr(v.steps).flatMap((s) => (record(s) ? [{ state: str(s.state), num: num(s.num, 0), label: str(s.label), date: str(s.date) }] : [])),
+    courier: str(v.courier), tracking: str(v.tracking), shipping_label: str(v.shipping_label), item_count: num(v.item_count, 0),
+    item_lines: arr(v.item_lines).flatMap((l) => (record(l) ? [{ qty: num(l.qty, 0), name: str(l.name) }] : [])),
+    address: str(v.address), receiver_name: str(v.receiver_name), receiver_mobile: str(v.receiver_mobile),
+    membership: m ? { label: str(m.label), line: str(m.line), registered: m.registered === true, sante_member_id: str(m.sante_member_id), act: m.act === true } : null,
+  };
+}
+
+export function memberHome(args: Member, c: Calls) {
+  return packPost("member/home", args, (b) => {
+    if (!record(b) || !record(b.summary)) return null;
+    const monitor = parseMonitor(b.order_monitor);
+    if (!monitor) return null;
+    const s = b.summary;
+    return { summary: { total_spent: num(s.total_spent, 0), total_orders: num(s.total_orders, 0), delivered: num(s.delivered, 0), needs_attention: num(s.needs_attention, 0) }, monitor };
+  }, c);
+}
+
+export function memberOrders(args: Member, c: Calls) {
+  return packPost("member/orders", args, (b) => (record(b) && Array.isArray(b.cards) ? { cards: b.cards.flatMap((x) => { const k = parseCard(x); return k ? [k] : []; }) } : null), c);
+}

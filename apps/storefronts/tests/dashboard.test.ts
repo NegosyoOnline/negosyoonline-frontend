@@ -205,3 +205,50 @@ test("pesos writes centavos as TWCinc writes money", () => {
   assert.equal(pesos(148800), "₱1,488.00");
   assert.equal(pesos(5), "₱0.05");
 });
+
+const HOME = {
+  summary: { total_spent: 1488, total_orders: 1, delivered: 0, needs_attention: 0 },
+  order_monitor: { delta: 1, awaiting_approval: 1, for_booking: 0, for_shipping: 0, delivered: 0, has_orders: true, series: [{ label: "Sun", count: 0, h: 0 }, { label: "Mon", count: 1, h: 100 }] },
+};
+const CARD = {
+  order: { order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: 1488 }, payment_label: "Bank transfer", headline: "Membership Pack",
+  chip_class: "is-review", chip_label: "Under review", problem: false, problem_line: "", note: "", awaiting_payment: false, under_review: true, steps: [],
+  courier: "", tracking: "", shipping_label: "Free", item_count: 1, item_lines: [{ qty: 1, name: "Membership Pack" }],
+  address: "1 Rizal St, Manila", receiver_name: "Juan Dela Cruz", receiver_mobile: "+639171234567",
+  membership: { label: "Details received", line: "We have your details.", registered: false, sante_member_id: "", act: false },
+};
+
+test("the Home shows the four tiles, Order Monitoring and View all orders from the member/home figures", async () => {
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: null })], "member/home": [ok(HOME)] });
+  const body = await (await homePage(dashOf(f))).text();
+  assert.match(body, /Total Spent<\/span><span class="acct-kpi-value">&#8369;1,488\.00/);
+  assert.match(body, /Needs Attention/);
+  assert.match(body, /Order Monitoring/);
+  assert.match(body, /▲ \+1 vs last month/);
+  assert.match(body, /sf-om-h-100/);
+  assert.match(body, /<a href="\/dashboard\/orders\/">View all orders<\/a>/);
+});
+
+test("while rejected the Home shows no Order Monitoring and no View all orders", async () => {
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack({ payment_status: "rejected", tone: "att", lock: LOCK }), registration: null })], "member/home": [ok(HOME)] });
+  const body = await (await homePage(dashOf(f))).text();
+  assert.doesNotMatch(body, /Order Monitoring|View all orders/);
+});
+
+test("My Orders lists the cards; with none it says so; a rejected order sends it Home", async () => {
+  const { ordersPage } = await import("../src/lib/dashboard-flow.ts");
+  const f = fake({
+    "member/me": [ME, ME, ME],
+    "member/pack": [ok({ pack: pack(), registration: null }), ok({ pack: pack(), registration: null }), ok({ pack: pack({ payment_status: "rejected", tone: "att", lock: LOCK }), registration: null })],
+    "member/orders": [ok({ cards: [CARD] }), ok({ cards: [] })],
+  });
+  const body = await (await ordersPage(dashOf(f))).text();
+  assert.match(body, /<h1>My Orders<\/h1>/);
+  assert.match(body, /<div class="oc-ref">SP-1001<\/div><div class="oc-date">Placed Nov 12, 2026<\/div>/);
+  assert.match(body, /We received your payment\. The store is <strong>checking<\/strong> it/);
+  assert.match(body, /Membership Status/);
+  assert.match(body, /pack-dashboard\.js/);
+  assert.match((await (await ordersPage(dashOf(f))).text()), /No orders on your dashboard yet\./);
+  const locked = await ordersPage(dashOf(f));
+  assert.equal(locked.headers.get("location"), "/dashboard/");
+});

@@ -11,7 +11,7 @@ const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
   "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
   "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
-  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
+  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-group", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
   "m-reject", "mr-h", "mr-sub", "reject-form", "reason", "note", "reject-err", "reject-go", "reject-x",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
@@ -908,4 +908,84 @@ test("both pop-ups divide the title row from the body with the card line, edge t
   assert.match(head, /margin: -24px -24px 0/, "full width of the dialog, which pads 24px");
   assert.match(head, /padding: 16px 24px/, "balanced above and below the title");
   assert.match(css, /\.modal-box \{[^}]*padding: 24px/);
+});
+
+/* ---- the amount box: a peso sign, one input of whole pesos, a fixed .00 ---- */
+function typedAmount(p, value, caret) {
+  p.node["open-confirm"].fire("click");
+  const box = p.node.amount;
+  box.value = value;
+  box.selectionStart = caret === undefined ? value.length : caret;
+  box.setSelectionRange = (a) => { box.selectionStart = a; };
+  box.fire("input");
+  return box;
+}
+
+test("the amount takes digits only: letters and symbols are stripped as they are typed or pasted", async () => {
+  const p = await opened();
+  assert.equal(typedAmount(p, "abc").value, "");
+  assert.equal(typedAmount(p, "12a4-5.6!").value, "12,456");
+  assert.equal(typedAmount(p, "abc2,499x").value, "2,499", "a paste is cleaned the same way");
+  assert.equal(typedAmount(p, "0002499").value, "2,499", "leading zeros go");
+  assert.equal(typedAmount(p, "1234567890123").value, "123,456,789", "nine digits at most");
+});
+
+test("thousands commas appear as the digits are typed: 4, 5 and 7 digits", async () => {
+  const p = await opened();
+  for (const [typed, shown] of [["249", "249"], ["2499", "2,499"], ["12000", "12,000"], ["2,4999", "24,999"], ["1234567", "1,234,567"], ["12,00", "1,200"]]) {
+    assert.equal(typedAmount(p, typed).value, shown, typed);
+  }
+});
+
+test("the caret stays after the digit that was just typed while the commas move", async () => {
+  const p = await opened();
+  let box = typedAmount(p, "2,4991", 6);        /* a 1 typed at the end of 2,499 */
+  assert.equal(box.value, "24,991");
+  assert.equal(box.selectionStart, 6);
+  box = typedAmount(p, "29,999", 2);            /* a 9 typed after the 2 of 2,999 */
+  assert.equal(box.value, "29,999");
+  assert.equal(box.selectionStart, 2);
+  box = typedAmount(p, "12499", 2);             /* two digits typed in the middle of a number with no comma yet */
+  assert.equal(box.value, "12,499");
+  assert.equal(box.selectionStart, 2);
+});
+
+test("the peso sign and .00 are fixed parts of the group, not of the input, and a click on them focuses the input", async () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const group = /<div class="fin-amt" id="amount-group">(.*?)<\/div>/.exec(html)[1];
+  assert.match(group, /^<span class="fin-amt-fix" aria-hidden="true">\u20b1<\/span><input [^>]*id="amount"[^>]*><span class="fin-amt-fix" aria-hidden="true">\.00<\/span>$/);
+  const input = /<input [^>]*id="amount"[^>]*>/.exec(group)[0];
+  assert.match(input, /type="text"/);
+  assert.match(input, /inputmode="numeric"/);
+  assert.match(input, /autocomplete="off"/);
+  assert.match(input, /placeholder="0"/);
+  assert.doesNotMatch(input, /type="number"|maxlength|tabindex/);
+  assert.doesNotMatch(group, /<span[^>]*tabindex/);
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.match(css, /\.fin-amt:focus-within \{ border-color: var\(--link\); box-shadow: 0 0 0 1px var\(--link\); \}/);
+  assert.match(css, /\.fin-amt-fix \{[^}]*user-select: none; -webkit-user-select: none; pointer-events: none;/);
+  const p = await opened();
+  p.node["open-confirm"].fire("click");
+  p.doc.activeElement = null;
+  p.node["amount-group"].fire("click");
+  assert.equal(p.doc.activeElement, p.node.amount);
+  assert.equal(p.node.amount.value, "", "neither the sign nor .00 is in the value");
+});
+
+test("the amount sent is the whole pesos typed, as centavos; Enter in the box submits the form", async () => {
+  const p = await opened({ [C]: [200, payment(CONFIRMED)] });
+  typedAmount(p, "2499");
+  assert.equal(p.node.amount.value, "2,499");
+  p.node["confirm-form"].fire("submit");     /* Enter in a text input submits its form */
+  await settle(); p.tick(); await settle();
+  assert.deepEqual(p.sent(C)[0].body, { payment: "btp_one", amount_received_centavos: 249900 });
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const form = /<form [^>]*id="confirm-form"[^>]*>(.*?)<\/form>/s.exec(html)[1];
+  assert.match(form, /id="amount"/, "the input is inside the form");
+  assert.match(form, /<button [^>]*type="submit"[^>]*id="confirm-go"/);
+  const q = await opened();
+  q.node["open-confirm"].fire("click");
+  q.node["confirm-form"].fire("submit");
+  assert.equal(q.node["amount-err"].hidden, false, "required: an empty box is refused");
+  assert.equal(q.sent(C).length, 0);
 });

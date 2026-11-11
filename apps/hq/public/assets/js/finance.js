@@ -377,6 +377,27 @@
   }
 
   /* Confirm payment */
+  /* The amount box: a group of a fixed peso sign, the one real input (whole pesos, digits only, thousands commas
+     added as it is typed or pasted) and a fixed ".00". The sign and the ".00" are not inputs; a click on them
+     focuses the input. What the input holds still goes through centavos() on submit, so the route's contract is
+     unchanged: whole pesos times 100. */
+  function pesos(typed) {
+    var digits = String(typed == null ? "" : typed).replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  function formatAmount() {
+    var box = $("amount"), v = String(box.value), at = typeof box.selectionStart === "number" ? box.selectionStart : v.length;
+    var before = v.slice(0, at).replace(/\D/g, "").replace(/^0+/, "").length;   /* digits left of the caret */
+    var next = pesos(v);
+    if (next === v) return;
+    box.value = next;
+    var pos = 0, seen = 0;
+    while (pos < next.length && seen < before) { if (next.charAt(pos) !== ",") seen++; pos++; }
+    if (box.setSelectionRange) box.setSelectionRange(pos, pos);
+  }
+  $("amount").addEventListener("input", formatAmount);
+  $("amount-group").addEventListener("click", function () { $("amount").focus(); });
+
   function badAmount() { say("amount-err", AMOUNT); $("amount").setAttribute("aria-invalid", "true"); }
   var CONFIRM = {
     bar: function (on) { $("confirm-bar").hidden = !on; },

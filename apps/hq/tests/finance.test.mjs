@@ -898,3 +898,14 @@ test("the Finance page has no other native select, and the dropdown never takes 
   const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
   assert.doesNotMatch(js, /tagName === "SELECT"/);
 });
+
+test("both pop-ups divide the title row from the body with the card line, edge to edge", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.equal((html.match(/<div class="modal-head">/g) || []).length, 2, "Confirm payment and Reject payment");
+  const head = /\.modal-head \{([^}]*)\}/.exec(css)[1];
+  assert.match(head, /border-bottom: 1px solid var\(--card-line\)/, "the line colour HQ cards already use");
+  assert.match(head, /margin: -24px -24px 0/, "full width of the dialog, which pads 24px");
+  assert.match(head, /padding: 16px 24px/, "balanced above and below the title");
+  assert.match(css, /\.modal-box \{[^}]*padding: 24px/);
+});

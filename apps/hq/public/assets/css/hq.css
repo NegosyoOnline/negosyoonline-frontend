@@ -263,6 +263,7 @@ body.dash-app .item { display: grid; grid-template-columns: 44px minmax(0, 1fr) 
 .item-time { font-size: 14px; color: var(--meta); white-space: nowrap; }
 .item.unread .icon-tile { background: var(--primary); color: #fff; }
 .list-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 20px; border-top: 1px solid var(--card-line); }
+.list-note { margin: 0; padding: 16px 20px; }
 
 /* conversation */
 .thread-card { display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; }

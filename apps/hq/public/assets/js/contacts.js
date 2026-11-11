@@ -45,6 +45,7 @@
     INNER.forEach(function (id) { $(id).hidden = id !== view; });
     $("seg-row").hidden = !(view === "v-list" || view === "v-groups");
     $("list-actions").hidden = !(view === "v-list" && change);
+    $("g-form").hidden = !change;
     $("back").hidden = !(view === "v-form" || view === "v-upload");
     $("seg-contacts").setAttribute("aria-current", view === "v-groups" ? "false" : "true");
     $("seg-groups").setAttribute("aria-current", view === "v-groups" ? "true" : "false");
@@ -259,7 +260,12 @@
       if (res.status === 404) { toList("That contact is no longer available."); return; }
       if (!res.ok) { say("msg", DOWN); return; }
       showForm("edit", res.data);
-      if (!pushed) { history.pushState(null, "", location.pathname); pushed = true; }
+      if (!pushed) {
+        /* Opened from the add form (the existing-contact button): the add address is not kept as the place to go back to. */
+        if (location.pathname.indexOf("/contacts/new") === 0) history.replaceState(null, "", "/contacts/");
+        history.pushState(null, "", location.pathname);
+        pushed = true;
+      }
     });
   }
   /* Leaving the form: the address entry made for it is taken back, and the list shows with the message. */

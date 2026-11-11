@@ -98,7 +98,7 @@ From plan 1, section 7.5: "No page of plan 2 beyond the sign-in pages is built .
 
 Why stage A has the "Signed in as …" line: a person who passes the second step must land somewhere, and row 10 needs to see, on a phone with no console to type into, that the cookie was stored and sent (the line appears only when `me/` answers 200) and that sign-out works. It is one sentence and one button on the sign-in card. It exists only between the two stages.
 
-**If the proof fails** (any of rows 1 to 8 false in any browser of row 9 or 10): stop. Stage B is not built. The builder reports the row, the browser and its version, and the headers as the browser showed them. What happens next is plan 1's section 7.6: the coordinator asks Coach Ed to delete `HQ_STAFF_ORIGIN`, the Django pages remain the way in, and what to do instead is his decision, of the kind R26 was. This plan chooses nothing for that case. Whether the Vercel project then stays, is paused or is deleted is also his.
+**If the proof fails** (any of rows 1 to 8 false in any browser of row 9 or 10): stop. Stage B is not built. The builder reports the row, the browser and its version, and the headers as the browser showed them, with every `Set-Cookie` and `Cookie` value cut (6.2). What happens next is plan 1's section 7.6: the coordinator asks Coach Ed to delete `HQ_STAFF_ORIGIN`, the Django pages remain the way in, and what to do instead is his decision, of the kind R26 was. This plan chooses nothing for that case. Whether the Vercel project then stays, is paused or is deleted is also his.
 
 ## 5. What each page does with each answer
 
@@ -164,9 +164,9 @@ The staff app reads one address, `HQ_STAFF_API_BASE` (task 2). The app's own hos
 | 6 | Railway, staging | `HQ_STAFF_ORIGIN` set to the staff app's address (plan 1, 7.3 row 4) | Coach Ed |
 | 7 | Staging | Plan 1's section 7.4, steps 1 to 8: rows 1 to 9 of the proof, in Chrome, Safari and Firefox on a computer. Step 4's console commands are run on the staff app's sign-in page, which is the page plan 1 asked for at that name | Covered by rows 2 to 6 |
 | 8 | Staging | Row 10: on an iPhone in Safari and on an Android phone in Chrome, open the staff app, sign in with both steps, see "Signed in as …", press "Sign out", see the email form. Then on each phone open the address again: the email form, not "Signed in as …" | Covered by rows 2 to 6 |
-| 9 | Report | Per browser and per row: what was seen, and which rows were not run | |
+| 9 | Report | Per browser and per row: what was seen, and which rows were not run. **No code, address or cookie value in the report** (below) | |
 
-Steps 7 and 8 are done by a person who holds an enrolled staging admin identity, with the coordinator. No code or secret is pasted into chat, a ticket or a commit. Stage B starts only when the coordinator says every row was shown true.
+Steps 7 and 8 are done by a person who holds an enrolled staging admin identity, with the coordinator. No code or secret is pasted into chat, a ticket or a commit. **No code, address or cookie value is in the report:** where a header is quoted, the value of `Set-Cookie` and of `Cookie` is cut and only the cookie's name and its attributes (`Secure`, `HttpOnly`, `SameSite`, `Domain`, `Path`, the expiry) are kept, and a staff email address is written as "the staging admin identity". Stage B starts only when the coordinator says every row was shown true.
 
 ## 7. Files
 
@@ -1533,7 +1533,7 @@ Expected: `200`; the CSP of task 2 with `connect-src http://ggwp.negosyotest.com
 | 11 | The theme button on any page; reload | The light theme, kept after the reload |
 | 12 | The Network panel, for the whole walk | Every call goes to `ggwp.negosyotest.com:8000`; none to port 3003 other than page files; none to any other host. The Application panel shows `no_hq_theme` in local storage and nothing else |
 
-- [ ] **Step 5: Capture what goes to Coach Ed** (section 9), and **report** to the coordinator: each command with its real output, each row as seen, and what was not checked.
+- [ ] **Step 5: Capture what goes to Coach Ed** (section 9), and **report** to the coordinator: each command with its real output, each row as seen, and what was not checked. **No secret, and no code, address or cookie value, is in the report:** the emailed code and the authenticator and recovery codes are left out of any quoted log line, the value of a `Set-Cookie` or `Cookie` header is cut and only the cookie's name and attributes kept, and the local admin address is the made-up one of section 9.1.
 
 - [ ] **Step 6: Open stage A's build PR.** Before it: fetch `origin/main` and bring the branch up to date; re-run task 6 step 7; list the open PRs with their files and tell the coordinator of any that touch a file of 7.2. Title with `[z8uq9me128]`. The Santé/onboarding coordinator and the NPC coordinator review before it merges. **Stage B does not start with this merge.**
 
@@ -1876,7 +1876,7 @@ Expected: all pass.
 | 7 | "Sign out" in the side menu at 1280 pixels, and the button in the first card at 390 pixels | The email form; `/` then shows the email form |
 | 7b | Read the page at 1280 and 390 in both themes | No sideways scroll (`scrollWidth` equals `clientWidth`); nothing overlaps; no words "Admin lists", "Lists" or "Django" |
 
-- [ ] **Step 6: Commit, capture for Coach Ed (section 9), report, and open stage B's build PR** as in task 6b steps 5 and 6.
+- [ ] **Step 6: Commit, capture for Coach Ed (section 9), report, and open stage B's build PR** as in task 6b steps 5 and 6, with the same rule for the report: no secret, and no code, address or cookie value.
 
 ```bash
 git add apps/hq
@@ -1900,6 +1900,7 @@ git commit -m "feat(hq): the first page is the console; stage A's signed-in line
 | Environment variables | None under arrangement A. Under B, `HQ_STAFF_API_BASE` only. **Never a secret, token or key** | The list of names (not values) |
 | Domain | One: the staff app's staging name, whichever is ruled (6.1). No production name; production does not exist yet | The domains attached |
 | Integrations, log drains, analytics, speed insights, monitoring | None | The list as found |
+| What Vercel itself records | Nothing this plan can switch off is assumed. The page keeps nothing (section 5), but the host that serves it still writes request logs: the IP address, the user agent, the path and the time of each request for a page file, which for this app are staff IP addresses. **A fact to report, not a blocker:** the NPC wording needs it | What Vercel records for this project's requests, and how long it keeps each kind of record on the project's plan, as Vercel's own screens and documents state it |
 | Who can deploy, change settings or read logs | The people Coach Ed names, kept as short as the backend's list | The team members and their roles, by role and count, for him to name |
 | Who can merge to `main` here | The same care: a merge here changes the script that runs where staff type their codes | The people with write access, by count |
 
@@ -1944,7 +1945,7 @@ The builder captures each row at 1280 and at 390 pixels, in the dark and in the 
 
 ### 9.2 Then staging
 
-Only after the local captures are accepted, and only once the project and name exist (section 6): the same rows on the staging address, over https, captured the same way, and the address given to him to open. The "Sign-in paused" notice on staging needs five wrong codes on a real staging admin identity; that is 8.2 row 8 and is done only with his yes. If he prefers not to pause an identity on staging, the notice is accepted on the local captures alone and the report says so.
+Only after the local captures are accepted, and only once the project and name exist (section 6): the same rows on the staging address, over https, captured the same way, and the address given to him to open. **Whose address is on screen:** a staging admin identity is a real person's email address, and "Signed in as …", the code page and the console show it. Either the identity Coach Ed names for the captures is used, or the address is masked in every capture that leaves his own review. **No capture with a real address goes into a PR or a ClickUp attachment.** The "Sign-in paused" notice on staging needs five wrong codes on a real staging admin identity; that is 8.2 row 8 and is done only with his yes. If he prefers not to pause an identity on staging, the notice is accepted on the local captures alone and the report says so.
 
 Nothing of rows 1 to 5 is called done until the coordinator relays his words.
 
@@ -1969,6 +1970,11 @@ Unverified, said plainly:
 - **The audit record cannot tell a sign-in through this app from one through the Django pages** (plan 1, 9.2). Nothing here changes that.
 
 ## 11. For Coach Ed
+
+**Two things to know before approving** (asked for by the NPC coordinator's review of this plan):
+
+- **From 6.2 row 6 onward, real staging admin identities sign in through a page hosted on Vercel, before the NPC wording amendment exists.** It is staging only, and it is the first time a staff sign-in runs on Vercel. So it is part of row 6's approval, together with the cost R26 accepted (1.1). Approving this plan does not approve row 6.
+- **The NPC wording amendment is not started.** It is held until plans 10 and 11 have dates (as relayed by the coordinator from the NPC coordinator, 2026-11-11). Production of the staff app waits for it.
 
 ### 11.1 Routine details decided in this plan, his to overrule
 

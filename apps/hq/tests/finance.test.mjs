@@ -371,6 +371,17 @@ test("the buttons are disabled while a confirmation runs, so a double click send
   for (const id of ["confirm-yes", "confirm-no", "confirm-go", "reject-go"]) assert.equal(p.node[id].disabled, false, id);
 });
 
+test("what an action answers is brought into view, because the operator is at the forms below the message", async () => {
+  for (const reply of [[409, refused("amount_mismatch")], [200, detail(CONFIRMED)], "offline"]) {
+    const p = await opened({ [C]: reply });
+    const seen = [];
+    p.node["p-msg"].scrollIntoView = (how) => seen.push(how.block);
+    await confirmWith(p, "4999");
+    assert.equal(p.node["p-msg"].hidden, false, String(reply));
+    assert.deepEqual(seen, ["center"], String(reply));
+  }
+});
+
 test("each refusal of a confirmation has its own words, and the payment stays open", async () => {
   const words = {
     amount_mismatch: "That is not the amount due (PHP 4,999.00). If a different amount arrived, reject the proof.",

@@ -42,6 +42,13 @@
   }
   function show(view) { VIEWS.forEach(function (id) { $(id).hidden = id !== view; }); }
   function say(id, text) { $(id).textContent = text || ""; $(id).hidden = !text; }
+  /* What an action answered. The message sits above the payment and the operator is at the forms below,
+     so it is brought to the middle of the view, clear of the phone header: an answer nobody sees reads as a button that did nothing. */
+  function tell(text) {
+    var m = $("p-msg");
+    say("p-msg", text);
+    if (text && typeof m.scrollIntoView === "function") m.scrollIntoView({ block: "center" });
+  }
 
   /* "PHP 4,999.00" from whole centavos, or "" for anything else. */
   function money(c) {
@@ -249,21 +256,21 @@
     H.call("POST", "finance/payments/" + path, body).then(function (res) {
       lock(false);
       if (run !== payRun || left(res)) return;
-      if (res.ok) { $("act").hidden = true; say("p-msg", done(res.data)); readPayment(id, false); return; }
+      if (res.ok) { $("act").hidden = true; tell(done(res.data)); readPayment(id, false); return; }
       if (res.status === 404) { toQueue(""); return; }
       if (res.status === 409 && res.code === "not_under_review") { toQueue(GONE); return; }
       if (res.status === 400 && res.code === "invalid_request") { resetActions(); done(null); return; }
       resetActions();
       if (res.status === 409 && res.code === "amount_mismatch") {
-        say("p-msg", "That is not the amount due (" + money(current.amount_centavos) + "). If a different amount arrived, reject the proof.");
+        tell("That is not the amount due (" + money(current.amount_centavos) + "). If a different amount arrived, reject the proof.");
         return;
       }
       if (res.status === 409 && words(REFUSED, res.code)) {
-        say("p-msg", REFUSED[res.code]);
+        tell(REFUSED[res.code]);
         if (res.code === "plan_not_offered") $("reason").value = "duplicate";
         return;
       }
-      say("p-msg", LOST);
+      tell(LOST);
       readPayment(id, false);
     });
   }

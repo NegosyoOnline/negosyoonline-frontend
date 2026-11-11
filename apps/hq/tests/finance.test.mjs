@@ -11,7 +11,7 @@ const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
   "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
   "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
-  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-group", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
+  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-group", "amount-ruler", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
   "m-reject", "mr-h", "mr-sub", "reject-form", "reason", "note", "reject-err", "reject-go", "reject-x",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
@@ -953,7 +953,7 @@ test("the caret stays after the digit that was just typed while the commas move"
 test("the peso sign and .00 are fixed parts of the group, not of the input, and a click on them focuses the input", async () => {
   const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
   const group = /<div class="fin-amt" id="amount-group">(.*?)<\/div>/.exec(html)[1];
-  assert.match(group, /^<span class="fin-amt-fix" aria-hidden="true">\u20b1<\/span><input [^>]*id="amount"[^>]*><span class="fin-amt-fix" aria-hidden="true">\.00<\/span>$/);
+  assert.match(group, /^<span class="fin-amt-fix" aria-hidden="true">\u20b1<\/span><input [^>]*id="amount"[^>]*><span class="fin-amt-fix" aria-hidden="true">\.00<\/span><span class="fin-amt-ruler" id="amount-ruler" aria-hidden="true"><\/span>$/);
   const input = /<input [^>]*id="amount"[^>]*>/.exec(group)[0];
   assert.match(input, /type="text"/);
   assert.match(input, /inputmode="numeric"/);
@@ -963,6 +963,9 @@ test("the peso sign and .00 are fixed parts of the group, not of the input, and 
   assert.doesNotMatch(group, /<span[^>]*tabindex/);
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   assert.match(css, /\.fin-amt:focus-within \{ border-color: var\(--link\); box-shadow: 0 0 0 1px var\(--link\); \}/);
+  assert.match(css, /\.fin-amt input \{ flex: none; width: 1ch; min-width: 1ch;[^}]*margin: 0 0 0 8px;[^}]*text-align: left;/, "the figure sits left, 8px after the sign, sized to its content");
+  assert.doesNotMatch(css, /\.fin-amt input \{[^}]*flex: 1/);
+  assert.match(css, /\.fin-amt input \{[^}]*font-size: 16px;/, "the same size as the other HQ fields");
   assert.match(css, /\.fin-amt-fix \{[^}]*user-select: none; -webkit-user-select: none; pointer-events: none;/);
   const p = await opened();
   p.node["open-confirm"].fire("click");
@@ -988,4 +991,25 @@ test("the amount sent is the whole pesos typed, as centavos; Enter in the box su
   q.node["confirm-form"].fire("submit");
   assert.equal(q.node["amount-err"].hidden, false, "required: an empty box is refused");
   assert.equal(q.sent(C).length, 0);
+});
+
+test("the amount input grows with what is typed so the .00 follows the figure, and is one digit wide when empty", async () => {
+  const p = await opened();
+  assert.equal(typedAmount(p, "").style.width, "1ch");
+  assert.equal(typedAmount(p, "2499").style.width, "5ch", "2,499");
+  assert.equal(typedAmount(p, "1234567").style.width, "9ch", "1,234,567");
+  assert.equal(typedAmount(p, "x").style.width, "1ch", "a refused letter leaves it one digit wide");
+  p.node["open-confirm"].fire("click");
+  assert.equal(p.node.amount.style.width, "1ch", "reopened: empty and one digit wide");
+});
+
+test("the input is sized from the measured width of its text, so the .00 sits right after the figure", async () => {
+  const p = await opened();
+  p.node["amount-ruler"].offsetWidth = 40;
+  assert.equal(typedAmount(p, "4999").style.width, "41px", "the text's width plus 1px for the caret");
+  assert.equal(p.node["amount-ruler"].textContent, "4,999");
+  assert.equal(typedAmount(p, "").style.width, "41px");
+  assert.equal(p.node["amount-ruler"].textContent, "0", "an empty box measures its 0 placeholder");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.match(css, /\.fin-amt-ruler \{ position: absolute; visibility: hidden;/);
 });

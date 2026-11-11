@@ -385,12 +385,20 @@
     var digits = String(typed == null ? "" : typed).replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
     return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   }
+  /* The input is as wide as what it holds (at least one digit), so the .00 follows the figure directly. */
+  function sizeAmount() {
+    var box = $("amount"), text = String(box.value), ruler = $("amount-ruler"), wide = 0;
+    ruler.textContent = text || "0";
+    wide = ruler.offsetWidth;                       /* the text's own width, commas included */
+    box.style.width = wide > 0 ? (wide + 1) + "px" : Math.max(1, text.length) + "ch";
+  }
   function formatAmount() {
     var box = $("amount"), v = String(box.value), at = typeof box.selectionStart === "number" ? box.selectionStart : v.length;
     var before = v.slice(0, at).replace(/\D/g, "").replace(/^0+/, "").length;   /* digits left of the caret */
     var next = pesos(v);
-    if (next === v) return;
+    if (next === v) { sizeAmount(); return; }
     box.value = next;
+    sizeAmount();
     var pos = 0, seen = 0;
     while (pos < next.length && seen < before) { if (next.charAt(pos) !== ",") seen++; pos++; }
     if (box.setSelectionRange) box.setSelectionRange(pos, pos);
@@ -407,6 +415,7 @@
   $("open-confirm").addEventListener("click", function () {
     if (busy || !current) return;
     $("amount").value = "";
+    sizeAmount();
     $("amount").removeAttribute("aria-invalid");
     say("amount-err", "");
     say("confirm-err", "");

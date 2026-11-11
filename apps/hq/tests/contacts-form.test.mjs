@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { settle } from "./page.mjs";
-import { page, R, GROUPS, ANA, BEN, FULL, err, byText, buttons, everything } from "./contacts-page.mjs";
+import { page, R, ANA, BEN, FULL, err, byText, buttons, everything } from "./contacts-page.mjs";
 
 const list = (items) => [200, { results: items, next: null }];
 const FULL_ANA = { ...ANA, mobile: FULL };

@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { settle } from "./page.mjs";
-import { page, R, ME, GROUPS, ANA, BEN, DINO, err, rowsText, byText, buttons, everything } from "./contacts-page.mjs";
+import { page, R, ANA, BEN, err, rowsText, byText, everything } from "./contacts-page.mjs";
 
 const rows = (items, next = null) => [200, { results: items, next }];
 
@@ -89,8 +89,7 @@ test("names and group names with markup or quotes appear as text only", async ()
 });
 
 test("Load more passes the cursor, once per press, and adds to the list", async () => {
-  let n = 0;
-  const p = await page({ [R.list]: (c) => { n++; return c.body && c.body.cursor === "c1" ? rows([BEN], null) : rows([ANA], "c1"); } });
+  const p = await page({ [R.list]: (c) => { return c.body && c.body.cursor === "c1" ? rows([BEN], null) : rows([ANA], "c1"); } });
   assert.equal(p.node["more-row"].hidden, false);
   p.node.more.fire("click");
   await settle();

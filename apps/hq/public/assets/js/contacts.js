@@ -519,7 +519,7 @@
     if (url) URL.revokeObjectURL(url);
   });
   $("u-save").addEventListener("click", function () {
-    if (!change || busy || !checked || csvText === null) return;
+    if (!change || busy || !checked || csvText === null || (checked.news === 0 && checked.existing === 0)) return;
     var c = checked, g = checkedGroup, gname = groupName(g);
     say("u-err2", "");
     busy = true;

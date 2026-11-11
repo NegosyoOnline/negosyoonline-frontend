@@ -127,3 +127,11 @@ test("either Sign out button ends the session and returns to sign-in; a failed o
   assert.equal(failed.location.assigned, null);
   assert.equal(failed.node["sign-out-err"].hidden, false);
 });
+
+test("the console page shows no visible title: no heading block, a heading for screen readers only", () => {
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /view-head|head-row/);
+  assert.match(html, /<h1 class="sr-only">Admin console<\/h1>/);
+  assert.equal(html.match(/<h1/g).length, 1);
+  assert.match(html, /<title>Admin console \| NegosyoOnline HQ<\/title>/, "the tab title stays");
+});

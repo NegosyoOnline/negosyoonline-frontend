@@ -4,10 +4,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { open, settle, BASE, refused } from "./page.mjs";
 
-const VIEWS = ["sign-in", "code", "verify", "paused", "signed-in", "down"];
+const VIEWS = ["sign-in", "code", "verify", "paused", "down"];
 const IDS = ["boot", ...VIEWS.map((v) => "v-" + v), "email", "email-err", "code", "code-err", "code-sent",
-  "code-notice", "second", "second-err", "second-label", "second-lead", "second-switch", "who", "sign-out",
-  "sign-out-err", "theme-toggle"];
+  "code-notice", "second", "second-err", "second-label", "second-lead", "second-switch", "theme-toggle"];
 const SIGNED_OUT = [401, refused("unauthenticated")];
 const HALFWAY = [401, refused("second_step_required")];
 const SIGNED_IN = [200, { email: "sample.staff@example.com", expires_at: "2026-11-11T21:01:00+08:00" }];
@@ -51,10 +50,10 @@ test("a signed-out person who opens the second step is taken to the email form",
   assert.equal(p.location.pathname, "/sign-in/");
 });
 
-test("stage A: a signed-in person sees who they are", async () => {
-  const p = await page("/", { "GET me/": [SIGNED_IN] });
-  assert.deepEqual(p.shown(), ["signed-in"]);
-  assert.equal(p.node.who.textContent, "Signed in as sample.staff@example.com. Two-step sign-in verified.");
+test("a signed-in person is sent to the console", async () => {
+  const p = await page("/sign-in/", { "GET me/": [SIGNED_IN] });
+  assert.equal(p.location.replaced, "/");
+  assert.deepEqual(p.shown(), []);
 });
 
 test("no answer, a refused origin and a server error all show the same plain state", async () => {
@@ -115,7 +114,7 @@ test("a right second step asks me/ again and follows it", async () => {
   const p = await page("/verify/", { "GET me/": [HALFWAY, SIGNED_IN], "POST sign-in/verify/": [[204]] });
   await p.submit("verify", "second", "654321");
   assert.deepEqual(p.posts()[0].body, { code: "654321" });
-  assert.deepEqual(p.shown(), ["signed-in"]);
+  assert.equal(p.location.replaced, "/");
 });
 
 test("a wrong second step says so; the fifth shows the paused notice; a lost session returns to the start", async () => {
@@ -149,21 +148,7 @@ test("the recovery form sends its code to the same route", async () => {
 test("someone already signed in who sends a form is taken where me/ says", async () => {
   const p = await page("/sign-in/", { "GET me/": [SIGNED_OUT, SIGNED_IN], "POST sign-in/": [[409, refused("already_signed_in")]] });
   await p.submit("sign-in", "email", "a@b.co");
-  assert.deepEqual(p.shown(), ["signed-in"]);
-});
-
-test("stage A: sign-out returns to the email form, and a failed one says so", async () => {
-  const ok = await page("/", { "GET me/": [SIGNED_IN], "POST sign-out/": [[204]] });
-  ok.node["sign-out"].fire("click");
-  await settle();
-  assert.deepEqual(ok.shown(), ["sign-in"]);
-  assert.equal(ok.posts()[0].body, undefined);
-
-  const failed = await page("/", { "GET me/": [SIGNED_IN], "POST sign-out/": ["offline"] });
-  failed.node["sign-out"].fire("click");
-  await settle();
-  assert.deepEqual(failed.shown(), ["signed-in"]);
-  assert.equal(failed.node["sign-out-err"].hidden, false);
+  assert.equal(p.location.replaced, "/");
 });
 
 test("the back button asks the backend again", async () => {

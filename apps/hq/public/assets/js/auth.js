@@ -4,10 +4,10 @@
    the cookie; this page follows its answers and decides nothing about access. */
 (function () {
   var H = window.NOHq, $ = function (id) { return document.getElementById(id); };
-  var VIEWS = ["sign-in", "code", "verify", "paused", "signed-in", "down"];
+  var VIEWS = ["sign-in", "code", "verify", "paused", "down"];
   var PATHS = { "sign-in": "/sign-in/", "code": "/code/", "verify": "/verify/" };
   var TITLES = { "sign-in": "Sign in", "code": "Enter your code", "verify": "Two-step sign-in",
-    "paused": "Sign-in paused", "signed-in": "Signed in", "down": "Not available" };
+    "paused": "Sign-in paused", "down": "Not available" };
   var WRONG_EMAIL = "Enter an email address.";
   var WRONG_CODE = "That code did not work. Check it, or get a new code.";
   var WRONG_SECOND = "That code did not work. Try again.";
@@ -58,18 +58,13 @@
     if (view === "verify") { recovery = false; paintSecond(); }
   }
 
-  /* Stage A only: one line that shows the cookie was stored and sent. Stage B replaces the body of this
-     function with location.replace("/") and removes the view. */
-  function signedIn(address) {
-    $("who").textContent = "Signed in as " + address + ". Two-step sign-in verified.";
-    $("sign-out-err").hidden = true;
-    show("signed-in");
-  }
+  /* A signed-in person has nothing to do here: the console is the first page. */
+  function signedIn() { location.replace("/"); }
 
   function start() {
     H.call("GET", "me/").then(function (res) {
       var place = H.placeFor(res);
-      if (place === "console") { signedIn(res.data.email || ""); return; }
+      if (place === "console") { signedIn(); return; }
       if (place === "verify" || place === "down") { show(place); return; }
       show(location.pathname === "/code/" ? "code" : "sign-in");
     });
@@ -114,13 +109,6 @@
     e.preventDefault();
     recovery = !recovery;
     paintSecond();
-  });
-
-  $("sign-out").addEventListener("click", function () {
-    H.call("POST", "sign-out/").then(function (res) {
-      if (res.status === 204) { email = ""; show("sign-in", true); return; }
-      $("sign-out-err").hidden = false;
-    });
   });
 
   window.addEventListener("popstate", start);

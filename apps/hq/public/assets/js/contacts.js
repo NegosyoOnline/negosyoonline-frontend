@@ -81,8 +81,19 @@
 
   /* ---- one decision at a time: the pop-up (Coach Ed's rule: no Cancel, a full-width primary, X, Escape) ---- */
 
+  /* Every element under box that passes test (childNodes works in a browser and in the test page). */
+  function all(box, test) {
+    var out = [];
+    (function walk(n) {
+      for (var i = 0; i < n.childNodes.length; i++) {
+        var c = n.childNodes[i];
+        if (c.tagName) { if (test(c)) out.push(c); walk(c); }
+      }
+    })(box);
+    return out;
+  }
   function focusables(box) {
-    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
+    return all(box, function (n) { return (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
   }
   function inside(box, n) { for (; n; n = n.parentNode) if (n === box) return true; return false; }
   function onKey(e) {
@@ -304,7 +315,7 @@
     if (!mobile) { say("c-num-err", "Enter a mobile number."); bad = true; }
     if (bad) return;
     var body = { first_name: first, last_name: String($("c-last").value || "").trim(), mobile: mobile,
-      groups: $("c-groups").all(function (n) { return n.tagName === "INPUT" && n.checked; }).map(function (n) { return n.getAttribute("value"); }) };
+      groups: all($("c-groups"), function (n) { return n.tagName === "INPUT" && n.checked; }).map(function (n) { return n.getAttribute("value"); }) };
     var edit = formMode === "edit" && editId;
     if (edit) body.contact = editId;
     busy = true;

@@ -7,7 +7,7 @@ import { open, settle, BASE } from "./page.mjs";
 
 const run = async (pathname, reply, { withClient = true } = {}) => {
   const files = withClient ? ["hq.js", "menu.js"] : ["menu.js"];
-  const p = open(files, { ids: ["side-nav"], pathname, answers: () => reply });
+  const p = open(files, { ids: ["side-nav"], pathname, answers: (c) => (c.url.endsWith("/inbox/status/") ? [404] : reply) });
   await settle();
   return { ...p, nav: p.node["side-nav"], labels: () => p.node["side-nav"].children.map((a) => a.textContent) };
 };
@@ -16,7 +16,7 @@ test("with contacts/status/ answering 200 the menu has Contacts after Finance, a
   const p = await run("/", [200, { read: true, change: false }]);
   assert.deepEqual(p.labels(), ["Admin console", "Finance", "Contacts"]);
   assert.equal(p.nav.children[2].getAttribute("href"), "/contacts/");
-  assert.deepEqual(p.calls.map((c) => [c.method, c.url, c.body]), [["POST", BASE + "/contacts/status/", undefined]]);
+  assert.deepEqual(p.calls.filter((c) => c.url.endsWith("/contacts/status/")).map((c) => [c.method, c.url, c.body]), [["POST", BASE + "/contacts/status/", undefined]]);
 });
 
 test("every path that starts /contacts/ marks Contacts current, and no other entry", async () => {
@@ -43,10 +43,19 @@ test("with 404, 401, 503, an unreadable answer, offline or no client there is no
 });
 
 test("the status call is made once per page load, after the plain entries are drawn", async () => {
-  const p = open(["hq.js", "menu.js"], { ids: ["side-nav"], pathname: "/", answers: () => [200, {}] });
+  const p = open(["hq.js", "menu.js"], { ids: ["side-nav"], pathname: "/", answers: (c) => (c.url.endsWith("/inbox/status/") ? [404] : [200, {}]) });
   assert.deepEqual(p.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance"]);
   await settle();
-  assert.equal(p.calls.length, 1);
+  assert.equal(p.calls.filter((c) => c.url.endsWith("/contacts/status/")).length, 1);
+});
+
+test("with Inbox and Contacts both answering 200, Inbox comes first", async () => {
+  {
+    const p = open(["hq.js", "menu.js"], { ids: ["side-nav", "search-btn", "search-btn-2", "bell-btn", "bell-btn-2"], pathname: "/",
+      answers: (c) => (c.url.endsWith("/inbox/status/") ? [200, { unread: 0, change: false, read: true }] : [200, { read: true, change: false }]) });
+    await settle();
+    assert.deepEqual(p.node["side-nav"].children.map((a) => a.getAttribute("href")), ["/", "/finance/", "/inbox/sms/", "/contacts/"]);
+  }
 });
 
 test("next.config.ts serves the four Contacts addresses from one file and sends /contacts.html back to /contacts/", () => {

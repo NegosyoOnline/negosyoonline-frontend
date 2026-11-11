@@ -10,6 +10,10 @@ const { staffApiOrigin } = readEnv(process.env);
 /* One document for the three sign-in addresses; it changes view in the browser. */
 const authPaths = ["sign-in", "code", "verify"];
 
+/* The Inbox: the SMS list and New SMS share one document, which changes view in the browser; the five other
+   platforms share another. No address holds a number, a name, a text or an id. */
+const inboxPlatforms = ["messenger", "instagram", "tiktok", "email", "webchat"];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
@@ -19,6 +23,9 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         { source: "/", destination: "/index.html" },
         { source: "/finance/", destination: "/finance.html" },
+        { source: "/inbox/sms/", destination: "/inbox.html" },
+        { source: "/inbox/sms/new/", destination: "/inbox.html" },
+        ...inboxPlatforms.map((name) => ({ source: `/inbox/${name}/`, destination: "/inbox-platform.html" })),
         /* The Contacts pages: one document for four addresses, none with a value in it. */
         ...["/contacts/", "/contacts/new/", "/contacts/groups/", "/contacts/upload/"].map((source) => ({ source, destination: "/contacts.html" })),
         ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
@@ -32,6 +39,9 @@ const nextConfig: NextConfig = {
     return [
       { source: "/index.html", destination: "/", permanent: false },
       { source: "/finance.html", destination: "/finance/", permanent: false },
+      { source: "/inbox/", destination: "/inbox/sms/", permanent: false },
+      { source: "/inbox.html", destination: "/inbox/sms/", permanent: false },
+      { source: "/inbox-platform.html", destination: "/inbox/sms/", permanent: false },
       { source: "/contacts.html", destination: "/contacts/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];

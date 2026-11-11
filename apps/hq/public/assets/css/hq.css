@@ -21,7 +21,7 @@ body.dash-app {
   --field-bg: #0A1230; --field-line: #6474B0;
   --tile: #1A2862; --tile-ink: #BCCBFF;
   --banner: #10205E; --banner-line: #2B47B0; --banner-text: #D3DCF7;
-  --red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605; /* the one solid red: Reject buttons, Rejected badge and rule; 5.11:1 with its text */
+  --red: #DC3232; --red-h: #CF2C2C; --on-red: #FFFFFF; /* the one solid red: Reject buttons, Rejected badge and rule; white text 4.62:1 */
   --err-bg: #1E1220; --err-line: #7A3328; --err-h: #FFB8AC; --err-text: #E9C9C3;
   --chip-ok-bg: rgba(46,170,110,.16); --chip-ok: #8FE3BC;
   --chip-info-bg: rgba(120,150,255,.16); --chip-info: #BCCBFF;
@@ -40,7 +40,7 @@ html[data-theme="light"] body.dash-app {
   --field-bg: #FFFFFF; --field-line: #7D879E;
   --tile: #E8EDFB; --tile-ink: #173DB8;
   --banner: #EEF2FD; --banner-line: #C5D1F5; --banner-text: #3A4560;
-  --red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605;
+  --red: #DC3232; --red-h: #CF2C2C; --on-red: #FFFFFF;
   --err-bg: #FDF0EE; --err-line: #E3A89D; --err-h: #A8321F; --err-text: #5A2A22;
   --chip-ok-bg: #E2F5EC; --chip-ok: #146B45;
   --chip-info-bg: #E8EDFB; --chip-info: #173DB8;

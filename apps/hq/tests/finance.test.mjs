@@ -785,10 +785,10 @@ test("the Rejected badge is solid red with light text and Replaced stays neutral
   assert.match(js, /replaced: \["Replaced", "chip-neutral"\]/);
 });
 
-test("one light red serves the Reject buttons, the badge and the rule, in both themes, with 4.5:1 text", () => {
+test("one light red serves the Reject buttons, the badge and the rule, in both themes, with white text at 4.5:1", () => {
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
-  assert.equal((css.match(/--red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605;/g) || []).length, 2);
+  assert.equal((css.match(/--red: #DC3232; --red-h: #CF2C2C; --on-red: #FFFFFF;/g) || []).length, 2);
   assert.doesNotMatch(css, /#B42318/);
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-  for (const bg of ["#EF4A4F", "#E8444A"]) assert.ok((lum(bg) + 0.05) / (lum("#2A0605") + 0.05) >= 4.5);
+  for (const bg of ["#DC3232", "#CF2C2C"]) assert.ok((lum("#FFFFFF") + 0.05) / (lum(bg) + 0.05) >= 4.5, bg);
 });

@@ -10,6 +10,9 @@ import {
 import { POST as contactPost, GET as contactGet } from "../src/app/contact/route.ts";
 import { GET as homeGet } from "../src/app/route.ts";
 import { FILLED } from "./site.ts";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 const secret = randomBytes(24).toString("hex"); // throwaway, made for this run only
 const env = { apiBase: "http://api.test", secret };
@@ -58,14 +61,15 @@ test("the hidden field goes on as posted: the API decides what a filled one mean
 
 test("fields refused: the first text of each named field, and nothing else", async () => {
   const f = fake(refused({ name: ["Please enter your name."], email: ["Please enter a valid email address.", "second"],
-    message: ["Please enter a message."], subject: ["not a slot"], host: ["x"] }));
+    message: ["Please enter a message."], subject: ["Please enter a subject."], host: ["x"], website: ["y"] }));
   assert.deepEqual(await sendContact(MESSAGE, env, f.fetchImpl, f.log), { state: "invalid", errors: {
-    name: "Please enter your name.", email: "Please enter a valid email address.", message: "Please enter a message." } });
+    name: "Please enter your name.", email: "Please enter a valid email address.",
+    subject: "Please enter a subject.", message: "Please enter a message." } });
   assert.deepEqual(f.logs, []);
 });
 
 test("a 400 that names no field the form has is a failure", async () => {
-  for (const fields of [undefined, {}, { subject: ["x"] }, { name: "text" }, { name: [] }, { name: [5] }, []]) {
+  for (const fields of [undefined, {}, { host: ["x"] }, { subject: "text" }, { name: "text" }, { name: [] }, { name: [5] }, []]) {
     const f = fake(refused(fields));
     assert.deepEqual(await sendContact(MESSAGE, env, f.fetchImpl, f.log), { state: "failed" }, JSON.stringify(fields));
     assert.deepEqual(f.logs, ["the API refused the form without naming a field"]);
@@ -332,4 +336,151 @@ test("the home: the thank-you line only when asked with ?contact=sent", async ()
     }
     assert.ok(seen.every((call) => !call.url.includes("/contact/"))); // a GET never sends anything
   });
+});
+
+/* --- the same route, asked by the page's script ----------------------------------------------- */
+
+const asScript = { accept: "application/json" };
+
+async function scriptAnswer(contact: () => Response, fields = FORM) {
+  let answer: Response | undefined;
+  await withDjango(contact, async () => { answer = await contactPost(post(fields, "www.santetest.com:3062", asScript)); });
+  assert.ok(answer);
+  assert.match(answer.headers.get("content-type") ?? "", /^application\/json/);
+  assert.equal(answer.headers.get("cache-control"), "no-store");
+  assert.equal(answer.headers.get("x-robots-tag"), "noindex");
+  assert.equal(answer.headers.get("location"), null); // never a redirect: the page stays where it is
+  return { status: answer.status, body: await answer.json() };
+}
+
+test("asked for JSON, a sent post answers 200 and sent, once, with nothing else", async () => {
+  await withDjango(json(200, { status: "sent" }), async (seen) => {
+    const answer = await contactPost(post(FORM, "www.santetest.com:3062", asScript));
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await answer.json(), { state: "sent" });
+    const calls = seen.filter((call) => call.url === "http://api.test/storefront/v1/contact/");
+    assert.equal(calls.length, 1);
+    assert.deepEqual(JSON.parse(calls[0].init?.body as string),
+      { host: "demo-store.negosyotest.com", visitor_ip: "", ...FORM }); // the same call as the plain post
+  });
+});
+
+test("asked for JSON, refused fields answer 400 with each field's line, the subject among them", async () => {
+  const all = { name: ["Please enter your name."], email: ["Please enter a valid email address."],
+    subject: ["Please enter a subject."], message: ["Please enter a message."] };
+  assert.deepEqual(await scriptAnswer(refused(all), { ...FORM, name: "", email: "", subject: "", message: "" }),
+    { status: 400, body: { state: "invalid", errors: { name: "Please enter your name.",
+      email: "Please enter a valid email address.", subject: "Please enter a subject.", message: "Please enter a message." } } });
+  assert.deepEqual(await scriptAnswer(refused({ subject: ["Please enter a subject."], host: ["x"] }), { ...FORM, subject: " " }),
+    { status: 400, body: { state: "invalid", errors: { subject: "Please enter a subject." } } });
+});
+
+test("asked for JSON, over the limit answers 429 with the approved line", async () => {
+  assert.deepEqual(await scriptAnswer(json(429, { error: { code: "rate_limited" } })),
+    { status: 429, body: { state: "limited", note: CONTACT_LIMITED_NOTE } });
+});
+
+test("asked for JSON, every other answer is the could-not-send note, and nothing of the API's own answer", async () => {
+  const answers = [json(409, { error: { code: "no_contact_email", message: "private detail" } }),
+    json(503, { error: { code: "email_not_sent" } }), json(401, {}), json(404, {}), json(500, {}), refused({}),
+    json(200, { status: "queued" }), () => { throw new TypeError("fetch failed"); }];
+  for (const contact of answers) {
+    assert.deepEqual(await scriptAnswer(contact as () => Response),
+      { status: 200, body: { state: "failed", note: CONTACT_FAILED_NOTE } });
+  }
+});
+
+test("asked for JSON, the typed values, the host and the secret are never in the answer", async () => {
+  const typed = { name: "Zenaida Quirino", email: "zq@example.test", subject: "Wholesale", message: "Private words", website: "" };
+  for (const contact of [json(200, { status: "sent" }), refused({ email: ["Please enter a valid email address."] }),
+    json(429, {}), json(500, {})]) {
+    let text = "";
+    await withDjango(contact, async () => { text = await (await contactPost(post(typed, "www.santetest.com", asScript))).text(); });
+    for (const word of [...Object.values(typed).filter(Boolean), secret, "api.test", "negosyotest"]) {
+      assert.ok(!text.includes(word), `${text} / ${word}`);
+    }
+  }
+});
+
+test("asked for JSON from a host that is not served: the neutral 404, and nothing is sent", async () => {
+  await withDjango(json(200, { status: "sent" }), async (seen) => {
+    const answer = await contactPost(post(FORM, "unknown.negosyotest.com", asScript));
+    assert.equal(answer.status, 404);
+    assert.ok(seen.every((call) => !call.url.includes("/contact/")));
+  });
+});
+
+test("only a request that asks for JSON gets it: the plain post keeps its page and its redirect", async () => {
+  for (const accept of ["text/html,application/xhtml+xml,*/*;q=0.8", "*/*", ""]) {
+    await withDjango(json(200, { status: "sent" }), async () => {
+      assert.equal((await contactPost(post(FORM, "www.santetest.com", accept ? { accept } : {}))).status, 303, accept);
+    });
+    await withDjango(json(429, {}), async () => {
+      const answer = await contactPost(post(FORM, "www.santetest.com", accept ? { accept } : {}));
+      assert.match(answer.headers.get("content-type") ?? "", /^text\/html/, accept);
+    });
+  }
+});
+
+/* --- the page's script: its rules, and what the file may hold ---------------------------------- */
+
+const SCRIPT_FILE = path.join(import.meta.dirname, "..", "public", "assets", "sante", "js", "contact-form.js");
+const script = createRequire(import.meta.url)(SCRIPT_FILE) as {
+  checkFields: (values: Record<string, unknown>) => Record<string, string>;
+  readAnswer: (status: number, body: unknown) => { state: string; errors?: Record<string, string>; note?: string };
+  remaining: (startedAt: number, now: number, minimum: number) => number;
+  TEXTS: Record<string, string>; FAILED: string; SENT: string; MIN_PROGRESS_MS: number;
+};
+
+test("the script's texts are the API's and the page's own", () => {
+  assert.deepEqual(script.TEXTS, { name: "Please enter your name.", email: "Please enter a valid email address.",
+    subject: "Please enter a subject.", message: "Please enter a message." });
+  assert.equal(script.FAILED, CONTACT_FAILED_NOTE);
+  const page = homeDocument(homeModel(FILLED, sentContactForm(), NOW)).value;
+  assert.ok(page.includes(`>${script.SENT.replace("—", "&mdash;")}</p>`)); // the line the plain post shows
+  assert.equal(script.MIN_PROGRESS_MS, 2000);
+});
+
+test("the script stops a plainly empty form before the popup: all four fields are required", () => {
+  const filled = { name: "Ana", email: "ana@example.test", subject: "Hello", message: "Hi" };
+  assert.deepEqual(script.checkFields(filled), {});
+  assert.deepEqual(script.checkFields({}), script.TEXTS);
+  assert.deepEqual(script.checkFields({ name: " ", email: "", subject: "\t", message: "\n" }), script.TEXTS);
+  assert.deepEqual(script.checkFields({ ...filled, subject: "   " }), { subject: "Please enter a subject." });
+  for (const email of ["ana", "ana@", "@", "a b@c"]) {
+    assert.deepEqual(script.checkFields({ ...filled, email }), { email: "Please enter a valid email address." }, email);
+  }
+  assert.deepEqual(script.checkFields({ ...filled, email: "  ana@example.test " }), {});
+});
+
+test("the script reads the route's four answers, and takes anything unclear as could-not-send", () => {
+  const failed = { state: "failed", note: CONTACT_FAILED_NOTE };
+  assert.deepEqual(script.readAnswer(200, { state: "sent" }), { state: "sent" });
+  assert.deepEqual(script.readAnswer(400, { state: "invalid", errors: { subject: "Please enter a subject.", other: "x", name: 5 } }),
+    { state: "invalid", errors: { subject: "Please enter a subject." } });
+  assert.deepEqual(script.readAnswer(429, { state: "limited", note: CONTACT_LIMITED_NOTE }),
+    { state: "limited", note: CONTACT_LIMITED_NOTE });
+  assert.deepEqual(script.readAnswer(200, { state: "failed", note: CONTACT_FAILED_NOTE }), failed);
+  for (const [status, body] of [[200, null], [200, "sent"], [200, {}], [400, { state: "sent" }], [500, { state: "sent" }],
+    [303, { state: "sent" }], [400, { state: "invalid" }], [400, { state: "invalid", errors: {} }],
+    [400, { state: "invalid", errors: { other: "x" } }], [429, { state: "limited" }], [200, { state: "limited", note: "x" }],
+    [404, {}], [200, { state: "failed", note: "<b>anything else</b>" }]] as [number, unknown][]) {
+    assert.deepEqual(script.readAnswer(status, body), failed, JSON.stringify([status, body]));
+  }
+});
+
+test("the progress stays up for the whole two seconds, however fast the send was", () => {
+  assert.equal(script.remaining(1000, 1000, 2000), 2000);
+  assert.equal(script.remaining(1000, 1300, 2000), 1700);
+  assert.equal(script.remaining(1000, 3000, 2000), 0);
+  assert.equal(script.remaining(1000, 9000, 2000), 0);
+});
+
+test("the script file builds from elements only and reaches nothing but /contact/", () => {
+  const source = readFileSync(SCRIPT_FILE, "utf8");
+  assert.doesNotMatch(source, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\b|new Function|setAttribute\("style"|cssText/);
+  assert.doesNotMatch(source, /https?:|\/\/[a-z]|localStorage|sessionStorage|document\.cookie|console\./i);
+  assert.deepEqual(source.match(/\.fetch\([^)]*\)/g), [`.fetch("/contact/", options)`]);
+  assert.match(source, /credentials: "same-origin"/);
+  assert.match(source, /redirect: "error"/);
 });

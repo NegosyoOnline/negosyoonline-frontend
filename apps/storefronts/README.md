@@ -17,8 +17,8 @@ Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pag
 | Path | Answer |
 | --- | --- |
 | `/` | A served Santé site: the Santé home (with `?contact=sent`, the form shows its thank-you line). Otherwise the neutral 404. |
-| `/contact/` | A post from a served Santé site: the form is handed to Django (`POST /storefront/v1/contact/`, with the server credential), which emails it to the store's own contact email. Sent: a redirect to `/?contact=sent#contact-form`, the home with the thank-you line, so a reload sends nothing twice. Fields refused: the home again (400) with each error under its field. More than 10 messages in an hour from one address: the home again (429) with "Too many messages from this connection. Please try again later." Anything else (the store has no contact email, the API down or slow): the home again with the "could not send" note. The typed values are kept, and the browser shows the answer at the "Send a Message" card. Nothing of the message is stored or logged here. Any other method, or any other host: the neutral 404. |
-| `/assets/sante/*` | The approved Santé files, served as static files. |
+| `/contact/` | A post from a served Santé site: the form is handed to Django (`POST /storefront/v1/contact/`, with the server credential), which emails it to the store's own contact email. Sent: a redirect to `/?contact=sent#contact-form`, the home with the thank-you line, so a reload sends nothing twice. Fields refused: the home again (400) with each error under its field. More than 10 messages in an hour from one address: the home again (429) with "Too many messages from this connection. Please try again later." Anything else (the store has no contact email, the API down or slow): the home again with the "could not send" note. The typed values are kept, and the browser shows the answer at the "Send a Message" card. Nothing of the message is stored or logged here. Any other method, or any other host: the neutral 404. A post that asks for JSON (`Accept: application/json`, the page's script) gets the same outcome as a small answer instead of a page: `{"state":"sent"}` (200), `{"state":"invalid","errors":{…}}` (400), `{"state":"limited","note":…}` (429) or `{"state":"failed","note":…}` (200). |
+| `/assets/sante/*` | The approved Santé files and this storefront's one own script, served as static files. |
 | anything else | The neutral 404, with or without a trailing slash, any method. |
 
 Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
@@ -29,13 +29,17 @@ Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
 
 The page shows the store's own contact email and the distributor's mobile. The "Office Location" block is the Santé head office, fixed text, as the approved template prints it. The business seal and the distributor photo are off until private files exist. The basket is always empty: no product page exists yet. Links to pages of later slices (`/products/`, `/cart/`, `/checkout/`, `/dashboard/…`, `/funnel/…`) are kept as approved and answer the neutral 404 for now.
 
+### Send a Message
+
+All four fields are required; Subject Topic becomes part of the email's subject line (Coach Ed, 2026-11-11). `public/assets/sante/js/contact-form.js` sends the form to `/contact/` in the background, so the page does not reload, jump or scroll. A form with a plainly empty field shows its red lines at once. Otherwise a popup opens with a progress beat for at least two seconds, then shows "Thanks! Your message has been sent — we'll get back to you shortly." with a Close button, and the form is cleared. A refused, limited or failed send closes the popup and shows the red lines or the note in the form, with the typed values kept. The popup is the checkout code popup of `pack-storefront.css` (`.sf-modal`, `.sf-modal-card`, `.sf-modal-close`, `.sf-otp-loading`), built from elements, never from markup text. With scripts off the form posts as a plain page, as the table above says.
+
 ### The visitor's address
 
 The API counts messages per visitor address, so `/contact/` passes one with the form (`src/lib/visitor.ts`). Only on Vercel (`VERCEL=1`, set by the platform), and only from `x-vercel-forwarded-for`, which Vercel writes itself with the address of the client that connected, replacing anything the visitor sent. `x-forwarded-for` is not read. Anywhere else, a local run included, the address is sent empty and the API counts all such visitors together. The address is never logged.
 
 ### Assets
 
-The 24 approved files are in `public/assets/sante/{css,js,img}`, byte for byte as in TWCinc. A page links them through `asset()` in `src/lib/assets.ts`, which adds `?v=<first 8 characters of the file's SHA-256>`. To change a file: replace it, run `shasum -a 256` on it, and put the first 8 characters on its line in `src/lib/assets.ts`. `tests/assets.test.ts` fails while the two disagree.
+The 24 approved files are in `public/assets/sante/{css,js,img}`, byte for byte as in TWCinc. A page links them through `asset()` in `src/lib/assets.ts`, which adds `?v=<first 8 characters of the file's SHA-256>`. To change a file: replace it, run `shasum -a 256` on it, and put the first 8 characters on its line in `src/lib/assets.ts`. `tests/assets.test.ts` fails while the two disagree. `js/contact-form.js` is the one file there that is not from TWCinc: it is written for this storefront and linked the same way.
 
 ## Configuration
 

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { assetVersions } from "../src/lib/assets.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import {
   CONTACT_FAILED_NOTE, failedContactForm, formatMobile, homeModel, initials, type ContactForm,
@@ -22,7 +23,9 @@ test("no inline script, handler or frame; nothing loaded from another origin but
   assert.deepEqual(page.match(/<script[^>]*>/g), [
     `<script src="/assets/sante/js/pack-home.js?v=db367a6b">`,
     `<script src="/assets/sante/js/pack-store.js?v=6cc4f761">`,
+    `<script src="/assets/sante/js/contact-form.js?v=${assetVersions()["js/contact-form.js"]}">`,
   ]);
+  assert.equal(page.match(/<script[^>]*><\/script>/g)?.length, 3); // each one empty: a link, never code
   assert.doesNotMatch(page, /<style|<iframe|\son[a-z]+\s*=|javascript:/i);
   const loaded = [...page.matchAll(/<(?:link|img|script)[^>]*(?:href|src)="([^"]+)"/g)].map((m) => m[1]);
   for (const url of loaded) {
@@ -146,7 +149,7 @@ test("after a post: the approved failure note, the typed values kept and escaped
   assert.match(page, /name="subject" value="&quot;quoted&quot; &amp; more"/);
   assert.match(page, />Hello &lt;\/textarea&gt;&lt;script&gt;alert\(1\)&lt;\/script&gt;\nline two<\/textarea>/);
   assert.doesNotMatch(page, /Thanks! Your message has been sent/);
-  assert.equal(page.match(/<script/g)?.length, 2);
+  assert.equal(page.match(/<script/g)?.length, 3);
 });
 
 test("posted values are cut to the form's limits, and a missing field is empty", () => {
@@ -166,6 +169,19 @@ test("the template's field-error and sent states still render for the task that 
   assert.match(page, /<div class="sf-contact-error">Please enter a valid email address\.<\/div>/);
   assert.match(page, /<textarea[^>]*border: 1\.5px solid var\(--border\);/);
   assert.match(render(SITE, { ...cf, errors: {}, sent: true }), /Thanks! Your message has been sent &mdash;/);
+});
+
+test("Subject Topic is required: its error sits under it in its own block, with the red border", () => {
+  const field = /<div>\s*<input type="text" name="subject" value="" placeholder="Subject Topic" aria-label="Subject Topic" maxlength="200" style="width: 100%; padding: 14px 16px; border: 1\.5px solid ([^;]+);[^>]*>\s*(<div class="sf-contact-error">([^<]*)<\/div>)?\s*<\/div>/;
+  const cf: ContactForm = { values: { name: "Ana", email: "ana@example.test", subject: "", message: "Hi" },
+    errors: { subject: "Please enter a subject." }, sent: false, note: "" };
+  const refused = field.exec(render(SITE, cf));
+  assert.equal(refused?.[1], "#d33d44");
+  assert.equal(refused?.[3], "Please enter a subject.");
+  assert.equal(render(SITE, cf).match(/class="sf-contact-error"/g)?.length, 1);
+  const first = field.exec(render());
+  assert.equal(first?.[1], "var(--border)");
+  assert.equal(first?.[2], undefined);
 });
 
 test("initials, the mobile display and the footer year follow the approved rules", () => {

@@ -96,4 +96,19 @@ When approval is needed, finish everything already authorized first, then bring 
 - Record progress and evidence on the ClickUp task through the supported process, so the task and the code do not drift apart.
 - Before the context limit, run `/handover-builder <CLICKUP_TASK_ID>` and tell the coordinator the state file path.
 
+### Addition: automatic handover through the coordinator
+
+Coach Ed's ruling (2026-11-11): a builder hands over and resumes without him when a coordinator session exists. Tested on 2026-11-11: a coordinator cleared an idle builder it had started and resumed it from its state file alone.
+
+When the context warning fires (the one-time "CONTEXT WARNING" from the context hook), or earlier if the context is clearly running out:
+
+1. Reach a safe stopping point first: no half-written file, no command still running, and work either committed on the task branch or described in the state file. Do not start new work.
+2. Run `/handover-builder <CLICKUP_TASK_ID>`.
+3. Send the coordinator one message with SendMessage: first line "Handover written, ready to be cleared", then the absolute state file path and the resume prompt exactly as the command printed it.
+4. Stop. Do not clear yourself and do not send anything else: the coordinator clears this session once it is idle and sends the resume prompt back.
+
+After the clear, the resume prompt is the only thing this session knows. Follow it: read the state file, re-read the ClickUp task, and continue from "Next".
+
+If there is no coordinator, or the message cannot be delivered, print the path and the resume prompt for Coach Ed as the command says and wait for him.
+
 Start by re-reading the task and its sources, checking the state file's "Done" list against the code, and then continue with the first item under "Next". If nothing needs a decision, proceed without waiting.

@@ -102,3 +102,5 @@ Print exactly two things and nothing else:
        Re-read the ClickUp task before building. Do not re-explore anything already covered by "## Done".
 
 Say plainly: `/clear`, then paste this. The paste is required: nothing else tells the next session where the state file is.
+
+One exception to "nothing else" and to the one-`Write` budget: when a coordinator session started this builder, also send it one message with SendMessage, as the builder brief's section 9 says: first line "Handover written, ready to be cleared", then the state file path and the resume prompt. Then stop. The coordinator clears this session and sends the prompt back, so Coach Ed does not have to.

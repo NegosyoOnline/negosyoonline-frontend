@@ -10,7 +10,9 @@
    - "Email Us" shows the store's own contact email, and only when it has one, where the template
      printed one fixed support address for every store;
    - the contact form has no CSRF token field: a post sends and stores nothing in this slice;
-   - the basket drawer has no rows: no product page exists yet, so the basket is always empty. */
+   - the basket drawer has no rows: no product page exists yet, so the basket is always empty;
+   - the "Send a Message" card carries id="contact-form", which the template does not have: the
+     form posts to /contact/#contact-form so the answer opens at the card, with its note in view. */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { HomeModel } from "./model.ts";
@@ -682,7 +684,7 @@ ${v.biz.contact_email ? html`          <div style="display: flex; align-items: f
         </div>
       </div>
 
-      <div class="contact-form-wrap" style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); border: 1px solid var(--border);">
+      <div class="contact-form-wrap" id="contact-form" style="background: white; border-radius: 24px; padding: 40px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); border: 1px solid var(--border);">
         <h3 style="font-size: 24px; font-weight: 800; color: var(--green-dark); margin-bottom: 8px;">Send a Message</h3>
         <p style="font-size: 14px; color: var(--text-light); margin-bottom: 28px;">We typically respond within 2-4 hours.</p>
 

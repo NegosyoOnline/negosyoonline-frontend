@@ -204,6 +204,54 @@ export function fetchAccountQr(id: string, host: string, c: Calls) {
   return packFile(`payment-accounts/${encodeURIComponent(id)}/qr/`, host, c);
 }
 
+/* ---- the store policy pages: GET /storefront/v1/policies/{slug}/?host= (routes doc, PK12) ----------------------------- */
+
+export const POLICY_SLUGS = ["terms-and-conditions", "privacy-policy", "shipping-policy", "return-refund-policy", "payment-policy"] as const;
+
+export type Policy = {
+  slug: string; title: string; version: string; effective_date: string;
+  business: { name: string; address: string; email: string; phone: string; website_url: string; privacy_email: string; complaints_contact: string; registration_details: string };
+  shipping: Record<string, string>;
+  privacy: Record<string, string>;
+};
+
+function strings(v: unknown): Record<string, string> {
+  return record(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, str(x)])) : {};
+}
+
+/** One policy page's values, or null: the page is not live (the one 404), the slug or host is unknown, or the API failed. */
+export async function fetchPolicy(slug: string, host: string, c: Calls): Promise<Policy | null> {
+  const log = c.log ?? logPack;
+  if (!host || !(POLICY_SLUGS as readonly string[]).includes(slug) || c.env.secret.length < SECRET_MIN_LENGTH) return null;
+  try {
+    const response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/policies/${slug}/?host=${encodeURIComponent(host)}`, {
+      headers: { Authorization: `Bearer ${c.env.secret}`, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status === 404) return null;
+    if (response.status !== 200) {
+      log(`the API answered ${response.status} for a policy`);
+      return null;
+    }
+    const b: unknown = await response.json();
+    if (!record(b) || typeof b.slug !== "string" || typeof b.title !== "string" || !record(b.business)) return null;
+    const biz = strings(b.business);
+    return {
+      slug: b.slug, title: b.title, version: str(b.version), effective_date: str(b.effective_date),
+      business: {
+        name: biz.name ?? "", address: biz.address ?? "", email: biz.email ?? "", phone: biz.phone ?? "", website_url: biz.website_url ?? "",
+        privacy_email: biz.privacy_email ?? "", complaints_contact: biz.complaints_contact ?? "", registration_details: biz.registration_details ?? "",
+      },
+      shipping: strings(b.shipping), privacy: strings(b.privacy),
+    };
+  } catch {
+    log("a policy could not be read");
+    return null;
+  }
+}
+
 /* ---- onboarding after payment, the Completed step, the order-access link and the ZIP lookup ---------------------- */
 
 export type OnboardingStep = "verify" | "address" | "details" | "done";

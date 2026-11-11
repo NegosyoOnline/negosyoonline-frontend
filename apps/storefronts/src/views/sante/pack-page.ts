@@ -112,7 +112,7 @@ ${(c.policy_links.length > 0) ? html`
 /** A pack page: base.html. `head`, `afterShell` and `scripts` are its blocks of those names. */
 export function packDocument(
   c: PackCtx,
-  args: { title: string; content: Markup; head?: Markup; afterShell?: Markup; scripts?: string[] },
+  args: { title: string; content: Markup; head?: Markup; afterShell?: Markup; scripts?: string[]; noPolicyPopup?: boolean },
 ): Markup {
   return html`<!doctype html>
 <html lang="en">
@@ -139,7 +139,7 @@ ${topBar()}
 ${footer(c)}
 </div>
 ${args.afterShell ?? ""}
-${policyDialog(c)}
+${args.noPolicyPopup ? "" : policyDialog(c)}
 ${(args.scripts ?? []).map((s) => html`<script src="${asset(s)}"></script>`)}
 </body>
 </html>

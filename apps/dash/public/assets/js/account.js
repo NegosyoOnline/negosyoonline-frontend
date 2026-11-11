@@ -312,7 +312,7 @@
       input.setAttribute("type", "text");
       input.setAttribute("inputmode", "numeric"); input.setAttribute("autocomplete", "one-time-code"); input.setAttribute("maxlength", "6");
       input.setAttribute("pattern", "[0-9]*");
-      var otp = D.el("div", { "class": "acct-otp" }), boxes = D.el("div", { "class": "acct-code-boxes", "aria-hidden": "true" });
+      var otp = D.el("div", { "class": o.centred ? "acct-otp acct-otp-lg" : "acct-otp" }), boxes = D.el("div", { "class": "acct-code-boxes", "aria-hidden": "true" });
       for (var i = 0; i < 6; i++) boxes.appendChild(D.el("span", { "class": "acct-code-box" }));
       var mirror = function () { /* numerals only, six at most; each one shows in its own box and the next empty box is the active one */
         var nums = String(input.value || "").replace(/\D/g, "").slice(0, 6);
@@ -398,6 +398,7 @@
     var d = S.dlg;
     if (!d) return false;
     S.dlg = null;
+    clearInterval(S.resendTimer); /* the mobile code step's resend countdown ends with its dialog */
     document.removeEventListener("keydown", dlgKey);
     d.root.remove();
     d.saved.forEach(function (s) {
@@ -574,6 +575,7 @@
   function openMobile(opener) { mobileStep1(openDialog(opener, "Change your mobile")); }
   function mobileStep1(body) {
     body.textContent = "";
+    clearInterval(S.resendTimer);
     var mob = field({ id: "acct-new-mobile", name: "mobile", label: "New mobile", kind: "phone" });
     var fields = { mobile: mob }, send = submitBtn("Send code");
     var f = dlgForm(function () {
@@ -593,12 +595,35 @@
     body.appendChild(f);
     mob.input.focus();
   }
+  /* The code step is laid out like the public site's sign-in code step (ClickUp z8uq9md33v): centred, the larger
+     boxes, a resend line, the button, a quiet way back. Only this step asks field() for the centred boxes. */
+  var RESEND_WAIT = 30;
   function mobileStep2(body, number) {
     body.textContent = "";
-    var code = field({ id: "acct-mobile-code", name: "code", label: "Code", kind: "code" });
+    var code = field({ id: "acct-mobile-code", name: "code", label: "Code", kind: "code", centred: true });
     var fields = { code: code }, confirm = submitBtn("Confirm mobile");
+    var status = D.el("p", { "class": "acct-code-hint", role: "status" });
+    var count = D.el("span", {}, ""), wait = D.el("span", {});
+    wait.appendChild(txt("You can resend in ")); wait.appendChild(count); wait.appendChild(txt("."));
+    var resend = D.el("button", { type: "button", "class": "acct-code-resend" }, "Resend the code");
+    var hint = D.el("p", { "class": "acct-code-hint" }, "Didn\u2019t arrive? ");
+    hint.appendChild(wait); hint.appendChild(resend);
+    var back = D.el("button", { type: "button", "class": "acct-code-back" }, "Use a different number");
+    function clock(left) { return "0:" + (left < 10 ? "0" : "") + left; }
+    function cooldown() {
+      var left = RESEND_WAIT;
+      clearInterval(S.resendTimer);
+      resend.hidden = true; wait.hidden = false; count.textContent = clock(left);
+      S.resendTimer = setInterval(function () {
+        left -= 1;
+        if (left <= 0) { clearInterval(S.resendTimer); wait.hidden = true; resend.hidden = false; }
+        else count.textContent = clock(left);
+      }, 1000);
+    }
+    function emptyBoxes() { code.input.value = ""; code.input.dispatchEvent(new Event("input")); code.input.focus(); }
     var f = dlgForm(function () {
       setErrors(fields, null);
+      status.textContent = "";
       confirm.disabled = true;
       D.call("POST", "/account/mobile/verify/", { code: code.input.value }, true).then(function (res) {
         confirm.disabled = false;
@@ -607,12 +632,29 @@
         setErrors(fields, { code: fieldMsg(res, "code") });
       });
     });
+    resend.addEventListener("click", function () { /* the same start call for the same number; its limits answer here */
+      setErrors(fields, null);
+      status.textContent = "";
+      resend.disabled = true;
+      D.call("POST", "/account/mobile/start/", { mobile: number }, true).then(function (res) {
+        resend.disabled = false;
+        if (res.ok) { status.textContent = "A new code is on its way."; emptyBoxes(); cooldown(); return; }
+        if (res.status === 404) { closeDialog(); load("h-account"); return; }
+        code.err.textContent = fieldMsg(res, "mobile"); code.err.hidden = false; /* not a wrong code: the boxes stay as they are */
+      });
+    });
+    back.addEventListener("click", function () { mobileStep1(body); });
+    f.classList.add("acct-code-step");
     f.appendChild(D.el("p", { "class": "dash-copy" }, "We sent a 6-digit code to the number ending in " + String(number).slice(-4) + ". Enter it to confirm this number."));
     f.appendChild(code.box);
+    f.appendChild(status);
+    f.appendChild(hint);
     if (hasMobile(S.data)) f.appendChild(note("After you confirm, we send a notice to your email."));
     footer(f, [confirm]);
+    f.appendChild(back);
     body.appendChild(f);
     code.input.focus();
+    cooldown();
   }
 
   /* ---- connect and disconnect (S16, S17; spec 5.15, D25): fixed request paths only, so nothing rides a URL ---- */

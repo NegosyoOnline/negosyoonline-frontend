@@ -77,3 +77,22 @@ test("account security notices are promised by email only, never to a mobile num
   assert.ok(!/old number/i.test(src), "no notice is promised to the old number");
   assert.ok(!/Sent to your email and mobile/i.test(src), "alerts are not promised to the mobile");
 });
+
+/* ---- Mobile code step (ClickUp z8uq9md33v): its own block ---- */
+test("the mobile code step is laid out like the site's code step and the email step is left as it was", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/dash.css", import.meta.url), "utf8");
+  const step = src.slice(src.indexOf("function mobileStep2("), src.indexOf("/* ---- connect and disconnect"));
+  assert.ok(step.includes('kind: "code", centred: true'), "the mobile step asks for the centred boxes");
+  assert.equal(src.split("centred: true").length - 1, 1, "no other code step asks for them");
+  assert.ok(src.includes('o.centred ? "acct-otp acct-otp-lg" : "acct-otp"'), "without the option the boxes are the old ones");
+  assert.ok(step.includes('. Enter it to confirm this number."') && step.includes('"After you confirm, we send a notice to your email."'));
+  for (const text of ['"Didn\\u2019t arrive? "', '"You can resend in "', '"Resend the code"', '"Use a different number"', '"Confirm mobile"']) {
+    assert.ok(step.includes(text), text);
+  }
+  assert.ok(step.includes('D.call("POST", "/account/mobile/start/", { mobile: number }, true)'), "resend is the existing start call");
+  assert.ok(src.includes('input.setAttribute("autocomplete", "one-time-code")'), "one-time-code autofill is kept");
+  assert.ok(css.includes("body.dash-app .acct-otp { position: relative; max-width: 328px; }"), "the shared boxes keep their size");
+  assert.ok(css.includes("body.dash-app .acct-otp-lg .acct-code-box { height: 56px; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
+  assert.ok(css.includes("body.dash-app .acct-code-step .acct-otp-lg { max-width: 400px; margin: 8px auto 0; }"));
+});

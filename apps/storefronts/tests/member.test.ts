@@ -353,7 +353,7 @@ test("no member page carries an inline script, and every script and style it nam
 
 test("the shell links the TWCinc stylesheets and scripts by their approved files", () => {
   const signedOut = signInDocument(chrome(SITE), signInModel()).value;
-  for (const f of ["css/pack-landing.min.css", "css/pack-footer.min.css", "css/pack-registration.css", "css/pack-dashboard-shell.css", "css/pack-dashboard.css",
+  for (const f of ["css/pack-landing.min.css", "css/pack-footer.min.css", "css/pack-registration.css", "css/pack-dashboard-shell.css", "css/pack-dashboard.css", "css/pack-focus.css",
     "js/pack-phone.js", "js/pack-otp.js", "js/pack-busy.js", "js/pack-code-timer.js", "js/pack-nav-toggle.js"]) {
     assert.ok(signedOut.includes(`/assets/sante/${f}?v=`), f);
   }
@@ -406,4 +406,12 @@ test("the copied TWCinc files are byte for byte the originals", () => {
     try { original = readFileSync(path.join(twc, f)); } catch { continue; } // the TWCinc checkout is on Coach Ed's machine only
     assert.ok(readFileSync(path.join(here, f)).equals(original), f);
   }
+});
+
+test("the focus rule: light blue on inputs, never gold, no ring on headings, loaded after the TWCinc sheets", () => {
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-focus.css"), "utf8");
+  assert.match(css, /border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF/);
+  assert.doesNotMatch(css.replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#(?:d4af37|c9a|ffd7|f5b|e6b)/i);
+  const page = signInDocument(chrome(SITE), signInModel()).value;
+  assert.ok(page.indexOf("pack-focus.css") > page.indexOf("pack-dashboard.css"));
 });

@@ -17,6 +17,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
+  "css/pack-focus.css": "c8d2ab9b", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
   "js/pack-busy.js": "cd6351f6",

@@ -7,7 +7,7 @@ import { status, refusal } from "./inbox-page.mjs";
 
 const IDS = ["side-nav", "search-btn", "search-btn-2", "bell-btn", "bell-btn-2"];
 function menu(reply, { pathname = "/", noClient = false } = {}) {
-  const p = open(noClient ? ["menu.js"] : ["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => reply(c) });
+  const p = open(noClient ? ["menu.js"] : ["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => (c.url.endsWith("/contacts/status/") ? [404] : reply(c)) }); /* Contacts says no here: its own tests are in contacts-menu.test.mjs */
   for (const id of IDS.slice(1)) p.node[id].setAttribute("aria-disabled", "true");
   return p;
 }
@@ -86,10 +86,11 @@ test("on 404, 401, 503, offline, or with no client, no Inbox entry, both buttons
 test("the one call is POST inbox/status/ with the platform in its body and nothing in the address", async () => {
   const p = menu(() => [200, status()]);
   await settle();
-  assert.equal(p.calls.length, 1);
-  assert.equal(p.calls[0].method, "POST");
-  assert.equal(p.calls[0].url, "http://hq-api.test/staff/v1/inbox/status/");
-  assert.deepEqual(p.calls[0].body, { platform: "sms" });
+  const mine = p.calls.filter((c) => c.url.endsWith("/inbox/status/"));
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].method, "POST");
+  assert.equal(mine[0].url, "http://hq-api.test/staff/v1/inbox/status/");
+  assert.deepEqual(mine[0].body, { platform: "sms" });
 });
 
 test("a page with no side menu makes no call", async () => {

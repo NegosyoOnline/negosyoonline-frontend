@@ -265,6 +265,7 @@ body.dash-app .item { display: grid; grid-template-columns: 44px minmax(0, 1fr) 
 /* A list row that is a button, since an open conversation has no address. */
 button.item { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
 .list-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 20px; border-top: 1px solid var(--card-line); }
+.list-note { margin: 0; padding: 16px 20px; }
 
 /* conversation */
 .thread-card { display: flex; flex-direction: column; gap: 0; padding: 0; overflow: hidden; }

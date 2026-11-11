@@ -19,6 +19,8 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         { source: "/", destination: "/index.html" },
         { source: "/finance/", destination: "/finance.html" },
+        /* The Contacts pages: one document for four addresses, none with a value in it. */
+        ...["/contacts/", "/contacts/new/", "/contacts/groups/", "/contacts/upload/"].map((source) => ({ source, destination: "/contacts.html" })),
         ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
       ],
       afterFiles: [],
@@ -30,6 +32,7 @@ const nextConfig: NextConfig = {
     return [
       { source: "/index.html", destination: "/", permanent: false },
       { source: "/finance.html", destination: "/finance/", permanent: false },
+      { source: "/contacts.html", destination: "/contacts/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];
   },

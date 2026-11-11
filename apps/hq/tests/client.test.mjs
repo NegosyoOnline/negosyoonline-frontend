@@ -102,3 +102,16 @@ test("a refused or unanswered file gives its status and code, and no file", asyn
   const page = await client([500]).file("finance/payments/proof/");
   assert.equal(JSON.stringify(page), JSON.stringify({ ok: false, status: 500, code: "", blob: null }));
 });
+
+test("a refusal also carries the backend's message and field messages as text (plan 7, section 5.1)", async () => {
+  const body = { error: { code: "invalid_request", message: "Some values are missing or invalid.", fields: { mobile: ["Enter a valid Philippine mobile number."], contact: "cont_x", odd: 5 } } };
+  const res = await client([400, body]).call("POST", "contacts/add/", {});
+  assert.equal(res.message, "Some values are missing or invalid.");
+  assert.deepEqual(JSON.parse(JSON.stringify(res.fields)), body.error.fields);
+  assert.equal(JSON.stringify(res.data), "{}");
+  const none = await client([404]).call("POST", "contacts/add/", {});
+  assert.equal(none.message, "");
+  assert.deepEqual(JSON.parse(JSON.stringify(none.fields)), {});
+  const ok = await client([200, { a: 1 }]).call("POST", "contacts/status/");
+  assert.equal(ok.message, "");
+});

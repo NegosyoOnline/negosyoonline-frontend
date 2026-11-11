@@ -23,7 +23,9 @@ test("/inbox/ and the file names redirect to the SMS list", () => {
 test("no served page or script builds an address from a value", () => {
   for (const f of ["inbox.js", "inbox-platform.js", "menu.js"]) {
     const js = fs.readFileSync(new URL("../public/assets/js/" + f, import.meta.url), "utf8");
-    for (const m of js.matchAll(/location\.(assign|replace)\(([^)]*)\)/g)) assert.match(m[2], /^"[^"+]*"$/, f + ": " + m[0]);
-    assert.doesNotMatch(js, /location\.href\s*=|window\.open|location\.search|location\.hash\s*=/, f);
+    /* menu.js hands wake() two literal addresses; its assign takes that argument and nothing computed. */
+    for (const m of js.matchAll(/location\.(assign|replace)\(([^)]*)\)/g)) assert.match(m[2], f === "menu.js" ? /^to$/ : /^"[^"+]*"$/, f + ": " + m[0]);
+    if (f === "menu.js") for (const m of js.matchAll(/wake\("[^"]+", [^,]+, ([^)]*)\)/g)) assert.match(m[1], /^"[^"+]*"$/, m[0]);
+    assert.doesNotMatch(js, /location\.href\s*=|window\.open|location\.search|location\.hash\s*=(?!=)/, f);
   }
 });

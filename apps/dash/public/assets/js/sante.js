@@ -1,4 +1,4 @@
-/* The Santé "Sponsor ID" row on Business Settings (ClickUp z8uq9m92ez; mockup approved by Coach Ed 2026-11-11, moved
+/* The "Santé Username" row on Business Settings (the site's Santé sponsor ID; ClickUp z8uq9m92ez; mockup approved by Coach Ed 2026-11-11, moved
    into Business Settings and then into the Business identity card by his rulings of the same day). For a Santé site
    it is the last row of the Business identity card, in the place of the "Site type" row: the site's Sponsor ID and
    an Edit dialog. business.js (loaded before this file) draws the page, hands this file the site and its Site type
@@ -11,6 +11,7 @@
    own message.
    Tenant safety as in business.js: the site comes only from business.js's GET /sites/, a dialog keeps the id it was
    opened for, an answer for an older read is dropped, nothing is stored in the browser.
+   The screen calls it "Santé Username" (Coach Ed's ruling, 2026-11-11); the API field and this file's names stay sponsor_id.
    Plain ES5. API strings reach the page through D.el, textContent or input.value only. */
 (function () {
   var D = window.NODash, G = window.NOBusiness, U = G.ui, $ = function (id) { return document.getElementById(id); };
@@ -21,7 +22,6 @@
   function str(v) { return typeof v === "string" ? v.trim() : ""; }
   function isSante(site) { return !!site && site.template === "sante"; }
   function txt(text) { return D.el("span", {}, text); }
-  function chip(kind, text) { return D.el("span", { "class": "chip chip-" + kind }, text); }
   function say(text) { var n = $("bs-live"); if (n) n.textContent = text; } /* Business Settings' own live region */
 
   /* business.js calls this each time it draws the page for a site: `slot` is the Site type row it just drew in the
@@ -63,7 +63,7 @@
   /* The card's own row pattern: label, value, an action to its right, a help line under it. No Public or Private tag. */
   function shell(values, action, help) {
     var row = D.el("div", { "class": "acct-set-row", id: "st-row" });
-    row.appendChild(D.el("div", { "class": "acct-set-label" }, "Sponsor ID"));
+    row.appendChild(D.el("div", { "class": "acct-set-label" }, "Santé Username"));
     var value = D.el("div", { "class": "acct-set-value" });
     values.forEach(function (n) { value.appendChild(n); });
     row.appendChild(value);
@@ -74,17 +74,16 @@
   function drawError() {
     var again = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "st-retry" }, "Try again");
     again.addEventListener("click", function () { load(); });
-    place(shell([D.el("span", { "class": "bs-none", role: "alert" }, "We could not load the sponsor ID.")], again));
+    place(shell([D.el("span", { "class": "bs-none", role: "alert" }, "We could not load the Santé username.")], again));
   }
   function draw(focusId) {
     var settings = S.settings;
     if (!S.node || !S.site || !settings) return;
     var sponsor = str(settings.sponsor_id);
-    var edit = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "st-edit", "aria-label": "Edit sponsor ID" }, "Edit");
+    var edit = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "st-edit", "aria-label": "Edit Santé username" }, "Edit");
     edit.addEventListener("click", function () { openEdit(edit); });
     place(sponsor ? shell([txt(sponsor)], edit)
-      : shell([D.el("span", { "class": "bs-none" }, "Not added"), chip("warn", "Needed for member registration")], edit,
-        "Member registration on this site cannot start until you add it. Nothing else on your site waits for it."));
+      : shell([D.el("span", { "class": "bs-none" }, "Not added")], edit, "Member registration on this site cannot start until you add it."));
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }
@@ -94,10 +93,10 @@
     var site = S.site, settings = S.settings;
     if (!site || !settings) return;
     var siteId = site.id, seq = S.seq, key = "sponsor_id", order = [key], fields = {};
-    var body = U.openDialog(opener, "Edit sponsor ID");
+    var body = U.openDialog(opener, "Edit Santé username");
     var form = D.el("form", { "class": "acct-dlg-form", novalidate: "" });
-    form.appendChild(D.el("p", { "class": "dash-copy" }, "For " + G.util.siteLabel(site) + ". New members who register through this site are registered under this sponsor ID."));
-    var f = U.field({ key: key, label: "Sponsor ID", value: str(settings.sponsor_id),
+    form.appendChild(D.el("p", { "class": "dash-copy" }, "For " + G.util.siteLabel(site) + ". New members who register through this site are registered under this Santé username."));
+    var f = U.field({ key: key, label: "Santé Username", value: str(settings.sponsor_id),
       hint: "Letters, digits and hyphens only, up to 32 characters. Leave it blank to remove it." });
     f.input.setAttribute("spellcheck", "false");
     fields[key] = f;

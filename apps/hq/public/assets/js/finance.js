@@ -257,13 +257,11 @@
     document.removeEventListener("keydown", onKey);
     if (refocus && opener && !$("act").hidden) opener.focus();
   }
-  ["m-confirm", "m-reject"].forEach(function (id) {
-    $(id).addEventListener("click", function (e) { if (e.target === $(id) && !busy) closeDialog(true); });
-  });
+  /* A dialog closes by its X or by Escape only. A click on the backdrop does nothing. */
 
   function lock(on) {
     busy = on;
-    ["confirm-go", "confirm-cancel", "reject-go", "reject-cancel"].forEach(function (id) { $(id).disabled = on; });
+    ["confirm-go", "confirm-x", "reject-go", "reject-x"].forEach(function (id) { $(id).disabled = on; });
   }
 
   /* One decision at a time. where.fail(text) shows a message in the open dialog; where.field() in the field it is about.
@@ -321,7 +319,7 @@
     $("mc-sub").textContent = ((current.site || {}).name || "") + " · amount due " + money(current.amount_centavos);
     openDialog("m-confirm", $("open-confirm"), $("amount"));
   });
-  $("confirm-cancel").addEventListener("click", function () { if (!busy) closeDialog(true); });
+  $("confirm-x").addEventListener("click", function () { if (!busy) closeDialog(true); });
   $("confirm-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || !current) return;
@@ -350,7 +348,7 @@
     $("mr-sub").textContent = (current.site || {}).name || "";
     openDialog("m-reject", $("open-reject"), $("reason"));
   });
-  $("reject-cancel").addEventListener("click", function () { if (!busy) closeDialog(true); });
+  $("reject-x").addEventListener("click", function () { if (!busy) closeDialog(true); });
   $("reject-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || !current) return;

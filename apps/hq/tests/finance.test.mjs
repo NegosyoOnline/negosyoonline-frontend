@@ -11,8 +11,8 @@ const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
   "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
   "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
-  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-cancel",
-  "m-reject", "mr-h", "mr-sub", "reject-form", "reason", "note", "reject-err", "reject-go", "reject-cancel",
+  "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
+  "m-reject", "mr-h", "mr-sub", "reject-form", "reason", "note", "reject-err", "reject-go", "reject-x",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const VIEWS = ["boot", "v-queue", "v-pay", "v-closed", "v-down"];
@@ -356,10 +356,9 @@ test("Confirm payment opens a dialog for the amount received; nothing is sent un
   assert.equal(p.sent(C).length, 0);
 });
 
-test("the confirm dialog closes with Cancel, Escape or a click outside, and focus returns to the button that opened it", async () => {
+test("the confirm dialog closes with its X or Escape, and focus returns to the button that opened it", async () => {
   const p = await opened();
-  const ways = [() => p.node["confirm-cancel"].fire("click"), () => p.doc.fire("keydown", { key: "Escape" }),
-    () => p.node["m-confirm"].fire("click")];
+  const ways = [() => p.node["confirm-x"].fire("click"), () => p.doc.fire("keydown", { key: "Escape" })];
   for (const close of ways) {
     p.node["open-confirm"].fire("click");
     assert.equal(p.node["m-confirm"].hidden, false);
@@ -368,10 +367,11 @@ test("the confirm dialog closes with Cancel, Escape or a click outside, and focu
     assert.equal(p.doc.body.classList.contains("modal-open"), false);
     assert.equal(p.doc.activeElement, p.node["open-confirm"]);
   }
-  /* A click inside the box (a different target) does not close it. */
+  /* A click on the backdrop or inside the box does not close it. */
   p.node["open-confirm"].fire("click");
+  p.node["m-confirm"].fire("click");
   p.node.amount.fire("click");
-  assert.equal(p.node["m-confirm"].hidden, false);
+  assert.equal(p.node["m-confirm"].hidden, false, "outside click leaves it open");
   assert.equal(p.sent(C).length, 0);
   assert.deepEqual(p.doc.listeners.keydown.length, 1, "one key handler while open");
 });
@@ -405,12 +405,12 @@ test("a confirmation runs a progress bar for two seconds at least, then shows th
   /* The backend has answered yes, but the two seconds are not over: the dialog stays, busy, with the bar. */
   assert.equal(p.node["m-confirm"].hidden, false);
   assert.equal(p.node["confirm-bar"].hidden, false);
-  for (const id of ["confirm-go", "confirm-cancel", "reject-go", "reject-cancel"]) assert.equal(p.node[id].disabled, true, id);
+  for (const id of ["confirm-go", "confirm-x", "reject-go", "reject-x"]) assert.equal(p.node[id].disabled, true, id);
   assert.deepEqual(p.shown(), ["v-pay"]);
   assert.equal(p.node["q-msg"].hidden, true, "no success is told before the time is up");
   p.doc.fire("keydown", { key: "Escape" });
-  p.node["m-confirm"].fire("click");
-  assert.equal(p.node["m-confirm"].hidden, false, "Escape and a click outside do nothing while the bar runs");
+  p.node["confirm-x"].fire("click");
+  assert.equal(p.node["m-confirm"].hidden, false, "Escape and the X do nothing while the bar runs");
   p.table[L] = list([], { under_review_count: 0 });
   p.tick();
   await settle();
@@ -461,7 +461,7 @@ test("a refusal stops the bar and stays in the dialog: it is never shown as a su
     assert.equal(p.node["m-confirm"].hidden, false, code);
     assert.equal(p.node["confirm-bar"].hidden, true, code);
     assert.equal(p.node["confirm-go"].disabled, false, code);
-    assert.equal(p.node["confirm-cancel"].disabled, false, code);
+    assert.equal(p.node["confirm-x"].disabled, false, code);
     assert.deepEqual(p.shown(), ["v-pay"], code);
     assert.equal(p.node["q-msg"].hidden, true, code);
     assert.equal(p.sent(D).length, 1, code);
@@ -557,7 +557,7 @@ test("Reject payment opens a dialog with the reason list at its first line and a
   assert.equal(p.node.note.value, "");
   assert.equal(p.doc.activeElement, p.node.reason);
   assert.equal(p.doc.body.classList.contains("modal-open"), true);
-  p.node["reject-cancel"].fire("click");
+  p.node["reject-x"].fire("click");
   assert.equal(p.node["m-reject"].hidden, true);
   assert.equal(p.doc.activeElement, p.node["open-reject"]);
   p.node["open-reject"].fire("click");
@@ -565,6 +565,8 @@ test("Reject payment opens a dialog with the reason list at its first line and a
   assert.equal(p.node["m-reject"].hidden, true);
   p.node["open-reject"].fire("click");
   p.node["m-reject"].fire("click");
+  assert.equal(p.node["m-reject"].hidden, false, "a click outside leaves it open");
+  p.node["reject-x"].fire("click");
   assert.equal(p.node["m-reject"].hidden, true);
   assert.equal(p.sent(R).length, 0);
 });
@@ -722,4 +724,40 @@ test("the dialogs are real dialogs: labelled, modal, and the confirm bar is a pr
   assert.match(html, /id="confirm-bar" role="progressbar"/);
   assert.match(html.slice(html.indexOf('id="confirm-go"'), html.indexOf('id="confirm-go"') + 80), /Confirm payment/);
   assert.match(html.slice(html.indexOf('id="reject-go"'), html.indexOf('id="reject-go"') + 80), /Reject payment/);
+});
+
+test("while a rejection is in flight the X and Escape do nothing; after a refusal they close", async () => {
+  const p = await opened({ [R]: [409, refused("invalid_transition")] });
+  p.node["open-reject"].fire("click");
+  p.node.reason.value = "duplicate";
+  p.node["reject-form"].fire("submit");
+  assert.equal(p.node["reject-x"].disabled, true);
+  p.node["reject-x"].fire("click");
+  p.doc.fire("keydown", { key: "Escape" });
+  assert.equal(p.node["m-reject"].hidden, false, "no closing mid-call");
+  await settle();
+  assert.equal(p.node["reject-x"].disabled, false);
+  assert.equal(p.node["m-reject"].hidden, false, "a refusal keeps it open");
+  p.doc.fire("keydown", { key: "Escape" });
+  assert.equal(p.node["m-reject"].hidden, true);
+  assert.equal(p.doc.activeElement, p.node["open-reject"]);
+});
+
+test("neither dialog has a Cancel button; each has an X button labelled Close; the primary button is full width", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  const dialogs = html.slice(html.indexOf('id="m-confirm"'), html.indexOf("/assets/js/config.js"));
+  assert.doesNotMatch(dialogs, />\s*Cancel\s*</);
+  assert.doesNotMatch(dialogs, /confirm-cancel|reject-cancel/);
+  for (const [x, go] of [["confirm-x", "confirm-go"], ["reject-x", "reject-go"]]) {
+    const xTag = (dialogs.match(new RegExp('<button [^>]*id="' + x + '"[^>]*>')) || [""])[0];
+    assert.match(xTag, /type="button"/, x);
+    assert.match(xTag, /aria-label="Close"/, x);
+    assert.match(xTag, /class="icon-btn modal-x"/, x);
+    const goTag = (dialogs.match(new RegExp('<button [^>]*id="' + go + '"[^>]*>')) || [""])[0];
+    assert.match(goTag, /class="[^"]*fin-block/, go);
+    assert.ok(dialogs.indexOf(x) < dialogs.indexOf(go), "the X is at the top");
+  }
+  assert.match(css, /\.fin-block \{ width: 100%; \}/);
+  assert.match(css, /\.modal-head \{[^}]*justify-content: space-between/);
 });

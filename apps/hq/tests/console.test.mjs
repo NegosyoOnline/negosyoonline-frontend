@@ -6,7 +6,8 @@ import fs from "node:fs";
 import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-console", "v-down", "who-h", "times", "events", "events-empty", "acct-row", "acct-ini", "acct-name",
-  "acct-btn", "sign-out", "sign-out-2", "sign-out-3", "sign-out-err", "theme-toggle", "theme-toggle-2"];
+  "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun", "menu-moon", "menu-theme-label",
+  "sign-out", "sign-out-0", "sign-out-2", "sign-out-3", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const CONSOLE = { email: "sample.staff@example.com", verified_at: "2026-11-11T09:02:00+08:00",
   expires_at: "2026-11-11T21:01:00+08:00", events: [
     { action: "admin_sign_in_ok", surface: "hq", step: "totp", at: "2026-11-11T09:02:00+08:00" },
@@ -125,4 +126,12 @@ test("either Sign out button ends the session and returns to sign-in; a failed o
   await settle();
   assert.equal(failed.location.assigned, null);
   assert.equal(failed.node["sign-out-err"].hidden, false);
+});
+
+test("the console page shows no visible title: no heading block, a heading for screen readers only", () => {
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /view-head|head-row/);
+  assert.match(html, /<h1 class="sr-only">Admin console<\/h1>/);
+  assert.equal(html.match(/<h1/g).length, 1);
+  assert.match(html, /<title>Admin console \| NegosyoOnline HQ<\/title>/, "the tab title stays");
 });

@@ -6,17 +6,21 @@ import { open } from "./page.mjs";
 
 const menu = (pathname) => open(["menu.js"], { ids: ["side-nav"], pathname }).node["side-nav"];
 
-test("the menu holds Admin console only, marked as the current page on /", () => {
+test("the menu holds Admin console, then Finance, with the current page marked", () => {
   const nav = menu("/");
   assert.equal(nav.hidden, false);
-  assert.deepEqual(nav.children.map((a) => [a.tagName, a.getAttribute("href"), a.textContent]), [["A", "/", "Admin console"]]);
+  assert.deepEqual(nav.children.map((a) => [a.tagName, a.getAttribute("href"), a.textContent]), [["A", "/", "Admin console"], ["A", "/finance/", "Finance"]]);
   assert.equal(nav.children[0].getAttribute("aria-current"), "page");
+  assert.equal(nav.children[1].hasAttribute("aria-current"), false);
+  const finance = menu("/finance/");
+  assert.equal(finance.children[1].getAttribute("aria-current"), "page");
+  assert.equal(finance.children[0].hasAttribute("aria-current"), false);
 });
 
 test("on another page no entry is marked current", () => {
   const nav = menu("/somewhere-else/");
-  assert.equal(nav.children.length, 1);
-  assert.equal(nav.children[0].hasAttribute("aria-current"), false);
+  assert.equal(nav.children.length, 2);
+  for (const a of nav.children) assert.equal(a.hasAttribute("aria-current"), false);
 });
 
 test("each entry has an icon that a screen reader skips", () => {

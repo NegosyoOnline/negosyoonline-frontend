@@ -39,7 +39,7 @@ class Node {
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
   removeEventListener(type, fn) { this.listeners[type] = (this.listeners[type] || []).filter((f) => f !== fn); }
   fire(type, extra = {}) {
-    const e = { type, target: this, prevented: false, preventDefault() { this.prevented = true; }, ...extra };
+    const e = { type, target: this, prevented: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
     (this.listeners[type] || []).slice().forEach((fn) => fn(e));
     return e;
   }
@@ -51,6 +51,8 @@ class Node {
   /* One ".class" or "#id" only, which is all dashboard.js asks of these two. */
   matches(sel) { return sel.charAt(0) === "." ? this.classList.contains(sel.slice(1)) : sel.charAt(0) === "#" && this.id === sel.slice(1); }
   querySelector(sel) { return this.all((n) => n.matches(sel))[0] || null; }
+  contains(n) { for (; n; n = n.parentNode) if (n === this) return true; return false; }
+  getBoundingClientRect() { return { left: 20, top: 200, right: 320, bottom: 244, width: 300, height: 44 }; }
   closest(sel) { return this.matches(sel) ? this : this.parentNode ? this.parentNode.closest(sel) : null; }
   /* Only the form of selector the scripts use: a comma list of tag names, with an optional [attribute]. */
   querySelectorAll(sel) {
@@ -69,7 +71,7 @@ export function makeDocument() {
   doc.addEventListener = (type, fn) => { (doc.listeners[type] = doc.listeners[type] || []).push(fn); };
   doc.removeEventListener = (type, fn) => { doc.listeners[type] = (doc.listeners[type] || []).filter((f) => f !== fn); };
   doc.fire = (type, extra = {}) => {
-    const e = { type, prevented: false, preventDefault() { this.prevented = true; }, ...extra };
+    const e = { type, prevented: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
     (doc.listeners[type] || []).slice().forEach((fn) => fn(e));
     return e;
   };

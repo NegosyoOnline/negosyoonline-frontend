@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance | NegosyoOnline HQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/svg+xml" href="/assets/img/negosyoonline-favicon.svg?v=20261111a">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
+<link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
+<script src="/assets/js/theme.js?v=20261111a"></script>
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261111u">
+</head>
+<body class="dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="side dash-chrome" aria-label="HQ navigation">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline HQ</span></a>
+    <div class="side-sep"></div>
+    <nav class="side-nav" id="side-nav" aria-label="HQ sections"></nav>
+    <div class="side-foot">
+      <div class="acct-menu" id="acct-menu" role="menu" aria-label="Account" hidden>
+        <div class="menu-head"><span class="menu-ini" id="menu-ini" aria-hidden="true"></span><span class="menu-info"><span class="menu-name" id="menu-name"></span><span class="menu-email" id="menu-email"></span></span><span class="chip chip-ok menu-chip">Two-step verified</span></div>
+        <div class="menu-div"></div>
+        <div class="menu-actions"><button type="button" class="menu-row" id="menu-theme" role="menuitem"><span class="menu-ico" id="menu-sun" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="menu-ico" id="menu-moon" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span id="menu-theme-label">Light theme</span></button><button type="button" class="menu-row menu-out" id="sign-out" role="menuitem"><span>Sign out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button></div>
+      </div>
+      <button type="button" class="no-btn no-btn-ghost" id="sign-out-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>Sign out</button>
+      <button type="button" class="acct-row" id="acct-row" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu" hidden><span class="acct-row-ini" aria-hidden="true" id="acct-ini"></span><span class="acct-row-name" id="acct-name"></span><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>
+    </div>
+  </aside>
+  <header class="topbar dash-chrome">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline HQ</span></a>
+    <div class="top-actions"><button type="button" class="icon-btn top-search" id="search-btn" aria-disabled="true" title="Search arrives with the Inbox" aria-label="Search, arrives with the Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button><button type="button" class="icon-btn bell top-bell" id="bell-btn" aria-disabled="true" title="Notifications arrive with the Inbox" aria-label="Notifications, arrive with the Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button><span class="acct-btn" id="acct-btn" hidden></span></div>
+  </header>
+  <div class="col">
+    <div class="desk-switch"><button type="button" class="icon-btn top-search" id="search-btn-2" aria-disabled="true" title="Search arrives with the Inbox" aria-label="Search, arrives with the Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><button type="button" class="icon-btn" id="theme-toggle-2" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button><button type="button" class="icon-btn bell top-bell" id="bell-btn-2" aria-disabled="true" title="Notifications arrive with the Inbox" aria-label="Notifications, arrive with the Inbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></button></div>
+    <main class="view" id="main" aria-live="polite">
+      <h1 class="sr-only">Finance, bank transfer payments</h1>
+      <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
+      <p class="dash-copy" id="boot">Loading payments…</p>
+      <noscript><p class="dash-copy">This page needs JavaScript.</p></noscript>
+
+      <div class="view" id="v-queue" hidden>
+        <div class="fin-tabs" role="group" aria-label="Payments by status">
+          <button type="button" id="tab-submitted" aria-pressed="true">Under review</button>
+          <button type="button" id="tab-confirmed" aria-pressed="false">Confirmed</button>
+          <button type="button" id="tab-rejected" aria-pressed="false">Rejected</button>
+          <button type="button" id="tab-replaced" aria-pressed="false">Replaced</button>
+        </div>
+        <p class="banner fin-msg" id="q-msg" role="status" hidden></p>
+        <section class="dash-card list-card" aria-label="Payments">
+          <p class="dash-copy fin-note" id="q-loading" hidden>Loading payments…</p>
+          <ol class="list" id="rows"></ol>
+          <p class="dash-copy fin-note" id="q-empty" hidden></p>
+          <div class="list-foot" id="more-row" hidden><button type="button" class="no-btn no-btn-ghost" id="more">Load more</button></div>
+        </section>
+      </div>
+
+      <div class="view" id="v-pay" hidden>
+        <p><a class="back" href="/finance/" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>Back to payments</a></p>
+        <p class="dash-copy" id="p-loading" hidden>Loading the payment…</p>
+        <div class="fin-split" id="p-body" hidden>
+          <section class="dash-card fin-pay" aria-labelledby="p-site">
+            <div class="batch-title"><h2 id="p-site"></h2><span class="chip chip-neutral" id="p-status"></span></div>
+            <p class="small" id="p-site-id"></p>
+            <div class="fin-due"><span class="small">Amount due</span><span class="fin-amount num" id="p-amount"></span></div>
+            <dl class="fin-facts">
+              <div><dt>Plan</dt><dd id="p-plan"></dd></div>
+              <div><dt>Transfer date</dt><dd id="p-date"></dd></div>
+              <div><dt>Bank reference</dt><dd id="p-ref"></dd></div>
+              <div><dt>Submitted</dt><dd id="p-submitted"></dd></div>
+              <div><dt>Subscriber email</dt><dd id="p-email"></dd></div>
+            </dl>
+            <p class="dash-copy" id="p-decided" hidden></p>
+            <div class="fin-hist"><h3 id="history-h">History</h3><ol class="list" id="history" aria-labelledby="history-h"></ol></div>
+            <div class="fin-row fin-cta" id="act" hidden>
+              <button type="button" class="no-btn no-btn-primary" id="open-confirm" aria-haspopup="dialog">Confirm payment</button>
+              <button type="button" class="no-btn no-btn-ghost stop" id="open-reject" aria-haspopup="dialog">Reject payment</button>
+            </div>
+          </section>
+
+          <section class="dash-card fin-proofcard" aria-labelledby="proof-h">
+            <h2 id="proof-h">Proof of payment</h2>
+            <div class="fin-frame">
+              <p class="dash-copy" id="proof-loading" hidden>Loading the proof…</p>
+              <img class="fin-proof" id="proof-img" alt="The proof of payment the Subscriber sent" hidden>
+              <div class="fin-file" id="proof-file" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h6"/></svg><span>PDF document</span></div>
+              <div class="fin-row" id="proof-err" hidden><p class="field-err" role="alert">The proof could not be loaded.</p><button type="button" class="no-btn no-btn-ghost" id="proof-retry">Try again</button></div>
+            </div>
+            <a class="no-btn no-btn-ghost" id="proof-preview" target="_blank" rel="noopener" hidden>Preview</a>
+          </section>
+        </div>
+      </div>
+
+      <section class="dash-card" id="v-closed" aria-labelledby="h-closed" hidden>
+        <h2 id="h-closed">Bank transfer payments are not switched on.</h2>
+      </section>
+      <section class="dash-card" id="v-down" aria-labelledby="h-down" hidden>
+        <h2 id="h-down">Finance could not be reached. Try again.</h2>
+        <p><button type="button" class="no-btn no-btn-ghost" id="retry">Try again</button></p>
+      </section>
+      <p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-2">Sign out</button></p>
+    </main>
+  </div>
+</div>
+<div class="modal" id="m-confirm" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mc-h" aria-describedby="mc-sub">
+    <div class="modal-head"><h2 id="mc-h">Confirm payment</h2><button type="button" class="icon-btn modal-x" id="confirm-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="small" id="mc-sub"></p>
+    <form class="form-card" id="confirm-form" novalidate>
+      <div class="field"><label for="amount">Amount received (PHP)</label><div class="fin-amt" id="amount-group"><span class="fin-amt-fix" aria-hidden="true">₱</span><input class="num" id="amount" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="0" aria-describedby="amount-err amount-hint"><span class="fin-amt-fix" aria-hidden="true">.00</span><span class="fin-amt-ruler" id="amount-ruler" aria-hidden="true"></span></div><p class="field-err" id="amount-err" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
+      <p class="field-err" id="confirm-err" role="alert" hidden></p>
+      <div class="fin-progress" id="confirm-bar" role="progressbar" aria-label="Confirming the payment" hidden><span></span></div>
+      <button class="no-btn no-btn-primary fin-block" type="submit" id="confirm-go">Confirm payment</button>
+    </form>
+  </div>
+</div>
+<div class="modal" id="m-reject" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mr-h" aria-describedby="mr-sub">
+    <div class="modal-head"><h2 id="mr-h">Reject payment</h2><button type="button" class="icon-btn modal-x" id="reject-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="small" id="mr-sub"></p>
+    <form class="form-card" id="reject-form" novalidate>
+      <div class="field"><label for="reason">Reason</label><select class="input" id="reason" tabindex="-1" aria-hidden="true" aria-describedby="reject-err">
+        <option value="">Choose a reason</option>
+        <option value="unreadable">The proof cannot be read</option>
+        <option value="amount_mismatch">The amount is not the amount due</option>
+        <option value="not_received">The money has not arrived</option>
+        <option value="wrong_account">Sent to a different account</option>
+        <option value="duplicate">This payment was already counted</option>
+        <option value="other">Another reason (write a note)</option>
+      </select></div>
+      <div class="field"><label for="note">Note to the Subscriber (optional)</label><textarea class="textarea short" id="note" maxlength="300" aria-describedby="note-hint reject-err"></textarea><p class="hint" id="note-hint">The Subscriber sees the reason and this note.</p></div>
+      <p class="field-err" id="reject-err" role="alert" hidden></p>
+      <button class="no-btn no-btn-ghost stop fin-block" type="submit" id="reject-go">Reject payment</button>
+    </form>
+  </div>
+</div>
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/hq.js?v=20261111c"></script>
+<script src="/assets/js/menu.js?v=20261111c"></script>
+<script src="/assets/js/shell.js?v=20261111b"></script>
+<script src="/assets/js/finance.js?v=20261111h"></script>
+</body>
+</html>

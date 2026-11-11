@@ -20,6 +20,22 @@
       .catch(function () { return { ok: false, status: 0, code: "", data: {} }; });
   }
 
+  /* A private file from the staff routes, as {ok, status, code, blob}. The file is held in this tab's
+     memory only; the caller shows it from an object address and releases it. */
+  function file(path, body) {
+    var opts = { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}) };
+    return fetch(cfg.staffApi + "/" + path, opts)
+      .then(function (r) {
+        if (r.ok) return r.blob().then(function (b) { return { ok: true, status: r.status, code: "", blob: b }; });
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          var e = data && data.error;
+          return { ok: false, status: r.status, code: e && typeof e.code === "string" ? e.code : "", blob: null };
+        });
+      })
+      .catch(function () { return { ok: false, status: 0, code: "", blob: null }; });
+  }
+
   /* Which page the answer to me/ or console/ leads to: "console", "verify", "sign-in", or "down" when the
      answer is none of the three the backend gives a staff page. */
   function placeFor(res) {
@@ -52,5 +68,5 @@
     b.addEventListener("click", function () { api.set(api.current() === "dark" ? "light" : "dark"); });
   });
 
-  window.NOHq = { cfg: cfg, call: call, placeFor: placeFor, when: when, who: who };
+  window.NOHq = { cfg: cfg, call: call, file: file, placeFor: placeFor, when: when, who: who };
 })();

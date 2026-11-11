@@ -13,7 +13,7 @@
 
 body.dash-app {
   --c-bg: #08102B; --c-line: #1B275A; --c-card: #111B44; --c-block-line: #2B3A75;
-  --c-text: #F2F4FA; --c-text-2: #C9D1EA; --c-meta: #AEB8D6; --c-hover: #141F4C; --c-focus: #F2D99B;
+  --c-text: #F2F4FA; --c-text-2: #C9D1EA; --c-meta: #AEB8D6; --c-hover: #141F4C;
   --primary: #173DB8; --primary-hover: #2A50D0; --gold: #C59A3B;
   --bg: #0A1230; --card: #111B44; --card-line: #24326A; --card-shadow: none;
   --text: #F2F4FA; --text-2: #C9D1EA; --meta: #AEB8D6; --link: #9DB4FF; --link-hover: #C7D4FF;
@@ -21,8 +21,8 @@ body.dash-app {
   --field-bg: #0A1230; --field-line: #6474B0;
   --tile: #1A2862; --tile-ink: #BCCBFF;
   --banner: #10205E; --banner-line: #2B47B0; --banner-text: #D3DCF7;
+  --red: #DC3232; --red-h: #CF2C2C; --on-red: #FFFFFF; /* the one solid red: Reject buttons, Rejected badge and rule; white text 4.62:1 */
   --err-bg: #1E1220; --err-line: #7A3328; --err-h: #FFB8AC; --err-text: #E9C9C3;
-  --focus: #F2D99B;
   --chip-ok-bg: rgba(46,170,110,.16); --chip-ok: #8FE3BC;
   --chip-info-bg: rgba(120,150,255,.16); --chip-info: #BCCBFF;
   --chip-neutral-bg: #1C2858; --chip-neutral: #C9D1EA;
@@ -40,8 +40,8 @@ html[data-theme="light"] body.dash-app {
   --field-bg: #FFFFFF; --field-line: #7D879E;
   --tile: #E8EDFB; --tile-ink: #173DB8;
   --banner: #EEF2FD; --banner-line: #C5D1F5; --banner-text: #3A4560;
+  --red: #DC3232; --red-h: #CF2C2C; --on-red: #FFFFFF;
   --err-bg: #FDF0EE; --err-line: #E3A89D; --err-h: #A8321F; --err-text: #5A2A22;
-  --focus: #173DB8;
   --chip-ok-bg: #E2F5EC; --chip-ok: #146B45;
   --chip-info-bg: #E8EDFB; --chip-info: #173DB8;
   --chip-neutral-bg: #EEF1F7; --chip-neutral: #3A4560;
@@ -54,8 +54,9 @@ html[data-theme="light"] body.dash-app {
 body.dash-app .dash-chrome {
   --text: var(--c-text); --text-2: var(--c-text-2); --meta: var(--c-meta); --card: var(--c-card);
   --card-line: var(--c-block-line); --ghost-text: #E4E9F8; --ghost-line: #6474B0; --ghost-bg: transparent;
-  --ghost-hover: var(--c-hover); --focus: var(--c-focus);
+  --ghost-hover: var(--c-hover);
   --chip-info-bg: rgba(120,150,255,.16); --chip-info: #BCCBFF;
+  --chip-ok-bg: rgba(46,170,110,.16); --chip-ok: #8FE3BC;
   background: var(--c-bg); color: var(--c-text);
 }
 
@@ -63,7 +64,11 @@ body.dash-app .dash-chrome {
 body.dash-app h1, body.dash-app h2 { margin: 0; color: var(--text); }
 body.dash-app p { margin: 0; }
 body.dash-app a { color: var(--link); }
-body.dash-app :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+/* Focus is light blue (--link), never gold. Buttons, tabs and links keep a ring for keyboard users; a typed-into field
+   shows the dashboard's blue border and 1px ring; a heading is not a control and never shows a ring. */
+body.dash-app :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+body.dash-app input:focus-visible, body.dash-app textarea:focus-visible, body.dash-app select:focus-visible { outline: none; }
+body.dash-app :is(h1, h2, h3, h4, h5, h6):focus, body.dash-app :is(h1, h2, h3, h4, h5, h6):focus-visible { outline: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .skip { position: absolute; left: -999px; top: 8px; z-index: 100; padding: 10px 14px; border-radius: 6px; background: var(--c-bg); color: var(--c-text); }
 .skip:focus { left: 8px; }
@@ -78,10 +83,6 @@ body.dash-app .wordmark { display: inline-flex; align-items: center; gap: 10px; 
 .wordmark span span { color: #fff; }
 
 .side-sep { height: 1px; margin: 0 -16px; background: var(--c-line); }
-.ws { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 8px 12px; }
-.ws-tile { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; background: var(--primary); color: #fff; font-size: 14px; font-weight: 700; }
-.ws-text { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
-.ws-name { font-size: 17px; font-weight: 700; line-height: 1.2; color: #fff; }
 .side-nav { display: flex; flex-direction: column; gap: 4px; }
 body.dash-app .side-nav a { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 6px; font-size: 15px; font-weight: 600; color: var(--c-text-2); text-decoration: none; }
 .side-nav a svg { flex: none; width: 20px; height: 20px; color: var(--c-meta); }
@@ -89,12 +90,29 @@ body.dash-app .side-nav a:hover { background: var(--c-hover); color: var(--c-tex
 body.dash-app .side-nav a[aria-current="page"] { background: var(--primary); color: #fff; }
 .side-nav a[aria-current="page"] svg { color: #fff; }
 .side-nav .count { margin-left: auto; min-width: 24px; padding: 0 8px; border-radius: 999px; background: var(--gold); color: #0B163F; font-size: 13px; font-weight: 800; text-align: center; line-height: 22px; }
-.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
-.acct-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--c-block-line); border-radius: 8px; background: #18234F; color: #fff; }
-.acct-row-ini { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); font-size: 14px; font-weight: 700; }
-.acct-row-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
-.acct-row-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.acct-row-sub { font-size: 13px; color: var(--c-meta); }
+/* The foot of the side panel: the user chip and its pop-up card, copied from the Subscriber dashboard (dash.css, .acct-row and .acct-menu). */
+.side-foot { position: relative; display: flex; flex-direction: column; margin: auto -16px -24px; border-top: 1px solid var(--c-line); }
+.side-foot > .no-btn { margin: 16px; }
+.acct-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 72px; padding: 16px; border: 0; border-radius: 0; background: transparent; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.acct-row:hover, .acct-row[aria-expanded="true"] { background: #18234F; }
+.acct-row-ini { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); color: #fff; font-size: 14px; font-weight: 700; }
+.acct-row-name { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-row svg { flex: none; width: 20px; height: 20px; color: var(--c-text-2); }
+.acct-menu { position: absolute; right: 0; bottom: calc(100% + 8px); left: 16px; z-index: 30; display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--c-block-line); border-radius: 10px; background: var(--c-card); box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+.menu-head { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; column-gap: 12px; padding: 20px 12px 14px; border-radius: 8px; background: #18234F; text-align: left; }
+.menu-ini { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--primary); color: #fff; font-size: 17px; font-weight: 700; }
+.menu-info { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; padding-top: 8px; }
+.menu-name { max-width: 100%; font-size: 17px; font-weight: 700; line-height: 1.25; color: #fff; overflow-wrap: anywhere; }
+.menu-email { max-width: 100%; font-size: 14px; line-height: 1.25; color: var(--c-meta); overflow-wrap: anywhere; }
+.menu-head > .menu-chip { position: absolute; top: 20px; left: 44px; z-index: 1; min-height: 16px; padding: 0 7px; font-size: 10px; line-height: 16px; white-space: nowrap; transform: translateY(-50%); box-shadow: 0 0 0 2px #18234F; }
+.menu-div { height: 1px; margin: 4px 0; background: var(--c-block-line); }
+.menu-actions { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.menu-row { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px; background: transparent; color: var(--c-text-2); font: inherit; font-size: 16px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.menu-row:hover { background: #18234F; color: #fff; }
+.menu-out { margin-left: auto; color: #FFB8AC; }
+.menu-out:hover { background: rgba(232,96,76,.14); color: #FFD3CB; }
+.menu-ico { display: inline-flex; }
+.menu-row svg { flex: none; width: 20px; height: 20px; }
 
 .top-actions { display: flex; align-items: center; gap: 8px; }
 .icon-btn { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); cursor: pointer; }
@@ -134,6 +152,9 @@ body.dash-app .no-btn-ghost:hover { background: var(--ghost-hover); }
 .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
 .chip-neutral { background: var(--chip-neutral-bg); color: var(--chip-neutral); }
 .chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn); }
+/* Rejected: solid red with light text, readable in both themes. */
+.chip-err { background: var(--red); color: var(--on-red); }
+.dash-copy.is-rejected { border-left: 3px solid var(--red); padding-left: 10px; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .dash-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 10px; background: var(--card); box-shadow: var(--card-shadow); }
 .dash-card h2 { margin-bottom: 8px; font-size: 18px; font-weight: 700; line-height: 1.3; }
@@ -152,6 +173,9 @@ body.dash-app .no-btn-ghost:hover { background: var(--ghost-hover); }
 /* top-right buttons: search, theme, bell, as on the dashboard (44px, 8px apart) */
 body.dash-app a.icon-btn { text-decoration: none; }
 .bell { position: relative; }
+/* Search and bell wait for the Inbox: shown, not active (aria-disabled, no handler), the dashboard's disabled look. */
+.icon-btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+.icon-btn[aria-disabled="true"]:hover { background: var(--card); color: var(--text-2); }
 .bell-dot { position: absolute; top: 9px; right: 10px; width: 10px; height: 10px; border: 2px solid var(--card); border-radius: 50%; background: #E8604C; }
 /* status chips and the SMS actions on one line */
 .status-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
@@ -175,7 +199,12 @@ body.dash-app a.icon-btn { text-decoration: none; }
 .bar { height: 10px; border-radius: 999px; background: var(--chip-neutral-bg); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--primary); }
 .results li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 0; }
-body.dash-app .stop { border-color: var(--err-line); color: var(--err-h); }
+/* A destructive primary button (Reject payment) is solid red with light text; focus is the shared light-blue ring. */
+body.dash-app .no-btn.stop { background: var(--red); border-color: var(--red); color: var(--on-red); }
+body.dash-app .no-btn.stop:hover { background: var(--red-h); border-color: var(--red-h); }
+body.dash-app .no-btn.stop:disabled, .modal .no-btn:disabled { opacity: .55; cursor: not-allowed; }
+body.dash-app .no-btn.stop:disabled:hover { background: var(--red); border-color: var(--red); }
+body.dash-app .modal .no-btn-primary:disabled:hover { background: var(--primary); }
 /* the list of bulk sends, and the CSV upload */
 .list-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 16px 20px; border-bottom: 1px solid var(--card-line); }
 .list-head h2 { margin: 0; }
@@ -218,6 +247,7 @@ body.dash-app .seg a[aria-current="true"] { background: var(--primary); color: #
 .textarea { min-height: 112px; padding: 10px 12px; line-height: 1.5; resize: vertical; }
 .input::placeholder, .textarea::placeholder { color: var(--meta); opacity: .8; }
 .input[aria-invalid="true"], .textarea[aria-invalid="true"] { border-color: var(--err-line); }
+.input:focus, .textarea:focus { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 
 /* inbox list */
 .list-card { padding: 0; overflow: hidden; }
@@ -268,8 +298,10 @@ body.dash-app .item { display: grid; grid-template-columns: 44px minmax(0, 1fr) 
   .side { display: flex; flex-direction: column; gap: 20px; flex: 0 0 272px; width: 272px; height: 100vh; position: sticky; top: 0; overflow-y: auto; padding: 24px 16px; border-right: 1px solid var(--c-line); }
   .col { gap: 24px; padding: 32px 40px 16px; }
   .view { gap: 24px; }
+  .side { overflow: visible; z-index: 40; }
+  .acct-menu { right: auto; width: 320px; max-width: calc(100vw - 32px); }
   .desk-switch { display: flex; gap: 8px; position: absolute; top: 32px; right: 40px; z-index: 1; }
-  .set-tabs { max-width: calc(100% - 172px) !important; }
+  .set-tabs, .fin-tabs { max-width: calc(100% - 172px) !important; margin-bottom: 0 !important; }
   .view-head h1 { font-size: 34px; line-height: 1.15; }
 }
 @media (max-width: 899.98px) {
@@ -330,3 +362,81 @@ body.dash-app .auth-link a { display: inline-flex; align-items: center; min-heig
 /* The console on a phone: "Sign out" sits in the first card, since the side menu is not shown. */
 .phone-only { display: none; }
 @media (max-width: 899.98px) { .phone-only { display: inline-flex; } }
+
+/* Finance: the queue of bank transfer payments and one payment with its proof (ClickUp z8uq9me581). */
+/* The Finance tabs are the dashboard's Settings menu, rule for rule (.set-tabs): 15px semi-bold, 12px by 16px, 4px apart, a thin line under the row, the current tab brighter with a 2px blue underline, one swipeable line on a phone. */
+.fin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; margin: 0 0 8px; border-bottom: 1px solid var(--c-block-line); }
+.fin-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.fin-tabs button:hover { color: var(--text); }
+.fin-tabs button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--primary); }
+.fin-msg { color: var(--banner-text); font-weight: 600; }
+.fin-note { padding: 18px 20px; }
+.fin-pay { display: flex; flex-direction: column; gap: 14px; }
+.fin-pay h2 { margin: 0; font-size: 22px; }
+.fin-due { display: flex; flex-direction: column; }
+.fin-amount { font-size: 34px; font-weight: 800; line-height: 1.2; letter-spacing: -.02em; }
+.fin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; }
+.fin-facts dt { font-size: 14px; color: var(--meta); }
+.fin-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.fin-split { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: stretch; }
+.fin-proofcard { display: flex; flex-direction: column; gap: 14px; }
+.fin-proofcard h2 { margin: 0; font-size: 22px; }
+.fin-hist h3 { margin: 0 0 4px; font-size: 16px; }
+.fin-cta { margin-top: auto; padding-top: 6px; }
+/* The proof is fitted inside the card, never scrolled: it takes the height the details card gives, and no more. */
+.fin-frame { position: relative; flex: 1 1 auto; min-height: 320px; display: grid; place-items: center; border: 1px solid var(--card-line); border-radius: 8px; background: var(--field-bg); overflow: hidden; }
+.fin-proof { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.fin-file { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-2); font-weight: 600; }
+.fin-file svg { width: 48px; height: 48px; }
+.fin-frame .fin-row { padding: 16px; justify-content: center; }
+.fin-frame .dash-copy { padding: 16px; }
+@media (min-width: 900px) {
+  .fin-split { grid-template-columns: 7fr 5fr; gap: 24px; }
+  .fin-frame { min-height: 0; }
+}
+/* The two decisions open a dialog over the page. */
+.modal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4,8,24,.72); }
+.modal-box { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 440px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); color: var(--text); box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.modal-box h2 { margin: 0; font-size: 22px; }
+/* The title row is divided from the body by the card line, edge to edge of the dialog. */
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -24px -24px 0; padding: 16px 24px; border-bottom: 1px solid var(--card-line); }
+.modal-x { flex: none; margin: -8px -8px -8px 0; border-color: transparent; background: transparent; }
+.fin-block { width: 100%; }
+.modal .form-card { max-width: none; }
+body.modal-open { overflow: hidden; }
+/* The amount box: one border for the group; the fixed parts are not inputs. */
+.fin-amt { position: relative; display: flex; align-items: center; gap: 0; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--field-line); border-radius: 6px; background: var(--field-bg); cursor: text; }
+.fin-amt:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+.fin-amt input { flex: none; width: 1ch; min-width: 1ch; max-width: 100%; margin: 0 0 0 8px; padding: 0; text-align: left; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
+.fin-amt input:focus, .fin-amt input:focus-visible { outline: none; box-shadow: none; }
+.fin-amt input::placeholder { color: var(--meta); opacity: 1; }
+.fin-amt-ruler { position: absolute; visibility: hidden; white-space: pre; pointer-events: none; font: inherit; font-size: 16px; }
+.fin-amt-fix { flex: none; color: var(--text-2); font-size: 16px; user-select: none; -webkit-user-select: none; pointer-events: none; }
+.fin-amt:has(input[aria-invalid="true"]) { border-color: var(--err-line); }
+/* The house dropdown (twc-select), copied from the Subscriber dashboard's .pm-combo rules in HQ colours: one box, the option panel directly below it. */
+.fin-combo { position: relative; }
+.fin-combo .fin-combo-native { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; appearance: none; -webkit-appearance: none; }
+.fin-combo-box { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 36px 0 12px; box-sizing: border-box; border: 1px solid var(--field-line); border-radius: 6px; background: var(--field-bg); cursor: pointer; }
+.fin-combo-box:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+.fin-combo-input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; cursor: pointer; }
+.fin-combo-input:focus, .fin-combo-input:focus-visible { outline: none; box-shadow: none; }
+.fin-combo-input::placeholder { color: var(--meta); opacity: 1; }
+.fin-combo-caret { position: absolute; top: 50%; right: 15px; width: 7px; height: 7px; border-right: 2px solid var(--meta); border-bottom: 2px solid var(--meta); transform: translateY(-70%) rotate(45deg); transition: transform .15s ease; pointer-events: none; }
+.fin-combo.is-open .fin-combo-caret { transform: translateY(-30%) rotate(225deg); }
+.fin-combo-panel { display: none; position: fixed; z-index: 110; box-sizing: border-box; padding: 6px; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+.fin-combo.is-open .fin-combo-panel { display: block; }
+.fin-combo-opt { padding: 10px 12px; border-radius: 8px; color: var(--text); font-size: 15px; cursor: pointer; }
+.fin-combo-opt:hover, .fin-combo-opt.is-active { background: color-mix(in srgb, var(--link) 12%, transparent); }
+.fin-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
+.fin-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
+.fin-progress { height: 8px; border-radius: 999px; background: var(--chip-neutral-bg); overflow: hidden; }
+.fin-progress span { display: block; width: 0; height: 100%; border-radius: 999px; background: var(--primary-hover); animation: fin-fill 2s linear forwards; }
+@keyframes fin-fill { to { width: 100%; } }
+.fin-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.pair > .form-card { max-width: none; }
+.banner .fin-row { margin-top: 4px; }
+button.no-btn:disabled { opacity: .55; cursor: default; }
+@media (max-width: 899.98px) {
+  .fin-note { padding: 16px; }
+  .fin-amount { font-size: 28px; }
+}

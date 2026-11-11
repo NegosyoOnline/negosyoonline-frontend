@@ -81,3 +81,24 @@ test("there is no token helper", () => {
   assert.equal(H.getToken, undefined);
   assert.equal(H.setToken, undefined);
 });
+
+test("a private file is asked for with a JSON body and the cookie, and comes back as the file itself", async () => {
+  const held = { type: "image/png", size: 3 };
+  const page = open(["hq.js"], { answers: () => [200, held] });
+  const res = await page.window.NOHq.file("finance/payments/proof/", { payment: "btp_one" });
+  assert.equal(page.calls[0].url, BASE + "/finance/payments/proof/");
+  assert.equal(page.calls[0].method, "POST");
+  assert.equal(page.calls[0].credentials, "include");
+  assert.deepEqual(Object.keys(page.calls[0].headers), ["Content-Type"]);
+  assert.deepEqual(page.calls[0].body, { payment: "btp_one" });
+  assert.equal(JSON.stringify(res), JSON.stringify({ ok: true, status: 200, code: "", blob: held }));
+});
+
+test("a refused or unanswered file gives its status and code, and no file", async () => {
+  const no = await client([404, refused("not_found")]).file("finance/payments/proof/", { payment: "btp_x" });
+  assert.equal(JSON.stringify(no), JSON.stringify({ ok: false, status: 404, code: "not_found", blob: null }));
+  const none = await client("offline").file("finance/payments/proof/", { payment: "btp_x" });
+  assert.equal(JSON.stringify(none), JSON.stringify({ ok: false, status: 0, code: "", blob: null }));
+  const page = await client([500]).file("finance/payments/proof/");
+  assert.equal(JSON.stringify(page), JSON.stringify({ ok: false, status: 500, code: "", blob: null }));
+});

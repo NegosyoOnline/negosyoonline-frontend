@@ -353,3 +353,72 @@ export function memberSignOut(args: { host: string; token: string }, c: Calls) {
 export function memberSignInText(args: SignInStep, c: Calls) {
   return memberPost("signin/text", args, answer, c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
 }
+
+/* ---- the Membership Pack read (GET /storefront/v1/pack/, backend apps/sante/pack_api.py) ------------------- */
+
+export type Pack = {
+  price_centavos: number;
+  currency: string;
+  available: boolean;
+  agreement: { id: number; label: string; effective_date: string } | null;
+  payment_accounts: Record<string, unknown>[];
+};
+
+function isPack(value: unknown): value is Pack {
+  return (
+    record(value) &&
+    typeof value.price_centavos === "number" &&
+    Number.isInteger(value.price_centavos) &&
+    value.price_centavos >= 0 &&
+    typeof value.currency === "string" &&
+    typeof value.available === "boolean" &&
+    (value.agreement === null || (record(value.agreement) && typeof value.agreement.id === "number" && has(value.agreement, ["label", "effective_date"], []))) &&
+    Array.isArray(value.payment_accounts) &&
+    value.payment_accounts.every(record)
+  );
+}
+
+/** The pack as this site's buyers see it, or null: the pack is switched off, the host is not a served Santé site,
+    or the API did not answer sensibly. Callers answer the neutral 404 for null (fails closed). */
+export async function fetchPack(
+  host: string,
+  env: Pick<StorefrontEnv, "apiBase" | "secret">,
+  fetchImpl: Fetch = fetch,
+  log: Log = (reason) => console.error(`storefront: pack read failed: ${reason}`),
+): Promise<Pack | null> {
+  if (!host) return null;
+  if (env.secret.length < SECRET_MIN_LENGTH) {
+    log("STOREFRONT_SERVER_SECRET is not set");
+    return null;
+  }
+  let response: Response;
+  try {
+    response = await fetchImpl(`${env.apiBase}/storefront/v1/pack/?host=${encodeURIComponent(host)}`, {
+      headers: { Authorization: `Bearer ${env.secret}`, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
+    return null;
+  }
+  if (response.status === 404) return null; // the pack is off, or not this site's: the everyday answer, not logged
+  if (response.status !== 200) {
+    log(`the API answered ${response.status}`);
+    return null;
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    log("the API answer was not JSON");
+    return null;
+  }
+  if (!isPack(body)) {
+    log("the API answer was not a pack");
+    return null;
+  }
+  return body;
+}

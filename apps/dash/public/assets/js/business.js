@@ -519,6 +519,9 @@
   window.NOBusiness = {
     show: function () { load(); },
     hide: function () { S.seq++; closeDialog(); S.site = null; S.profile = null; S.sites = []; S.notice = ""; say(""); },
-    util: { fieldMessage: fieldMessage, mobileShown: mobileShown, readiness: readiness, specs: specs, siteLabel: siteLabel, hostOf: hostOf }
+    util: { fieldMessage: fieldMessage, mobileShown: mobileShown, readiness: readiness, specs: specs, siteLabel: siteLabel, hostOf: hostOf },
+    /* The dialog and its field, for sante.js (ClickUp z8uq9m92ez). One dialog is open at a time, whichever page opened it. */
+    ui: { openDialog: openDialog, closeDialog: closeDialog, cancelDialog: cancelDialog, dialogBody: function () { return S.dlg ? S.dlg.body : null; },
+      field: field, setErrors: setErrors }
   };
 })();

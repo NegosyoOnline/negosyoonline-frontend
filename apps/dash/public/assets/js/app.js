@@ -261,9 +261,17 @@
     ["Overview", "", "/"], ["Orders", "", "/orders/"], ["Products", "", "/products/"], ["Storefront", "", "/storefront/"], ["Media Library", "", "/media-library/"],
     ["Earnings", "", "/earnings/"], ["People", "", "/people/"], ["Usage", "", "/usage/"], ["Referral", "", "/referral/"],
     ["My Subscription", "Account", "/subscription/"], ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
-    ["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
+    ["Business Settings", "Settings", "/settings/business/"], ["Santé setup", "Settings", "/settings/sante/", "sante"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
     ["Domain", "Settings", "/settings/domain/"], ["Automation Tools", "Settings", "/settings/automation/"], ["Notification", "Settings", "/settings/notification/"]
   ];
+  /* Santé setup (ClickUp z8uq9m92ez): its Settings tab, its More tile ([data-sante]) and its quick link show only
+     once GET /sites/ has said the selected site is a Santé site. sante.js reads that and calls setSante(). */
+  var sante = false;
+  function setSante(on) {
+    sante = on === true;
+    each("[data-sante]", function (n) { n.hidden = !sante; });
+  }
+  function quickLinks() { return QUICK_LINKS.filter(function (l) { return l[3] !== "sante" || sante; }); }
   function quickSearch() {
     Array.prototype.forEach.call(document.querySelectorAll(".qs"), function (box, n) {
       var btn = box.querySelector(".qs-btn"), field = box.querySelector(".qs-field"), input = box.querySelector(".qs-input"), list = box.querySelector(".qs-list");
@@ -283,7 +291,7 @@
         var q = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         list.textContent = "";
         rows = [];
-        QUICK_LINKS.forEach(function (l) {
+        quickLinks().forEach(function (l) {
           var hay = (l[0] + " " + l[1]).toLowerCase();
           if (!q.every(function (t) { return hay.indexOf(t) >= 0; })) return;
           var a = el("a", { "class": "qs-row", href: l[2], role: "option", id: list.id + "-" + rows.length });
@@ -559,6 +567,6 @@
 
   window.NODash = { call: call, send: send, el: el, date: date, nextPath: nextPath,
     flatten: flatten, accountView: accountView, initials: initials, sitesOf: sitesOf, siteFromQuery: siteFromQuery, SITE_ID_RE: SITE_ID_RE,
-    setWorkspace: setWorkspace, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
+    setWorkspace: setWorkspace, setSante: setSante, isSante: function () { return sante; }, quickLinks: quickLinks, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
     socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, cfg: cfg, toast: toast, signOut: signOut, refreshAccount: refreshAccount };
 })();

@@ -28,6 +28,7 @@
     "November", "December"];
 
   var status = null;          /* the last inbox/status/ answer */
+  var bulkOn = false;         /* bulk/status/ answered 200: the Bulk SMS button is drawn (plan 9) */
   var view = "boot", filter = "all", cursor = null, listRun = 0, found = false;
   var conv = null, convRun = 0, pushed = false, busy = false;
   var replyId = null, newId = null;
@@ -96,10 +97,24 @@
     $("chip-used").textContent = used;
     $("n-chip-used").textContent = used;
     $("new-sms").hidden = !s.send;
+    paintBulk();
     $("seg-unread-n").textContent = String(typeof s.unread === "number" ? s.unread : 0);
     $("n-reserve").textContent = num(s.reserved_for_codes) + " texts a day are kept for sign-in codes. Staff texts stop once " +
       num((s.cap || 0) - (s.reserved_for_codes || 0)) + " are used that day.";
     if (window.NOHqMenu) window.NOHqMenu.setUnread(s.unread);
+  }
+
+  /* The Bulk SMS button, and its "Sending" chip while a batch runs. Drawn only after bulk/status/ answers 200;
+     on any other answer nothing is drawn and nothing is said. */
+  function paintBulk() {
+    $("bulk-link").hidden = !bulkOn;
+    $("bulk-chip").hidden = !(bulkOn && status && status.bulk_running === true);
+  }
+  function loadBulk() {
+    return H.call("POST", "bulk/status/").then(function (res) {
+      bulkOn = res.ok && res.data && res.data.bulk === true;
+      paintBulk();
+    });
   }
 
   /* Resolves true when the status is read. A 404 shows the closed card and gives no reason: the page cannot
@@ -505,6 +520,7 @@
       loadStatus().then(function (ok) {
         if (!ok) return;
         if (location.pathname === "/inbox/sms/new/") showNew(); else showList("", true);
+        loadBulk();
       });
     });
   }

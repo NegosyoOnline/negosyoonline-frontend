@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
         { source: "/finance/", destination: "/finance.html" },
         { source: "/inbox/sms/", destination: "/inbox.html" },
         { source: "/inbox/sms/new/", destination: "/inbox.html" },
+        { source: "/inbox/sms/bulk/", destination: "/bulk.html" },
         ...inboxPlatforms.map((name) => ({ source: `/inbox/${name}/`, destination: "/inbox-platform.html" })),
         /* The Contacts pages: one document for four addresses, none with a value in it. */
         ...["/contacts/", "/contacts/new/", "/contacts/groups/", "/contacts/upload/"].map((source) => ({ source, destination: "/contacts.html" })),
@@ -41,6 +42,7 @@ const nextConfig: NextConfig = {
       { source: "/finance.html", destination: "/finance/", permanent: false },
       { source: "/inbox/", destination: "/inbox/sms/", permanent: false },
       { source: "/inbox.html", destination: "/inbox/sms/", permanent: false },
+      { source: "/bulk.html", destination: "/inbox/sms/bulk/", permanent: false },
       { source: "/inbox-platform.html", destination: "/inbox/sms/", permanent: false },
       { source: "/contacts.html", destination: "/contacts/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },

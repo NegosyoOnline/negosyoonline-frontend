@@ -336,3 +336,137 @@ export function accessRedeem(args: Base & { link: string }, c: Calls) {
     c,
   );
 }
+
+/* ---- the member's payment card, own proof, new proof, and the registration card (backend PK8) ---------------------- */
+
+export type PackProof = { id: string; seq: number; submitted_at: string; reference_number: string; amount_sent_centavos: number; content_type: string };
+export type LockAccount = { id: string; provider_name: string; account_name: string };
+export type MemberPack = {
+  order_number: string;
+  payment_status: "pending_review" | "rejected" | "verified";
+  payment_label: string;
+  method_label: string;
+  price_centavos: number;
+  tone: string;
+  benefits_off: boolean;
+  lock: { reason_label: string; other_text: string; resubmitted: boolean; accounts: LockAccount[] } | null;
+  proofs: PackProof[];
+};
+export type RegistrationCard = {
+  status: string;
+  label: string;
+  line: string;
+  tone: string;
+  details_form: boolean;
+  details_erased: boolean;
+  state_version: string;
+  sante_member_id: string;
+  has_address: boolean;
+};
+export type MobileCheck = { pending: boolean; mobile: string; locked: boolean; code_sent_to: string; resend_in: number; attempts_left: number };
+
+function parseProof(v: unknown): PackProof | null {
+  if (!record(v) || (typeof v.id !== "string" && typeof v.id !== "number")) return null;
+  return {
+    id: String(v.id), seq: num(v.seq, 0), submitted_at: str(v.submitted_at), reference_number: str(v.reference_number),
+    amount_sent_centavos: num(v.amount_sent_centavos, 0), content_type: str(v.content_type),
+  };
+}
+
+function parsePack(v: unknown): MemberPack | null {
+  if (!record(v) || typeof v.order_number !== "string") return null;
+  const status = v.payment_status;
+  if (status !== "pending_review" && status !== "rejected" && status !== "verified") return null;
+  let lock: MemberPack["lock"] = null;
+  if (record(v.lock)) {
+    const accounts = Array.isArray(v.lock.accounts) ? v.lock.accounts : [];
+    lock = {
+      reason_label: str(v.lock.reason_label), other_text: str(v.lock.other_text), resubmitted: v.lock.resubmitted === true,
+      accounts: accounts.flatMap((a): LockAccount[] =>
+        record(a) && (typeof a.id === "string" || typeof a.id === "number")
+          ? [{ id: String(a.id), provider_name: str(a.provider_name), account_name: str(a.account_name) }] : []),
+    };
+  }
+  const proofs = Array.isArray(v.proofs) ? v.proofs.flatMap((p) => { const x = parseProof(p); return x ? [x] : []; }) : [];
+  return {
+    order_number: v.order_number, payment_status: status, payment_label: str(v.payment_label), method_label: str(v.method_label),
+    price_centavos: num(v.price_centavos, 0), tone: str(v.tone), benefits_off: v.benefits_off === true, lock, proofs,
+  };
+}
+
+function parseRegistration(v: unknown): RegistrationCard | null {
+  if (!record(v) || typeof v.status !== "string") return null;
+  return {
+    status: v.status, label: str(v.label), line: str(v.line), tone: str(v.tone), details_form: v.details_form === true,
+    details_erased: v.details_erased === true, state_version: str(v.state_version), sante_member_id: str(v.sante_member_id),
+    has_address: v.has_address !== false,
+  };
+}
+
+function parseMobile(v: unknown): MobileCheck {
+  const m = record(v) ? v : {};
+  return {
+    pending: m.pending === true, mobile: str(m.mobile), locked: m.locked === true, code_sent_to: str(m.code_sent_to),
+    resend_in: num(m.resend_in, 0), attempts_left: num(m.attempts_left, 5),
+  };
+}
+
+/** member/pack/ and member/pack/resubmit/: `pack` is null with no order; `registration` null while benefits are off. */
+const parsePackAnswer = (b: unknown) => {
+  if (!record(b) || !("pack" in b)) return null;
+  const pack = b.pack === null ? null : parsePack(b.pack);
+  if (b.pack !== null && pack === null) return null;
+  const registration = record(b.registration) ? parseRegistration(b.registration) : null;
+  return { pack, registration };
+};
+
+type Member = Base & { token: string };
+
+export function memberPack(args: Member, c: Calls) {
+  return packPost("member/pack", args, parsePackAnswer, c);
+}
+
+export function memberPackResubmit(form: FormData, c: Calls) {
+  return packPost("member/pack/resubmit", form, parsePackAnswer, c, PLACE_TIMEOUT_MS);
+}
+
+/** member/registration/*: the registration card and the mobile check, as the Home card and the lock dialog show them. */
+const parseRegAnswer = (b: unknown) => {
+  if (!record(b)) return null;
+  const registration = record(b.registration) ? parseRegistration(b.registration) : null;
+  return { registration, mobile: parseMobile(b.mobile) };
+};
+
+export const memberRegistration = (args: Member, c: Calls) => packPost("member/registration", args, parseRegAnswer, c);
+export const registrationMobileSend = (args: Member & { mobile?: string }, c: Calls) =>
+  packPost("member/registration/mobile/send", args, parseRegAnswer, c);
+export const registrationMobileVerify = (args: Member & { code: string }, c: Calls) =>
+  packPost("member/registration/mobile/verify", args, parseRegAnswer, c);
+export const registrationDetails = (
+  args: Member & { dob_year: string; dob_month: string; dob_day: string; desired_username: string; alternate_username: string; terms: boolean },
+  c: Calls,
+) => packPost("member/registration/details", args, parseRegAnswer, c);
+
+/** The member's own proof (an image or PDF), by the id the card lists. Fetched here and sent on: no URL reaches the browser. */
+export async function fetchOwnProof(args: Member & { proof_id: string }, c: Calls): Promise<PackFile | null> {
+  const log = c.log ?? logPack;
+  if (!args.host || !args.token || c.env.secret.length < SECRET_MIN_LENGTH) return null;
+  try {
+    const response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/member/pack/proof/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${c.env.secret}`, "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status !== 200) {
+      if (response.status !== 404 && response.status !== 401) log(`the API answered ${response.status} for a proof`);
+      return null;
+    }
+    return { bytes: await response.arrayBuffer(), contentType: response.headers.get("content-type") ?? "" };
+  } catch {
+    log("a proof could not be read");
+    return null;
+  }
+}

@@ -298,7 +298,7 @@ test("an unknown host gets the neutral 404 on every member route", async () => {
 });
 
 test("dashboard home: signed in shows the hero with the member's name; no cookie and a dead session go to the store home", async () => {
-  await withDjango({ me: json(200, { member: MEMBER }) }, async () => {
+  await withDjango({ me: json(200, { member: MEMBER }), pack: json(200, { pack: null, registration: null }) }, async () => {
     const r = await homeGet(get("/dashboard/", `no_member=${TOKEN}`));
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("cache-control"), "no-store");

@@ -23,6 +23,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-busy.js": "cd6351f6",
   "js/pack-code-timer.js": "b2ed15b7",
   "js/pack-dashboard.js": "582e7cca",
+  "js/pack-lock.js": "ca426504", // this storefront's own file: the rejection dialog's script, inline in TWCinc
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "80d50155",
   "css/pack-select.css": "096379bc",

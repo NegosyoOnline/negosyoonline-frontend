@@ -1,0 +1,9 @@
+import { registrationPost } from "../../../../lib/dashboard-flow.ts";
+import { dashPost, textOf } from "../../../../lib/dashboard-route.ts";
+import { neutralNotFound } from "../../../../views/neutral.ts";
+
+export const dynamic = "force-dynamic";
+
+export const POST = (request: Request) => dashPost(request, (d, form) => registrationPost(d, "details", textOf(form)));
+
+export { neutralNotFound as GET, neutralNotFound as PUT, neutralNotFound as PATCH, neutralNotFound as DELETE, neutralNotFound as OPTIONS };

@@ -34,7 +34,7 @@ export const TRANSFER_FIELDS = [
   "sender_account_number", "amount_sent", "transferred_at",
 ] as const;
 const TRANSFER_NAMES = new Set<string>([...TRANSFER_FIELDS, "proof"]);
-const PROOF_TOO_LARGE = `The file is too large. The limit is ${PROOF_MAX_BYTES / (1024 * 1024)} MB.`;
+export const PROOF_TOO_LARGE = `The file is too large. The limit is ${PROOF_MAX_BYTES / (1024 * 1024)} MB.`;
 const TRY_AGAIN = "Please try again shortly.";
 
 export type Flow = {

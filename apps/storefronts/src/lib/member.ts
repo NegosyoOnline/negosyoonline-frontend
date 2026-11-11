@@ -17,6 +17,7 @@ export function forbidden(): Response {
 }
 
 export type Call = {
+  request: Request;
   host: string;
   visitor_ip: string;
   member_token: string;
@@ -26,6 +27,7 @@ export type Call = {
 
 export function callFor(request: Request): Call {
   return {
+    request,
     host: requestHost(request),
     visitor_ip: visitorIp(request.headers),
     member_token: readMemberCookie(request, MEMBER),

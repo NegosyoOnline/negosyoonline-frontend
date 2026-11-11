@@ -289,7 +289,7 @@ export function signInDocument(v: Chrome, m: SignInModel): Markup {
 
 /* ---- the dashboard home ------------------------------------------------------------------------ */
 
-export function homeDocument(v: Chrome, memberName: string): Markup {
+export function homeDocument(v: Chrome, memberName: string, panels: Markup = html``, scripts: string[] = []): Markup {
   const content = html`<div class="pd" id="pp-dash-home">
 <div class="acct-hero">
   <div class="acct-hero-id">
@@ -300,6 +300,7 @@ export function homeDocument(v: Chrome, memberName: string): Markup {
     </div>
   </div>
 </div>
+${panels}
 </div>`;
-  return memberDocument(v, { title: "Dashboard", member: memberName, current: "home", content, scripts: [] });
+  return memberDocument(v, { title: "Dashboard", member: memberName, current: "home", content, scripts });
 }

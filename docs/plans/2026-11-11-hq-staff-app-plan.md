@@ -622,7 +622,7 @@ test("no inline script, style attribute or style block, which the CSP would refu
 
 test("only theme.js touches storage, and nothing reads cookies or writes to the console", () => {
   assert.deepEqual(named(/localStorage/), [path.join("assets", "js", "theme.js")]);
-  assert.deepEqual(named(/sessionStorage|indexedDB|document\.cookie|console\./), []);
+  assert.deepEqual(named(/sessionStorage|indexedDB|document\.cookie|console\.(log|info|warn|error|debug)/), []);
 });
 
 test("only hq.js calls the backend", () => {

@@ -428,8 +428,14 @@
   }
   function box(text) { $("n-box-text").textContent = text; $("n-box").hidden = false; }
 
-  $("to").addEventListener("input", newReady);
-  $("text").addEventListener("input", function () { countOf("text", "text-count"); newReady(); });
+  /* Editing a field clears its own error; the box goes when no field error is left. */
+  function mend(inputId, errId) {
+    $(errId).hidden = true;
+    $(inputId).removeAttribute("aria-invalid");
+    if ($("to-err").hidden && $("text-err").hidden) $("n-box").hidden = true;
+  }
+  $("to").addEventListener("input", function () { mend("to", "to-err"); newReady(); });
+  $("text").addEventListener("input", function () { mend("text", "text-err"); countOf("text", "text-count"); newReady(); });
   $("new-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || $("new-go").disabled) return;

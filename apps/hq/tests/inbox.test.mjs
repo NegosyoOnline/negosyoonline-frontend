@@ -479,6 +479,20 @@ test("compose errors: a bad number under the number, a bad text under the messag
   assert.equal(p.text("text-err"), "The text must not contain a web link.");
 });
 
+test("editing a field clears its own error, and the box goes with the last one", async () => {
+  const p = await newPage({ "inbox/compose/": () => [400, refusal("invalid_mobile", "x", { to: ["Enter a valid Philippine mobile number."] })] });
+  type(p, "to", "0123");
+  type(p, "text", "Hi");
+  submit(p, "new-form");
+  await settle();
+  assert.equal(p.shown("to-err"), true);
+  assert.equal(p.shown("n-box"), true);
+  type(p, "to", "0900 000 0098");
+  assert.equal(p.shown("to-err"), false);
+  assert.equal(p.shown("n-box"), false);
+  assert.equal(p.node.to.hasAttribute("aria-invalid"), false);
+});
+
 test("compose keeps its request id after no answer and replaces it after a 201", async () => {
   const ids = [];
   const answers = ["offline", [201, { conversation: "conv_n", message: msg() }], [201, { conversation: "conv_n", message: msg() }]];

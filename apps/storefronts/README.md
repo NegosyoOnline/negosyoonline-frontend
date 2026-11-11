@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NegosyoOnline storefronts
 
-## Getting Started
+The public pages of a Subscriber's site. Staging is `https://<address>.storefronts-staging.negosyonline.com` (Vercel project `negosyoonline-storefronts`, deployed from `main`).
 
-First, run the development server:
+The server draws every page. A request arrives for some host; the server asks Django whether a site is served there and, if so, returns the finished HTML page. Django stays authoritative: this app holds no tenant rule of its own, and the browser never calls the API.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## How a page is answered
+
+1. `src/lib/host.ts` cleans the request's `Host` header. The host is untrusted and is only a lookup value.
+2. `src/lib/django.ts` calls `GET <STOREFRONT_API_BASE>/storefront/v1/site/?host=<host>` with `Authorization: Bearer <STOREFRONT_SERVER_SECRET>`, never cached, 5-second limit. The surface is described in the backend's `docs/runbooks/storefront.md`.
+3. A served Santé site gets its page. Everything else gets the neutral 404 (`src/views/neutral.ts`): a host that is not a served site, a site of another template, a path with no page, the API down or slow, a wrong or missing secret. Unknown fails closed, and the reason goes to the server log without the secret or the URL.
+
+Pages are route handlers that return whole HTML documents (`src/app/route.ts`, `src/app/[...path]/route.ts`), not React components. Documents are built with the `html` tag in `src/lib/html.ts`, which escapes every interpolated value unless it is explicitly marked safe. No page carries an inline script.
+
+Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pages` folder as its Pages Router.
+
+| Path | Answer |
+| --- | --- |
+| `/` | A served Santé site: for now, a plain page with the store name. Otherwise the neutral 404. |
+| anything else | The neutral 404, with or without a trailing slash, any method. |
+
+Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
+
+## Configuration
+
+Read on each request by `src/lib/env.ts`, on the server only. None is prefixed `NEXT_PUBLIC_`.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `STOREFRONT_SERVER_SECRET` | none | The one credential for the Django storefront surface; the same value as on the API. At least 32 characters. Unset or shorter: every page is the neutral 404 and Django is not called. |
+| `STOREFRONT_API_BASE` | `https://api-staging.negosyonline.com` | The API origin, so a deploy with no variables set never talks to production. |
+| `STOREFRONT_HOST_ALIASES` | unset | Local use only. `from=to` pairs, comma-separated: a request for host `from` is looked up as `to`. Leave unset on Vercel. |
+
+The secret is set by Coach Ed. It never goes in code, a test, a log line or a pull request. Local values live in `.env.local`, which is ignored.
+
+## Headers
+
+`next.config.ts` sends, on every path: the CSP (`script-src 'self'`; styles from this origin, inline `style` attributes and Google Fonts; images from this origin and `data:`; no framing; forms post to this origin only), `Strict-Transport-Security` without `includeSubDomains` or `preload`, `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` and `Permissions-Policy`. `/assets/*` is cached for one hour.
+
+## Local use
+
+The API runs locally with `SITE_PARENT_HOST=negosyotest.com`, `BILLING_ENABLED=1`, `STOREFRONT_ENABLED=1` and a test secret. In `.env.local` here:
+
+```
+STOREFRONT_API_BASE=http://127.0.0.1:8032
+STOREFRONT_SERVER_SECRET=<the local API's test secret>
+STOREFRONT_HOST_ALIASES=www.santetest.com=<address>.negosyotest.com
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+```bash
+pnpm dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+A site opens at `http://<address>.negosyotest.com:3002/` (HTTP, port 3002, local), and the Santé reference host at `http://www.santetest.com:3002/` through the alias. Without a hosts entry: `curl -H "Host: <address>.negosyotest.com" http://127.0.0.1:3002/`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Checks
 
-## Learn More
+```bash
+pnpm lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm test
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Tests are `tests/*.test.ts`, run by `node --test` (Node 22 runs TypeScript directly, which is why imports inside `src/` spell the `.ts` extension).

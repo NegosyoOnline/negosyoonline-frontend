@@ -12,7 +12,8 @@ const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "p-submitted", "p-email", "p-decided", "proof-loading", "proof-img", "proof-pdf", "proof-err", "proof-retry",
   "act", "confirm-form", "amount", "amount-err", "confirm-go", "confirm-step", "confirm-ask", "confirm-yes", "confirm-no",
   "reject-form", "reason", "note", "reject-err", "reject-go", "history",
-  "acct-row", "acct-ini", "acct-name", "acct-btn", "sign-out", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
+  "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
+  "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const VIEWS = ["boot", "v-queue", "v-pay", "v-closed", "v-down"];
 const ME = { email: "sample.staff@example.com", expires_at: "2026-11-11T21:01:00+08:00" };
 const ago = (ms) => new Date(Date.now() - ms).toISOString();

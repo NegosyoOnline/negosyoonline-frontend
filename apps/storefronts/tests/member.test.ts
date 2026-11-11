@@ -213,10 +213,10 @@ test("POST verify: a good code sets the session cookie (30 days), clears the bin
   });
 });
 
-test("POST verify with next=orders: the orders page is not built yet, so it lands on the dashboard", async () => {
+test("POST verify with next=orders: lands on My Orders", async () => {
   await withDjango({ "signin/verify": json(200, { token: TOKEN, member: MEMBER }) }, async () => {
     const r = await signInPost(post("/dashboard/sign-in/", { action: "verify", code: "123456", next: "orders" }, {}, `no_member_pre=${BINDING}`));
-    assert.equal(r.headers.get("location"), "/dashboard/");
+    assert.equal(r.headers.get("location"), "/dashboard/orders/");
   });
 });
 
@@ -306,7 +306,8 @@ test("dashboard home: signed in shows the hero with the member's name; no cookie
     assert.match(page, /<h1>Dashboard<\/h1>/);
     assert.match(page, /Signed in as <strong>Ana Reyes<\/strong>/);
     assert.match(page, /<form method="post" action="\/dashboard\/sign-out\/" class="pdn-out">/);
-    assert.doesNotMatch(page, /My Orders|Commission|acct-kpi/);
+    assert.match(page, /href="\/dashboard\/orders\/"/);
+    assert.doesNotMatch(page, /Commission|acct-kpi/);
   });
   await withDjango({ me: unauth }, async (seen) => {
     const none = await homeGet(get("/dashboard/"));
@@ -376,11 +377,11 @@ test("the sign-in page keeps TWCinc's wording and its hooks", () => {
 });
 
 test("the menu shows only the built sections, and the footer follows TWCinc's pack footer", () => {
-  assert.deepEqual(SECTIONS.filter((s) => s.built).map((s) => s.label), ["Dashboard"]);
+  assert.deepEqual(SECTIONS.filter((s) => s.built).map((s) => s.label), ["Dashboard", "My Orders"]);
   assert.equal(nextKey("orders"), "orders");
   assert.equal(nextKey("javascript:x"), "");
   assert.equal(nextKey("__proto__"), "");
-  assert.equal(nextTarget("orders"), "/dashboard/");
+  assert.equal(nextTarget("orders"), "/dashboard/orders/");
   const page = homeDocument(chrome({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } }), "Ana").value;
   assert.match(page, /<footer class="footer">/);
   assert.match(page, /Registered business<\/span>Nena Santos Trading/);

@@ -41,3 +41,22 @@ test("Settings is in the sidebar and not in the profile menu", () => {
   /* The phone's More sheet is the sidebar's stand-in: its Settings group opens Business Settings by that name. */
   assert.deepEqual(links(MORE).filter(([href]) => href === "/settings/business/"), [["/settings/business/", "Business Settings"]]);
 });
+
+/* Santé setup (ClickUp z8uq9m92ez): a Settings tab, second after Business Settings, and on a phone a tile in the
+   More sheet's Settings group. Both are hidden in the markup and shown only once the site is known to be a Santé site. */
+test("Santé setup is the second Settings tab and the second Settings tile, both hidden until the site is a Santé site", () => {
+  const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
+  assert.deepEqual(links(SET_TABS).slice(0, 3), [["/settings/business/", "Business Settings"], ["/settings/sante/", "Santé setup"], ["/settings/plans/", "Plans"]]);
+  const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
+  assert.deepEqual(links(settingsGroup).slice(0, 3), [["/settings/business/", "Business Settings"], ["/settings/sante/", "Santé setup"], ["/settings/plans/", "Plans"]]);
+  const entries = [...HTML.matchAll(/<a\b[^>]*\bhref="\/settings\/sante\/"[^>]*>/g)].map((m) => m[0]);
+  assert.equal(entries.length, 2, "the tab and the tile, nowhere else");
+  for (const tag of entries) {
+    assert.match(tag, /\sdata-sante(\s|>)/, tag);
+    assert.match(tag, /\shidden(\s|>)/, tag);
+  }
+  assert.equal((HTML.match(/data-sante/g) || []).length, 2, "nothing else is switched by the site type");
+  assert.match(entries[0], /data-route="settings-sante"/);
+  assert.match(entries[1], /class="sheet-tile"[^>]*data-sheet-close/);
+  for (const [name, block] of [["sidebar", SIDEBAR], ["bottom tabs", TABS], ["profile menu", PROFILE]]) assert.ok(!/sante/i.test(block), "no Santé setup entry in the " + name);
+});

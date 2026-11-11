@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { settle } from "./page.mjs";
-import { page, R, ANA, BEN, err, rowsText, byText, everything } from "./contacts-page.mjs";
+import { page, R, ANA, BEN, DINO, err, rowsText, byText, everything } from "./contacts-page.mjs";
 
 const rows = (items, next = null) => [200, { results: items, next }];
 

@@ -19,7 +19,8 @@ export const refusal = (code, message = "The backend's words.", fields = {}) => 
 /* routes: { "inbox/status/": (body) => [200, {...}] }. A route not listed is a test failure. */
 export function inbox(routes, { pathname = "/inbox/sms/", file = "inbox.html", scripts = ["hq.js", "shell.js", "inbox.js"], email = "sample.staff@example.com" } = {}) {
   const base = { "me/": () => [200, { email }], "inbox/status/": () => [200, status()],
-    "inbox/conversations/list/": () => [200, { results: [], next: null }] };
+    "inbox/conversations/list/": () => [200, { results: [], next: null }],
+    "bulk/status/": () => [404, refusal("not_found")] };
   const table = { ...base, ...routes };
   const log = [];
   const ids = [...new Set([...idsOf(file), "acct-ini", "acct-btn", "acct-name", "menu-ini", "menu-name", "menu-email"])];

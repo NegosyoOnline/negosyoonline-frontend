@@ -19,7 +19,7 @@ const type = (p, id, value) => { p.node[id].value = value; p.node[id].fire("inpu
 test("boot: me/ first, then the status, then the list; one call each, nothing in any address", async () => {
   const p = inbox({});
   await settle();
-  assert.deepEqual(p.log.map((l) => [l.method, l.route]), [["GET", "me/"], ["POST", "inbox/status/"], ["POST", "inbox/conversations/list/"]]);
+  assert.deepEqual(p.log.map((l) => [l.method, l.route]), [["GET", "me/"], ["POST", "inbox/status/"], ["POST", "inbox/conversations/list/"], ["POST", "bulk/status/"]]);
   assert.deepEqual(p.log[1].body, { platform: "sms" });
   assert.deepEqual(p.log[2].body, { platform: "sms", state: "all" });
   for (const l of p.log) assert.doesNotMatch(l.url, /[?#]|inbox\/[^/]+\/[^/]+\/.+/);
@@ -79,9 +79,11 @@ test("the chips show the phone and the day's count; New SMS only for a user who 
   assert.equal(q.node["new-sms"].textContent, "");
 });
 
-test("there is no Bulk SMS button and no Contacts link", () => {
+test("the page holds no Contacts link, and its one Bulk SMS link is hidden until bulk/status/ answers 200", () => {
   const html = fs.readFileSync(new URL("../public/inbox.html", import.meta.url), "utf8");
-  assert.doesNotMatch(html, /Bulk SMS|bulk|Contacts/);
+  assert.doesNotMatch(html, /Contacts/);
+  assert.match(html, /<a [^>]*id="bulk-link" href="\/inbox\/sms\/bulk\/" hidden>/);
+  assert.equal((html.match(/bulk/gi) || []).length, 4);
 });
 
 /* ---- the list ---- */

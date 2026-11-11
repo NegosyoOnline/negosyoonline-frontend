@@ -150,6 +150,7 @@ test("Find posts the typed number in the body only, clears the field, and Show a
   submit(p, "find-form");
   assert.equal(p.node["find-number"].value, "");
   await settle();
+  assert.equal(p.text("found-text"), "Showing the conversation with that number.");
   const call = p.calls_to("inbox/conversations/find/");
   assert.equal(call.length, 1);
   assert.deepEqual(call[0].body, { platform: "sms", number: "0900 000 0142" });
@@ -175,6 +176,7 @@ test("Find with no match says so; an empty field calls nothing", async () => {
   await settle();
   assert.equal(p.text("l-empty"), "No conversation with that number.");
   assert.equal(p.shown("l-empty"), true);
+  assert.equal(p.text("found-text"), "", "no 'Showing the conversation' line above the empty answer");
 });
 
 test("Refresh calls the status and the list again, once each per press", async () => {

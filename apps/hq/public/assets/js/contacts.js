@@ -311,6 +311,9 @@
     var id = existing;
     if (id) openContact(id, $("c-existing"));
   });
+  [["c-first", "c-first-err"], ["c-last", "c-last-err"], ["c-num", "c-num-err"]].forEach(function (p) {
+    $(p[0]).addEventListener("input", function () { say(p[1], ""); });
+  });
   $("c-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (!change || busy) return;

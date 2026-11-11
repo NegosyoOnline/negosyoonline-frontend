@@ -101,7 +101,7 @@ test("Stop asks once: the X and Escape post nothing, there is no Cancel, the pri
   stop.fire("click");
   assert.equal(p.shown("m-pop"), true);
   assert.equal(p.text("pop-h"), "Stop this batch?");
-  assert.match(p.text("pop-sub"), /Texts already sent stay sent\. 1,074 texts that have not been sent will not be sent\./);
+  assert.match(p.text("pop-sub"), /Texts already sent stay sent\. 1,074 texts not yet with the phone will not be sent\./);
   assert.equal(p.text("pop-go"), "Stop sending");
   const html = fs.readFileSync(new URL("../public/bulk.html", import.meta.url), "utf8");
   assert.match(html, /class="no-btn no-btn-ghost stop fin-block" type="button" id="pop-go"/);

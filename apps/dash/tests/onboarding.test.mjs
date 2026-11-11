@@ -78,8 +78,9 @@ const NOT_STARTED = { status: 200, body: { state: "not_started", can_create_site
 const COMPLETE = { status: 200, body: { state: "minimum_complete", minimum_completed_at: STAMP, missing: [], first_site: { id: ID, display_name: "Ana's Store", subdomain: "anas-store" } } };
 
 /* `setup` is a list of answers to GET /account/setup/, used in order (the last one repeats). An answer is
-   {status, body}, or "down" for a request that never reaches the server. */
-async function bootPage(setup) {
+   {status, body}, or "down" for a request that never reaches the server. `sites` is the same for GET /sites/;
+   without it that read answers 404 like every other address. */
+async function bootPage(setup, sites) {
   const doc = makeDocument(), calls = [], listeners = {};
   const add = (parent, tag, attrs = {}) => { const n = doc.createElement(tag); for (const k of Object.keys(attrs)) n.setAttribute(k, attrs[k]); return parent.appendChild(n); };
   const main = add(doc.body, "main", { id: "main" });
@@ -91,11 +92,13 @@ async function bootPage(setup) {
     add(head, "p", { "class": "view-sub" });
     if (v === "overview") add(view, "div", { id: "ov-body" });
   }
-  let n = 0;
+  let n = 0, m = 0;
   const fetch = (url, opts) => {
     const p = url.replace("http://api.test/v1", "");
     calls.push({ method: opts.method, path: p });
-    const a = p === "/account/setup/" ? setup[Math.min(n++, setup.length - 1)] : { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
+    const a = p === "/account/setup/" ? setup[Math.min(n++, setup.length - 1)]
+      : p === "/sites/" && opts.method === "GET" && sites ? sites[Math.min(m++, sites.length - 1)]
+      : { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
     if (a === "down") return Promise.reject(new Error("offline"));
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status,
       json: () => (a.body === undefined ? Promise.reject(new Error("no body")) : Promise.resolve(a.body)) });
@@ -113,6 +116,7 @@ async function bootPage(setup) {
   const byClass = (root, c) => root.all((x) => x.classList.contains(c));
   return { doc, calls, $, byClass, body: $("ov-body"),
     setupReads: () => calls.filter((c) => c.path === "/account/setup/").length,
+    sitesReads: () => calls.filter((c) => c.path === "/sites/" && c.method === "GET").length,
     normalOverview: () => byClass($("ov-body"), "ov-stack").length > 0,
     popup: () => $("ob-dlg-root"),
     buttons: (root) => root.all((x) => x.tagName === "BUTTON"),
@@ -273,4 +277,80 @@ test("a failed setup re-read inside the popup keeps the popup open on its own lo
   await p.click(p.buttons(card())[0]);
   assert.equal(card(), undefined);
   assert.deepEqual(p.buttons(p.popup()).map((b) => b.textContent), ["Sign out", "Create my site"]);
+});
+
+/* D1 (Coach Ed 2026-11-11, ClickUp z8uq9machp): the setup says the first site was removed, and the follow-up
+   GET /sites/ that decides between the "Your site was removed" card and the normal Overview fails. */
+const REMOVED = { status: 200, body: { state: "blocked", blocked_reason: "first_site_removed", first_site: { id: ID, deleted: true }, missing: [] } };
+const NO_SITES = { status: 200, body: { items: [] } };
+const ONE_SITE = { status: 200, body: { items: [{ id: "site_zyxwvutsrqponmlkjihg", display_name: "Second Store", subdomain: "second-store" }] } };
+const FAILED_SITES_READS = [
+  ["the request never reaches the server", "down"],
+  ["a server error", { status: 500, body: { error: { code: "server_error", message: "Something went wrong." } } }],
+  ["a 404", { status: 404, body: { error: { code: "not_found", message: "Not found." } } }],
+  ["a 403", { status: 403, body: { error: { code: "forbidden", message: "No." } } }],
+];
+
+test("a removed first site whose sites read fails never shows the normal Overview", async () => {
+  for (const [name, failed] of FAILED_SITES_READS) {
+    const p = await bootPage([REMOVED], [failed]);
+    assert.equal(p.sitesReads(), 1, name);
+    assert.equal(p.normalOverview(), false, name + ": the normal Overview is not drawn");
+    assert.equal(p.popup(), null, name + ": no popup either");
+    const box = p.byClass(p.body, "err-box")[0];
+    assert.ok(box, name + ": the load-error state is on the Overview");
+    assert.equal(box.getAttribute("role"), "alert");
+    assert.equal(box.all((x) => x.tagName === "H2")[0].textContent, "We couldn't load your setup");
+    assert.deepEqual(p.buttons(box).map((b) => [b.textContent, b.getAttribute("class")]), [["Try again", "no-btn no-btn-ghost"]], name);
+
+    await p.click(p.buttons(box)[0]); /* still failing */
+    assert.deepEqual([p.setupReads(), p.sitesReads()], [2, 2], name + ": Try again runs the whole load again");
+    assert.equal(p.normalOverview(), false, name);
+    assert.equal(p.byClass(p.body, "err-box").length, 1, name + ": the same state while the read keeps failing");
+    assert.equal(p.doc.activeElement, p.$("h-overview"));
+  }
+});
+
+test("Try again after a failed sites read recovers once the read works", async () => {
+  const live = await bootPage([REMOVED], ["down", ONE_SITE]);
+  await live.click(live.buttons(live.byClass(live.body, "err-box")[0])[0]);
+  assert.deepEqual([live.setupReads(), live.sitesReads()], [2, 2]);
+  assert.equal(live.byClass(live.body, "err-box").length, 0);
+  assert.equal(live.popup(), null);
+  assert.equal(live.normalOverview(), true, "an Account that still owns a live site gets the normal Overview, as before");
+
+  const none = await bootPage([REMOVED], [{ status: 500, body: {} }, NO_SITES]);
+  await none.click(none.buttons(none.byClass(none.body, "err-box")[0])[0]);
+  assert.equal(none.byClass(none.body, "err-box").length, 0);
+  assert.equal(none.$("ob-h-blocked").textContent, "Your site was removed", "an Account with no live site gets the removed card in the popup, as before");
+  assert.equal(none.$("main").getAttribute("inert"), "", "the page behind the popup is inert");
+});
+
+test("the sites read that answers keeps its two outcomes", async () => {
+  const none = await bootPage([REMOVED], [NO_SITES]);
+  assert.equal(none.$("ob-h-blocked").textContent, "Your site was removed");
+  assert.equal(none.byClass(none.body, "err-box").length, 0);
+  const live = await bootPage([REMOVED], [ONE_SITE]);
+  assert.equal(live.popup(), null);
+  assert.equal(live.normalOverview(), true);
+});
+
+test("a failed sites read after a re-read inside the popup keeps the popup open on its own load-error card", async () => {
+  const p = await bootPage([NOT_STARTED, REMOVED], ["down", NO_SITES]);
+  await p.click(p.buttons(p.popup())[1]); /* Get started */
+  const behind = p.normalOverview(); /* what is behind the popup before the read fails */
+  const form = p.popup().all((x) => x.tagName === "FORM")[0];
+  form.all((x) => x.tagName === "INPUT")[0].value = "Ana's Store";
+  form.fire("submit"); /* the stub answers 404 to the create, which makes the page read the setup again */
+  await settle();
+  const card = () => p.byClass(p.popup(), "err-box")[0];
+  assert.ok(p.popup(), "the popup stays open");
+  assert.equal(card().all((x) => x.tagName === "H2")[0].textContent, "We couldn't load your setup");
+  assert.equal(p.$("main").getAttribute("inert"), "", "the page behind stays inert");
+  assert.equal(p.normalOverview(), behind, "nothing new is drawn behind the popup");
+  assert.equal(p.byClass(p.body, "err-box").length, 0);
+  await p.click(p.buttons(card())[0]);
+  assert.deepEqual([p.setupReads(), p.sitesReads()], [3, 2], "Try again reads the setup and the sites again");
+  assert.equal(card(), undefined);
+  assert.equal(p.$("ob-h-blocked").textContent, "Your site was removed");
 });

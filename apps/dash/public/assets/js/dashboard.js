@@ -495,8 +495,8 @@
   /* Runs once per page load and on "Try again"; switching panels never refetches. Only GET /account/setup/ is
      read: the API has no /dashboard/ yet, so the Overview renders from an empty payload (no trial strip, no
      figures) through the same render() as before. The first load always shows today's skeleton (spec 6.1
-     item 8, D13). A setup read that fails, or answers a state or shape this page does not know, never draws the
-     normal Overview: it draws the setup load-error state with "Try again" (Phase 7 B1, ClickUp z8uq9machp). On a
+     item 8, D13). A setup read that fails, or answers a state or shape this page does not know, or a removed first
+     site whose follow-up sites read fails (checkRemoved, D1), never draws the normal Overview: it draws the setup load-error state with "Try again" (Phase 7 B1, ClickUp z8uq9machp). On a
      retry the clicked button is about to be removed, so focus moves to the Overview h1, which stays in place
      (audit F8). */
   function load(retry) {
@@ -683,7 +683,8 @@
     body.appendChild(sk);
   }
   /* The setup load-error card inside the popup, for a failed follow-up read made after setup returned an onboarding
-     state (spec r3 6.1 item 2); the first read's failure is drawn on the Overview by setupFailed(). retry re-runs exactly that follow-up read; every retry function starts with obSkeleton(),
+     state (spec r3 6.1 item 2), the sites read of checkRemoved() after a re-read included; the first load's failures
+     are drawn on the Overview by setupFailed(). retry re-runs exactly that follow-up read; every retry function starts with obSkeleton(),
      so "Try again" shows the setup skeleton (D13). */
   function drawSetupError(retry) {
     var body = dlgOpen();
@@ -881,13 +882,17 @@
   }
   /* Spec r3 6.1 item 6, D14: first_site_removed shows B3 only when the Account owns no live Site. GET /sites/ lists
      live Sites only (access.sites_of, access.py:11-12); a non-empty list (an operator test owner whose earliest test
-     Site was soft-deleted) or a failed read keeps today's Overview. No setup skeleton here: on the first load today's
-     skeleton is still showing, and an answer that renders today's Overview must never show the setup skeleton. */
+     Site was soft-deleted) keeps today's Overview. A sites read that fails never draws the normal Overview (D1, Coach
+     Ed 2026-11-11, ClickUp z8uq9machp; this replaces the "failed read keeps today's Overview" part of D14): on the
+     first load it draws the Overview's setup load-error state, whose "Try again" runs load() again; after a re-read
+     made inside the popup (why is set) it draws the popup's own load-error card, whose "Try again" runs that re-read
+     again. No setup skeleton here: on the first load today's skeleton is still showing, and an answer that renders
+     today's Overview must never show the setup skeleton. */
   function checkRemoved(data, why) {
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (res.status === 401) return;
-      var list = res.ok ? D.sitesOf(res) : null;
-      if (list && list.length === 0) return drawBlocked("b3", countOf(data), !!why);
+      if (!res.ok) return why ? drawSetupError(function () { reread(why); }) : setupFailed($("ov-body"));
+      if (D.sitesOf(res).length === 0) return drawBlocked("b3", countOf(data), !!why);
       toToday(false);
     });
   }

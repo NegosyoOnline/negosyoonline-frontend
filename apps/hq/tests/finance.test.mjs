@@ -761,3 +761,13 @@ test("neither dialog has a Cancel button; each has an X button labelled Close; t
   assert.match(css, /\.fin-block \{ width: 100%; \}/);
   assert.match(css, /\.modal-head \{[^}]*justify-content: space-between/);
 });
+
+test("every destructive button on the Finance page is the same solid red with light text, and has a disabled look", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  const stops = [...html.matchAll(/<button [^>]*class="[^"]*\bstop\b[^"]*"[^>]*id="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(stops, ["open-reject", "reject-go"], "the two Reject payment buttons, and no other, are destructive");
+  assert.match(css, /\.no-btn\.stop \{ background: #B42318; border-color: #B42318; color: #fff; \}/);
+  assert.match(css, /\.no-btn\.stop:disabled/);
+  assert.doesNotMatch(css, /\.stop \{[^}]*var\(--err-h\)/, "the red outline look is gone");
+});

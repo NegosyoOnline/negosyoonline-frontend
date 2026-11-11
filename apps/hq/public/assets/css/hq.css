@@ -194,7 +194,12 @@ body.dash-app a.icon-btn { text-decoration: none; }
 .bar { height: 10px; border-radius: 999px; background: var(--chip-neutral-bg); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--primary); }
 .results li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 0; }
-body.dash-app .stop { border-color: var(--err-line); color: var(--err-h); }
+/* A destructive primary button (Reject payment) is solid red with light text; focus is the shared light-blue ring. */
+body.dash-app .no-btn.stop { background: #B42318; border-color: #B42318; color: #fff; }
+body.dash-app .no-btn.stop:hover { background: #912018; border-color: #912018; }
+body.dash-app .no-btn.stop:disabled, .modal .no-btn:disabled { opacity: .55; cursor: not-allowed; }
+body.dash-app .no-btn.stop:disabled:hover { background: #B42318; border-color: #B42318; }
+body.dash-app .modal .no-btn-primary:disabled:hover { background: var(--primary); }
 /* the list of bulk sends, and the CSV upload */
 .list-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 16px 20px; border-bottom: 1px solid var(--card-line); }
 .list-head h2 { margin: 0; }

@@ -6,6 +6,7 @@
   /* href: the page's address. label: its name. icon: the path of a 24 by 24 line icon. */
   var MENU = [
     { href: "/", label: "Admin console", icon: "M4 11l8-7 8 7v9H4z" },
+    { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3" },
   ];
   /* The SVG namespace, read from the wordmark already on the page. */
   var mark = document.querySelector ? document.querySelector("svg") : null;

@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance | NegosyoOnline HQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/svg+xml" href="/assets/img/negosyoonline-favicon.svg?v=20261111a">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
+<link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
+<script src="/assets/js/theme.js?v=20261111a"></script>
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261111c">
+</head>
+<body class="dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="side dash-chrome" aria-label="HQ navigation">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline</span></a>
+    <div class="side-sep"></div>
+    <div class="ws"><span class="ws-tile" aria-hidden="true">HQ</span><span class="ws-text"><span class="ws-name">NegosyoOnline HQ</span><span class="chip chip-info">Staff only</span></span></div>
+    <div class="side-sep"></div>
+    <nav class="side-nav" id="side-nav" aria-label="HQ sections"></nav>
+    <div class="side-foot">
+      <div class="acct-row" id="acct-row" hidden><span class="acct-row-ini" aria-hidden="true" id="acct-ini"></span><span class="acct-row-text"><span class="acct-row-name" id="acct-name"></span><span class="acct-row-sub">Two-step sign-in verified</span></span></div>
+      <button type="button" class="no-btn no-btn-ghost" id="sign-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>Sign out</button>
+    </div>
+  </aside>
+  <header class="topbar dash-chrome">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline</span></a>
+    <div class="top-actions"><button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button><span class="acct-btn" id="acct-btn" hidden></span></div>
+  </header>
+  <div class="col">
+    <div class="desk-switch"><button type="button" class="icon-btn" id="theme-toggle-2" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
+    <main class="view" id="main" aria-live="polite">
+      <div class="view-head"><div class="head-row"><div><h1>Finance</h1><p class="view-sub">Bank transfer payments</p></div></div></div>
+      <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
+      <p class="dash-copy" id="boot">Loading payments…</p>
+      <noscript><p class="dash-copy">This page needs JavaScript.</p></noscript>
+
+      <div class="view" id="v-queue" hidden>
+        <div class="fin-tabs" role="group" aria-label="Payments by status">
+          <button type="button" id="tab-submitted" aria-pressed="true">Under review</button>
+          <button type="button" id="tab-confirmed" aria-pressed="false">Confirmed</button>
+          <button type="button" id="tab-rejected" aria-pressed="false">Rejected</button>
+          <button type="button" id="tab-replaced" aria-pressed="false">Replaced</button>
+        </div>
+        <p class="banner fin-msg" id="q-msg" role="status" hidden></p>
+        <section class="dash-card list-card" aria-label="Payments">
+          <p class="dash-copy fin-note" id="q-loading" hidden>Loading payments…</p>
+          <ol class="list" id="rows"></ol>
+          <p class="dash-copy fin-note" id="q-empty" hidden></p>
+          <div class="list-foot" id="more-row" hidden><button type="button" class="no-btn no-btn-ghost" id="more">Load more</button></div>
+        </section>
+      </div>
+
+      <div class="view" id="v-pay" hidden>
+        <p><a class="back" href="/finance/" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>Back to payments</a></p>
+        <p class="banner fin-msg" id="p-msg" role="status" hidden></p>
+        <p class="dash-copy" id="p-loading" hidden>Loading the payment…</p>
+        <div class="view" id="p-body" hidden>
+          <section class="dash-card fin-pay" aria-labelledby="p-site">
+            <div class="batch-title"><h2 id="p-site"></h2><span class="chip chip-neutral" id="p-status"></span></div>
+            <p class="small" id="p-site-id"></p>
+            <div class="fin-due"><span class="small">Amount due</span><span class="fin-amount num" id="p-amount"></span></div>
+            <dl class="fin-facts">
+              <div><dt>Plan</dt><dd id="p-plan"></dd></div>
+              <div><dt>Transfer date</dt><dd id="p-date"></dd></div>
+              <div><dt>Bank reference</dt><dd id="p-ref"></dd></div>
+              <div><dt>Submitted</dt><dd id="p-submitted"></dd></div>
+              <div><dt>Subscriber email</dt><dd id="p-email"></dd></div>
+            </dl>
+            <p class="dash-copy" id="p-decided" hidden></p>
+          </section>
+
+          <section class="dash-card" aria-labelledby="proof-h">
+            <h2 id="proof-h">Proof of payment</h2>
+            <p class="dash-copy" id="proof-loading" hidden>Loading the proof…</p>
+            <img class="fin-proof" id="proof-img" alt="The proof of payment the Subscriber sent" hidden>
+            <p><a class="no-btn no-btn-ghost" id="proof-pdf" target="_blank" rel="noopener" hidden>Open the proof (PDF)</a></p>
+            <div class="fin-row" id="proof-err" hidden><p class="field-err" role="alert">The proof could not be loaded.</p><button type="button" class="no-btn no-btn-ghost" id="proof-retry">Try again</button></div>
+          </section>
+
+          <div class="pair" id="act" hidden>
+            <section class="dash-card form-card" aria-labelledby="confirm-h">
+              <h2 id="confirm-h">Confirm</h2>
+              <form class="form-card" id="confirm-form" novalidate>
+                <div class="field"><label for="amount">Amount received (PHP)</label><input class="input num" id="amount" type="text" inputmode="decimal" autocomplete="off" maxlength="16" aria-describedby="amount-err amount-hint"><p class="field-err" id="amount-err" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
+                <button class="no-btn no-btn-primary" type="submit" id="confirm-go">Confirm payment</button>
+              </form>
+              <div class="banner" id="confirm-step" hidden>
+                <p id="confirm-ask"></p>
+                <div class="fin-row"><button type="button" class="no-btn no-btn-primary" id="confirm-yes">Confirm payment</button><button type="button" class="no-btn no-btn-ghost" id="confirm-no">Cancel</button></div>
+              </div>
+            </section>
+            <section class="dash-card form-card" aria-labelledby="reject-h">
+              <h2 id="reject-h">Reject</h2>
+              <form class="form-card" id="reject-form" novalidate>
+                <div class="field"><label for="reason">Reason</label><select class="input" id="reason" aria-describedby="reject-err">
+                  <option value="">Choose a reason</option>
+                  <option value="unreadable">The proof cannot be read</option>
+                  <option value="amount_mismatch">The amount is not the amount due</option>
+                  <option value="not_received">The money has not arrived</option>
+                  <option value="wrong_account">Sent to a different account</option>
+                  <option value="duplicate">This payment was already counted</option>
+                  <option value="other">Another reason (write a note)</option>
+                </select></div>
+                <div class="field"><label for="note">Note to the Subscriber (optional)</label><textarea class="textarea short" id="note" maxlength="300" aria-describedby="note-hint reject-err"></textarea><p class="hint" id="note-hint">The Subscriber sees the reason and this note.</p></div>
+                <p class="field-err" id="reject-err" role="alert" hidden></p>
+                <button class="no-btn no-btn-ghost stop" type="submit" id="reject-go">Reject proof</button>
+              </form>
+            </section>
+          </div>
+
+          <section class="dash-card list-card" aria-labelledby="history-h">
+            <div class="list-head"><h2 id="history-h">History</h2></div>
+            <ol class="list" id="history"></ol>
+          </section>
+        </div>
+      </div>
+
+      <section class="dash-card" id="v-closed" aria-labelledby="h-closed" hidden>
+        <h2 id="h-closed">Bank transfer payments are not switched on.</h2>
+      </section>
+      <section class="dash-card" id="v-down" aria-labelledby="h-down" hidden>
+        <h2 id="h-down">Finance could not be reached. Try again.</h2>
+        <p><button type="button" class="no-btn no-btn-ghost" id="retry">Try again</button></p>
+      </section>
+      <p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-2">Sign out</button></p>
+    </main>
+  </div>
+</div>
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/hq.js?v=20261111c"></script>
+<script src="/assets/js/menu.js?v=20261111c"></script>
+<script src="/assets/js/shell.js?v=20261111a"></script>
+<script src="/assets/js/finance.js?v=20261111a"></script>
+</body>
+</html>

@@ -27,7 +27,7 @@ test("the CSP names the staff address and nothing from a third host", () => {
     "script-src 'self'",
     "style-src 'self'",
     "font-src 'self'",
-    "img-src 'self'",
+    "img-src 'self' blob:",
     "connect-src https://hq-staging.negosyonline.com",
     "frame-ancestors 'none'",
     "base-uri 'none'",

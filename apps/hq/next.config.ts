@@ -18,6 +18,7 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         { source: "/", destination: "/index.html" },
+        { source: "/finance/", destination: "/finance.html" },
         ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
       ],
       afterFiles: [],
@@ -28,6 +29,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/index.html", destination: "/", permanent: false },
+      { source: "/finance.html", destination: "/finance/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];
   },

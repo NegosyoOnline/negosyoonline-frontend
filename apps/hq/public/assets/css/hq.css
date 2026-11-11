@@ -330,3 +330,27 @@ body.dash-app .auth-link a { display: inline-flex; align-items: center; min-heig
 /* The console on a phone: "Sign out" sits in the first card, since the side menu is not shown. */
 .phone-only { display: none; }
 @media (max-width: 899.98px) { .phone-only { display: inline-flex; } }
+
+/* Finance: the queue of bank transfer payments and one payment with its proof (ClickUp z8uq9me581). */
+.fin-tabs { display: flex; gap: 4px; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; border-bottom: 1px solid var(--card-line); }
+.fin-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.fin-tabs button:hover { color: var(--text); }
+.fin-tabs button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--primary-hover); }
+.fin-msg { color: var(--banner-text); font-weight: 600; }
+.fin-note { padding: 18px 20px; }
+.fin-pay { display: flex; flex-direction: column; gap: 14px; }
+.fin-pay h2 { margin: 0; font-size: 22px; }
+.fin-due { display: flex; flex-direction: column; }
+.fin-amount { font-size: 34px; font-weight: 800; line-height: 1.2; letter-spacing: -.02em; }
+.fin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; margin: 0; }
+.fin-facts dt { font-size: 14px; color: var(--meta); }
+.fin-facts dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.fin-proof { display: block; max-width: 100%; max-height: 80vh; border: 1px solid var(--card-line); border-radius: 8px; background: var(--field-bg); }
+.fin-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.pair > .form-card { max-width: none; }
+.banner .fin-row { margin-top: 4px; }
+button.no-btn:disabled { opacity: .55; cursor: default; }
+@media (max-width: 899.98px) {
+  .fin-note { padding: 16px; }
+  .fin-amount { font-size: 28px; }
+}

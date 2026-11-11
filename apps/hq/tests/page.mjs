@@ -10,7 +10,8 @@ const JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public
 export const BASE = "http://hq-api.test/staff/v1";
 
 /* answers(call) gives [status, body], or "offline" for a call that never gets an answer. */
-export function open(files, { ids = [], pathname = "/sign-in/", answers } = {}) {
+/* globals: what a page needs that a bare context lacks, for example URL. */
+export function open(files, { ids = [], pathname = "/sign-in/", answers, globals = {} } = {}) {
   const doc = makeDocument();
   const node = {};
   for (const id of ids) {
@@ -34,9 +35,10 @@ export function open(files, { ids = [], pathname = "/sign-in/", answers } = {}) 
     if (reply === "offline") return Promise.reject(new Error("offline"));
     const [status, body] = reply;
     return Promise.resolve({ ok: status >= 200 && status < 300, status,
-      json: () => (body === undefined ? Promise.reject(new Error("no body")) : Promise.resolve(body)) });
+      json: () => (body === undefined ? Promise.reject(new Error("no body")) : Promise.resolve(body)),
+      blob: () => Promise.resolve(body) });
   };
-  const context = vm.createContext({ window, document: doc, location, history, fetch, Intl, console, setTimeout, clearTimeout });
+  const context = vm.createContext({ window, document: doc, location, history, fetch, Intl, console, setTimeout, clearTimeout, ...globals });
   for (const f of files) vm.runInContext(fs.readFileSync(path.join(JS, f), "utf8"), context, { filename: f });
   return { doc, node, calls, location, heard, window };
 }

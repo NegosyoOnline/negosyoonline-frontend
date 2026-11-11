@@ -9,14 +9,16 @@ export function readEnv(env) {
   return { staffApi, staffApiOrigin: new URL(staffApi).origin };
 }
 
-/* Script, styles and the font from this app only; calls to the one staff address only; no frame. */
+/* Script, styles and the font from this app only; calls to the one staff address only; no frame.
+   blob: in img-src lets the Finance page show a proof image it holds in the tab's memory, which has no
+   address of its own (Coach Ed's approval, 2026-11-11, ClickUp z8uq9me581). */
 export function buildCsp(staffApiOrigin) {
   return [
     "default-src 'none'",
     "script-src 'self'",
     "style-src 'self'",
     "font-src 'self'",
-    "img-src 'self'",
+    "img-src 'self' blob:",
     `connect-src ${staffApiOrigin}`,
     "frame-ancestors 'none'",
     "base-uri 'none'",

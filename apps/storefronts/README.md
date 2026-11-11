@@ -16,10 +16,22 @@ Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pag
 
 | Path | Answer |
 | --- | --- |
-| `/` | A served Santé site: for now, a plain page with the store name. Otherwise the neutral 404. |
+| `/` | A served Santé site: the Santé home. Otherwise the neutral 404. |
+| `/contact/` | A post from a served Santé site: the home again with the "could not send" note and the typed values kept. Nothing is sent or stored; the sending is a later task. Any other method, or any other host: the neutral 404. |
+| `/assets/sante/*` | The approved Santé files, served as static files. |
 | anything else | The neutral 404, with or without a trailing slash, any method. |
 
 Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
+
+## The Santé home
+
+`src/views/sante/home.ts` is the approved home page and its basket drawer, transcribed by script from TWCinc's `home.html` and `_store_drawer.html` (commit `ac483675c`): markup, class names, text, order and inline styles are the template's, character for character. Do not reformat it. Its header lists the few places where it differs on purpose. `src/views/sante/model.ts` builds what the page shows from the storefront surface's answer.
+
+The page shows the store's own contact email and the distributor's mobile. The "Office Location" block is the Santé head office, fixed text, as the approved template prints it. The business seal and the distributor photo are off until private files exist. The basket is always empty: no product page exists yet. Links to pages of later slices (`/products/`, `/cart/`, `/checkout/`, `/dashboard/…`, `/funnel/…`) are kept as approved and answer the neutral 404 for now.
+
+### Assets
+
+The 24 approved files are in `public/assets/sante/{css,js,img}`, byte for byte as in TWCinc. A page links them through `asset()` in `src/lib/assets.ts`, which adds `?v=<first 8 characters of the file's SHA-256>`. To change a file: replace it, run `shasum -a 256` on it, and put the first 8 characters on its line in `src/lib/assets.ts`. `tests/assets.test.ts` fails while the two disagree.
 
 ## Configuration
 

@@ -1,20 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { fetchSite, type Site } from "../src/lib/django.ts";
+import { fetchSite } from "../src/lib/django.ts";
 import { storefrontEnv } from "../src/lib/env.ts";
+import { SITE } from "./site.ts";
 
 const secret = randomBytes(24).toString("hex"); // throwaway, made for this run only
 const env = { apiBase: "http://api.test", secret };
-
-const SITE: Site = {
-  id: "site_1", template: "sante", display_name: "Demo Store", accent_color: "#0a7d3c",
-  facebook_url: "", instagram_url: "", tiktok_url: "",
-  business: { registered_name: "", tin: "", dti_business_number: "", contact_email: "", contact_mobile: "",
-    has_seal: false },
-  distributor: { name: "Demo Store", mobile: "", has_photo: false },
-  policy_links: [], free_shipping_banner: false,
-};
 
 type Call = { url: string; init: RequestInit };
 

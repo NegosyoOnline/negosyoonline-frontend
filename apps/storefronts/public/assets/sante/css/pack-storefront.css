@@ -1,0 +1,1566 @@
+/* Sante storefront pages: catalog, detail, cart, checkout, order status, legal.
+   Reuses the CMO design language (main.css :root variables load first).
+   Mobile-first; breakpoints match the CMO file (360 / 768 / 1024). */
+
+/* ── catalog ── */
+.sf-facets {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  justify-content: center; margin: 0 0 36px;
+}
+.sf-facet-pill {
+  padding: 9px 18px; border-radius: 999px; font-size: 14px; font-weight: 700;
+  color: var(--text-secondary); background: var(--surface);
+  border: 1.5px solid var(--border); text-decoration: none; transition: all .2s;
+}
+.sf-facet-pill:hover { border-color: var(--green); color: var(--green); }
+.sf-facet-pill.active { background: var(--green); border-color: var(--green); color: #fff; }
+
+.sf-pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px; margin-top: 40px; font-size: 14px;
+}
+.sf-page-link { color: var(--green); font-weight: 700; text-decoration: none; }
+.sf-page-link:hover { text-decoration: underline; }
+.sf-page-current { color: var(--text-light); }
+
+.sf-empty {
+  text-align: center; padding: 64px 20px; color: var(--text-secondary);
+}
+.sf-empty p { margin-bottom: 20px; font-size: 16px; }
+.sf-empty .btn-cart { display: inline-block; width: auto; padding: 12px 28px; }
+
+/* ── product detail ── */
+.sf-detail-grid {
+  display: grid; grid-template-columns: 1fr; gap: 40px; margin-bottom: 56px;
+}
+.sf-gallery-main {
+  width: 100%; border-radius: var(--radius); background: var(--surface);
+  border: 1px solid var(--border); object-fit: cover; aspect-ratio: 1 / 1;
+}
+.sf-gallery-thumbs { display: flex; gap: 10px; margin-top: 12px; }
+.sf-gallery-thumbs img {
+  width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
+  border: 2px solid var(--border); cursor: pointer; background: var(--surface);
+}
+.sf-gallery-thumbs img.active { border-color: var(--green); }
+
+.sf-detail-name { font-size: 28px; font-weight: 800; color: var(--green-dark); line-height: 1.25; }
+.sf-detail-price { font-size: 26px; font-weight: 800; color: var(--green); margin: 12px 0 18px; }
+.sf-detail-lead { font-size: 15px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 26px; }
+
+.sf-qty-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.sf-qty-label { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); }
+.sf-qty-stepper {
+  display: inline-flex; align-items: center; border: 1.5px solid var(--border);
+  border-radius: 10px; overflow: hidden; background: var(--surface);
+}
+.sf-qty-stepper button {
+  width: 38px; height: 38px; border: none; background: none; font-size: 18px;
+  color: var(--green-dark); cursor: pointer; font-weight: 700;
+}
+.sf-qty-stepper button:hover { background: var(--bg); }
+.sf-qty-stepper input, .sf-qty-stepper span {
+  width: 48px; text-align: center; border: none; font-size: 15px; font-weight: 700;
+  color: var(--text); background: none; -moz-appearance: textfield;
+}
+.sf-qty-stepper input::-webkit-outer-spin-button,
+.sf-qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.sf-add-to-cart { width: 100%; max-width: 360px; font-size: 16px; padding: 15px 24px; }
+
+.sf-accordions { margin-top: 34px; border-top: 1px solid var(--border); }
+.sf-accordion { border-bottom: 1px solid var(--border); }
+.sf-related { margin-top: 24px; }
+.sf-related .section-title { font-size: 24px; margin-bottom: 28px; text-align: center; }
+
+/* ── cart / totals ── */
+.sf-table-scroll { overflow-x: auto; }
+.sf-cart-table {
+  width: 100%; border-collapse: collapse; background: var(--surface);
+  border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+}
+.sf-cart-table th {
+  text-align: left; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-light); padding: 14px 16px; border-bottom: 1.5px solid var(--border);
+}
+.sf-cart-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 15px; }
+.sf-cart-item { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+.sf-cart-item img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; }
+.sf-remove {
+  border: none; background: none; color: var(--text-light); cursor: pointer; font-size: 14px;
+}
+.sf-remove:hover { color: #C0392B; }
+
+.sf-totals {
+  max-width: 420px; margin: 26px 0 0 auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px;
+}
+.sf-totals-row {
+  display: flex; justify-content: space-between; font-size: 15px;
+  color: var(--text-secondary); padding: 6px 0;
+}
+.sf-totals-grand {
+  border-top: 1.5px solid var(--border); margin-top: 8px; padding-top: 12px;
+  font-size: 17px; color: var(--green-dark); font-weight: 800;
+}
+.sf-quote-note { color: var(--text-light); }
+.sf-quote-error { color: #C0392B; font-size: 13px; margin-top: 10px; }
+
+.sf-cart-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; margin-top: 30px; flex-wrap: wrap;
+}
+.sf-continue-link { color: var(--green); font-weight: 700; text-decoration: none; }
+.sf-checkout-cta { width: auto; padding: 14px 32px; }
+
+/* ── checkout: step progress bar ── */
+.sf-steps {
+  display: flex; align-items: flex-start; margin-bottom: 32px; max-width: 720px; margin-left: auto; margin-right: auto;
+}
+.sf-step {
+  /* Fixed equal width for every step (not sized by its own label) so the
+     circles land at identical relative offsets and the connecting lines
+     — each flex:1 — genuinely split the remaining space evenly. Before
+     this, "Shipping Address"/"Order Complete" being much wider than
+     "Cart"/"Payment" pushed their circles off-center within an
+     unevenly-sized box, making the lines look mismatched in length. */
+  display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 0 96px;
+}
+.sf-step-circle {
+  width: 34px; height: 34px; border-radius: 50%; background: var(--border); color: #fff;
+  font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  position: relative; flex-shrink: 0;
+}
+.sf-step-check, .sf-step-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.sf-step-check { opacity: 0; }
+.sf-step.is-active .sf-step-circle { background: var(--green); opacity: .55; }
+.sf-step.is-done .sf-step-circle { background: var(--green); }
+.sf-step.is-done .sf-step-check { opacity: 1; }
+.sf-step.is-done .sf-step-num { opacity: 0; }
+.sf-step-label {
+  font-size: 13px; font-weight: 700; color: var(--text-light);
+  text-align: center; white-space: normal; line-height: 1.3;
+}
+.sf-step.is-active .sf-step-label, .sf-step.is-done .sf-step-label { color: var(--text); }
+.sf-step-line { flex: 1; height: 2px; background: var(--border); margin: 17px 8px 0; align-self: flex-start; }
+.sf-step-line.is-done { background: var(--green); }
+
+/* ── checkout ── */
+.sf-checkout-grid { display: grid; grid-template-columns: 1fr; gap: 36px; }
+.sf-block {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); padding: 24px; margin-bottom: 24px;
+}
+.sf-block legend {
+  font-size: 15px; font-weight: 800; color: var(--green-dark); padding: 0 8px;
+}
+.sf-field { margin-bottom: 16px; flex: 1; position: relative; }
+.sf-field-row { display: flex; gap: 14px; flex-wrap: wrap; }
+/* Phone + Email stack to one full-width row each on mobile (operator QA).
+   768px, not 480 — this file's mobile fixes must cover the 481-768px band
+   (see the hero overlay/arrow gap lesson in merchant_site.md). First/Last
+   Name stay side-by-side: short values read fine in half columns. */
+@media (max-width: 768px) {
+  .sf-row-contact .sf-field { flex: 1 1 100%; }
+}
+.sf-field label {
+  display: block; font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px;
+}
+.sf-field input, .sf-field select {
+  width: 100%; padding: 13px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 15px; font-family: var(--font);
+  color: var(--text); background: var(--surface);
+}
+.sf-field input:focus, .sf-field select:focus { outline: none; border-color: var(--green); }
+
+/* inline field errors (SOP: red border + message under the field) */
+.sf-field-invalid { border-color: #C0392B !important; }
+.sf-field-error { color: #C0392B; font-size: 13px; margin-top: 6px; }
+.sf-form-error {
+  color: #C0392B; font-size: 14px; font-weight: 600; margin-bottom: 16px;
+  background: #FDECEA; border: 1px solid #F5C6CB; border-radius: 10px; padding: 12px 16px;
+}
+
+.sf-pay-card {
+  display: flex; align-items: flex-start; gap: 14px; border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 18px; margin-bottom: 12px; cursor: pointer; transition: border-color .2s;
+}
+.sf-pay-card:has(input:checked) { border-color: var(--green); background: #F2FAF5; }
+.sf-pay-card input { margin-top: 3px; flex-shrink: 0; }
+.sf-pay-icon { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.sf-pay-body { display: flex; flex-direction: column; gap: 4px; }
+.sf-pay-title { font-weight: 800; color: var(--text); }
+.sf-pay-desc { font-size: 13px; color: var(--text-light); }
+
+.sf-place-order { width: 100%; font-size: 16px; padding: 16px 24px; }
+.sf-place-order[disabled] { opacity: .7; cursor: wait; }
+.sf-cancel-order-link {
+  display: block; margin: 16px auto 24px; background: none; border: none;
+  color: var(--text-light); font-size: 14px; font-weight: 700;
+  font-family: var(--font); cursor: pointer; text-decoration: none;
+  text-align: center; /* ours is an <a>: unlike the merchant's <button> it fills the row, so centre the text explicitly */
+}
+.sf-cancel-order-link:hover { color: var(--text-secondary); }
+
+/* coupon code (Order Summary) — UI only for now, Apply disabled until the
+   coupon backend exists */
+.sf-coupon { display: flex; gap: 10px; margin: 16px 0; }
+.sf-coupon input {
+  flex: 1; min-width: 0; padding: 12px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 14px; font-family: var(--font);
+  color: var(--text); background: var(--surface);
+}
+.sf-coupon input:focus { outline: none; border-color: var(--green); }
+.sf-coupon-apply {
+  border: none; background: var(--green); color: #fff; font-weight: 800;
+  font-size: 14px; font-family: var(--font); border-radius: 10px;
+  padding: 12px 20px; cursor: pointer;
+}
+.sf-coupon-apply[disabled] { opacity: .55; cursor: not-allowed; }
+
+/* ── checkout: step actions, phone-prefix combo, address summary card ── */
+.sf-step-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 8px 0 20px;
+}
+.sf-step-back-link {
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text-secondary);
+  border-radius: 999px; padding: 13px 26px; font-size: 14px; font-weight: 700;
+  cursor: pointer; text-decoration: none; display: inline-block;
+}
+.sf-step-back-link:hover { border-color: var(--text-light); }
+.sf-step-next { width: auto; padding: 14px 32px; }
+
+.sf-phone-combo {
+  display: flex; align-items: center; border: 1.5px solid var(--border); border-radius: 10px;
+  background: var(--surface); overflow: hidden; position: relative;
+}
+.sf-phone-combo.sf-field-ok { border-color: var(--green); }
+.sf-phone-combo .sf-field-check { right: 14px; }
+.sf-phone-combo.sf-field-ok input { padding-right: 34px; }
+.sf-phone-prefix {
+  padding: 13px 12px; background: var(--bg); color: var(--text-secondary); font-weight: 700;
+  border-right: 1.5px solid var(--border); flex-shrink: 0;
+  min-width: 52px; box-sizing: border-box; text-align: center;
+}
+.sf-phone-prefix svg { display: block; margin: 0 auto; }
+.sf-phone-combo input { border: none !important; border-radius: 0 !important; }
+.sf-phone-combo:has(input:focus) { border-color: var(--green); }
+
+.sf-address-summary { margin-bottom: 24px; }
+.sf-address-summary-title { font-size: 14px; font-weight: 800; color: var(--green-dark); margin-bottom: 14px; }
+.sf-address-summary-row {
+  display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.sf-address-summary-row strong { color: var(--text); }
+.sf-address-summary-icon { flex-shrink: 0; }
+
+/* ── checkout: field checkmarks (Shipping Address step) ── */
+.sf-field-control { position: relative; display: block; }
+.sf-field-check { display: none; position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  color: var(--green); font-weight: 800; font-size: 15px; pointer-events: none; }
+.twc-select-box .sf-field-check { right: 38px; }
+.sf-field-ok .sf-field-check { display: block; }
+.sf-field-control.sf-field-ok input { border-color: var(--green); padding-right: 36px; }
+.twc-select-box.sf-field-ok { border-color: var(--green); }
+
+/* ── confirm-address modal ── */
+.sf-confirm-modal-card { text-align: center; }
+.sf-confirm-icon { font-size: 40px; color: #E8590C; margin-bottom: 10px; }
+.sf-confirm-modal-card h3 { margin-bottom: 8px; }
+.sf-confirm-actions { display: flex; gap: 12px; margin-top: 20px; }
+.sf-confirm-review {
+  flex: 1; border: 1.5px solid var(--border); background: var(--surface); color: var(--text-secondary);
+  border-radius: 10px; padding: 13px 20px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.sf-confirm-proceed { flex: 1; width: auto; }
+
+.sf-checkout-summary {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; align-self: start;
+}
+.sf-checkout-summary h3 { font-size: 18px; font-weight: 800; color: var(--green-dark); margin-bottom: 16px; }
+.sf-summary-line {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 14px; color: var(--text-secondary); padding: 6px 0;
+}
+.sf-checkout-summary .sf-totals, .sf-order-card .sf-totals { max-width: none; margin: 16px 0 0; border: none; padding: 12px 0 0; border-top: 1.5px solid var(--border); border-radius: 0; }
+
+/* ── OTP modal ── */
+.sf-modal {
+  position: fixed; inset: 0; background: rgba(15, 30, 20, .55);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+}
+/* display:flex above outranks the UA [hidden] rule — without this the modal
+   is visible on page load. */
+.sf-modal[hidden] { display: none; }
+.sf-modal-card {
+  position: relative; background: var(--surface); border-radius: 16px;
+  max-width: 420px; width: 100%; padding: 32px; box-shadow: var(--shadow-hover);
+}
+.sf-modal-card h3 { font-size: 20px; font-weight: 800; color: var(--green-dark); margin-bottom: 10px; }
+.sf-modal-card p { font-size: 14px; color: var(--text-secondary); margin-bottom: 18px; }
+.sf-modal-card .btn-cart { width: 100%; }
+/* the popup's inline error: `.sf-modal-card p` (grey, 18px under) outranks .sf-field-error, so restate it here: red, centred, tight under what failed */
+.sf-modal-card p.sf-field-error { color: #C0392B; font-size: 13px; font-weight: 600; text-align: center; margin: 12px 0 0; }
+.sf-modal-card p.sf-field-error[hidden] { display: none; }
+.sf-modal-close {
+  position: absolute; top: 14px; right: 14px; border: none; background: none;
+  font-size: 16px; color: var(--text-light); cursor: pointer;
+}
+
+/* ── OTP: sending (Pac-Man loading beat) — same chomping-mouth-over-dots
+   technique as the dashboard's account-settings mobile-change flow, just
+   re-skinned to the storefront green. ── */
+.sf-otp-loading { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 20px 0; text-align: center; }
+/* display:flex above outranks the UA [hidden] rule (same footgun the OTP
+   modal itself hit in QA round 1) — without this the loading beat is
+   visible immediately, before Send Code is even clicked. */
+.sf-otp-loading[hidden] { display: none; }
+.sf-otp-pacman { position: relative; width: 110px; height: 34px; }
+.sf-otp-pacman-mouth { position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--green);
+  clip-path: polygon(100% 74%, 44% 48%, 100% 21%, 100% 0%, 0% 0%, 0% 100%, 100% 100%);
+  animation: sf-otp-pacman-chomp .4s linear infinite alternate; z-index: 1; }
+.sf-otp-pacman-dot { position: absolute; top: 13px; left: 96px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); animation: sf-otp-pacman-dot 1.2s linear infinite; }
+.sf-otp-loading-text { margin: 0; font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+@keyframes sf-otp-pacman-chomp {
+  0%   { clip-path: polygon(100% 74%, 44% 48%, 100% 21%, 100% 0%, 0% 0%, 0% 100%, 100% 100%); }
+  100% { clip-path: polygon(100% 50%, 100% 50%, 100% 50%, 100% 0%, 0% 0%, 0% 100%, 100% 100%); }
+}
+@keyframes sf-otp-pacman-dot {
+  0%   { transform: translateX(0); opacity: .85; }
+  70%  { opacity: .85; }
+  85%  { opacity: 0; }
+  100% { transform: translateX(-96px); opacity: 0; }
+}
+
+/* ── OTP: 6-box code entry + resend ── */
+.sf-otp-boxes { display: flex; justify-content: center; gap: 10px; margin: 4px 0 18px; }
+.sf-otp-box { width: 44px; height: 52px; text-align: center; font-size: 20px; font-weight: 800;
+  border: 1.5px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); }
+.sf-otp-box:focus { border-color: var(--green); outline: none; }
+.sf-otp-resend { text-align: center; font-size: 13px; color: var(--text-light); margin-bottom: 18px; }
+.sf-otp-resend-btn { border: 0; background: transparent; color: var(--green-dark); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .02em; font-size: 12px; cursor: pointer; padding: 4px; }
+.sf-otp-resend-btn:disabled { color: var(--text-light); cursor: default; }
+/* "Change mobile number", under Verify Code. Quiet on purpose -- it is the
+   escape from a verification pointed at the wrong number, so it has to be
+   findable without pulling against the action most people came for. Uses the
+   same two tokens as the resend row directly above it. */
+.sf-otp-change { text-align: center; margin-top: 14px; }
+.sf-otp-change-btn {
+  border: 0; background: transparent; color: var(--text-light);
+  font-size: 13px; text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer; padding: 4px;
+}
+.sf-otp-change-btn:hover { color: var(--green-dark); }
+
+/* ── order status ── */
+.sf-order-inner { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.sf-order-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow);
+}
+.sf-order-hero { text-align: center; }
+.sf-order-check {
+  width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+  background: var(--green); color: #fff; font-size: 26px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.sf-order-title { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+.sf-order-subtitle { font-size: 15px; color: var(--text-secondary); margin-bottom: 24px; }
+.sf-order-ref-box {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-wrap: wrap; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 20px; text-align: left; margin-bottom: 20px;
+}
+.sf-order-ref-label { font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-light); }
+.sf-order-ref { font-size: 20px; font-weight: 800; color: var(--green-dark); }
+.sf-copy-btn {
+  border: 1.5px solid var(--green); color: var(--green-dark); background: var(--surface);
+  border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.sf-copy-btn:hover { background: var(--twc-ice, #F2FAF5); }
+.sf-order-hero-foot {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; flex-wrap: wrap;
+}
+.sf-order-cta { width: auto; padding: 13px 30px; }
+/* Santé: the Done/Return links are anchors, which are inline by default (the note above them was painted over). */
+a.sf-order-cta { display: block; width: fit-content; margin: 18px auto 0; text-align: center; text-decoration: none; }
+.sf-order-card > form { margin-top: 18px; }
+.sf-order-card > form .sf-order-cta { display: block; margin: 0 auto; }
+/* Four steps of 96px plus their lines do not fit a 390px phone: shrink the steps (copy of the merchant look, narrower). */
+@media (max-width: 480px) {
+  .sf-step { flex-basis: 62px; }
+  .sf-step-label { font-size: 11px; }
+  .sf-step-line { margin: 17px 3px 0; }
+  .sf-order-card { padding: 22px 18px; }
+}
+.sf-status-chip {
+  padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 800;
+  background: #FFF6E0; color: #9A6B00; border: 1px solid #EAD79C;
+}
+.sf-status-approved { background: #E8F5E9; color: var(--green-dark); border-color: #BFE3C8; }
+.sf-status-expired { background: #FDECEA; color: #C0392B; border-color: #F5C6CB; }
+.sf-order-meta { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 20px; }
+.sf-order-meta > div { flex: 1 1 240px; }
+.sf-order-meta span { display: block; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-light); }
+.sf-order-meta strong { display: block; font-size: 15px; color: var(--text); }
+.sf-order-meta-sub { font-size: 14px; color: var(--text-secondary); margin-top: 2px; }
+.sf-order-note { margin-top: 18px; font-size: 13px; color: var(--text-light); text-align: center; }
+.sf-order-items-table th:nth-child(2), .sf-order-items-table td:nth-child(2),
+.sf-order-items-table th:nth-child(3), .sf-order-items-table td:nth-child(3) { text-align: right; white-space: nowrap; }
+/* Last product row's own border-bottom + .sf-totals's top-divider (below)
+   otherwise stack into a messy double-border (ported from REMAX, operator QA
+   2026-07-18). Drop the row's border so the totals divider is the only line. */
+.sf-order-items-table tbody tr:last-child td { border-bottom: none; }
+/* Double rule above Total to emphasize the final figure; order-status card only. */
+.sf-order-card .sf-totals-grand { border-top: 4px double var(--text-light); }
+/* The last row's 14px padding already matches the gap above the divider; the
+   shared .sf-totals margin-top was doubling the gap below it. */
+.sf-order-card .sf-totals { margin-top: 0; }
+
+/* ── Track My Orders (guest OTP sign-in + orders timeline) — ported from REMAX ── */
+.sf-track-icon {
+  width: 56px; height: 56px; margin: 0 auto 18px; border-radius: 50%;
+  background: var(--green); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.sf-track-icon svg { width: 26px; height: 26px; }
+.sf-track-card { max-width: 440px; margin: 0 auto; text-align: center; }
+.sf-track-card h2 { font-size: 23px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.sf-track-card > p { font-size: 14.5px; color: var(--text-secondary); margin-bottom: 26px; line-height: 1.6; }
+.sf-track-card .sf-field { text-align: left; }
+
+/* Account hero — branded gradient card (identity left, KPI tiles right),
+   modelled on the merchant Command Deck hero. */
+.acct-hero {
+  background: linear-gradient(135deg, var(--green-dark), var(--green));
+  border-radius: 18px; padding: 24px 26px; margin-bottom: 28px; color: #fff;
+  display: flex; align-items: center; justify-content: space-between; gap: 22px; flex-wrap: wrap;
+}
+.acct-hero-id { display: flex; align-items: center; gap: 16px; }
+.acct-hero-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+  background: rgba(255, 255, 255, .16); color: #fff;
+}
+.acct-hero-ic svg { width: 26px; height: 26px; }
+.acct-hero-idtext h1 { font-size: 24px; font-weight: 800; color: #fff; margin: 0 0 5px; line-height: 1.1; }
+.acct-hero-sub { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; color: rgba(255, 255, 255, .82); }
+.acct-hero-sub strong { color: #fff; font-weight: 700; }
+.acct-signout-form { margin: 0; }
+.acct-signout-btn {
+  border: none; background: none; padding: 0; cursor: pointer; font-family: var(--font);
+  color: #fff; font-weight: 700; font-size: 12.5px; text-decoration: underline;
+  text-underline-offset: 2px; opacity: .9;
+}
+.acct-signout-btn:hover { opacity: 1; }
+.acct-kpis { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
+.acct-kpi {
+  background: rgba(255, 255, 255, .13); border: 1px solid rgba(255, 255, 255, .20);
+  border-radius: 12px; padding: 12px 16px; min-width: 86px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.acct-kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255, 255, 255, .75); }
+.acct-kpi-value { font-size: 20px; font-weight: 800; color: #fff; line-height: 1; }
+.acct-kpi-lead { min-width: 152px; background: rgba(255, 255, 255, .20); }
+.acct-kpi-lead .acct-kpi-value { font-size: 25px; }
+@media (max-width: 640px) {
+  .acct-hero { flex-direction: column; align-items: stretch; }
+  .acct-kpis { width: 100%; }
+  .acct-kpi { flex: 1 1 40%; }
+  .acct-kpi-lead { flex-basis: 100%; }
+}
+
+/* ── My Orders filter toolbar (search + Date-placed picker + Order Status) ── */
+.sf-orders-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 24px; }
+.sf-otb-search { display: flex; gap: 8px; flex: 1; min-width: 240px; }
+.sf-otb-input {
+  flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px;
+  font-size: 14px; font-family: var(--font); color: var(--text); background: var(--surface);
+}
+.sf-otb-input:focus { outline: none; border-color: #1565C0; }
+.sf-otb-btn {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 700;
+  font-family: var(--font); cursor: pointer; padding: 10px 15px; border-radius: 10px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); white-space: nowrap;
+}
+.sf-otb-btn:hover { background: var(--bg); }
+.sf-otb-btn svg { width: 16px; height: 16px; }
+.sf-otb-btn-apply { background: #1565C0; color: #fff; border-color: #1565C0; }
+.sf-otb-btn-apply:hover { background: #0f4f9c; }
+.sf-otb-statusform { margin: 0; }
+.sf-otb-select {
+  font-size: 13.5px; font-weight: 700; font-family: var(--font); color: var(--text);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 34px 10px 15px; cursor: pointer; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 14px;
+}
+.sf-otb-select:focus { outline: none; border-color: #1565C0; }
+
+/* Date-placed range picker — verbatim merchant markup/JS, storefront-themed. */
+.mcor-date-pop-wrap { position: relative; }
+.mcor-date-pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 40px rgba(0, 0, 0, .16);
+}
+.mcor-date-pop[hidden] { display: none; }
+.mcor-dp { display: flex; align-items: stretch; }
+.mcor-dp-presets { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; min-width: 150px; border-right: 1px solid var(--border); }
+.mcor-dp-preset {
+  text-align: left; border: none; background: transparent; color: var(--text); font-family: var(--font);
+  font-size: 13px; font-weight: 600; padding: 8px 12px; border-radius: 8px; cursor: pointer;
+}
+.mcor-dp-preset:hover { background: var(--bg); }
+.mcor-dp-preset.active { background: #1565C0; color: #fff; }
+.mcor-dp-cal { display: flex; flex-direction: column; padding: 14px 16px; min-width: 0; }
+.mcor-dp-nav { display: grid; grid-template-columns: auto 1fr 1fr auto; align-items: center; gap: 6px; margin-bottom: 10px; }
+.mcor-dp-arrow { border: 1px solid var(--border); background: var(--surface); color: var(--text); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+.mcor-dp-arrow:hover { background: var(--bg); }
+.mcor-dp-title { text-align: center; font-size: 13.5px; font-weight: 800; color: var(--text); }
+.mcor-dp-months { display: flex; gap: 22px; }
+.mcor-dp-month { min-width: 210px; }
+.mcor-dp-dow, .mcor-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.mcor-dp-dow { margin-bottom: 4px; }
+.mcor-dp-dow span { text-align: center; font-size: 10.5px; font-weight: 700; color: var(--text-light); padding: 2px 0; }
+.mcor-dp-day {
+  position: relative; border: none; background: transparent; color: var(--text); font-size: 12.5px;
+  font-family: var(--font); height: 32px; cursor: pointer; border-radius: 8px; padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+.mcor-dp-day.is-blank { visibility: hidden; pointer-events: none; }
+.mcor-dp-day:hover:not(:disabled):not(.is-blank) { background: var(--bg); }
+.mcor-dp-day.is-future { color: var(--text-light); opacity: .4; cursor: default; }
+.mcor-dp-day.is-today { font-weight: 800; }
+.mcor-dp-day.is-today::after { content: ""; position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: #1565C0; }
+.mcor-dp-day.in-range { background: rgba(21, 101, 192, .14); border-radius: 0; }
+.mcor-dp-day.is-start, .mcor-dp-day.is-end { background: #1565C0; color: #fff; font-weight: 800; }
+.mcor-dp-day.is-start { border-radius: 8px 0 0 8px; }
+.mcor-dp-day.is-end { border-radius: 0 8px 8px 0; }
+.mcor-dp-day.is-start.is-end { border-radius: 8px; }
+.mcor-dp-day.is-start.is-today::after, .mcor-dp-day.is-end.is-today::after { background: #fff; }
+.mcor-dp-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+.mcor-dp-range { font-size: 13px; font-weight: 700; color: var(--text); }
+.mcor-dp-tz { font-size: 11px; color: var(--text-light); }
+.mcor-dp-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+@media (max-width: 640px) {
+  .mcor-date-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; max-height: 80vh; overflow: auto; }
+  .mcor-dp { flex-direction: column; }
+  .mcor-dp-presets { flex-direction: row; flex-wrap: wrap; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
+  .mcor-dp-months { flex-direction: column; gap: 16px; }
+  .mcor-dp-month { min-width: 0; }
+}
+
+.oc-list { display: flex; flex-direction: column; gap: 18px; }
+.oc-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 26px; box-shadow: var(--shadow);
+}
+.oc-card.problem { border-color: #F5C6CB; background: #FFFBFB; }
+.oc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.oc-ref { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .02em; }
+.oc-date { font-size: 12.5px; color: var(--text-light); margin-top: 2px; }
+.oc-total { font-size: 17px; font-weight: 800; color: var(--green-dark); text-align: right; }
+.oc-total span { display: block; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-light); margin-bottom: 2px; }
+.oc-body {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 14px 0;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 16px;
+}
+.oc-thumbs { display: flex; flex-shrink: 0; }
+.oc-thumbs img {
+  width: 46px; height: 46px; object-fit: cover; border-radius: 8px;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border); margin-left: -12px;
+}
+.oc-thumbs img:first-child { margin-left: 0; }
+.oc-items-text { font-size: 14px; color: var(--text-secondary); flex: 1; min-width: 180px; }
+.oc-items-text strong { color: var(--text); }
+
+/* Fulfillment tracker — mirrors the merchant Waybill Console stepper exactly
+   (5 steps, blue #1565C0, done/current/todo, connector line + dates). */
+.oc-track { display: flex; padding: 6px 4px 16px; margin-top: 4px; }
+.oc-track-step { flex: 1; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.oc-track-step::before { content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: #c4cdd4; z-index: 0; }
+.oc-track-step:first-child::before { display: none; }
+.oc-track-step.is-done::before, .oc-track-step.is-current::before { background: #1565C0; }
+.oc-track-dot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 800; background: #fff; border: 2px solid #c4cdd4; color: #6b7280; }
+.oc-track-step.is-done .oc-track-dot { background: #1565C0; border-color: #1565C0; color: #fff; }
+.oc-track-step.is-current .oc-track-dot { background: #fff; border-color: #1565C0; }
+.oc-track-pip { width: 11px; height: 11px; border-radius: 50%; background: #1565C0; }
+.oc-track-label { font-size: 11.5px; font-weight: 700; color: #6b7280; line-height: 1.25; }
+.oc-track-step.is-done .oc-track-label, .oc-track-step.is-current .oc-track-label { color: #1565C0; }
+.oc-track-date { font-size: 10.5px; color: #6b7280; }
+@media (max-width: 640px) {
+  .oc-track { flex-wrap: wrap; gap: 14px 0; }
+  .oc-track-step { flex: 1 1 33%; }
+  .oc-track-step::before { display: none; }
+}
+.oc-courier { font-size: 12px; color: var(--text-secondary); margin-top: 10px; text-align: center; }
+
+.oc-problem-banner {
+  display: flex; align-items: center; gap: 12px; background: #FDECEA;
+  border: 1px solid #F5C6CB; border-radius: 10px; padding: 14px 16px; margin-bottom: 4px;
+}
+.oc-problem-banner svg { flex-shrink: 0; color: #C0392B; width: 20px; height: 20px; }
+.oc-problem-banner p { font-size: 13.5px; color: #8a2b2b; margin: 0; }
+.oc-problem-banner a { color: #C0392B; font-weight: 800; text-decoration: underline; }
+
+.oc-awaiting-note {
+  font-size: 13px; color: var(--text-secondary); background: var(--bg);
+  border: 1px dashed var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 4px;
+}
+.oc-awaiting-note strong { color: var(--green-dark); }
+
+.oc-footline { display: flex; justify-content: center; margin-top: 6px; }
+.oc-view-link { font-size: 13.5px; font-weight: 700; color: var(--green-dark); }
+.oc-detail-toggle { border: none; background: none; padding: 6px 4px; cursor: pointer; font-family: var(--font); }
+
+/* Santé membership-pack member dashboard — same page as My Orders, plus a
+   Membership Status panel inside each order card (_member_panel.html). */
+.oc-member {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; margin: 12px 0 4px; text-align: left;
+}
+.oc-member-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.oc-member-ic {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 8px; background: rgba(0, 122, 61, .1); color: var(--green);
+}
+.oc-member-ic svg { width: 16px; height: 16px; }
+.oc-member-title { font-size: 13px; font-weight: 800; color: var(--text); letter-spacing: .2px; }
+.oc-member-body { font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; }
+.oc-member-body p { margin: 0 0 8px; }
+.oc-member-body a { color: var(--green-dark); font-weight: 700; }
+.oc-member-body .pp-btn {
+  display: inline-block; margin: 2px 0 8px; padding: 10px 18px; border-radius: 10px;
+  background: var(--green); color: #fff; font-size: 13.5px; font-weight: 700; text-decoration: none;
+}
+.oc-member-body .pp-btn:hover { background: var(--green-dark); }
+.oc-member-body .pp-dash-banner {
+  display: inline-block; margin-bottom: 8px; padding: 4px 10px; border-radius: 999px;
+  background: #FFF4E5; color: #8A5300; font-size: 12.5px; font-weight: 800;
+}
+.oc-member-body .pp-dash-rows { margin: 0 0 8px; }
+.oc-member-body .pp-dash-rows div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px dashed var(--border); }
+.oc-member-body .pp-dash-rows dt { color: var(--text-secondary); }
+.oc-member-body .pp-dash-rows dd { margin: 0; font-weight: 700; color: var(--text); text-align: right; word-break: break-all; }
+.oc-member-body .pp-dash-hint { font-size: 12.5px; }
+.oc-member-link { display: inline-block; font-size: 13px; }
+
+.sf-dash-banner {
+  background: #E9F7EF; border: 1px solid #B7E1C8; color: var(--green-dark); border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 16px; font-size: 14px;
+}
+.sf-dash-banner p { margin: 0; }
+.sf-dash-alert {
+  background: #FDECEA; border: 1px solid #F5C6CB; color: #8a2b2b; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 18px; font-size: 13.5px; text-align: left;
+}
+.sf-dash-alert strong { display: block; color: #C0392B; }
+.sf-dash-submit { width: 100%; }
+.sf-dash-submit:disabled { opacity: .55; cursor: not-allowed; }
+.sf-dash-foot { max-width: 640px; margin: 24px auto 0; text-align: center; font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+.sf-dash-foot p { margin: 0 0 6px; }
+.sf-dash-foot a { color: var(--green-dark); font-weight: 700; }
+.sf-dash-foot .pp-pu-promise { font-weight: 700; color: var(--green-dark); }
+
+/* Member dashboard single-card pages (membership-pack dashboard/base.html):
+   the Track Your Orders card, plus the few extra pieces those pages need. */
+.sf-dash-card { max-width: 480px; }
+.sf-dash-card h1 { font-size: 23px; font-weight: 800; color: var(--text); margin: 0 0 8px; line-height: 1.25; }
+.sf-dash-card form { margin: 0; }
+.sf-dash-card a.btn-cart { display: block; text-align: center; text-decoration: none; }
+.sf-dash-card .pp-pu-promise { margin: 18px 0 0; font-size: 13px; font-weight: 700; color: var(--green-dark); }
+.sf-track-card > p.sf-dash-hint { font-size: 13px; color: var(--text-light); margin: 12px 0 0; line-height: 1.55; }
+.sf-dash-card form .sf-dash-hint { font-size: 13px; color: var(--text-light); margin: 0 0 14px; text-align: left; line-height: 1.55; }
+.sf-track-card > p.sf-dash-links { font-size: 13.5px; margin: 16px 0 0; }
+.sf-dash-card a:not(.btn-cart):not(.sf-dash-btn-secondary) { color: var(--green-dark); font-weight: 700; }
+.sf-field-help { font-size: 12.5px; color: var(--text-light); margin-top: 6px; line-height: 1.5; }
+.sf-dash-pill {
+  display: inline-block; margin-bottom: 12px; padding: 4px 12px; border-radius: 999px;
+  background: rgba(0, 122, 61, .1); color: var(--green-dark); font-size: 12.5px; font-weight: 800;
+}
+.sf-dash-info {
+  background: #EEF6FF; border: 1px solid #C9E0F7; color: #1F3B57; border-radius: 10px;
+  padding: 12px 14px; margin-bottom: 18px; font-size: 13.5px; text-align: left; line-height: 1.55;
+}
+.sf-dash-info p { margin: 0 0 6px; }
+.sf-dash-info p:last-child { margin-bottom: 0; }
+.sf-dash-steps { margin: 20px 0 0; text-align: left; }
+.sf-dash-steps div {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 8px;
+}
+.sf-dash-steps dt { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.sf-dash-steps dd { margin: 2px 0 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.sf-dash-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.sf-dash-btn-secondary {
+  display: block; width: 100%; padding: 11px; border-radius: 8px; border: 1.5px solid var(--green);
+  background: #fff; color: var(--green-dark); font-family: var(--font); font-size: 14px; font-weight: 700;
+  text-align: center; text-decoration: none; cursor: pointer; transition: background .2s;
+}
+.sf-dash-btn-secondary:hover { background: rgba(0, 122, 61, .06); }
+.sf-dash-divider { border: 0; border-top: 1px solid var(--border); margin: 24px 0 18px; }
+.sf-track-card > p.sf-dash-subhead { font-size: 15px; font-weight: 800; color: var(--text); margin: 0 0 4px; }
+
+/* View Details accordion — mirrors the merchant Dispatch Console order-detail
+   grid (icon-headed Waybill / Items / Deliver-to cards). */
+.oc-detail { margin-top: 14px; }
+.oc-detail[hidden] { display: none; }
+.oc-dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+.oc-dcard {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.oc-dcard-head {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 11px; margin-bottom: 11px; border-bottom: 1px solid var(--border);
+}
+.oc-dcard-ic {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 8px; color: #fff; flex-shrink: 0;
+}
+.oc-dcard-ic svg { width: 17px; height: 17px; }
+.oc-dcard-ic.ic-gold { background: #E0A02E; }
+.oc-dcard-ic.ic-blue { background: #2E6BE6; }
+.oc-dcard-ic.ic-teal { background: #13A594; }
+.oc-dcard-htxt {
+  font-size: 12px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--text);
+}
+.oc-drow {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 12px; font-size: 13.5px; color: var(--text-secondary); padding: 5px 0;
+}
+.oc-drow b { color: var(--text); font-weight: 700; text-align: right; }
+.oc-dmuted { color: var(--text-light); font-weight: 600; }
+.oc-drow-total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; }
+.oc-ditem { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; padding: 5px 0; }
+.oc-dqty {
+  flex-shrink: 0; background: #eef2fb; color: #2E6BE6; font-weight: 700;
+  font-size: 12px; border-radius: 6px; padding: 2px 7px;
+}
+.oc-diname { color: var(--text); line-height: 1.45; }
+.oc-dempty { font-size: 13px; color: var(--text-light); padding: 4px 0; }
+.oc-dname { font-size: 14.5px; font-weight: 800; color: var(--text); }
+.oc-dphone { font-size: 13.5px; font-weight: 700; color: #2E6BE6; margin-top: 3px; }
+.oc-daddr { font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.55; }
+
+/* ── legal pages ── */
+.sf-legal { max-width: 760px; margin: 0 auto; }
+.sf-legal h1 { font-size: 30px; font-weight: 800; color: var(--green-dark); margin-bottom: 20px; }
+.sf-legal h2 { font-size: 19px; font-weight: 800; color: var(--green-dark); margin: 26px 0 10px; }
+.sf-legal p { font-size: 15px; color: var(--text-secondary); line-height: 1.75; margin-bottom: 12px; }
+.sf-legal a { color: var(--green); font-weight: 600; }
+.sf-legal-draft {
+  display: inline-block; background: #FFF6E0; color: #9A6B00; border: 1px solid #EAD79C;
+  border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 800;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 18px;
+}
+
+/* nav cart badge */
+/* Member view on the shop page: gold "Earn ₱X" pill, top-left of the image
+   (the Stevia seal sits top-right); below the Best Seller/Popular badge when
+   the product has one. */
+.sf-earn-pill {
+  position: absolute; top: 12px; left: 12px; z-index: 2;
+  padding: 6px 14px; border-radius: 999px;
+  background: linear-gradient(180deg, #F6E3A1 0%, #E9C766 100%);
+  border: 1px solid #D9B04E; color: #5A4310;
+  font-size: 14px; font-weight: 800; letter-spacing: 0.2px; white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(90, 67, 16, 0.18);
+}
+.sf-earn-pill--below { top: 46px; }
+@media (max-width: 480px) {
+  .sf-earn-pill { top: 8px; left: 8px; padding: 4px 10px; font-size: 12px; }
+  .sf-earn-pill--below { top: 38px; }
+}
+
+/* Cart is an icon with a count badge on its corner, as on REMAX (Coach Ed, 2026-10-08). */
+.nav-cart { position: relative; display: inline-flex; align-items: center; }
+.nav-cart svg { width: 22px; height: 22px; display: block; }
+.nav-cart-count {
+  position: absolute; top: -7px; right: -10px;
+  display: inline-block; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+  background: var(--green); color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; text-align: center;
+}
+.nav-cart-count[hidden] { display: none; }
+
+/* ── order complete / Xendit return: 2 columns on desktop, thanks card 7/12 left, details card 5/12 right (the checkout gutter, 36px);
+   under 900px one column, thanks card first ── */
+.sf-order-inner.sf-order-cols { max-width: none; width: 100%; }  /* the site container (.section-inner, 1200px), same edges as the nav and footer */
+.sf-order-page .sf-steps { margin-bottom: 28px; }
+@media (min-width: 900px) {
+  .sf-order-inner.sf-order-cols { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 36px; align-items: start; }
+  .sf-order-cols > .sf-order-hero { grid-column: span 7; }
+  .sf-order-cols > .sf-order-summary { grid-column: span 5; align-self: start; }
+}
+/* Left card: payment line, what happens next, buttons */
+/* The payment text in the old Copy Reference pill look (same rules as .sf-copy-btn), plain text: no button, hover or pointer. Beside the
+   reference number, vertically centred by the box; the box wraps it under the number when narrow. */
+.sf-pay-pill {
+  display: inline-block; border: 1.5px solid var(--green); color: var(--green-dark); background: var(--surface);
+  border-radius: 999px; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: default;
+}
+.sf-next { list-style: none; margin: 22px 0 0; padding: 0; text-align: left; display: grid; gap: 12px; }
+.sf-next-title { margin: 24px 0 0; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-light); font-weight: 700; }
+.sf-next li { display: flex; align-items: center; gap: 12px; font-size: 15px; color: var(--text); }
+.sf-next li > b { flex: 0 0 28px; height: 28px; border-radius: 50%; background: var(--green); color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.sf-order-actions { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin-top: 26px; }
+.sf-order-actions a.sf-order-cta { margin: 0; }
+/* Right card: Order Summary (the checkout summary look) */
+.sf-order-summary h3 { font-size: 18px; font-weight: 800; color: var(--green-dark); margin-bottom: 0; padding-bottom: 14px; border-bottom: 1.5px solid var(--border); }
+.sf-order-hero .sf-order-cta-wide { width: 100%; box-sizing: border-box; margin: 0; }  /* as wide as the Order Reference box */
+.sf-order-hero .sf-order-hero-foot { margin-top: 4px; }
+.sf-os-line { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.sf-os-line img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; flex: 0 0 64px; }
+.sf-os-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 700; font-size: 15px; color: var(--text); }
+.sf-os-name small { display: block; font-weight: 500; font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+.sf-os-total { font-weight: 800; white-space: nowrap; }
+
+/* Shipping Address card in the thanks card: the checkout's own .sf-address-summary look, left-aligned; the address wraps under itself */
+.sf-order-hero .sf-order-shipto { margin: 22px 0 0; text-align: left; }
+.sf-order-shipto .sf-address-summary-row > span:not(.sf-address-summary-icon), .sf-order-shipto .sf-address-summary-row strong { min-width: 0; overflow-wrap: anywhere; }
+.sf-order-shipto .sf-address-summary-row:last-child { margin-bottom: 0; }
+
+/* ── breakpoints (match CMO: 768 / 1024) ── */
+@media (min-width: 768px) {
+  .sf-detail-grid { grid-template-columns: 1fr 1fr; gap: 56px; }
+}
+@media (min-width: 1024px) {
+  .sf-checkout-grid { grid-template-columns: 1fr 380px; }
+}
+
+/* ── product-card links + add button (cards deep-link to detail; CTA adds) ── */
+.sf-card-link { display: block; text-decoration: none; }
+.product-name a { color: inherit; text-decoration: none; }
+.product-name a:hover { color: var(--green); }
+
+/* ── cart drawer ── */
+body.sf-noscroll { overflow: hidden; }
+.sf-drawer-overlay { position: fixed; inset: 0; background: rgba(15, 30, 20, .45); z-index: 1100; }
+.sf-drawer-overlay[hidden] { display: none; }
+.sf-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw);
+  background: var(--surface, #fff); z-index: 1101; display: flex; flex-direction: column;
+  transform: translateX(105%); transition: transform .28s ease;
+  box-shadow: -16px 0 48px rgba(0, 0, 0, .18); border-radius: 18px 0 0 18px;
+}
+.sf-drawer.open { transform: translateX(0); }
+.sf-drawer-head {
+  display: flex; align-items: center; gap: 14px; padding: 20px 22px 16px;
+}
+.sf-drawer-back {
+  width: 42px; height: 42px; min-width: 42px; border-radius: 50%; border: none;
+  background: #f1f3f2; font-size: 18px; cursor: pointer; color: var(--text-primary, #1c2b24);
+}
+.sf-drawer-title { flex: 1; display: flex; flex-direction: column; }
+.sf-drawer-title strong { font-size: 19px; font-weight: 800; color: var(--text-primary, #1c2b24); }
+.sf-drawer-title span { font-size: 13px; color: var(--text-secondary, #5b6b63); }
+.sf-drawer-clear {
+  border: 1.5px solid #e8590c; color: #e8590c; background: none; border-radius: 999px;
+  padding: 9px 16px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.sf-drawer-clear:hover { background: #fff4ec; }
+.sf-drawer-shop {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 22px; border-top: 1px solid var(--border, #e6ebe8);
+}
+.sf-drawer-shop-name { font-size: 15px; font-weight: 800; color: var(--text-primary, #1c2b24); }
+.sf-drawer-pill {
+  background: #f1f3f2; border-radius: 999px; padding: 5px 12px;
+  font-size: 12px; font-weight: 700; color: var(--text-secondary, #5b6b63);
+}
+.sf-drawer-body { flex: 1; overflow-y: auto; padding: 4px 22px 12px; }
+.sf-drawer-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px;
+  border: 1px solid var(--border, #e6ebe8); border-radius: 14px; margin-bottom: 10px;
+}
+.sf-drawer-item img, .sf-drawer-noimg {
+  width: 56px; height: 56px; min-width: 56px; object-fit: contain;
+  border-radius: 10px; background: #f7faf8;
+}
+.sf-drawer-item-info { flex: 1; min-width: 0; }
+.sf-drawer-item-name {
+  font-size: 14px; font-weight: 700; color: var(--text-primary, #1c2b24);
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.sf-drawer-item-price { font-size: 14px; font-weight: 800; color: var(--green-dark, #00592d); margin-top: 3px; }
+.sf-drawer-item-actions { display: flex; align-items: center; gap: 8px; }
+.sf-drawer-item .sf-qty-stepper { margin: 0; }
+.sf-drawer-empty { text-align: center; padding: 48px 10px; color: var(--text-secondary, #5b6b63); }
+.sf-drawer-empty p { margin-bottom: 16px; }
+.sf-drawer-subtotal {
+  display: flex; justify-content: space-between; padding: 12px 2px 4px;
+  border-top: 1.5px dashed var(--border, #e6ebe8); font-size: 14px;
+  color: var(--text-secondary, #5b6b63);
+}
+.sf-drawer-subtotal[hidden] { display: none; }
+.sf-drawer-subtotal strong { color: var(--text-primary, #1c2b24); font-weight: 800; }
+.sf-drawer-foot { padding: 14px 22px 20px; border-top: 1px solid var(--border, #e6ebe8); }
+.sf-drawer-total { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.sf-drawer-total span { font-size: 14px; color: var(--text-secondary, #5b6b63); }
+.sf-drawer-total strong { font-size: 22px; font-weight: 800; color: var(--text-primary, #1c2b24); }
+.sf-drawer-note { font-size: 12px; color: var(--text-light, #8a968f); margin-bottom: 12px; }
+.sf-drawer-checkout { display: block; width: 100%; text-align: center; }
+.sf-drawer-checkout.disabled { opacity: .45; pointer-events: none; }
+@media (max-width: 520px) {
+  .sf-drawer { border-radius: 0; }
+  .sf-drawer-clear { padding: 8px 12px; }
+}
+
+/* ── twc-select (dashboard's searchable combobox, reused verbatim for the
+   checkout province/city/barangay fields) — re-skinned to the storefront's
+   green palette instead of pulling in the whole dashboard stylesheet for
+   its --twc-* variables. Custom properties inherit through the DOM tree
+   regardless of the panel's position:fixed, so this mapping reaches it. ── */
+.sf-checkout-page {
+  --twc-tint: var(--border);
+  --twc-content-blue: var(--green);
+  --twc-charcoal: var(--text);
+  --twc-muted: var(--text-light);
+  --twc-ice: #F2FAF5;
+  --shadow-card: var(--shadow-hover);
+}
+.sf-field .twc-select { flex: 1; }
+/* Plain-field look (checkout mockup): the label sits ABOVE the box like every
+   other checkout field — not the dashboard's floating border-label. twc-select.js
+   hides the .set-lbl with an inline style, so !important is needed to win it back. */
+.sf-field .set-lbl { display: block !important; }
+.sf-field .twc-select-label { display: none; }
+.sf-field .twc-select-box { padding: 13px 40px 13px 14px; border-radius: 10px; }
+/* The combobox's inner search input also matches `.sf-field input` and would
+   otherwise render its own border inside the box (the "double box" bug). */
+.sf-field .twc-select-input {
+  border: 0; border-radius: 0; padding: 0; background: transparent;
+  width: auto; font-size: 15px;
+}
+.twc-select.sf-field-invalid .twc-select-box { border-color: #C0392B; }
+/* Country is a preset readonly value (PH-only shipping), not an unfilled
+   disabled field — render it at full strength like any completed field. */
+.sf-field-country .twc-select.is-disabled .twc-select-box { opacity: 1; cursor: default; }
+.sf-field-country .twc-select-input { color: var(--text); }
+
+/* ── Free-shipping promo (design 2026-08-18) ── */
+.sf-announce{background:#005B2E;color:#fff;text-align:center;font-size:.82rem;
+  font-weight:700;letter-spacing:.03em;padding:8px 12px}
+.sf-announce strong{color:#EFD98E}
+.sf-free{color:#007A3D;font-weight:800;letter-spacing:.02em}
+.sf-fee-strike{color:#A0AEC0;font-weight:500}
+.sf-freeship-note{background:#EAF6EF;border:1px solid #BFE3CD;color:#005B2E;
+  border-radius:8px;font-size:.78rem;padding:8px 11px;margin:9px 0 0}
+/* ── Contact form (ClickUp 86eye7zkc) ─────────────────────────────────────
+   New, uniquely-named classes appended at the tail: they carry no modifiers,
+   so the `.btn-cart`-style same-specificity shadowing that forces base rules
+   to the head of this file does not apply here. */
+.sf-contact-error { margin-top: 6px; font-size: 13px; color: #d33d44; line-height: 1.4; }
+
+/* Keyboard focus affordance for the contact fields. The markup this branch
+   replaced carried inline onfocus/onblur handlers; dropping them left the
+   fields with `outline: none` and NO focus indicator at all (WCAG 2.4.7).
+   Deliberately a box-shadow, not border-color: the fields set their border
+   INLINE (an inline declaration beats a stylesheet one, so border-color here
+   would need !important), and the JS error state sets `style.borderColor`
+   red — an !important focus rule would erase that red the moment the customer
+   clicked the field to fix it. A shadow layers cleanly over both states. */
+[data-sf-contact-field]:focus { box-shadow: 0 0 0 3px rgba(0, 122, 61, 0.28); }
+.sf-contact-status { margin: 4px 0 0; font-size: 14px; line-height: 1.5; }
+.contact-social-link:hover { background: #e8f5e9 !important; }
+
+/* ── Product detail: rebuilt sections (ClickUp 86eye7zkc) ──────────────────
+   Mobile-first, matching this file's 360/768/1024 breakpoints. All classes
+   are new and modifier-free, so appending at the tail is safe (see the
+   .btn-cart head-of-file note). */
+
+/* Reassurance list under the Add to Cart button. */
+.sf-cta-support {
+  list-style: none; margin: 20px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sf-cta-support li {
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 14px; color: var(--text-secondary); line-height: 1.5;
+}
+.sf-cta-support svg {
+  width: 18px; height: 18px; flex: 0 0 auto;
+  margin-top: 2px; color: var(--green);
+}
+
+/* Certification row on the detail page. MUST carry the green background:
+   the shared badge partial is styled white-on-green by main.css with BARE
+   class selectors (.trust-bar-label / .trust-item-label are white, and
+   .trust-item img is forced white by `filter: brightness(0) invert(1)`).
+   Those rules apply wherever the partial is mounted, so on the default
+   --bg (#F7F9F7) page the whole band rendered as a blank gap. Do not drop
+   this background without also un-inverting the badge images. */
+.sf-detail-trust { background: var(--green); padding: 28px 20px; }
+
+/* Feature / Advantages / Benefits sections. */
+.sf-fab { padding: 48px 0; }
+.sf-fab-tinted { background: #F1F5F1; }
+.sf-fab-block { display: flex; flex-direction: column; gap: 28px; }
+.sf-fab-img { flex: 1 1 0; min-width: 0; }
+.sf-fab-img img {
+  width: 100%; height: auto; display: block;
+  border-radius: 16px; object-fit: cover;
+}
+.sf-fab-text { flex: 1 1 0; min-width: 0; }
+.sf-fab-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--green); margin-bottom: 10px;
+}
+.sf-fab-title {
+  font-size: 26px; font-weight: 800; line-height: 1.25;
+  color: var(--green-dark); margin: 0 0 14px;
+}
+.sf-fab-body { font-size: 15px; line-height: 1.75; color: var(--text-secondary); }
+.sf-fab-body p { margin: 0 0 12px; }
+.sf-fab-body p:last-child { margin-bottom: 0; }
+
+/* Compliance disclosure. */
+.sf-legal-box {
+  margin: 44px 0 0; padding: 18px 20px;
+  border: 1px solid var(--border); border-left: 4px solid var(--green);
+  border-radius: 10px; background: #F1F5F1;
+  font-size: 13px; line-height: 1.7; color: var(--text-secondary);
+}
+
+@media (min-width: 768px) {
+  .sf-fab { padding: 64px 0; }
+  .sf-fab-block { flex-direction: row; align-items: center; gap: 48px; }
+  /* Alternating sides — the reference's rhythm. Only applies once the block
+     is a row; on mobile the image stays above the text either way. */
+  .sf-fab-reverse { flex-direction: row-reverse; }
+  .sf-fab-title { font-size: 30px; }
+  .sf-detail-trust { padding: 16px 40px 0; }
+}
+
+/* ---- Pre-launch notice (merchant awaiting approval) ---------------------- */
+.sf-prelaunch{
+  display:flex; align-items:flex-start; gap:12px;
+  padding:13px 24px; background:#FFF8E1;
+  border-bottom:1px solid #FFC107;
+}
+.sf-prelaunch-icon{
+  flex:none; width:20px; height:20px; border-radius:50%;
+  background:#FFC107; color:#4A3A00;
+  font-size:13px; font-weight:700; line-height:20px; text-align:center;
+}
+.sf-prelaunch-text{ margin:0; font-size:13.5px; line-height:1.5; color:#5A4708; }
+.sf-prelaunch-text b{ font-weight:600; color:#3F3105; }
+@media (max-width:640px){ .sf-prelaunch{ padding:11px 16px; } .sf-prelaunch-text{ font-size:12.5px; } }
+
+/* ---- Pre-launch checkout (CTA off + reason + shipping caveat) ------------ */
+.sf-place-order.is-prelaunch-off{
+  background:#E4DCC6; color:#8A8069; cursor:not-allowed; border:none;
+}
+.sf-prelaunch-cta-why{
+  display:flex; gap:9px; align-items:flex-start; margin-top:11px;
+  background:#FFF8E1; border:1px solid #FFC107;
+  border-radius:10px; padding:12px 14px;
+}
+.sf-prelaunch-cta-why p{ margin:0; font-size:12.5px; color:#5A4708; line-height:1.5; }
+.sf-prelaunch-cta-why b{ color:#3F3105; font-weight:600; }
+.sf-prelaunch-quote-note{
+  margin-top:10px; font-size:11px; color:#8A6D08; background:#FFF8E1;
+  border:1px dashed #FFC107; border-radius:7px;
+  padding:7px 9px; line-height:1.45;
+}
+
+/* Text-to-Verify modal — this storefront's brand, not TWC navy (spec R6.4.4).
+   Declared as var() onto THIS brand's own palette rather than repeated hex, so
+   a re-palette moves the modal with it. The shared stylesheet falls back to
+   TWC navy when a storefront declares nothing, which is how every merchant
+   checkout rendered indigo before this block existed. */
+:root {
+  --shop-header: var(--green-dark);
+  --shop-header-ink: #FFFFFF;
+  --shop-accent: var(--green);
+  --shop-accent-ink: #FFFFFF;
+  --shop-card: var(--surface);
+  --shop-tint: var(--border);
+}
+
+/* ClickUp 86eypbdne: helper line under the conditional ZIP input. Muted, so it
+   reads as guidance rather than as the red .sf-field-error validation state. */
+.sf-field-hint{color:var(--text-light,#718096);font-size:12.5px;margin-top:6px}
+
+/* Promo pack chip on an order/cart line (design 2026-09-07). */
+.sf-line-pack{display:inline-block;margin:2px 0;font-size:11px;font-weight:800;letter-spacing:.04em;
+  padding:2px 7px;border-radius:999px;background:#E6F1EA;color:#005B2E}
+
+/* ── promo packs (design 2026-09-07) ────────────────────────────────────────
+   .sf-gallery had no position rule and .sf-gallery-thumbs is ordinary flex, so
+   anchoring the badge here shifts nothing (audit PA3-014). */
+.sf-pack-label { margin: 0 0 8px; }
+.sf-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 0 0 18px; }
+.sf-pack {
+  position: relative; border: 1.5px solid var(--border); border-radius: 12px; background: var(--surface);
+  padding: 12px 36px 12px 14px; text-align: left; font: inherit; color: var(--text); cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px; transition: border-color .15s, box-shadow .15s;
+}
+.sf-pack:hover { border-color: #9dc9ae; }
+.sf-pack:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-pack[aria-checked="true"] { border-color: var(--green); box-shadow: inset 0 0 0 1.5px var(--green); }
+.sf-pack-name { font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.sf-pack-badge { font-size: 10px; font-weight: 800; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px; background: var(--gold); color: #3b2f05; }
+.sf-pack-price { font-weight: 800; color: var(--green); font-size: 16px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.sf-pack-each { font-size: 12px; color: var(--text-light); font-variant-numeric: tabular-nums; }
+.sf-pack-check { position: absolute; top: 10px; right: 10px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border); background: #fff; }
+.sf-pack[aria-checked="true"] .sf-pack-check { background: var(--green); border-color: var(--green); }
+.sf-pack[aria-checked="true"] .sf-pack-check::after { content: ""; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.sf-detail-each { font-size: 14px; font-weight: 600; color: var(--text-light); margin-left: 8px; }
+.sf-units-note { font-size: 12px; color: var(--text-light); margin: -8px 0 16px; }
+.sf-cta-total { display: block; font-weight: 600; font-size: 12px; opacity: .85; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.sf-gallery { position: relative; }
+.sf-gallery-badge {
+  position: absolute; right: 14px; top: 14px; width: 48px; height: 48px; border-radius: 50%;
+  background: #fff; color: var(--green); border: 3px solid var(--green);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; z-index: 2;
+}
+/* The [hidden] footgun (merchant_site.md §8): every class above that sets an
+   explicit display AND is toggled via `hidden` needs this override. */
+.sf-gallery-badge[hidden], .sf-cta-total[hidden], .sf-detail-each[hidden], .sf-units-note[hidden] { display: none; }
+@media (max-width: 768px) {
+  .sf-packs { grid-template-columns: 1fr 1fr; }
+  .sf-pack:nth-child(3):last-child { grid-column: 1 / -1; }
+}
+
+/* ── Santé member checkout + My Earnings (spec/design 2026-10-09 rev 7) ──────
+   Light-only storefront: no dark-mode rules. Values from the approved mockup. */
+:root {
+  --sf-green-tint: #EAF5EE;
+  --sf-gold-tint: #FBF5E3;
+  --sf-gold-ink: #7A5F12;
+  --sf-gold-border: #E8D59B;
+  --sf-muted-fill: #F4F6F8;
+}
+
+/* My Earnings (C9) and dropship tag (C10) */
+.sf-earnings {
+  display: block; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 26px; box-shadow: var(--shadow); margin-bottom: 28px;
+}
+.sf-earnings-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.sf-earnings-ic {
+  width: 44px; height: 44px; border-radius: 12px; background: var(--sf-gold-tint);
+  color: var(--sf-gold-ink); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sf-earnings-ic svg { width: 22px; height: 22px; }
+.sf-earnings-headtext h2 { font-size: 20px; font-weight: 800; color: var(--green-dark); margin: 0; }
+.sf-earnings-headtext p { font-size: 13.5px; color: var(--text-secondary); margin: 2px 0 0; }
+.sf-earnings-stats { margin-left: auto; display: flex; gap: 12px; }
+.sf-earnings-stat {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sf-earnings-stat span { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-light); }
+.sf-earnings-stat strong { font-size: 20px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+.sf-earnings-stat--lead { background: var(--sf-gold-tint); border-color: var(--sf-gold-border); }
+.sf-earnings-stat--lead strong { font-size: 25px; color: var(--sf-gold-ink); }
+.sf-earnings-group { font-size: 12px; font-weight: 800; text-transform: uppercase; color: var(--text-light); margin: 20px 0 8px; }
+.sf-earnings-list { list-style: none; margin: 0; padding: 0; }
+.sf-earnings-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); }
+.sf-earnings-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sf-earnings-main b { font-size: 14px; font-weight: 800; }
+.sf-earnings-main span { font-size: 12.5px; color: var(--text-light); }
+.sf-earnings-amt {
+  margin-left: auto; text-align: right; font-size: 16px; font-weight: 800;
+  font-variant-numeric: tabular-nums; display: flex; flex-direction: column;
+}
+.sf-earnings-row.is-earned .sf-earnings-amt strong { color: var(--green); }
+.sf-earnings-row.is-reversed .sf-earnings-amt strong { color: var(--text-light); }
+.sf-earnings-row.is-pending .sf-earnings-amt strong { color: var(--text); }
+.sf-earnings-amt span { font-size: 11px; font-weight: 600; color: var(--text-light); }
+.sf-earnings-foot { font-size: 12.5px; color: var(--text-light); margin-top: 14px; }
+.sf-earnings-empty { font-size: 14px; color: var(--text-secondary); margin: 14px 0 6px; }
+.sf-earnings-cta { color: var(--green); font-weight: 700; }
+.sf-earnings-cta:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.oc-for { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+.oc-tag {
+  display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: 999px;
+}
+.oc-tag--drop { background: var(--sf-gold-tint); color: var(--sf-gold-ink); border: 1px solid var(--sf-gold-border); }
+@media (max-width: 640px) {
+  .sf-earnings { padding: 18px 16px; }
+  .sf-earnings-head { flex-direction: column; align-items: stretch; }
+  .sf-earnings-stats { margin-left: 0; flex-wrap: wrap; }
+  .sf-earnings-stat { flex: 1 1 40%; }
+  .sf-earnings-stat--lead { flex-basis: 100%; }
+  .sf-earnings-row { flex-wrap: wrap; }
+  .sf-earnings-main { flex-basis: 100%; }
+}
+
+/* C1 choice */
+.sf-ship-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sf-ship-card { position: relative; display: block; cursor: pointer; }
+.sf-ship-card input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.sf-ship-card-box {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto 1fr; gap: 4px 12px;  /* the last row takes the slack, so both pills sit on the cards' bottom edge */
+  border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px;
+  background: var(--surface); height: 100%;
+}
+.sf-ship-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #94A3B8; position: relative; }
+.sf-ship-card input:checked + .sf-ship-card-box { border-color: var(--green); background: var(--sf-green-tint); }
+.sf-ship-card input:checked + .sf-ship-card-box .sf-ship-dot { border-color: var(--green); }
+.sf-ship-card input:checked + .sf-ship-card-box .sf-ship-dot::after {
+  content: ""; position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--green); top: 4px; left: 4px;
+}
+.sf-ship-card input:focus-visible + .sf-ship-card-box { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-ship-card-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.sf-ship-card-sub { grid-column: 2; font-size: 13px; color: var(--text-secondary); }
+/* the matched pair: Member price and You earn share one box (height, type, padding, radius) and one bottom row */
+.sf-ship-tag {
+  grid-column: 2; align-self: end; justify-self: start; box-sizing: border-box; display: inline-flex; align-items: center;
+  height: 28px; padding: 0 12px; margin-top: 10px; border-radius: 999px; color: #fff;
+  font-size: 12px; font-weight: 700; line-height: 1; white-space: nowrap;
+}
+.sf-ship-tag--save { background: var(--green); }
+/* contrast: white on the gold is 2.3:1 (fails AA); #3D2F00 on the same gold is 5.6:1. White on the green (#007A3D) is 5.4:1, which passes. */
+/* the hero pill: gradient #FFD54A to #E8A60C with #3D2F00 text is 9.3:1 at the light end and 6.2:1 at the deep end (both pass AA);
+   a little larger than Member price, a bolder and larger amount, a soft glow and an inner highlight. */
+.sf-ship-tag--earn {
+  height: 34px; padding: 0 16px 0 10px; gap: 6px; font-size: 13px; font-weight: 600; color: #3D2F00;
+  background: linear-gradient(135deg, #FFD54A 0%, #E8A60C 100%);
+  box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6);
+}
+.sf-ship-tag--earn b { font-size: 17px; font-weight: 800; letter-spacing: -.2px; margin-left: 2px; }
+.sf-earn-coin { flex: none; }
+/* a continuous heartbeat: two quick beats (scale 1 to 1.06) then a rest, 1.6s a cycle, with a soft gold ring that expands and fades.
+   transform and box-shadow only, so nothing reflows; the ring (8px) stays inside the card's 14px padding. Off under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .sf-ship-tag--earn { animation: sf-earn-heartbeat 1.6s ease-in-out infinite; }
+}
+@keyframes sf-earn-heartbeat {
+  0%   { transform: scale(1);    box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 0 rgba(232, 166, 12, .5); }
+  14%  { transform: scale(1.06); box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 3px rgba(232, 166, 12, .35); }
+  28%  { transform: scale(1);    box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 5px rgba(232, 166, 12, .2); }
+  42%  { transform: scale(1.05); box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 7px rgba(232, 166, 12, .1); }
+  56%  { transform: scale(1);    box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 8px rgba(232, 166, 12, 0); }
+  100% { transform: scale(1);    box-shadow: 0 3px 10px rgba(232, 166, 12, .45), inset 0 1px 0 rgba(255, 255, 255, .6), 0 0 0 0 rgba(232, 166, 12, 0); }
+}
+.sf-ship-card.is-disabled { cursor: not-allowed; }
+/* The inset-0 input would swallow the why-line's Add address / Edit address click (DS C1, rev 8). */
+.sf-ship-card.is-disabled input { pointer-events: none; }
+.sf-ship-card.is-disabled .sf-ship-card-box { background: var(--sf-muted-fill); border-style: dashed; }
+.sf-ship-card.is-disabled .sf-ship-card-title,
+.sf-ship-card.is-disabled .sf-ship-card-sub { color: var(--text-light); }
+.sf-ship-card.is-disabled .sf-ship-dot { border-color: #CBD5E0; }
+.sf-ship-why { grid-column: 2; font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+.sf-ship-why-btn {
+  position: relative; z-index: 1; font: inherit; font-weight: 700; color: var(--green);
+  background: none; border: 0; padding: 0; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.sf-ship-why-btn:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+/* C2 own address, C6 ship-to */
+.sf-block-title { font-size: 15px; font-weight: 800; color: var(--green-dark); margin-bottom: 14px; }
+.sf-own-addr-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start;
+  border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--bg);
+}
+.sf-own-addr-card--plain { grid-template-columns: minmax(0, 1fr); }
+.sf-own-addr-pin {
+  width: 36px; height: 36px; border-radius: 10px; background: var(--sf-green-tint);
+  color: var(--green); display: flex; align-items: center; justify-content: center;
+}
+.sf-own-addr-pin svg { width: 18px; height: 18px; }
+.sf-own-addr-name { font-size: 16px; font-weight: 800; color: var(--text); }
+.sf-own-addr-dl {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px;
+  font-size: 14px; margin-top: 6px;
+}
+.sf-own-addr-dl dt { color: var(--text-light); }
+.sf-own-addr-dl dd { margin: 0; overflow-wrap: anywhere; }
+.sf-own-addr-foot {
+  grid-column: 1 / -1; font-size: 13px; color: var(--text-secondary);
+  border-top: 1px dashed var(--border); padding-top: 10px;
+}
+.sf-shipto-eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-light); margin-bottom: 10px;
+}
+/* C3 */
+.sf-block-sub { font-size: 13px; color: var(--text-secondary); margin: -4px 0 16px; }
+/* C4/C5 summary */
+.sf-totals-save { color: var(--green); font-weight: 700; }
+.sf-checkout-summary.is-quoting { opacity: .55; transition: opacity .15s; }
+@media (prefers-reduced-motion: reduce) { .sf-checkout-summary.is-quoting { transition: none; } }
+.sf-earn-card {
+  display: grid; gap: 4px; background: var(--sf-gold-tint); border: 1px solid var(--sf-gold-border);
+  border-radius: 12px; padding: 12px 14px; margin-top: 12px;
+}
+.sf-earn-card-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sf-earn-card-amt {
+  background: var(--gold); color: #fff; font-size: 13px; font-weight: 800;
+  padding: 4px 12px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.sf-earn-card p { font-size: 13px; color: var(--sf-gold-ink); margin: 0; }
+/* C6 payment */
+.sf-member-otp-note {
+  font-size: 13px; color: var(--text-secondary); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 4px;
+}
+/* C6: member with no usable mobile — the C1 disabled look (DS C6 / D-10). */
+.sf-pay-card.is-disabled {
+  background: var(--sf-muted-fill); border-style: dashed; cursor: not-allowed;
+}
+.sf-pay-card.is-disabled input { pointer-events: none; }
+.sf-pay-card.is-disabled .sf-pay-title,
+.sf-pay-card.is-disabled .sf-pay-desc { color: var(--text-light); }
+@media (max-width: 768px) { .sf-ship-choice { grid-template-columns: 1fr; } }
+
+/* The [hidden] footgun (merchant_site.md §8): every class above with an
+   explicit display that is toggled via `hidden`. */
+.sf-ship-choice[hidden], .sf-own-addr[hidden], .sf-shipto[hidden], .sf-earn-card[hidden],
+.sf-earn-card-top[hidden], .sf-totals-save[hidden], .sf-member-otp-note[hidden],
+.sf-block-sub[hidden], .sf-earnings[hidden], .sf-earnings-row[hidden] { display: none; }
+
+/* ── Santé member saved address (spec/design 2026-10-09 rev 8: C1 why-line, C2 Edit, C11 popup) ──
+   Light-only storefront: no dark-mode rules. Values from approved mockup v3 (R24). */
+.sf-own-addr-edit {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font: inherit;
+  font-size: 14px; font-weight: 700; color: var(--green); background: var(--surface);
+  border: 1.5px solid var(--green); border-radius: 999px; padding: 6px 14px; cursor: pointer;
+}
+/* Locked member (L-19): a soft-red note card under the address card, never a loud alert. #7A1710 on #FCE9E7 is about 8:1. */
+.sf-own-addr-note { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 0; padding: 10px 14px; border: 1px solid #E7A39C; border-radius: 12px; background: #FCE9E7; color: #7A1710; font-size: 14px; line-height: 1.45; }
+.sf-own-addr-note svg { flex: none; margin-top: 1px; }
+.sf-own-addr-edit svg { width: 14px; height: 14px; fill: currentColor; }
+.sf-own-addr-edit:hover { background: var(--sf-green-tint); }
+.sf-own-addr-edit:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-own-addr-saved {
+  display: flex; gap: 10px; align-items: flex-start; background: var(--sf-green-tint);
+  border: 1px solid #BFE3CD; color: var(--green-dark); border-radius: 10px;
+  padding: 10px 12px; font-size: 14px; font-weight: 600; margin-bottom: 12px;
+}
+.sf-own-addr-saved-tick {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 50%; background: var(--green); color: #fff;
+  font-size: 12px; font-weight: 800;
+}
+@keyframes sf-own-addr-flash {
+  from { box-shadow: 0 0 0 4px rgba(0, 122, 61, .25); }
+  to { box-shadow: 0 0 0 4px rgba(0, 122, 61, 0); }
+}
+.sf-own-addr-card.is-flash { animation: sf-own-addr-flash 1.4s ease-out 1; }
+/* C11: reuses .sf-modal's scrim, flex centring and z-index; maps the twc-select palette,
+   which storefront.css otherwise scopes to .sf-checkout-page (the popup sits outside it). */
+.sf-addr-modal {
+  --twc-tint: var(--border); --twc-content-blue: var(--green); --twc-charcoal: var(--text);
+  --twc-muted: var(--text-light); --twc-ice: #F2FAF5; --shadow-card: var(--shadow-hover);
+}
+.sf-addr-card {
+  position: relative; background: var(--surface); border-radius: 16px; width: 100%;
+  max-width: 580px; max-height: calc(100% - 8px); display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto; box-shadow: 0 18px 48px rgba(15, 30, 20, .25);
+}
+.sf-addr-head { padding: 28px 32px 6px; display: grid; gap: 6px; }
+.sf-addr-head h3 { font-size: 20px; font-weight: 800; color: var(--green-dark); padding-right: 28px; margin: 0; }
+.sf-addr-head h3:focus { outline: none; }
+.sf-addr-head p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+.sf-addr-handle { display: none; }
+.sf-addr-modal .sf-modal-close {
+  top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sf-addr-modal .sf-modal-close:focus-visible,
+.sf-addr-cancel:focus-visible, .sf-addr-save:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-addr-body { overflow: auto; padding: 14px 32px 8px; }
+.sf-addr-form-error { color: #C0392B; font-size: 13px; margin: 0 0 12px; }
+.sf-addr-set { border: 0; padding: 0; margin: 0; min-width: 0; }
+.sf-addr-set:disabled { opacity: .7; }
+/* rev 8.1 (R36): the popup's fields use the live form's own .sf-field-row / .sf-field / .sf-phone-combo / twc-select rules; no popup-specific field CSS. */
+.sf-addr-foot { display: flex; gap: 12px; padding: 16px 32px 24px; border-top: 1px solid var(--border); }
+.sf-addr-cancel, .sf-addr-save {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 20px; font: inherit; font-size: 15px; font-weight: 700; border-radius: 10px; cursor: pointer;
+}
+.sf-addr-cancel { border: 1.5px solid var(--border); background: var(--surface); color: var(--text-secondary); }
+.sf-addr-cancel:disabled { opacity: .6; cursor: default; }
+.sf-addr-save { border: 0; background: var(--green); color: #fff; }
+.sf-addr-save:disabled { opacity: .8; cursor: wait; }
+.sf-addr-spinner {
+  display: none; width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; animation: sf-addr-spin .8s linear infinite;
+}
+.sf-addr-save.is-saving .sf-addr-spinner { display: inline-block; }
+@keyframes sf-addr-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .sf-own-addr-card.is-flash { animation: none; }
+  .sf-addr-spinner { animation-duration: 2.4s; }
+}
+@media (max-width: 600px) {
+  .sf-own-addr-edit { padding: 5px 11px; font-size: 13px; }
+  .sf-addr-modal { align-items: flex-end; padding: 0; }
+  .sf-addr-card { max-width: none; max-height: 92%; border-radius: 16px 16px 0 0; }
+  .sf-addr-handle { display: block; justify-self: center; width: 40px; height: 4px; border-radius: 999px; background: var(--border); }
+  .sf-addr-head { padding: 10px 16px 4px; }
+  .sf-addr-body { padding: 12px 16px 8px; }
+  .sf-addr-foot { padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .sf-addr-modal .sf-modal-close { top: 12px; right: 8px; }
+}
+/* The [hidden] footgun (merchant_site.md §8) for the rev 8 classes that set a display. */
+.sf-own-addr-saved[hidden], .sf-own-addr-edit[hidden], .sf-addr-form-error[hidden] { display: none; }
+/* rev 8.2 member pages (spec 2026-10-09 M-29; DS §9.4): the Dashboard's "Recent
+   orders" label (the .sf-earnings-group type), its "View all orders" link (the
+   .sf-dash-foot link look) and the earnings summary's "View Commission" link. */
+.sf-dash-section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; color: var(--text-light); margin: 0 0 12px; }
+.sf-dash-all { margin: 16px 0 0; text-align: center; font-size: 14px; }
+.sf-dash-all a { color: var(--green-dark); font-weight: 700; }
+.sf-dash-all a:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-earnings-summary-link { display: inline-block; margin-top: 14px; }
+/* end rev 8.2 member pages */
+.sf-legal--terms .ver { font-size: 13px; color: var(--text-light); margin: 0 0 22px; font-variant-numeric: tabular-nums; }
+.sf-legal--terms ul { margin: 0 0 12px; padding-left: 20px; }
+.sf-legal--terms li { font-size: 15px; color: var(--text-secondary); line-height: 1.75; }
+.sf-legal--terms strong { color: var(--text); }
+/* rev 8.3 order monitoring (spec 2026-10-09 section 13; DS §10.2) */
+.sf-om {
+  display: block; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 26px; box-shadow: var(--shadow);
+}
+.sf-om-head {
+  display: flex; align-items: center; gap: 10px; background: var(--green-dark); color: #fff;
+  margin: -22px -26px 16px; padding: 14px 26px; border-radius: 11px 11px 0 0;
+}
+.sf-om-head-ic {
+  width: 30px; height: 30px; border-radius: 9px; background: rgba(255,255,255,.14); color: #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sf-om-head-ic svg { width: 16px; height: 16px; }
+.sf-om-head-txt { min-width: 0; }
+.sf-om-title { font-family: var(--font); font-size: 15px; font-weight: 800; color: #fff; margin: 0; }
+.sf-om-sub { font-size: 12.5px; color: rgba(255,255,255,.72); margin: 2px 0 0; }
+.sf-om-delta { margin-left: auto; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.sf-om-delta--up { color: #6EE7B7; }
+.sf-om-delta--down { color: #FECACA; }
+.sf-om-delta--flat { color: rgba(255,255,255,.72); font-weight: 400; }
+.sf-om-stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.sf-om-stat {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 104px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px;
+}
+.sf-om-stat-ic {
+  width: 28px; height: 28px; border-radius: 50%; color: #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sf-om-stat-ic svg { width: 14px; height: 14px; }
+.sf-om-stat-ic--approval { background: var(--gold); }
+.sf-om-stat-ic--booking { background: var(--green); }
+.sf-om-stat-ic--shipping { background: var(--text); }
+.sf-om-stat-ic--delivered { background: var(--green-light); color: var(--green-dark); }
+.sf-om-stat-n { font-size: 17px; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+.sf-om-stat-l { font-size: 11.5px; color: var(--text-secondary); }
+.sf-om-week { font-size: 12px; color: var(--text-secondary); margin: 14px 0 8px; }
+.sf-om-chart { background: var(--bg); border-radius: 10px; padding: 10px 12px 9px; }
+.sf-om-bars { display: flex; gap: 8px; height: 96px; padding: 0 2px; list-style: none; border-bottom: 1px solid var(--border); }
+.sf-om-col {
+  position: relative; flex: 1 1 0; min-width: 0;
+  display: grid; grid-template-rows: minmax(0, 1fr) auto; justify-items: center;
+}
+.sf-om-bar {
+  align-self: end; display: block; width: 70%; max-width: 40px; min-height: 3px;
+  border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--green-light), var(--green));
+}
+.sf-om-x { font-size: 10px; color: var(--text-secondary); margin-top: 6px; }
+.sf-om-empty { font-size: 12px; color: var(--text-secondary); text-align: center; margin: 7px 0 0; }
+.sf-om .visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.sf-om-h-0 { height: 0%; }
+.sf-om-h-5 { height: 5%; }
+.sf-om-h-10 { height: 10%; }
+.sf-om-h-15 { height: 15%; }
+.sf-om-h-20 { height: 20%; }
+.sf-om-h-25 { height: 25%; }
+.sf-om-h-30 { height: 30%; }
+.sf-om-h-35 { height: 35%; }
+.sf-om-h-40 { height: 40%; }
+.sf-om-h-45 { height: 45%; }
+.sf-om-h-50 { height: 50%; }
+.sf-om-h-55 { height: 55%; }
+.sf-om-h-60 { height: 60%; }
+.sf-om-h-65 { height: 65%; }
+.sf-om-h-70 { height: 70%; }
+.sf-om-h-75 { height: 75%; }
+.sf-om-h-80 { height: 80%; }
+.sf-om-h-85 { height: 85%; }
+.sf-om-h-90 { height: 90%; }
+.sf-om-h-95 { height: 95%; }
+.sf-om-h-100 { height: 100%; }
+.sf-dash-banner a { color: var(--green-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.sf-dash-banner a:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .sf-om { padding: 18px 16px; }
+  .sf-om-head { flex-wrap: wrap; margin: -18px -16px 14px; padding: 12px 16px; }
+  .sf-om-delta { flex-basis: 100%; margin-left: 0; padding-left: 40px; }
+  .sf-om-stat { flex: 1 1 40%; }
+  .sf-om-bars { height: 84px; }
+}
+/* end rev 8.3 order monitoring */
+/* Locked account fields in the member's own-address editor: visibly read-only. */
+.sf-checkout-page input[readonly] { background: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+.sf-checkout-page .sf-phone-combo:has(input[readonly]) { background: #f3f4f6; }
+.sf-locked-note { margin: 0 0 12px; font-size: 13px; color: #6b7280; }
+
+/* ── checkout: guest referral code, Bank or E-wallet Transfer panel (E6-CA1-03, E6-CA1-04) ── */
+.sf-referral-row { display: flex; gap: 10px; align-items: stretch; }
+.sf-referral-row input { flex: 1; min-width: 0; }
+.sf-referral .sf-field { margin-bottom: 0; }
+.sf-referral-ok { color: var(--green-dark); font-size: 13px; font-weight: 600; margin-top: 6px; }
+.sf-direct-panel { margin: -4px 0 14px; }
+.sf-direct-sheet { padding: 16px; border: 1px solid #ecd9a0; border-radius: 12px; background: #fdf7e4; }
+.sf-direct-panel[hidden] { display: none; }
+.sf-acct { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.sf-acct + .sf-acct { margin-top: 16px; padding-top: 16px; border-top: 1px solid #ecd9a0; }
+.sf-acct-qrbtn { flex: 0 0 auto; width: 100%; max-width: 172px; align-self: center; margin: 0; padding: 4px; border: 1px solid #ecd9a0; border-radius: 10px; background: #fff; font: inherit; cursor: zoom-in; }
+.sf-acct-qrbtn:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.sf-acct-qr { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; border-radius: 6px; background: #fff; }
+.sf-acct-body { flex: 1 1 0; min-width: 0; }
+.sf-acct-dl { margin: 0; font-size: 15px; min-width: 0; }
+.sf-acct-row { display: grid; grid-template-columns: 1fr; align-items: center; gap: 2px; padding: 9px 0; }
+.sf-acct-row:first-child { padding-top: 0; border-bottom: 1px solid #ecd9a0; }
+.sf-acct-row:last-child { padding-bottom: 10px; border-bottom: 1px solid #ecd9a0; }
+.sf-acct-dl dt { margin: 0; font-size: 13px; color: var(--text-light); }
+.sf-acct-dl dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; color: var(--text); }
+.sf-acct-numrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sf-acct-num { font-size: 19px; font-weight: 800; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+.sf-acct-numrow .sf-copy { min-height: 30px; padding: 0 12px; font-size: 12.5px; font-weight: 600; line-height: 1; }
+.sf-acct-qrhint { margin: 8px 0 0; font-size: 13px; color: var(--text); opacity: .78; }
+@media (min-width: 48rem) {
+  .sf-acct { flex-direction: row; align-items: flex-start; gap: 18px; }
+  .sf-acct-qrbtn { width: 148px; align-self: flex-start; }
+  .sf-acct-row { grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0 12px; min-height: 44px; padding: 6px 0; }
+  .sf-acct-row:first-child { padding-top: 0; }
+  .sf-acct-dl dt { font-size: 14px; }
+}
+.sf-send-callout { display: flex; flex-direction: column; gap: 4px; margin: 0 0 14px; padding: 16px 18px; border-radius: 12px; background: var(--green); color: #fff; }
+.sf-send-label { font-size: 14px; font-weight: 600; opacity: .9; }
+.sf-send-amount { font-size: 30px; font-weight: 800; line-height: 1.15; }
+.sf-send-to { font-size: 13px; opacity: .92; }
+.sf-qr-zoom { width: min(92vw, 520px); max-height: 92vh; margin: auto; padding: 16px; border: 2px solid var(--green); border-radius: 14px; background: #fff; text-align: center; overflow: auto; }
+.sf-qr-zoom::backdrop { background: rgba(0, 0, 0, .6); }
+.sf-qr-zoom img { display: block; width: 100%; height: auto; max-height: 76vh; object-fit: contain; }
+.sf-qr-zoom { position: fixed; padding-top: 56px; }
+.sf-qr-zoom-x { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #f1f1f1; color: var(--text); font: inherit; font-size: 28px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.sf-qr-zoom-x:hover { background: #e4e4e4; }
+.sf-qr-zoom-x:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.sf-copy { border: 1.5px solid var(--green); background: #fff; color: var(--green-dark); border-radius: 999px; font-size: 13px; font-weight: 700; font-family: inherit; padding: 0 14px; min-height: 36px; cursor: pointer; }
+.sf-copy[hidden] { display: none; }
+.sf-copy:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.sf-direct-head { margin: 18px 0 12px; padding-top: 16px; border-top: 1px solid #ecd9a0; font-size: 16px; font-weight: 800; color: var(--text); }
+.sf-direct-hint { font-size: 13px; color: var(--text-light); margin-top: 6px; }
+.sf-direct-panel .sf-field input { background: #fff; }
+.sf-direct-panel .sf-phone-combo { background: #fff; }
+.sf-direct-panel .sf-field input[type="file"] { padding: 10px 12px; }
+.sf-direct-panel .sf-field:last-child { margin-bottom: 0; }

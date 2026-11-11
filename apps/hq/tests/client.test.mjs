@@ -102,3 +102,16 @@ test("a refused or unanswered file gives its status and code, and no file", asyn
   const page = await client([500]).file("finance/payments/proof/");
   assert.equal(JSON.stringify(page), JSON.stringify({ ok: false, status: 500, code: "", blob: null }));
 });
+
+test("a refusal also carries its own words and field errors; a success and an unreadable answer carry none", async () => {
+  const body = { error: { code: "invalid_text", message: "The text must not contain a web link.", fields: { text: ["No links."] } } };
+  const no = await client([400, body]).call("POST", "inbox/compose/", {});
+  assert.equal(no.message, "The text must not contain a web link.");
+  assert.equal(JSON.stringify(no.fields), JSON.stringify({ text: ["No links."] }));
+  assert.equal(JSON.stringify(no.data), "{}");
+  for (const res of [await client([200, { a: 1 }]).call("POST", "inbox/status/", {}), await client([204]).call("POST", "sign-out/"),
+    await client("offline").call("GET", "me/"), await client([404]).call("GET", "me/"), await client([400, { error: { code: "x" } }]).call("POST", "x/", {})]) {
+    assert.equal(res.message, "");
+    assert.equal(JSON.stringify(res.fields), "{}");
+  }
+});

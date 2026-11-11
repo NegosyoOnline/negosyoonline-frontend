@@ -4,20 +4,24 @@
 (function () {
   var cfg = window.NO_HQ_CONFIG || {};
 
-  /* Resolves {ok, status, code, data}. status 0 means no answer could be read: the server was not reached,
-     or the staff routes are off and the hq host answered a page this origin may not read. */
+  /* Resolves {ok, status, code, message, fields, data}. message and fields are the refusal's own words and
+     field errors ("" and {} when there are none or the call succeeded); a page shows them only for the
+     codes it names. status 0 means no answer could be read: the server was not reached, or the staff
+     routes are off and the hq host answered a page this origin may not read. */
   function call(method, path, body) {
     var opts = { method: method, credentials: "include" };
     if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
     return fetch(cfg.staffApi + "/" + path, opts)
       .then(function (r) {
-        if (r.status === 204) return { ok: true, status: 204, code: "", data: {} };
+        if (r.status === 204) return { ok: true, status: 204, code: "", message: "", fields: {}, data: {} };
         return r.json().catch(function () { return {}; }).then(function (data) {
           var e = data && data.error;
-          return { ok: r.ok, status: r.status, code: e && typeof e.code === "string" ? e.code : "", data: r.ok ? data || {} : {} };
+          return { ok: r.ok, status: r.status, code: e && typeof e.code === "string" ? e.code : "",
+            message: e && typeof e.message === "string" ? e.message : "",
+            fields: e && e.fields && typeof e.fields === "object" ? e.fields : {}, data: r.ok ? data || {} : {} };
         });
       })
-      .catch(function () { return { ok: false, status: 0, code: "", data: {} }; });
+      .catch(function () { return { ok: false, status: 0, code: "", message: "", fields: {}, data: {} }; });
   }
 
   /* A private file from the staff routes, as {ok, status, code, blob}. The file is held in this tab's

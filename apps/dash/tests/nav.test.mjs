@@ -52,7 +52,7 @@ test("Settings has eight tabs and no Santé setup entry anywhere in the menus or
   assert.ok(!/\shidden(\s|>)/.test(SET_TABS.replace(/^<nav[^>]*>/, "")), "no tab is hidden");
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
   assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Plans", "Billing", "Payments", "Domain", "Automation", "Notification"]);
-  assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "")), "only the script that draws the card names Santé");
+  assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "")), "only the script that draws the Sponsor ID row names Santé");
   assert.ok(!HTML.includes("data-sante"));
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   assert.ok(quick.includes('["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"]'), "Plans follows Business Settings");

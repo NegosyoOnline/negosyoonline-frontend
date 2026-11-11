@@ -252,11 +252,11 @@
     [identityCard(site, profile), contactCard(site, profile), webCard(site), legalCard(profile), deliveryCard(profile)].forEach(function (n) { grid.appendChild(n); });
     wrap.appendChild(grid);
     body.appendChild(wrap);
-    if (window.NOSante) window.NOSante.mount(site, grid); /* a Santé site: its Sponsor ID card, last in the grid */
+    if (window.NOSante) window.NOSante.mount(site, $("bs-row-type")); /* a Santé site: its Sponsor ID row takes the Site type row's place */
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }
-  /* sante.js (loaded after this file) draws the Santé Sponsor ID card (ClickUp z8uq9m92ez). A new read or leaving the page drops it. */
+  /* sante.js (loaded after this file) draws the Santé Sponsor ID row (ClickUp z8uq9m92ez). A new read or leaving the page drops it. */
   function santeReset() { if (window.NOSante) window.NOSante.reset(); }
   /* What the two tags mean, as one plain line under the Site line (Coach Ed's ruling, 2026-11-11: no scope card). */
   function legendLine() {
@@ -290,8 +290,10 @@
     c.appendChild(row("Site name", PUB, [value(site.display_name)], editBtn("bs-edit-site", "site", "Edit site name"),
       "Shown at the top of your site and in this dashboard."));
     c.appendChild(row("Business address", PUB, [value(profile.business_address)], editBtn("bs-edit-address", "address", "Edit business address")));
-    c.appendChild(row("Site type", PRIV, [value(site.template_label), chip("neutral", "Set at setup")], null,
-      "Chosen when the site was created. It cannot be changed here."));
+    var type = row("Site type", PRIV, [value(site.template_label), chip("neutral", "Set at setup")], null,
+      "Chosen when the site was created. It cannot be changed here.");
+    type.setAttribute("id", "bs-row-type"); /* for a Santé site, sante.js puts the Sponsor ID row in this row's place */
+    c.appendChild(type);
     return c;
   }
   function contactCard(site, profile) {

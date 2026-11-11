@@ -186,8 +186,32 @@ Waking up: a builder's message starts a turn here by itself. The app's own turn-
 Limits. Say so plainly when one applies, and give Coach Ed the commands in order:
 - A session served to Remote Control, pinned, open on screen or holding a queued message cannot be cleared.
 - Outside auto mode the app asks Coach Ed to approve each clear.
-- This does not cover the coordinator's own handover: nothing clears and restarts this session except Coach Ed. Run `/handover-coordinator <CLICKUP_TASK_ID>` and give him the resume prompt.
+- This does not cover the coordinator's own handover, which has its own steps in the next addition.
 - The context warning's threshold is set in the global context hook, outside this repository.
+
+### Addition: the coordinator hands itself over
+
+Coach Ed's ruling (2026-11-11): a coordinator's own handover is automatic too. Tested on 2026-11-11: a coordinator cleared itself and a helper session sent its resume prompt back 10 seconds later, with nothing pasted by Coach Ed.
+
+Nothing sits above a coordinator to wake it after a clear, so it keeps one small helper session for that.
+
+Keep a helper ready. A session can be started only on a turn that Coach Ed's own message began, and the context warning often fires on a turn a builder's message began. So on an early turn of his, start one helper: fresh, sharing this worktree (`use_worktree: false`), on a cheaper model, titled "Coordinator helper (leave idle)". Its whole brief: when the coordinator sends a resume prompt, wait 10 seconds in the background, send that prompt back to the coordinator's session id unchanged with SendMessage, and do nothing else: no file reads or edits, no ClickUp. Record its session id in the coordination record. One helper serves every handover; do not start a second.
+
+When the context warning fires (the one-time "CONTEXT WARNING" from the context hook), or earlier if the context is clearly running out:
+
+1. Bring the work to a safe point. Answer or park every builder question in hand, and record anything a builder is waiting on.
+2. Run `/handover-coordinator <CLICKUP_TASK_ID>`. In the state file, record the helper's session id and this coordinator's own, and make "First move" say what to tell Coach Ed first.
+3. In one final message, in this order: send the helper the resume prompt exactly as the command printed it, then clear this session (`clear_session` with "self"). The clear happens when the turn ends, so end the turn at once: the helper's 10 seconds are already running. The app's hook may refuse the clear once: re-issue it with exactly the input the error quotes.
+4. After the clear, the resume prompt is the only thing this session knows. Follow it. Tell Coach Ed in one line that the coordinator handed itself over, then carry on from "Next".
+
+While the coordinator is cleared, a builder's message waits for it. Nothing is lost: a builder that asked to be cleared has already written its state file and stopped.
+
+Limits. When one applies, run `/handover-coordinator <CLICKUP_TASK_ID>` and give Coach Ed the resume prompt to paste after `/clear`, as before:
+- No helper exists and the turn was not begun by Coach Ed's message, so none can be started.
+- This session is served to Remote Control. It cannot be cleared by a tool.
+- Outside auto mode the app asks Coach Ed to approve the clear. Until he does, nothing happens.
+- A message from Coach Ed that arrives before the turn ends cancels the queued clear. Answer him, then start again from step 3.
+- The helper shares this worktree, so never archive it while this coordinator is live: archiving removes the worktree.
 
 ## 10. Preserve required controls
 

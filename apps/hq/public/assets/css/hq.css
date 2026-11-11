@@ -150,6 +150,9 @@ body.dash-app .no-btn-ghost:hover { background: var(--ghost-hover); }
 .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
 .chip-neutral { background: var(--chip-neutral-bg); color: var(--chip-neutral); }
 .chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn); }
+/* Rejected: solid red with light text, readable in both themes. */
+.chip-err { background: #B42318; color: #fff; }
+.dash-copy.is-rejected { border-left: 3px solid #B42318; padding-left: 10px; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .dash-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 10px; background: var(--card); box-shadow: var(--card-shadow); }
 .dash-card h2 { margin-bottom: 8px; font-size: 18px; font-weight: 700; line-height: 1.3; }

@@ -12,7 +12,7 @@
   var TABS = ["submitted", "confirmed", "rejected", "replaced"];
   var VIEWS = ["boot", "v-queue", "v-pay", "v-closed", "v-down"];
   var STATUS = { submitted: ["Under review", "chip-warn"], confirmed: ["Confirmed", "chip-ok"],
-    rejected: ["Rejected", "chip-neutral"], replaced: ["Replaced", "chip-neutral"] };
+    rejected: ["Rejected", "chip-err"], replaced: ["Replaced", "chip-neutral"] };
   var REASON = { unreadable: "The proof cannot be read", amount_mismatch: "The amount is not the amount due",
     not_received: "The money has not arrived", wrong_account: "Sent to a different account",
     duplicate: "This payment was already counted", other: "Another reason (write a note)" };
@@ -192,6 +192,7 @@
     $("p-submitted").textContent = H.when(d.submitted_at);
     $("p-email").textContent = d.subscriber_email || "";
     say("p-decided", decided(d));
+    $("p-decided").setAttribute("class", d.status === "rejected" ? "dash-copy is-rejected" : "dash-copy");
     list.textContent = "";
     (Array.isArray(d.history) ? d.history : []).forEach(function (e) {
       var what = words(EVENT, e && e.code), who = words(ACTOR, e && e.actor);

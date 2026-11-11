@@ -215,8 +215,12 @@ test("a decided or replaced payment says who decided and offers no action", asyn
   assert.equal(no.node["p-decided"].textContent,
     "Rejected by sample.staff, 12 Nov 2026, 10:00 AM. Reason: The money has not arrived. Nothing arrived by Friday.");
   assert.equal(no.node.act.hidden, true);
+  assert.match(no.node["p-status"].attrs.class, /chip-err/);
+  assert.match(no.node["p-decided"].attrs.class, /is-rejected/);
   const old = await opened({}, detail({ status: "replaced" }));
   assert.equal(old.node["p-decided"].textContent, "The Subscriber sent a newer proof.");
+  assert.match(old.node["p-status"].attrs.class, /chip-neutral/);
+  assert.doesNotMatch(old.node["p-decided"].attrs.class, /is-rejected/);
   assert.equal(old.node.act.hidden, true);
 });
 
@@ -770,4 +774,13 @@ test("every destructive button on the Finance page is the same solid red with li
   assert.match(css, /\.no-btn\.stop \{ background: #B42318; border-color: #B42318; color: #fff; \}/);
   assert.match(css, /\.no-btn\.stop:disabled/);
   assert.doesNotMatch(css, /\.stop \{[^}]*var\(--err-h\)/, "the red outline look is gone");
+});
+
+test("the Rejected badge is solid red with light text and Replaced stays neutral", () => {
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
+  assert.match(css, /\.chip-err \{ background: #B42318; color: #fff; \}/);
+  assert.match(css, /\.dash-copy\.is-rejected \{ border-left: 3px solid #B42318/);
+  assert.match(js, /rejected: \["Rejected", "chip-err"\]/);
+  assert.match(js, /replaced: \["Replaced", "chip-neutral"\]/);
 });

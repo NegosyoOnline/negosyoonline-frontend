@@ -4,7 +4,7 @@ import type { Site } from "../../lib/django.ts";
 
 export type ContactForm = {
   values: { name: string; email: string; subject: string; message: string };
-  errors: { name?: string; email?: string; message?: string };
+  errors: { name?: string; email?: string; subject?: string; message?: string };
   sent: boolean;
   note: string;
 };

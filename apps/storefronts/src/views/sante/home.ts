@@ -12,7 +12,11 @@
    - the contact form has no CSRF token field: a post carries no sign-in for one to protect;
    - the basket drawer has no rows: no product page exists yet, so the basket is always empty;
    - the "Send a Message" card carries id="contact-form", which the template does not have: the
-     form posts to /contact/#contact-form so the answer opens at the card, with its note in view. */
+     form posts to /contact/#contact-form so the answer opens at the card, with its note in view;
+   - Subject Topic is a required field (Coach Ed, 2026-11-11): it sits in its own block with an
+     error line under it, as the name, email and message fields already do;
+   - a third script, js/contact-form.js, sends the form without leaving the page and shows the
+     checkout popup of pack-storefront.css while it does (Coach Ed, 2026-11-11). */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { HomeModel } from "./model.ts";
@@ -701,7 +705,10 @@ ${v.biz.contact_email ? html`          <div style="display: flex; align-items: f
               ${v.cf.errors.email ? html`<div class="sf-contact-error">${v.cf.errors.email}</div>` : ""}
             </div>
           </div>
-          <input type="text" name="subject" value="${v.cf.values.subject}" placeholder="Subject Topic" aria-label="Subject Topic" maxlength="200" style="padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: var(--font); outline: none; transition: border 0.2s; background: #fafafa;">
+          <div>
+            <input type="text" name="subject" value="${v.cf.values.subject}" placeholder="Subject Topic" aria-label="Subject Topic" maxlength="200" style="width: 100%; padding: 14px 16px; border: 1.5px solid ${v.cf.errors.subject ? html`#d33d44` : html`var(--border)`}; border-radius: 10px; font-size: 14px; font-family: var(--font); outline: none; transition: border 0.2s; background: #fafafa;">
+            ${v.cf.errors.subject ? html`<div class="sf-contact-error">${v.cf.errors.subject}</div>` : ""}
+          </div>
           <div>
             <textarea name="message" placeholder="How can we help you?" aria-label="How can we help you?" rows="5" maxlength="4000" style="width: 100%; padding: 14px 16px; border: 1.5px solid ${v.cf.errors.message ? html`#d33d44` : html`var(--border)`}; border-radius: 10px; font-size: 14px; font-family: var(--font); outline: none; resize: vertical; transition: border 0.2s; background: #fafafa;">${v.cf.values.message}</textarea>
             ${v.cf.errors.message ? html`<div class="sf-contact-error">${v.cf.errors.message}</div>` : ""}
@@ -811,6 +818,7 @@ ${v.biz.contact_email ? html`          <div style="display: flex; align-items: f
 ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>
+<script src="${asset("js/contact-form.js")}"></script>
 </body>
 </html>
 `;

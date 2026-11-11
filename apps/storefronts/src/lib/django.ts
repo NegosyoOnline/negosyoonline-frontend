@@ -126,7 +126,7 @@ export type ContactMessage = {
   website: string; // the form's hidden field, passed on as posted: the API decides what it means
 };
 
-export type ContactFieldErrors = { name?: string; email?: string; message?: string };
+export type ContactFieldErrors = { name?: string; email?: string; subject?: string; message?: string };
 
 export type ContactResult =
   | { state: "sent" }
@@ -140,7 +140,7 @@ const QUIET = [404, 409]; // not served, no contact email: everyday answers, not
 function fieldErrors(body: unknown): ContactFieldErrors {
   const fields = record(body) && record(body.error) && record(body.error.fields) ? body.error.fields : {};
   const errors: ContactFieldErrors = {};
-  for (const key of ["name", "email", "message"] as const) {
+  for (const key of ["name", "email", "subject", "message"] as const) {
     const list = fields[key];
     const first = Array.isArray(list) ? list[0] : undefined;
     if (typeof first === "string" && first) errors[key] = first;

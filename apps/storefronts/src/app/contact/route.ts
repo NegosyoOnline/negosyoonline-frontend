@@ -7,8 +7,12 @@
    (no contact email, the API down or slow): the home again with the approved "could not send"
    note. The typed values are kept in all three, and the statuses (400, 429, 200) are the
    approved site's. Anything that is not a post from a served
-   Santé site gets the neutral 404. */
-import { sendContact } from "../../lib/django.ts";
+   Santé site gets the neutral 404.
+
+   The page's script (public/assets/sante/js/contact-form.js) posts the same form here and asks
+   for JSON (Accept: application/json). It gets the same outcome as a small answer instead of a
+   page: the state, and the field errors or the note the page would have shown. Nothing more. */
+import { sendContact, type ContactResult } from "../../lib/django.ts";
 import { storefrontEnv } from "../../lib/env.ts";
 import { htmlResponse } from "../../lib/html.ts";
 import { requestHost, siteFor } from "../../lib/site.ts";
@@ -16,7 +20,7 @@ import { visitorIp } from "../../lib/visitor.ts";
 import { neutralNotFound } from "../../views/neutral.ts";
 import { homeDocument } from "../../views/sante/home.ts";
 import {
-  CONTACT_SENT_PATH, failedContactForm, homeModel, invalidContactForm, limitedContactForm,
+  CONTACT_FAILED_NOTE, CONTACT_LIMITED_NOTE, CONTACT_SENT_PATH, failedContactForm, homeModel, invalidContactForm, limitedContactForm,
 } from "../../views/sante/model.ts";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +37,20 @@ async function postedFields(request: Request): Promise<URLSearchParams> {
   } catch {
     return new URLSearchParams();
   }
+}
+
+function wantsJson(request: Request): boolean {
+  return (request.headers.get("accept") ?? "").toLowerCase().includes("application/json");
+}
+
+/** The outcome for the page's script: only what the page itself would have shown. */
+function jsonAnswer(result: ContactResult): Response {
+  const [status, body] =
+    result.state === "sent" ? [200, { state: "sent" }]
+    : result.state === "invalid" ? [400, { state: "invalid", errors: result.errors }]
+    : result.state === "limited" ? [429, { state: "limited", note: CONTACT_LIMITED_NOTE }]
+    : [200, { state: "failed", note: CONTACT_FAILED_NOTE }];
+  return Response.json(body, { status, headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -52,6 +70,7 @@ export async function POST(request: Request): Promise<Response> {
     },
     storefrontEnv(),
   );
+  if (wantsJson(request)) return jsonAnswer(result);
   if (result.state === "sent") {
     return new Response(null, { status: 303, headers: { Location: CONTACT_SENT_PATH, "Cache-Control": "no-store" } });
   }

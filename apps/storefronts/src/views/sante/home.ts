@@ -9,7 +9,7 @@
    - asset links point at /assets/sante/ (src/lib/assets.ts) instead of the Django static tag;
    - "Email Us" shows the store's own contact email, and only when it has one, where the template
      printed one fixed support address for every store;
-   - the contact form has no CSRF token field: a post sends and stores nothing in this slice;
+   - the contact form has no CSRF token field: a post carries no sign-in for one to protect;
    - the basket drawer has no rows: no product page exists yet, so the basket is always empty;
    - the "Send a Message" card carries id="contact-form", which the template does not have: the
      form posts to /contact/#contact-form so the answer opens at the card, with its note in view. */

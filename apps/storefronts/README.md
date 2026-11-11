@@ -16,8 +16,8 @@ Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pag
 
 | Path | Answer |
 | --- | --- |
-| `/` | A served Santé site: the Santé home. Otherwise the neutral 404. |
-| `/contact/` | A post from a served Santé site: the home again with the "could not send" note and the typed values kept. The form's address is `/contact/#contact-form`, so the browser shows the answer at the "Send a Message" card, where the note is. Nothing is sent or stored; the sending is a later task. Any other method, or any other host: the neutral 404. |
+| `/` | A served Santé site: the Santé home (with `?contact=sent`, the form shows its thank-you line). Otherwise the neutral 404. |
+| `/contact/` | A post from a served Santé site: the form is handed to Django (`POST /storefront/v1/contact/`, with the server credential), which emails it to the store's own contact email. Sent: a redirect to `/?contact=sent#contact-form`, the home with the thank-you line, so a reload sends nothing twice. Fields refused: the home again (400) with each error under its field. Anything else (the store has no contact email, more than 10 messages in an hour from one address, the API down or slow): the home again with the "could not send" note. The typed values are kept, and the browser shows the answer at the "Send a Message" card. Nothing of the message is stored or logged here. Any other method, or any other host: the neutral 404. |
 | `/assets/sante/*` | The approved Santé files, served as static files. |
 | anything else | The neutral 404, with or without a trailing slash, any method. |
 
@@ -28,6 +28,10 @@ Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
 `src/views/sante/home.ts` is the approved home page and its basket drawer, transcribed by script from TWCinc's `home.html` and `_store_drawer.html` (commit `ac483675c`): markup, class names, text, order and inline styles are the template's, character for character. Do not reformat it. Its header lists the few places where it differs on purpose. `src/views/sante/model.ts` builds what the page shows from the storefront surface's answer.
 
 The page shows the store's own contact email and the distributor's mobile. The "Office Location" block is the Santé head office, fixed text, as the approved template prints it. The business seal and the distributor photo are off until private files exist. The basket is always empty: no product page exists yet. Links to pages of later slices (`/products/`, `/cart/`, `/checkout/`, `/dashboard/…`, `/funnel/…`) are kept as approved and answer the neutral 404 for now.
+
+### The visitor's address
+
+The API counts messages per visitor address, so `/contact/` passes one with the form (`src/lib/visitor.ts`). Only on Vercel (`VERCEL=1`, set by the platform), and only from `x-vercel-forwarded-for`, which Vercel writes itself with the address of the client that connected, replacing anything the visitor sent. `x-forwarded-for` is not read. Anywhere else, a local run included, the address is sent empty and the API counts all such visitors together. The address is never logged.
 
 ### Assets
 

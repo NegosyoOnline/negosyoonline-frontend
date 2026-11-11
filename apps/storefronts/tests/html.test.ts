@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { escapeHtml, html, htmlResponse, Markup, safe } from "../src/lib/html.ts";
 import { neutralDocument, neutralNotFound } from "../src/views/neutral.ts";
-import { placeholderDocument } from "../src/views/placeholder.ts";
 
 test("every interpolated value is escaped", () => {
   const name = `<script>alert("x")</script> & 'co'`;
@@ -53,11 +52,4 @@ test("the neutral 404 names no site and carries no script", async () => {
   assert.match(body, /<title>Page not found\.<\/title>/);
   assert.match(body, /<p>Page not found\.<\/p>/);
   assert.doesNotMatch(body, /<script|<link|<img|style=|negosyo|sant[eé]/i);
-});
-
-test("the placeholder shows the store name, escaped, and nothing else", () => {
-  const body = placeholderDocument(`Ana's <Store> & Co`).value;
-  assert.match(body, /<title>Ana&#x27;s &lt;Store&gt; &amp; Co<\/title>/);
-  assert.match(body, /<h1>Ana&#x27;s &lt;Store&gt; &amp; Co<\/h1>/);
-  assert.doesNotMatch(body, /<script|<link|<img/i);
 });

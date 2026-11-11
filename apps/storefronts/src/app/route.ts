@@ -2,14 +2,15 @@
 import { htmlResponse } from "../lib/html.ts";
 import { siteFor } from "../lib/site.ts";
 import { neutralNotFound } from "../views/neutral.ts";
-import { placeholderDocument } from "../views/placeholder.ts";
+import { homeDocument } from "../views/sante/home.ts";
+import { homeModel } from "../views/sante/model.ts";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request): Promise<Response> {
   const site = await siteFor(request);
   if (!site) return neutralNotFound();
-  return htmlResponse(placeholderDocument(site.display_name));
+  return htmlResponse(homeDocument(homeModel(site)));
 }
 
 export {

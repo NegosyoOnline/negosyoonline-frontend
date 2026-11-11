@@ -2,9 +2,10 @@
    and writes nothing. It has no card, link or menu item for the Django Admin (R27). */
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { open, settle, BASE, refused } from "./page.mjs";
 
-const IDS = ["boot", "v-console", "v-down", "who-h", "times", "events", "events-empty", "acct-ini", "acct-name",
+const IDS = ["boot", "v-console", "v-down", "who-h", "times", "events", "events-empty", "acct-row", "acct-ini", "acct-name",
   "acct-btn", "sign-out", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const CONSOLE = { email: "sample.staff@example.com", verified_at: "2026-11-11T09:02:00+08:00",
   expires_at: "2026-11-11T21:01:00+08:00", events: [
@@ -33,6 +34,8 @@ test("the console shows who is signed in, the two times and their events", async
   assert.equal(p.node.times.textContent, "Verified at 11 Nov 2026, 9:02 AM. Session ends 11 Nov 2026, 9:01 PM.");
   assert.equal(p.node["acct-ini"].textContent, "SS");
   assert.equal(p.node["acct-name"].textContent, "sample.staff");
+  assert.equal(p.node["acct-row"].hidden, false);
+  assert.equal(p.node["acct-btn"].hidden, false);
   const rows = p.node.events.children.map((li) => li.textContent);
   assert.deepEqual(rows, [
     "Signed inAdmin console · authenticator code11 Nov 2026, 9:02 AM",
@@ -62,6 +65,25 @@ test("no answer shows the plain state and goes nowhere", async () => {
   const p = await page({ "GET console/": "offline" });
   assert.equal(p.node["v-down"].hidden, false);
   assert.equal(p.location.replaced, null);
+});
+
+/* Until console/ has answered ok, nothing is known about the session, so the page must not say
+   "Two-step sign-in verified" beside an empty avatar. Sign out stays. */
+test("the user card and the phone-width avatar stay hidden until console/ has answered ok", async () => {
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  const tag = (id) => (html.match(new RegExp("<[a-z]+ [^>]*id=\"" + id + "\"[^>]*>")) || [""])[0];
+  assert.match(tag("acct-row"), /class="acct-row"[^>]* hidden>$/);
+  assert.match(tag("acct-btn"), / hidden>$/);
+  assert.doesNotMatch(tag("sign-out"), /hidden/);
+  const replies = { offline: "offline", "signed out": [401, refused("unauthenticated")],
+    "half signed in": [401, refused("second_step_required")], "server error": [500, refused("server_error")] };
+  for (const [name, reply] of Object.entries(replies)) {
+    const p = await page({ "GET console/": reply });
+    assert.equal(p.node["acct-row"].hidden, true, name);
+    assert.equal(p.node["acct-btn"].hidden, true, name);
+    assert.equal(p.node["acct-ini"].textContent, "", name);
+    assert.equal(p.node["acct-name"].textContent, "", name);
+  }
 });
 
 test("either Sign out button ends the session and returns to sign-in; a failed one says so", async () => {

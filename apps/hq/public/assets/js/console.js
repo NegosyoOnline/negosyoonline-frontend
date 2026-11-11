@@ -36,6 +36,10 @@
     $("acct-btn").textContent = me.initials;
     $("acct-btn").setAttribute("aria-label", "Signed in as " + me.name);
     $("acct-name").textContent = me.name;
+    /* The user card and the phone-width avatar are shown only now: before this answer nothing is known
+       about the session. */
+    $("acct-row").hidden = false;
+    $("acct-btn").hidden = false;
     list.textContent = "";
     (Array.isArray(d.events) ? d.events : []).forEach(function (e) {
       var li = row(e || {});

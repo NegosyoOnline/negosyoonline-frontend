@@ -1,130 +1,79 @@
-/* Santé setup (ClickUp z8uq9m92ez, mockup approved by Coach Ed 2026-11-11): the /settings/sante/ page. One card with
-   one row, the site's Sponsor ID, and an Edit dialog: the Business Settings row and dialog (business.js, loaded
-   before this file, shares its dialog and field through NOBusiness.ui). Reads GET /sites/ and
-   GET /sites/{id}/sante/settings/; a save is ONE PATCH to that address with {sponsor_id}.
-   "Not a Santé site" is decided from `template` in GET /sites/, never from a 404: the API answers 404 alike for a
-   missing site, a site that is not a Santé site and a switched-off surface, so a 404 on a Santé site is handled like
-   a site that has gone. The page adds no rule of its own: the value is trimmed, its case kept, and a refusal is the
-   server's own message. Tenant safety as in business.js: the site id comes only from GET /sites/, a dialog keeps the
-   id it was opened for, an answer for an older load is dropped, nothing is stored in the browser.
+/* The Santé "Sponsor ID" card on Business Settings (ClickUp z8uq9m92ez; mockup approved by Coach Ed 2026-11-11, moved
+   into Business Settings by his ruling of the same day). The last card on /settings/business/, shown only when the
+   selected site is a Santé site: one row, the site's Sponsor ID, and an Edit dialog. business.js (loaded before this
+   file) draws the page, tells this file which site it drew (NOSante.mount) and shares its dialog and field through
+   NOBusiness.ui. Reads GET /sites/{id}/sante/settings/; a save is ONE PATCH to that address with {sponsor_id}.
+   "A Santé site" is decided from `template` in GET /sites/ (the answer business.js already has), never from a 404:
+   the API answers 404 alike for a missing site, a site that is not a Santé site and a switched-off surface. A 404
+   on the read shows no card; a 404 on a save reads the whole page again, and Business Settings says what it finds.
+   The card adds no rule of its own: the value is trimmed, its case kept, and a refusal is the server's own message.
+   Tenant safety as in business.js: the site comes only from business.js's GET /sites/, a dialog keeps the id it was
+   opened for, an answer for an older read is dropped, nothing is stored in the browser.
    Plain ES5. API strings reach the page through D.el, textContent or input.value only. */
 (function () {
   var D = window.NODash, G = window.NOBusiness, U = G.ui, $ = function (id) { return document.getElementById(id); };
   var PATH = "/sante/settings/";
-  var GONE = "This site is not available.";
   var SAVE_FAILED = "We couldn’t save. Check your connection and try again.";
-  var S = { seq: 0, active: false, navBusy: false, site: null, settings: null, notice: "" }; /* memory only, never stored */
+  var S = { seq: 0, site: null, settings: null, parent: null, node: null }; /* memory only, never stored */
 
   function str(v) { return typeof v === "string" ? v.trim() : ""; }
   function isSante(site) { return !!site && site.template === "sante"; }
   function txt(text) { return D.el("span", {}, text); }
   function chip(kind, text) { return D.el("span", { "class": "chip chip-" + kind }, text); }
-  function say(text) { var n = $("st-live"); if (n) n.textContent = text; }
-  function root() { return $("st-root"); }
-  function mySites(res) { return D.sitesOf(res).filter(function (s) { return s && typeof s.id === "string"; }); }
-  function pick(sites) {
-    var ids = sites.map(function (s) { return s.id; });
-    return sites.length ? sites[ids.indexOf(D.siteFromQuery(ids))] : null;
-  }
+  function say(text) { var n = $("bs-live"); if (n) n.textContent = text; } /* Business Settings' own live region */
 
-  /* The site line under the heading, as on Business Settings. Hidden while loading, on an error and when not a Santé site. */
-  function head(site) {
-    var line = $("st-site-line");
-    if (!line) return;
-    line.textContent = "";
-    line.hidden = !site;
+  /* business.js calls this each time it draws the page for a site: `parent` is its card grid. A site that is not a
+     Santé site gets nothing. The same site drawn again (after a Business Settings save) reuses what was read. */
+  function mount(site, parent) {
+    S.parent = parent || null;
+    S.node = null;
+    if (!S.parent || !isSante(site)) { S.seq++; S.site = null; S.settings = null; return; }
+    if (S.site && S.site.id === site.id && S.settings) { S.site = site; draw(); return; }
+    S.site = site;
+    S.settings = null;
+    load();
+  }
+  /* business.js calls this when it starts a new read or the page is left: nothing from before is drawn afterwards. */
+  function reset() { S.seq++; S.site = null; S.settings = null; S.parent = null; S.node = null; }
+
+  function load() {
+    var my = ++S.seq, site = S.site;
     if (!site) return;
-    line.appendChild(txt("Site:"));
-    line.appendChild(D.el("strong", {}, G.util.siteLabel(site)));
-    if (G.util.hostOf(site)) line.appendChild(D.el("span", { "class": "bs-host" }, G.util.hostOf(site)));
-    if (str(site.template_label)) line.appendChild(chip("info", str(site.template_label)));
-  }
-
-  /* ---- the reads and the page states ---- */
-  function load(again) {
-    var body = root();
-    if (!body) return;
-    var my = ++S.seq;
-    U.closeDialog();
-    S.site = null; S.settings = null; /* nothing from the site shown before outlives a new read */
-    head(null);
-    skeleton(body);
-    D.call("GET", "/sites/", null, true).then(function (res) {
-      if (my !== S.seq || res.status === 401) return; /* a newer read owns the page, or app.js is already signing out */
-      if (!res.ok) { drawError(body); return; }
-      var sites = mySites(res), site = pick(sites);
-      D.setSante(isSante(site)); /* the same answer decides the tab, the More tile and the quick link */
-      if (!site) { drawNoSite(body); return; }
-      if (!isSante(site)) { drawNotSante(body); return; }
-      D.call("GET", "/sites/" + site.id + PATH, null, true).then(function (r) {
-        if (my !== S.seq || r.status === 401) return;
-        if (r.status === 404) { if (again) drawGone(body); else gone(); return; }
-        if (!r.ok || !r.data) { drawError(body); return; }
-        S.site = site;
-        S.settings = r.data;
-        draw();
-      });
+    D.call("GET", "/sites/" + site.id + PATH, null, true).then(function (r) {
+      if (my !== S.seq || r.status === 401) return; /* a newer read owns the card, or app.js is already signing out */
+      if (r.status === 404) { place(null); return; } /* no Santé settings here: no card, the page is otherwise as it was */
+      if (!r.ok || !r.data) { drawError(); return; }
+      S.settings = r.data;
+      draw();
     });
   }
-  /* A Santé site that answers 404 (removed, or not this account's): say only that, and read the list again, once. */
-  function gone() {
-    S.notice = GONE;
-    say(GONE);
-    load(true);
+  /* The card takes the last place in the grid; drawn again, it replaces itself. */
+  function place(card) {
+    var parent = S.parent, old = S.node;
+    if (!parent) return;
+    if (card) parent.insertBefore(card, old && old.parentNode === parent ? old : null);
+    if (old && old.parentNode === parent) parent.removeChild(old);
+    S.node = card;
   }
-  function skeleton(body) {
-    body.textContent = "";
-    var sk = D.el("div", { "class": "skel", "aria-busy": "true" });
-    sk.appendChild(D.el("span", { "class": "sr-only" }, "Loading this site’s Santé setup"));
-    sk.appendChild(D.el("div", { "class": "skel-block acct-skel-card", "aria-hidden": "true" }));
-    body.appendChild(sk);
+  function shell() {
+    var card = D.el("section", { "class": "dash-card acct-card", id: "st-card", "aria-labelledby": "st-h-sponsor" });
+    card.appendChild(D.el("h2", { id: "st-h-sponsor" }, "Sponsor ID"));
+    return card;
   }
-  function takeNotice(parent) {
-    if (!S.notice) return;
-    parent.appendChild(D.el("p", { "class": "err-box bs-notice", id: "st-notice", role: "alert" }, S.notice));
-    S.notice = "";
-  }
-  function errBox(body, title, text) {
-    body.textContent = "";
-    S.notice = "";
+  function drawError() {
+    var card = shell();
     var box = D.el("div", { "class": "err-box", role: "alert" });
-    box.appendChild(D.el("h2", {}, title));
-    if (text) box.appendChild(D.el("p", {}, text));
-    var again = D.el("button", { type: "button", "class": "no-btn no-btn-primary" }, "Try again");
+    box.appendChild(D.el("p", {}, "We could not load the sponsor ID. Check your connection and try again. Nothing was changed."));
+    var again = D.el("button", { type: "button", "class": "no-btn no-btn-primary", id: "st-retry" }, "Try again");
     again.addEventListener("click", function () { load(); });
     box.appendChild(again);
-    body.appendChild(box);
-  }
-  function drawError(body) { errBox(body, "We could not load this site’s Santé setup", "Check your connection and try again. Nothing was changed."); }
-  function drawGone(body) { errBox(body, GONE, ""); }
-  /* The "not available" card pattern: a tag, a heading, one line and the way back. */
-  function phCard(body, id, tag, title, text) {
-    body.textContent = "";
-    var wrap = D.el("div", { "class": "stack" });
-    takeNotice(wrap);
-    var c = D.el("section", { "class": "dash-card ph-card", "aria-labelledby": id });
-    c.appendChild(chip("neutral", tag));
-    c.appendChild(D.el("h2", { id: id }, title));
-    c.appendChild(D.el("p", {}, text));
-    c.appendChild(D.el("a", { "class": "no-btn no-btn-ghost", href: "/" }, "Back to Overview"));
-    wrap.appendChild(c);
-    body.appendChild(wrap);
-  }
-  function drawNoSite(body) {
-    phCard(body, "st-h-nosite", "No site yet", "Create your site first", "Santé setup opens once your first site is created. Finish the setup on Overview.");
-  }
-  function drawNotSante(body) {
-    phCard(body, "st-h-notsante", "Not for this site", "Santé setup is only for Santé sites", "This site is not a Santé site, so there is nothing to set up here.");
+    card.appendChild(box);
+    place(card);
   }
   function draw(focusId) {
-    var body = root(), site = S.site, settings = S.settings;
-    if (!body || !site || !settings) return;
-    head(site);
-    body.textContent = "";
-    var wrap = D.el("div", { "class": "stack" });
-    takeNotice(wrap);
-    var card = D.el("section", { "class": "dash-card acct-card", "aria-labelledby": "st-h-sponsor" });
-    card.appendChild(D.el("h2", { id: "st-h-sponsor" }, "Sponsor ID"));
+    var settings = S.settings;
+    if (!S.parent || !S.site || !settings) return;
+    var card = shell();
     card.appendChild(D.el("p", { "class": "dash-copy" }, "New members who register through this site are registered under your own Santé sponsor ID."));
     var sponsor = str(settings.sponsor_id);
     var row = D.el("div", { "class": "acct-set-row" });
@@ -143,8 +92,7 @@
     row.appendChild(action);
     if (!sponsor) row.appendChild(D.el("div", { "class": "bs-row-help" }, "Member registration on this site cannot start until you add it. Nothing else on your site waits for it."));
     card.appendChild(row);
-    wrap.appendChild(card);
-    body.appendChild(wrap);
+    place(card);
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }
@@ -195,7 +143,7 @@
         if (!open()) return;
         busy(false);
         if (res.status === 401) return; /* app.js is already sending the owner to sign in */
-        if (res.status === 404) { U.closeDialog(); gone(); return; }
+        if (res.status === 404) { G.show(); return; } /* the site may have gone: Business Settings reads again (closing this dialog) and says what it finds */
         var refused = res.data && res.data.fields ? G.util.fieldMessage(res.data.fields[key]) : "", map = {};
         if (refused) { map[key] = refused; U.setErrors(fields, order, map); return; }
         /* A site limited to Billing (403) and too many saves (429) say so in the server's words; anything else is the save-failed line. */
@@ -209,20 +157,5 @@
     f.input.focus();
   }
 
-  /* The Settings tab, the More tile and the quick link (all hidden in the markup): one read of GET /sites/ shows
-     them for a Santé site. Skipped while the page itself is reading, while a read is under way, and once known. */
-  function nav() {
-    if (S.active || S.navBusy || D.isSante()) return;
-    S.navBusy = true;
-    D.call("GET", "/sites/", null, true).then(function (res) {
-      S.navBusy = false;
-      if (res.ok && !S.active) D.setSante(isSante(pick(mySites(res))));
-    });
-  }
-
-  window.NOSante = {
-    show: function () { S.active = true; load(); },
-    hide: function () { S.active = false; S.seq++; U.closeDialog(); S.site = null; S.settings = null; S.notice = ""; say(""); },
-    nav: nav
-  };
+  window.NOSante = { mount: mount, reset: reset };
 })();

@@ -42,21 +42,52 @@ test("Settings is in the sidebar and not in the profile menu", () => {
   assert.deepEqual(links(MORE).filter(([href]) => href === "/settings/business/"), [["/settings/business/", "Business Settings"]]);
 });
 
-/* Santé setup (ClickUp z8uq9m92ez): a Settings tab, second after Business Settings, and on a phone a tile in the
-   More sheet's Settings group. Both are hidden in the markup and shown only once the site is known to be a Santé site. */
-test("Santé setup is the second Settings tab and the second Settings tile, both hidden until the site is a Santé site", () => {
+/* Santé setup (ClickUp z8uq9m92ez): Coach Ed's ruling of 2026-11-11 moved it into Business Settings, so it has no
+   Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
+test("Settings has eight tabs and no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS).slice(0, 3), [["/settings/business/", "Business Settings"], ["/settings/sante/", "Santé setup"], ["/settings/plans/", "Plans"]]);
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/plans/", "Plans"], ["/settings/billing/", "Billing"],
+    ["/settings/payments/", "Payments"], ["/settings/shipping/", "Shipping"], ["/settings/domain/", "Domain"],
+    ["/settings/automation/", "Automation Tools"], ["/settings/notification/", "Notification"]]);
+  assert.ok(!/\shidden(\s|>)/.test(SET_TABS.replace(/^<nav[^>]*>/, "")), "no tab is hidden");
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
-  assert.deepEqual(links(settingsGroup).slice(0, 3), [["/settings/business/", "Business Settings"], ["/settings/sante/", "Santé setup"], ["/settings/plans/", "Plans"]]);
-  const entries = [...HTML.matchAll(/<a\b[^>]*\bhref="\/settings\/sante\/"[^>]*>/g)].map((m) => m[0]);
-  assert.equal(entries.length, 2, "the tab and the tile, nowhere else");
-  for (const tag of entries) {
-    assert.match(tag, /\sdata-sante(\s|>)/, tag);
-    assert.match(tag, /\shidden(\s|>)/, tag);
-  }
-  assert.equal((HTML.match(/data-sante/g) || []).length, 2, "nothing else is switched by the site type");
-  assert.match(entries[0], /data-route="settings-sante"/);
-  assert.match(entries[1], /class="sheet-tile"[^>]*data-sheet-close/);
-  for (const [name, block] of [["sidebar", SIDEBAR], ["bottom tabs", TABS], ["profile menu", PROFILE]]) assert.ok(!/sante/i.test(block), "no Santé setup entry in the " + name);
+  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Plans", "Billing", "Payments", "Domain", "Automation", "Notification"]);
+  assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "")), "only the script that draws the card names Santé");
+  assert.ok(!HTML.includes("data-sante"));
+  const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
+  assert.ok(quick.includes('["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"]'), "Plans follows Business Settings");
+  assert.ok(!/sante|santé/i.test(APP));
+});
+
+/* The old address /settings/sante/ still works: the router (dashboard.js) lands it on Business Settings. Run here
+   against the real route() with a stand-in page. */
+test("the old address /settings/sante/ lands on /settings/business/ and keeps its query string", async () => {
+  const vm = await import("node:vm");
+  const DASH = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
+  const run = (pathname, search) => {
+    const nodes = {}, shown = [];
+    const node = (id) => (nodes[id] = nodes[id] || { id, hidden: false, textContent: "", focus() {}, setAttribute() {}, removeAttribute() {}, appendChild() {}, addEventListener() {} });
+    const location = { pathname, search };
+    const history = { replaced: [], replaceState(a, b, url) { this.replaced.push(url); const q = url.indexOf("?"); location.pathname = q < 0 ? url : url.slice(0, q); location.search = q < 0 ? "" : url.slice(q); }, pushState() {} };
+    const document = { title: "", getElementById: node, querySelectorAll: () => [], addEventListener() {}, createElement: () => node("x") };
+    const window = { addEventListener() {}, NOBusiness: { show() { shown.push("business"); }, hide() {} },
+      NODash: { el: () => node("x"), requireAccount: () => ({ then(fn) { window.start = fn; } }), cfg: {}, call: () => new Promise(() => {}) } };
+    const ctx = vm.createContext({ window, document, location, history, console, Intl, Promise, setTimeout, clearTimeout });
+    vm.runInContext(DASH, ctx, { filename: "dashboard.js" });
+    window.start({ first_name: "Nena" });
+    return { location, history, document, nodes, shown };
+  };
+  const old = run("/settings/sante/", "?site=site_aaaaaaaaaaaaaaaaaaaa");
+  assert.deepEqual(old.history.replaced, ["/settings/business/?site=site_aaaaaaaaaaaaaaaaaaaa"]);
+  assert.equal(old.location.pathname, "/settings/business/");
+  assert.equal(old.document.title, "Business Settings | NegosyoOnline");
+  assert.equal(old.nodes["view-settings-general"].hidden, false);
+  assert.equal(old.nodes["view-overview"].hidden, true);
+  assert.equal(old.nodes["set-tabs"].hidden, false);
+  assert.deepEqual(old.shown, ["business"], "Business Settings is opened, once");
+  const bare = run("/settings/sante", "");
+  assert.deepEqual(bare.history.replaced, ["/settings/business/"]);
+  const direct = run("/settings/business/", "");
+  assert.deepEqual(direct.history.replaced, [], "the new address is left alone");
+  assert.equal(direct.nodes["view-settings-general"].hidden, false);
 });

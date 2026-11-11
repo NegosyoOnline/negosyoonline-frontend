@@ -1,5 +1,6 @@
-/* Santé setup (ClickUp z8uq9m92ez, comment 1100430000485211): the /settings/sante/ page, one Sponsor ID row and its
-   Edit dialog. Driven like Business Settings: a small stand-in document (dom.mjs) and a recorded fetch. */
+/* The Santé Sponsor ID card (ClickUp z8uq9m92ez, comments 1100430000485211 and 1100430000485794): the last card on
+   Business Settings, for a Santé site only, with its Edit dialog. Driven like Business Settings: a small stand-in
+   document (dom.mjs) and a recorded fetch. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -12,32 +13,39 @@ const JS = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public
 const read = (f) => fs.readFileSync(path.join(JS, f), "utf8");
 const SRC = read("sante.js");
 const HTML = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
+const CSS = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
 const A = "site_aaaaaaaaaaaaaaaaaaaa", B = "site_bbbbbbbbbbbbbbbbbbbb", FOREIGN = "site_zzzzzzzzzzzzzzzzzzzz";
 const site = (id, name, sub, template = "sante") => ({ id, template, template_label: template === "sante" ? "Santé" : "Basic", display_name: name,
-  subdomain: sub, host: sub + ".negosyotest.com", business_name: name + " Trading" });
+  subdomain: sub, host: sub + ".negosyotest.com", business_name: name + " Trading", contact_email: "hello@" + sub + ".test", contact_mobile: "+639175550142",
+  facebook_url: "", instagram_url: "", tiktok_url: "" });
 const SITE_A = site(A, "Nena's Barley Shop", "nenabarley"), SITE_B = site(B, "Nena's Wellness Marikina", "nenamarikina");
 const NOT_FOUND = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
 const REFUSED = "Use 1 to 32 letters, digits or hyphens.";
 const SAVE_FAILED = "We couldn’t save. Check your connection and try again.";
+const SANTE_PATH = /^\/sites\/(site_[0-9a-z]{20})\/sante\/settings\/$/;
 const tick = () => new Promise((r) => setTimeout(r, 0));
-const settle = async () => { for (let i = 0; i < 4; i++) await tick(); };
+const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
 
-/* `routes` answers a request first: (method, path, body, state) => {status, body}, a promise of one, or null for
-   the default, which serves `sites` and a Santé settings answer for each Santé site. */
+/* A dashboard with the Business Settings view in it. `routes` answers a request first: (method, path, body, state) =>
+   {status, body}, a promise of one, or null for the default, which serves `sites`, a business profile for each and
+   a Santé settings answer for each Santé site. */
 function boot({ search = "", sites = [SITE_A], sponsor = "", routes } = {}) {
   const doc = makeDocument(), calls = [], stored = [], toasts = [];
   const page = doc.body.appendChild(doc.createElement("div"));
-  const add = (tag, attrs) => { const n = doc.createElement(tag); for (const k of Object.keys(attrs)) n.setAttribute(k, attrs[k]); return page.appendChild(n); };
-  add("h1", { id: "h-settings-sante" }); add("p", { id: "st-site-line" }); add("div", { id: "st-root" }); add("div", { id: "st-live" });
-  add("div", { id: "bs-root" }); add("div", { id: "bs-live" });
-  const tab = add("a", { id: "tab", "data-sante": "", hidden: "" }), tile = add("a", { id: "tile", "data-sante": "", hidden: "" });
-  tab.hidden = true; tile.hidden = true;
-  doc.querySelectorAll = (sel) => (sel === "[data-sante]" ? doc.body.all((n) => n.hasAttribute("data-sante")) : []);
-  const state = { sites: sites.map((s) => ({ ...s })), sponsor: {} };
-  for (const s of state.sites) state.sponsor[s.id] = sponsor;
+  for (const [tag, id] of [["h1", "h-settings-general"], ["p", "bs-site-line"], ["div", "bs-pick"], ["div", "bs-root"], ["div", "bs-live"]]) {
+    const n = doc.createElement(tag); n.setAttribute("id", id); page.appendChild(n);
+  }
+  const state = { sites: sites.map((s) => ({ ...s })), sponsor: {}, profiles: {} };
+  for (const s of state.sites) { state.sponsor[s.id] = sponsor; state.profiles[s.id] = { business_name: s.business_name, business_address: "", shipping_estimates_confirmed: false }; }
   const fallback = (method, p, body) => {
     if (method === "GET" && p === "/sites/") return { status: 200, body: { items: state.sites, next_cursor: null } };
-    const m = /^\/sites\/(site_[0-9a-z]{20})\/sante\/settings\/$/.exec(p), s = m ? state.sites.find((x) => x.id === m[1]) : null;
+    const b = /^\/sites\/(site_[0-9a-z]{20})\/business-profile\/$/.exec(p);
+    if (b) {
+      if (!state.profiles[b[1]] || !state.sites.find((x) => x.id === b[1])) return NOT_FOUND;
+      if (method === "PATCH") Object.assign(state.profiles[b[1]], body);
+      return { status: 200, body: state.profiles[b[1]] };
+    }
+    const m = SANTE_PATH.exec(p), s = m ? state.sites.find((x) => x.id === m[1]) : null;
     if (!s || s.template !== "sante") return NOT_FOUND;
     if (method === "PATCH") state.sponsor[s.id] = body.sponsor_id;
     return { status: 200, body: { sponsor_id: state.sponsor[s.id], registration_ready: !!state.sponsor[s.id], catalog_owner: false } };
@@ -50,32 +58,39 @@ function boot({ search = "", sites = [SITE_A], sponsor = "", routes } = {}) {
   };
   const storage = (name) => ({ getItem: () => null, removeItem() {}, setItem(k) { stored.push(name + ":" + k); } });
   const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {} };
-  const location = { search, pathname: "/settings/sante/", replace() {}, assign() {} };
-  const context = vm.createContext({ window, document: doc, location, history: { replaceState() {} }, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl,
+  const location = { search, pathname: "/settings/business/", replace() {}, assign() {} };
+  const history = { replaceState(a, b, url) { location.search = url.slice(url.indexOf("?")); } };
+  const context = vm.createContext({ window, document: doc, location, history, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl,
     localStorage: storage("local"), sessionStorage: storage("session"), requestAnimationFrame() {}, fetch });
   for (const f of ["app.js", "business.js", "sante.js"]) vm.runInContext(read(f), context, { filename: f });
   window.NODash.toast = (title) => toasts.push(title);
   const $ = (id) => doc.getElementById(id);
   const form = () => $("bs-dlg-body").all((n) => n.tagName === "FORM")[0];
-  return { doc, window, calls, stored, toasts, state, $, form, page, tab, tile, root: $("st-root"), N: window.NOSante, D: window.NODash,
+  const card = () => $("st-card");
+  return { doc, window, calls, stored, toasts, state, $, form, page, card, root: $("bs-root"), G: window.NOBusiness, D: window.NODash,
     patches: () => calls.filter((c) => c.method === "PATCH"),
     list: () => calls.map((c) => c.method + " " + c.path),
-    async show() { window.NOSante.show(); await settle(); },
+    sante: () => calls.filter((c) => SANTE_PATH.test(c.path)).map((c) => c.method + " " + c.path),
+    async show() { window.NOBusiness.show(); await settle(); },
     open() { $("st-edit").fire("click"); return form(); },
     async save(value) { if (value !== undefined) $("bs-f-sponsor_id").value = value; form().fire("submit"); await settle(); },
-    rows() { return $("st-root").all((n) => n.classList.contains("acct-set-row")); },
-    byClass(c) { return $("st-root").all((n) => n.classList.contains(c)); } };
+    cards() { return $("bs-root").all((n) => n.classList.contains("acct-card")); },
+    rows() { return card() ? card().all((n) => n.classList.contains("acct-set-row")) : []; } };
 }
-const quick = (d) => d.D.quickLinks().map((l) => l[0]);
 
-test("nothing saved: one card, one row, 'Not added' with the amber tag and the help line, in the approved words", async () => {
+test("a Santé site: the Sponsor ID card is the last card on Business Settings; 'Not added' with the amber tag and the help line, in the approved words", async () => {
   const d = boot();
   await d.show();
-  assert.deepEqual(d.list(), ["GET /sites/", `GET /sites/${A}/sante/settings/`]);
-  const cards = d.byClass("acct-card");
-  assert.equal(cards.length, 1);
-  assert.equal(cards[0].all((n) => n.tagName === "H2")[0].textContent, "Sponsor ID");
-  assert.equal(cards[0].all((n) => n.classList.contains("dash-copy"))[0].textContent,
+  assert.deepEqual(d.list(), ["GET /sites/", `GET /sites/${A}/business-profile/`, `GET /sites/${A}/sante/settings/`]);
+  const cards = d.cards(), ids = cards.map((c) => c.getAttribute("aria-labelledby"));
+  assert.deepEqual(ids, ["bs-h-ready", "bs-h-id", "bs-h-contact", "bs-h-web", "bs-h-legal", "bs-h-del", "st-h-sponsor"], "every Business Settings card, then this one");
+  const card = d.card();
+  assert.equal(card, cards[cards.length - 1]);
+  assert.equal(card.parentNode, d.$("bs-h-del").parentNode.parentNode, "it sits in the same card grid");
+  assert.ok(card.parentNode.classList.contains("acct-grid"));
+  assert.ok(!card.classList.contains("acct-card-wide"));
+  assert.equal(card.all((n) => n.tagName === "H2")[0].textContent, "Sponsor ID");
+  assert.equal(card.all((n) => n.classList.contains("dash-copy"))[0].textContent,
     "New members who register through this site are registered under your own Santé sponsor ID.");
   assert.equal(d.rows().length, 1);
   const row = d.rows()[0];
@@ -90,9 +105,36 @@ test("nothing saved: one card, one row, 'Not added' with the amber tag and the h
   assert.equal(d.$("st-edit").textContent, "Edit");
   assert.equal(d.$("st-edit").getAttribute("aria-label"), "Edit sponsor ID");
   assert.equal(row.all((n) => n.classList.contains("bs-tag")).length, 0, "no Public or Private tag on the row");
-  const line = d.$("st-site-line");
-  assert.equal(line.hidden, false);
-  assert.equal(line.textContent, "Site:Nena's Barley Shopnenabarley.negosyotest.comSanté");
+});
+
+test("not a Santé site, or before the site type is known: no card, no Santé request, and Business Settings as it is without sante.js", async () => {
+  const d = boot({ sites: [site(A, "Nena's Other Shop", "nenaother", "basic")] });
+  await d.show();
+  assert.deepEqual(d.list(), ["GET /sites/", `GET /sites/${A}/business-profile/`]);
+  assert.equal(d.card(), null);
+  assert.equal(d.$("st-edit"), null);
+  assert.deepEqual(d.cards().map((c) => c.getAttribute("aria-labelledby")), ["bs-h-ready", "bs-h-id", "bs-h-contact", "bs-h-web", "bs-h-legal", "bs-h-del"]);
+  assert.ok(!/sponsor/i.test(d.root.textContent));
+
+  /* While the sites read is still under way the page is the Business Settings skeleton only. */
+  const early = boot();
+  early.G.show();
+  assert.equal(early.card(), null);
+  assert.ok(!/sponsor/i.test(early.root.textContent));
+  assert.deepEqual(early.sante(), []);
+  await settle();
+  assert.ok(early.card());
+
+  /* No site yet and a failed sites read: Business Settings' own states, nothing of this card. */
+  const none = boot({ sites: [] });
+  await none.show();
+  assert.deepEqual(none.list(), ["GET /sites/"]);
+  assert.ok(none.root.textContent.includes("Create your site first"));
+  assert.equal(none.card(), null);
+  const down = boot({ routes: (m, p) => (p === "/sites/" ? { status: 500, body: {} } : null) });
+  await down.show();
+  assert.equal(down.card(), null);
+  assert.deepEqual(down.sante(), []);
 });
 
 test("a saved sponsor ID is shown exactly as saved, with no tag and no help line", async () => {
@@ -103,20 +145,40 @@ test("a saved sponsor ID is shown exactly as saved, with no tag and no help line
   assert.equal(row.all((n) => n.classList.contains("chip")).length, 0);
   assert.equal(row.all((n) => n.classList.contains("bs-row-help")).length, 0);
   assert.equal(row.all((n) => n.classList.contains("bs-none")).length, 0);
-  assert.ok(!d.root.textContent.includes("Ready"));
+  assert.ok(!d.card().textContent.includes("Ready"));
 });
 
-test("a ?site= that is not one of my sites is ignored; one of mine is used", async () => {
+test("a ?site= that is not one of my sites is ignored; one of mine is used; choosing another site reads that site's card", async () => {
   const foreign = boot({ search: "?site=" + FOREIGN });
   await foreign.show();
   foreign.open();
   await foreign.save("AB-1");
-  assert.deepEqual(foreign.list(), ["GET /sites/", `GET /sites/${A}/sante/settings/`, `PATCH /sites/${A}/sante/settings/`]);
+  assert.deepEqual(foreign.sante(), [`GET /sites/${A}/sante/settings/`, `PATCH /sites/${A}/sante/settings/`]);
   assert.ok(!JSON.stringify(foreign.calls).includes(FOREIGN));
   const mine = boot({ search: "?site=" + B, sites: [SITE_A, SITE_B] });
   await mine.show();
-  assert.deepEqual(mine.list(), ["GET /sites/", `GET /sites/${B}/sante/settings/`]);
-  assert.ok(mine.$("st-site-line").textContent.includes(SITE_B.display_name));
+  assert.deepEqual(mine.sante(), [`GET /sites/${B}/sante/settings/`]);
+
+  /* Two sites, the second not a Santé site: the card goes when it is chosen and comes back with the first. */
+  const two = boot({ sites: [SITE_A, site(B, "Nena's Other Shop", "nenaother", "basic")], sponsor: "AB-1" });
+  await two.show();
+  assert.ok(two.card().textContent.includes("AB-1"));
+  const stale = two.open();
+  let sel = two.$("bs-site");
+  sel.value = B; sel.fire("change");
+  assert.equal(two.card(), null, "gone at once, before the new site is read");
+  assert.equal(two.$("bs-dlg-root"), null, "and its dialog is closed");
+  await settle();
+  assert.equal(two.card(), null);
+  const mark = two.calls.length;
+  stale.fire("submit");
+  await settle();
+  assert.equal(two.calls.length, mark, "a dialog opened for the first site sends nothing");
+  sel = two.$("bs-site");
+  sel.value = A; sel.fire("change");
+  await settle();
+  assert.ok(two.card().textContent.includes("AB-1"));
+  assert.deepEqual(two.sante(), [`GET /sites/${A}/sante/settings/`, `GET /sites/${A}/sante/settings/`], "never a request for the other site");
 });
 
 test("the Edit dialog: approved words, one field, and one PATCH that is trimmed and keeps its case", async () => {
@@ -132,15 +194,18 @@ test("the Edit dialog: approved words, one field, and one PATCH that is trimmed 
   assert.equal(d.$("bs-f-sponsor_id-help").textContent, "Letters, digits and hyphens only, up to 32 characters. Leave it blank to remove it.");
   assert.equal(d.doc.activeElement, inputs[0], "focus starts in the field");
   assert.deepEqual(form.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save", "Cancel"]);
+  const before = d.calls.length;
   await d.save("  Sample-0012345  ");
-  assert.equal(d.patches().length, 1);
-  assert.equal(d.patches()[0].path, `/sites/${A}/sante/settings/`);
+  assert.deepEqual(d.list().slice(before), [`PATCH /sites/${A}/sante/settings/`], "one request, and the page is not read again");
   assert.deepEqual(d.patches()[0].body, { sponsor_id: "Sample-0012345" });
   assert.equal(d.$("bs-dlg-root"), null, "the dialog closes");
   assert.equal(d.rows()[0].all((n) => n.classList.contains("acct-set-value"))[0].textContent, "Sample-0012345");
   assert.deepEqual(d.toasts, ["Saved"]);
-  assert.equal(d.$("st-live").textContent, "Saved.");
+  assert.equal(d.$("bs-live").textContent, "Saved.");
   assert.equal(d.doc.activeElement, d.$("st-edit"), "focus returns to Edit");
+  const cards = d.cards();
+  assert.equal(cards.filter((c) => c.id === "st-card").length, 1, "the card replaced itself");
+  assert.equal(cards[cards.length - 1], d.card(), "and is still the last card");
 });
 
 test("blank is allowed and removes the ID; the page adds no rule of its own", async () => {
@@ -173,7 +238,7 @@ test("a refused value: the server's own message under the field, the dialog stay
   assert.equal(d.$("st-dlg-err").hidden, true);
   assert.equal(d.$("st-dlg-save").disabled, false);
   assert.equal(d.$("st-dlg-save").textContent, "Save");
-  assert.ok(d.root.textContent.includes("OLD-1"));
+  assert.ok(d.card().textContent.includes("OLD-1"));
   assert.deepEqual(d.toasts, []);
 });
 
@@ -233,7 +298,17 @@ test("Saving…: Save cannot be pressed twice, Cancel still works, and a late an
   assert.equal(d.rows()[0].all((n) => n.classList.contains("acct-set-value"))[0].textContent, "AB-1", "the row shows what the server saved");
 });
 
-test("a 404 on a Santé site is handled like a site that has gone: say so and read again, once", async () => {
+test("a 404: on the read there is no card and Business Settings is untouched; on a save Business Settings reads again and says what it finds", async () => {
+  /* The Santé settings surface switched off (or not answering for this site): no card, one request, no second try. */
+  const off = boot({ routes: (method, p) => (SANTE_PATH.test(p) ? NOT_FOUND : null) });
+  await off.show();
+  assert.deepEqual(off.list(), ["GET /sites/", `GET /sites/${A}/business-profile/`, `GET /sites/${A}/sante/settings/`]);
+  assert.equal(off.card(), null);
+  assert.deepEqual(off.cards().map((c) => c.getAttribute("aria-labelledby")), ["bs-h-ready", "bs-h-id", "bs-h-contact", "bs-h-web", "bs-h-legal", "bs-h-del"]);
+  assert.equal(off.$("bs-notice"), null);
+  assert.ok(!off.root.textContent.includes("not available."), "a 404 here says nothing about the site");
+
+  /* The site removed while the dialog was open: the dialog closes and Business Settings' own read handles it. */
   let removed = false;
   const d = boot({ sites: [SITE_A, SITE_B], routes: (method, p, body, state) => {
     if (method !== "PATCH") return null;
@@ -246,128 +321,99 @@ test("a 404 on a Santé site is handled like a site that has gone: say so and re
   await d.save("AB-1");
   assert.ok(removed);
   assert.equal(d.$("bs-dlg-root"), null);
-  assert.deepEqual(d.list().slice(mark), [`PATCH /sites/${A}/sante/settings/`, "GET /sites/", `GET /sites/${B}/sante/settings/`]);
-  assert.equal(d.$("st-notice").textContent, "This site is not available.");
-  assert.equal(d.$("st-live").textContent, "This site is not available.");
+  assert.deepEqual(d.list().slice(mark), [`PATCH /sites/${A}/sante/settings/`, "GET /sites/", `GET /sites/${B}/business-profile/`, `GET /sites/${B}/sante/settings/`]);
   assert.ok(d.page.textContent.includes(SITE_B.display_name) && !d.page.textContent.includes(SITE_A.display_name));
-
-  /* The switch off, or a site gone on both reads: two reads, then the plain box with Try again. */
-  const off = boot({ routes: (method, p) => (/sante\/settings/.test(p) ? NOT_FOUND : null) });
-  await off.show();
-  assert.deepEqual(off.list(), ["GET /sites/", `GET /sites/${A}/sante/settings/`, "GET /sites/", `GET /sites/${A}/sante/settings/`]);
-  assert.equal(off.root.all((n) => n.tagName === "H2")[0].textContent, "This site is not available.");
-  assert.equal(off.$("st-site-line").hidden, true);
-  assert.ok(!off.root.textContent.includes("only for Santé sites"), "a 404 never decides 'not a Santé site'");
-  off.root.all((n) => n.tagName === "BUTTON")[0].fire("click");
-  await settle();
-  assert.equal(off.calls.length, 8, "Try again reads again");
+  assert.ok(d.card(), "the remaining Santé site has its own card");
+  assert.deepEqual(d.toasts, []);
 });
 
-test("not a Santé site, address opened directly: the plain card, decided from template, with no settings request", async () => {
-  const d = boot({ sites: [site(A, "Nena's Other Shop", "nenaother", "basic")] });
-  await d.show();
-  assert.deepEqual(d.list(), ["GET /sites/"]);
-  const card = d.byClass("ph-card");
-  assert.equal(card.length, 1);
-  assert.deepEqual(card[0].children.map((n) => n.textContent), ["Not for this site", "Santé setup is only for Santé sites",
-    "This site is not a Santé site, so there is nothing to set up here.", "Back to Overview"]);
-  assert.ok(card[0].children[0].classList.contains("chip-neutral"));
-  assert.equal(card[0].children[3].getAttribute("href"), "/");
-  assert.equal(d.$("st-site-line").hidden, true);
-  assert.equal(d.$("st-edit"), null);
-  assert.equal(d.tab.hidden, true);
-  assert.equal(d.tile.hidden, true);
-  assert.ok(!quick(d).includes("Santé setup"));
-});
+test("the card's own states: nothing while it reads, and a failed read keeps Business Settings usable with Try again in the card", async () => {
+  let release;
+  const held = new Promise((r) => { release = r; });
+  const slow = boot({ sponsor: "AB-1", routes: (method, p) => (SANTE_PATH.test(p) ? held.then(() => null) : null) });
+  slow.window.NOBusiness.show();
+  for (let i = 0; i < 6; i++) await tick();
+  assert.equal(slow.cards().length, 6, "Business Settings is drawn without waiting for the card");
+  assert.equal(slow.card(), null);
+  release(); await settle();
 
-test("page states: loading, a failed load, no site yet", async () => {
-  const d = boot();
-  d.N.show();
-  const skel = d.byClass("skel");
-  assert.equal(skel.length, 1);
-  assert.equal(skel[0].getAttribute("aria-busy"), "true");
-  assert.equal(d.byClass("skel-block").length, 1, "one card, so one block");
-  assert.equal(d.$("st-site-line").hidden, true);
-  await settle();
-  assert.equal(d.byClass("skel").length, 0);
-
-  for (const routes of [() => ({ status: 500, body: {} }), (m, p) => (/sante/.test(p) ? { status: 500, body: {} } : null),
-    (m, p) => (/sante/.test(p) ? { status: 403, body: { error: { code: "billing_only", message: "No." } } } : null)]) {
-    const failed = boot({ routes });
+  for (const routes of [(m, p) => (SANTE_PATH.test(p) ? { status: 500, body: {} } : null),
+    (m, p) => (SANTE_PATH.test(p) ? Promise.reject(new Error("offline")) : null),
+    (m, p) => (SANTE_PATH.test(p) ? { status: 403, body: { error: { code: "billing_only", message: "No." } } } : null)]) {
+    let fail = true;
+    const failed = boot({ sponsor: "AB-1", routes: (m, p) => (fail ? routes(m, p) : null) });
     await failed.show();
-    const box = failed.byClass("err-box")[0];
+    const card = failed.card(), cards = failed.cards();
+    assert.equal(cards.length, 7);
+    assert.equal(cards[6], card, "still the last card");
+    assert.equal(card.all((n) => n.tagName === "H2")[0].textContent, "Sponsor ID");
+    const box = card.all((n) => n.classList.contains("err-box"))[0];
     assert.equal(box.getAttribute("role"), "alert");
-    assert.deepEqual(box.children.map((n) => n.textContent), ["We could not load this site’s Santé setup", "Check your connection and try again. Nothing was changed.", "Try again"]);
-    assert.equal(failed.$("st-site-line").hidden, true);
+    assert.deepEqual(box.children.map((n) => n.textContent), ["We could not load the sponsor ID. Check your connection and try again. Nothing was changed.", "Try again"]);
+    assert.equal(failed.$("st-edit"), null);
+    assert.ok(failed.$("bs-edit-name"), "the rest of the page is there");
+    fail = false;
     const before = failed.calls.length;
-    box.children[2].fire("click");
+    box.children[1].fire("click");
     await settle();
-    assert.ok(failed.calls.length > before, "Try again reads again");
+    assert.deepEqual(failed.list().slice(before), [`GET /sites/${A}/sante/settings/`], "Try again reads the card only");
+    assert.ok(failed.card().textContent.includes("AB-1"));
+    assert.equal(failed.cards().filter((c) => c.id === "st-card").length, 1);
   }
+});
 
-  const none = boot({ sites: [] });
-  await none.show();
-  assert.deepEqual(none.list(), ["GET /sites/"]);
-  assert.deepEqual(none.byClass("ph-card")[0].children.map((n) => n.textContent), ["No site yet", "Create your site first",
-    "Santé setup opens once your first site is created. Finish the setup on Overview.", "Back to Overview"]);
-  assert.equal(none.$("st-site-line").hidden, true);
+test("a Business Settings save redraws the page and keeps the card without reading it again", async () => {
+  const d = boot({ sponsor: "AB-1" });
+  await d.show();
+  d.$("bs-edit-name").fire("click");
+  d.$("bs-f-business_name").value = "Nena's New Name";
+  d.form().fire("submit");
+  await settle();
+  assert.deepEqual(d.sante(), [`GET /sites/${A}/sante/settings/`]);
+  const cards = d.cards();
+  assert.equal(cards[cards.length - 1], d.card());
+  assert.ok(d.card().textContent.includes("AB-1"));
+  assert.ok(d.root.textContent.includes("Nena's New Name"));
+  d.open();
+  await d.save("AB-2");
+  assert.ok(d.card().textContent.includes("AB-2"), "and the card still saves");
 });
 
 test("leaving the page closes the dialog, and an answer that arrives afterwards is not drawn", async () => {
   let release;
   const held = new Promise((r) => { release = r; });
   let hold = false;
-  const d = boot({ sponsor: "OLD-1", routes: (method, p) => (hold && /sante/.test(p) ? held.then(() => ({ status: 200, body: { sponsor_id: "LATE", registration_ready: true, catalog_owner: false } })) : null) });
+  const d = boot({ sponsor: "OLD-1", routes: (method, p) => (hold && SANTE_PATH.test(p) ? held.then(() => ({ status: 200, body: { sponsor_id: "LATE", registration_ready: true, catalog_owner: false } })) : null) });
   await d.show();
   const stale = d.open();
-  d.N.hide();
+  d.G.hide();
   assert.equal(d.$("bs-dlg-root"), null);
   const mark = d.calls.length;
   stale.fire("submit");
   await settle();
   assert.equal(d.calls.length, mark, "a form from before sends nothing");
   hold = true;
-  d.N.show();
-  d.N.hide();
+  d.G.show();
+  await settle();
+  d.G.hide();
   release(); await settle();
   assert.ok(!d.page.textContent.includes("LATE"));
-  assert.equal(d.rows().length, 0);
+
+  /* A save still on its way when the page is left: its answer is not drawn and nothing is announced. */
+  let free;
+  const wait = new Promise((r) => { free = r; });
+  const late = boot({ sponsor: "OLD-1", routes: (method) => (method === "PATCH" ? wait.then(() => null) : null) });
+  await late.show();
+  late.open();
+  late.$("bs-f-sponsor_id").value = "NEW-1";
+  late.form().fire("submit");
+  late.G.hide();
+  free(); await settle();
+  assert.deepEqual(late.toasts, []);
+  assert.ok(!late.page.textContent.includes("NEW-1"));
 });
 
-test("the tab, the tile and the quick link appear only once the site is known to be a Santé site", async () => {
-  const d = boot();
-  assert.equal(d.tab.hidden, true);
-  assert.ok(!quick(d).includes("Santé setup"));
-  d.N.nav(); d.N.nav();
-  await settle();
-  assert.deepEqual(d.list(), ["GET /sites/"], "one read, however often it is asked");
-  assert.equal(d.tab.hidden, false);
-  assert.equal(d.tile.hidden, false);
-  const links = d.D.quickLinks(), at = quick(d).indexOf("Santé setup");
-  assert.deepEqual(Array.from(links[at]).slice(0, 3), ["Santé setup", "Settings", "/settings/sante/"]);
-  assert.equal(quick(d)[at - 1], "Business Settings", "it follows Business Settings");
-  d.N.nav();
-  await settle();
-  assert.equal(d.calls.length, 1, "already known: no further read");
-
-  const other = boot({ sites: [site(A, "Other", "other", "basic")] });
-  other.N.nav(); await settle();
-  assert.equal(other.tab.hidden, true);
-  const none = boot({ sites: [] });
-  none.N.nav(); await settle();
-  assert.equal(none.tab.hidden, true);
-  const down = boot({ routes: () => ({ status: 500, body: {} }) });
-  down.N.nav(); await settle();
-  assert.equal(down.tab.hidden, true, "a failed read shows nothing");
-
-  const page = boot();
-  page.N.show(); page.N.nav();
-  await settle();
-  assert.deepEqual(page.list(), ["GET /sites/", `GET /sites/${A}/sante/settings/`], "the page's own read serves the menu too");
-  assert.equal(page.tab.hidden, false);
-});
-
-test("the page stores nothing in the browser and calls only its two /sites/ routes", async () => {
+test("the card stores nothing in the browser and calls only its one /sites/ route", async () => {
   const d = boot();
   await d.show();
   d.open();
@@ -375,16 +421,27 @@ test("the page stores nothing in the browser and calls only its two /sites/ rout
   assert.deepEqual(d.stored, []);
   assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(SRC));
   assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon|innerHTML/.test(SRC));
-  for (const c of d.calls) assert.match(c.path, /^\/sites\/(site_[0-9a-z]{20}\/sante\/settings\/)?$/, c.method + " " + c.path);
+  const made = [...SRC.matchAll(/\bD\.(?:call|send)\(\s*"([A-Z]+)"\s*,\s*([^,]+),/g)].map((m) => m[1] + " " + m[2].trim());
+  assert.deepEqual(made, ['GET "/sites/" + site.id + PATH', 'PATCH "/sites/" + siteId + PATH'], "the sites list is Business Settings' read, not this file's");
+  for (const c of d.calls) assert.match(c.path, /^\/sites\/(site_[0-9a-z]{20}\/(sante\/settings\/|business-profile\/))?$/, c.method + " " + c.path);
   assert.deepEqual(Object.keys(d.patches()[0].body), ["sponsor_id"]);
 });
 
-test("the address, the browser title, the hooks and the script are wired in", () => {
-  const dash = read("dashboard.js");
-  assert.ok(dash.includes('"/settings/sante/": { view: "settings-sante", title: "Santé setup | NegosyoOnline" }'));
-  assert.match(dash, /var VIEWS = \[[^\]]*"settings-general", "settings-sante", "settings-plans"/);
-  assert.ok(/<section class="view" id="view-settings-sante" aria-labelledby="h-settings-sante" hidden>\s*<header class="view-head"><p class="dash-eyebrow">Settings<\/p><h1 id="h-settings-sante" tabindex="-1">Santé setup<\/h1>/.test(HTML));
-  for (const id of ["st-site-line", "st-root", "st-live"]) assert.equal((HTML.match(new RegExp('id="' + id + '"', "g")) || []).length, 1, id);
+test("Santé setup is no longer a page: no view, tab, tile, quick link or styles of its own, and the old address goes to Business Settings", () => {
+  const dash = read("dashboard.js"), app = read("app.js");
+  assert.ok(!HTML.includes("view-settings-sante") && !HTML.includes("h-settings-sante"));
+  for (const id of ["st-site-line", "st-root", "st-live"]) assert.ok(!HTML.includes('id="' + id + '"'), id);
+  assert.ok(!/href="\/settings\/sante\/"/.test(HTML), "no link to the old address");
+  assert.ok(!HTML.includes("data-sante") && !HTML.includes("Santé setup"));
+  assert.ok(!/sante/i.test(app), "app.js has no Santé quick link and no Santé switch");
+  assert.ok(!/sante/i.test(CSS), "no style rule names the old page");
+  assert.ok(!dash.includes("settings-sante") && !dash.includes("NOSante"), "no view and no page hooks");
+  assert.match(dash, /var VIEWS = \[[^\]]*"settings-general", "settings-plans"/);
+  /* The old address: not a page of its own, rewritten to Business Settings before the route is looked up. */
+  assert.ok(dash.includes('var MOVED = { "/settings/sante/": "/settings/business/" };'));
+  assert.ok(dash.includes("if (has(MOVED, p)) p = MOVED[p];"));
+  assert.ok(!/"\/settings\/sante\/":\s*\{/.test(dash), "it is not in ROUTES");
   const scripts = [...HTML.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
   assert.ok(scripts.indexOf("sante") > scripts.indexOf("business"), "sante.js loads after business.js, whose dialog it uses");
+  assert.deepEqual(Object.keys(boot().window.NOSante), ["mount", "reset"]);
 });

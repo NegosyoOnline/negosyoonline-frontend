@@ -20,7 +20,7 @@ Staff sign in here with an emailed code and an authenticator or recovery code. *
 | Path | File |
 | --- | --- |
 | `/sign-in/`, `/code/`, `/verify/` | `public/auth.html`, `assets/js/auth.js` |
-| `/` | `public/index.html`, `assets/js/console.js`, and the side menu from `assets/js/menu.js` (one line per page) |
+| `/` | `public/index.html`, `assets/js/console.js`, the side menu from `assets/js/menu.js` (one line per page), and the user card and Sign out from `assets/js/shell.js` (loaded after `hq.js` and `menu.js`, before the page's own script, which calls `NOHqShell.signedIn(email)`) |
 | any other path | `public/not-found.html` |
 
 Shared: `assets/js/hq.js` (the client), `assets/js/theme.js`, `assets/css/hq.css`.

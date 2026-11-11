@@ -559,7 +559,7 @@ test("Reject payment opens a dialog with the reason list at its first line and a
   assert.equal(p.node["mr-sub"].textContent, "Ana's Store");
   assert.equal(p.node.reason.value, "");
   assert.equal(p.node.note.value, "");
-  assert.equal(p.doc.activeElement, p.node.reason);
+  assert.equal(p.doc.activeElement, p.node.reason.parentNode.all((n) => n.tagName === "INPUT")[0], "focus lands in the dropdown's own box");
   assert.equal(p.doc.body.classList.contains("modal-open"), true);
   p.node["reject-x"].fire("click");
   assert.equal(p.node["m-reject"].hidden, true);
@@ -791,4 +791,110 @@ test("one light red serves the Reject buttons, the badge and the rule, in both t
   assert.doesNotMatch(css, /#B42318/);
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   for (const bg of ["#DC3232", "#CF2C2C"]) assert.ok((lum("#FFFFFF") + 0.05) / (lum(bg) + 0.05) >= 4.5, bg);
+});
+
+/* ---- the reason dropdown: the house dropdown, not the browser's own list ---- */
+function reasonBox(p) {
+  const wrap = p.node.reason.parentNode;
+  return { wrap, input: wrap.all((n) => n.tagName === "INPUT")[0], panel: wrap.all((n) => n.classList.contains("fin-combo-panel"))[0],
+    rows: () => wrap.all((n) => n.classList.contains("fin-combo-opt")) };
+}
+const key = (b, k) => b.input.fire("keydown", { key: k });
+
+test("the reason is the house dropdown: one box, the list directly below it, and no browser popup", async () => {
+  const p = await opened();
+  p.node["open-reject"].fire("click");
+  const b = reasonBox(p);
+  assert.ok(b.wrap.classList.contains("fin-combo"));
+  assert.equal(p.node.reason.getAttribute("aria-hidden"), "true");
+  assert.equal(b.input.getAttribute("placeholder"), "Choose a reason");
+  assert.equal(b.wrap.classList.contains("is-open"), false);
+  b.input.parentNode.fire("click");
+  assert.equal(b.wrap.classList.contains("is-open"), true);
+  assert.equal(b.input.getAttribute("aria-expanded"), "true");
+  assert.deepEqual(b.rows().map((r) => r.textContent), ["The proof cannot be read", "The amount is not the amount due",
+    "The money has not arrived", "Sent to a different account", "This payment was already counted", "Another reason (write a note)"]);
+  assert.equal(b.panel.style.top, "250px", "6 pixels under the box, which ends at 244");
+  assert.equal(b.panel.style.left, "20px");
+  assert.equal(b.panel.style.width, "300px");
+  assert.equal(b.panel.style.bottom, "auto");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.match(css, /\.fin-combo-panel \{ display: none; position: fixed;/);
+  assert.match(css, /\.fin-combo\.is-open \.fin-combo-panel \{ display: block; \}/);
+  assert.match(css, /\.fin-combo-box:focus-within \{ border-color: var\(--link\); box-shadow: 0 0 0 1px var\(--link\); \}/);
+  assert.doesNotMatch(css, /fin-combo[^{]*\{[^}]*#(?:C8A24A|D4A93A)/i, "no gold");
+});
+
+test("choosing a reason sets it, closes the list and shows it in the box; the reason is then sent", async () => {
+  const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
+  p.node["open-reject"].fire("click");
+  const b = reasonBox(p);
+  b.input.parentNode.fire("click");
+  b.rows()[2].fire("click");
+  assert.equal(p.node.reason.value, "not_received");
+  assert.equal(b.input.value, "The money has not arrived");
+  assert.equal(b.wrap.classList.contains("is-open"), false);
+  p.node["reject-form"].fire("submit");
+  await settle();
+  assert.deepEqual(p.sent(R)[0].body, { payment: "btp_one", reason: "not_received", note: "" });
+});
+
+test("the keyboard chooses: arrows move, Enter picks, and Escape closes the list but not the dialog", async () => {
+  const p = await opened();
+  p.node["open-reject"].fire("click");
+  const b = reasonBox(p);
+  key(b, "ArrowDown");
+  assert.equal(b.wrap.classList.contains("is-open"), true);
+  key(b, "ArrowDown"); key(b, "ArrowDown");
+  assert.equal(b.rows()[1].classList.contains("is-active"), true);
+  key(b, "ArrowUp");
+  assert.equal(b.rows()[0].classList.contains("is-active"), true);
+  key(b, "ArrowUp");
+  assert.equal(b.rows()[5].classList.contains("is-active"), true, "it wraps");
+  const esc = key(b, "Escape");
+  assert.equal(esc.prevented, true);
+  assert.equal(b.wrap.classList.contains("is-open"), false);
+  assert.equal(p.node["m-reject"].hidden, false, "the dialog is still open");
+  key(b, "ArrowDown"); key(b, "ArrowDown"); key(b, "ArrowDown");
+  key(b, "Enter");
+  assert.equal(p.node.reason.value, "amount_mismatch");
+  assert.equal(b.input.value, "The amount is not the amount due");
+  key(b, "Enter");
+  assert.equal(b.wrap.classList.contains("is-open"), true, "Enter on a closed list opens it");
+  key(b, "Escape");
+  p.doc.fire("keydown", { key: "Escape" });
+  assert.equal(p.node["m-reject"].hidden, true, "Escape with the list shut closes the dialog");
+});
+
+test("typing filters the reasons; a reopened dialog starts empty; a refused promo proof pre-fills Duplicate", async () => {
+  const p = await opened();
+  p.node["open-reject"].fire("click");
+  const b = reasonBox(p);
+  b.input.value = "ACCOUNT";
+  b.input.fire("input");
+  assert.deepEqual(b.rows().map((r) => r.textContent), ["Sent to a different account"]);
+  b.input.value = "zzz";
+  b.input.fire("input");
+  assert.equal(b.rows()[0].textContent, "No matches");
+  b.input.value = "";
+  b.input.fire("input");
+  b.rows()[0].fire("click");
+  assert.equal(p.node.reason.value, "unreadable");
+  p.node["reject-x"].fire("click");
+  p.node["open-reject"].fire("click");
+  assert.equal(p.node.reason.value, "");
+  assert.equal(b.input.value, "", "the box is emptied with the value");
+  const q = await opened({ [C]: [409, refused("plan_not_offered")] });
+  confirmDialog(q, "4,999.00");
+  await settle(); q.tick(); await settle();
+  assert.equal(q.node.reason.value, "duplicate");
+  assert.equal(reasonBox(q).input.value, "This payment was already counted");
+});
+
+test("the Finance page has no other native select, and the dropdown never takes the dialog's Tab stops", () => {
+  const html = fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8");
+  assert.equal((html.match(/<select/g) || []).length, 1, "the one native select is the hidden source of truth");
+  assert.match(html, /<select class="input" id="reason" tabindex="-1" aria-hidden="true"/);
+  const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
+  assert.doesNotMatch(js, /tagName === "SELECT"/);
 });

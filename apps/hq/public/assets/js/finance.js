@@ -227,8 +227,81 @@
 
   /* ---- the two dialogs ---- */
 
+  /* The house dropdown (the shared twc-select, as the Subscriber dashboard's payments.js builds it): one box, the
+     option panel directly below it, a typing filter, and textContent only. The native select stays the source of
+     truth, hidden, so the form code reads its value unchanged. Escape closes the list only, never the dialog. */
+  function combo(select, label, choices) {
+    var wrap = el("div", "fin-combo"), box = el("div", "fin-combo-box"), panel = el("div", "fin-combo-panel"), rows = [], vals = [], active = -1;
+    var input = el("input", "fin-combo-input");
+    input.setAttribute("type", "text"); input.setAttribute("role", "combobox"); input.setAttribute("autocomplete", "off");
+    input.setAttribute("spellcheck", "false"); input.setAttribute("placeholder", choices[0][1]); input.setAttribute("aria-label", label);
+    input.setAttribute("aria-autocomplete", "list"); input.setAttribute("aria-expanded", "false");
+    input.setAttribute("aria-controls", select.id + "-list"); input.setAttribute("aria-describedby", "reject-err");
+    panel.setAttribute("id", select.id + "-list"); panel.setAttribute("role", "listbox");
+    select.parentNode.insertBefore(wrap, select);
+    select.setAttribute("class", "fin-combo-native"); select.setAttribute("aria-hidden", "true");
+    wrap.appendChild(select); box.appendChild(input); box.appendChild(el("span", "fin-combo-caret")); wrap.appendChild(box); wrap.appendChild(panel);
+    function chosen() { var c = choices.filter(function (x) { return x[0] === select.value && x[0]; })[0]; return c ? c[1] : ""; }
+    function isOpen() { return wrap.classList.contains("is-open"); }
+    function mark(i) {
+      active = i;
+      rows.forEach(function (r, n) { r.classList.toggle("is-active", n === i); });
+      if (i >= 0) input.setAttribute("aria-activedescendant", rows[i].id); else input.removeAttribute("aria-activedescendant");
+    }
+    function pick(value) { select.value = value; input.value = chosen(); shut(); }
+    function draw(q) {
+      panel.textContent = ""; rows = []; vals = [];
+      choices.forEach(function (c) {
+        if (!c[0] || (q && c[1].toLowerCase().indexOf(q) < 0)) return;
+        var row = el("div", "fin-combo-opt" + (c[0] === select.value ? " is-selected" : ""), c[1]);
+        row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(c[0] === select.value));
+        row.addEventListener("click", function () { pick(c[0]); });
+        rows.push(row); vals.push(c[0]); panel.appendChild(row);
+      });
+      if (!rows.length) panel.appendChild(el("div", "fin-combo-opt is-disabled", "No matches"));
+      mark(-1);
+    }
+    /* Fixed, so the dialog's scrolling cannot clip it; opens upward only when there is no room below. */
+    function place() {
+      var r = box.getBoundingClientRect(), below = window.innerHeight - r.bottom, up = below < 160 && r.top > below;
+      panel.style.left = r.left + "px"; panel.style.width = r.width + "px";
+      panel.style.maxHeight = Math.max(120, Math.min(320, (up ? r.top : below) - 16)) + "px";
+      panel.style.top = up ? "auto" : (r.bottom + 6) + "px";
+      panel.style.bottom = up ? (window.innerHeight - r.top + 6) + "px" : "auto";
+    }
+    function onScroll(e) { if (!inside(panel, e.target)) shut(); }
+    function onDoc(e) { if (!inside(wrap, e.target)) shut(); }
+    function open() {
+      if (isOpen()) return;
+      wrap.classList.add("is-open"); input.setAttribute("aria-expanded", "true");
+      draw(""); place();
+      window.addEventListener("resize", place); document.addEventListener("scroll", onScroll, true); document.addEventListener("click", onDoc);
+    }
+    function shut() {
+      wrap.classList.remove("is-open"); input.setAttribute("aria-expanded", "false"); input.value = chosen(); mark(-1);
+      window.removeEventListener("resize", place); document.removeEventListener("scroll", onScroll, true); document.removeEventListener("click", onDoc);
+    }
+    box.addEventListener("click", function () { open(); input.focus(); });
+    select.addEventListener("focus", function () { input.focus(); });
+    input.addEventListener("focus", function () { if (input.select) input.select(); });
+    input.addEventListener("input", function () { open(); draw(String(input.value).trim().toLowerCase()); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Tab") { shut(); return; }
+      if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); shut(); return; } /* the dialog stays open */
+      if (e.key === "Enter") { e.preventDefault(); if (active >= 0) pick(vals[active]); else open(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      if (!isOpen()) { open(); return; }
+      var d = e.key === "ArrowDown" ? 1 : -1, n = rows.length;
+      if (n) mark(active < 0 ? (d > 0 ? 0 : n - 1) : (active + d + n) % n);
+    });
+    input.value = chosen();
+    return { input: input, sync: function () { shut(); input.value = chosen(); } };
+  }
+
+
   function focusables(box) {
-    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "SELECT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
+    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
   }
   function inside(box, n) { for (; n; n = n.parentNode) if (n === box) return true; return false; }
   function onKey(e) {
@@ -295,7 +368,7 @@
       }
       if (res.status === 409 && words(REFUSED, res.code)) {
         where.fail(REFUSED[res.code]);
-        if (res.code === "plan_not_offered") $("reason").value = "duplicate";
+        if (res.code === "plan_not_offered") { $("reason").value = "duplicate"; reasonBox.sync(); }
         return;
       }
       where.fail(LOST);
@@ -336,6 +409,7 @@
   });
 
   /* Reject payment */
+  var reasonBox = combo($("reason"), "Reason", [["", "Choose a reason"]].concat(Object.keys(REASON).map(function (k) { return [k, REASON[k]]; })));
   var REJECT = {
     bar: function () {},
     fail: function (text) { say("reject-err", text); },
@@ -344,10 +418,11 @@
   $("open-reject").addEventListener("click", function () {
     if (busy || !current) return;
     $("reason").value = "";
+    reasonBox.sync();
     $("note").value = "";
     say("reject-err", "");
     $("mr-sub").textContent = (current.site || {}).name || "";
-    openDialog("m-reject", $("open-reject"), $("reason"));
+    openDialog("m-reject", $("open-reject"), reasonBox.input);
   });
   $("reject-x").addEventListener("click", function () { if (!busy) closeDialog(true); });
   $("reject-form").addEventListener("submit", function (e) {

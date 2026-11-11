@@ -26,7 +26,7 @@ export function open(files, { ids = [], pathname = "/sign-in/", answers, globals
   const location = { pathname, assigned: null, replaced: null,
     assign(u) { this.assigned = u; }, replace(u) { this.replaced = u; } };
   const history = { pushState(s, t, u) { location.pathname = u; }, replaceState(s, t, u) { location.pathname = u; } };
-  const window = { NO_HQ_CONFIG: { staffApi: BASE }, addEventListener(type, fn) { heard[type] = fn; } };
+  const window = { NO_HQ_CONFIG: { staffApi: BASE }, innerHeight: 800, addEventListener(type, fn) { heard[type] = fn; }, removeEventListener(type) { delete heard[type]; } };
   const fetch = (url, opts) => {
     const call = { url, method: opts.method, credentials: opts.credentials, headers: opts.headers,
       body: opts.body ? JSON.parse(opts.body) : undefined };

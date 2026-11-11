@@ -25,7 +25,8 @@ import {
 import { packContext } from "../views/sante/pack-page.ts";
 import { landingDocument } from "../views/sante/pack-landing.ts";
 
-export const ONBOARDING_PATH = "/funnel/membership-pack/onboarding/";
+export { ONBOARDING_PATH } from "../views/sante/pack-onboarding.ts";
+import { ONBOARDING_PATH } from "../views/sante/pack-onboarding.ts";
 
 /** The fields of the transfer sheet, in the order the buyer sees them. */
 export const TRANSFER_FIELDS = [

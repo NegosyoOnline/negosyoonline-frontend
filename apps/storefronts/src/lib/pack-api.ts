@@ -203,3 +203,136 @@ export function fetchAgreementPdf(id: number, host: string, c: Calls) {
 export function fetchAccountQr(id: string, host: string, c: Calls) {
   return packFile(`payment-accounts/${encodeURIComponent(id)}/qr/`, host, c);
 }
+
+/* ---- onboarding after payment, the Completed step, the order-access link and the ZIP lookup ---------------------- */
+
+export type OnboardingStep = "verify" | "address" | "details" | "done";
+
+export type OnboardingState = {
+  step: OnboardingStep;
+  order_number: string;
+  buyer_first_name: string;
+  mobile_masked: string;
+  mobile: { pending: boolean; mobile: string; locked: boolean; code_sent_to: string; resend_in: number; attempts_left: number };
+  email: { verified: boolean; email: string; masked: string; code_sent: boolean; resend_in: number; attempts_left: number };
+  address: { country: string; receiver_name: string; receiver_mobile: string; line: string; barangay: string; city: string; province: string; zip: string; landmark: string };
+  details_erased: boolean;
+  registration_held: { label: string; line: string } | null;
+  expires_at: string;
+};
+
+const STEPS = new Set(["verify", "address", "details", "done"]);
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const num = (v: unknown, fallback: number): number => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+
+export function parseOnboardingState(b: unknown): OnboardingState | null {
+  if (!record(b) || typeof b.step !== "string" || !STEPS.has(b.step) || typeof b.order_number !== "string") return null;
+  const mobile = record(b.mobile) ? b.mobile : {};
+  const email = record(b.email) ? b.email : {};
+  const address = record(b.address) ? b.address : {};
+  const held = record(b.registration_held) ? { label: str(b.registration_held.label), line: str(b.registration_held.line) } : null;
+  return {
+    step: b.step as OnboardingStep,
+    order_number: b.order_number,
+    buyer_first_name: str(b.buyer_first_name),
+    mobile_masked: str(b.mobile_masked),
+    mobile: {
+      pending: mobile.pending === true, mobile: str(mobile.mobile), locked: mobile.locked === true,
+      code_sent_to: str(mobile.code_sent_to), resend_in: num(mobile.resend_in, 0), attempts_left: num(mobile.attempts_left, 5),
+    },
+    email: {
+      verified: email.verified === true, email: str(email.email), masked: str(email.masked), code_sent: email.code_sent === true,
+      resend_in: num(email.resend_in, 0), attempts_left: num(email.attempts_left, 5),
+    },
+    address: {
+      country: str(address.country) || "Philippines", receiver_name: str(address.receiver_name), receiver_mobile: str(address.receiver_mobile),
+      line: str(address.line), barangay: str(address.barangay), city: str(address.city), province: str(address.province),
+      zip: str(address.zip), landmark: str(address.landmark),
+    },
+    details_erased: b.details_erased === true,
+    registration_held: held,
+    expires_at: str(b.expires_at),
+  };
+}
+
+const parseState = (b: unknown) => {
+  const s = parseOnboardingState(b);
+  return s ? { ob: s } : null;
+};
+
+type Token = Base & { token: string };
+
+export function onboardingState(args: Token, c: Calls) {
+  return packPost("onboarding/state", args, parseState, c);
+}
+export function onboardingMobileSend(args: Token & { mobile?: string }, c: Calls) {
+  return packPost("onboarding/mobile/send", args, parseState, c);
+}
+export function onboardingMobileVerify(args: Token & { code: string }, c: Calls) {
+  return packPost("onboarding/mobile/verify", args, parseState, c);
+}
+export function onboardingEmailSend(args: Token, c: Calls) {
+  return packPost("onboarding/email/send", args, parseState, c);
+}
+export function onboardingEmailVerify(args: Token & { code: string }, c: Calls) {
+  return packPost("onboarding/email/verify", args, parseState, c);
+}
+export function onboardingAddress(
+  args: Token & { receiver_name: string; receiver_mobile: string; line: string; province: string; city: string; barangay: string; landmark: string; postal_code: string },
+  c: Calls,
+) {
+  return packPost("onboarding/address", args, parseState, c);
+}
+export function onboardingDetails(
+  args: Token & { dob_year: string; dob_month: string; dob_day: string; desired_username: string; alternate_username: string; terms: boolean },
+  c: Calls,
+) {
+  return packPost("onboarding/details", args, parseState, c);
+}
+
+export type CompletedResult = "issued" | "open" | "stale" | "spent";
+export function onboardingCompleted(args: Token, c: Calls) {
+  return packPost(
+    "onboarding/completed",
+    args,
+    (b) => {
+      if (!record(b) || typeof b.result !== "string" || !["issued", "open", "stale", "spent"].includes(b.result)) return null;
+      return { result: b.result as CompletedResult, session_token: str(b.session_token) };
+    },
+    c,
+  );
+}
+
+export function addressZip(args: Base & { province: string; city: string; barangay: string }, c: Calls) {
+  return packPost(
+    "address/zip",
+    args,
+    (b) => (record(b) && typeof b.ok === "boolean" ? { ok: b.ok, zip_code: str(b.zip_code), zip_precision: str(b.zip_precision) } : null),
+    c,
+  );
+}
+
+export function accessRead(args: Base & { link: string }, c: Calls) {
+  return packPost(
+    "access/read",
+    args,
+    (b) => (record(b) && typeof b.link_open === "boolean" && typeof b.renewable === "boolean" ? { link_open: b.link_open, renewable: b.renewable } : null),
+    c,
+  );
+}
+export function accessRenew(args: Base & { link: string }, c: Calls) {
+  return packPost(
+    "access/renew",
+    args,
+    (b) => (record(b) && typeof b.sent === "boolean" ? { sent: b.sent, link_open: b.link_open === true, renewable: b.renewable === true } : null),
+    c,
+  );
+}
+export function accessRedeem(args: Base & { link: string }, c: Calls) {
+  return packPost(
+    "access/redeem",
+    args,
+    (b) => (record(b) && typeof b.redeemed === "boolean" ? { redeemed: b.redeemed, token: str(b.token), expires_at: str(b.expires_at) } : null),
+    c,
+  );
+}

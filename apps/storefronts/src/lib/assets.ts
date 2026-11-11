@@ -40,6 +40,13 @@ const VERSIONS: Record<string, string> = {
   "js/pack-select.js": "ff1d7b9e",
   "js/pack-agreement-popup.js": "4ef9cb59",
   "js/pack-checkout.js": "47e9b86f", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "css/pack-verify.css": "010f10a2",
+  "js/pack-address.js": "5ba0f831",
+  "js/pack-details-gate.js": "e52d9e8d",
+  "js/pack-terms-popup.js": "7484a35f", // this storefront's own file: the TWCinc terms popup framed the PDF; this one draws it with PDF.js
+  "data/provinces.json": "1926a7f7",
+  "data/city-mun.json": "06b39d0d",
+  "data/barangays.json": "4f4439a8",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
   "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)

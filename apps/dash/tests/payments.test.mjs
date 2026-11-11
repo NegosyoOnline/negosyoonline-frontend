@@ -129,7 +129,7 @@ for (const xendit of ["live", "unset", "failed", null]) {
   });
 }
 
-test("the transfer row and the accounts card are as before: statuses, the switch and the account lines", async () => {
+test("the transfer row and the accounts card are as before, the card now full width: statuses, the switch and the account lines", async () => {
   const d = boot({ accounts: [BDO, GCASH] });
   await d.show();
   const row = d.has(d.root, "pm-method")[0], sw = d.$("pm-sw-direct");
@@ -140,7 +140,7 @@ test("the transfer row and the accounts card are as before: statuses, the switch
   assert.equal(sw.disabled, false);
   assert.equal(sw.getAttribute("role"), "switch");
   const card = d.accountsCard();
-  assert.ok(card.classList.contains("pm-half"), "the accounts card keeps its class");
+  assert.equal(card.attrs["class"], "pm-card", "full width while Xendit is hidden: no pm-half beside an empty half");
   assert.equal(d.has(card, "chip")[0].textContent, "2 accounts added");
   assert.equal(d.has(card, "pm-lead")[0].textContent, "Add the accounts where buyers send their payment. Buyers who choose transfer see these accounts in full at checkout, then upload their proof for you to verify.");
   assert.deepEqual(d.has(card, "pm-acct").map((li) => li.textContent),
@@ -245,6 +245,8 @@ test("hidden, not deleted: one constant, off, and turning it on brings the Xendi
   assert.deepEqual(d.has(d.$("pm-h-xendit").parentNode.parentNode, "chip").map((c) => c.textContent), ["Key stopped working"]);
   assert.ok(d.press(d.root, "Change key") && d.press(d.root, "Remove key"));
   assert.equal(d.has(d.root, "pm-hook").length, 1);
+  assert.equal(d.accountsCard().attrs["class"], "pm-card pm-half", "half width again beside the Xendit card");
+  assert.equal(d.$("pm-h-xendit").parentNode.parentNode.attrs["class"], "pm-card pm-half");
 });
 
 test("index.html loads payments.js under a new version", () => {

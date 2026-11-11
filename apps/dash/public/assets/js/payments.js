@@ -222,7 +222,7 @@
   function accountsCard() {
     var n = data.accounts.length, st = n ? ["ok", n === 1 ? "1 account added" : n + " accounts added"] : ["danger", "No account added yet"];
     var s = card("accounts", "Bank and e-wallet accounts", "Add the accounts where buyers send their payment. Buyers who choose transfer see these accounts in full at checkout, then upload their proof for you to verify.", st);
-    s.classList.add("pm-half");
+    if (XENDIT_SECTION_ENABLED) s.classList.add("pm-half"); /* half width beside the Xendit card; full width while it is hidden */
     var list = h("ul", "pm-list");
     data.accounts.forEach(function (a) {
       var li = h("li", "pm-acct"), info = h("div", "pm-acct-text");

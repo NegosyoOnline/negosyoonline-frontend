@@ -166,6 +166,9 @@ body.dash-app .no-btn-ghost:hover { background: var(--ghost-hover); }
 /* top-right buttons: search, theme, bell, as on the dashboard (44px, 8px apart) */
 body.dash-app a.icon-btn { text-decoration: none; }
 .bell { position: relative; }
+/* Search and bell wait for the Inbox: shown, not active (aria-disabled, no handler), the dashboard's disabled look. */
+.icon-btn[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+.icon-btn[aria-disabled="true"]:hover { background: var(--card); color: var(--text-2); }
 .bell-dot { position: absolute; top: 9px; right: 10px; width: 10px; height: 10px; border: 2px solid var(--card); border-radius: 50%; background: #E8604C; }
 /* status chips and the SMS actions on one line */
 .status-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
@@ -285,7 +288,7 @@ body.dash-app .item { display: grid; grid-template-columns: 44px minmax(0, 1fr) 
   .side { overflow: visible; z-index: 40; }
   .acct-menu { right: auto; width: 320px; max-width: calc(100vw - 32px); }
   .desk-switch { display: flex; gap: 8px; position: absolute; top: 32px; right: 40px; z-index: 1; }
-  .set-tabs { max-width: calc(100% - 172px) !important; }
+  .set-tabs, .fin-tabs { max-width: calc(100% - 172px) !important; margin-bottom: 0 !important; }
   .view-head h1 { font-size: 34px; line-height: 1.15; }
 }
 @media (max-width: 899.98px) {
@@ -348,10 +351,11 @@ body.dash-app .auth-link a { display: inline-flex; align-items: center; min-heig
 @media (max-width: 899.98px) { .phone-only { display: inline-flex; } }
 
 /* Finance: the queue of bank transfer payments and one payment with its proof (ClickUp z8uq9me581). */
-.fin-tabs { display: flex; gap: 4px; max-width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; border-bottom: 1px solid var(--card-line); }
-.fin-tabs button { flex: 0 0 auto; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+/* The Finance tabs are the dashboard's Settings menu, rule for rule (.set-tabs): 15px semi-bold, 12px by 16px, 4px apart, a thin line under the row, the current tab brighter with a 2px blue underline, one swipeable line on a phone. */
+.fin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; margin: 0 0 8px; border-bottom: 1px solid var(--c-block-line); }
+.fin-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .fin-tabs button:hover { color: var(--text); }
-.fin-tabs button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--primary-hover); }
+.fin-tabs button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--primary); }
 .fin-msg { color: var(--banner-text); font-weight: 600; }
 .fin-note { padding: 18px 20px; }
 .fin-pay { display: flex; flex-direction: column; gap: 14px; }

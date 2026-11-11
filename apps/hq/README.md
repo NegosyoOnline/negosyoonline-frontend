@@ -20,7 +20,7 @@ Staff sign in here with an emailed code and an authenticator or recovery code. *
 | Path | File |
 | --- | --- |
 | `/sign-in/`, `/code/`, `/verify/` | `public/auth.html`, `assets/js/auth.js` |
-| `/` | the admin console |
+| `/` | `public/index.html`, `assets/js/console.js`, and the side menu from `assets/js/menu.js` (one line per page) |
 | any other path | `public/not-found.html` |
 
 Shared: `assets/js/hq.js` (the client), `assets/js/theme.js`, `assets/css/hq.css`.

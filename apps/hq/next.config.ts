@@ -17,8 +17,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        /* Stage A: the first page is the sign-in document. Stage B points it at the console. */
-        { source: "/", destination: "/auth.html" },
+        { source: "/", destination: "/index.html" },
         ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
       ],
       afterFiles: [],
@@ -27,7 +26,10 @@ const nextConfig: NextConfig = {
     };
   },
   async redirects() {
-    return [{ source: "/auth.html", destination: "/sign-in/", permanent: false }];
+    return [
+      { source: "/index.html", destination: "/", permanent: false },
+      { source: "/auth.html", destination: "/sign-in/", permanent: false },
+    ];
   },
   async headers() {
     return [

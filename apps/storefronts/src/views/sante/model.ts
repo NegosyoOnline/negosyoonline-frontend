@@ -4,7 +4,7 @@ import type { Site } from "../../lib/django.ts";
 
 export type ContactForm = {
   values: { name: string; email: string; subject: string; message: string };
-  errors: { name?: string; email?: string; message?: string };
+  errors: { name?: string; email?: string; subject?: string; message?: string };
   sent: boolean;
   note: string;
 };
@@ -35,6 +35,10 @@ export type HomeModel = {
    at the top of the page and the post looks like nothing happened. */
 export const CONTACT_PATH = "/contact/#contact-form";
 export const CONTACT_FAILED_NOTE = "We could not send your message. Please try again in a moment.";
+export const CONTACT_LIMITED_NOTE = "Too many messages from this connection. Please try again later.";
+/* Where a sent post goes next, as the approved site does: a fresh GET of the home, so a reload
+   does not send the message twice. The home shows the thank-you line when it is asked this way. */
+export const CONTACT_SENT_PATH = "/?contact=sent#contact-form";
 
 const MAX_NAME = 120;
 const MAX_EMAIL = 254;
@@ -49,21 +53,40 @@ function oneLine(value: string): string {
   return value.replace(/\r/g, "\n").split("\n").join(" ").trim();
 }
 
-/** The form after a post. Sending is not built in this slice, so every post gets the approved
-    "could not send" note with the typed values kept, cut to the form's own limits. */
-export function failedContactForm(posted: URLSearchParams): ContactForm {
+export type ContactErrors = ContactForm["errors"];
+
+/** The four fields a visitor typed, cut to the form's own limits, as the form shows them again. */
+function typedValues(posted: URLSearchParams): ContactForm["values"] {
   const field = (key: string) => posted.get(key) ?? "";
   return {
-    values: {
-      name: oneLine(field("name")).slice(0, MAX_NAME),
-      email: field("email").trim().toLowerCase().slice(0, MAX_EMAIL),
-      subject: oneLine(field("subject")).slice(0, MAX_SUBJECT),
-      message: field("message").trim().slice(0, MAX_MESSAGE),
-    },
-    errors: {},
-    sent: false,
-    note: CONTACT_FAILED_NOTE,
+    name: oneLine(field("name")).slice(0, MAX_NAME),
+    email: field("email").trim().toLowerCase().slice(0, MAX_EMAIL),
+    subject: oneLine(field("subject")).slice(0, MAX_SUBJECT),
+    message: field("message").trim().slice(0, MAX_MESSAGE),
   };
+}
+
+/** The form after a post that was not sent: the approved "could not send" note with the typed
+    values kept. */
+export function failedContactForm(posted: URLSearchParams): ContactForm {
+  return { values: typedValues(posted), errors: {}, sent: false, note: CONTACT_FAILED_NOTE };
+}
+
+/** The form after a post over the limit of messages from one address: the approved site's own
+    line for it, in the note's place, with the typed values kept. */
+export function limitedContactForm(posted: URLSearchParams): ContactForm {
+  return { values: typedValues(posted), errors: {}, sent: false, note: CONTACT_LIMITED_NOTE };
+}
+
+/** The form after a post the API refused for its fields: each error under its own field, the
+    typed values kept, no note. */
+export function invalidContactForm(posted: URLSearchParams, errors: ContactErrors): ContactForm {
+  return { values: typedValues(posted), errors, sent: false, note: "" };
+}
+
+/** The form after a sent message: empty, with the approved thank-you line. */
+export function sentContactForm(): ContactForm {
+  return { ...emptyContactForm(), sent: true };
 }
 
 /** "Ana Reyes" -> "AR", "Ana" -> "A", "Ana Maria Reyes" -> "AR", "" -> "?". */

@@ -11,6 +11,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-storefront.css": "dc54b2a8",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
+  "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",
   "img/category_barley.png": "595b18ab",

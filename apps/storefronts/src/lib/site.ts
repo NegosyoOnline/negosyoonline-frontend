@@ -3,7 +3,11 @@ import { fetchSite, type Site } from "./django.ts";
 import { storefrontEnv } from "./env.ts";
 import { lookupHost, parseAliases } from "./host.ts";
 
+/** The host to ask Django about for this request, or "" when there is nothing to look up. */
+export function requestHost(request: Request): string {
+  return lookupHost(request.headers.get("host"), parseAliases(storefrontEnv().hostAliases));
+}
+
 export async function siteFor(request: Request): Promise<Site | null> {
-  const env = storefrontEnv();
-  return fetchSite(lookupHost(request.headers.get("host"), parseAliases(env.hostAliases)), env);
+  return fetchSite(requestHost(request), storefrontEnv());
 }

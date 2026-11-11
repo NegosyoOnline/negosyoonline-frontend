@@ -43,6 +43,7 @@ class Node {
     (this.listeners[type] || []).slice().forEach((fn) => fn(e));
     return e;
   }
+  click() { this.fire("click"); }
   focus() { this.doc.activeElement = this; }
   all(test = () => true, out = []) {
     for (const n of this.children) { if (test(n)) out.push(n); n.all(test, out); }

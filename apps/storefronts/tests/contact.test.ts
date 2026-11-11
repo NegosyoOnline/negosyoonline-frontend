@@ -5,7 +5,7 @@ import { sendContact, type ContactMessage } from "../src/lib/django.ts";
 import { visitorIp } from "../src/lib/visitor.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import {
-  CONTACT_FAILED_NOTE, homeModel, invalidContactForm, sentContactForm,
+  CONTACT_FAILED_NOTE, CONTACT_LIMITED_NOTE, homeModel, invalidContactForm, sentContactForm,
 } from "../src/views/sante/model.ts";
 import { POST as contactPost, GET as contactGet } from "../src/app/contact/route.ts";
 import { GET as homeGet } from "../src/app/route.ts";
@@ -72,8 +72,16 @@ test("a 400 that names no field the form has is a failure", async () => {
   }
 });
 
-test("not served, no contact email and over the limit are failures, and are not logged", async () => {
-  for (const status of [404, 409, 429]) {
+test("over the limit is its own answer, and is not logged", async () => {
+  const f = fake(json(429, { error: { code: "rate_limited", message: "x" } }));
+  assert.deepEqual(await sendContact(MESSAGE, env, f.fetchImpl, f.log), { state: "limited" });
+  assert.deepEqual(f.logs, []);
+  const bare = fake(() => new Response(null, { status: 429 }));
+  assert.deepEqual(await sendContact(MESSAGE, env, bare.fetchImpl, bare.log), { state: "limited" });
+});
+
+test("not served and no contact email are failures, and are not logged", async () => {
+  for (const status of [404, 409]) {
     const f = fake(json(status, { error: { code: "x", message: "x" } }));
     assert.deepEqual(await sendContact(MESSAGE, env, f.fetchImpl, f.log), { state: "failed" }, String(status));
     assert.deepEqual(f.logs, []);
@@ -273,7 +281,7 @@ test("fields refused: the home again, 400, with the errors and the typed values"
 });
 
 test("every other answer: the home again with the could-not-send note and the typed values", async () => {
-  const answers = [json(409, { error: { code: "no_contact_email" } }), json(429, { error: { code: "rate_limited" } }),
+  const answers = [json(409, { error: { code: "no_contact_email" } }),
     json(503, { error: { code: "email_not_sent" } }), json(401, {}), json(404, {}), json(500, {}),
     () => { throw new TypeError("fetch failed"); }, () => { throw new DOMException("timed out", "TimeoutError"); }];
   for (const contact of answers) {
@@ -287,6 +295,22 @@ test("every other answer: the home again with the could-not-send note and the ty
       assert.doesNotMatch(page, /Thanks! Your message has been sent|class="sf-contact-error"/);
     });
   }
+});
+
+test("over the limit: the home again, 429, with the approved too-many-messages line and the typed values", async () => {
+  await withDjango(json(429, { error: { code: "rate_limited" } }), async () => {
+    const answer = await contactPost(post());
+    assert.equal(answer.status, 429);
+    assert.equal(answer.headers.get("cache-control"), "no-store");
+    const page = await answer.text();
+    assert.equal(CONTACT_LIMITED_NOTE, "Too many messages from this connection. Please try again later.");
+    assert.ok(page.includes(`<p class="sf-contact-status" role="status" style="color: #d33d44;">${CONTACT_LIMITED_NOTE}</p>`));
+    assert.equal(page.match(/class="sf-contact-status"/g)?.length, 1);
+    assert.match(page, /name="name" value="Ana Reyes"/);
+    assert.match(page, /name="subject" value="Hello"/);
+    assert.match(page, />A question<\/textarea>/);
+    assert.doesNotMatch(page, /We could not send|Thanks! Your message has been sent|class="sf-contact-error"/);
+  });
 });
 
 test("a host that is not served: the neutral 404, and the contact call is never made", async () => {

@@ -35,6 +35,7 @@ export type HomeModel = {
    at the top of the page and the post looks like nothing happened. */
 export const CONTACT_PATH = "/contact/#contact-form";
 export const CONTACT_FAILED_NOTE = "We could not send your message. Please try again in a moment.";
+export const CONTACT_LIMITED_NOTE = "Too many messages from this connection. Please try again later.";
 /* Where a sent post goes next, as the approved site does: a fresh GET of the home, so a reload
    does not send the message twice. The home shows the thank-you line when it is asked this way. */
 export const CONTACT_SENT_PATH = "/?contact=sent#contact-form";
@@ -69,6 +70,12 @@ function typedValues(posted: URLSearchParams): ContactForm["values"] {
     values kept. */
 export function failedContactForm(posted: URLSearchParams): ContactForm {
   return { values: typedValues(posted), errors: {}, sent: false, note: CONTACT_FAILED_NOTE };
+}
+
+/** The form after a post over the limit of messages from one address: the approved site's own
+    line for it, in the note's place, with the typed values kept. */
+export function limitedContactForm(posted: URLSearchParams): ContactForm {
+  return { values: typedValues(posted), errors: {}, sent: false, note: CONTACT_LIMITED_NOTE };
 }
 
 /** The form after a post the API refused for its fields: each error under its own field, the

@@ -2,9 +2,11 @@
    which emails it to the store's own contact email; nothing of it is stored or logged here.
 
    Sent: on to the home with the thank-you line, by a redirect, so a reload sends nothing twice.
-   Fields refused: the home again with each error under its field. Anything else (no contact
-   email, over the limit, the API down or slow): the home again with the approved "could not
-   send" note. The typed values are kept in both. Anything that is not a post from a served
+   Fields refused: the home again with each error under its field. Over the limit of messages
+   from one address: the home again with the approved "too many messages" line. Anything else
+   (no contact email, the API down or slow): the home again with the approved "could not send"
+   note. The typed values are kept in all three, and the statuses (400, 429, 200) are the
+   approved site's. Anything that is not a post from a served
    Santé site gets the neutral 404. */
 import { sendContact } from "../../lib/django.ts";
 import { storefrontEnv } from "../../lib/env.ts";
@@ -13,7 +15,9 @@ import { requestHost, siteFor } from "../../lib/site.ts";
 import { visitorIp } from "../../lib/visitor.ts";
 import { neutralNotFound } from "../../views/neutral.ts";
 import { homeDocument } from "../../views/sante/home.ts";
-import { CONTACT_SENT_PATH, failedContactForm, homeModel, invalidContactForm } from "../../views/sante/model.ts";
+import {
+  CONTACT_SENT_PATH, failedContactForm, homeModel, invalidContactForm, limitedContactForm,
+} from "../../views/sante/model.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +57,9 @@ export async function POST(request: Request): Promise<Response> {
   }
   if (result.state === "invalid") {
     return htmlResponse(homeDocument(homeModel(site, invalidContactForm(posted, result.errors))), 400);
+  }
+  if (result.state === "limited") {
+    return htmlResponse(homeDocument(homeModel(site, limitedContactForm(posted))), 429);
   }
   return htmlResponse(homeDocument(homeModel(site, failedContactForm(posted))));
 }

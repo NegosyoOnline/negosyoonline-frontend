@@ -5,8 +5,8 @@
    of the wrong shape or a missing secret all give null, and the caller answers the neutral
    404. The reason goes to the server log, never with the secret or the URL.
 
-   The contact call fails closed the same way: anything but a clear "sent" or a clear list of
-   field errors is "failed". Nothing a visitor typed, and not their address, is ever logged. */
+   The contact call fails closed the same way: anything but a clear "sent", a clear list of
+   field errors or the limit's own answer is "failed". Nothing a visitor typed, and not their address, is ever logged. */
 import type { StorefrontEnv } from "./env.ts";
 
 export type Site = {
@@ -131,10 +131,11 @@ export type ContactFieldErrors = { name?: string; email?: string; message?: stri
 export type ContactResult =
   | { state: "sent" }
   | { state: "invalid"; errors: ContactFieldErrors }
+  | { state: "limited" } // too many messages from this visitor's address in the last hour
   | { state: "failed" };
 
 const FAILED: ContactResult = { state: "failed" };
-const QUIET = [404, 409, 429]; // not served, no contact email, over the limit: everyday answers
+const QUIET = [404, 409]; // not served, no contact email: everyday answers, not logged
 
 function fieldErrors(body: unknown): ContactFieldErrors {
   const fields = record(body) && record(body.error) && record(body.error.fields) ? body.error.fields : {};
@@ -178,6 +179,7 @@ export async function sendContact(
     log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
     return FAILED;
   }
+  if (response.status === 429) return { state: "limited" }; // an everyday answer too, not logged
   if (QUIET.includes(response.status)) return FAILED;
   if (response.status !== 200 && response.status !== 400) {
     log(`the API answered ${response.status}`);

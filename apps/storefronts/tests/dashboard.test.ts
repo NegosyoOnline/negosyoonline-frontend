@@ -224,7 +224,7 @@ test("the Home shows the four tiles, Order Monitoring and View all orders from t
   assert.match(body, /Total Spent<\/span><span class="acct-kpi-value">&#8369;1,488\.00/);
   assert.match(body, /Needs Attention/);
   assert.match(body, /Order Monitoring/);
-  assert.match(body, /▲ \+1 vs last month/);
+  assert.match(body, /&#9650; \+1 vs last month/);
   assert.match(body, /sf-om-h-100/);
   assert.match(body, /<a href="\/dashboard\/orders\/">View all orders<\/a>/);
 });

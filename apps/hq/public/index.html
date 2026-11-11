@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin console | NegosyoOnline HQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/svg+xml" href="/assets/img/negosyoonline-favicon.svg?v=20261111a">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
+<link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
+<script src="/assets/js/theme.js?v=20261111a"></script>
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261111b">
+</head>
+<body class="dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="side dash-chrome" aria-label="HQ navigation">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline</span></a>
+    <div class="side-sep"></div>
+    <div class="ws"><span class="ws-tile" aria-hidden="true">HQ</span><span class="ws-text"><span class="ws-name">NegosyoOnline HQ</span><span class="chip chip-info">Staff only</span></span></div>
+    <div class="side-sep"></div>
+    <nav class="side-nav" id="side-nav" aria-label="HQ sections"></nav>
+    <div class="side-foot">
+      <div class="acct-row"><span class="acct-row-ini" aria-hidden="true" id="acct-ini"></span><span class="acct-row-text"><span class="acct-row-name" id="acct-name"></span><span class="acct-row-sub">Two-step sign-in verified</span></span></div>
+      <button type="button" class="no-btn no-btn-ghost" id="sign-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>Sign out</button>
+    </div>
+  </aside>
+  <header class="topbar dash-chrome">
+    <a class="wordmark" href="/" aria-label="NegosyoOnline HQ home"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline</span></a>
+    <div class="top-actions"><button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button><span class="acct-btn" id="acct-btn"></span></div>
+  </header>
+  <div class="col">
+    <div class="desk-switch"><button type="button" class="icon-btn" id="theme-toggle-2" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
+    <main class="view" id="main" aria-live="polite">
+      <div class="view-head"><div class="head-row"><h1>Admin console</h1></div></div>
+      <p class="dash-copy" id="boot">Loading...</p>
+      <noscript><p class="dash-copy">This page needs JavaScript.</p></noscript>
+      <div class="view" id="v-console" hidden>
+        <section class="dash-card" aria-labelledby="who-h">
+          <div class="batch-title"><h2 id="who-h"></h2><span class="chip chip-ok"><span class="dot" aria-hidden="true"></span>Two-step sign-in verified</span></div>
+          <p class="small" id="times"></p>
+          <p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-2">Sign out</button></p>
+          <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
+        </section>
+        <section class="dash-card list-card" aria-labelledby="events-h">
+          <div class="list-head"><h2 id="events-h">Recent sign-in activity</h2><span class="small">Your last 10 sign-in events.</span></div>
+          <ol class="list" id="events"></ol>
+          <p class="small thread-note" id="events-empty" hidden>No sign-in events yet.</p>
+        </section>
+      </div>
+      <section class="dash-card" id="v-down" aria-labelledby="h-down" hidden>
+        <h2 id="h-down">This page is not available right now.</h2>
+        <p><a href="/">Try again</a></p>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/hq.js?v=20261111b"></script>
+<script src="/assets/js/menu.js?v=20261111b"></script>
+<script src="/assets/js/console.js?v=20261111b"></script>
+</body>
+</html>

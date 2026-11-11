@@ -92,7 +92,7 @@ Rules for the content:
 
 ## Finish
 
-Print exactly two things and nothing else:
+Print exactly two things:
 
 1. The file path, and that it is safe to `/clear`.
 2. A ready-to-copy resume prompt in a plain fenced block (not tagged `bash`; it is a prompt, not a command):
@@ -102,4 +102,11 @@ Print exactly two things and nothing else:
        <absolute session folder>/.claude/briefs/coordinator.md with Main ClickUp task: <CLICKUP_TASK_ID>.
        Do not re-explore anything already covered by "## Done".
 
-Say plainly: `/clear`, then paste this. The paste is required: nothing else tells the next session where the state file is.
+Then one of two endings.
+
+**Automatic, when a helper session is ready** (coordinator brief, section 9, "the coordinator hands itself over"). This is the one exception to the cost rule: two more calls, in one final message and in this order.
+
+1. Send the helper session the resume prompt, unchanged, with SendMessage. The helper waits 10 seconds and sends it back to this session.
+2. Clear this session: `clear_session` with "self". It takes effect when this turn ends, so end the turn at once. If the app's hook refuses the call, re-issue it with exactly the input the error quotes.
+
+**By hand, otherwise** (no helper session, this session is served to Remote Control, or the clear is refused). Say plainly: `/clear`, then paste this. The paste is required: nothing else tells the next session where the state file is.

@@ -1886,6 +1886,7 @@ body.dash-app #view-settings-general .bs-est .acct-set-row { border-top: 1px sol
 body.dash-app #view-settings-general .bs-est .acct-set-row:nth-child(-n+3) { border-top: 0; }
 /* Santé setup (ClickUp z8uq9m92ez): one card, so the page keeps the dashboard's single-card width. Everything else is the rules above. */
 body.dash-app #view-settings-sante #st-root { max-width: 640px; }
+body.dash-app #view-settings-sante #st-root .acct-card { flex: 0 0 auto; } /* one card in a column: its own height, not the 300px basis of the card grid */
 body.dash-app .bs-tag { display: inline-flex; align-items: center; min-height: 20px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
 body.dash-app .bs-tag-pub { background: var(--chip-info-bg); color: var(--chip-info); }
 body.dash-app .bs-tag-priv { background: var(--chip-neutral-bg); color: var(--chip-neutral); }

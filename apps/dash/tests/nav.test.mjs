@@ -91,3 +91,63 @@ test("the old address /settings/sante/ lands on /settings/business/ and keeps it
   assert.deepEqual(direct.history.replaced, [], "the new address is left alone");
   assert.equal(direct.nodes["view-settings-general"].hidden, false);
 });
+
+/* The first route waits for the page's script tags (ClickUp z8uq9me2uu). The page modules (business.js, billing.js
+   and the rest) are blocking script tags after dashboard.js, and route() opens a module only if its global is
+   already there. So when /me/ answers while the document is still loading, the first route and the first load are
+   held until DOMContentLoaded; a document that has finished loading routes at once. Run against the real file. */
+test("the first route waits for DOMContentLoaded while the document is loading, and runs at once when it is loaded", async () => {
+  const vm = await import("node:vm");
+  const DASH = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
+  const run = (readyState) => {
+    const nodes = {}, shown = [], calls = [], docOn = {}, winOn = {};
+    const node = (id) => (nodes[id] = nodes[id] || { id, hidden: false, textContent: "", focus() {}, setAttribute() {}, removeAttribute() {}, appendChild() {}, addEventListener() {} });
+    const location = { pathname: "/settings/business/", search: "" };
+    const history = { replaceState() {}, pushState() {} };
+    const on = (map) => (type, fn) => { (map[type] = map[type] || []).push(fn); };
+    const document = { readyState, title: "", getElementById: node, querySelectorAll: () => [], addEventListener: on(docOn), createElement: () => node("x") };
+    const window = { addEventListener: on(winOn),
+      NODash: { el: () => node("x"), requireAccount: () => ({ then(fn) { window.start = fn; } }), cfg: {}, setWorkspace() {},
+        call: (method, path) => { calls.push(method + " " + path); return new Promise(() => {}); } } };
+    const ctx = vm.createContext({ window, document, location, history, console, Intl, Promise, setTimeout, clearTimeout });
+    vm.runInContext(DASH, ctx, { filename: "dashboard.js" });
+    window.start({ first_name: "Nena" }); /* GET /me/ has answered */
+    return { window, document, nodes, shown, calls, docOn, winOn };
+  };
+  const spy = (page) => ({ show() { page.shown.push("business"); }, hide() {} });
+
+  /* (a) Still loading: nothing is routed or read yet, and no navigation listener is live. */
+  const early = run("loading");
+  assert.equal(early.nodes["h-overview"].textContent.indexOf("Nena") >= 0, true, "the greeting does not wait");
+  assert.equal(early.document.title, "", "no route has run");
+  assert.equal(early.nodes["view-settings-general"], undefined, "no view has been touched");
+  assert.deepEqual(early.calls, [], "the first load has not started");
+  assert.equal((early.docOn.click || []).length, 0, "link clicks are left to the browser until the first route");
+  assert.equal((early.winOn.popstate || []).length, 0);
+  assert.equal((early.docOn.DOMContentLoaded || []).length, 1, "one listener waits for the document");
+  /* business.js arrives after /me/ answered and only registers itself. */
+  early.window.NOBusiness = spy(early);
+  assert.deepEqual(early.shown, []);
+  early.docOn.DOMContentLoaded[0]();
+  assert.deepEqual(early.shown, ["business"], "the page module is opened exactly once");
+  assert.equal(early.document.title, "Business Settings | NegosyoOnline");
+  assert.equal(early.nodes["view-settings-general"].hidden, false);
+  assert.equal(early.nodes["view-overview"].hidden, true);
+  assert.deepEqual(early.calls, ["GET /account/setup/"], "the first load runs once, with the route");
+  assert.equal(early.docOn.click.length, 1);
+  assert.equal(early.winOn.popstate.length, 1);
+  /* A later move inside the page does not open it a second time. */
+  early.winOn.popstate[0]();
+  assert.deepEqual(early.shown, ["business"]);
+
+  /* (b) Already loaded ("interactive" or "complete"): the route runs at once, as before. */
+  for (const state of ["interactive", "complete"]) {
+    const late = run(state);
+    assert.equal(late.document.title, "Business Settings | NegosyoOnline", state + ": routed at once");
+    assert.equal(late.nodes["view-settings-general"].hidden, false);
+    assert.deepEqual(late.calls, ["GET /account/setup/"]);
+    assert.equal(late.docOn.DOMContentLoaded, undefined, state + ": nothing waits");
+    assert.equal(late.docOn.click.length, 1);
+    assert.equal(late.winOn.popstate.length, 1);
+  }
+});

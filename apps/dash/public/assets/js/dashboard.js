@@ -1302,9 +1302,17 @@
     renderAccountPanel(account);
     renderSubscription(null);
     renderReferral(false);
-    route(true);
-    window.addEventListener("popstate", function () { route(false); });
-    document.addEventListener("click", onLinkClick);
-    load();
+    /* The page modules (billing.js, business.js and the rest) are blocking script tags after this file, and route()
+       opens a module only if its global is already there. When /me/ answers before those files have run, the first
+       route and the first load wait for DOMContentLoaded, by which time every one of them has run; otherwise the
+       page would keep its heading over an empty body (ClickUp z8uq9me2uu). The two navigation listeners wait with
+       them: a route() from a click before the first route would record the view as shown with its module missing. */
+    var start = function () {
+      route(true);
+      window.addEventListener("popstate", function () { route(false); });
+      document.addEventListener("click", onLinkClick);
+      load();
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   });
 })();

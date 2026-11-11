@@ -89,7 +89,7 @@ The mockup's `contact.html`. Heading "Edit contact" or "Add contact"; Back link 
 - **Fields.** First name (required), last name, mobile number (`inputmode="tel"`, the hint "A Philippine mobile number. One contact per number."), Groups as checkboxes (the mockup's `fieldset.checks`). **The backend alone decides what is valid;** the form checks only that the first name and number are not empty, and shows the backend's `message` and `fields`.
 - **Save.** Posts `add` (201) or `edit` (200). On success: Add returns to the list with "Contact added."; Edit closes the form and updates the row in memory from the answer (which carries the masked number) with "Contact saved.". The number field is cleared and the form removed from the page at once.
 - **`already_exists`** (409) shows under the number field "That number is already a contact." with a button "Open that contact", which posts `open` with `fields.contact` (an audited call) and opens it in the same place. It is not a link: no address holds an id.
-- **Delete contact** (Edit only, `change` only): a modal "Delete this contact? Its name, number and group memberships are removed now. This cannot be undone." with "Delete" and "Cancel", as Finance's modals; posts `delete`; 204 returns to the list with "Contact deleted." Cancel keeps everything.
+- **Delete contact** (Edit only, `change` only): a pop-up "Delete this contact? Its name, number and group memberships are removed now. This cannot be undone." in the pop-up shape of Coach Ed's rule (Finance, frontend PR 41 at head `80f16a4`): **no Cancel button**, one full-width primary button "Delete contact", an X at the top right, closed only by the X or Escape; closing posts nothing and keeps everything. The primary button posts `delete`; 204 returns to the list with "Contact deleted."
 - **Read-only** (`change` false): the same form with every field disabled, no Save, no Delete, and the line "You can read contacts but not change them."
 - **The aside** ("About contacts"): "A contact is a first name, a last name, a mobile number and its groups." "Kept until staff delete it." "Adding, changing and deleting are recorded with your name, never the contact's name." The mockup's bullet about STOP is left out until plan 8.
 - **Errors:** `invalid_request` under the field named in `fields` with the backend's `message` for that field's wording; `forbidden` and `group_limit` in the form's error box with `message`; `not_found` (deleted by someone else) closes the form with "That contact is no longer available."; 401 follows `placeFor`; anything else "That did not go through. Check the list before trying again."
@@ -99,8 +99,8 @@ The mockup's `contact.html`. Heading "Edit contact" or "Add contact"; Back link 
 The mockup's `groups.html`: the heading, the `.seg` with Groups current, the "Add a group" form (one field, `maxlength` 60, "Add group"; shown when `change`), the list: one row per group with its name and "{count} contacts" (singular for 1), and, when `change`, "Rename" and "Remove" buttons. The foot: "Removing a group keeps its contacts. A contact can be in more than one group."
 
 - **Add** posts `groups/add`, puts the new group in the list in memory from the answer. `already_exists` (409): "A group with that name already exists." (the check ignores capitals, the backend decides).
-- **Rename** turns the row into an inline field with "Save" and "Cancel" (a modal if the inline form does not fit at 390 wide; decided at build and reported). Posts `groups/rename`.
-- **Remove** opens a modal "Remove this group? Its {n} contacts stay in Contacts." with "Remove" and "Cancel"; posts `groups/remove`; 204 removes the row. The group's id is held in memory; the name appears only inside the page.
+- **Rename** turns the row into an inline field with "Save" and a close control (Escape or an X closes it and posts nothing; if the inline form does not fit at 390 wide it becomes a pop-up in the shape of the next bullet; decided at build and reported). Posts `groups/rename`.
+- **Remove** opens a pop-up "Remove this group? Its {n} contacts stay in Contacts." in the same pop-up shape (no Cancel, one full-width primary "Remove group", an X at top right, closed only by the X or Escape, which post nothing); the primary button posts `groups/remove`; 204 removes the row. The group's id is held in memory; the name appears only inside the page.
 - Group names are written with `textContent` only. Nothing is stored. `group_limit` and `forbidden` show `message` in the list's error line.
 
 ### 5.7 Upload (`/contacts/upload/`)
@@ -114,6 +114,8 @@ The mockup's `import.html`, two steps on one page.
 - **Read-only** (`change` false): no form; "You can read contacts but not change them." and the link back.
 
 ## 6. Files
+
+**Pop-ups.** The build copies the pop-up markup and CSS from `finance.html` and `hq.css` on `main` once PR 41 has merged, and writes no pop-up rule of its own (Coach Ed's rule: no Cancel button, a full-width primary button, an X at the top right, closed only by the X or Escape). Plan 5 has no pop-up; if its build adds one it follows the same rule.
 
 **New (under `apps/hq/`):**
 
@@ -151,12 +153,12 @@ Each task is test first, then code, then the checks (`pnpm --filter hq lint`, `t
 
 ### Task 3: add, edit, delete
 
-- [ ] **Tests:** Edit posts `open` with the id from memory and fills the form; the full number is in the field only; saving clears the field and removes the form; Add at `/contacts/new/` posts `add` and returns to the list; `invalid_request` shows under the right field; `already_exists` shows "Open that contact", which posts `open` with `fields.contact` and opens that contact; Delete asks once and Cancel posts nothing; `not_found` closes the form with the list message; read-only shows disabled fields and no Save or Delete; Back and `popstate` close the form; a reload shows the list; the number appears in no address, storage, title or `console` call.
+- [ ] **Tests:** Edit posts `open` with the id from memory and fills the form; the full number is in the field only; saving clears the field and removes the form; Add at `/contacts/new/` posts `add` and returns to the list; `invalid_request` shows under the right field; `already_exists` shows "Open that contact", which posts `open` with `fields.contact` and opens that contact; Delete asks once, and closing the pop-up with the X or Escape posts nothing and there is no Cancel button; `not_found` closes the form with the list message; read-only shows disabled fields and no Save or Delete; Back and `popstate` close the form; a reload shows the list; the number appears in no address, storage, title or `console` call.
 - [ ] **Code:** the form part of `contacts.js`. **Checks;** commit.
 
 ### Task 4: groups
 
-- [ ] **Tests** (`contacts-groups.test.mjs`): the list shows names and counts (singular for 1); Add, Rename and Remove post the right bodies with the id from memory; `already_exists` shows the sentence; Remove asks once and Cancel posts nothing; read-only shows no Add, Rename or Remove; a name holding markup appears as text; `group_limit` shows its message.
+- [ ] **Tests** (`contacts-groups.test.mjs`): the list shows names and counts (singular for 1); Add, Rename and Remove post the right bodies with the id from memory; `already_exists` shows the sentence; Remove asks once, and closing the pop-up with the X or Escape posts nothing and there is no Cancel button; read-only shows no Add, Rename or Remove; a name holding markup appears as text; `group_limit` shows its message.
 - [ ] **Code:** the groups part of `contacts.js`. **Checks;** commit.
 
 ### Task 5: the upload
@@ -168,7 +170,7 @@ Each task is test first, then code, then the checks (`pnpm --filter hq lint`, `t
 
 - [ ] Run `pnpm --filter hq lint`, `test`, `build`, and whatever CI runs for the other apps, and report the actual output.
 - [ ] **Local walk, as plan 2 and plan 5 did it** (http, headless Chromium, `hq.app.localhost:3003` against a local backend on `ggwp.app.localhost:8011`, a scratch database, one made-up staff identity, made-up names and numbers, local names only): both switches off, no Contacts entry on any page; `SMS_CONTACTS_ENABLED` unset with the inbox on, still no entry; both on, read-only: the list, an opened contact, no buttons; granted with `--send`: add (and the same number written another way, refused with the link), edit, delete, groups (add, rename, remove), a made-up CSV of about 750 lines with bad lines mixed in (check, save, a second save refused), a file over 1 MB, Back, reload. With the backend's `inbox.0002` not applied: no Contacts entry.
-- [ ] **Captures** for Coach Ed (local, made-up data only): the list (empty, with rows, a Find result), an opened contact and the add form (with the error under a field and "Open that contact"), read-only, the delete modal, groups (with the rename and remove modals), the upload at step 1, at step 2 with refused lines, and after the save; dark and light, 1280 and 390 wide. **Not shown to him before and so needing his eye:** the light theme of all of them, the closed and down cards, the read-only states, the modals, and what is left out of the mockup (no counts on the Contacts and Groups switch, no opted-out chip, "Load more" in place of "Next").
+- [ ] **Captures** for Coach Ed (local, made-up data only): the list (empty, with rows, a Find result), an opened contact and the add form (with the error under a field and "Open that contact"), read-only, the delete pop-up, groups (with the rename and remove pop-ups), the upload at step 1, at step 2 with refused lines, and after the save; dark and light, 1280 and 390 wide. **Not shown to him before and so needing his eye:** the light theme of all of them, the closed and down cards, the read-only states, the pop-ups, and what is left out of the mockup (no counts on the Contacts and Groups switch, no opted-out chip, "Load more" in place of "Next").
 - [ ] README rows. Commit; update from `main`; list the open PRs and their files; open the PR; the coordinator merges after the Santé/onboarding and NPC reviews.
 
 ## 8. Tests, in short

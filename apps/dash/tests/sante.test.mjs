@@ -1,4 +1,5 @@
-/* The Santé Sponsor ID row (ClickUp z8uq9m92ez, comments 1100430000485211, 1100430000485794 and 1100430000486115): for
+/* The "Santé Username" row, the site's Santé sponsor ID (ClickUp z8uq9m92ez, comments 1100430000485211, 1100430000485794,
+   1100430000486115 and, for the wording, 1100430000486478): for
    a Santé site, the last row of the Business identity card on Business Settings, in the place of the Site type row,
    with its Edit dialog. Driven like Business Settings: a small stand-in document (dom.mjs) and a recorded fetch. */
 import test from "node:test";
@@ -82,36 +83,34 @@ function boot({ search = "", sites = [SITE_A], sponsor = "", routes } = {}) {
     value() { return has(row(), "acct-set-value")[0].textContent; } };
 }
 
-test("a Santé site: Sponsor ID is the last row of Business identity, in the place of Site type; no card of its own; 'Not added' with the amber tag and the help line", async () => {
+test("a Santé site: Santé Username is the last row of Business identity, in the place of Site type; no card of its own; 'Not added' with the one-sentence help line and no amber tag", async () => {
   const d = boot();
   await d.show();
   assert.deepEqual(d.list(), ["GET /sites/", `GET /sites/${A}/business-profile/`, `GET /sites/${A}/sante/settings/`]);
   assert.deepEqual(d.cards().map((c) => c.getAttribute("aria-labelledby")), ["bs-h-ready", "bs-h-id", "bs-h-contact", "bs-h-web", "bs-h-legal", "bs-h-del"], "the Business Settings cards and no other");
   assert.equal(d.$("st-card"), null);
-  assert.equal(d.root.all((n) => n.tagName === "H2" && n.textContent === "Sponsor ID").length, 0, "no Sponsor ID heading");
-  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"]);
+  assert.equal(d.root.all((n) => n.tagName === "H2" && /sponsor id|santé username/i.test(n.textContent)).length, 0, "no heading of its own");
+  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Santé Username"]);
   assert.equal(d.$("bs-row-type"), null, "the Site type row is not on the page");
   assert.ok(!d.root.textContent.includes("Site type") && !d.root.textContent.includes("Set at setup"));
   const row = d.row(), rows = d.has(d.idCard(), "acct-set-row");
   assert.equal(row, rows[rows.length - 1]);
   assert.equal(row.parentNode, d.idCard());
   assert.deepEqual(row.children.map((n) => n.attrs["class"]), ["acct-set-label", "acct-set-value", "acct-set-action", "bs-row-help"], "the card's row pattern");
-  assert.equal(d.has(row, "acct-set-label")[0].textContent, "Sponsor ID");
+  assert.equal(d.has(row, "acct-set-label")[0].textContent, "Santé Username");
   assert.equal(d.has(row, "bs-none")[0].textContent, "Not added");
-  const chip = d.has(row, "chip");
-  assert.equal(chip.length, 1);
-  assert.ok(chip[0].classList.contains("chip-warn"));
-  assert.equal(chip[0].textContent, "Needed for member registration");
-  assert.equal(d.has(row, "bs-row-help")[0].textContent,
-    "Member registration on this site cannot start until you add it. Nothing else on your site waits for it.");
+  assert.equal(d.value(), "Not added");
+  assert.equal(d.has(row, "chip").length, 0, "no amber tag");
+  assert.equal(d.has(row, "bs-row-help")[0].textContent, "Member registration on this site cannot start until you add it.");
+  assert.ok(!/sponsor|Needed for member registration|Nothing else/i.test(d.root.textContent), "the screen does not say sponsor ID anywhere");
   assert.equal(d.$("st-edit").textContent, "Edit");
-  assert.equal(d.$("st-edit").getAttribute("aria-label"), "Edit sponsor ID");
+  assert.equal(d.$("st-edit").getAttribute("aria-label"), "Edit Santé username");
   assert.equal(d.$("st-edit").parentNode.attrs["class"], "acct-set-action");
   assert.equal(d.has(row, "bs-tag").length, 0, "no Public or Private tag on the row");
-  assert.ok(!d.$("bs-h-ready").parentNode.textContent.includes("Sponsor"), "Site readiness has no Sponsor ID line");
+  assert.ok(!d.$("bs-h-ready").parentNode.textContent.includes("Username"), "Site readiness has no Santé Username line");
 });
 
-test("not a Santé site, or before the site type is known: the Site type row stays, no Sponsor ID row, no Santé request", async () => {
+test("not a Santé site, or before the site type is known: the Site type row stays, no Santé Username row, no Santé request", async () => {
   const d = boot({ sites: [site(A, "Nena's Other Shop", "nenaother", "basic")] });
   await d.show();
   assert.deepEqual(d.list(), ["GET /sites/", `GET /sites/${A}/business-profile/`]);
@@ -123,13 +122,13 @@ test("not a Santé site, or before the site type is known: the Site type row sta
   assert.equal(d.has(type, "bs-tag")[0].textContent, "Private");
   assert.equal(d.has(type, "acct-set-value")[0].textContent, "BasicSet at setup");
   assert.equal(d.has(type, "bs-row-help")[0].textContent, "Chosen when the site was created. It cannot be changed here.");
-  assert.ok(!/sponsor/i.test(d.root.textContent));
+  assert.ok(!/sponsor|username/i.test(d.root.textContent));
 
   /* While the sites read is still under way the page is the Business Settings skeleton only. */
   const early = boot();
   early.G.show();
   assert.equal(early.row(), null);
-  assert.ok(!/sponsor/i.test(early.root.textContent));
+  assert.ok(!/sponsor|username/i.test(early.root.textContent));
   assert.deepEqual(early.sante(), []);
   await settle();
   assert.ok(early.row());
@@ -146,7 +145,7 @@ test("not a Santé site, or before the site type is known: the Site type row sta
   assert.deepEqual(down.sante(), []);
 });
 
-test("a saved sponsor ID is shown exactly as saved, with Edit, no tag and no help line", async () => {
+test("a saved Santé username is shown exactly as saved, with Edit, no tag and no help line", async () => {
   const d = boot({ sponsor: "Sample-0012345" });
   await d.show();
   const row = d.row();
@@ -154,8 +153,8 @@ test("a saved sponsor ID is shown exactly as saved, with Edit, no tag and no hel
   assert.deepEqual(row.children.map((n) => n.attrs["class"]), ["acct-set-label", "acct-set-value", "acct-set-action"]);
   assert.equal(d.has(row, "chip").length, 0);
   assert.equal(d.has(row, "bs-none").length, 0);
-  assert.equal(d.$("st-edit").getAttribute("aria-label"), "Edit sponsor ID");
-  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"]);
+  assert.equal(d.$("st-edit").getAttribute("aria-label"), "Edit Santé username");
+  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Santé Username"]);
 });
 
 test("a ?site= that is not one of my sites is ignored; one of mine is used; choosing another site reads that site's row", async () => {
@@ -196,12 +195,12 @@ test("the Edit dialog: approved words, one field, and one PATCH that is trimmed 
   const d = boot({ sponsor: "OLD-1" });
   await d.show();
   const form = d.open();
-  assert.equal(d.$("bs-dlg-h").textContent, "Edit sponsor ID");
-  assert.equal(form.children[0].textContent, "For Nena's Barley Shop. New members who register through this site are registered under this sponsor ID.");
+  assert.equal(d.$("bs-dlg-h").textContent, "Edit Santé username");
+  assert.equal(form.children[0].textContent, "For Nena's Barley Shop. New members who register through this site are registered under this Santé username.");
   const inputs = form.all((n) => n.tagName === "INPUT");
   assert.equal(inputs.length, 1);
   assert.equal(inputs[0].value, "OLD-1");
-  assert.equal(form.all((n) => n.tagName === "LABEL")[0].textContent, "Sponsor ID");
+  assert.equal(form.all((n) => n.tagName === "LABEL")[0].textContent, "Santé Username");
   assert.equal(d.$("bs-f-sponsor_id-help").textContent, "Letters, digits and hyphens only, up to 32 characters. Leave it blank to remove it.");
   assert.equal(d.doc.activeElement, inputs[0], "focus starts in the field");
   assert.deepEqual(form.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save", "Cancel"]);
@@ -215,7 +214,7 @@ test("the Edit dialog: approved words, one field, and one PATCH that is trimmed 
   assert.equal(d.$("bs-live").textContent, "Saved.");
   assert.equal(d.doc.activeElement, d.$("st-edit"), "focus returns to Edit");
   assert.equal(d.root.all((n) => n.id === "st-row").length, 1, "the row replaced itself");
-  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"], "and is still the last row of Business identity");
+  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Santé Username"], "and is still the last row of Business identity");
 });
 
 test("blank is allowed and removes the ID; the page adds no rule of its own", async () => {
@@ -225,7 +224,7 @@ test("blank is allowed and removes the ID; the page adds no rule of its own", as
   await d.save("   ");
   assert.deepEqual(d.patches()[0].body, { sponsor_id: "" });
   assert.equal(d.has(d.row(), "bs-none")[0].textContent, "Not added");
-  assert.equal(d.has(d.row(), "chip-warn").length, 1);
+  assert.equal(d.has(d.row(), "chip").length, 0);
   assert.equal(d.has(d.row(), "bs-row-help").length, 1, "the help line is back");
   assert.deepEqual(d.toasts, ["Saved"]);
   d.open();
@@ -310,7 +309,7 @@ test("Saving…: Save cannot be pressed twice, Cancel still works, and a late an
   assert.equal(d.value(), "AB-1", "the row shows what the server saved");
 });
 
-test("a 404: on the read there is no Sponsor ID row and the Site type row is back; on a save Business Settings reads again and says what it finds", async () => {
+test("a 404: on the read there is no Santé Username row and the Site type row is back; on a save Business Settings reads again and says what it finds", async () => {
   /* The Santé settings surface switched off (or not answering for this site): one request, no second try. */
   const off = boot({ routes: (method, p) => (SANTE_PATH.test(p) ? NOT_FOUND : null) });
   await off.show();
@@ -321,7 +320,7 @@ test("a 404: on the read there is no Sponsor ID row and the Site type row is bac
   assert.deepEqual(off.labels(), ["Business name", "Site name", "Business address", "Site type"]);
   assert.equal(off.has(off.$("bs-row-type"), "acct-set-value")[0].textContent, "SantéSet at setup");
   assert.equal(off.has(off.$("bs-row-type"), "bs-row-help")[0].textContent, "Chosen when the site was created. It cannot be changed here.");
-  assert.ok(!/sponsor/i.test(off.root.textContent));
+  assert.ok(!/sponsor|username/i.test(off.root.textContent));
   assert.equal(off.$("bs-notice"), null);
   assert.ok(!off.root.textContent.includes("not available."), "a 404 here says nothing about the site");
 
@@ -351,7 +350,7 @@ test("the row's own states: its place is held while it reads, and a failed read 
   slow.window.NOBusiness.show();
   for (let i = 0; i < 6; i++) await tick();
   assert.equal(slow.cards().length, 6, "Business Settings is drawn without waiting for the row");
-  assert.deepEqual(slow.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"], "the row is there from the first draw: Site type never shows first");
+  assert.deepEqual(slow.labels(), ["Business name", "Site name", "Business address", "Santé Username"], "the row is there from the first draw: Site type never shows first");
   assert.equal(slow.value(), "Loading…");
   assert.equal(slow.$("st-edit"), null);
   assert.equal(slow.$("bs-row-type"), null);
@@ -368,10 +367,10 @@ test("the row's own states: its place is held while it reads, and a failed read 
     const failed = boot({ sponsor: "AB-1", routes: (m, p) => (fail ? routes(m, p) : null) });
     await failed.show();
     assert.equal(failed.cards().length, 6, "no separate card");
-    assert.deepEqual(failed.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"]);
+    assert.deepEqual(failed.labels(), ["Business name", "Site name", "Business address", "Santé Username"]);
     const row = failed.row();
     assert.deepEqual(row.children.map((n) => n.attrs["class"]), ["acct-set-label", "acct-set-value", "acct-set-action"]);
-    assert.equal(failed.value(), "We could not load the sponsor ID.");
+    assert.equal(failed.value(), "We could not load the Santé username.");
     assert.equal(failed.has(row, "acct-set-value")[0].children[0].getAttribute("role"), "alert");
     assert.equal(failed.has(row, "err-box").length, 0);
     const again = failed.$("st-retry");
@@ -399,7 +398,7 @@ test("a Business Settings save redraws the page and keeps the row without readin
   await settle();
   assert.deepEqual(d.sante(), [`GET /sites/${A}/sante/settings/`]);
   assert.equal(d.cards().length, 6);
-  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Sponsor ID"]);
+  assert.deepEqual(d.labels(), ["Business name", "Site name", "Business address", "Santé Username"]);
   assert.equal(d.value(), "AB-1");
   assert.ok(d.root.textContent.includes("Nena's New Name"));
   d.open();

@@ -29,6 +29,7 @@
   var SENT = "Thanks! Your message has been sent — we'll get back to you shortly.";
   var SENDING = "Sending your message…";
   var MIN_PROGRESS_MS = 2000;
+  var PROGRESS_PAD_MS = 50; // clocks and timers round, so the wait is a little over, never under
   var TIMEOUT_MS = 15000;
   var RED = "#d33d44";
 
@@ -248,7 +249,7 @@
         .then(function (answer) {
           if (answer.state !== "sent") return answer; // a refusal is shown at once, in the form
           return new Promise(function (resolve) {
-            window.setTimeout(function () { resolve(answer); }, remaining(startedAt, Date.now(), MIN_PROGRESS_MS));
+            window.setTimeout(function () { resolve(answer); }, remaining(startedAt, Date.now(), MIN_PROGRESS_MS) + PROGRESS_PAD_MS);
           });
         })
         .then(function (answer) {

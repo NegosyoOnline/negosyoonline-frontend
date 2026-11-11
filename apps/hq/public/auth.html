@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in | NegosyoOnline HQ</title>
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/svg+xml" href="/assets/img/negosyoonline-favicon.svg?v=20261111a">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
+<link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
+<script src="/assets/js/theme.js?v=20261111a"></script>
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261111a">
+</head>
+<body class="dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="auth">
+  <header class="auth-top dash-chrome">
+    <a class="wordmark" href="/sign-in/" aria-label="NegosyoOnline HQ"><svg viewBox="0 0 224 200" aria-hidden="true" focusable="false"><path fill="#FFFFFF" d="M0 0H64L160 103V0H224V200H160L64 97V200H0Z"/><path fill="#C59A3B" d="M64 0L160 103V200L64 97Z"/></svg><span>NegosyoOnline</span></a>
+    <div class="top-actions"><span class="chip chip-info">Staff only</span><button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
+  </header>
+  <main class="auth-main" id="main" aria-live="polite">
+    <p class="dash-copy" id="boot">Loading...</p>
+    <noscript><p class="dash-copy">This page needs JavaScript to sign you in.</p></noscript>
+
+    <form class="dash-card form-card auth-card" id="v-sign-in" aria-labelledby="h-sign-in" novalidate hidden>
+      <h1 id="h-sign-in">Admin sign-in</h1>
+      <p class="dash-copy">Enter your admin email. We will send you a 6-digit code.</p>
+      <div class="field"><label for="email">Email</label><input class="input" id="email" type="email" autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="254" aria-describedby="email-err"><p class="field-err" id="email-err" hidden></p></div>
+      <button class="no-btn no-btn-primary" type="submit">Send code</button>
+    </form>
+
+    <form class="dash-card form-card auth-card" id="v-code" aria-labelledby="h-code" novalidate hidden>
+      <h1 id="h-code">Enter your code</h1>
+      <div class="banner" role="status" id="code-notice" hidden><p>If this address is allowed, a code was sent. It expires in 10 minutes.</p></div>
+      <p class="dash-copy" id="code-sent">Code sent to your email.</p>
+      <div class="field"><label for="code">6-digit code</label><input class="input code" id="code" type="text" inputmode="numeric" maxlength="7" autocomplete="one-time-code" aria-describedby="code-err code-hint"><p class="field-err" id="code-err" hidden></p><p class="hint" id="code-hint">Check your inbox and spam folder.</p></div>
+      <button class="no-btn no-btn-primary" type="submit">Continue</button>
+      <p class="auth-link"><a href="/sign-in/">Use a different email or get a new code</a></p>
+    </form>
+
+    <form class="dash-card form-card auth-card" id="v-verify" aria-labelledby="h-verify" novalidate hidden>
+      <h1 id="h-verify">Two-step sign-in</h1>
+      <p class="dash-copy" id="second-lead">Enter the 6-digit code from your authenticator app.</p>
+      <div class="field"><label for="second" id="second-label">Authenticator code</label><input class="input code" id="second" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" aria-describedby="second-err"><p class="field-err" id="second-err" hidden></p></div>
+      <button class="no-btn no-btn-primary" type="submit">Verify</button>
+      <p class="auth-link"><a href="/verify/" id="second-switch">Use a recovery code instead</a></p>
+    </form>
+
+    <section class="dash-card form-card auth-card" id="v-paused" aria-labelledby="h-paused" hidden>
+      <h1 id="h-paused">Sign-in paused</h1>
+      <p class="note-warn" role="alert">Too many wrong codes. Sign-in is paused for 15 minutes.</p>
+      <p class="dash-copy">We sent an email about this to your admin address. If this was not you, tell the admin owner.</p>
+      <p class="auth-link"><a href="/sign-in/">Back to sign-in</a></p>
+    </section>
+
+    <section class="dash-card form-card auth-card" id="v-signed-in" aria-labelledby="h-signed-in" hidden>
+      <h1 id="h-signed-in">Signed in</h1>
+      <p class="dash-copy" id="who"></p>
+      <button class="no-btn no-btn-ghost" type="button" id="sign-out">Sign out</button>
+      <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
+    </section>
+
+    <section class="dash-card form-card auth-card" id="v-down" aria-labelledby="h-down" hidden>
+      <h1 id="h-down">This page is not available right now.</h1>
+      <p class="auth-link"><a href="/sign-in/">Try again</a></p>
+    </section>
+  </main>
+</div>
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/hq.js?v=20261111a"></script>
+<script src="/assets/js/auth.js?v=20261111a"></script>
+</body>
+</html>

@@ -9,6 +9,7 @@ Vercel frontend workspace with separate applications for the public site, subscr
 | `apps/site` | Public marketing site | `pnpm dev:site` |
 | `apps/dash` | Subscriber dashboard | `pnpm dev:dash` |
 | `apps/storefronts` | Subscriber customer sites | `pnpm dev:storefronts` |
+| `apps/hq` | HQ staff area | `pnpm dev:hq` |
 
 Vercel linkage and environment variables are intentionally deferred until the corresponding deployment setup is approved.
 

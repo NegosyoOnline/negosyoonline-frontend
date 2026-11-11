@@ -1,0 +1,55 @@
+import type { NextConfig } from "next";
+import { buildCsp, readEnv } from "./src/lib/hq-env.mjs";
+
+/* The staff app is static HTML in /public, as the dashboard is. This file gives it the routing, the
+   security headers and the CSP. It has no rewrite to another host: the browser calls the hq host
+   itself, so nothing a staff member types or reads passes through Vercel (design 21.1). */
+
+const { staffApiOrigin } = readEnv(process.env);
+
+/* One document for the three sign-in addresses; it changes view in the browser. */
+const authPaths = ["sign-in", "code", "verify"];
+
+const nextConfig: NextConfig = {
+  cacheComponents: true,
+  partialPrefetching: true,
+  trailingSlash: true,
+  async rewrites() {
+    return {
+      beforeFiles: [
+        /* Stage A: the first page is the sign-in document. Stage B points it at the console. */
+        { source: "/", destination: "/auth.html" },
+        ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
+      ],
+      afterFiles: [],
+      /* Real files and /assets/js/config.js are served first; every other address is "Page not found". */
+      fallback: [{ source: "/:path*", destination: "/not-found.html" }],
+    };
+  },
+  async redirects() {
+    return [{ source: "/auth.html", destination: "/sign-in/", permanent: false }];
+  },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Robots-Tag", value: "noindex" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Content-Security-Policy", value: buildCsp(staffApiOrigin) },
+        ],
+      },
+      {
+        source: "/assets/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=3600, must-revalidate" }],
+      },
+    ];
+  },
+};
+
+export default nextConfig;

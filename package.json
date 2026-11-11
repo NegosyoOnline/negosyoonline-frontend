@@ -9,6 +9,7 @@
     "dev:site": "pnpm --dir apps/site dev",
     "dev:dash": "pnpm --dir apps/dash dev",
     "dev:storefronts": "pnpm --dir apps/storefronts dev",
+    "dev:hq": "pnpm --dir apps/hq dev",
     "lint": "pnpm -r lint",
     "build": "pnpm -r build"
   }

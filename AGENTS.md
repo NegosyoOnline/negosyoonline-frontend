@@ -7,6 +7,7 @@ This repository contains the Vercel-deployed frontend applications for NegosyoOn
 - `apps/site`: public NegosyoOnline marketing site.
 - `apps/dash`: authenticated subscriber dashboard.
 - `apps/storefronts`: future customer-facing subscriber storefronts and custom domains.
+- `apps/hq`: HQ staff area. Its rules are in `apps/hq/README.md`: no call through Vercel, nothing from another host, no secret in a variable.
 
 This repository is independent from TWCinc. TWCinc is reference-only during transition and must never become a runtime dependency or be copied wholesale.
 

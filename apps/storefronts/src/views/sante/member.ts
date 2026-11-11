@@ -30,7 +30,7 @@ export const SECTIONS: readonly Section[] = [
   { key: "home", label: "Dashboard", path: "/dashboard/", built: true },
   { key: "orders", label: "My Orders", path: "/dashboard/orders/", built: true },
   { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false },
-  { key: "account", label: "Account", path: "/dashboard/account/", built: false },
+  { key: "account", label: "Account", path: "/dashboard/account/", built: true },
 ];
 
 /* The ?next= keys of TWCinc (site_views.NEXT_TARGETS). A key whose page is not built yet lands on the home. */

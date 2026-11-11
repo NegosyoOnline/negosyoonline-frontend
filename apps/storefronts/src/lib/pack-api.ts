@@ -576,3 +576,40 @@ export function memberHome(args: Member, c: Calls) {
 export function memberOrders(args: Member, c: Calls) {
   return packPost("member/orders", args, (b) => (record(b) && Array.isArray(b.cards) ? { cards: b.cards.flatMap((x) => { const k = parseCard(x); return k ? [k] : []; }) } : null), c);
 }
+
+/* ---- the member Account page, verify-email and the contact change (routes doc, PK13) --------------------------------- */
+
+export type AccountInfo = {
+  member_name: string; mobile_masked: string; mobile_state: string; email_masked: string; email_state: string;
+  default_channel: string; hold_banner: string;
+};
+export type VerifyEmailState = { step: "send" | "code" | "done"; email_masked: string; message: string };
+export type ChangeStep = "current" | "current_code" | "replacement" | "replacement_code";
+export type ChangeState = { field: "mobile" | "email"; current_masked: string; proof_channel: string; proof_masked: string; step: ChangeStep };
+export type ChangeField = "mobile" | "email";
+
+export const memberAccount = (args: Member, c: Calls) =>
+  packPost("member/account", args, (b): AccountInfo | null => !record(b) ? null : {
+    member_name: str(b.member_name), mobile_masked: str(b.mobile_masked), mobile_state: str(b.mobile_state), email_masked: str(b.email_masked),
+    email_state: str(b.email_state), default_channel: str(b.default_channel), hold_banner: str(b.hold_banner),
+  }, c);
+
+function parseVerifyEmail(b: unknown): VerifyEmailState | null {
+  if (!record(b) || (b.step !== "send" && b.step !== "code" && b.step !== "done")) return null;
+  return { step: b.step, email_masked: str(b.email_masked), message: str(b.message) };
+}
+export const memberVerifyEmail = (args: Member, c: Calls) => packPost("member/account/verify-email", args, parseVerifyEmail, c);
+export const memberVerifyEmailSend = (args: Member, c: Calls) => packPost("member/account/verify-email/send", args, parseVerifyEmail, c);
+export const memberVerifyEmailVerify = (args: Member & { code: string }, c: Calls) => packPost("member/account/verify-email/verify", args, parseVerifyEmail, c);
+
+const CHANGE_STEPS = new Set(["current", "current_code", "replacement", "replacement_code"]);
+function parseChange(b: unknown): ChangeState | null {
+  if (!record(b) || (b.field !== "mobile" && b.field !== "email") || typeof b.step !== "string" || !CHANGE_STEPS.has(b.step)) return null;
+  return { field: b.field, current_masked: str(b.current_masked), proof_channel: str(b.proof_channel), proof_masked: str(b.proof_masked), step: b.step as ChangeStep };
+}
+export const memberChange = (field: ChangeField, args: Member, c: Calls) => packPost(`member/account/change/${field}`, args, parseChange, c);
+export const memberChangeAct = (
+  field: ChangeField,
+  args: Member & { action: "send_current" | "verify_current" | "send_replacement" | "verify_replacement"; code?: string; new_value?: string },
+  c: Calls,
+) => packPost(`member/account/change/${field}/act`, args, (b) => (record(b) ? { changed: b.changed === true } : null), c);

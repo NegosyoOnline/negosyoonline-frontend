@@ -2,9 +2,15 @@
    checkout and sets each one up. Reads GET /sites/ and GET /sites/{id}/payment-methods/; writes PATCH (on/off),
    POST/DELETE .../accounts/ (bank and e-wallet accounts, optional QR image) and PUT/DELETE .../xendit/ (secret key and
    webhook token, write-only). Every status comes from the API: a method shows at checkout only while it is on AND set
-   up (`available`). API strings reach the page through textContent or D.el only. Secrets are never kept or shown. */
+   up (`available`). API strings reach the page through textContent or D.el only. Secrets are never kept or shown.
+
+   The Xendit section is hidden (Coach Ed 2026-11-11, ClickUp z8uq9me4hq: bank transfer is the payment method for
+   launch until a payment gateway is approved). While XENDIT_SECTION_ENABLED is false the page draws no Xendit row or
+   card, sends nothing to .../xendit/ and does not read the `xendit` block, which the API may leave out. */
 (function () {
   var D = window.NODash;
+  /* Off = the Xendit row, card, key form and webhook block are not drawn. Set it to true to bring them back. */
+  var XENDIT_SECTION_ENABLED = false;
   var token = 0, site = null, data = null, closeDialog = null;
 
   function byId(id) { return document.getElementById(id); }
@@ -89,7 +95,7 @@
   /* ---- render ---- */
   function render() {
     var root = clear(byId("pm-root")); root.removeAttribute("aria-busy");
-    add(root, methodsCard(), accountsCard(), xenditCard());
+    add(root, methodsCard(), accountsCard(), XENDIT_SECTION_ENABLED ? xenditCard() : null);
   }
 
   /* One row per method: name, what it needs, status chip and the on/off switch. */
@@ -122,8 +128,8 @@
     var s = card("methods", "Payment methods at checkout");
     s.setAttribute("id", "pm-methods");
     add(s, methodRow("direct", "Bank or e-wallet transfer", "Buyers send the amount to one of your accounts and upload their proof. You verify each payment."),
-      methodRow("xendit", "Pay Online with Xendit", "Buyers pay on Xendit’s secure page. Needs your own Xendit account."));
-    if (!data.available.direct && !data.available.xendit) add(s, h("p", "pm-warn", "No payment method is showing, so buyers cannot check out."));
+      XENDIT_SECTION_ENABLED ? methodRow("xendit", "Pay Online with Xendit", "Buyers pay on Xendit’s secure page. Needs your own Xendit account.") : null);
+    if (!data.available.direct && !(XENDIT_SECTION_ENABLED && data.available.xendit)) add(s, h("p", "pm-warn", "No payment method is showing, so buyers cannot check out."));
     return s;
   }
   function refreshMethods() { var old = byId("pm-methods"); if (old) old.parentNode.replaceChild(methodsCard(), old); }
@@ -330,7 +336,7 @@
     });
   }
 
-  /* ---- Xendit ---- */
+  /* ---- Xendit: reached only while XENDIT_SECTION_ENABLED is true ---- */
   // navigator.clipboard exists only on https or localhost, so plain http copies through a hidden textarea.
   function copyText(text, button, done) {
     if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done); return; }

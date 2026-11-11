@@ -78,6 +78,22 @@ test("account security notices are promised by email only, never to a mobile num
   assert.ok(!/Sent to your email and mobile/i.test(src), "alerts are not promised to the mobile");
 });
 
+/* Phase 7 B2 (ClickUp z8uq9machp): Account Settings is Account-owned. Every request in account.js is written as
+   D.call or D.send with the path as a string that starts the second argument, so the source is the full list. */
+test("the page calls only /account/ and /me/ routes", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const calls = [...src.matchAll(/\bD\.(?:call|send)\(\s*"([A-Z]+)"\s*,\s*([^,]+),/g)].map((m) => [m[1], m[2].trim()]);
+  assert.ok(calls.length >= 10, "the request list was read");
+  assert.equal(calls.length, (src.match(/\bD\.(?:call|send)\(/g) || []).length, "every request was read");
+  for (const [method, first] of calls) {
+    assert.match(first, /^"\/(account|me)\/[a-z\/-]*"$/, method + " " + first);
+  }
+  assert.ok(calls.some(([m, p]) => m === "GET" && p === '"/account/"'), "the page loads from GET /account/");
+  assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon/.test(src), "no request is made any other way");
+  assert.ok(!/["'`]\/sites\//.test(src), "no site route, as a request or as a link");
+  assert.ok(!/siteFromQuery|sitesOf|\?site=/.test(src), "the page reads no selected site");
+});
+
 /* ---- Code steps (ClickUp z8uq9md33v): its own block ---- */
 test("the email and the mobile code step are both laid out like the site's code step", () => {
   const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
@@ -92,8 +108,8 @@ test("the email and the mobile code step are both laid out like the site's code 
     assert.ok(step.includes("parts.cooldown()") && step.includes("f.appendChild(parts.back)"));
   }
   /* resend is each step's own start call again, inside the /account/ routes */
-  assert.ok(email.includes('wait: 60, path: "/account/email/start/", payload: { email: email }') && email.includes('"Use a different email"'));
-  assert.ok(mobile.includes('wait: 30, path: "/account/mobile/start/", payload: { mobile: number }') && mobile.includes('"Use a different number"'));
+  assert.ok(email.includes("wait: 60,") && email.includes('send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }') && email.includes('"Use a different email"'));
+  assert.ok(mobile.includes("wait: 30,") && mobile.includes('send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); }') && mobile.includes('"Use a different number"'));
   /* the approved wording is kept */
   assert.ok(email.includes('". Enter it to confirm this address."') && email.includes('"You cannot change your email again for 24 hours."'));
   assert.ok(email.includes('"Confirm email"') && email.includes("email_change_cooldown") && email.includes("email_taken"));

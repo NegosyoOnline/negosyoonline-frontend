@@ -350,3 +350,23 @@ test("the social links dialog has Facebook first and saves the three links in on
   assert.ok(JSON.stringify(sent[0]).includes("https://www.facebook.com/nenabarley"));
   for (const key of ["facebook_url", "instagram_url", "tiktok_url"]) assert.ok(JSON.stringify(sent[0]).includes(key), key);
 });
+
+/* Phase 7 B2 (ClickUp z8uq9machp): Business Settings is Site-owned. */
+test("the page calls only /sites/ routes", async () => {
+  const calls = [...SRC.matchAll(/\bD\.(?:call|send)\(\s*"([A-Z]+)"\s*,\s*([^,]+),/g)].map((m) => [m[1], m[2].trim()]);
+  assert.ok(calls.length >= 3, "the request list was read");
+  assert.equal(calls.length, (SRC.match(/\bD\.(?:call|send)\(/g) || []).length, "every request was read");
+  for (const [method, first] of calls) assert.match(first, /^"\/sites\/"/, method + " " + first);
+  assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon/.test(SRC), "no request is made any other way");
+  assert.ok(!/["'`]\/(account|me|auth)\//.test(SRC), "no account route, as a request or as a link");
+
+  /* And as run: a load, a switch to the second site and one save from every dialog. */
+  const p = boot({ sites: [SITE_A, SITE_B] });
+  await p.show();
+  const sel = p.$("bs-site");
+  sel.value = B; sel.fire("change");
+  await settle();
+  for (const [id] of DIALOGS) { p.open(id); await p.save(); }
+  assert.ok(p.calls.length > DIALOGS.length);
+  for (const c of p.calls) assert.match(c.path, /^\/sites\/(site_[0-9a-z]{20}\/(business-profile\/)?)?$/, c.method + " " + c.path);
+});

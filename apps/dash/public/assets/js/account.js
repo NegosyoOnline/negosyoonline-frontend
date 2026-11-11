@@ -444,7 +444,7 @@
   function note(text) { return D.el("p", { "class": "dash-copy acct-dlg-note" }, text); }
 
   /* ---- code steps (ClickUp z8uq9md33v): both are laid out like the public site's sign-in code step: centred, the
-     larger boxes, a resend line, the button, a quiet way back. Resend is the step's own start call again; `refused`
+     larger boxes, a resend line, the button, a quiet way back. Resend is the step's own start call again, passed in as `send`; `refused`
      handles the answers that leave the step and returns true, anything else shows under the boxes. ---- */
   function clock(left) { var s = left % 60; return Math.floor(left / 60) + ":" + (s < 10 ? "0" : "") + s; }
   function codeStepParts(o) {
@@ -469,7 +469,7 @@
       setErrors(o.fields, null);
       status.textContent = "";
       resend.disabled = true;
-      D.call("POST", o.path, o.payload, true).then(function (res) {
+      o.send().then(function (res) {
         resend.disabled = false;
         if (res.ok) {
           status.textContent = "A new code is on its way.";
@@ -520,7 +520,8 @@
     lead.appendChild(txt(". Enter it to confirm this address."));
     var on = function (name) { return (a.providers || []).some(function (p) { return p && p.provider === name && p.connected === true; }); };
     var kept = (on("facebook") ? "Your Facebook sign-in stays connected. " : "") + (on("google") ? "Your Google sign-in stays connected. " : "");
-    var parts = codeStepParts({ code: code, fields: fields, wait: 60, path: "/account/email/start/", payload: { email: email }, errKey: "email",
+    var parts = codeStepParts({ code: code, fields: fields, wait: 60, errKey: "email",
+      send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }, /* the path stays a plain string here: the route test reads every call */
       backText: "Use a different email", goBack: function () { emailStep1(body, email, ""); },
       refused: function (res) { /* the same answers the first send can give */
         var c = codeOf(res);
@@ -656,7 +657,8 @@
     body.textContent = "";
     var code = field({ id: "acct-mobile-code", name: "code", label: "Code", kind: "code" });
     var fields = { code: code }, confirm = submitBtn("Confirm mobile");
-    var parts = codeStepParts({ code: code, fields: fields, wait: 30, path: "/account/mobile/start/", payload: { mobile: number }, errKey: "mobile",
+    var parts = codeStepParts({ code: code, fields: fields, wait: 30, errKey: "mobile",
+      send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); },
       backText: "Use a different number", goBack: function () { mobileStep1(body); } });
     var f = dlgForm(function () {
       setErrors(fields, null);

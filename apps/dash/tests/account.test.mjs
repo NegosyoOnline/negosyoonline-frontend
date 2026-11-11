@@ -78,21 +78,27 @@ test("account security notices are promised by email only, never to a mobile num
   assert.ok(!/Sent to your email and mobile/i.test(src), "alerts are not promised to the mobile");
 });
 
-/* ---- Mobile code step (ClickUp z8uq9md33v): its own block ---- */
-test("the mobile code step is laid out like the site's code step and the email step is left as it was", () => {
+/* ---- Code steps (ClickUp z8uq9md33v): its own block ---- */
+test("the email and the mobile code step are both laid out like the site's code step", () => {
   const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
   const css = fs.readFileSync(new URL("../public/assets/css/dash.css", import.meta.url), "utf8");
-  const step = src.slice(src.indexOf("function mobileStep2("), src.indexOf("/* ---- connect and disconnect"));
-  assert.ok(step.includes('kind: "code", centred: true'), "the mobile step asks for the centred boxes");
-  assert.equal(src.split("centred: true").length - 1, 1, "no other code step asks for them");
-  assert.ok(src.includes('o.centred ? "acct-otp acct-otp-lg" : "acct-otp"'), "without the option the boxes are the old ones");
-  assert.ok(step.includes('. Enter it to confirm this number."') && step.includes('"After you confirm, we send a notice to your email."'));
-  for (const text of ['"Didn\\u2019t arrive? "', '"You can resend in "', '"Resend the code"', '"Use a different number"', '"Confirm mobile"']) {
-    assert.ok(step.includes(text), text);
+  const between = (from, to) => src.slice(src.indexOf(from), src.indexOf(to));
+  const parts = between("function codeStepParts(", "/* ---- email change");
+  const email = between("function emailStep2(", "function cooldownRefused(");
+  const mobile = between("function mobileStep2(", "/* ---- connect and disconnect");
+  for (const text of ['"Didn\\u2019t arrive? "', '"You can resend in "', '"Resend the code"', '"A new code is on its way."']) assert.ok(parts.includes(text), text);
+  for (const step of [email, mobile]) {
+    assert.ok(step.includes('f.classList.add("acct-code-step")'));
+    assert.ok(step.includes("parts.cooldown()") && step.includes("f.appendChild(parts.back)"));
   }
-  assert.ok(step.includes('D.call("POST", "/account/mobile/start/", { mobile: number }, true)'), "resend is the existing start call");
+  /* resend is each step's own start call again, inside the /account/ routes */
+  assert.ok(email.includes('wait: 60, path: "/account/email/start/", payload: { email: email }') && email.includes('"Use a different email"'));
+  assert.ok(mobile.includes('wait: 30, path: "/account/mobile/start/", payload: { mobile: number }') && mobile.includes('"Use a different number"'));
+  /* the approved wording is kept */
+  assert.ok(email.includes('". Enter it to confirm this address."') && email.includes('"You cannot change your email again for 24 hours."'));
+  assert.ok(email.includes('"Confirm email"') && email.includes("email_change_cooldown") && email.includes("email_taken"));
+  assert.ok(mobile.includes('. Enter it to confirm this number."') && mobile.includes('"After you confirm, we send a notice to your email."') && mobile.includes('"Confirm mobile"'));
   assert.ok(src.includes('input.setAttribute("autocomplete", "one-time-code")'), "one-time-code autofill is kept");
-  assert.ok(css.includes("body.dash-app .acct-otp { position: relative; max-width: 328px; }"), "the shared boxes keep their size");
-  assert.ok(css.includes("body.dash-app .acct-otp-lg .acct-code-box { height: 56px; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
-  assert.ok(css.includes("body.dash-app .acct-code-step .acct-otp-lg { box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
+  assert.ok(css.includes("body.dash-app .acct-otp { position: relative; box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
+  assert.ok(css.includes("height: 56px; min-width: 0;") && css.includes("font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
 });

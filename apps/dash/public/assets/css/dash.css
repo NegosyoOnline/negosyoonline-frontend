@@ -1838,19 +1838,17 @@ body.dash-app .acct-dlg-foot { display: flex; flex-direction: column; gap: 8px; 
 body.dash-app .acct-dlg-foot .no-btn { box-sizing: border-box; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 body.dash-app .acct-prov-ic { flex: none; display: grid; place-items: center; box-sizing: border-box; inline-size: 24px; block-size: 24px; padding: 3px; border-radius: 50%; background: currentColor; }
 body.dash-app .acct-prov-ic svg { display: block; inline-size: 100%; block-size: 100%; }
-body.dash-app .acct-otp { position: relative; max-width: 328px; }
+body.dash-app .acct-otp { position: relative; box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }
 body.dash-app .acct-code-boxes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
-body.dash-app .acct-code-box { box-sizing: border-box; display: grid; place-items: center; height: 48px; min-width: 0; border: 1px solid var(--switch-line); border-radius: 10px; background: var(--switch-bg); font-size: 20px; font-weight: 700; }
+body.dash-app .acct-code-box { box-sizing: border-box; display: grid; place-items: center; height: 56px; min-width: 0; border: 1px solid var(--switch-line); border-radius: 10px; background: var(--switch-bg); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 body.dash-app .acct-otp-input { position: absolute; inset: 0; box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent; font-size: 20px; opacity: 0; cursor: text; }
 body.dash-app .acct-otp:focus-within .acct-code-box-on { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
 body.dash-app .acct-otp.acct-otp-err .acct-code-box { border: 2px solid var(--err-line); background: var(--err-bg); }
 body.dash-app .acct-otp.acct-otp-err:focus-within .acct-code-box-on { border-color: var(--err-h); box-shadow: 0 0 0 1px var(--err-h); }
-/* Mobile code step (ClickUp z8uq9md33v): laid out like the public site's sign-in code step, in the dashboard's
-   own dialog and theme tokens. Centred; boxes 56px high, up to 60px wide, 8px apart; a resend line; a quiet way
-   back. The email-change code step does not carry these classes and keeps the rules above. */
+/* Code steps (ClickUp z8uq9md33v): the email and the mobile code step are laid out like the public site's sign-in
+   code step, in the dashboard's own dialog and theme tokens. Centred; boxes 56px high, up to 60px wide, 8px apart
+   (the rules above); a resend line; a quiet way back. */
 body.dash-app .acct-code-step { text-align: center; }
-body.dash-app .acct-code-step .acct-otp-lg { box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }
-body.dash-app .acct-otp-lg .acct-code-box { height: 56px; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 body.dash-app .acct-code-step .ob-err { margin-top: 10px; text-align: center; }
 body.dash-app .acct-code-hint { margin: 0; font-size: .92rem; color: var(--text-2); }
 body.dash-app .acct-code-hint:empty { display: none; }
@@ -1859,7 +1857,7 @@ body.dash-app .acct-code-resend:hover { color: var(--link-hover); text-decoratio
 body.dash-app .acct-code-resend:disabled { opacity: .6; cursor: default; text-decoration: none; }
 body.dash-app .acct-code-back { display: block; margin: 0 auto; padding: 6px 10px; border: 0; border-radius: 8px; background: none; font: inherit; color: var(--text-2); cursor: pointer; }
 body.dash-app .acct-code-back:hover { color: var(--link); text-decoration: underline; }
-@media (max-width: 400px) { body.dash-app .acct-otp-lg .acct-code-boxes { gap: 6px; } }
+@media (max-width: 400px) { body.dash-app .acct-code-boxes { gap: 6px; } }
 /* Account Settings (Onboarding Phase 4) end */
 /* Business Settings (Phase 5, ClickUp z8uq9machb): the rows, cards and dialog are the Account Settings ones (the
    rules above are shared by both views). Only what is new to this page is here: the site line, the Public and

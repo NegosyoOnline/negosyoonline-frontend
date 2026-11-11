@@ -3,7 +3,10 @@
 
    Unknown fails closed: a site that is not served, any other status, a timeout, an answer
    of the wrong shape or a missing secret all give null, and the caller answers the neutral
-   404. The reason goes to the server log, never with the secret or the URL. */
+   404. The reason goes to the server log, never with the secret or the URL.
+
+   The contact call fails closed the same way: anything but a clear "sent", a clear list of
+   field errors or the limit's own answer is "failed". Nothing a visitor typed, and not their address, is ever logged. */
 import type { StorefrontEnv } from "./env.ts";
 
 export type Site = {
@@ -34,6 +37,7 @@ type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 type Log = (reason: string) => void;
 
 const logReason: Log = (reason) => console.error(`storefront: site lookup failed: ${reason}`);
+const logContact: Log = (reason) => console.error(`storefront: contact message not sent: ${reason}`);
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -110,4 +114,93 @@ export async function fetchSite(
     return null;
   }
   return body;
+}
+
+export type ContactMessage = {
+  host: string;
+  visitor_ip: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  website: string; // the form's hidden field, passed on as posted: the API decides what it means
+};
+
+export type ContactFieldErrors = { name?: string; email?: string; subject?: string; message?: string };
+
+export type ContactResult =
+  | { state: "sent" }
+  | { state: "invalid"; errors: ContactFieldErrors }
+  | { state: "limited" } // too many messages from this visitor's address in the last hour
+  | { state: "failed" };
+
+const FAILED: ContactResult = { state: "failed" };
+const QUIET = [404, 409]; // not served, no contact email: everyday answers, not logged
+
+function fieldErrors(body: unknown): ContactFieldErrors {
+  const fields = record(body) && record(body.error) && record(body.error.fields) ? body.error.fields : {};
+  const errors: ContactFieldErrors = {};
+  for (const key of ["name", "email", "subject", "message"] as const) {
+    const list = fields[key];
+    const first = Array.isArray(list) ? list[0] : undefined;
+    if (typeof first === "string" && first) errors[key] = first;
+  }
+  return errors;
+}
+
+/** Hands a visitor's "Send a Message" form to Django, which emails it to the store. */
+export async function sendContact(
+  message: ContactMessage,
+  env: Pick<StorefrontEnv, "apiBase" | "secret">,
+  fetchImpl: Fetch = fetch,
+  log: Log = logContact,
+): Promise<ContactResult> {
+  if (!message.host) return FAILED;
+  if (env.secret.length < SECRET_MIN_LENGTH) {
+    log("STOREFRONT_SERVER_SECRET is not set");
+    return FAILED;
+  }
+  let response: Response;
+  try {
+    response = await fetchImpl(`${env.apiBase}/storefront/v1/contact/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.secret}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(message),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
+    return FAILED;
+  }
+  if (response.status === 429) return { state: "limited" }; // an everyday answer too, not logged
+  if (QUIET.includes(response.status)) return FAILED;
+  if (response.status !== 200 && response.status !== 400) {
+    log(`the API answered ${response.status}`);
+    return FAILED;
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    log("the API answer was not JSON");
+    return FAILED;
+  }
+  if (response.status === 200) {
+    if (record(body) && body.status === "sent") return { state: "sent" };
+    log("the API answer was not a sent message");
+    return FAILED;
+  }
+  const errors = fieldErrors(body);
+  if (Object.keys(errors).length === 0) {
+    log("the API refused the form without naming a field");
+    return FAILED;
+  }
+  return { state: "invalid", errors };
 }

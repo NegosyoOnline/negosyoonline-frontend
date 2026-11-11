@@ -771,7 +771,7 @@ test("every destructive button on the Finance page is the same solid red with li
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   const stops = [...html.matchAll(/<button [^>]*class="[^"]*\bstop\b[^"]*"[^>]*id="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(stops, ["open-reject", "reject-go"], "the two Reject payment buttons, and no other, are destructive");
-  assert.match(css, /\.no-btn\.stop \{ background: #B42318; border-color: #B42318; color: #fff; \}/);
+  assert.match(css, /\.no-btn\.stop \{ background: var\(--red\); border-color: var\(--red\); color: var\(--on-red\); \}/);
   assert.match(css, /\.no-btn\.stop:disabled/);
   assert.doesNotMatch(css, /\.stop \{[^}]*var\(--err-h\)/, "the red outline look is gone");
 });
@@ -779,8 +779,16 @@ test("every destructive button on the Finance page is the same solid red with li
 test("the Rejected badge is solid red with light text and Replaced stays neutral", () => {
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
-  assert.match(css, /\.chip-err \{ background: #B42318; color: #fff; \}/);
-  assert.match(css, /\.dash-copy\.is-rejected \{ border-left: 3px solid #B42318/);
+  assert.match(css, /\.chip-err \{ background: var\(--red\); color: var\(--on-red\); \}/);
+  assert.match(css, /\.dash-copy\.is-rejected \{ border-left: 3px solid var\(--red\)/);
   assert.match(js, /rejected: \["Rejected", "chip-err"\]/);
   assert.match(js, /replaced: \["Replaced", "chip-neutral"\]/);
+});
+
+test("one light red serves the Reject buttons, the badge and the rule, in both themes, with 4.5:1 text", () => {
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.equal((css.match(/--red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605;/g) || []).length, 2);
+  assert.doesNotMatch(css, /#B42318/);
+  const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  for (const bg of ["#EF4A4F", "#E8444A"]) assert.ok((lum(bg) + 0.05) / (lum("#2A0605") + 0.05) >= 4.5);
 });

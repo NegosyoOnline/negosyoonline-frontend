@@ -21,6 +21,7 @@ body.dash-app {
   --field-bg: #0A1230; --field-line: #6474B0;
   --tile: #1A2862; --tile-ink: #BCCBFF;
   --banner: #10205E; --banner-line: #2B47B0; --banner-text: #D3DCF7;
+  --red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605; /* the one solid red: Reject buttons, Rejected badge and rule; 5.11:1 with its text */
   --err-bg: #1E1220; --err-line: #7A3328; --err-h: #FFB8AC; --err-text: #E9C9C3;
   --chip-ok-bg: rgba(46,170,110,.16); --chip-ok: #8FE3BC;
   --chip-info-bg: rgba(120,150,255,.16); --chip-info: #BCCBFF;
@@ -39,6 +40,7 @@ html[data-theme="light"] body.dash-app {
   --field-bg: #FFFFFF; --field-line: #7D879E;
   --tile: #E8EDFB; --tile-ink: #173DB8;
   --banner: #EEF2FD; --banner-line: #C5D1F5; --banner-text: #3A4560;
+  --red: #EF4A4F; --red-h: #E8444A; --on-red: #2A0605;
   --err-bg: #FDF0EE; --err-line: #E3A89D; --err-h: #A8321F; --err-text: #5A2A22;
   --chip-ok-bg: #E2F5EC; --chip-ok: #146B45;
   --chip-info-bg: #E8EDFB; --chip-info: #173DB8;
@@ -151,8 +153,8 @@ body.dash-app .no-btn-ghost:hover { background: var(--ghost-hover); }
 .chip-neutral { background: var(--chip-neutral-bg); color: var(--chip-neutral); }
 .chip-warn { background: var(--chip-warn-bg); color: var(--chip-warn); }
 /* Rejected: solid red with light text, readable in both themes. */
-.chip-err { background: #B42318; color: #fff; }
-.dash-copy.is-rejected { border-left: 3px solid #B42318; padding-left: 10px; }
+.chip-err { background: var(--red); color: var(--on-red); }
+.dash-copy.is-rejected { border-left: 3px solid var(--red); padding-left: 10px; }
 .chip .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
 .dash-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 10px; background: var(--card); box-shadow: var(--card-shadow); }
 .dash-card h2 { margin-bottom: 8px; font-size: 18px; font-weight: 700; line-height: 1.3; }
@@ -198,10 +200,10 @@ body.dash-app a.icon-btn { text-decoration: none; }
 .bar span { display: block; height: 100%; background: var(--primary); }
 .results li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 0; }
 /* A destructive primary button (Reject payment) is solid red with light text; focus is the shared light-blue ring. */
-body.dash-app .no-btn.stop { background: #B42318; border-color: #B42318; color: #fff; }
-body.dash-app .no-btn.stop:hover { background: #912018; border-color: #912018; }
+body.dash-app .no-btn.stop { background: var(--red); border-color: var(--red); color: var(--on-red); }
+body.dash-app .no-btn.stop:hover { background: var(--red-h); border-color: var(--red-h); }
 body.dash-app .no-btn.stop:disabled, .modal .no-btn:disabled { opacity: .55; cursor: not-allowed; }
-body.dash-app .no-btn.stop:disabled:hover { background: #B42318; border-color: #B42318; }
+body.dash-app .no-btn.stop:disabled:hover { background: var(--red); border-color: var(--red); }
 body.dash-app .modal .no-btn-primary:disabled:hover { background: var(--primary); }
 /* the list of bulk sends, and the CSV upload */
 .list-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 16px 20px; border-bottom: 1px solid var(--card-line); }

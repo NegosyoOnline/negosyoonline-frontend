@@ -34,6 +34,7 @@
     <div class="desk-switch"><button type="button" class="icon-btn" id="theme-toggle-2" aria-label="Switch between dark and light theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
     <main class="view" id="main" aria-live="polite">
       <div class="view-head"><div class="head-row"><h1>Admin console</h1></div></div>
+      <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
       <p class="dash-copy" id="boot">Loading...</p>
       <noscript><p class="dash-copy">This page needs JavaScript.</p></noscript>
       <div class="view" id="v-console" hidden>
@@ -41,7 +42,6 @@
           <div class="batch-title"><h2 id="who-h"></h2><span class="chip chip-ok"><span class="dot" aria-hidden="true"></span>Two-step sign-in verified</span></div>
           <p class="small" id="times"></p>
           <p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-2">Sign out</button></p>
-          <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
         </section>
         <section class="dash-card list-card" aria-labelledby="events-h">
           <div class="list-head"><h2 id="events-h">Recent sign-in activity</h2><span class="small">Your last 10 sign-in events.</span></div>
@@ -52,6 +52,7 @@
       <section class="dash-card" id="v-down" aria-labelledby="h-down" hidden>
         <h2 id="h-down">This page is not available right now.</h2>
         <p><a href="/">Try again</a></p>
+        <p><button type="button" class="no-btn no-btn-ghost phone-only" id="sign-out-3">Sign out</button></p>
       </section>
     </main>
   </div>
@@ -59,6 +60,7 @@
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111b"></script>
 <script src="/assets/js/menu.js?v=20261111b"></script>
-<script src="/assets/js/console.js?v=20261111c"></script>
+<script src="/assets/js/shell.js?v=20261111a"></script>
+<script src="/assets/js/console.js?v=20261111d"></script>
 </body>
 </html>

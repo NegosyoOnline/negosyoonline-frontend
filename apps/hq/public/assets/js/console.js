@@ -1,10 +1,11 @@
 /* The admin console: who is signed in, when the session ends, and that person's last sign-in events, as
-   the backend gives them. It writes nothing. The labels are the Django console's own words. */
+   the backend gives them. It writes nothing. The user card and Sign out are shell.js's. The labels are the Django console's own words. */
 (function () {
   var H = window.NOHq, $ = function (id) { return document.getElementById(id); };
   var EVENT = { admin_sign_in_ok: "Signed in", admin_sign_in_failed: "Wrong code", admin_locked: "Sign-in paused",
     admin_sign_out: "Signed out" };
-  var SURFACE = { hq: "Admin console", django_admin: "Operator admin" };
+  /* A surface this page has no words for is left out of the line. */
+  var SURFACE = { hq: "Admin console" };
   var STEP = { email: "email code", totp: "authenticator code", recovery: "recovery code" };
 
   function el(tag, cls, text) {
@@ -29,17 +30,10 @@
   }
 
   function paint(d) {
-    var me = H.who(d.email), list = $("events");
+    var list = $("events");
     $("who-h").textContent = "Signed in as " + (d.email || "");
     $("times").textContent = "Verified at " + H.when(d.verified_at) + ". Session ends " + H.when(d.expires_at) + ".";
-    $("acct-ini").textContent = me.initials;
-    $("acct-btn").textContent = me.initials;
-    $("acct-btn").setAttribute("aria-label", "Signed in as " + me.name);
-    $("acct-name").textContent = me.name;
-    /* The user card and the phone-width avatar are shown only now: before this answer nothing is known
-       about the session. */
-    $("acct-row").hidden = false;
-    $("acct-btn").hidden = false;
+    window.NOHqShell.signedIn(d.email);
     list.textContent = "";
     (Array.isArray(d.events) ? d.events : []).forEach(function (e) {
       var li = row(e || {});
@@ -50,15 +44,6 @@
     $("boot").hidden = true;
     $("v-console").hidden = false;
   }
-
-  ["sign-out", "sign-out-2"].forEach(function (id) {
-    $(id).addEventListener("click", function () {
-      H.call("POST", "sign-out/").then(function (res) {
-        if (res.status === 204) { location.assign("/sign-in/"); return; }
-        $("sign-out-err").hidden = false;
-      });
-    });
-  });
 
   H.call("GET", "console/").then(function (res) {
     var place = H.placeFor(res);

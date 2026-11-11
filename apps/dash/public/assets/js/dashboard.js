@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-sante", "settings-plans", "settings-billing", "settings-payments", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "orders-new", "products"]; /* every other view is reached through the mobile More sheet */
   var ROUTES = {
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
@@ -22,7 +22,6 @@
     "/referral/": { view: "referral", title: "Referral | NegosyoOnline" },
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
-    "/settings/sante/": { view: "settings-sante", title: "Santé setup | NegosyoOnline" },
     "/settings/plans/": { view: "settings-plans", title: "Plans | NegosyoOnline" },
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
     "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
@@ -31,6 +30,9 @@
     "/settings/automation/": { view: "settings-automation", title: "Automation Tools | NegosyoOnline" },
     "/settings/notification/": { view: "settings-notification", title: "Notification | NegosyoOnline" }
   };
+  /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
+     Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
+  var MOVED = { "/settings/sante/": "/settings/business/" };
   var has = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
 
   function messageOf(res, fallback) {
@@ -54,6 +56,7 @@
   var shownView = null;
   function route(initial) {
     var p = currentPath();
+    if (has(MOVED, p)) p = MOVED[p]; /* the replaceState below puts the new address, with its query string, in the bar */
     var known = has(ROUTES, p);
     var r = known ? ROUTES[p] : ROUTES["/"];
     if (r.view !== "overview" && dlgClose()) OB.reopen = true; /* CR-2 11.2 item 7(c): the popup never outlives "/" */
@@ -78,10 +81,6 @@
     var G = window.NOBusiness; /* business.js loads after this file; same enter/leave hooks as Billing */
     if (G && shownView === "settings-general" && r.view !== "settings-general") G.hide();
     if (G && r.view === "settings-general" && shownView !== "settings-general") G.show();
-    var N = window.NOSante; /* sante.js loads after this file; same enter/leave hooks as Billing (ClickUp z8uq9m92ez) */
-    if (N && shownView === "settings-sante" && r.view !== "settings-sante") N.hide();
-    if (N && r.view === "settings-sante" && shownView !== "settings-sante") N.show();
-    else if (N && inSettings && r.view !== "settings-sante") N.nav(); /* the Santé setup tab shows only for a Santé site */
     var S = window.NOStorefrontSettings; /* storefront-settings.js loads after this file; same enter/leave hooks as Billing */
     if (S && shownView === "settings-shipping" && r.view !== "settings-shipping") S.hide();
     if (S && r.view === "settings-shipping" && shownView !== "settings-shipping") S.show();
@@ -1130,7 +1129,6 @@
       OB.busy = false; btn.disabled = false; btn.textContent = "Create my site";
       var o = createOutcome(res), d = obj(res.data);
       if (o.kind === "signout") return;
-      if (o.kind === "created" && window.NOSante) window.NOSante.nav(); /* the new site may be a Santé site: show its Settings entry */
       if (o.kind === "created" && typeof d.id === "string" && d.id !== "") return drawStep3Load({ id: d.id, subdomain: o.subdomain, display_name: d.display_name }, "created", o.subdomain);
       if (o.kind === "created") return reread("save");
       if (o.kind === "field" && o.field === "subdomain") { OB.seq++; OB.lastChecked = ""; OB.lastResult = null; setAddress(addr, { kind: "error", text: o.text }); addr.input.focus(); return; }
@@ -1307,7 +1305,6 @@
     route(true);
     window.addEventListener("popstate", function () { route(false); });
     document.addEventListener("click", onLinkClick);
-    if (window.NOSante) window.NOSante.nav();
     load();
   });
 })();

@@ -166,6 +166,7 @@
     if (!body) return;
     var my = ++S.seq;
     closeDialog();
+    santeReset();
     S.site = null; S.profile = null; S.sites = []; /* nothing from the site shown before outlives a new read */
     head(null);
     skeleton(body);
@@ -251,9 +252,12 @@
     [identityCard(site, profile), contactCard(site, profile), webCard(site), legalCard(profile), deliveryCard(profile)].forEach(function (n) { grid.appendChild(n); });
     wrap.appendChild(grid);
     body.appendChild(wrap);
+    if (window.NOSante) window.NOSante.mount(site, grid); /* a Santé site: its Sponsor ID card, last in the grid */
     var f = focusId ? $(focusId) : null;
     if (f) f.focus();
   }
+  /* sante.js (loaded after this file) draws the Santé Sponsor ID card (ClickUp z8uq9m92ez). A new read or leaving the page drops it. */
+  function santeReset() { if (window.NOSante) window.NOSante.reset(); }
   /* What the two tags mean, as one plain line under the Site line (Coach Ed's ruling, 2026-11-11: no scope card). */
   function legendLine() {
     var legend = D.el("p", { "class": "bs-legend" });
@@ -518,7 +522,7 @@
 
   window.NOBusiness = {
     show: function () { load(); },
-    hide: function () { S.seq++; closeDialog(); S.site = null; S.profile = null; S.sites = []; S.notice = ""; say(""); },
+    hide: function () { S.seq++; closeDialog(); santeReset(); S.site = null; S.profile = null; S.sites = []; S.notice = ""; say(""); },
     util: { fieldMessage: fieldMessage, mobileShown: mobileShown, readiness: readiness, specs: specs, siteLabel: siteLabel, hostOf: hostOf },
     /* The dialog and its field, for sante.js (ClickUp z8uq9m92ez). One dialog is open at a time, whichever page opened it. */
     ui: { openDialog: openDialog, closeDialog: closeDialog, cancelDialog: cancelDialog, dialogBody: function () { return S.dlg ? S.dlg.body : null; },

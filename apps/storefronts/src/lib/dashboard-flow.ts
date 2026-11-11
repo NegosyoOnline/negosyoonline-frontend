@@ -158,7 +158,7 @@ export async function registrationPost(d: Dash, kind: Kind, text: Record<string,
   const r =
     kind === "mobile_send" ? await registrationMobileSend({ ...a, mobile: (text.mobile ?? "").trim() || undefined }, d.calls)
     : kind === "mobile_verify" ? await registrationMobileVerify({ ...a, code: (text.code ?? "").trim() }, d.calls)
-    : await registrationDetails({ ...a, ...splitDate(text), desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", terms: !!text.terms }, d.calls);
+    : await registrationDetails({ ...a, date_of_birth: (text.date_of_birth ?? "").trim(), desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", ...addressOf(text) }, d.calls);
   if (r.state === "ok") return redirect(HOME_PATH);
   if (r.state === "unavailable") return neutralNotFound();
   if (r.state === "failed") return tryAgain();
@@ -168,10 +168,12 @@ export async function registrationPost(d: Dash, kind: Kind, text: Record<string,
   return homePage(d, { reg_errors: errorsOf(r), posted }, statusOf(r));
 }
 
-/** The one date field TWCinc shows (YYYY-MM-DD), as the three numbers the backend reads; anything else is sent empty. */
-export function splitDate(text: Record<string, string>): { dob_year: string; dob_month: string; dob_day: string } {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((text.date_of_birth ?? "").trim());
-  return m ? { dob_year: m[1], dob_month: String(Number(m[2])), dob_day: String(Number(m[3])) } : { dob_year: "", dob_month: "", dob_day: "" };
+const ADDRESS_FIELDS = ["line", "barangay", "city", "province", "zip"] as const;
+
+/** The delivery address block of TWCinc's dashboard form (shown while the member has none); omitted when nothing was typed. */
+export function addressOf(text: Record<string, string>): { delivery_address?: { line: string; barangay: string; city: string; province: string; zip: string } } {
+  const a = Object.fromEntries(ADDRESS_FIELDS.map((k) => [k, (text[k] ?? "").trim()])) as Record<(typeof ADDRESS_FIELDS)[number], string>;
+  return ADDRESS_FIELDS.some((k) => a[k]) ? { delivery_address: a } : {};
 }
 
 const PROOF_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "application/pdf"]);

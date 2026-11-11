@@ -1,13 +1,8 @@
 /* The member Home's four tiles and Order Monitoring, and the My Orders page.
    Transcribed from TWCinc's dash_home.html (hero tiles), _order_monitor.html, dash_orders.html and _order_card.html: text, class
-   names and order are the templates'. Money is written as Django's floatformat:2|intcomma. Dates are Manila's, as TWCinc's. */
+   names and order are the templates'. Money arrives formatted from the backend. Dates are Manila's, as TWCinc's. */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { HomeSummary, OrderCard, OrderMonitor } from "../../lib/pack-api.ts";
-
-export function money(pesos: number): string {
-  const [w, c] = Math.abs(pesos).toFixed(2).split(".");
-  return `${pesos < 0 ? "-" : ""}${w.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${c}`;
-}
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "M j, Y" (Nov 12, 2026), or "M j" without the year, in Manila time; "" for an unreadable date. */
@@ -20,7 +15,7 @@ export function shortDate(iso: string, year = true): string {
 
 export function heroTiles(s: HomeSummary): Markup {
   return html`<div class="acct-kpis">
-    <div class="acct-kpi acct-kpi-lead"><span class="acct-kpi-label">Total Spent</span><span class="acct-kpi-value">&#8369;${money(s.total_spent)}</span></div>
+    <div class="acct-kpi acct-kpi-lead"><span class="acct-kpi-label">Total Spent</span><span class="acct-kpi-value">&#8369;${s.total_spent}</span></div>
     <div class="acct-kpi"><span class="acct-kpi-label">Orders</span><span class="acct-kpi-value">${s.total_orders}</span></div>
     <div class="acct-kpi"><span class="acct-kpi-label">Delivered</span><span class="acct-kpi-value">${s.delivered}</span></div>
     <div class="acct-kpi"><span class="acct-kpi-label">Needs Attention</span><span class="acct-kpi-value">${s.needs_attention}</span></div>
@@ -87,7 +82,7 @@ function card(c: OrderCard): Markup {
   return html`<div class="oc-card${c.problem ? " problem" : ""}">
   <div class="oc-top">
     <div><div class="oc-ref">${c.order_number}</div><div class="oc-date">Placed ${shortDate(c.created_at)}</div></div>
-    <div class="oc-total"><span>Total &middot; ${c.payment_label}</span>&#8369;${money(c.total)}</div>
+    <div class="oc-total"><span>Total &middot; ${c.payment_label}</span>&#8369;${c.total}</div>
   </div>
   <div class="oc-body">
     <div class="oc-items-text"><strong>${c.headline}</strong></div>

@@ -7,8 +7,8 @@
    - the price is the order's own (price_centavos), not a written figure;
    - the proof hint says "up to 4 MB" (TWCinc said 10 MB): a Vercel Function body is capped at 4.5 MB;
    - the dialog's script and the date field's showPicker handler are the external js/pack-lock.js (the policy allows no inline script);
-   - the details form posts the date as the one date field TWCinc shows and the route splits it into the backend's
-     dob_year / dob_month / dob_day; it also carries the one "Membership Terms" tick the backend asks for (terms). */
+   - the details form is TWCinc's own: one date field, the two usernames and, while the member has no address, the
+     delivery address block (the backend's member/registration/details takes date_of_birth and delivery_address). */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { MemberPack, MobileCheck, RegistrationCard } from "../../lib/pack-api.ts";
 
@@ -107,10 +107,19 @@ ${fe.desired_username ? html`<p class="err" id="${idp}-u1-msg">${fe.desired_user
 <div class="fld"><label for="${idp}-u2">Secondary Santé Username</label>
 <input id="${idp}-u2" class="inp${bad(fe, "alternate_username")}" type="text" name="alternate_username" maxlength="20" autocomplete="off" autocapitalize="none" value="${posted.alternate_username ?? ""}"${aria(fe, "alternate_username", `${idp}-u2`)}>
 ${fe.alternate_username ? html`<p class="err" id="${idp}-u2-msg">${fe.alternate_username}</p>` : html`<p class="hint">Used if your first choice is taken.</p>`}</div>
-<div class="fld"><label for="${idp}-terms" style="display:flex;gap:8px;align-items:flex-start;font-weight:400">
-<input type="checkbox" id="${idp}-terms" name="terms" value="1"${posted.terms ? html` checked` : ""} style="margin-top:4px">
-<span>I have read and agree to the Santé Membership Terms.</span></label>
-${fe.terms ? html`<p class="err">${fe.terms}</p>` : ""}</div>
+${reg.needs_address ? html`
+<p class="hint" style="margin:6px 0 12px"><b>Delivery address</b>: where we ship your Membership Pack.</p>
+${fe.delivery_address ? html`<p class="err" role="alert" style="margin:0 0 10px">${fe.delivery_address}</p>` : ""}
+<div class="fld"><label for="${idp}-line">House number and street</label>
+<input id="${idp}-line" class="inp${fe.delivery_address ? " bad" : ""}" type="text" name="line" autocomplete="address-line1" value="${posted.line ?? ""}"></div>
+<div class="fld"><label for="${idp}-barangay">Barangay</label><input id="${idp}-barangay" class="inp" type="text" name="barangay" value="${posted.barangay ?? ""}"></div>
+<div class="fld"><label for="${idp}-city">City or municipality</label>
+<input id="${idp}-city" class="inp${fe.delivery_address ? " bad" : ""}" type="text" name="city" autocomplete="address-level2" value="${posted.city ?? ""}"></div>
+<div class="fld"><label for="${idp}-province">Province</label>
+<input id="${idp}-province" class="inp${fe.delivery_address || fe.province ? " bad" : ""}" type="text" name="province" autocomplete="address-level1" value="${posted.province ?? ""}"${fe.province ? html` aria-invalid="true" aria-describedby="${idp}-province-msg"` : ""}>
+${fe.province ? html`<p class="err" id="${idp}-province-msg">${fe.province}</p>` : ""}</div>
+<div class="fld"><label for="${idp}-zip">ZIP code</label><input id="${idp}-zip" class="inp${fe.zip ? " bad" : ""}" type="text" name="zip" inputmode="numeric" autocomplete="postal-code" value="${posted.zip ?? ""}"${fe.zip ? html` aria-invalid="true" aria-describedby="${idp}-zip-msg"` : ""}>
+${fe.zip ? html`<p class="err" id="${idp}-zip-msg">${fe.zip}</p>` : ""}</div>` : ""}
 <button class="btn inline" type="submit">Save details</button>
 </form>`;
 }

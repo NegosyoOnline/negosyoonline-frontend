@@ -28,7 +28,7 @@ export const TEXT_ME_ENABLED = false;
 export type Section = { key: string; label: string; path: string; built: boolean };
 export const SECTIONS: readonly Section[] = [
   { key: "home", label: "Dashboard", path: "/dashboard/", built: true },
-  { key: "orders", label: "My Orders", path: "/dashboard/orders/", built: false },
+  { key: "orders", label: "My Orders", path: "/dashboard/orders/", built: true },
   { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false },
   { key: "account", label: "Account", path: "/dashboard/account/", built: false },
 ];

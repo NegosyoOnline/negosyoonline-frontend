@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { homePage, proofGet, registrationPost, resubmitPost, splitDate, type Dash } from "../src/lib/dashboard-flow.ts";
+import { addressOf, homePage, proofGet, registrationPost, resubmitPost, type Dash } from "../src/lib/dashboard-flow.ts";
 import { pesos } from "../src/views/sante/pack-member.ts";
 import { PROOF_MAX_BYTES } from "../src/lib/pack-api.ts";
 import { SITE } from "./site.ts";
@@ -161,15 +161,17 @@ test("resubmit on an order that is not rejected goes Home", async () => {
   assert.equal(r.headers.get("location"), "/dashboard/");
 });
 
-test("the details post splits the date into the three numbers the backend reads, and sends terms", async () => {
-  assert.deepEqual(splitDate({ date_of_birth: "1990-03-07" }), { dob_year: "1990", dob_month: "3", dob_day: "7" });
-  assert.deepEqual(splitDate({ date_of_birth: "07/03/1990" }), { dob_year: "", dob_month: "", dob_day: "" });
+test("the details post sends the one date as is, the usernames and the address block only when typed", async () => {
+  assert.deepEqual(addressOf({}), {});
+  assert.deepEqual(addressOf({ line: " 1 Rizal St ", city: "Quezon City", province: "Metro Manila", zip: "1100" }), {
+    delivery_address: { line: "1 Rizal St", barangay: "", city: "Quezon City", province: "Metro Manila", zip: "1100" },
+  });
   const f = fake({ "member/me": [ME], "member/registration/details": [ok({ registration: REG, mobile: MOBILE })] });
-  const r = await registrationPost(dashOf(f), "details", { date_of_birth: "1990-03-07", desired_username: "juan12345", alternate_username: "juan54321", terms: "1" });
+  const r = await registrationPost(dashOf(f), "details", { date_of_birth: "1990-03-07", desired_username: "juan12345", alternate_username: "juan54321" });
   assert.equal(r.headers.get("location"), "/dashboard/");
   assert.deepEqual(f.calls.find((c) => c.path === "member/registration/details")!.body, {
-    host: "demo.negosyotest.com", visitor_ip: "", token: "M".repeat(43), dob_year: "1990", dob_month: "3", dob_day: "7",
-    desired_username: "juan12345", alternate_username: "juan54321", terms: true,
+    host: "demo.negosyotest.com", visitor_ip: "", token: "M".repeat(43), date_of_birth: "1990-03-07",
+    desired_username: "juan12345", alternate_username: "juan54321",
   });
 });
 
@@ -207,11 +209,11 @@ test("pesos writes centavos as TWCinc writes money", () => {
 });
 
 const HOME = {
-  summary: { total_spent: 1488, total_orders: 1, delivered: 0, needs_attention: 0 },
+  summary: { total_spent: "1,488.00", total_orders: 1, delivered: 0, needs_attention: 0 },
   order_monitor: { delta: 1, awaiting_approval: 1, for_booking: 0, for_shipping: 0, delivered: 0, has_orders: true, series: [{ label: "Sun", count: 0, h: 0 }, { label: "Mon", count: 1, h: 100 }] },
 };
 const CARD = {
-  order: { order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: 1488 }, payment_label: "Bank transfer", headline: "Membership Pack",
+  order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: "1,488.00", payment_label: "Bank transfer", headline: "Membership Pack",
   chip_class: "is-review", chip_label: "Under review", problem: false, problem_line: "", note: "", awaiting_payment: false, under_review: true, steps: [],
   courier: "", tracking: "", shipping_label: "Free", item_count: 1, item_lines: [{ qty: 1, name: "Membership Pack" }],
   address: "1 Rizal St, Manila", receiver_name: "Juan Dela Cruz", receiver_mobile: "+639171234567",

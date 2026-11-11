@@ -361,7 +361,7 @@ export type RegistrationCard = {
   details_erased: boolean;
   state_version: string;
   sante_member_id: string;
-  has_address: boolean;
+  needs_address: boolean;
 };
 export type MobileCheck = { pending: boolean; mobile: string; locked: boolean; code_sent_to: string; resend_in: number; attempts_left: number };
 
@@ -399,7 +399,7 @@ function parseRegistration(v: unknown): RegistrationCard | null {
   return {
     status: v.status, label: str(v.label), line: str(v.line), tone: str(v.tone), details_form: v.details_form === true,
     details_erased: v.details_erased === true, state_version: str(v.state_version), sante_member_id: str(v.sante_member_id),
-    has_address: v.has_address !== false,
+    needs_address: v.needs_address === true,
   };
 }
 
@@ -443,7 +443,7 @@ export const registrationMobileSend = (args: Member & { mobile?: string }, c: Ca
 export const registrationMobileVerify = (args: Member & { code: string }, c: Calls) =>
   packPost("member/registration/mobile/verify", args, parseRegAnswer, c);
 export const registrationDetails = (
-  args: Member & { dob_year: string; dob_month: string; dob_day: string; desired_username: string; alternate_username: string; terms: boolean },
+  args: Member & { date_of_birth: string; desired_username: string; alternate_username: string; delivery_address?: { line: string; barangay: string; city: string; province: string; zip: string } },
   c: Calls,
 ) => packPost("member/registration/details", args, parseRegAnswer, c);
 
@@ -471,19 +471,17 @@ export async function fetchOwnProof(args: Member & { proof_id: string }, c: Call
   }
 }
 
-/* ---- the member Home figures and the My Orders cards ------------------------------------------------------------------
-   TWCinc's dashboard.summary, dashboard.order_monitor and dashboard.card, with TWCinc's field names. The route names
-   (member/home, member/orders) and the unit of total_spent (pesos here) wait for the backend routes doc; only the two
-   wrappers below and `total_spent` change when it lands. */
+/* ---- the member Home figures and the My Orders cards (routes doc: member/home, member/orders) ----------------------------
+   TWCinc's field names; money arrives already formatted ("1,488.00") beside its centavos. */
 
-export type HomeSummary = { total_spent: number; total_orders: number; delivered: number; needs_attention: number };
+export type HomeSummary = { total_spent: string; total_orders: number; delivered: number; needs_attention: number };
 export type OrderMonitor = {
   delta: number; awaiting_approval: number; for_booking: number; for_shipping: number; delivered: number;
   series: { label: string; count: number; h: number }[]; has_orders: boolean;
 };
 export type OrderStep = { state: string; num: number; label: string; date: string };
 export type OrderCard = {
-  order_number: string; created_at: string; total: number; payment_label: string; headline: string; chip_class: string; chip_label: string;
+  order_number: string; created_at: string; total: string; payment_label: string; headline: string; chip_class: string; chip_label: string;
   problem: boolean; problem_line: string; note: string; awaiting_payment: boolean; under_review: boolean; steps: OrderStep[];
   courier: string; tracking: string; shipping_label: string; item_count: number; item_lines: { qty: number; name: string }[];
   address: string; receiver_name: string; receiver_mobile: string;
@@ -502,10 +500,10 @@ function parseMonitor(v: unknown): OrderMonitor | null {
 }
 
 function parseCard(v: unknown): OrderCard | null {
-  if (!record(v) || !record(v.order) || typeof v.order.order_number !== "string") return null;
+  if (!record(v) || typeof v.order_number !== "string") return null;
   const m = record(v.membership) ? v.membership : null;
   return {
-    order_number: v.order.order_number, created_at: str(v.order.created_at), total: num(v.order.total, 0),
+    order_number: v.order_number, created_at: str(v.created_at), total: str(v.total),
     payment_label: str(v.payment_label), headline: str(v.headline), chip_class: str(v.chip_class), chip_label: str(v.chip_label),
     problem: v.problem === true, problem_line: str(v.problem_line), note: str(v.note), awaiting_payment: v.awaiting_payment === true,
     under_review: v.under_review === true,
@@ -523,7 +521,7 @@ export function memberHome(args: Member, c: Calls) {
     const monitor = parseMonitor(b.order_monitor);
     if (!monitor) return null;
     const s = b.summary;
-    return { summary: { total_spent: num(s.total_spent, 0), total_orders: num(s.total_orders, 0), delivered: num(s.delivered, 0), needs_attention: num(s.needs_attention, 0) }, monitor };
+    return { summary: { total_spent: str(s.total_spent), total_orders: num(s.total_orders, 0), delivered: num(s.delivered, 0), needs_attention: num(s.needs_attention, 0) }, monitor };
   }, c);
 }
 

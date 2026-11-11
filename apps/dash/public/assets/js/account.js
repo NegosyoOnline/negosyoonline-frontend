@@ -398,6 +398,7 @@
     var d = S.dlg;
     if (!d) return false;
     S.dlg = null;
+    clearInterval(S.resendTimer); /* the mobile code step's resend countdown ends with its dialog */
     document.removeEventListener("keydown", dlgKey);
     d.root.remove();
     d.saved.forEach(function (s) {
@@ -442,10 +443,53 @@
   }
   function note(text) { return D.el("p", { "class": "dash-copy acct-dlg-note" }, text); }
 
+  /* ---- code steps (ClickUp z8uq9md33v): both are laid out like the public site's sign-in code step: centred, the
+     larger boxes, a resend line, the button, a quiet way back. Resend is the step's own start call again, passed in as `send`; `refused`
+     handles the answers that leave the step and returns true, anything else shows under the boxes. ---- */
+  function clock(left) { var s = left % 60; return Math.floor(left / 60) + ":" + (s < 10 ? "0" : "") + s; }
+  function codeStepParts(o) {
+    var code = o.code, status = D.el("p", { "class": "acct-code-hint", role: "status" });
+    var count = D.el("span", {}, ""), wait = D.el("span", {});
+    wait.appendChild(txt("You can resend in ")); wait.appendChild(count); wait.appendChild(txt("."));
+    var resend = D.el("button", { type: "button", "class": "acct-code-resend" }, "Resend the code");
+    var hint = D.el("p", { "class": "acct-code-hint" }, "Didn\u2019t arrive? ");
+    hint.appendChild(wait); hint.appendChild(resend);
+    var back = D.el("button", { type: "button", "class": "acct-code-back" }, o.backText);
+    function cooldown() {
+      var left = o.wait;
+      clearInterval(S.resendTimer);
+      resend.hidden = true; wait.hidden = false; count.textContent = clock(left);
+      S.resendTimer = setInterval(function () {
+        left -= 1;
+        if (left <= 0) { clearInterval(S.resendTimer); wait.hidden = true; resend.hidden = false; }
+        else count.textContent = clock(left);
+      }, 1000);
+    }
+    resend.addEventListener("click", function () {
+      setErrors(o.fields, null);
+      status.textContent = "";
+      resend.disabled = true;
+      o.send().then(function (res) {
+        resend.disabled = false;
+        if (res.ok) {
+          status.textContent = "A new code is on its way.";
+          code.input.value = ""; code.input.dispatchEvent(new Event("input")); code.input.focus();
+          cooldown(); return;
+        }
+        if (res.status === 404) { closeDialog(); load("h-account"); return; }
+        if (o.refused && o.refused(res)) return;
+        code.err.textContent = fieldMsg(res, o.errKey); code.err.hidden = false; /* not a wrong code: the boxes stay as they are */
+      });
+    });
+    back.addEventListener("click", o.goBack);
+    return { status: status, hint: hint, back: back, cooldown: cooldown };
+  }
+
   /* ---- email change (S3, S4, S5, S7; spec D5, D10) ---- */
   function openEmail(opener) { emailStep1(openDialog(opener, "Change your email"), "", ""); }
   function emailStep1(body, value, error) {
     body.textContent = "";
+    clearInterval(S.resendTimer);
     var em = field({ id: "acct-new-email", name: "email", label: "New email", kind: "email", value: value });
     var fields = { email: em }, send = submitBtn("Send code");
     var f = dlgForm(function () {
@@ -476,8 +520,18 @@
     lead.appendChild(txt(". Enter it to confirm this address."));
     var on = function (name) { return (a.providers || []).some(function (p) { return p && p.provider === name && p.connected === true; }); };
     var kept = (on("facebook") ? "Your Facebook sign-in stays connected. " : "") + (on("google") ? "Your Google sign-in stays connected. " : "");
+    var parts = codeStepParts({ code: code, fields: fields, wait: 60, errKey: "email",
+      send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }, /* the path stays a plain string here: the route test reads every call */
+      backText: "Use a different email", goBack: function () { emailStep1(body, email, ""); },
+      refused: function (res) { /* the same answers the first send can give */
+        var c = codeOf(res);
+        if (c === "email_change_cooldown") { cooldownRefused(body, email, res); return true; }
+        if (c === "email_taken") { emailStep1(body, email, fieldMsg(res, "email")); return true; }
+        return false;
+      } });
     var f = dlgForm(function () {
       setErrors(fields, null);
+      parts.status.textContent = "";
       confirm.disabled = true;
       D.call("POST", "/account/email/confirm/", emailConfirmBody(email, code.input.value), true).then(function (res) {
         confirm.disabled = false;
@@ -489,13 +543,18 @@
         setErrors(fields, { code: fieldMsg(res, "code") });
       });
     });
+    f.classList.add("acct-code-step");
     f.appendChild(lead);
     f.appendChild(code.box);
+    f.appendChild(parts.status);
+    f.appendChild(parts.hint);
     f.appendChild(note("After you confirm, you are signed out on every other device, and we email " + (a.email || "your old address") +
       " about the change. " + kept + "You cannot change your email again for 24 hours."));
     footer(f, [confirm]);
+    f.appendChild(parts.back);
     body.appendChild(f);
     code.input.focus();
+    parts.cooldown();
   }
   function cooldownRefused(body, email, res) { /* S7: a stale page or a second tab met the cooldown */
     body.textContent = "";
@@ -574,6 +633,7 @@
   function openMobile(opener) { mobileStep1(openDialog(opener, "Change your mobile")); }
   function mobileStep1(body) {
     body.textContent = "";
+    clearInterval(S.resendTimer);
     var mob = field({ id: "acct-new-mobile", name: "mobile", label: "New mobile", kind: "phone" });
     var fields = { mobile: mob }, send = submitBtn("Send code");
     var f = dlgForm(function () {
@@ -597,8 +657,12 @@
     body.textContent = "";
     var code = field({ id: "acct-mobile-code", name: "code", label: "Code", kind: "code" });
     var fields = { code: code }, confirm = submitBtn("Confirm mobile");
+    var parts = codeStepParts({ code: code, fields: fields, wait: 30, errKey: "mobile",
+      send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); },
+      backText: "Use a different number", goBack: function () { mobileStep1(body); } });
     var f = dlgForm(function () {
       setErrors(fields, null);
+      parts.status.textContent = "";
       confirm.disabled = true;
       D.call("POST", "/account/mobile/verify/", { code: code.input.value }, true).then(function (res) {
         confirm.disabled = false;
@@ -607,12 +671,17 @@
         setErrors(fields, { code: fieldMsg(res, "code") });
       });
     });
+    f.classList.add("acct-code-step");
     f.appendChild(D.el("p", { "class": "dash-copy" }, "We sent a 6-digit code to the number ending in " + String(number).slice(-4) + ". Enter it to confirm this number."));
     f.appendChild(code.box);
+    f.appendChild(parts.status);
+    f.appendChild(parts.hint);
     if (hasMobile(S.data)) f.appendChild(note("After you confirm, we send a notice to your email."));
     footer(f, [confirm]);
+    f.appendChild(parts.back);
     body.appendChild(f);
     code.input.focus();
+    parts.cooldown();
   }
 
   /* ---- connect and disconnect (S16, S17; spec 5.15, D25): fixed request paths only, so nothing rides a URL ---- */

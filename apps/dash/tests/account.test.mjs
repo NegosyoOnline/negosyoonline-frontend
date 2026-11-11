@@ -93,3 +93,28 @@ test("the page calls only /account/ and /me/ routes", () => {
   assert.ok(!/["'`]\/sites\//.test(src), "no site route, as a request or as a link");
   assert.ok(!/siteFromQuery|sitesOf|\?site=/.test(src), "the page reads no selected site");
 });
+
+/* ---- Code steps (ClickUp z8uq9md33v): its own block ---- */
+test("the email and the mobile code step are both laid out like the site's code step", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/assets/css/dash.css", import.meta.url), "utf8");
+  const between = (from, to) => src.slice(src.indexOf(from), src.indexOf(to));
+  const parts = between("function codeStepParts(", "/* ---- email change");
+  const email = between("function emailStep2(", "function cooldownRefused(");
+  const mobile = between("function mobileStep2(", "/* ---- connect and disconnect");
+  for (const text of ['"Didn\\u2019t arrive? "', '"You can resend in "', '"Resend the code"', '"A new code is on its way."']) assert.ok(parts.includes(text), text);
+  for (const step of [email, mobile]) {
+    assert.ok(step.includes('f.classList.add("acct-code-step")'));
+    assert.ok(step.includes("parts.cooldown()") && step.includes("f.appendChild(parts.back)"));
+  }
+  /* resend is each step's own start call again, inside the /account/ routes */
+  assert.ok(email.includes("wait: 60,") && email.includes('send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }') && email.includes('"Use a different email"'));
+  assert.ok(mobile.includes("wait: 30,") && mobile.includes('send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); }') && mobile.includes('"Use a different number"'));
+  /* the approved wording is kept */
+  assert.ok(email.includes('". Enter it to confirm this address."') && email.includes('"You cannot change your email again for 24 hours."'));
+  assert.ok(email.includes('"Confirm email"') && email.includes("email_change_cooldown") && email.includes("email_taken"));
+  assert.ok(mobile.includes('. Enter it to confirm this number."') && mobile.includes('"After you confirm, we send a notice to your email."') && mobile.includes('"Confirm mobile"'));
+  assert.ok(src.includes('input.setAttribute("autocomplete", "one-time-code")'), "one-time-code autofill is kept");
+  assert.ok(css.includes("body.dash-app .acct-otp { position: relative; box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
+  assert.ok(css.includes("height: 56px; min-width: 0;") && css.includes("font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
+});

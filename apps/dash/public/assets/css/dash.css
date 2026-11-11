@@ -1849,7 +1849,7 @@ body.dash-app .acct-otp.acct-otp-err:focus-within .acct-code-box-on { border-col
    own dialog and theme tokens. Centred; boxes 56px high, up to 60px wide, 8px apart; a resend line; a quiet way
    back. The email-change code step does not carry these classes and keeps the rules above. */
 body.dash-app .acct-code-step { text-align: center; }
-body.dash-app .acct-code-step .acct-otp-lg { max-width: 400px; margin: 8px auto 0; }
+body.dash-app .acct-code-step .acct-otp-lg { box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }
 body.dash-app .acct-otp-lg .acct-code-box { height: 56px; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 body.dash-app .acct-code-step .ob-err { margin-top: 10px; text-align: center; }
 body.dash-app .acct-code-hint { margin: 0; font-size: .92rem; color: var(--text-2); }

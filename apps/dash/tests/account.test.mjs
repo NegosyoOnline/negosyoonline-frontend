@@ -94,5 +94,5 @@ test("the mobile code step is laid out like the site's code step and the email s
   assert.ok(src.includes('input.setAttribute("autocomplete", "one-time-code")'), "one-time-code autofill is kept");
   assert.ok(css.includes("body.dash-app .acct-otp { position: relative; max-width: 328px; }"), "the shared boxes keep their size");
   assert.ok(css.includes("body.dash-app .acct-otp-lg .acct-code-box { height: 56px; font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
-  assert.ok(css.includes("body.dash-app .acct-code-step .acct-otp-lg { max-width: 400px; margin: 8px auto 0; }"));
+  assert.ok(css.includes("body.dash-app .acct-code-step .acct-otp-lg { box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
 });

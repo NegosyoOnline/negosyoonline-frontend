@@ -195,7 +195,14 @@ Coach Ed's ruling (2026-11-11): a coordinator's own handover is automatic too. T
 
 Nothing sits above a coordinator to wake it after a clear, so it keeps one small helper session for that.
 
-Keep a helper ready. A session can be started only on a turn that Coach Ed's own message began, and the context warning often fires on a turn a builder's message began. So on an early turn of his, start one helper: fresh, sharing this worktree (`use_worktree: false`), on a cheaper model, titled "Coordinator helper (leave idle)". Its whole brief: when the coordinator sends a resume prompt, wait 10 seconds in the background, send that prompt back to the coordinator's session id unchanged with SendMessage, and do nothing else: no file reads or edits, no ClickUp. Record its session id in the coordination record. One helper serves every handover; do not start a second.
+Create the Coordinator Helper first. Every coordinator has exactly one, and a new coordinator starts it on its first turn, before it reads the task: that turn was begun by Coach Ed's `/clickup-coordinator`, and a session can be started only on a turn his own message began. The context warning often fires on a turn a builder's message began, when it is too late to start one.
+
+- Start it fresh, sharing this worktree (`use_worktree: false`), on a cheaper model, titled "Coordinator Helper".
+- Its whole brief: "You are the Coordinator Helper for the coordinator session <this session's id>. Stay idle. When that coordinator sends you a resume prompt, wait 10 seconds in the background, then send that prompt back to that session id unchanged with SendMessage. Do nothing else: no file reads or edits, no ClickUp, no git. You exist so the coordinator can clear itself and be resumed without Coach Ed pasting anything."
+- Record its session id in the coordination record and in every state file.
+- After a resume, check the helper named in the state file is still listed among this session's linked sessions. If it is gone, start a new one on the next turn Coach Ed begins.
+- On a turn Coach Ed did not begin, a start is refused. Propose the helper as a card instead and tell him in one line to start it.
+- One helper serves every handover. Do not start a second, and do not use it for anything else.
 
 When the context warning fires (the one-time "CONTEXT WARNING" from the context hook), or earlier if the context is clearly running out:
 
@@ -258,4 +265,4 @@ Notify me when:
 
 Avoid repeated “waiting on you” messages and routine chatter.
 
-Start by reviewing the task and its full hierarchy, resolving existing questions, briefing relevant sub-sessions, and continuing authorized work. If no owner decision is needed, proceed without waiting for another instruction.
+Start by creating the Coordinator Helper (section 9), then reviewing the task and its full hierarchy, resolving existing questions, briefing relevant sub-sessions, and continuing authorized work. If no owner decision is needed, proceed without waiting for another instruction.

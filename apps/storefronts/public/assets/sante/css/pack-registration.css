@@ -1,0 +1,119 @@
+/* Pack pages footer: a copy of the Santé home footer (pack-home.css), so every page shows the same footer. */
+:where(.pb .footer), :where(.pb .footer) * { box-sizing: border-box; }
+:where(.pb .footer) ul { margin: 0; padding: 0; }
+:where(.pb .footer) :is(p, div) { margin: 0; }  /* zero specificity so .footer-inner auto margins and the card spacing still win */
+    /* FOOTER */
+    .footer { background: #0c1e12; color: rgba(255,255,255,0.65); padding: 64px 40px 32px; }
+
+    .footer-inner { max-width: 1200px; margin: 0 auto; }
+
+    .footer-top {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+      gap: 40px;
+      padding-bottom: 48px;
+      border-bottom: 1px solid rgba(255,255,255,0.09);
+    }
+
+    .footer-logo { height: 36px; width: auto; display: block; margin-bottom: 14px; filter: brightness(0) invert(1); opacity: 0.9; }
+
+    .footer-tagline { font-size: 13px; line-height: 1.72; color: rgba(255,255,255,0.52); margin-bottom: 20px; }
+
+    .payment-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .pay-badge {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.65);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .footer-col-title {
+      color: white;
+      font-weight: 700;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+
+    .footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+
+    .footer-links a {
+      color: rgba(255,255,255,0.55);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: #8CC63F; }
+
+    /* TWC-footer format: Legal is now its own nav column above (with
+       Shop/Company/Support), so footer-bottom is just the centered
+       copyright + disclaimer block — nothing squeezes the disclaimer
+       into a shared row anymore, which is what previously forced it to
+       wrap onto 2 lines. */
+    .footer-bottom {
+      padding-top: 28px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .footer-meta { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+
+    .footer-copyright { font-size: 12px; color: rgba(255,255,255,0.38); }
+
+    .footer-disclaimer {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      white-space: nowrap;
+    }
+@media (max-width: 1024px) { .footer-top { grid-template-columns: 1fr 1fr 1fr; } }
+@media (max-width: 768px) { .footer-top { grid-template-columns: 1fr 1fr; } .footer-disclaimer { white-space: normal; } }
+@media (max-width: 480px) { .footer-top { grid-template-columns: 1fr; } }
+/* Business registration card (TWC standard, from the NegosyoOnline BIR seal card): dark rounded card, icon + uppercase label + gold value, divider between items, the BIR seal in a white rounded box on the right; stacks on narrow screens. */
+.footer-registration { display: flex; align-items: center; justify-content: space-between; gap: 20px 28px; flex-wrap: wrap; margin: 28px 0; padding: 20px 24px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; box-sizing: border-box; }
+.footer-reg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px 0; flex: 1 1 18rem; min-width: 0; }
+.footer-reg-list li { display: flex; align-items: center; gap: 14px; padding: 0 32px; min-width: 0; color: #D9B64F; font-size: 20px; font-weight: 600; line-height: 1.2; overflow-wrap: anywhere; }
+.footer-reg-list li:first-child { padding-left: 0; }
+.footer-reg-list li:last-child { padding-right: 0; }
+.footer-reg-list li > div { min-width: 0; white-space: nowrap; }
+.footer-reg-list li:first-child > div { white-space: normal; overflow-wrap: anywhere; }  /* a long registered name may wrap; numbers and labels never do */
+.footer-reg-list li + li { border-left: 1px solid rgba(255,255,255,0.14); }
+.footer-reg-list svg { flex: 0 0 22px; width: 22px; height: 22px; color: rgba(255,255,255,0.75); }
+.footer-reg-list span { display: block; font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-bottom: 6px; }
+.footer-seal-box { flex: 0 0 auto; background: #fff; border-radius: 14px; padding: 10px 16px; max-width: 100%; box-sizing: border-box; }
+.footer-seal { display: block; height: 84px; width: auto; max-width: 100%; }
+/* No divider when the card is shown (Coach Ed 2026-10-31): the card's own margin separates it from the legal links. */
+.footer-top:has(+ .footer-registration) { border-bottom: 0; padding-bottom: 0; }
+.footer-top + .footer-registration { margin: 40px 0; }  /* equal space above and below the card */
+.footer-registration + .footer-bottom { padding-top: 0; }
+@media (min-width: 901px) {  /* one row: items then seal */
+  .footer-registration { flex-wrap: nowrap; }
+  .footer-reg-list { flex-wrap: nowrap; flex: 1 1 auto; }
+  .footer-reg-list li { flex: 0 1 auto; }
+}
+@media (max-width: 640px) {
+  .footer-registration { padding: 16px; border-radius: 18px; }
+  .footer-reg-list { flex-direction: column; align-items: stretch; flex-basis: 100%; gap: 14px; }
+  .footer-reg-list li, .footer-reg-list li:first-child, .footer-reg-list li:last-child { padding: 0; font-size: 18px; }
+  .footer-reg-list li > div { white-space: normal; overflow-wrap: anywhere; }
+  .footer-reg-list li + li { border-left: 0; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 14px; }
+  .footer-seal-box { width: 100%; text-align: center; }
+  .footer-seal { margin: 0 auto; }
+}
+
+/* Hero copy sits over the photo: a white glow hugging the letters keeps it readable; no box, no extra white background. */
+.pp-hero-copy p, .pp-hero-copy li > span:last-child {
+  text-shadow: 0 0 3px #fff, 0 0 6px #fff, 0 0 12px rgba(255,255,255,0.95), 0 0 22px rgba(255,255,255,0.85), 0 0 36px rgba(255,255,255,0.6);
+}
+
+/* No link columns on pack pages: the card sits first, legal links are one row above the copyright. */
+.footer-registration:first-child { margin-top: 0; }
+.footer-inner > .footer-registration { margin: 0 0 40px; }
+.footer-legal-row { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; }
+.footer-legal-row a { color: rgba(255,255,255,0.65); text-decoration: none; font-size: 13px; }
+.footer-legal-row a:hover { color: #8CC63F; }

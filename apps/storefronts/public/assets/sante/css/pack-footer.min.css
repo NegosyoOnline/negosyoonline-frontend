@@ -1,0 +1,39 @@
+/* Santé funnel footer: one footer for every Membership Pack page (Coach Ed 2026-10-23), dashboard green #17281a
+   (Coach Ed 2026-10-18). Plain CSS (.pp-sf*) so it renders the same on the Tailwind pages (landing, checkout) and
+   the Bootstrap pages (membership, purchase, order access and locked). Rules are unlayered, so they beat the pages'
+   layered Tailwind utilities. `!important` on the box rules beats the bare `footer { ... !important }` rule in
+   membership-pack.min.css (the activation-page legal footer) on the Bootstrap pages. */
+footer.pp-sf { display: block !important; margin: 0 !important; padding: 0 !important; background: #17281a !important; color: #cfe0d1;
+    border-top: 1px solid rgb(207 224 209 / .2) !important; text-align: left; flex-shrink: 0;
+    font-family: "Open Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.5; }
+footer.pp-sf * { box-sizing: border-box; }
+.pp-sf-inner { width: 100%; max-width: 72rem; margin: 0 auto; padding: 2.5rem 1.25rem; }
+.pp-sf-grid { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1fr); }
+.pp-sf-h { margin: 0; font-family: inherit; font-size: 14px; line-height: 20px; font-weight: 700; color: #fff; }
+.pp-sf-list { margin: 12px 0 0; padding: 0; list-style: none; font-size: 14px; line-height: 20px; font-style: normal; }
+.pp-sf-list li { margin: 0; padding: 0; }
+.pp-sf-list a { display: inline-block; padding: 6px 0; border-radius: 4px; color: #cfe0d1; text-decoration: none; transition: color .2s; }
+.pp-sf-list a.pp-sf-row { display: flex; align-items: flex-start; gap: 8px; }
+.pp-sf-row svg { flex-shrink: 0; width: 16px; height: 16px; margin-top: 2px; color: #9fd0a6; }
+.pp-sf-list a:hover, .pp-sf-list a:focus-visible { color: #fff; }
+.pp-sf-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.pp-sf-legal { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgb(207 224 209 / .2); text-align: center; }
+.pp-sf-legal p { margin: 0; color: #cfe0d1; }
+.pp-sf-brand { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.pp-sf-brand svg { flex-shrink: 0; width: 28px; height: 28px; color: #9fd0a6; }
+.pp-sf-brand span { font-size: 18px; line-height: 1; font-weight: 700; color: #fff; }
+.pp-sf-legal .pp-sf-fine { max-width: 48rem; margin: 16px auto 0; font-size: 12px; line-height: 1.625; }
+.pp-sf-legal .pp-sf-fine + .pp-sf-fine { margin-top: 12px; }
+.pp-sf-legal .pp-sf-copy { margin-top: 20px; padding-top: 20px; border-top: 1px solid rgb(207 224 209 / .2); font-size: 12px; line-height: 16px; }
+@media (min-width: 40rem) {
+    .pp-sf-inner { padding: 3rem 2rem; }
+    .pp-sf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pp-sf-support { grid-column: span 2; }
+    .pp-sf-legal .pp-sf-fine, .pp-sf-legal .pp-sf-copy { font-size: 14px; line-height: 20px; }
+    .pp-sf-legal .pp-sf-fine { line-height: 1.625; }
+}
+@media (min-width: 64rem) {
+    .pp-sf-grid { grid-template-columns: 1.2fr 1fr 1fr; }
+    .pp-sf-support { grid-column: auto; }
+    .pp-sf-nowrap { white-space: nowrap; }
+}

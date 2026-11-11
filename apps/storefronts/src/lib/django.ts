@@ -204,3 +204,152 @@ export async function sendContact(
   }
   return { state: "invalid", errors };
 }
+
+/* --- the member calls ------------------------------------------------------------------------
+   Backend apps/members/api.py, under /storefront/v1/member/. The session token and the sign-in binding
+   are passed as data: this server keeps them in its own cookies, Django only stores their SHA-256.
+   Nothing a visitor typed, no code, token or contact, is ever logged. */
+
+export type Member = {
+  id: string;
+  full_name: string;
+  email: string;
+  mobile: string;
+  email_verified: boolean;
+  mobile_verified: boolean;
+};
+
+export type SignInAnswer = { step: string; message: string; offer_email: boolean };
+
+/** What Django refused with: its status, error code and message, and the first message of each field. */
+export type MemberRefusal = { state: "refused"; status: number; code: string; message: string; fields: Record<string, string> };
+
+export type MemberResult<T> =
+  | ({ state: "ok" } & T)
+  | MemberRefusal
+  | { state: "unavailable" } // 404: members are switched off, or the host is not a served site
+  | { state: "failed" };
+
+const logMember: Log = (reason) => console.error(`storefront: member call failed: ${reason}`);
+
+function isMember(value: unknown): value is Member {
+  return record(value) && has(value, ["id", "full_name", "email", "mobile"], ["email_verified", "mobile_verified"]);
+}
+
+function refusal(status: number, body: unknown): MemberRefusal {
+  const error = record(body) && record(body.error) ? body.error : {};
+  const fields: Record<string, string> = {};
+  if (record(error.fields)) {
+    for (const [key, list] of Object.entries(error.fields)) {
+      if (Array.isArray(list) && typeof list[0] === "string") fields[key] = list[0];
+    }
+  }
+  return {
+    state: "refused",
+    status,
+    code: typeof error.code === "string" ? error.code : "",
+    message: typeof error.message === "string" ? error.message : "",
+    fields,
+  };
+}
+
+async function memberPost<T>(
+  path: string,
+  payload: Record<string, string>,
+  parse: (body: unknown) => T | null,
+  env: Pick<StorefrontEnv, "apiBase" | "secret">,
+  fetchImpl: Fetch,
+  log: Log,
+): Promise<MemberResult<T>> {
+  const failed: MemberResult<T> = { state: "failed" };
+  if (env.secret.length < SECRET_MIN_LENGTH) {
+    log("STOREFRONT_SERVER_SECRET is not set");
+    return failed;
+  }
+  let response: Response;
+  try {
+    response = await fetchImpl(`${env.apiBase}/storefront/v1/member/${path}/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.secret}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(MEMBER_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
+    return failed;
+  }
+  if (response.status === 404) return { state: "unavailable" }; // the everyday answer while the switch is off
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    log(`the API answered ${response.status} without JSON`);
+    return failed;
+  }
+  if (response.status === 200) {
+    const parsed = parse(body);
+    if (parsed === null) {
+      log("the API answer had the wrong shape");
+      return failed;
+    }
+    return { state: "ok", ...parsed };
+  }
+  if ([400, 401, 429, 503].includes(response.status)) return refusal(response.status, body);
+  log(`the API answered ${response.status}`);
+  return failed;
+}
+
+// Django paces every sign-in step to at least 1.5 s, so the member calls wait longer than the site lookup.
+const MEMBER_TIMEOUT_MS = 10000;
+
+type Calls = { env: Pick<StorefrontEnv, "apiBase" | "secret">; fetchImpl?: Fetch; log?: Log };
+
+function answer(body: unknown): SignInAnswer | null {
+  return record(body) && has(body, ["step", "message"], ["offer_email"]) ? (body as SignInAnswer) : null;
+}
+
+type SignInStep = { host: string; visitor_ip: string; binding: string };
+
+export function memberSignInRequest(args: SignInStep & { contact: string }, c: Calls) {
+  return memberPost("signin/request", args, answer, c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}
+
+export function memberSignInResend(args: SignInStep, c: Calls) {
+  return memberPost("signin/resend", args, answer, c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}
+
+export function memberSignInAcceptEmail(args: SignInStep, c: Calls) {
+  return memberPost("signin/accept-email", args, answer, c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}
+
+export function memberSignInVerify(args: SignInStep & { code: string }, c: Calls) {
+  return memberPost(
+    "signin/verify",
+    args,
+    (body) => (record(body) && typeof body.token === "string" && body.token && isMember(body.member) ? { token: body.token, member: body.member } : null),
+    c.env, c.fetchImpl ?? fetch, c.log ?? logMember,
+  );
+}
+
+/** The member of this session. A refusal with status 401 means not signed in. */
+export function memberMe(args: { host: string; token: string }, c: Calls) {
+  return memberPost("me", args, (body) => (record(body) && isMember(body.member) ? { member: body.member } : null), c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}
+
+export function memberSignOut(args: { host: string; token: string }, c: Calls) {
+  return memberPost("signout", args, (body) => (record(body) && body.status === "signed_out" ? {} : null), c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}
+
+/** "Text me the code". NOT LIVE: the member SMS slice (PK2b) has not merged, so this route's name and shape are
+    this file's guess, and nothing calls it while TEXT_ME_ENABLED (src/views/sante/member.ts) is false. Check it
+    against the merged backend before enabling. */
+export function memberSignInText(args: SignInStep, c: Calls) {
+  return memberPost("signin/text", args, answer, c.env, c.fetchImpl ?? fetch, c.log ?? logMember);
+}

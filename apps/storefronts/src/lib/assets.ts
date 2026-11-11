@@ -12,6 +12,17 @@ const VERSIONS: Record<string, string> = {
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
+  "css/pack-landing.min.css": "e84ee767",
+  "css/pack-footer.min.css": "717c64da",
+  "css/pack-registration.css": "488877e1",
+  "css/pack-dashboard-shell.css": "189c31cc",
+  "css/pack-dashboard.css": "877a70b1",
+  "js/pack-phone.js": "8f9f894d",
+  "js/pack-otp.js": "08e878d8",
+  "js/pack-busy.js": "cd6351f6",
+  "js/pack-code-timer.js": "b2ed15b7",
+  "js/pack-dashboard.js": "582e7cca",
+  "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",
   "img/category_barley.png": "595b18ab",

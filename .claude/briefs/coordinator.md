@@ -170,6 +170,25 @@ Before a sub-session reaches its context limit:
 
 Apply the same procedure to your own coordinator session. Do not wait until context is exhausted.
 
+### Addition: clear and resume a builder without Coach Ed
+
+Coach Ed's ruling (2026-11-11): a builder's handover is automatic when this coordinator started it. Tested on 2026-11-11 with a scratch builder, twice.
+
+A builder that reaches its context warning runs `/handover-builder`, sends "Handover written, ready to be cleared" with its state file path and resume prompt, and stops (builder brief, section 9). On that message:
+
+1. Check the state file exists at the path given and names the right ClickUp task. Do not clear a builder whose state file is missing.
+2. Clear the builder with the session tool (`clear_session` with its session id). It must be idle. The app's hook rewrites the call once: re-issue it with exactly the input the error quotes. If it is refused because the builder is still finishing its turn, wait for its turn-end note and try again.
+3. Send the builder its resume prompt with SendMessage, unchanged.
+4. Record the handover in the coordination record, and carry on. Tell Coach Ed in one line only when it matters to something he is waiting for.
+
+Waking up: a builder's message starts a turn here by itself. The app's own turn-end notes arrive only when no sub-session is still working, so do not rely on them while another builder runs. Where a builder cannot message (for example a test), poll for its state file with a background command.
+
+Limits. Say so plainly when one applies, and give Coach Ed the commands in order:
+- A session served to Remote Control, pinned, open on screen or holding a queued message cannot be cleared.
+- Outside auto mode the app asks Coach Ed to approve each clear.
+- This does not cover the coordinator's own handover: nothing clears and restarts this session except Coach Ed. Run `/handover-coordinator <CLICKUP_TASK_ID>` and give him the resume prompt.
+- The context warning's threshold is set in the global context hook, outside this repository.
+
 ## 10. Preserve required controls
 
 This instruction authorizes coordination, delegation and routine decisions within approved scope. It does not grant blanket approval for production changes, deployments, spending, credentials, destructive actions or opening launch gates.
@@ -177,6 +196,22 @@ This instruction authorizes coordination, delegation and routine decisions withi
 Follow supported approval and write processes. Do not bypass permission denials or safeguards through another tool.
 
 When approval is genuinely required, finish all authorized preparation first and bring me a concrete, reviewable action. Explain the exact source of the approval requirement and whether existing authorization covers any part of it.
+
+### Addition: two standing approvals for every coordinator
+
+Coach Ed's ruling (2026-11-11), given as a standing command to all coordinator sessions: do these two things automatically, without asking him each time.
+
+1. **Merge when CI is green.** Merge a pull request of your own hierarchy once every required check has passed on its head commit. Before merging:
+   - The PR belongs to a plan or task Coach Ed approved, and you have read its diff against that plan. A diff that goes beyond the plan is not covered: stop and tell him.
+   - You have re-listed the open PRs and their files (section 6, overlap). An unsettled overlap is not covered.
+   - Merge at the head commit you reviewed (`gh pr merge <N> --squash --match-head-commit <SHA>`).
+   Afterwards verify the staging deploy and its health endpoint, and report the merge and that check in one message.
+2. **Clean up a finished builder.** When a builder you started has finished its task (its PRs are merged and staging is verified), archive its session and remove its worktree and its merged branches. Before removing anything:
+   - The worktree has no uncommitted or unpushed work, and each branch head matches a merged PR head.
+   - No other live session shares that worktree. If one does, leave it and say so.
+   - Copy anything a later session still needs (for example the builder's state file) first.
+
+These two approvals cover nothing else. Still Coach Ed's, each time: approving a plan, accepting a build, any ClickUp write, any migration, seed data, Railway variable, deploy or production action, turning on a switch in a shared environment, and any command against staging or production data. Merging a PR that contains a migration does not approve running it.
 
 ## 11. Maintain continuity and report clearly
 

@@ -69,7 +69,7 @@
   }
 
   /* Approved FAQ, identical on the homepage and /contact. Each entry: [question, answer, category]. */
-  window.NO_FAQ_CATS = ["Getting started", "Pricing and billing", "Payments and shipping", "Your store"];
+  window.NO_FAQ_CATS = ["Getting started", "Pricing and billing", "Payments", "Your store"];
   window.NO_FAQ = [
     ["What is NegosyoOnline?", "NegosyoOnline is the all-in-one system for selling online. It puts your storefront, orders, bank and e-wallet payments, hosting, and security into one clear subscription.", 0],
     ["What is currently available?", "NegosyoOnline Shop is currently available for product-based businesses that want to set up and manage an online store.", 0],

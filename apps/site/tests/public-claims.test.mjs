@@ -68,3 +68,15 @@ test("G1e: no COD, Xendit, J&T, Track Order, bulk import, staff roles or discoun
   assert.match(js, /customers can browse and pay comfortably/);
   assert.match(pages["index.html"], /pay by bank and e-wallet transfer with proof of payment/);
 });
+
+test("G1f: no Customers and reports card or sales reports claim, FAQ tab is Payments", () => {
+  for (const name of ["index.html", "assets/js/site.js"]) {
+    for (const re of [/Customers and reports/, /sales reports/i, /Payments and shipping/]) {
+      assert.doesNotMatch(pages[name], re, `${name} still matches ${re}`);
+    }
+  }
+  const m = pages["assets/js/site.js"].match(/window\.NO_FAQ_CATS = \[([^\]]*)\]/);
+  assert.ok(m, "NO_FAQ_CATS not found");
+  assert.ok(m[1].split(",").map((s) => s.trim().replace(/"/g, "")).includes("Payments"));
+  assert.equal((pages["index.html"].match(/class="rd-pcard"/g) || []).length, 4);
+});

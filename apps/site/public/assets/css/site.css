@@ -713,6 +713,7 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--blue); }
 /* Platform: featured gold Shop card in the centre, larger than the planned two */
 #platform .rd-platform { grid-template-columns: 1fr; align-items: center; }
 @media (min-width: 900px) { #platform .rd-platform { grid-template-columns: 1fr 1.22fr 1fr; } }
+@media (min-width: 900px) { #platform .rd-platform.rd-platform-4 { grid-template-columns: 1fr 1fr; } } /* four cards: 2x2, no orphan row */
 #platform .rd-live { order: -1; background: linear-gradient(145deg, #F0D58A 0%, #D1A236 55%, #B98A27 100%); border: 0; box-shadow: 0 28px 56px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.25) inset; }
 #platform .rd-platform .rd-live { padding: 44px 36px; }
 @media (min-width: 900px) { #platform .rd-live { order: 0; } #platform .rd-platform .rd-live { padding: 56px 38px; } }

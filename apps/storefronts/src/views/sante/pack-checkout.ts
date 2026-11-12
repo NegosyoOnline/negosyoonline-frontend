@@ -21,16 +21,8 @@ export const TERMS_SLUG = "terms-and-conditions";
 export const PRIVACY_PATH = "/privacy-policy/";
 
 /* TWCinc constants.py and site_views.py: the words of this page. */
-export const AGREEMENT_TITLE = "Santé International Membership Terms & Conditions";
-export const AGREEMENT_DESCRIPTION =
-  "Please review the official Santé International Business Owner Terms and Conditions before proceeding with your membership package purchase.";
-export const AGREEMENT_CHECKBOX = "I have read and agree to the Santé International Business Owner Terms and Conditions.";
-export const AGREEMENT_NOT_REGISTRATION =
-  "Agreeing to these terms does not register you as a Santé member. Registration is a separate step after payment, and Santé confirms it.";
 export const ENROLLMENT_AUTHORIZATION =
   "I understand that this package includes an application for Santé International membership, and I authorize the submission of my registration information to Santé International for enrollment, subject to the applicable privacy notice.";
-export const MSG_AGREEMENT_REQUIRED = "Please review and agree to the Membership Terms to continue.";
-export const MSG_AGREEMENT_CHANGED = "The Membership Terms were updated. Your details are saved. Please review and agree to continue.";
 export const MSG_ENROLLMENT_REQUIRED = "Please tick this box to continue.";
 export const MSG_CHECKOUT_EXPIRED = "This checkout has expired. Please start again.";
 export const MSG_PAYMENT_UNAVAILABLE = "Payment is not available right now.";
@@ -61,9 +53,6 @@ export type CheckoutModel = {
   last_name: string;
   email: string;
   mobile: string;
-  agreement: { id: number; label: string; effective_date: string } | null;
-  agreement_stale: boolean;
-  agreement_held: boolean;
   enrollment_held: boolean;
   accounts: CheckoutAccount[];
 };
@@ -71,8 +60,8 @@ export type CheckoutModel = {
 export function checkoutModel(over: Partial<CheckoutModel> & { accounts: CheckoutAccount[] }): CheckoutModel {
   return {
     step: "contact", submit_key: "", error_code: "", error_message: "", field_errors: {}, posted: {},
-    first_name: "", last_name: "", email: "", mobile: "", agreement: null,
-    agreement_stale: false, agreement_held: false, enrollment_held: false,
+    first_name: "", last_name: "", email: "", mobile: "",
+    enrollment_held: false,
     ...over,
   };
 }
@@ -193,43 +182,6 @@ export function transferProof(c: PackCtx, m: CheckoutModel, hidePanel: boolean):
 `;
 }
 
-export function agreementDialog(m: CheckoutModel): Markup {
-  const a = m.agreement;
-  if (!a) return html``;
-  return html`
-<dialog class="pp-policy-dlg pp-agr-dlg" id="pp-agr-dlg" aria-labelledby="pp-agr-title" data-file="${AGREEMENT_PDF_PATH}?v=${a.id}" data-version="${a.id}" data-viewer="/agreement-viewer/"${m.agreement_stale ? html` data-open` : ""}${m.agreement_held ? html` data-held` : ""}>
-  <div class="pp-policy-dlg-head">
-    <h2 id="pp-agr-title">${AGREEMENT_TITLE}</h2>
-    <button type="button" class="pp-policy-dlg-close" id="pp-agr-close" aria-label="Close">&times;</button>
-  </div>
-  <div class="pp-agr-intro">
-    <p>${AGREEMENT_DESCRIPTION}</p>
-    <p class="pp-agr-meta">Version ${a.label} &middot; Effective ${longDate(a.effective_date)}</p>
-  </div>
-  <div class="pp-agr-tools">
-    <button type="button" class="pp-agr-tool" id="pp-agr-out" aria-label="Zoom out">&minus;</button>
-    <button type="button" class="pp-agr-tool" id="pp-agr-in" aria-label="Zoom in">+</button>
-    <a class="lnk" href="${AGREEMENT_PDF_PATH}?v=${a.id}&download=1" target="_blank" rel="noopener">Download PDF</a>
-  </div>
-  <div class="pp-agr-pages" id="pp-agr-pages" tabindex="0"><p class="pp-agr-status" id="pp-agr-status" role="status">Loading the agreement…</p></div>
-  <div class="pp-agr-foot">
-    <p class="pp-agr-note">${AGREEMENT_NOT_REGISTRATION}</p>
-    <label class="pp-co-agree" for="agreement-box"><input type="checkbox" id="agreement-box"><span>${AGREEMENT_CHECKBOX}</span></label>
-    <div class="pp-agr-actions">
-      <button type="button" class="btn ghost" id="pp-agr-cancel">Cancel</button>
-      <button type="button" class="pp-co-submit pp-agr-agree" id="pp-agr-agree" disabled>Agree &amp; Continue</button>
-    </div>
-  </div>
-</dialog>
-<form method="post" action="${CHECKOUT_PATH}" id="pp-agr-reaccept" hidden>
-  <input type="hidden" name="action" value="accept_agreement">
-  <input type="hidden" name="agreement_accept" value="1">
-  <input type="hidden" name="agreement_version_id" value="${a.id}">
-</form>
-<noscript><p class="pp-co-banner is-warn">Turn on JavaScript to review the Membership Terms and continue.</p></noscript>
-`;
-}
-
 function contactStep(c: PackCtx, m: CheckoutModel): Markup {
   const fe = m.field_errors;
   const mobileValue = tenDigits(m.posted.mobile || m.mobile);
@@ -284,8 +236,6 @@ function contactStep(c: PackCtx, m: CheckoutModel): Markup {
           </label>
           ${transferProof(c, m, false)}
           </div>
-          <input type="hidden" name="agreement_accept" id="agreement_accept" value="${m.agreement_held ? "1" : ""}">
-          <input type="hidden" name="agreement_version_id" id="agreement_version_id" value="${m.agreement_held && m.agreement ? m.agreement.id : ""}">
           <label class="pp-co-agree mt-4" for="enrollment_authorized">
             <input type="checkbox" id="enrollment_authorized" name="enrollment_authorized" value="1"${checked(!!m.posted.enrollment_authorized || m.enrollment_held)}>
             <span>${ENROLLMENT_AUTHORIZATION}</span>
@@ -438,7 +388,6 @@ ${m.step === "contact" ? contactStep(c, m) : m.step === "code" ? codeStep(m) : p
     </div>
   </div>
 </div>
-${agreementDialog(m)}
 `;
 }
 
@@ -449,6 +398,6 @@ export function checkoutDocument(c: PackCtx, m: CheckoutModel): Markup {
     title: "Checkout",
     content: checkoutContent(c, m),
     head: html`<script src="${asset("js/pack-select.js")}" defer></script>`,
-    scripts: m.agreement ? [...CHECKOUT_SCRIPTS, "js/pack-agreement-popup.js"] : CHECKOUT_SCRIPTS,
+    scripts: CHECKOUT_SCRIPTS,
   });
 }

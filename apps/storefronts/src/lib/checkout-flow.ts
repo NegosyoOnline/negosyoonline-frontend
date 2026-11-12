@@ -72,12 +72,10 @@ function submitKey(): string {
 }
 
 function model(flow: Flow, step: CheckoutStep, over: Partial<CheckoutModel> = {}): CheckoutModel {
-  const agreement = flow.pack.agreement;
   const posted = over.posted ?? {};
-  const held = !!agreement && posted.agreement_accept === "1" && posted.agreement_version_id === String(agreement.id) && !over.agreement_stale;
   return checkoutModel({
-    step, submit_key: submitKey(), accounts: accountsOf(flow.pack), agreement,
-    agreement_held: held, enrollment_held: posted.enrollment_authorized === "1",
+    step, submit_key: submitKey(), accounts: accountsOf(flow.pack),
+    enrollment_held: posted.enrollment_authorized === "1",
     ...over,
   });
 }
@@ -169,7 +167,6 @@ async function refusedPlace(
   const m = model(flow, step, {
     error_code: r.code, error_message: onSheet ? "Check the highlighted fields." : r.message,
     field_errors: r.fields, posted: post,
-    ...(r.code === "agreement_changed" ? { agreement_stale: true } : {}),
   });
   return slide(page(flow, m, statusOf(r)), flow, token);
 }
@@ -200,18 +197,13 @@ async function contactPost(flow: Flow, text: Record<string, string>, proof: File
     ...base, token: flow.token,
     full_name: fullName(text.first_name ?? "", text.last_name ?? ""),
     mobile: localMobile(text.mobile ?? ""), email: (text.email ?? "").trim(),
-    agreement_version_id: text.agreement_version_id ?? "", agreement_accept: text.agreement_accept ?? "",
     enrollment_authorized: text.enrollment_authorized ?? "",
   }, flow.calls);
   if (contact.state === "unavailable") return unavailable(flow);
   if (contact.state === "failed") return show({ error_code: "unavailable", error_message: TRY_AGAIN }, 503);
   if (contact.state === "refused") {
     if (contact.code === "checkout_expired") return expiredPage(flow);
-    const stale = contact.code === "agreement_changed";
-    return show({
-      error_code: contact.code, error_message: contact.message, field_errors: contact.fields,
-      ...(stale ? { agreement_stale: true } : {}),
-    }, statusOf(contact));
+    return show({ error_code: contact.code, error_message: contact.message, field_errors: contact.fields }, statusOf(contact));
   }
   const token = contact.token || flow.token;
   const state = await checkoutState({ ...base, token }, flow.calls);

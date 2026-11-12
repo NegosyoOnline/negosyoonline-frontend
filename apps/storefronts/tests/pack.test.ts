@@ -79,7 +79,7 @@ test("the landing page, order button on: the price, the checkout link, the TWCin
   assert.equal((doc.match(/href="\/funnel\/membership-pack\/checkout\/"/g) ?? []).length, 7); // TWCinc's landing: the hero button and six _cta includes (the phone bar among them)
   assert.match(doc, /Free Shipping Nationwide/);
   assert.match(doc, /Prepaid only\. Cash on delivery is not available for this pack\./);
-  assert.match(doc, /You review and agree to the Santé Membership Terms at checkout\./);
+  assert.match(doc, /You review and agree to the Santé Membership Terms when you complete your account details after payment\./);
   assert.match(doc, /Frequently Asked Questions/);
   assert.match(doc, /data-pp-sticky/);
   assert.doesNotMatch(doc, /role="status"/);

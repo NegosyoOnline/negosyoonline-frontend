@@ -172,14 +172,26 @@ test("the details page asks only for the date of birth, the names and the terms,
   assert.match(body, /<option value="2008">2008<\/option>/);
   assert.doesNotMatch(body, /<option value="2009">/);
   assert.match(body, /data-file="\/funnel\/membership-pack\/membership-terms\.pdf\?v=7"/);
+  assert.match(body, /<input type="hidden" name="agreement_version_id" value="7">/);
+});
+
+test("a stale terms version on the details post shows the backend's message and clears the tick; agreement_required shows the terms error", async () => {
+  const stale = fake({ "onboarding/state": [ok(state({ step: "details" })), ok(state({ step: "details" }))], "onboarding/details": [err(409, "agreement_changed", "The Membership Terms were updated. Please review and agree again.", {})] });
+  const r = await detailsPost(flowOf(stale), { desired_username: "juan12345", alternate_username: "juan54321", terms: "1", agreement_version_id: "6" });
+  const page = await text(r!);
+  assert.match(page, /The Membership Terms were updated\. Please review and agree again\./);
+  assert.doesNotMatch(page, /name="terms" value="1" checked/);
+  const missing = fake({ "onboarding/state": [ok(state({ step: "details" })), ok(state({ step: "details" }))], "onboarding/details": [err(422, "agreement_required", "Please review and agree to the Membership Terms to continue.", { terms: ["Please review and agree to the Membership Terms to continue."] })] });
+  const m = await text((await detailsPost(flowOf(missing), { desired_username: "juan12345", alternate_username: "juan54321", agreement_version_id: "7" }))!);
+  assert.match(m, /<p class="err pp-ob-terms-err">Please review and agree to the Membership Terms to continue\./);
 });
 
 test("a details post sends digits only and the terms as a boolean", async () => {
   const f = fake({ "onboarding/state": [ok(state({ step: "details" }))], "onboarding/details": [ok(state({ step: "done" }))] });
-  const r = await detailsPost(flowOf(f), { dob_year: "1990", dob_month: "2", dob_day: "x²", desired_username: "juan12345", alternate_username: "juan54321", terms: "1" });
+  const r = await detailsPost(flowOf(f), { dob_year: "1990", dob_month: "2", dob_day: "x²", desired_username: "juan12345", alternate_username: "juan54321", terms: "1", agreement_version_id: "7" });
   assert.equal(r?.headers.get("location"), "/funnel/membership-pack/completed/");
   const sent = f.calls.find((c) => c.path === "onboarding/details")!.body;
-  assert.deepEqual([sent.dob_year, sent.dob_month, sent.dob_day, sent.terms], ["1990", "2", "", true]);
+  assert.deepEqual([sent.dob_year, sent.dob_month, sent.dob_day, sent.terms, sent.agreement_version_id], ["1990", "2", "", true, "7"]);
 });
 
 test("Completed: the page signs nobody in; only the POST sets the member cookie and clears the checkout cookie", async () => {

@@ -105,8 +105,6 @@ export type ContactArgs = Base & {
   full_name: string;
   mobile: string;
   email: string;
-  agreement_version_id: string;
-  agreement_accept: string;
   enrollment_authorized: string;
 };
 
@@ -337,7 +335,7 @@ export function onboardingAddress(
   return packPost("onboarding/address", args, parseState, c);
 }
 export function onboardingDetails(
-  args: Token & { dob_year: string; dob_month: string; dob_day: string; desired_username: string; alternate_username: string; terms: boolean },
+  args: Token & { dob_year: string; dob_month: string; dob_day: string; desired_username: string; alternate_username: string; terms: boolean; agreement_version_id: string },
   c: Calls,
 ) {
   return packPost("onboarding/details", args, parseState, c);

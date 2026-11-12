@@ -310,6 +310,7 @@ ${v.state.details_erased ? html`<p class="pp-next-lede" role="status">Your detai
   <h2 class="pp-ob-sub">Santé username</h2>
   ${user("desired_username", "Preferred Santé username", "dt-u1", "8 to 20 letters or numbers. No spaces or symbols.")}
   ${user("alternate_username", "Secondary Santé Username", "dt-u2", "Used if your first choice is already taken on Santé. 8 to 20 letters or numbers.")}
+  <input type="hidden" name="agreement_version_id" value="${termsVersion ?? ""}">
   <label class="pp-co-agree pp-ob-terms" for="dt-terms">
     <input type="checkbox" id="dt-terms" name="terms" value="1"${p.terms ? html` checked` : ""}>
     <span>I have read and agree to the <a class="lnk" href="${MEMBERSHIP_TERMS_URL}" target="_blank" rel="noopener noreferrer" data-terms-popup>Sant&eacute; ${MEMBERSHIP_TERMS_LABEL}&nbsp;&#8599;</a>.</span>

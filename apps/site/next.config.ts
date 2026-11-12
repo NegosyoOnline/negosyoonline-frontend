@@ -9,6 +9,7 @@ const pages = ["contact", "terms", "privacy", "cancellation-refund", "referral-t
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
+  "object-src 'none'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   "img-src 'self' data: https://*.public.blob.vercel-storage.com",

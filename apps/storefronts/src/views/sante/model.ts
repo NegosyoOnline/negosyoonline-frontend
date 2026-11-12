@@ -137,7 +137,7 @@ export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now:
       tin: site.business.tin,
       dti_business_number: site.business.dti_business_number,
       contact_email: site.business.contact_email,
-      has_seal: false, // no /business-seal/ route until private files exist: the design's no-seal state
+      has_seal: site.business.has_seal === true, // the owner's uploaded BIR badge, shown through /business-seal/
     },
   };
 }

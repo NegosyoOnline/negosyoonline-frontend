@@ -200,6 +200,11 @@ export function fetchAgreementPdf(id: number, host: string, c: Calls) {
   return packFile(`pack/agreement/${id}/pdf/`, host, c);
 }
 
+/** The owner's BIR registration badge: GET /storefront/v1/seal/?host=. 404 (no badge) reads as null. */
+export function fetchSeal(host: string, c: Calls) {
+  return packFile("seal/", host, c);
+}
+
 export function fetchAccountQr(id: string, host: string, c: Calls) {
   return packFile(`payment-accounts/${encodeURIComponent(id)}/qr/`, host, c);
 }

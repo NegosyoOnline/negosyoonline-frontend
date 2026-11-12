@@ -33,7 +33,12 @@
     contact_email: "Enter your store email.", contact_mobile: "Enter your store mobile." };
   var GONE = "This site is not available.";
   var SAVE_FAILED = "We couldn’t save. Check your connection and try again.";
-  var S = { seq: 0, sites: [], site: null, profile: null, dlg: null, notice: "" }; /* memory only, never stored */
+  var S = { seq: 0, sites: [], site: null, profile: null, dlg: null, notice: "", sealUrl: "", sealMsg: "", sealBusy: false }; /* memory only, never stored */
+  /* The BIR registration badge (Coach Ed, 2026-11-12): the owner uploads it here; the storefront footer shows it. The server
+     owns every rule (owner only, type read from the bytes); the two checks below only save a round trip and use its words. */
+  var SEAL_MAX = 2 * 1024 * 1024, SEAL_TYPES = ["image/jpeg", "image/png", "image/webp"];
+  var SEAL_NONE = "Choose an image to upload.", SEAL_TYPE = "Upload a JPEG, PNG or WebP image.", SEAL_BIG = "The file is too large. The limit is 2 MB.";
+  var SEAL_OWNER = "Only the account owner can change the badge.";
 
   /* ---- pure helpers (tested in tests/business.test.mjs) ---- */
   function str(v) { return typeof v === "string" ? v.trim() : ""; }
@@ -62,6 +67,13 @@
     ];
     items.forEach(function (i) { if (!i.text) i.text = i.done ? "Done" : "Not added"; });
     return { items: items, left: items.filter(function (i) { return !i.done; }).length };
+  }
+  /* The message for a file the badge cannot take, or "" when it can be sent. */
+  function sealProblem(file) {
+    if (!file) return SEAL_NONE;
+    if (SEAL_TYPES.indexOf(file.type) < 0) return SEAL_TYPE;
+    if (file.size > SEAL_MAX) return SEAL_BIG;
+    return "";
   }
   function fieldSpec(row, profile) { return { key: row[0], label: row[1] + row[4], tag: row[2], kind: row[3], value: profile[row[0]] }; }
   /* The seven dialogs: one endpoint each ("" is the site itself), and exactly the keys it sends. */
@@ -167,7 +179,7 @@
     var my = ++S.seq;
     closeDialog();
     santeReset();
-    S.site = null; S.profile = null; S.sites = []; /* nothing from the site shown before outlives a new read */
+    S.site = null; S.profile = null; S.sites = []; sealUrlDrop(); S.sealMsg = ""; /* nothing from the site shown before outlives a new read */
     head(null);
     skeleton(body);
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -322,7 +334,58 @@
       "Printed on this site’s legal pages. Your TIN is not printed in the policy text. These are not your NegosyoOnline invoice details; those are in Billing.",
       editBtn("bs-edit-legal", "legal", "Edit legal page details"));
     LEGAL.forEach(function (f) { c.appendChild(row(f[1], f[2], [value(profile[f[0]])])); });
+    c.appendChild(sealRow(profile));
     return c;
+  }
+  /* ---- the BIR registration badge: preview from a blob, upload / replace / remove ---- */
+  function sealUrlDrop() { if (S.sealUrl) { try { URL.revokeObjectURL(S.sealUrl); } catch (e) { /* ignore */ } S.sealUrl = ""; } }
+  function sealRow(profile) {
+    var has = profile.has_seal === true, id = S.site && S.site.id, my = S.seq;
+    var shown = D.el("div", { "class": "bs-seal-shown", id: "bs-seal-shown" });
+    if (!has) shown.appendChild(D.el("span", { "class": "bs-none" }, "Not added"));
+    else if (S.sealUrl) shown.appendChild(D.el("img", { id: "bs-seal-img", src: S.sealUrl, alt: "Your BIR registration badge", width: "240", style: "max-width:100%;height:auto;border:1px solid #dee2e6;border-radius:6px;background:#fff" }));
+    else {
+      shown.appendChild(D.el("span", { "class": "bs-none", id: "bs-seal-wait" }, "Loading the badge…"));
+      fetch(D.cfg.apiBase + "/sites/" + id + "/business-profile/seal/", { credentials: "include" }).then(function (r) {
+        if (!r.ok) throw new Error("seal " + r.status);
+        return r.blob();
+      }).then(function (b) {
+        if (my !== S.seq || !S.site || S.site.id !== id) return;
+        S.sealUrl = URL.createObjectURL(b); draw();
+      }).catch(function () { var w = $("bs-seal-wait"); if (w && my === S.seq) w.textContent = "The badge could not be shown."; });
+    }
+    var file = D.el("input", { id: "bs-seal-file", type: "file", name: "seal", accept: SEAL_TYPES.join(","), "aria-describedby": "bs-seal-help bs-seal-msg" });
+    var up = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "bs-seal-up" }, has ? "Replace" : "Upload");
+    var del = has ? D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "bs-seal-del" }, "Remove") : null;
+    var msg = D.el("p", { "class": "ob-err", id: "bs-seal-msg", role: "alert" }, S.sealMsg);
+    msg.hidden = !S.sealMsg;
+    function fail(text) { S.sealMsg = text; draw("bs-seal-file"); }
+    function after(res, again) {
+      S.sealBusy = false;
+      if (my !== S.seq) return;
+      if (res.ok && res.data) { S.profile = res.data; S.sealMsg = ""; sealUrlDrop(); draw(again); return; }
+      var f = res.data && res.data.fields && res.data.fields.seal;
+      fail(f ? fieldMessage(f) : res.status === 403 ? SEAL_OWNER : res.status === 404 ? GONE : SAVE_FAILED);
+    }
+    up.addEventListener("click", function () {
+      if (S.sealBusy) return;
+      var f = file.files && file.files[0], bad = sealProblem(f);
+      if (bad) { fail(bad); return; }
+      var fd = new FormData(); fd.append("seal", f);
+      S.sealBusy = true; up.disabled = true;
+      D.send("POST", "/sites/" + id + "/business-profile/seal/", fd).then(function (res) { after(res, "bs-seal-file"); });
+    });
+    if (del) del.addEventListener("click", function () {
+      if (S.sealBusy) return;
+      S.sealBusy = true; del.disabled = true;
+      D.call("DELETE", "/sites/" + id + "/business-profile/seal/", null, true).then(function (res) { after(res, "bs-seal-file"); });
+    });
+    var actions = D.el("div", { "class": "bs-seal-actions", style: "display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px" });
+    actions.appendChild(file); actions.appendChild(up); if (del) actions.appendChild(del);
+    var r = row("BIR registration badge", PUB, [shown], null, null);
+    var help = D.el("div", { "class": "bs-row-help", id: "bs-seal-help" }, "A JPEG, PNG or WebP image, up to 2 MB. Shown in the registration block at the bottom of your site.");
+    r.appendChild(actions); r.appendChild(help); r.appendChild(msg);
+    return r;
   }
   function deliveryCard(profile) {
     var c = card("bs-h-del", "Delivery estimates and Shipping Policy", "Suggested values. Your Shipping Policy stays offline until you review them.",
@@ -524,8 +587,8 @@
 
   window.NOBusiness = {
     show: function () { load(); },
-    hide: function () { S.seq++; closeDialog(); santeReset(); S.site = null; S.profile = null; S.sites = []; S.notice = ""; say(""); },
-    util: { fieldMessage: fieldMessage, mobileShown: mobileShown, readiness: readiness, specs: specs, siteLabel: siteLabel, hostOf: hostOf },
+    hide: function () { S.seq++; sealUrlDrop(); S.sealMsg = ""; closeDialog(); santeReset(); S.site = null; S.profile = null; S.sites = []; S.notice = ""; say(""); },
+    util: { sealProblem: sealProblem, fieldMessage: fieldMessage, mobileShown: mobileShown, readiness: readiness, specs: specs, siteLabel: siteLabel, hostOf: hostOf },
     /* The dialog and its field, for sante.js (ClickUp z8uq9m92ez). One dialog is open at a time, whichever page opened it. */
     ui: { openDialog: openDialog, closeDialog: closeDialog, cancelDialog: cancelDialog, dialogBody: function () { return S.dlg ? S.dlg.body : null; },
       field: field, setErrors: setErrors }

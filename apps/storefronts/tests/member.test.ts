@@ -458,3 +458,32 @@ test("isSignedIn: true only for a live session; a missing cookie, a 401 and a fa
   assert.equal(await isSignedIn(req("no_member=tokentokentokentoken"), { env, fetchImpl: denied }), false);
   assert.equal(await isSignedIn(req("no_member=tokentokentokentoken"), { env, fetchImpl: boom }), false);
 });
+
+test("/business-seal/: the badge image comes through this host; no badge, a non-image or a bad host is the neutral 404", async () => {
+  const { GET } = await import("../src/app/business-seal/route.ts");
+  const names = ["STOREFRONT_API_BASE", "STOREFRONT_SERVER_SECRET", "STOREFRONT_HOST_ALIASES", "VERCEL"];
+  const before = { fetch: globalThis.fetch, env: names.map((n) => process.env[n]) };
+  let sealAnswer: () => Response = () => new Response(new Uint8Array([137, 80, 78, 71]), { status: 200, headers: { "content-type": "image/png" } });
+  const urls: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input); urls.push(url);
+    if (url.startsWith("http://api.test/storefront/v1/site/")) return Response.json(FILLED);
+    return sealAnswer();
+  }) as typeof fetch;
+  Object.assign(process.env, { STOREFRONT_API_BASE: "http://api.test", STOREFRONT_SERVER_SECRET: secret, STOREFRONT_HOST_ALIASES: "www.santetest.com=demo-store.negosyotest.com", VERCEL: "" });
+  try {
+    const r = await GET(get("/business-seal/"));
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("content-type"), "image/png");
+    assert.equal(r.headers.get("x-content-type-options"), "nosniff");
+    assert.equal((await r.arrayBuffer()).byteLength, 4);
+    assert.ok(urls.some((u) => u.startsWith("http://api.test/storefront/v1/seal/?host=demo-store.negosyotest.com")));
+    sealAnswer = () => new Response("nope", { status: 404 });
+    assert.equal((await GET(get("/business-seal/"))).status, 404);
+    sealAnswer = () => new Response("<svg/>", { status: 200, headers: { "content-type": "image/svg+xml" } });
+    assert.equal((await GET(get("/business-seal/"))).status, 404);
+  } finally {
+    globalThis.fetch = before.fetch;
+    names.forEach((n, i) => { if (before.env[i] === undefined) delete process.env[n]; else process.env[n] = before.env[i]; });
+  }
+});

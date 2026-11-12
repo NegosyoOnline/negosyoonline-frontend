@@ -76,7 +76,7 @@ export function chrome(site: Site, now: Date = new Date()): Chrome {
       contact_email: site.business.contact_email,
       contact_mobile: formatMobile(raw) || raw,
       contact_mobile_raw: raw,
-      has_seal: false, // no /business-seal/ route until private files exist: the design's no-seal state
+      has_seal: site.business.has_seal === true, // the owner's uploaded BIR badge, shown through /business-seal/
     },
   };
 }

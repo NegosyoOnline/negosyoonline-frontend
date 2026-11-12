@@ -83,10 +83,12 @@ test("the distributor card without a usable mobile: no phone line and no Call no
   assert.doesNotMatch(odd, /class="dist-phone"|class="dist-call"|href="tel:/);
 });
 
-test("a photo or seal flag from the API is not acted on in this slice", () => {
+test("a photo flag is not acted on; the seal shows through /business-seal/ only when uploaded", () => {
   const page = render({ ...FILLED, distributor: { ...FILLED.distributor, has_photo: true },
     business: { ...FILLED.business, has_seal: true } });
-  assert.doesNotMatch(page, /distributor-photo|business-seal|footer-seal/);
+  assert.doesNotMatch(page, /distributor-photo/);
+  assert.match(page, /<img class="footer-seal" src="\/business-seal\/"/);
+  assert.doesNotMatch(render(FILLED), /business-seal|footer-seal/);
 });
 
 test("Email Us shows the store's own email, and is absent when there is none", () => {

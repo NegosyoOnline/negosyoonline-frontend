@@ -3,7 +3,7 @@
    Transcribed from TWCinc's negosyoonline_sante_pack/base.html, _top_bar.html, _footer.html, _policy_dialog.html and
    _icon.html. Markup, class names, text and order are the templates'. Different from them, on purpose:
    - asset links point at /assets/sante/ (src/lib/assets.ts);
-   - the footer shows no seal: no /business-seal/ route exists yet, so the design's no-seal state (as src/views/sante/member.ts). */
+   - the footer shows the owner's BIR badge through /business-seal/ when one is uploaded (Coach Ed, 2026-11-12). */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { Pack, Site } from "../../lib/django.ts";

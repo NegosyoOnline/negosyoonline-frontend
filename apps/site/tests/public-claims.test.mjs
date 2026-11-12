@@ -80,3 +80,17 @@ test("G1f: no Customers and reports card or sales reports claim, FAQ tab is Paym
   assert.ok(m[1].split(",").map((s) => s.trim().replace(/"/g, "")).includes("Payments"));
   assert.equal((pages["index.html"].match(/class="rd-pcard"/g) || []).length, 4);
 });
+
+test("G1b: Santé site is what is available now, Shop is planned", () => {
+  const html = pages["index.html"];
+  const cards = html.match(/<div class="card[^"]*">.*?<\/div>/g) || [];
+  const shop = cards.find((c) => c.includes("<h3>NegosyoOnline Shop</h3>"));
+  assert.ok(shop, "Shop card missing");
+  assert.match(shop, /Planned/);
+  assert.doesNotMatch(shop, /Available Now/);
+  const sante = cards.find((c) => c.includes("<h3>NegosyoOnline for Santé distributors</h3>"));
+  assert.ok(sante, "Santé card missing");
+  assert.match(sante, /Available Now/);
+  assert.doesNotMatch(html, /currently includes NegosyoOnline Shop/);
+  assert.doesNotMatch(pages["assets/js/site.js"], /NegosyoOnline Shop is currently available/);
+});

@@ -213,7 +213,7 @@
       if (!res.ok) { say("l-msg", "The search did not go through. Try again."); return; }
       found = true;
       cursor = null;
-      $("found-line").hidden = false;
+      $("found-line").hidden = !(res.data.results || []).length;
       $("l-empty").textContent = emptyWords();
       paintRows(res.data.results || [], false);
     });

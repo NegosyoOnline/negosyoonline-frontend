@@ -40,7 +40,11 @@ test("Rename turns the row into a field; Save posts the id from memory; Escape a
   input.fire("keydown", { key: "Escape" });
   assert.ok(byText(row(), "Rename"));
   byText(row(), "Rename").fire("click");
-  row().all((n) => n.tagName === "BUTTON" && n.getAttribute("aria-label") === "Close")[0].fire("click");
+  const x = row().all((n) => n.tagName === "BUTTON" && n.getAttribute("aria-label") === "Close")[0];
+  assert.equal(x.textContent, "", "the close button holds the drawn X, not a typed letter");
+  assert.equal(x.children[0].tagName, "SVG");
+  assert.equal(x.children[0].children[0].getAttribute("d"), "M6 6l12 12M18 6L6 18");
+  x.fire("click");
   assert.equal(p.sent(R.gr).length, 0);
   byText(row(), "Rename").fire("click");
   const field = row().all((n) => n.tagName === "INPUT")[0];

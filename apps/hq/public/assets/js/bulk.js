@@ -223,8 +223,7 @@
 
   function askStop(b, from) {
     var waiting = num(b.waiting);
-    openPop(from, "Stop this batch?", "Texts already sent stay sent. " + plural(waiting, "text", "texts") + " that " + (waiting === 1 ? "has" : "have") +
-      " not been sent will not be sent.", "Stop sending", function (done, fail) {
+    openPop(from, "Stop this batch?", "Texts already sent stay sent. " + plural(waiting, "text", "texts") + " not yet with the phone will not be sent.", "Stop sending", function (done, fail) {
       H.call("POST", "bulk/stop/", { batch: b.batch }).then(function (res) {
         if (res.ok) { done(); say("msg", "Batch stopped."); refresh(); return; }
         if (left(res)) return;
@@ -411,6 +410,7 @@
     checked = null;
     requestId = "";
     clearInputs();
+    $("b-step2").hidden = true;
   });
 
   function clearErrors() { ["b-text-err", "b-file-err", "b-src-err", "b-err", "b-err2"].forEach(function (id) { say(id, ""); }); }
@@ -514,7 +514,7 @@
       $("b-refused").appendChild(li);
     });
     say("b-refused-more", c.refusedCount > SHOWN_REFUSED ? "Showing the first " + SHOWN_REFUSED + " of " + fmt(c.refusedCount) + " refused lines." : "");
-    $("b-time").textContent = c.size > 0 && !blocked ? "About " + hours(c.min) + " to " + hours(c.max) + " to send, at one text every 18 to 25 seconds." : "";
+    $("b-time").textContent = c.size > 0 && !blocked ? span(c.min, c.max) + " to send, at one text every 18 to 25 seconds." : "";
     var canSend = !blocked && c.size > 0;
     $("b-confirm-row").hidden = !(canSend || c.refused.length);
     $("b-confirm-label").textContent = "Type " + fmt(c.size) + " to confirm";
@@ -529,11 +529,12 @@
     $("b-ref-dl").hidden = !(c.refused.length && downloads());
     $("b-step2").hidden = false;
   }
-  function hours(seconds) {
-    var h = seconds / 3600;
-    if (h < 1) return "under an hour";
-    var n = Math.round(h);
-    return n === 1 ? "1 hour" : n + " hours";
+  /* One phrase for the whole range: "Under an hour", "About 5 hours", "About 5 to 8 hours". */
+  function span(min, max) {
+    var lo = Math.max(1, Math.round(min / 3600)), hi = Math.max(1, Math.round(max / 3600));
+    if (max < 3600) return "Under an hour";
+    if (lo === hi) return "About " + plural(hi, "hour", "hours");
+    return "About " + lo + " to " + hi + " hours";
   }
   $("b-confirm").addEventListener("input", function () {
     $("b-send").disabled = !(checked && checked.size > 0 && String($("b-confirm").value || "").trim() === String(checked.size));

@@ -175,6 +175,11 @@ test("Find with no match says so; an empty field calls nothing", async () => {
   await settle();
   assert.equal(p.text("l-empty"), "No conversation with that number.");
   assert.equal(p.shown("l-empty"), true);
+  assert.equal(p.shown("found-line"), false, "no lone Show all and no 'Showing the conversation' line above the empty answer");
+  const html = fs.readFileSync(new URL("../public/inbox.html", import.meta.url), "utf8");
+  assert.match(html, /<p class="dash-copy list-note" id="l-empty" hidden><\/p>/, "the empty line is padded like the notes beneath it");
+  assert.doesNotMatch(html, /placeholder="Find a full number, for example/, "the Find placeholder fits a phone");
+  assert.match(html, /id="find-number"[^>]*placeholder="Full mobile number"/);
 });
 
 test("Refresh calls the status and the list again, once each per press", async () => {

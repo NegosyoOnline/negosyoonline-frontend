@@ -59,6 +59,13 @@ export async function GET(request: Request): Promise<Response> {
   return response;
 }
 
+/* The masked address a code-step page carries from one post to the next: only a value shaped like one is taken back. */
+const MASKED = /^[^\s@*]\*\*\*@[^\s@]{1,253}$/;
+const sentTo = (posted: URLSearchParams | FormData): string => {
+  const v = String(posted.get("sent_to") ?? "");
+  return MASKED.test(v) ? v : "";
+};
+
 export async function POST(request: Request): Promise<Response> {
   const site = await siteFor(request);
   if (!site) return neutralNotFound();
@@ -67,6 +74,7 @@ export async function POST(request: Request): Promise<Response> {
   const posted = await postedForm(request);
   const key = nextKey(posted.get("next"));
   const action = posted.get("action") ?? "request";
+  const carried = action === "request" ? maskEmail(posted.get("contact") ?? "") : sentTo(posted);
   const base = { host: call.host, visitor_ip: call.visitor_ip };
   const c = { env: call.env };
 
@@ -77,12 +85,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (action === "verify") {
-    if (!call.binding) return page(request, site, signInModel({ step: "code", next: key, error_code: "code_expired", error_message: EXPIRED, field_errors: { code: EXPIRED } }));
+    if (!call.binding) return page(request, site, signInModel({ step: "code", next: key, sent_to: carried, error_code: "code_expired", error_message: EXPIRED, field_errors: { code: EXPIRED } }));
     const result = await memberSignInVerify({ ...base, binding: call.binding, code: posted.get("code") ?? "" }, c);
     if (result.state === "unavailable") return neutralNotFound();
-    if (result.state === "failed") return page(request, site, failedModel({ step: "code", next: key }));
+    if (result.state === "failed") return page(request, site, failedModel({ step: "code", next: key, sent_to: carried }));
     if (result.state === "refused") {
-      const { model, status } = refused(result, { step: "code", next: key });
+      const { model, status } = refused(result, { step: "code", next: key, sent_to: carried });
       return page(request, site, model, status);
     }
     const response = redirect(nextTarget(key));
@@ -108,16 +116,12 @@ export async function POST(request: Request): Promise<Response> {
   let response: Response;
   if (result.state === "ok") {
     const answer: SignInAnswer = result;
-    /* A typed email whose code went by email (Coach Ed, 2026-11-12): the page says where, from what the visitor typed. The server
-       sends no address and answers alike for unknown contacts, so a typed mobile keeps the neutral message. */
-    const typed = action === "request" ? maskEmail(posted.get("contact") ?? "") : "";
-    const emailed = !answer.offer_email && typed !== "";
     response = page(request, site, signInModel({
-      step: "code", next: key, message: emailed ? `We emailed a code to ${typed}` : answer.message, offer_email: answer.offer_email,
+      step: "code", next: key, message: answer.message, sent_to: carried, offer_email: answer.offer_email,
       sms_in: 0, email_in: COUNTDOWN, /* every code goes by email now */
     }));
   } else if (result.state === "refused") {
-    const { model, status } = refused(result, { step, next: key });
+    const { model, status } = refused(result, { step, next: key, sent_to: carried });
     response = page(request, site, model, status);
   } else {
     response = page(request, site, failedModel({ step, next: key }));

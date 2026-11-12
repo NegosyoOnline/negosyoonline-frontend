@@ -172,7 +172,9 @@ test("POST request: +63 number goes to Django with a new binding; the code step 
     assert.match(body.binding, /^[A-Za-z0-9_-]{43}$/);
     const page = await r.text();
     assert.match(page, /<h1>Enter your OTP<\/h1>/);
-    assert.match(page, /If this matches a member of this store, we sent a code\./);
+    assert.match(page, /Check your email for the code\./);
+    assert.match(page, /If your email is not verified yet, we text it to the mobile number you entered\./);
+    assert.doesNotMatch(page, /If this matches a member/);
     assert.equal((page.match(/class="otp-box[ "]/g) ?? []).length, 6);
     const cookie = setCookies(r).find((c) => c.startsWith("no_member_pre="))!;
     assert.ok(cookie.includes(`no_member_pre=${body.binding}`));
@@ -181,22 +183,28 @@ test("POST request: +63 number goes to Django with a new binding; the code step 
   });
 });
 
-test("POST request with a typed email: the page says where the code went, masked from what was typed; a mobile keeps the neutral message", async () => {
-  await withDjango({ "signin/request": json(200, answer) }, async () => {
+test("POST request with a typed email: the page says where the code went, masked; a typed mobile gets the rule and no address", async () => {
+  await withDjango({ "signin/request": json(200, answer), "signin/resend": json(200, answer) }, async () => {
     const r = await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "ben.d@example.test" }));
     const page = await r.text();
-    assert.match(page, /We emailed a code to b\*\*\*@example\.test/);
+    assert.match(page, /We emailed a code to <strong>b\*\*\*@example\.test<\/strong>/);
     assert.doesNotMatch(page, /ben\.d@/);
-    assert.doesNotMatch(page, /If this matches a member/);
+    assert.doesNotMatch(page, /Check your email for the code|If this matches a member/);
+    assert.match(page, /name="sent_to" value="b\*\*\*@example\.test"/); // carried so resend and a wrong code keep saying where
+    const again = await (await signInPost(post("/dashboard/sign-in/", { action: "resend", sent_to: "b***@example.test" }, {}, `no_member_pre=${BINDING}`))).text();
+    assert.match(again, /We emailed a code to <strong>b\*\*\*@example\.test<\/strong>/);
+    const forged = await (await signInPost(post("/dashboard/sign-in/", { action: "resend", sent_to: "<script>x</script>" }, {}, `no_member_pre=${BINDING}`))).text();
+    assert.doesNotMatch(forged, /<script>x|We emailed a code to/);
+    assert.match(forged, /Check your email for the code\./);
   });
   await withDjango({ "signin/request": json(200, answer) }, async () => {
     const page = await (await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "917 123 4567" }))).text();
-    assert.match(page, /If this matches a member of this store/);
-    assert.doesNotMatch(page, /We emailed a code/);
+    assert.match(page, /<strong>Check your email for the code\.<\/strong><br>We email your code to the email address on your member account\. If your email is not verified yet, we text it to the mobile number you entered\./);
+    const card = page.slice(page.indexOf('<div class="sc-card">'), page.indexOf('</main>') > 0 ? page.indexOf('</main>') : undefined);
+    assert.doesNotMatch(card, /We emailed a code|@|If this matches a member|sent_to/);
   });
   await withDjango({ "signin/request": json(200, { ...answer, offer_email: true }) }, async () => {
     const page = await (await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "ben.d@example.test" }))).text();
-    assert.doesNotMatch(page, /We emailed a code/);
     assert.match(page, /Email me a code/);
   });
 });

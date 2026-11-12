@@ -192,6 +192,8 @@ export type SignInModel = {
   step: "contact" | "code";
   next: string;
   message: string;
+  /* The typed address with all but its first letter hidden, when the visitor typed an email: it rides in a hidden field so every code-step page can say where the code went. */
+  sent_to: string;
   offer_email: boolean;
   error_code: string;
   error_message: string;
@@ -202,10 +204,21 @@ export type SignInModel = {
 };
 
 export function signInModel(over: Partial<SignInModel> = {}): SignInModel {
-  return { step: "contact", next: "", message: "", offer_email: false, error_code: "", error_message: "", field_errors: {}, hint: "", sms_in: 0, email_in: 0, ...over };
+  return { step: "contact", next: "", message: "", sent_to: "", offer_email: false, error_code: "", error_message: "", field_errors: {}, hint: "", sms_in: 0, email_in: 0, ...over };
 }
 
 const nextField = (next: string) => (next ? html`<input type="hidden" name="next" value="${next}">` : "");
+const sentField = (sent: string) => (sent ? html`<input type="hidden" name="sent_to" value="${sent}">` : "");
+
+/* Where the code went, said outright (Coach Ed, 2026-11-12). A typed email gets its masked address. A typed mobile gets the rule: the
+   page never names an address or confirms a member, because the server answers alike for everyone. */
+export const SENT_RULE_HEAD = "Check your email for the code.";
+export const SENT_RULE_BODY = "We email your code to the email address on your member account. If your email is not verified yet, we text it to the mobile number you entered.";
+function whereSent(m: SignInModel): Markup {
+  return m.sent_to
+    ? html`<p class="sc-lead">We emailed a code to <strong>${m.sent_to}</strong></p>`
+    : html`<p class="sc-lead"><strong>${SENT_RULE_HEAD}</strong><br>${SENT_RULE_BODY}</p>`;
+}
 
 function signInBody(m: SignInModel): Markup {
   const noFieldErrors = !m.field_errors.contact && !m.field_errors.code;
@@ -230,10 +243,11 @@ ${nextField(m.next)}
 ${nextField(m.next)}
 <button class="btn" type="submit" name="action" value="resend">Send a new code</button>
 </form>` : html`
-${m.message && !m.error_message ? html`<p class="sc-lead">${m.message}</p>` : ""}
+${!m.error_message ? whereSent(m) : ""}
 <form method="post" class="sc-otp" data-pp-otp data-pp-busy-msg="Verifying your code&hellip;" novalidate>
 ${nextField(m.next)}
 <input type="hidden" name="action" value="verify">
+${sentField(m.sent_to)}
 <input type="hidden" name="code" value="">
 <div class="otp-boxes">${[1, 2, 3, 4, 5, 6].map((i) => html`<input class="otp-box${m.field_errors.code ? " is-invalid" : ""}" id="si-code-${i}" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="${i === 1 ? "one-time-code" : "off"}" aria-label="Digit ${i} of 6">`)}</div>
 ${m.field_errors.code ? html`<p class="pp-mb-error" role="alert">${m.field_errors.code}</p>` : ""}
@@ -243,6 +257,7 @@ ${!m.offer_email && !expired ? html`
 <div class="sc-alts"><p class="sc-alts-h">Didn&rsquo;t receive the OTP?</p><div class="sc-alts-row">
 <form method="post">
 ${nextField(m.next)}
+${sentField(m.sent_to)}
 <button class="btn ghost sc-alt" type="submit" name="action" value="resend"${m.email_in ? html` disabled data-pp-count="${m.email_in}"` : ""}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Send a new code<b data-pp-count-label>${m.email_in ? ` (${m.email_in}s)` : ""}</b></span></button>
 </form>
 </div></div>` : ""}
@@ -257,7 +272,7 @@ ${icon}
 <h1>${orders ? "Track Your Orders" : "Member Login"}</h1>
 ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>${m.hint ? html`<br>${m.hint}` : ""}</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>`
-  : html`<p class="sc-lead">${orders ? html`Enter your email or mobile number. You&rsquo;ll confirm it with one quick email &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the email or mobile number you registered with to log in to your member dashboard. We&rsquo;ll email you a one-time code &mdash; no password needed.`}</p>`}
+  : html`<p class="sc-lead">${orders ? html`Enter your email or mobile number. You&rsquo;ll confirm it with one quick code, by email (or text if your email isn&rsquo;t verified) &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the email or mobile number you registered with to log in to your member dashboard. We&rsquo;ll email you a one-time code (or text it if your email isn&rsquo;t verified) &mdash; no password needed.`}</p>`}
 <form method="post" data-pp-busy-msg="Sending your code&hellip;">
 <input type="hidden" name="action" value="request">
 ${nextField(m.next)}

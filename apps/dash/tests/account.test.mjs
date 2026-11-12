@@ -108,7 +108,7 @@ test("the email and the mobile code step are both laid out like the site's code 
     assert.ok(step.includes("parts.cooldown()") && step.includes("f.appendChild(parts.back)"));
   }
   /* resend is each step's own start call again, inside the /account/ routes */
-  assert.ok(email.includes("wait: 60,") && email.includes('send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }') && email.includes('"Use a different email"'));
+  assert.ok(email.includes("wait: 60,") && email.includes('send: function () { return D.call("POST", "/account/email/start/", emailStartBody(email), true); }') && email.includes('"Use a different email"'));
   assert.ok(mobile.includes("wait: 30,") && mobile.includes('send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); }') && mobile.includes('"Use a different number"'));
   /* the approved wording is kept */
   assert.ok(email.includes('". Enter it to confirm this address."') && email.includes('"You cannot change your email again for 24 hours."'));
@@ -117,4 +117,23 @@ test("the email and the mobile code step are both laid out like the site's code 
   assert.ok(src.includes('input.setAttribute("autocomplete", "one-time-code")'), "one-time-code autofill is kept");
   assert.ok(css.includes("body.dash-app .acct-otp { position: relative; box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
   assert.ok(css.includes("height: 56px; min-width: 0;") && css.includes("font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
+});
+
+/* Email change hardening (ClickUp z8uq9m8htt): the step-up is read from the account answer, never assumed. */
+test("the email change asks for the current mailbox's code only when the read says so", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const open = src.slice(src.indexOf("function openEmail("), src.indexOf("function emailStepUp("));
+  assert.ok(open.includes("email_change_step_up === true") && open.includes("emailStep1(body"), "off: the old first step");
+  assert.ok(src.includes('D.call("POST", "/account/email/step-up/", null, true)'));
+  assert.ok(src.includes("body.step_up_code = S.stepCode"), "the code rides on the start call");
+  assert.ok(src.includes('"step_up_required"'), "a refused code sends the person back to the code step");
+  assert.ok(src.includes('S.stepCode = ""'), "the code is dropped after use");
+});
+
+test("the dead verify-email and social flows are gone", () => {
+  const app = fs.readFileSync(new URL("../public/assets/js/app.js", import.meta.url), "utf8");
+  for (const gone of ["verifyGate", "resend-verification", "socialButtons", "/auth/social", "verify-email", "social-complete"]) assert.ok(!app.includes(gone), gone);
+  for (const file of ["verify-email.html", "social-complete.html", "assets/js/verify.js", "assets/js/social-complete.js"]) {
+    assert.ok(!fs.existsSync(new URL("../public/" + file, import.meta.url)), file);
+  }
 });

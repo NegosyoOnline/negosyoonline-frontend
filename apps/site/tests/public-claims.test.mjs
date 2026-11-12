@@ -15,8 +15,6 @@ test("no per-order, video or Auto Courier Tracking pricing on the public pages",
   for (const [name, text] of Object.entries(pages)) {
     for (const re of [/1,000 Orders/i, /1,000 orders/i, /1,000 successful/i, /50 GB (of )?(Video|video)/, /PHP 5 per additional/i,
       /PHP 10 per/i, /Auto Courier Tracking/i, /PHP 399/]) {
-      // cancellation-refund.html l.43 still has one Auto Courier sentence, not in G1c: held for the Supervisor.
-      if (name === "cancellation-refund.html" && /Auto Courier/.test(String(re))) continue;
       assert.doesNotMatch(text, re, `${name} still matches ${re}`);
     }
   }
@@ -28,6 +26,7 @@ test("removed FAQs and inventory/logistics/Help Center wording are gone", () => 
   assert.doesNotMatch(js, /inventory management|logistics management tools|and deliveries/i);
   assert.doesNotMatch(pages["index.html"], /Delivery tools|Dashboard and Help Center|Product and inventory management|Products and inventory/);
   assert.doesNotMatch(pages["terms.html"], /approved add-on usage|inventory and product management/);
+  assert.doesNotMatch(pages["terms.html"], /add usage or add-ons/);
 });
 
 test("home page: storage-only usage, new comparison total, no removed rows", () => {

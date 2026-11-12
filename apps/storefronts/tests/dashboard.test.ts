@@ -13,9 +13,9 @@ type Reply = { status: number; body: unknown; bytes?: Uint8Array; type?: string 
 function fake(replies: Record<string, Reply[]>) {
   const calls: { path: string; body: Record<string, unknown>; form?: FormData }[] = [];
   const fetchImpl = (url: string, init: RequestInit) => {
-    const route = url.replace("http://api.test/storefront/v1/", "").replace(/\/$/, "");
+    const route = url.replace("http://api.test/storefront/v1/", "").replace(/\/(\?.*)?$/, "");
     const form = init.body instanceof FormData ? init.body : undefined;
-    calls.push({ path: route, body: form ? {} : JSON.parse(String(init.body)), form });
+    calls.push({ path: route, body: form || init.body === undefined ? {} : JSON.parse(String(init.body)), form });
     const next = (replies[route] ?? []).shift();
     if (!next) throw new Error(`unexpected call: ${route}`);
     if (next.bytes) return Promise.resolve(new Response(next.bytes as unknown as BodyInit, { status: next.status, headers: { "content-type": next.type ?? "" } }));
@@ -258,4 +258,71 @@ test("My Orders lists the cards; with none it says so; a rejected order sends it
 test("money falls back to the centavos when the backend sends no text", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/home": [ok({ summary: { total_spent_centavos: 148800, total_orders: 1, delivered: 0, needs_attention: 0 }, order_monitor: { delta: 0, awaiting_approval: 0, for_booking: 0, for_shipping: 0, delivered: 0, series: [], has_orders: true } })] });
   assert.match(await (await homePage(dashOf(f))).text(), /acct-kpi-value">&#8369;1,488\.00</);
+});
+
+/* ---- the Santé Membership Terms on the account details card (terms_required) ---- */
+
+const PACK_READ = { price_centavos: 148800, currency: "PHP", available: true, agreement: { id: 7, label: "v1.0", effective_date: "2026-11-03" }, payment_accounts: [] };
+const REG_TERMS = { ...REG, terms_required: true };
+
+test("terms_required puts the Membership Terms tick, the popup of the active version and its script on the details card", async () => {
+  const f = fake({
+    "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: REG_TERMS }), ],
+    "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
+  });
+  const body = await (await homePage(dashOf(f))).text();
+  assert.match(body, /<input type="hidden" name="agreement_version_id" value="7">/);
+  assert.match(body, /<input type="checkbox" id="dt-terms" name="terms" value="1">/);
+  assert.match(body, /I have read and agree to the <a class="lnk"[^>]*data-terms-popup>Sant&eacute; Membership Terms&nbsp;&#8599;<\/a>\./);
+  assert.match(body, /data-file="\/funnel\/membership-pack\/membership-terms\.pdf\?v=7"/);
+  assert.match(body, /pack-terms-popup\.js/);
+});
+
+test("terms_required false or absent shows no tick, no popup, no script", async () => {
+  for (const registration of [REG, { ...REG, terms_required: false }]) {
+    const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack(), registration })], "member/registration": [ok({ registration, mobile: MOBILE })] });
+    const body = await (await homePage(dashOf(f))).text();
+    assert.match(body, /name="desired_username"/);
+    assert.doesNotMatch(body, /dt-terms|agreement_version_id|pp-terms-dlg|pack-terms-popup/);
+    assert.ok(!f.calls.some((c) => c.path === "pack")); // the agreement is not even read
+  }
+});
+
+test("the details post carries terms and agreement_version_id only when the form had them", async () => {
+  const typed = { date_of_birth: "1990-03-07", desired_username: "juan12345", alternate_username: "juan54321" };
+  const done = ok({ registration: REG, mobile: MOBILE });
+  const f = fake({ "member/me": [ME, ME, ME], "member/registration/details": [done, done, done] });
+  await registrationPost(dashOf(f), "details", { ...typed, terms: "1", agreement_version_id: "7" });
+  await registrationPost(dashOf(f), "details", { ...typed, agreement_version_id: "7" });
+  await registrationPost(dashOf(f), "details", typed);
+  const sent = f.calls.filter((c) => c.path === "member/registration/details").map((c) => c.body);
+  assert.deepEqual([sent[0].terms, sent[0].agreement_version_id], [true, "7"]);
+  assert.deepEqual([sent[1].terms, sent[1].agreement_version_id], [false, "7"]);
+  assert.ok(!("terms" in sent[2]) && !("agreement_version_id" in sent[2]));
+});
+
+test("a submit without the tick shows the terms error; a changed version clears the tick and shows the backend's message", async () => {
+  const text = { date_of_birth: "1990-03-07", desired_username: "juan12345", alternate_username: "juan54321", agreement_version_id: "7" };
+  const required = "Please review and agree to the Membership Terms to continue.";
+  const missing = fake({
+    "member/me": [ME, ME], "member/registration/details": [err(422, "invalid_details", "Check the highlighted fields.", { terms: [required] })],
+    "member/pack": [ok({ pack: pack(), registration: REG_TERMS })], "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
+  });
+  const m = await (await registrationPost(dashOf(missing), "details", text)).text();
+  assert.match(m, /<p class="err pp-ob-terms-err">Please review and agree to the Membership Terms to continue\.<\/p>/);
+  const stale = fake({
+    "member/me": [ME, ME],
+    "member/registration/details": [err(409, "agreement_changed", "The Membership Terms were updated. Please review and agree again.", {})],
+    "member/pack": [ok({ pack: pack(), registration: REG_TERMS })], "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })],
+    pack: [ok({ ...PACK_READ, agreement: { id: 8, label: "v2.0", effective_date: "2026-11-13" } })],
+  });
+  const s = await (await registrationPost(dashOf(stale), "details", { ...text, terms: "1", agreement_version_id: "7" })).text();
+  assert.match(s, /The Membership Terms were updated\. Please review and agree again\./);
+  assert.doesNotMatch(s, /name="terms" value="1" checked/);
+  assert.match(s, /name="agreement_version_id" value="8"/);
+  const none = fake({
+    "member/me": [ME, ME], "member/registration/details": [err(422, "agreement_required", required, { terms: [required] })],
+    "member/pack": [ok({ pack: pack(), registration: REG_TERMS })], "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
+  });
+  assert.match(await (await registrationPost(dashOf(none), "details", { ...text, terms: "1" })).text(), /pp-ob-terms-err">Please review and agree/);
 });

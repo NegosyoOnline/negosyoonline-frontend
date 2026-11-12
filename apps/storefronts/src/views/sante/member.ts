@@ -231,7 +231,7 @@ function signInBody(m: SignInModel): Markup {
   if (m.step === "code") {
     return html`<div class="sc-card">
 ${icon}
-<h1>Enter your OTP</h1>
+${m.sent_to || m.error_message || m.offer_email || expired ? html`<h1>Enter your OTP</h1>` : ""}
 ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>${m.hint ? html`<br>${m.hint}` : ""}</div>`
   : expired ? html`<div class="note bad" role="alert">This code is no longer valid. Ask for a new code.</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>` : ""}

@@ -16,7 +16,7 @@ import { CHECKOUT_PATH, LANDING_PATH, packDocument, type PackCtx } from "./pack-
 
 export const CHECK_PATH = CHECKOUT_PATH + "check/";
 export const QR_PATH = CHECKOUT_PATH + "qr/";
-export const AGREEMENT_PDF_PATH = "/funnel/membership-pack/membership-terms.pdf";
+export { AGREEMENT_PDF_PATH } from "./pack-terms.ts";
 export const TERMS_SLUG = "terms-and-conditions";
 export const PRIVACY_PATH = "/privacy-policy/";
 

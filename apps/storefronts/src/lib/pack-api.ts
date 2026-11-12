@@ -413,6 +413,8 @@ export type RegistrationCard = {
   state_version: string;
   sante_member_id: string;
   needs_address: boolean;
+  /** True while the order has no Membership Terms acceptance: the details form then carries the terms tick. */
+  terms_required: boolean;
 };
 export type MobileCheck = { pending: boolean; mobile: string; locked: boolean; code_sent_to: string; resend_in: number; attempts_left: number };
 
@@ -450,7 +452,7 @@ function parseRegistration(v: unknown): RegistrationCard | null {
   return {
     status: v.status, label: str(v.label), line: str(v.line), tone: str(v.tone), details_form: v.details_form === true,
     details_erased: v.details_erased === true, state_version: str(v.state_version), sante_member_id: str(v.sante_member_id),
-    needs_address: v.needs_address === true,
+    needs_address: v.needs_address === true, terms_required: v.terms_required === true,
   };
 }
 
@@ -494,7 +496,7 @@ export const registrationMobileSend = (args: Member & { mobile?: string }, c: Ca
 export const registrationMobileVerify = (args: Member & { code: string }, c: Calls) =>
   packPost("member/registration/mobile/verify", args, parseRegAnswer, c);
 export const registrationDetails = (
-  args: Member & { date_of_birth: string; desired_username: string; alternate_username: string; delivery_address?: { line: string; barangay: string; city: string; province: string; zip: string } },
+  args: Member & { date_of_birth: string; desired_username: string; alternate_username: string; terms?: boolean; agreement_version_id?: string; delivery_address?: { line: string; barangay: string; city: string; province: string; zip: string } },
   c: Calls,
 ) => packPost("member/registration/details", args, parseRegAnswer, c);
 

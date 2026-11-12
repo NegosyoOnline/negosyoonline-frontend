@@ -171,7 +171,7 @@ test("POST request: +63 number goes to Django with a new binding; the code step 
     assert.equal(body.host, "demo-store.negosyotest.com");
     assert.match(body.binding, /^[A-Za-z0-9_-]{43}$/);
     const page = await r.text();
-    assert.match(page, /<h1>Enter your OTP<\/h1>/);
+    assert.doesNotMatch(page, /Enter your OTP/); // the old title above "Check your email" is gone
     assert.match(page, />Check your email<\/h2>/);
     assert.match(page, /Your code was sent to your email, not by text\./);
     assert.match(page, /No email\? Check Spam, or tap Send a new code\./);
@@ -404,7 +404,7 @@ test("the shell links the TWCinc stylesheets and scripts by their approved files
 test("the sign-in page keeps TWCinc's wording and its hooks", () => {
   const v = chrome(SITE);
   const code = signInDocument(v, signInModel({ step: "code", message: "If this matches a member of this store, we sent a code." })).value;
-  for (const text of ["Enter your OTP", "Didn&rsquo;t receive the OTP?", "Send a new code", "&larr; Use a different email or number", "Log in to My Account",
+  for (const text of ["Didn&rsquo;t receive the OTP?", "Send a new code", "&larr; Use a different email or number", "Log in to My Account",
     'data-pp-otp', 'autocomplete="one-time-code"', 'aria-label="Digit 6 of 6"']) assert.ok(code.includes(text), text);
   assert.doesNotMatch(code, /Text me the code/);
   const offer = signInDocument(v, signInModel({ step: "code", offer_email: true })).value;

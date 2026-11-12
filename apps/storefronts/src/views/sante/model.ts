@@ -11,6 +11,8 @@ export type ContactForm = {
 
 export type HomeModel = {
   store_name: string;
+  /* A signed-in member sees "Dashboard" in the header CTA where a visitor sees "Login" (Coach Ed, 2026-11-12). */
+  signed_in: boolean;
   free_shipping_banner: boolean;
   year: number;
   /* The basket. No product page exists yet, so it is always empty: `lines` says whether it has rows. */
@@ -111,10 +113,11 @@ function year(now: Date): number {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric" }).format(now));
 }
 
-export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now: Date = new Date()): HomeModel {
+export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now: Date = new Date(), signedIn = false): HomeModel {
   const phone = formatMobile(site.distributor.mobile);
   return {
     store_name: site.display_name,
+    signed_in: signedIn,
     free_shipping_banner: site.free_shipping_banner,
     year: year(now),
     drawer: { count: 0, count_label: "0 items", subtotal: "0.00", lines: false, error: "" },
@@ -134,7 +137,7 @@ export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now:
       tin: site.business.tin,
       dti_business_number: site.business.dti_business_number,
       contact_email: site.business.contact_email,
-      has_seal: false, // no /business-seal/ route until private files exist: the design's no-seal state
+      has_seal: site.business.has_seal === true, // the owner's uploaded BIR badge, shown through /business-seal/
     },
   };
 }

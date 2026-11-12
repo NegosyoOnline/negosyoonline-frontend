@@ -83,10 +83,12 @@ test("the distributor card without a usable mobile: no phone line and no Call no
   assert.doesNotMatch(odd, /class="dist-phone"|class="dist-call"|href="tel:/);
 });
 
-test("a photo or seal flag from the API is not acted on in this slice", () => {
+test("a photo flag is not acted on; the seal shows through /business-seal/ only when uploaded", () => {
   const page = render({ ...FILLED, distributor: { ...FILLED.distributor, has_photo: true },
     business: { ...FILLED.business, has_seal: true } });
-  assert.doesNotMatch(page, /distributor-photo|business-seal|footer-seal/);
+  assert.doesNotMatch(page, /distributor-photo/);
+  assert.match(page, /<img class="footer-seal" src="\/business-seal\/"/);
+  assert.doesNotMatch(render(FILLED), /business-seal|footer-seal/);
 });
 
 test("Email Us shows the store's own email, and is absent when there is none", () => {
@@ -193,4 +195,14 @@ test("initials, the mobile display and the footer year follow the approved rules
   for (const bad of ["", "09171234567", "+63917123456", "+638171234567"]) assert.equal(formatMobile(bad), "", bad);
   const newYear = homeDocument(homeModel(SITE, undefined, new Date("2026-12-31T17:00:00Z"))).value;
   assert.match(newYear, /&#169; 2027 Demo Store\./);
+});
+
+test("the header CTA reads Login to a visitor and Dashboard (to /dashboard/) to a signed-in member", () => {
+  const out = homeDocument(homeModel(SITE, undefined, NOW)).value;
+  assert.match(out, /<a href="\/dashboard\/sign-in\/" class="nav-cta">Login<\/a>/);
+  assert.doesNotMatch(out, />Dashboard<\/a>/);
+  const inn = homeDocument(homeModel(SITE, undefined, NOW, true)).value;
+  assert.match(inn, /<a href="\/dashboard\/" class="nav-cta">Dashboard<\/a>/);
+  assert.doesNotMatch(inn, /class="nav-cta">Login/);
+  assert.equal(inn.match(/class="nav-cta"/g)?.length, 1); // the one CTA serves desktop and the phone bar; the menu list has no second one
 });

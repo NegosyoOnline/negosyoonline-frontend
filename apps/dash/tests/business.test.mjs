@@ -221,7 +221,7 @@ test("8. every row carries a Public or Private tag; TIN, Site type and the Shipp
   const d = boot();
   await d.show();
   const rows = d.rows();
-  assert.equal(rows.length, 23);
+  assert.equal(rows.length, 24); // the BIR registration badge row is the 24th, Public
   for (const r of rows) {
     assert.equal(tagOf(r).length, 1, labelOf(r));
     assert.ok(["Public", "Private"].includes(tagOf(r)[0]), labelOf(r));
@@ -358,7 +358,10 @@ test("the page calls only /sites/ routes", async () => {
   assert.ok(calls.length >= 3, "the request list was read");
   assert.equal(calls.length, (SRC.match(/\bD\.(?:call|send)\(/g) || []).length, "every request was read");
   for (const [method, first] of calls) assert.match(first, /^"\/sites\/"/, method + " " + first);
-  assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon/.test(SRC), "no request is made any other way");
+  const fetches = SRC.match(/\bfetch\([^)]*\)/g) || [];
+  assert.equal(fetches.length, 1, "the one raw fetch is the badge preview, read as a blob");
+  assert.match(fetches[0], /business-profile\/seal\//);
+  assert.ok(!/XMLHttpRequest|sendBeacon/.test(SRC), "no request is made any other way");
   assert.ok(!/["'`]\/(account|me|auth)\//.test(SRC), "no account route, as a request or as a link");
 
   /* And as run: a load, a switch to the second site and one save from every dialog. */
@@ -369,5 +372,21 @@ test("the page calls only /sites/ routes", async () => {
   await settle();
   for (const [id] of DIALOGS) { p.open(id); await p.save(); }
   assert.ok(p.calls.length > DIALOGS.length);
-  for (const c of p.calls) assert.match(c.path, /^\/sites\/(site_[0-9a-z]{20}\/(business-profile\/)?)?$/, c.method + " " + c.path);
+  for (const c of p.calls) assert.match(c.path, /^\/sites\/(site_[0-9a-z]{20}\/(business-profile\/(seal\/)?)?)?$/, c.method + " " + c.path);
+});
+
+test("BIR registration badge: the row is Public with Upload; the file rules use the server's words; no badge reads Not added", async () => {
+  const d = boot();
+  await d.show();
+  const row = d.rows().find((r) => labelOf(r) === "BIR registration badge");
+  assert.ok(row, "the row is on the page");
+  assert.deepEqual(tagOf(row), ["Public"]);
+  assert.ok(d.$("bs-seal-up") && d.$("bs-seal-file"));
+  assert.equal(d.$("bs-seal-up").textContent, "Upload");
+  assert.equal(d.$("bs-seal-del"), null, "nothing to remove yet");
+  const U = d.B.util;
+  assert.equal(U.sealProblem(null), "Choose an image to upload.");
+  assert.equal(U.sealProblem({ type: "image/gif", size: 10 }), "Upload a JPEG, PNG or WebP image.");
+  assert.equal(U.sealProblem({ type: "image/png", size: 2 * 1024 * 1024 + 1 }), "The file is too large. The limit is 2 MB.");
+  assert.equal(U.sealProblem({ type: "image/webp", size: 2 * 1024 * 1024 }), "");
 });

@@ -97,7 +97,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       <span class="nav-cart-count" data-cart-count${!v.drawer.count ? html` hidden` : ""}>${v.drawer.count}</span>
     </a>
-    <a href="/dashboard/sign-in/" class="nav-cta">Login</a>
+    ${v.signed_in ? html`<a href="/dashboard/" class="nav-cta">Dashboard</a>` : html`<a href="/dashboard/sign-in/" class="nav-cta">Login</a>`}
     <button type="button" class="nav-toggle" aria-label="Menu" aria-controls="sfNavLinks" aria-expanded="false" data-sf-nav-toggle>
       <span></span><span></span><span></span>
     </button>

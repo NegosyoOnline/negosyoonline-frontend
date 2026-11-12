@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/assets/vendor/cropperjs/cropper.min.css?v=162">
 <link rel="stylesheet" href="/assets/css/storefront-settings.css?v=20261103ss1">
 <link rel="stylesheet" href="/assets/css/earnings.css?v=20261106e8a">
+<link rel="stylesheet" href="/assets/css/pack-orders.css?v=20261112po1">
 <noscript><style>#boot{display:none!important}</style></noscript>
 </head>
 <body class="dash dash-app">
@@ -100,14 +101,12 @@
         <div id="ov-body"></div>
       </section>
       <section class="view" id="view-orders" aria-labelledby="h-orders" hidden>
-        <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-orders" tabindex="-1">Orders</h1></header>
-        <section class="dash-card ph-card" aria-labelledby="h-orders-ph">
-          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg></span>
-          <span class="chip chip-neutral">Not available yet</span>
-          <h2 id="h-orders-ph">Orders is not available yet</h2>
-          <p>Orders are not part of your dashboard yet. There is nothing to set up here for now.</p>
-          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
-        </section>
+        <nav class="set-tabs" id="orders-tabs" aria-label="Orders"><a href="#" data-tab="overview">Overview</a><a href="#" data-tab="product">Product Orders</a><a href="#" data-tab="pack" aria-current="page">Package Order</a></nav>
+        <div id="view-pack-orders" aria-live="polite">
+          <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-orders" tabindex="-1">Orders</h1><p class="view-sub" id="po-sub" hidden></p></header>
+          <div id="po-body" aria-busy="true"></div>
+        </div>
+        <div id="po-dlg-slot"></div>
       </section>
       <section class="view" id="view-orders-new" aria-labelledby="h-orders-new" hidden>
         <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-orders-new" tabindex="-1">Add order</h1></header>
@@ -282,14 +281,15 @@
 </dialog>
 <script src="/assets/js/config.js?v=20261028zy"></script>
 <script src="/assets/js/app.js?v=20261111st2"></script>
-<script src="/assets/js/dashboard.js?v=20261111fl1"></script>
+<script src="/assets/js/dashboard.js?v=20261112po1"></script>
 <script src="/assets/js/account.js?v=20261111mc4"></script>
 <script src="/assets/js/billing.js?v=20261110na1"></script>
 <script src="/assets/vendor/cropperjs/cropper.min.js?v=162"></script>
 <script src="/assets/js/payments.js?v=20261111xh2"></script>
-<script src="/assets/js/business.js?v=20261111sr1"></script>
+<script src="/assets/js/business.js?v=20261112sl1"></script>
 <script src="/assets/js/sante.js?v=20261111sn1"></script>
 <script src="/assets/js/storefront-settings.js?v=20261110na1"></script>
 <script src="/assets/js/earnings.js?v=20261110na1"></script>
+<script src="/assets/js/pack-orders.js?v=20261112po1"></script>
 </body>
 </html>

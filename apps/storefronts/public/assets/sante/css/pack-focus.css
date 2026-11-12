@@ -1,0 +1,18 @@
+/* This storefront's own file, not one of the approved TWCinc files. Coach Ed's look rule (2026-11-11), which beats
+   byte-for-byte parity for focus styling only: an input in focus gets a light-blue border and a 1px ring, as the
+   dashboard's .bl-input:focus does (apps/dash dash.css, --link fallback #6C8CFF), never gold and never the store
+   accent. A heading or card title is not a control and shows no ring. Buttons and links keep TWCinc's visible
+   green focus outline (pack-dashboard-shell.css), which is not gold. Loaded after the TWCinc sheets. */
+.e4 .inp:focus, .e4 .inp:focus-visible, .e4 .sc-card .inp:focus, .e4 .sc-card .inp:focus-visible,
+.e4 .sc-card .otp-box:focus, .e4 .sc-card .otp-box:focus-visible {
+  outline: none; border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF;
+}
+.e4 .sc-phone:focus-within { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
+.e4 .sc-phone .sc-phone-input:focus, .e4 .sc-phone .sc-phone-input:focus-visible { outline: none; box-shadow: none; }
+.e4 h1:focus, .e4 h1:focus-visible, .e4 h2:focus, .e4 h2:focus-visible, .e4 h3:focus, .e4 h3:focus-visible { outline: none; }
+
+/* Coach Ed 2026-11-12: the secondary OTP buttons on the code step ("Email me the code" / "Text me the code") sit centred in the
+   card, desktop and phone. One button is centred; two share the row; under 421px they stack full width. */
+.sc-card .sc-alts-row { display: flex; flex-wrap: wrap; justify-content: center; }
+.sc-card .sc-alts-row form { flex: 0 1 calc(50% - 5px); min-width: 0; }
+@media (max-width: 420px) { .sc-card .sc-alts-row form { flex: 1 1 100%; } }

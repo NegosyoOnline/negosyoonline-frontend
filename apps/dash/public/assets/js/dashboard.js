@@ -78,6 +78,9 @@
     var P = window.NOPayments; /* payments.js loads after this file; same enter/leave hooks as Billing */
     if (P && shownView === "settings-payments" && r.view !== "settings-payments") P.hide();
     if (P && r.view === "settings-payments" && shownView !== "settings-payments") P.show();
+    var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
+    if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
+    if (PO && r.view === "orders" && shownView !== "orders") PO.show();
     var G = window.NOBusiness; /* business.js loads after this file; same enter/leave hooks as Billing */
     if (G && shownView === "settings-general" && r.view !== "settings-general") G.hide();
     if (G && r.view === "settings-general" && shownView !== "settings-general") G.show();

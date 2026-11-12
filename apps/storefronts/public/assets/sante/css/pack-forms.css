@@ -1,0 +1,330 @@
+/* Membership Pack pages: page shell, checkout, return and done styles.
+   Written to sit beside the funnel's compiled landing stylesheet (pack-landing.min.css), reusing its colour tokens
+   (var(--color-*)) with literal fallbacks, so the checkout forms look like the funnel's checkout. Plain CSS, no framework.
+   Rules are unlayered on purpose: they win over the compiled sheet's layers for the classes they define. */
+.pp-pack { margin: 0; font-family: "Open Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--color-ink-700, #333); background: #fff; -webkit-text-size-adjust: 100%; }
+.pp-shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+.pp-main { flex: 1 0 auto; min-width: 0; }
+.pp-brandlink { color: #fff; text-decoration: none; min-width: 0; }
+.pp-storename { font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; padding-left: 12px; border-left: 1px solid rgb(255 255 255 / .35); }
+.pp-signin { color: #fff; text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
+.pp-signin:hover { color: var(--color-lime-300, #b6fb63); }
+.pp-agree .lnk, .lnk { color: var(--color-primary-700, #1a6207); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.pp-agree .lnk:hover, .lnk:hover { color: var(--color-primary-600, #217900); }
+
+/* Checkout, return and done */
+.pp-co { background: var(--color-paper-100, #f6f6f6); }
+.pp-co-wrap { width: 100%; max-width: 72rem; margin: 0 auto; padding: 20px 16px 32px; }
+.pp-co-back { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; color: var(--color-primary-700, #1a6207); text-decoration: none; border-radius: 4px; }
+.pp-co-back:hover { color: var(--color-primary-600, #217900); }
+.pp-co:not(#pp-checkout) h1 { margin: 20px 0 0; font-size: 30px; line-height: 1.2; font-weight: 800; color: var(--color-ink-900, #000); }
+.pp-co:not(#pp-checkout) h2 { margin: 0 0 8px; font-size: 19px; line-height: 1.3; font-weight: 700; color: var(--color-ink-900, #000); }
+.pp-co:not(#pp-checkout) h2.sub { margin-top: 18px; }
+.pp-co:not(#pp-checkout) p { margin: 0 0 12px; }
+.pp-lead { margin: 8px 0 0; font-size: 16px; color: var(--color-ink-600, #4f4f4f); }
+.pp-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+.card { background: #fff; border: 1px solid var(--color-paper-300, #dee2e6); border-radius: 16px; padding: 20px; box-shadow: 0 1px 2px #0000000a, 0 8px 24px -14px #0000002e; min-width: 0; }
+.card + .card { margin-top: 20px; }
+.pp-steps { display: flex; align-items: center; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; font-size: 12px; font-weight: 600; white-space: nowrap; flex-wrap: wrap; }
+.pp-steps li { display: inline-flex; align-items: center; gap: 6px; color: var(--color-ink-500, #686868); }
+.pp-steps .n { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #fff; box-shadow: inset 0 0 0 1px var(--color-paper-300, #dee2e6); }
+.pp-steps li.on { color: var(--color-ink-900, #000); }
+.pp-steps li.on .n { background: var(--color-accent-500, #f4ac1c); color: var(--color-primary-950, #0f2000); box-shadow: none; }
+.pp-steps li.done { color: var(--color-primary-700, #1a6207); }
+.pp-steps li.done .n { background: var(--color-primary-600, #217900); color: #fff; box-shadow: none; }
+.pp-steps li.bar { flex: 1 1 8px; min-width: 6px; max-width: 32px; height: 1px; background: var(--color-paper-300, #dee2e6); }
+.fld { margin: 0 0 16px; }
+.fld label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: var(--color-ink-900, #000); }
+.inp { display: block; width: 100%; border: 1.5px solid var(--color-paper-300, #dee2e6); border-radius: 12px; background: #fff; padding: 12px 14px; font: inherit; font-size: 16px; line-height: 1.5; color: var(--color-ink-900, #000); transition: border-color .15s, box-shadow .15s; }
+select.inp { min-height: 48px; }
+.inp:focus-visible { outline: none; border-color: var(--color-primary-600, #217900); box-shadow: 0 0 0 3px rgb(33 121 0 / .22); }
+.inp.bad { border-color: #c0392b; border-width: 2px; }
+.hint { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--color-ink-500, #686868); }
+.err { margin: 6px 0 0; font-size: 13px; line-height: 1.4; font-weight: 600; color: #c0392b; }
+.addr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 12px; }
+.btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; border: 0; border-radius: 999px; background: var(--color-accent-500, #f4ac1c); color: var(--color-primary-950, #0f2000); font: inherit; font-size: 16px; font-weight: 700; line-height: 1.4; padding: 12px 20px; cursor: pointer; text-decoration: none; text-align: center; box-shadow: 0 8px 20px -10px #f4ac1cbf; transition: background-color .2s, box-shadow .2s, transform .2s; }
+.btn:hover { background: var(--color-accent-400, #febd00); }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: #fff; color: var(--color-primary-700, #1a6207); box-shadow: inset 0 0 0 2px var(--color-paper-300, #dee2e6); }
+.btn.ghost:hover { box-shadow: inset 0 0 0 2px var(--color-primary-500, #019101); background: var(--color-mint-50, #f2f8ef); }
+.btn.inline { display: inline-flex; width: auto; }
+.btn[aria-busy="true"], .btn:disabled { opacity: .7; cursor: progress; }
+.link-btn { background: none; border: 0; padding: 4px 0; font: inherit; font-weight: 600; color: var(--color-primary-700, #1a6207); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.note { margin: 0 0 16px; padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: inset 0 0 0 1px currentColor; }
+.note.warn { background: var(--color-accent-50, #fffaef); color: var(--color-accent-700, #8f5e00); }
+.note.bad { background: #fdf0ee; color: #a5281b; }
+.note.info { background: var(--color-mint-50, #f2f8ef); color: var(--color-primary-700, #1a6207); }
+.sum .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; }
+.sum .tot { font-weight: 800; font-size: 18px; color: var(--color-ink-900, #000); }
+.sum small { display: block; font-size: 13px; font-weight: 400; color: var(--color-ink-500, #686868); }
+.sum img { display: block; width: 100%; height: auto; border-radius: 12px; margin: 12px 0; }
+.sum ul { margin: 12px 0; padding: 0; list-style: none; font-size: 14px; }
+.sum li { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 6px; }
+.sum li svg { flex: none; width: 16px; height: 16px; margin-top: 3px; color: var(--color-primary-600, #217900); }
+.sum dl { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--color-paper-300, #dee2e6); font-size: 14px; }
+.sum dl div { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 6px; }
+.sum dl dd { margin: 0; }
+.sum dl .grand { padding-top: 8px; border-top: 1px solid var(--color-paper-300, #dee2e6); font-size: 18px; font-weight: 700; color: var(--color-ink-900, #000); }
+.pp-side { display: none; }
+.pp-totalbar { position: sticky; bottom: 0; z-index: 30; border-top: 1px solid var(--color-mint-200, #cee5c4); background: rgb(255 255 255 / .96); padding: 10px 16px; }
+.pp-totalbar div { display: flex; align-items: center; justify-content: space-between; gap: 12px; max-width: 28rem; margin: 0 auto; font-size: 14px; font-weight: 600; }
+.pp-totalbar b { margin-left: 4px; font-size: 18px; color: var(--color-ink-900, #000); }
+.meth { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; border: 0; padding: 0; min-width: 0; }
+.meth legend { font-weight: 700; font-size: 16px; margin: 0 0 8px; padding: 0; color: var(--color-ink-900, #000); }
+.opt { display: flex; gap: 12px; align-items: flex-start; border: 2px solid var(--color-paper-300, #dee2e6); border-radius: 12px; padding: 14px; background: #fff; min-height: 44px; cursor: pointer; }
+.opt:has(input:checked) { border-color: var(--color-primary-600, #217900); background: var(--color-mint-50, #f2f8ef); }
+.opt input { width: 20px; height: 20px; margin: 2px 0 0; accent-color: var(--color-primary-600, #217900); flex: none; }
+.opt b { display: block; color: var(--color-ink-900, #000); }
+.opt small { display: block; color: var(--color-ink-600, #4f4f4f); font-size: 14px; }
+.acct { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.acct + .acct { margin-top: 16px; padding-top: 16px; border-top: 1px solid #ecd9a0; }
+/* One light gold sheet holds the accounts and the receipt form, like a paper the buyer fills in (Coach Ed 2026-10-31). */
+.acct-sheet { margin-top: 12px; border: 1px solid #ecd9a0; border-radius: 12px; padding: 16px; background: #fdf7e4; }
+/* The store's email and number, stacked as the last item of the registration card, after the DTI number and a divider
+   (Coach Ed 2026-10-31). The card's own li rules give the divider; these keep the two lines light with gold icons. */
+.footer-reg-list .footer-reg-contact > div { display: flex; flex-direction: column; gap: 14px; }
+.footer-reg-contact a { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 400; line-height: 1.3; color: rgba(255,255,255,0.85); text-decoration: none; }
+.footer-reg-contact a:hover { text-decoration: underline; }
+.footer-reg-list .footer-reg-contact svg { flex: 0 0 22px; color: #D9B64F; }
+.acct-form-head { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid #ecd9a0; font-size: 16px; font-weight: 700; line-height: 1.35; color: var(--color-ink-900, #000); }
+/* The panel slides open and shut: a grid row going 0fr to 1fr, so no height is measured. Closed, it is also out of the tab order. */
+.pp-co-slide { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; margin: 0 !important; transition: grid-template-rows .35s ease, opacity .25s ease, visibility 0s linear .35s; }
+.pp-co-slide.is-open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows .35s ease, opacity .3s ease .05s, visibility 0s; }
+.pp-co-slide-in { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .pp-co-slide, .pp-co-slide.is-open { transition: none; } }
+.acct dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 15px; min-width: 0; }
+.acct dt { color: var(--color-ink-600, #4f4f4f); }
+.acct dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; color: var(--color-ink-900, #000); }
+.acct img { display: block; width: 100%; max-width: 240px; height: auto; border-radius: 8px; border: 2px solid var(--color-primary-600, #217900); background: #fff; }
+/* The QR is a button: a tap opens it large in a dialog (Coach Ed 2026-10-31), so a small code can still be scanned. */
+.acct-qr { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; flex: 0 0 auto; width: 100%; max-width: 240px; margin: 0; padding: 0; border: 0; background: none; font: inherit; cursor: zoom-in; }
+.acct-qr:focus-visible { outline: 2px solid var(--color-primary-600, #217900); outline-offset: 3px; border-radius: 8px; }
+.acct-qr-hint { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid #ecd9a0; font-size: 13px; font-weight: 400; color: var(--color-ink-500, #6c757d); }
+.qr-zoom { width: min(92vw, 520px); max-height: 92vh; margin: auto; padding: 16px; border: 2px solid var(--color-primary-600, #217900); border-radius: 14px; background: #fff; text-align: center; overflow: auto; }
+.qr-zoom::backdrop { background: rgba(0, 0, 0, .6); }
+.qr-zoom img { display: block; width: 100%; height: auto; max-height: 76vh; object-fit: contain; }
+.qr-zoom button { margin-top: 12px; padding: 10px 28px; border: 0; border-radius: 999px; background: var(--color-primary-600, #217900); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.copy { border: 1.5px solid var(--color-primary-600, #217900); background: #fff; color: var(--color-primary-700, #1a6207); border-radius: 999px; font: 600 13px "Open Sans", system-ui, sans-serif; padding: 0 12px; min-height: 32px; margin-left: 8px; cursor: pointer; }
+.file { display: flex; align-items: center; gap: 12px; border: 1.5px dashed var(--color-mint-300, #aed49f); border-radius: 12px; padding: 12px 14px; background: #fff; min-height: 48px; font-size: 15px; }
+.file input { max-width: 100%; }
+.file.bad { border: 2px solid #c0392b; }
+/* Buttons are clickable: the reset stylesheet leaves them on the arrow; a disabled one keeps its own (wait) cursor. */
+.pp-pack button:not(:disabled), .pp-pack .btn:not(:disabled), .pp-pack .pp-co-submit:not(:disabled) { cursor: pointer; }
+/* Terms checkbox: drawn here so its border can turn red when the agree message shows (the message follows the label). */
+.pp-co-agree input { appearance: none; -webkit-appearance: none; border: 1.5px solid #767676; border-radius: 4px; background: #fff; cursor: pointer; }
+.pp-co-agree input:checked { border-color: #2e7d32; background: #2e7d32 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 5 5 9-10'/%3E%3C/svg%3E") center / 80% no-repeat; }
+.pp-co-agree input:focus-visible { outline: 2px solid #2e7d32; outline-offset: 2px; }
+.pp-co-agree:has(+ #agree-msg:not([hidden])) input:not(:checked) { border-color: #c0392b; border-width: 2px; }
+/* Transfer sheet: the approved calendar (pk-date) wears the dropdown look from pack-select.css; the label above the field is the pack's own, so the box's floating label stays hidden (pack-select.css is a vendored copy, see its header). */
+.pp-pack { --shadow-card: 0 10px 28px rgba(15, 18, 38, .16); --pk-tint: var(--color-paper-300, #dee2e6); --pk-charcoal: var(--color-ink-900, #000); --pk-content-blue: var(--color-primary-600, #217900); --pk-ice: var(--color-mint-50, #f2f8ef); --pk-muted: var(--color-ink-300, #adb5bd); }
+.pk-date-label { display: none; }
+.pk-date-box { border-radius: 12px; padding: 12px 40px 12px 14px; transition: border-color .15s, box-shadow .15s; }
+.pk-date.is-open .pk-date-box, .pk-date-box:focus-visible { border-color: var(--color-primary-600, #217900); box-shadow: 0 0 0 4px #21790026; outline: none; }
+.pk-date-value { font-size: 16px; line-height: 24px; color: var(--color-ink-900, #000); }
+.pk-date.is-empty .pk-date-value { color: var(--color-ink-300, #adb5bd); }
+.pk-date-ic { color: var(--color-ink-500, #6c757d); }
+.pk-date-panel, .pk-date-panel button, .pk-select-panel { font-family: inherit; }
+.pp-co-field.is-invalid .pk-select-box, .pp-co-field.is-invalid .pk-date-box { border-color: #c0392b; }
+.pp-co-dt-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.pp-co-dt-time { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pp-co-dt-time .pk-select-box { padding-right: 28px; padding-left: 12px; }
+.pp-co-dt-time .pk-select-caret { right: 10px; }
+@media (min-width: 640px) { .pp-co-dt-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.chip { display: inline-block; font-size: 13px; font-weight: 700; border-radius: 999px; padding: 4px 14px; white-space: nowrap; }
+.chip.rev { background: var(--color-accent-100, #fff3d4); color: var(--color-accent-700, #8f5e00); }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--color-paper-300, #dee2e6); }
+.row:last-of-type { border-bottom: 0; }
+.spin { width: 36px; height: 36px; border-radius: 50%; border: 4px solid var(--color-mint-100, #e4f1de); border-top-color: var(--color-primary-600, #217900); margin: 0 0 14px; }
+.pp-narrow { max-width: 34rem; margin: 0 auto; }
+.pp-co .pp-narrow h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.25; }
+@media (prefers-reduced-motion: no-preference) { .spin { animation: pp-spin 1s linear infinite; } @keyframes pp-spin { to { transform: rotate(360deg); } } }
+@media (min-width: 40rem) {
+  .pp-co-wrap { padding: 20px 32px 40px; }
+  .pp-co:not(#pp-checkout) h1 { font-size: 36px; }
+  .pp-steps { font-size: 14px; gap: 10px; }
+  .card { padding: 28px; }
+  .pp-storename { font-size: 17px; }
+}
+@media (min-width: 48rem) { .addr { grid-template-columns: repeat(2, minmax(0, 1fr)); } .acct { flex-direction: row; align-items: flex-start; } .acct img { width: 172px; } .acct-qr { width: 172px; } }  /* as tall as the text beside it: title, three details, a divider and the hint */
+@media (min-width: 64rem) {
+  .pp-co-wrap { padding-top: 32px; padding-bottom: 56px; }
+  .pp-grid { grid-template-columns: minmax(0, 1fr) 22rem; gap: 32px; }
+  .pp-side { display: block; position: sticky; top: 24px; }
+  .pp-totalbar { display: none; }
+}
+
+/* Store policy pages and the checkout policy note */
+.pp-policy { max-width: 72rem; margin: 0 auto; background: #fff; border: 1px solid var(--color-paper-300, #dee2e6); border-radius: 16px; padding: 20px; min-width: 0; overflow-wrap: anywhere; }
+.pp-policy h1 { margin: 0 0 4px; font-size: 26px; line-height: 1.25; }
+.pp-policy-meta { margin: 0 0 16px; color: #5b6470; font-size: 14px; }
+.pp-policy p, .pp-policy li { font-size: 16px; line-height: 1.6; }
+.pp-policy h2 { margin: 28px 0 10px; font-size: 20px; line-height: 1.3; scroll-margin-top: 16px; }
+.pp-policy-list { margin: 0 0 16px; padding-left: 22px; }
+.pp-policy-list li { margin-bottom: 10px; }
+.pp-policy-nav { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-paper-300, #dee2e6); }
+.pp-policy-nav h2 { margin: 0 0 8px; font-size: 16px; }
+.pp-policy-nav ul { margin: 0; padding-left: 20px; }
+.pp-policy-note { margin: 12px 0; font-size: 14px; line-height: 1.5; }
+@media (min-width: 40rem) { .pp-policy { padding: 32px; } }
+/* Checkout progress */
+.pp-co-track { margin: 20px 0 0; }
+.pp-co-track ol { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 46rem; margin: 0 auto; padding: 0; list-style: none; }
+.pp-co-track li { position: relative; display: flex; flex-direction: column; gap: 10px; align-items: center; color: var(--color-ink-500, #686868); font-size: 12px; overflow-wrap: anywhere; font-weight: 600; line-height: 1.3; text-align: center; }
+.pp-co-track li + li::before { content: ""; position: absolute; top: 17px; right: calc(50% + 24px); left: calc(-50% + 24px); height: 3px; border-radius: 999px; background: var(--color-paper-300, #dee2e6); }
+.pp-co-track li.is-done + li::before { background: var(--color-primary-600, #217900); }
+.pp-co-track-dot { display: flex; flex: none; align-items: center; justify-content: center; width: 36px; height: 36px; box-sizing: border-box; border: 2px solid var(--color-paper-300, #dee2e6); border-radius: 999px; background: #fff; font-size: 15px; font-weight: 700; }
+.pp-co-track li.is-done { color: var(--color-primary-700, #1a6207); }
+.pp-co-track li.is-done .pp-co-track-dot { border-color: var(--color-primary-600, #217900); background: var(--color-primary-600, #217900); color: #fff; }
+.pp-co-track li.is-current { color: var(--color-ink-900, #000); font-weight: 700; }
+.pp-co-track li.is-current .pp-co-track-dot { border-color: var(--color-accent-500, #f4ac1c); background: var(--color-accent-500, #f4ac1c); box-shadow: 0 0 0 5px var(--color-accent-100, #fff3d4); color: var(--color-primary-950, #0f2000); }
+.pp-co-track p { margin: 14px 0 0; color: var(--color-ink-600, #4f4f4f); font-size: 14px; line-height: 1.4; text-align: center; }
+@media (min-width: 40rem) {
+  .pp-co-track li { font-size: 15px; }
+  .pp-co-track li + li::before { top: 19px; right: calc(50% + 27px); left: calc(-50% + 27px); }
+  .pp-co-track-dot { width: 40px; height: 40px; font-size: 16px; }
+}
+
+/* Funnel policy popup */
+.pp-policy-dlg { position: fixed; inset: 0; width: calc(100% - 24px); max-width: 60rem; height: fit-content; max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: hidden; border: 0; border-radius: 16px; background: #fff; color: inherit; }
+.pp-policy-dlg[open] { display: flex; flex-direction: column; }
+.pp-policy-dlg::backdrop { background: rgba(20, 32, 27, .55); }
+.pp-policy-dlg-head { display: flex; flex: none; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 12px 12px 20px; border-bottom: 1px solid var(--color-paper-300, #dee2e6); }
+.pp-policy-dlg-head h2 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.3; }
+.pp-policy-dlg-close { flex: none; width: 44px; height: 44px; border: 0; border-radius: 8px; background: none; color: inherit; font-size: 26px; line-height: 1; cursor: pointer; }
+.pp-policy-dlg-close:hover { background: var(--color-paper-100, #f6f6f6); }
+.pp-policy-dlg-body { min-height: 0; padding: 16px 20px 24px; overflow-y: auto; overscroll-behavior: contain; font-size: 16px; line-height: 1.6; }
+.pp-policy-dlg .pp-policy { max-width: none; padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+body:has(.pp-policy-dlg[open]) { overflow: hidden; }
+.pp-terms-body { display: flex; flex-direction: column; gap: 10px; }
+.pp-terms-open { margin: 0; font-size: 15px; }
+.pp-terms-frame { flex: none; width: 100%; height: min(70dvh, 720px); border: 1px solid var(--color-paper-300, #dee2e6); border-radius: 8px; background: #fff; }
+@media (min-width: 40rem) { .pp-policy-dlg-head { padding-left: 32px; } .pp-policy-dlg-body { padding: 20px 32px 32px; } }
+
+/* Visually hidden legend for the checkout's payment method choice. The checkout cards are the funnel's compiled pp-co-card. */
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The checkout's clickable payment cards. */
+.pp-co-pay-opt { position: relative; border: 2px solid var(--color-paper-300, #dee2e6); background: #fff; cursor: pointer; transition: border-color .15s, background-color .15s; }
+.pp-co-pay-opt:hover { border-color: #adb5bd; }  /* green is the chosen card only: a hover must not look chosen */
+.pp-co-pay-opt:has(input:checked) { border-color: var(--color-primary-600, #217900); background: var(--color-mint-50, #f2f8ef); }
+.pp-co-pay-opt:has(input:focus-visible) { outline: 2px solid var(--color-primary-600, #217900); outline-offset: 2px; }
+.pp-co-pay-dot { border: 2px solid var(--color-paper-300, #dee2e6); color: transparent; }
+.pp-co-pay-opt input:checked + .pp-co-pay-dot { border-color: var(--color-primary-600, #217900); background: var(--color-primary-600, #217900); color: #fff; }
+.pp-co-direct { padding: 0; }  /* no padding: a closed .pp-co-slide must collapse to nothing */
+.acct-body { flex: 1 1 0; min-width: 0; }
+.acct-title { margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid #ecd9a0; font-size: 17px; font-weight: 700; line-height: 1.35; color: var(--color-ink-900, #000); }
+/* The payment cards' "Secure Payment" badge: top right beside the title, dropping under the title on a narrow phone. */
+.pp-co-pay-body { flex: 1 1 0; min-width: 0; }
+.pp-co-pay-via { font-weight: 500; color: var(--color-ink-600, #4f4f4f); }  /* the ways to pay, lighter than the method name (Coach Ed 2026-10-31) */
+.pp-co-pay-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pp-co-secure { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: auto; padding: 4px 10px; border: 1px solid var(--color-primary-600, #217900); border-radius: 999px; background: #fff; color: var(--color-primary-600, #217900); font-size: 12px; font-weight: 600; line-height: 1.25; white-space: nowrap; }
+
+/* Post-payment steps (Coach Ed 2026-10-31): the merchant Santé purchase page layout. Payment Received card, the next-step card, the promise line. */
+.pp-paid-head { display: flex; align-items: center; gap: 10px; }
+.pp-paid-head h1, .pp-paid-head h2 { margin: 0; font-size: 1.25rem; line-height: 1.25; color: var(--color-ink-900, #000); }
+.pp-paid-icon { display: flex; flex: none; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; background: var(--color-primary-600, #217900); color: #fff; }
+.pp-paid p { margin: 10px 0 0; }
+.pp-next-eyebrow { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-primary-700, #1a6207); }
+.pp-next h1 { margin: 0; font-size: 1.5rem; line-height: 1.25; color: var(--color-ink-900, #000); }
+.pp-next-lede { margin: 8px 0 18px; }
+.pp-next.pp-done .pp-paid-head { margin-bottom: 4px; }
+.pp-next.pp-done .pp-next-lede { margin: 18px 0 26px; line-height: 1.6; }
+.pp-next-promise { margin: 24px 0 0; text-align: center; font-size: 13px; color: var(--color-ink-500, #6b6b6b); }
+
+/* Onboarding in three pages (Coach Ed 2026-10-31): sub-step tabs, the code blocks, the two-column fields, the Santé form. */
+.pp-ob-tabs { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 22px; padding: 0 0 14px; list-style: none; border-bottom: 1px solid var(--color-paper-300, #dee2e6); font-size: 14px; font-weight: 600; color: var(--color-ink-500, #686868); }
+.pp-ob-tabs li { display: inline-flex; align-items: center; gap: 8px; }
+.pp-ob-n { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #fff; box-shadow: inset 0 0 0 1.5px var(--color-paper-300, #dee2e6); }
+.pp-ob-tabs li.is-current { color: var(--color-ink-900, #000); }
+.pp-ob-tabs li.is-current .pp-ob-n { background: var(--color-accent-500, #f4ac1c); color: var(--color-primary-950, #0f2000); box-shadow: none; }
+.pp-ob-tabs li.is-done { color: var(--color-primary-700, #1a6207); }
+.pp-ob-tabs li.is-done .pp-ob-n { background: var(--color-primary-600, #217900); color: #fff; box-shadow: none; }
+.pp-ob-block { margin: 0 0 16px; padding: 16px; border: 1.5px solid var(--color-paper-300, #dee2e6); border-radius: 14px; }
+.pp-ob-block.is-ok { border-color: var(--color-primary-600, #217900); background: var(--color-mint-50, #f2f8ef); }
+.pp-ob-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pp-ob-head h2 { margin: 0; font-size: 1.0625rem; color: var(--color-ink-900, #000); }
+.pp-ob-ok { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: var(--color-primary-700, #1a6207); }
+.pp-ob-who { margin: 4px 0 12px; font-size: 15px; overflow-wrap: anywhere; }
+.pp-ob-block.is-ok .pp-ob-who { margin-bottom: 0; }
+.pp-ob-code { max-width: 14rem; letter-spacing: .3em; font-weight: 700; }
+.pp-ob-resend { margin: 10px 0 0; }
+.pp-ob-wrong { margin: 10px 0 0; font-size: 14px; }
+.pp-ob-wrong summary { cursor: pointer; font-weight: 600; color: var(--color-primary-700, #1a6207); }
+.pp-ob-wrong form { margin-top: 12px; }
+.pp-ob-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 14px; }
+@media (min-width: 640px) { .pp-ob-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.pp-ob-sub { margin: 22px 0 12px; padding-top: 18px; border-top: 1px solid var(--color-paper-300, #dee2e6); font-size: 1.125rem; color: var(--color-ink-900, #000); }
+.pp-ob-dob { margin: 0 0 8px; padding: 0; border: 0; min-width: 0; }
+.pp-ob-dob legend { padding: 0; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--color-ink-900, #000); }
+.pp-ob-dob-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.pp-ob-dob-row .pk-select { min-width: 0; }
+.pp-ob-dob.is-invalid .pk-select-box { border-color: #c0392b; }
+.pp-ob-terms { display: flex; align-items: flex-start; gap: 12px; padding-left: 0; margin-top: 8px; font-size: 15px; line-height: 1.5; }
+.pp-ob-terms input { flex: 0 0 auto; width: 22px; height: 22px; margin: 1px 0 0; }
+.pp-ob-terms-err { margin: 6px 0 0; }
+.pp-ob-actions { margin-top: 28px; }
+.pp-ob-cta { gap: 10px; min-height: 56px; font-size: 1.0625rem; font-weight: 800; box-shadow: 0 10px 22px -10px rgb(244 172 28 / .75); transition: background .15s, box-shadow .15s, transform .1s; }
+.pp-ob-cta:hover { box-shadow: 0 14px 26px -10px rgb(244 172 28 / .85); }
+.pp-ob-cta-arrow { display: inline-block; font-size: 1.25em; line-height: 1; transition: transform .15s; }
+.pp-ob-cta:hover .pp-ob-cta-arrow { transform: translateX(4px); }
+.pp-ob-back { font-weight: 700; color: var(--color-ink-900, #000); text-decoration: none; }
+.pp-ob-back:hover { text-decoration: underline; }
+.pp-ob-done { display: flex; align-items: center; gap: 6px; margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--color-primary-700, #1a6207); }
+/* Delivery address (onboarding 2 of 3): fixed +63 mobile prefix, cascading dropdowns, locked Country, a ZIP row shown only when needed. */
+.pp-phone { display: flex; align-items: stretch; border: 1.5px solid var(--color-paper-300, #dee2e6); border-radius: 12px; background: #fff; overflow: hidden; transition: border-color .15s, box-shadow .15s; }
+.pp-phone:focus-within { border-color: var(--color-primary-600, #217900); box-shadow: 0 0 0 3px rgb(33 121 0 / .22); }
+.pp-phone.bad { border-color: #c0392b; border-width: 2px; }
+.pp-phone-prefix { display: flex; align-items: center; padding: 0 12px; border-right: 1.5px solid var(--color-paper-300, #dee2e6); background: var(--color-paper-100, #f6f6f6); font-size: 16px; font-weight: 600; color: var(--color-ink-700, #333); }
+.pp-phone-input { flex: 1 1 auto; min-width: 0; border: 0; background: transparent; padding: 12px 14px; font: inherit; font-size: 16px; line-height: 1.5; color: var(--color-ink-900, #000); }
+.pp-phone-input:focus { outline: none; }
+.fld.is-invalid .pk-select-box { border-color: #c0392b; }
+.pp-addr .inp:disabled { background: var(--color-paper-100, #f6f6f6); color: var(--color-ink-700, #333); cursor: not-allowed; }
+.pp-addr [data-pp-zip-field][hidden] { display: none; }
+
+/* Working state (Coach Ed 2026-11-01): a sent onboarding form turns its button busy (a spinner in the button, no loading card; pack-busy.js). */
+.pp-spin { display: inline-block; flex: none; width: 1.1em; height: 1.1em; margin-right: 10px; border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: pp-spin .7s linear infinite; }
+@keyframes pp-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pp-spin { animation-duration: 2.4s; } }
+.btn[aria-busy="true"] .pp-ob-cta-arrow { display: none; }
+
+/* Completed (Coach Ed 2026-11-01): the order number, then what happens next as a short timeline. */
+.pp-done-order { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0; padding: 16px 20px; border-radius: 14px; background: var(--color-mint-50, #f2f8ef); font-size: 14px; color: var(--color-ink-600, #4f4f4f); }
+.pp-done-order strong { font-size: 1.0625rem; letter-spacing: .02em; color: var(--color-ink-900, #000); }
+.pp-done-h { margin: 44px 0 30px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--color-primary-700, #1a6207); }
+.pp-done-steps { margin: 0 0 8px; padding: 0; list-style: none; }
+.pp-done-steps li { position: relative; display: flex; gap: 18px; padding-bottom: 24px; }
+.pp-done-steps li:not(:last-child)::before { content: ""; position: absolute; left: 19px; top: 48px; bottom: 6px; width: 2px; background: var(--color-paper-300, #dee2e6); }
+.pp-done-ic { display: flex; flex: none; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; background: var(--color-mint-50, #f2f8ef); color: var(--color-primary-700, #1a6207); box-shadow: inset 0 0 0 1.5px var(--color-primary-600, #217900); }
+.pp-done-steps h3 { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.35; color: var(--color-ink-900, #000); }
+.pp-done-steps p { margin: 6px 0 0; font-size: 14px; line-height: 1.6; color: var(--color-ink-600, #4f4f4f); }
+.pp-done-cta.btn.inline { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 22rem; min-height: 46px; margin: 12px auto 0; font-weight: 800; }  /* centered, same width as the onboarding Send Code button (.vf form > .btn) */
+.pp-co:not(#pp-checkout) h2.pp-done-h { margin: 32px 0 20px; }  /* beats the checkout's h2 margin so "What happens next" has room */
+.pp-co:not(#pp-checkout) p.pp-sum-title { margin: 20px 0 0; }  /* room between the pack photo and its title; must out-rank `.pp-co:not(#pp-checkout) p` (id inside :not) */
+/* A field's helper line ("For delivery updates.") gives way to its error message, so the two never stack (Coach Ed 2026-11-01). */
+.pp-co-field:has(.pp-co-error) > .pp-co-hint { display: none; }
+
+/* Membership Agreement popup (Live4More Task 8). The PDF pages sit in their own scrolling area; on phones the dialog fills the screen. */
+.pp-agr-dlg { display: none; flex-direction: column; width: min(860px, 100vw); max-width: none; height: min(92dvh, 100dvh); max-height: none; padding: 0; }
+.pp-agr-dlg[open] { display: flex; }
+.pp-agr-intro { flex: none; padding: 12px 20px 0; font-size: 15px; line-height: 1.5; }
+.pp-agr-intro p { margin: 0; }
+.pp-agr-meta { margin-top: 4px !important; font-size: 13px; color: var(--color-ink-600, #4b5563); }
+.pp-agr-tools { display: flex; flex: none; align-items: center; gap: 8px; padding: 8px 20px; }
+.pp-agr-tool { width: 44px; height: 44px; border: 1px solid var(--color-paper-300, #dee2e6); border-radius: 8px; background: #fff; font-size: 20px; cursor: pointer; }
+.pp-agr-pages { flex: 1; min-height: 0; overflow-x: auto; overflow-y: scroll; padding: 8px; background: var(--color-paper-100, #f6f6f6); -webkit-overflow-scrolling: touch; }
+.pp-agr-pages canvas { display: block; margin: 0 auto 8px; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .2); }
+.pp-agr-status { padding: 16px; margin: 0; text-align: center; }
+.pp-agr-status[hidden] { display: none; }
+.pp-agr-foot { flex: none; padding: 12px 20px; padding-bottom: max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--color-paper-300, #dee2e6); }
+.pp-agr-note { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+.pp-agr-foot .pp-co-agree { padding-left: 0; }
+.pp-agr-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.pp-agr-actions .btn { width: auto; min-height: 44px; }
+.pp-agr-agree { min-height: 44px; border: 0; border-radius: 9999px; padding: 10px 20px; font-weight: 700; background: var(--color-accent-500, #f4ac1c); color: var(--color-primary-950, #0f2000); cursor: pointer; }
+.pp-agr-agree:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 639px) { .pp-agr-dlg { width: 100vw; height: 100dvh; margin: 0; border-radius: 0; } .pp-agr-actions > * { flex: 1; } }
+
+/* Enrollment authorization box and its collapsed privacy notice (Live4More Task 8). */
+.pp-co-notice { margin-top: 8px; padding-left: 50px; font-size: 14px; line-height: 1.5; color: var(--color-ink-600, #4b5563); }
+.pp-co-notice summary { cursor: pointer; font-weight: 600; }
+.pp-co-notice p { margin: 6px 0 0; }

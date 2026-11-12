@@ -123,7 +123,7 @@ test("the facts come from the answer; After duplicates is read minus refused min
   assert.equal(p.shown("b-step2"), true);
   assert.deepEqual(["f-read", "f-dedup", "f-elig", "f-left", "f-size", "f-later", "f-refused"].map((id) => p.text(id)), ["12", "9", "8", "1,090", "8", "0", "1"]);
   assert.equal(p.shown("f-refused-box"), true);
-  assert.equal(p.text("b-time"), "About under an hour to under an hour to send, at one text every 18 to 25 seconds.".replace("About under an hour to under an hour", "About under an hour to under an hour"));
+  assert.equal(p.text("b-time"), "Under an hour to send, at one text every 18 to 25 seconds.");
 });
 
 test("the refused lines show line and reason only, and the first 200 of N line", async () => {
@@ -153,7 +153,7 @@ test("the cut banner is written from the answer's figures and offers the left-ou
   const html = fs.readFileSync(new URL("../public/bulk.html", import.meta.url), "utf8");
   assert.match(html, /id="b-left-note" hidden>This file holds full phone numbers\. Delete it after you use it\.<\/p>/);
   assert.ok(html.indexOf('id="b-left-dl"') < html.indexOf('id="b-left-note"'));
-  assert.equal(p.text("b-time"), "About 5 hours to 8 hours to send, at one text every 18 to 25 seconds.");
+  assert.equal(p.text("b-time"), "About 5 to 8 hours to send, at one text every 18 to 25 seconds.");
   const q = bulk(withCheck());
   await settle();
   await typed(q);
@@ -295,6 +295,7 @@ test("NPC: the number and file fields refuse the browser's memory, and are clear
   assert.equal(p.node["b-list"].value, "");
   assert.equal(p.node["b-file"].value, "");
   assert.equal(p.node["b-confirm"].value, "");
+  assert.equal(p.shown("b-step2"), false, "step 2 goes with the cleared fields");
   p.click("b-left-dl");
   await settle();
   assert.equal(p.calls_to("bulk/left-out/").length, 0, "the held source is gone");

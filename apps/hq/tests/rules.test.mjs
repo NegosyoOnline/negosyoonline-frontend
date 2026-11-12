@@ -47,3 +47,8 @@ test("only hq.js calls the backend", () => {
 test("nothing links to or names the Django Admin (R27)", () => {
   assert.deepEqual(named(/admin lists|django admin|\/admin\/|>\s*Lists\s*</i), []);
 });
+
+test("the Bulk confirm field takes the full width at phone width, like the buttons", () => {
+  const css = all.find((f) => f.name === path.join("assets", "css", "hq.css")).text;
+  assert.match(css, /@media \(max-width: 600px\)\s*\{[^}]*\.input\.narrow\s*\{\s*max-width: none;/);
+});

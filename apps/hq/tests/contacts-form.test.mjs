@@ -182,3 +182,17 @@ test("read-only: View opens the form with every field disabled, no Save, no Dele
   await settle();
   assert.equal(p.sent(R.edit).length, 0);
 });
+
+test("a field's error goes as soon as that field is typed in", async () => {
+  const p = await page({}, { pathname: "/contacts/new/" });
+  await save(p);
+  assert.equal(p.node["c-first-err"].hidden, false);
+  assert.equal(p.node["c-num-err"].hidden, false);
+  p.node["c-first"].value = "Ana";
+  p.node["c-first"].fire("input");
+  assert.equal(p.node["c-first-err"].hidden, true);
+  assert.equal(p.node["c-num-err"].hidden, false);
+  p.node["c-num"].value = "0900 000 0142";
+  p.node["c-num"].fire("input");
+  assert.equal(p.node["c-num-err"].hidden, true);
+});

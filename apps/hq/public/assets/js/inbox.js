@@ -214,6 +214,7 @@
       found = true;
       cursor = null;
       $("found-line").hidden = false;
+      $("found-text").textContent = (res.data.results || []).length ? "Showing the conversation with that number." : "";
       $("l-empty").textContent = emptyWords();
       paintRows(res.data.results || [], false);
     });

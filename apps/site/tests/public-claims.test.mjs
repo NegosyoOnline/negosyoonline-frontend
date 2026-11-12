@@ -93,5 +93,6 @@ test("G1b: Santé site is what is available now, Shop is planned", () => {
   assert.match(sante, /Available Now/);
   assert.doesNotMatch(html, /currently includes NegosyoOnline Shop/);
   assert.doesNotMatch(html, /starts with the all-in-one Shop/);
+  assert.doesNotMatch(html, /run by real business owners|id="real-stores"/);
   assert.doesNotMatch(pages["assets/js/site.js"], /NegosyoOnline Shop is currently available/);
 });

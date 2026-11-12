@@ -210,15 +210,17 @@ export function signInModel(over: Partial<SignInModel> = {}): SignInModel {
 const nextField = (next: string) => (next ? html`<input type="hidden" name="next" value="${next}">` : "");
 const sentField = (sent: string) => (sent ? html`<input type="hidden" name="sent_to" value="${sent}">` : "");
 
-/* Where the code went, said outright (Coach Ed, 2026-11-12). A typed email gets its masked address. A typed mobile gets the rule: the
-   page never names an address or confirms a member, because the server answers alike for everyone. */
-export const SENT_RULE_HEAD = "Check your email for the code.";
-export const SENT_RULE_BODY = "We email your code to the email address on your member account. If your email is not verified yet, we text it to the mobile number you entered.";
+/* Where the code went, said outright (Coach Ed, 2026-11-12; typed-mobile wording approved 2026-11-13). A typed email gets its masked address.
+   A typed mobile gets three levels, never an address: the page does not confirm a member, because the server answers alike for everyone. */
+export const SENT_RULE_HEAD = "Check your email";
+export const SENT_RULE_BODY = "Your code was sent to your email, not by text.";
+export const SENT_RULE_FOOT = "No email? Check Spam, or tap Send a new code.";
 function whereSent(m: SignInModel): Markup {
   return m.sent_to
     ? html`<p class="sc-lead">We emailed a code to <strong>${m.sent_to}</strong></p>`
-    : html`<p class="sc-lead"><strong>${SENT_RULE_HEAD}</strong><br>${SENT_RULE_BODY}</p>`;
+    : html`<h2 class="sc-sent-head" style="margin:0 0 8px;font-size:28px;line-height:1.2;font-weight:800;text-align:center">${SENT_RULE_HEAD}</h2><p class="sc-lead" style="text-align:center">${SENT_RULE_BODY}</p>`;
 }
+const sentFoot = (m: SignInModel): Markup => (!m.sent_to && !m.error_message && !m.offer_email ? html`<p class="sc-sent-foot" style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#888;text-align:center">${SENT_RULE_FOOT}</p>` : html``);
 
 function signInBody(m: SignInModel): Markup {
   const noFieldErrors = !m.field_errors.contact && !m.field_errors.code;
@@ -229,7 +231,7 @@ function signInBody(m: SignInModel): Markup {
   if (m.step === "code") {
     return html`<div class="sc-card">
 ${icon}
-<h1>Enter your OTP</h1>
+${m.sent_to || m.error_message || m.offer_email || expired ? html`<h1>Enter your OTP</h1>` : ""}
 ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>${m.hint ? html`<br>${m.hint}` : ""}</div>`
   : expired ? html`<div class="note bad" role="alert">This code is no longer valid. Ask for a new code.</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>` : ""}
@@ -261,6 +263,7 @@ ${sentField(m.sent_to)}
 <button class="btn ghost sc-alt" type="submit" name="action" value="resend"${m.email_in ? html` disabled data-pp-count="${m.email_in}"` : ""}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Send a new code<b data-pp-count-label>${m.email_in ? ` (${m.email_in}s)` : ""}</b></span></button>
 </form>
 </div></div>` : ""}
+${!expired ? sentFoot(m) : ""}
 <form method="post" class="sc-center sc-back">
 ${nextField(m.next)}
 <button class="link-btn" type="submit" name="action" value="restart">&larr; Use a different email or number</button>

@@ -713,6 +713,7 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--blue); }
 /* Platform: featured gold Shop card in the centre, larger than the planned two */
 #platform .rd-platform { grid-template-columns: 1fr; align-items: center; }
 @media (min-width: 900px) { #platform .rd-platform { grid-template-columns: 1fr 1.22fr 1fr; } }
+@media (min-width: 900px) { #platform .rd-platform.rd-platform-4 { grid-template-columns: 1fr 1fr; } } /* four cards: 2x2, no orphan row */
 #platform .rd-live { order: -1; background: linear-gradient(145deg, #F0D58A 0%, #D1A236 55%, #B98A27 100%); border: 0; box-shadow: 0 28px 56px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.25) inset; }
 #platform .rd-platform .rd-live { padding: 44px 36px; }
 @media (min-width: 900px) { #platform .rd-live { order: 0; } #platform .rd-platform .rd-live { padding: 56px 38px; } }
@@ -874,25 +875,10 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--blue); }
 .support-li-ico { display: inline-flex; flex: none; width: 40px; height: 40px; border-radius: 50%; align-items: center; justify-content: center; border: 1px solid rgba(242,212,136,.55); color: #F2D488; }
 .support-card small { display: block; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.65); }
 .support-card li b { display: block; margin-top: 2px; font-size: 1rem; word-break: break-word; }
-.support-btn { width: 100%; justify-content: center; background: #D1A236; color: var(--ink); border-color: #D1A236; }
-.support-btn:hover { background: #E0B44A; border-color: #E0B44A; color: var(--ink); }
 
-/* Contact form v2: single centred card on a soft section */
-.contact-form-sec { padding-top: clamp(40px, 6vw, 72px); }
-.contact-form-wrap { max-width: 860px; }
-.contact-card2 { position: relative; max-width: none; margin: 0; padding: clamp(26px, 5vw, 48px); border-radius: 24px; border: 1px solid #dfe4f3; box-shadow: 0 24px 60px rgba(11,22,63,.1); overflow: hidden; }
-.contact-card2::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: linear-gradient(90deg, var(--blue), #D1A236); }
 .form-head { margin-bottom: 28px; }
 .form-head h2 { font-size: clamp(1.5rem, 3vw, 1.9rem); margin: 0 0 8px; }
 .form-head p:last-child { color: var(--ink-soft); margin: 0; }
-.contact-card2 .field label { font-size: .9rem; color: var(--ink); }
-.contact-card2 .field input, .contact-card2 .field textarea { background: #F7F9FE; border: 1.5px solid #d3daf0; border-radius: 12px; min-height: 54px; padding: 14px 16px; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
-.contact-card2 .field textarea { min-height: 160px; }
-.contact-card2 .field input::placeholder, .contact-card2 .field textarea::placeholder { color: #8d97b8; }
-.contact-card2 .field input:hover, .contact-card2 .field textarea:hover { border-color: #aab5dd; }
-.contact-card2 .field input:focus, .contact-card2 .field textarea:focus { background: #fff; border-color: var(--blue); outline: 0; box-shadow: 0 0 0 4px rgba(23,61,184,.14); }
-.contact-card2 .field.invalid input, .contact-card2 .field.invalid textarea { border-color: #c0262d; background: #fff; }
-.contact-card2 .consent { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 12px; background: #F7F9FE; border: 1px solid #e1e6f5; font-weight: 500; }
 .form-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 26px; }
 .form-actions .btn { min-width: 200px; min-height: 54px; font-size: 1.02rem; }
 .form-note { margin: 0; color: var(--ink-soft); font-size: .9rem; }
@@ -903,12 +889,9 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--blue); }
 .phone-input:hover { border-color: #aab5dd; }
 .phone-input:focus-within { background: #fff; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(23,61,184,.14); }
 .phone-prefix { display: inline-flex; align-items: center; padding: 0 18px; font-weight: 800; color: var(--ink); background: #EDF0FA; border-right: 1.5px solid #d3daf0; }
-.contact-card2 .phone-input input { flex: 1; min-width: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-.contact-card2 .phone-input input:focus { box-shadow: none; background: transparent; }
 .field.invalid .phone-input { border-color: #c0262d; background: #fff; }
 .field-hint { margin: 0; font-size: .85rem; color: var(--ink-soft); }
 
-.section.contact-form-sec { background: #fff; }
 .field .phone-input input { flex: 1; min-width: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: 0; }
 .field .phone-input input:focus { outline: 0; box-shadow: none; background: transparent; }
 .pw-wrap { position: relative; display: flex; }
@@ -930,7 +913,6 @@ details.more summary { cursor: pointer; font-weight: 700; color: var(--blue); }
 .phone-input.is-invalid:focus-within { border-color: #c0262d; box-shadow: 0 0 0 4px rgba(192,38,45,.14); }
 .phone-input.is-invalid .phone-prefix { border-right-color: #c0262d; }
 #form1 input::placeholder { color: #8d97b8; opacity: 1; }
-.contact-card2 .phone-input input:-webkit-autofill { -webkit-box-shadow: 0 0 0 100px #F7F9FE inset; box-shadow: 0 0 0 100px #F7F9FE inset; -webkit-text-fill-color: var(--ink); caret-color: var(--ink); }
 
 /* Founder journey: heading and year chip */
 .rd-journey { margin-top: clamp(36px, 5vw, 56px); }

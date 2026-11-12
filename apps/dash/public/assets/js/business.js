@@ -10,7 +10,6 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var SUPPORT_EMAIL = "support@negosyoonline.com";
-  var DOMAIN_PATH = "/settings/domain/";
   var PUB = "Public", PRIV = "Private";
   /* [key, label, tag, input kind, note after the label in the dialog] */
   var LEGAL = [
@@ -325,8 +324,8 @@
       str(site.host) ? "This address was chosen at setup and is never given to another site. To change it, contact " + SUPPORT_EMAIL + "."
         : "Your address will show here once it is set up."));
     c.appendChild(row("Your own domain", PUB, [D.el("span", { "class": "bs-none" }, "None connected"), chip("neutral", "Not available yet")],
-      D.el("a", { "class": "no-btn no-btn-ghost", href: DOMAIN_PATH, id: "bs-go-domain" }, "Go to Domain"),
-      "Connecting your own domain is done in Settings › Domain when it becomes available. Its status will be shown here."));
+      null, /* the Domain page is hidden for launch (z8uq9mek5z): no "Go to Domain" button while "/settings/domain/" is not in ROUTES */
+      "Connecting your own domain is not available yet. Its status will be shown here when it is."));
     return c;
   }
   function legalCard(profile) {

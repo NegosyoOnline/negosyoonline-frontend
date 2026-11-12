@@ -14,7 +14,7 @@ import { html, safe, type Markup } from "../../lib/html.ts";
 import type { OnboardingState } from "../../lib/pack-api.ts";
 import { icon } from "./icons.ts";
 import { packDocument, type PackCtx } from "./pack-page.ts";
-import { AGREEMENT_PDF_PATH } from "./pack-checkout.ts";
+import { TERMS_ERROR, termsDialog, termsField } from "./pack-terms.ts";
 
 export const ONBOARDING_PATH = "/funnel/membership-pack/onboarding/";
 export const VERIFY_PATH = ONBOARDING_PATH + "verify/";
@@ -33,9 +33,7 @@ export const STEP_PATHS: Record<OnboardingState["step"], string> = {
 };
 export const STEP_ORDER = ["verify", "address", "details", "done"] as const;
 
-/* TWCinc constants.py and registration.py: the words of these pages. */
-export const MEMBERSHIP_TERMS_URL = "https://www.santebarleyph.com/";
-export const MEMBERSHIP_TERMS_LABEL = "Membership Terms";
+export { MEMBERSHIP_TERMS_LABEL, MEMBERSHIP_TERMS_URL } from "./pack-terms.ts";
 
 /* registration_rules.py and registration.py: what pack-details-gate.js says, and the names it refuses. */
 const DETAILS_GATE = {
@@ -47,7 +45,7 @@ const DETAILS_GATE = {
   user_reserved: "This username isn’t allowed on Santé. Choose another.",
   alt_required: "Enter a secondary Santé username, in case your first is already taken.",
   alt_duplicate: "Each username choice must be different.",
-  terms: "Please agree to the Santé Membership Terms to continue.",
+  terms: TERMS_ERROR,
   reserved: [
     "admin", "administrator", "root", "superadmin", "superuser", "owner", "staff", "support", "helpdesk", "moderator", "mod",
     "operator", "manager", "api", "system", "null", "undefined", "true", "false", "test", "demo", "guest", "anonymous", "user",
@@ -310,22 +308,10 @@ ${v.state.details_erased ? html`<p class="pp-next-lede" role="status">Your detai
   <h2 class="pp-ob-sub">Santé username</h2>
   ${user("desired_username", "Preferred Santé username", "dt-u1", "8 to 20 letters or numbers. No spaces or symbols.")}
   ${user("alternate_username", "Secondary Santé Username", "dt-u2", "Used if your first choice is already taken on Santé. 8 to 20 letters or numbers.")}
-  <label class="pp-co-agree pp-ob-terms" for="dt-terms">
-    <input type="checkbox" id="dt-terms" name="terms" value="1"${p.terms ? html` checked` : ""}>
-    <span>I have read and agree to the <a class="lnk" href="${MEMBERSHIP_TERMS_URL}" target="_blank" rel="noopener noreferrer" data-terms-popup>Sant&eacute; ${MEMBERSHIP_TERMS_LABEL}&nbsp;&#8599;</a>.</span>
-  </label>
-  ${fe.terms ? html`<p class="err pp-ob-terms-err">${fe.terms}</p>` : ""}
+  ${termsField(termsVersion, p, fe)}
   <div class="pp-ob-actions"><button class="btn pp-ob-cta" type="submit">Submit my details<span class="pp-ob-cta-arrow" aria-hidden="true">&rarr;</span></button></div>
 </form>
-<dialog class="pp-policy-dlg" id="pp-terms-dlg" aria-labelledby="pp-terms-dlg-title">
-  <div class="pp-policy-dlg-head">
-    <h2 id="pp-terms-dlg-title">Sant&eacute; ${MEMBERSHIP_TERMS_LABEL}</h2>
-    <button type="button" class="pp-policy-dlg-close" id="pp-terms-dlg-close" aria-label="Close">&times;</button>
-  </div>
-  <div class="pp-policy-dlg-body pp-terms-body" id="pp-terms-dlg-body" tabindex="0">${termsVersion !== null ? html`
-    <div class="pp-agr-pages" id="pp-terms-pages" data-file="${AGREEMENT_PDF_PATH}?v=${termsVersion}" data-viewer="/agreement-viewer/"><p class="pp-agr-status" id="pp-terms-status" role="status">Loading the Membership Terms…</p></div>` : html`
-    <p>The Sant&eacute; ${MEMBERSHIP_TERMS_LABEL} have not been published yet. Please check back shortly.</p>`}</div>
-</dialog>
+${termsDialog(termsVersion)}
 `;
 }
 

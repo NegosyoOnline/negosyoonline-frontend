@@ -6,29 +6,17 @@
   var VIEWS = ["overview", "orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
     "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "orders-new", "products"]; /* every other view is reached through the mobile More sheet */
+  /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
+     left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
+     names and page scripts stay in the code; to bring a page back, add its line here and its link to index.html. */
   var ROUTES = {
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
     "/orders/": { view: "orders", title: "Orders | NegosyoOnline" },
-    "/orders/new/": { view: "orders-new", title: "Add order | NegosyoOnline" },
-    "/products/": { view: "products", title: "Products | NegosyoOnline" },
-    "/storefront/": { view: "storefront", title: "Storefront | NegosyoOnline" },
-    "/media-library/": { view: "media-library", title: "Media Library | NegosyoOnline" },
-    "/earnings/": { view: "earnings", title: "Earnings | NegosyoOnline" },
-    "/people/": { view: "people", title: "People | NegosyoOnline" },
-    "/usage/": { view: "usage", title: "Usage | NegosyoOnline" },
-    "/subscription/": { view: "subscription", title: "My Subscription | NegosyoOnline" },
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
-    "/help/": { view: "help", title: "Help Center | NegosyoOnline" },
-    "/referral/": { view: "referral", title: "Referral | NegosyoOnline" },
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
-    "/settings/plans/": { view: "settings-plans", title: "Plans | NegosyoOnline" },
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
-    "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
-    "/settings/shipping/": { view: "settings-shipping", title: "Shipping | NegosyoOnline" },
-    "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" },
-    "/settings/automation/": { view: "settings-automation", title: "Automation Tools | NegosyoOnline" },
-    "/settings/notification/": { view: "settings-notification", title: "Notification | NegosyoOnline" }
+    "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" }
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
@@ -290,7 +278,7 @@
     var items = [
       ["payments_to_review", "Payments to review", "Verify receipt first", "/orders/", "amber"],
       ["ready_to_fulfill", "Ready to book", "Payment checks passed", "/orders/", "blue"],
-      ["withdrawals_to_pay", "Pending Withdrawal", "Send disbursement", "/earnings/", "red"],
+      ["withdrawals_to_pay", "Pending Withdrawal", "Send disbursement", "/earnings/", "red"], /* Earnings and People are hidden (z8uq9mek5z): a card, not a link, while the path is not in ROUTES */
       ["member_registrations", "Member registrations", "Registration still pending", "/people/", "blue"]
     ];
     var total = 0, seen = 0;
@@ -304,7 +292,7 @@
     var grid = D.el("div", { "class": "ov-need-grid" });
     items.forEach(function (it) {
       var c = num(n[it[0]]);
-      var a = D.el("a", { "class": "ov-need-item ov-" + it[4], href: it[3] });
+      var a = has(ROUTES, it[3]) ? D.el("a", { "class": "ov-need-item ov-" + it[4], href: it[3] }) : D.el("div", { "class": "ov-need-item ov-" + it[4] });
       a.appendChild(D.el("span", { "class": "ov-need-num" }, c === null ? "-" : String(c)));
       var t = D.el("span", { "class": "ov-need-txt" });
       t.appendChild(D.el("strong", {}, it[1]));
@@ -514,7 +502,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return; /* call() is leaving for sign-in */
       lastSetup = st.ok ? obj(st.data) : null; /* Phase 3 S2: every handled setup answer, before routing */
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       lastDash = { ok: true, status: 200, data: {} };
       renderSubscription(null);
       renderReferral(true, null);
@@ -623,6 +611,11 @@
   /* ---- Overview handoff (Phase 3, ClickUp z8uq9mach8) ----------------------------------------------------------
      The eyebrow names the Site from first_site.display_name of the last setup answer; a blank, missing or removed
      Site leaves exactly "Overview". Text only (textContent), never a guessed name. */
+  /* Whether an empty site name may fall back to GET /sites/: not for a removed first site, and not before a site exists. */
+  function askSites(setup) {
+    var f = setup && typeof setup === "object" ? setup.first_site : null;
+    return !(f && typeof f === "object" && f.deleted === true) && !(setup && setup.state === "not_started");
+  }
   function siteName(setup) {
     var f = setup && typeof setup === "object" ? setup.first_site : null;
     if (!f || typeof f !== "object" || f.deleted === true || typeof f.display_name !== "string") return "";
@@ -673,7 +666,7 @@
       wrap.removeChild(strip);
     } /* a trial or lapsed Account keeps its banner and gets no card; found before the notice is added */
     if (note) { wrap.insertBefore(note, wrap.firstChild); OB.reopen = true; } /* Phase 3 N2, N7: above the card and the trial strip; returning to "/" re-reads (route) */
-    if (window.NOEarnings) window.NOEarnings.overviewNote(wrap); /* E8 S5: "Withdrawals are not open" strip, async */
+    if (window.NOEarnings && has(ROUTES, "/earnings/")) window.NOEarnings.overviewNote(wrap); /* E8 S5: "Withdrawals are not open" strip, async */
   }
   function obSkeleton() {
     var body = dlgOpen();
@@ -880,7 +873,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       var v = setupView(st);
       if (v === "not_started" && why === "can_create") return drawBlocked("b2", 1, true);
       if (v === "not_started") return loadEligibility(true);
@@ -1229,7 +1222,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       var v = setupView(st), fsx = obj(obj(st.data).first_site);
       if (v === "complete") { OB.completedName = fsx.display_name || first.display_name || "Your site"; return drawCompletion(); }
       if (v === "step3") return drawStep3Load(first, "notdone", null);

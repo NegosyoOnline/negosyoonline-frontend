@@ -107,7 +107,7 @@
     var name = ((a.first_name || "") + " " + (a.last_name || "")).trim();
     var t = Object.prototype.hasOwnProperty.call(TRIAL_CHIP, a.trial_status) ? TRIAL_CHIP[a.trial_status] : null;
     /* The workspace label is the first site's name, set by setWorkspace(); "My Business" until one is known. */
-    each("[data-ws-name]", function (n) { n.textContent = workspace || "My Business"; });
+    paintWorkspace();
     each("[data-acct-initials]", function (n) { n.textContent = initials(a); });
     each("[data-acct-name]", function (n) { n.textContent = name || a.email || ""; });
     each("[data-acct-email]", function (n) { n.textContent = a.email || ""; n.hidden = !name; });
@@ -125,11 +125,22 @@
     if (row) row.setAttribute("aria-label", "Account menu: " + (name || a.email || ""));
   }
 
-  /* The workspace label comes from the setup answer (first_site.display_name), which the Overview reads. */
-  var workspace = "";
-  function setWorkspace(name) {
+  /* The workspace label comes from the setup answer (first_site.display_name), which the Overview reads. When that is empty
+     (a site not made through onboarding), the first site's display_name from GET /sites/ is used (routine decision,
+     ClickUp 1100430000508826), and "My Business" only when there is none. */
+  var workspace = "", workspaceAsk = 0;
+  function paintWorkspace() { each("[data-ws-name]", function (n) { n.textContent = workspace || "My Business"; }); }
+  function setWorkspace(name, askSites) {
     workspace = typeof name === "string" ? name.trim() : "";
-    each("[data-ws-name]", function (n) { n.textContent = workspace || "My Business"; });
+    paintWorkspace();
+    var ask = ++workspaceAsk;
+    if (workspace || askSites === false) return; /* a removed first site (deleted) is not "empty": the caller passes false */
+    call("GET", "/sites/").then(function (res) {
+      if (ask !== workspaceAsk || workspace) return; /* a newer name arrived meanwhile */
+      var d = res && res.ok && res.data, first = d && Array.isArray(d.items) ? d.items[0] : null;
+      var label = first && typeof first.display_name === "string" ? first.display_name.trim() : "";
+      if (label) { workspace = label; paintWorkspace(); }
+    });
   }
 
   /* Theme toggle (account menus and the topbar icon button). Shows the theme you would switch to; theme.js owns the choice and storage. */
@@ -258,11 +269,9 @@
      Static list (no request). Arrow keys move the highlight, Escape closes and returns focus to the button, and a click
      outside closes it. Labels reach the page through textContent only; hrefs come from this fixed list. */
   var QUICK_LINKS = [
-    ["Overview", "", "/"], ["Orders", "", "/orders/"], ["Products", "", "/products/"], ["Storefront", "", "/storefront/"], ["Media Library", "", "/media-library/"],
-    ["Earnings", "", "/earnings/"], ["People", "", "/people/"], ["Usage", "", "/usage/"], ["Referral", "", "/referral/"],
-    ["My Subscription", "Account", "/subscription/"], ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
-    ["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"],
-    ["Domain", "Settings", "/settings/domain/"], ["Automation Tools", "Settings", "/settings/automation/"], ["Notification", "Settings", "/settings/notification/"]
+    ["Overview", "", "/"], ["Orders", "", "/orders/"],
+    ["Account Settings", "Account", "/account/"],
+    ["Business Settings", "Settings", "/settings/business/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"]
   ];
   function quickSearch() {
     Array.prototype.forEach.call(document.querySelectorAll(".qs"), function (box, n) {

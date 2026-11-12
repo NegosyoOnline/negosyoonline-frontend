@@ -39,8 +39,7 @@ const VERSIONS: Record<string, string> = {
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "ff1d7b9e",
-  "js/pack-agreement-popup.js": "4ef9cb59",
-  "js/pack-checkout.js": "47e9b86f", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "js/pack-checkout.js": "4027ca6d", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",
   "js/pack-details-gate.js": "e52d9e8d",

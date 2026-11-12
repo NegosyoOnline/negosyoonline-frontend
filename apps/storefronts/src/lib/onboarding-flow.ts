@@ -141,6 +141,7 @@ async function step(
   if ("response" in loaded) return loaded.response;
   const posted = { ...text };
   delete posted.code; // a wrong code is never put back
+  if (r.code === "agreement_changed") delete posted.terms; // the terms moved on: the buyer agrees to the new version, not the one they ticked
   return render(f, sub, loaded.state, { error_message: r.message, field_errors: r.fields, posted }, r.status === 429 ? 429 : 200);
 }
 
@@ -172,6 +173,7 @@ export const detailsPost = (f: ObFlow, text: Record<string, string>) =>
     ...base(f), token,
     dob_year: digits(text.dob_year), dob_month: digits(text.dob_month), dob_day: digits(text.dob_day),
     desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", terms: !!text.terms,
+    agreement_version_id: /^[0-9]{1,9}$/.test(text.agreement_version_id ?? "") ? text.agreement_version_id! : "",
   }, f.calls), "details");
 
 /* ---- the delivery form's ZIP lookup ------------------------------------------------------------------------------ */

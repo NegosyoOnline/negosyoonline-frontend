@@ -514,7 +514,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return; /* call() is leaving for sign-in */
       lastSetup = st.ok ? obj(st.data) : null; /* Phase 3 S2: every handled setup answer, before routing */
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       lastDash = { ok: true, status: 200, data: {} };
       renderSubscription(null);
       renderReferral(true, null);
@@ -623,6 +623,11 @@
   /* ---- Overview handoff (Phase 3, ClickUp z8uq9mach8) ----------------------------------------------------------
      The eyebrow names the Site from first_site.display_name of the last setup answer; a blank, missing or removed
      Site leaves exactly "Overview". Text only (textContent), never a guessed name. */
+  /* Whether an empty site name may fall back to GET /sites/: not for a removed first site, and not before a site exists. */
+  function askSites(setup) {
+    var f = setup && typeof setup === "object" ? setup.first_site : null;
+    return !(f && typeof f === "object" && f.deleted === true) && !(setup && setup.state === "not_started");
+  }
   function siteName(setup) {
     var f = setup && typeof setup === "object" ? setup.first_site : null;
     if (!f || typeof f !== "object" || f.deleted === true || typeof f.display_name !== "string") return "";
@@ -880,7 +885,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       var v = setupView(st);
       if (v === "not_started" && why === "can_create") return drawBlocked("b2", 1, true);
       if (v === "not_started") return loadEligibility(true);
@@ -1229,7 +1234,7 @@
     D.call("GET", "/account/setup/", null, true).then(function (st) {
       if (st.status === 401) return;
       lastSetup = st.ok ? obj(st.data) : null;
-      D.setWorkspace(siteName(lastSetup));
+      D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       var v = setupView(st), fsx = obj(obj(st.data).first_site);
       if (v === "complete") { OB.completedName = fsx.display_name || first.display_name || "Your site"; return drawCompletion(); }
       if (v === "step3") return drawStep3Load(first, "notdone", null);

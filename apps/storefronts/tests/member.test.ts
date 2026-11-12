@@ -171,9 +171,10 @@ test("POST request: +63 number goes to Django with a new binding; the code step 
     assert.equal(body.host, "demo-store.negosyotest.com");
     assert.match(body.binding, /^[A-Za-z0-9_-]{43}$/);
     const page = await r.text();
-    assert.match(page, /<h1>Enter your OTP<\/h1>/);
-    assert.match(page, /Check your email for the code\./);
-    assert.match(page, /If your email is not verified yet, we text it to the mobile number you entered\./);
+    assert.doesNotMatch(page, /Enter your OTP/); // the old title above "Check your email" is gone
+    assert.match(page, />Check your email<\/h2>/);
+    assert.match(page, /Your code was sent to your email, not by text\./);
+    assert.match(page, /No email\? Check Spam, or tap Send a new code\./);
     assert.doesNotMatch(page, /If this matches a member/);
     assert.equal((page.match(/class="otp-box[ "]/g) ?? []).length, 6);
     const cookie = setCookies(r).find((c) => c.startsWith("no_member_pre="))!;
@@ -189,17 +190,19 @@ test("POST request with a typed email: the page says where the code went, masked
     const page = await r.text();
     assert.match(page, /We emailed a code to <strong>b\*\*\*@example\.test<\/strong>/);
     assert.doesNotMatch(page, /ben\.d@/);
-    assert.doesNotMatch(page, /Check your email for the code|If this matches a member/);
+    assert.doesNotMatch(page, /Check your email|No email\? Check Spam|If this matches a member/);
     assert.match(page, /name="sent_to" value="b\*\*\*@example\.test"/); // carried so resend and a wrong code keep saying where
     const again = await (await signInPost(post("/dashboard/sign-in/", { action: "resend", sent_to: "b***@example.test" }, {}, `no_member_pre=${BINDING}`))).text();
     assert.match(again, /We emailed a code to <strong>b\*\*\*@example\.test<\/strong>/);
     const forged = await (await signInPost(post("/dashboard/sign-in/", { action: "resend", sent_to: "<script>x</script>" }, {}, `no_member_pre=${BINDING}`))).text();
     assert.doesNotMatch(forged, /<script>x|We emailed a code to/);
-    assert.match(forged, /Check your email for the code\./);
+    assert.match(forged, />Check your email<\/h2>/);
   });
   await withDjango({ "signin/request": json(200, answer) }, async () => {
     const page = await (await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "917 123 4567" }))).text();
-    assert.match(page, /<strong>Check your email for the code\.<\/strong><br>We email your code to the email address on your member account\. If your email is not verified yet, we text it to the mobile number you entered\./);
+    assert.match(page, />Check your email<\/h2>/);
+    assert.match(page, /Your code was sent to your email, not by text\./);
+    assert.match(page, /No email\? Check Spam, or tap Send a new code\./);
     const card = page.slice(page.indexOf('<div class="sc-card">'), page.indexOf('</main>') > 0 ? page.indexOf('</main>') : undefined);
     assert.doesNotMatch(card, /We emailed a code|@|If this matches a member|sent_to/);
   });
@@ -401,7 +404,7 @@ test("the shell links the TWCinc stylesheets and scripts by their approved files
 test("the sign-in page keeps TWCinc's wording and its hooks", () => {
   const v = chrome(SITE);
   const code = signInDocument(v, signInModel({ step: "code", message: "If this matches a member of this store, we sent a code." })).value;
-  for (const text of ["Enter your OTP", "Didn&rsquo;t receive the OTP?", "Send a new code", "&larr; Use a different email or number", "Log in to My Account",
+  for (const text of ["Didn&rsquo;t receive the OTP?", "Send a new code", "&larr; Use a different email or number", "Log in to My Account",
     'data-pp-otp', 'autocomplete="one-time-code"', 'aria-label="Digit 6 of 6"']) assert.ok(code.includes(text), text);
   assert.doesNotMatch(code, /Text me the code/);
   const offer = signInDocument(v, signInModel({ step: "code", offer_email: true })).value;

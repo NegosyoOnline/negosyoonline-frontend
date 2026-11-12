@@ -1,10 +1,14 @@
 /* The staff app's one address. No secrets: anything a page can read is public (design 21.2).
-   The default is the staging hq host, so a deploy with no variable set never talks to production.
+   The default is the staging staff API host, so a preview or staging deploy with no variable set never
+   talks to production. A production build with no variable fails instead of defaulting to staging.
    Production must set HQ_STAFF_API_BASE in its Vercel project. Read at build time. */
 
-const STAGING_STAFF_API = "https://hq-staging.negosyonline.com/staff/v1";
+const STAGING_STAFF_API = "https://hq-api-staging.negosyonline.com/staff/v1";
 
 export function readEnv(env) {
+  if (!String(env.HQ_STAFF_API_BASE || "").trim() && env.VERCEL_ENV === "production") {
+    throw new Error("HQ_STAFF_API_BASE must be set for a production build");
+  }
   const staffApi = String(env.HQ_STAFF_API_BASE || STAGING_STAFF_API).trim().replace(/\/+$/, "");
   return { staffApi, staffApiOrigin: new URL(staffApi).origin };
 }

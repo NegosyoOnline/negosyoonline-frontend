@@ -200,13 +200,12 @@ var taken=m.dataset.taken?m:e.dataset.taken?e:null;
 if(taken){ev.preventDefault();taken.focus();return;}
 if(!enroll.checked){ev.preventDefault();enrollMsg.hidden=false;enroll.focus();return;}
 if(!agree.checked){ev.preventDefault();agreeMsg.hidden=false;agree.focus();return;}
-/* The Membership Terms popup opens only when the rest of the form is good, so a buyer never agrees to the terms and is then sent back to fix a field. */
+/* Each field is checked before the form leaves the page. */
 var bad=null;
 Array.prototype.forEach.call(f.querySelectorAll("input.pp-co-input[required],#mobile"),function(el){
 if(!bad&&el.closest("#direct-panel:not(.is-open)")===null&&!isGood(el)){bad=el;}
 });
 if(bad){ev.preventDefault();setOk(bad);(bad===m?bad.parentNode:bad).classList.add("is-invalid");bad.focus();return;}
-if(window.ppAgreement&&window.ppAgreement.gate(ev))return;
 setTimeout(function(){b.disabled=true;},0);
 });
 agree.addEventListener("change",function(){if(agree.checked)agreeMsg.hidden=true;});

@@ -11,9 +11,12 @@
      delivery address block (the backend's member/registration/details takes date_of_birth and delivery_address). */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { MemberPack, MobileCheck, RegistrationCard } from "../../lib/pack-api.ts";
+import { termsDialog, termsField } from "./pack-terms.ts";
 
 export const RESUBMIT_PATH = "/dashboard/pack/resubmit/";
 export const REG_DETAILS_PATH = "/dashboard/registration/details/";
+/** A refused post re-renders the page; the fragment lands it on the registration card, not the top (a phone shows the error). */
+export const REG_ANCHOR = "#registration";
 export const REG_MOBILE_SEND_PATH = "/dashboard/registration/mobile/send/";
 export const REG_MOBILE_VERIFY_PATH = "/dashboard/registration/mobile/verify/";
 
@@ -27,6 +30,30 @@ export function pesos(centavos: number): string {
   const cents = Math.abs(centavos % 100).toString().padStart(2, "0");
   return `₱${whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${cents}`;
 }
+
+/* The terms tick and popup (the onboarding details step's, pack-forms.css), for the details form while terms_required. */
+const TERMS_CSS = `
+.pp-ob-terms{display:flex;align-items:flex-start;gap:12px;margin:8px 0 12px;font-size:15px;line-height:1.5}
+.pp-ob-terms input{flex:0 0 auto;width:22px;height:22px;margin:1px 0 0;appearance:none;-webkit-appearance:none;border:1.5px solid #767676;border-radius:4px;background:#fff;cursor:pointer}
+.pp-ob-terms input:checked{border-color:#2e7d32;background:#2e7d32 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 5 5 9-10'/%3E%3C/svg%3E") center/80% no-repeat}
+.pp-ob-terms input:focus-visible{outline:2px solid #2e7d32;outline-offset:2px}
+.pp-ob-terms .lnk{color:#1a6207;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.pp-ob-terms-err{margin:6px 0 12px}
+.pp-policy-dlg{position:fixed;inset:0;width:calc(100% - 24px);max-width:60rem;height:fit-content;max-height:calc(100dvh - 32px);margin:auto;padding:0;overflow:hidden;border:0;border-radius:16px;background:#fff;color:inherit}
+.pp-policy-dlg[open]{display:flex;flex-direction:column}
+.pp-policy-dlg::backdrop{background:rgba(20,32,27,.55)}
+.pp-policy-dlg-head{display:flex;flex:none;gap:12px;align-items:center;justify-content:space-between;padding:12px 12px 12px 20px;border-bottom:1px solid #dee2e6}
+.pp-policy-dlg-head h2{margin:0;font-size:20px;font-weight:700;line-height:1.3}
+.pp-policy-dlg-close{flex:none;width:44px;height:44px;border:0;border-radius:8px;background:none;color:inherit;font-size:26px;line-height:1;cursor:pointer}
+.pp-policy-dlg-close:hover{background:#f6f6f6}
+.pp-policy-dlg-body{min-height:0;padding:16px 20px 24px;overflow-y:auto;overscroll-behavior:contain;font-size:16px;line-height:1.6}
+body:has(.pp-policy-dlg[open]){overflow:hidden}
+.pp-terms-body{display:flex;flex-direction:column;gap:10px}
+.pp-agr-pages{flex:1;min-height:0;overflow-x:auto;overflow-y:scroll;padding:8px;background:#f6f6f6;-webkit-overflow-scrolling:touch}
+.pp-agr-pages canvas{display:block;margin:0 auto 8px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.pp-agr-status{padding:16px;margin:0;text-align:center}
+.pp-agr-status[hidden]{display:none}
+`;
 
 const PANEL_CSS = `
 .pk-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:20px;margin:0 0 16px}
@@ -74,7 +101,7 @@ export function mobileConfirm(idp: string, mobile: MobileCheck, e: PanelErrors):
   const fe = e.field_errors;
   return html`${e.error_message ? html`<div class="note bad" role="alert">${e.error_message}</div>` : ""}
 <p class="hint" style="margin:6px 0 12px"><b>Confirm your mobile number</b>: we'll text you a code, then you can add your delivery address.</p>
-<form method="post" action="${REG_MOBILE_SEND_PATH}" novalidate>
+<form method="post" action="${REG_MOBILE_SEND_PATH}${REG_ANCHOR}" novalidate>
 ${mobile.locked ? html`
 <p class="hint">We'll text the code to ${mobile.mobile}. If that is not your number, contact the store and include your order number.</p>` : html`
 <div class="fld"><label for="${idp}-mobile">Mobile number</label>
@@ -83,20 +110,23 @@ ${fe.mobile ? html`<p class="err">${fe.mobile}</p>` : html`<p class="hint">Fix i
 <button class="btn inline" type="submit">${mobile.code_sent_to ? "Send a new code" : "Send code"}</button>
 </form>
 ${mobile.code_sent_to ? html`
-<form method="post" action="${REG_MOBILE_VERIFY_PATH}" novalidate style="margin-top:16px">
+<form method="post" action="${REG_MOBILE_VERIFY_PATH}${REG_ANCHOR}" novalidate style="margin-top:16px">
 <div class="fld"><label for="${idp}-code">6-digit code sent to ${mobile.code_sent_to}</label>
 <input id="${idp}-code" class="inp${bad(fe, "code")}" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="max-width:260px"></div>
 <button class="btn inline" type="submit">Confirm number</button>
 </form>` : ""}`;
 }
 
-export function detailsForm(idp: string, reg: RegistrationCard, mobile: MobileCheck, e: PanelErrors, posted: Record<string, string> = {}): Markup {
+/** The active agreement version the terms popup shows (null: none published); only passed while the card needs the terms. */
+export type TermsVersion = { version: number | null };
+
+export function detailsForm(idp: string, reg: RegistrationCard, mobile: MobileCheck, e: PanelErrors, posted: Record<string, string> = {}, terms: TermsVersion | null = null): Markup {
   if (mobile.pending) return mobileConfirm(idp, mobile, e);
   const fe = e.field_errors;
   const dob = fe.date_of_birth ?? fe.dob;
   return html`
 ${reg.details_erased ? html`<div class="note" role="status">Your details were removed after 90 days to protect your privacy. Please enter them again to finish your registration.</div>` : ""}
-<form method="post" action="${REG_DETAILS_PATH}" novalidate>
+<form method="post" action="${REG_DETAILS_PATH}${REG_ANCHOR}" novalidate>
 ${e.error_message && !Object.keys(fe).length ? html`<div class="note bad" role="alert">${e.error_message}</div>` : ""}
 <div class="fld"><label for="${idp}-dob">Date of birth</label>
 <input id="${idp}-dob" class="inp${dob ? " bad" : ""}" type="date" name="date_of_birth" style="max-width:260px" value="${posted.date_of_birth ?? ""}"${dob ? html` aria-invalid="true" aria-describedby="${idp}-dob-msg"` : ""}>
@@ -120,19 +150,21 @@ ${fe.delivery_address ? html`<p class="err" role="alert" style="margin:0 0 10px"
 ${fe.province ? html`<p class="err" id="${idp}-province-msg">${fe.province}</p>` : ""}</div>
 <div class="fld"><label for="${idp}-zip">ZIP code</label><input id="${idp}-zip" class="inp${fe.zip ? " bad" : ""}" type="text" name="zip" inputmode="numeric" autocomplete="postal-code" value="${posted.zip ?? ""}"${fe.zip ? html` aria-invalid="true" aria-describedby="${idp}-zip-msg"` : ""}>
 ${fe.zip ? html`<p class="err" id="${idp}-zip-msg">${fe.zip}</p>` : ""}</div>` : ""}
+${reg.terms_required && terms ? termsField(terms.version, posted, fe) : ""}
 <button class="btn inline" type="submit">Save details</button>
-</form>`;
+</form>
+${reg.terms_required && terms ? termsDialog(terms.version) : ""}`;
 }
 
 /* ---- the registration card (C8) ----------------------------------------------------------------------------------- */
 
-export function registrationPanel(reg: RegistrationCard, mobile: MobileCheck, e: PanelErrors, inDialog: boolean, posted: Record<string, string> = {}): Markup {
-  return html`<section class="pk-card" aria-labelledby="pk-reg-title">
+export function registrationPanel(reg: RegistrationCard, mobile: MobileCheck, e: PanelErrors, inDialog: boolean, posted: Record<string, string> = {}, terms: TermsVersion | null = null): Markup {
+  return html`<section class="pk-card" id="registration" aria-labelledby="pk-reg-title">
 <div class="pk-top"><h2 id="pk-reg-title">Santé membership registration</h2><span class="pk-chip ${reg.tone}">${reg.label}</span></div>
 ${reg.status === "registered" && reg.sante_member_id ? html`
 <div class="row"><div>Santé member ID</div><b>${reg.sante_member_id}</b></div>` : html`
 <p>${reg.line}</p>
-${reg.details_form && !inDialog ? detailsForm("reg", reg, mobile, e, posted) : ""}`}
+${reg.details_form && !inDialog ? detailsForm("reg", reg, mobile, e, posted, terms) : ""}`}
 </section>`;
 }
 
@@ -182,7 +214,7 @@ ${fe.proof ? html`<p class="err" id="pk-proof-msg">${fe.proof}</p>` : html`<p cl
 
 export function lockDialog(
   p: MemberPack, reg: RegistrationCard | null, mobile: MobileCheck, e: PanelErrors, regErr: PanelErrors,
-  posted: Record<string, string>,
+  posted: Record<string, string>, terms: TermsVersion | null = null,
 ): Markup {
   const lock = p.lock!;
   return html`<dialog class="pk-dlg" id="pk-lock" open aria-labelledby="pk-lock-title">
@@ -196,7 +228,7 @@ ${lock.resubmitted ? html`
 ${resubmitForm(p, e, posted)}`}
 ${reg && reg.details_form ? html`
 <div class="pk-sect"><h2>Santé membership registration</h2><p>${reg.line}</p>
-${detailsForm("dlg", reg, mobile, regErr)}</div>` : ""}
+${detailsForm("dlg", reg, mobile, regErr, {}, terms)}</div>` : ""}
 </div>
 <div class="pk-dlg-foot">
 ${!lock.resubmitted ? html`<button class="btn" type="submit" id="pk-send" form="pk-resubmit">Send new proof</button>` : ""}
@@ -212,6 +244,7 @@ export type HomePanels = {
   pack_errors?: PanelErrors;
   reg_errors?: PanelErrors;
   posted?: Record<string, string>;
+  terms?: TermsVersion | null;
 };
 
 /** The panels the home shows, in TWCinc's order: the payment card, the registration card (the lock dialog when rejected). */
@@ -221,8 +254,8 @@ export function homePanels(h: HomePanels): Markup {
   const pe = h.pack_errors ?? NO_ERRORS;
   const re = h.reg_errors ?? NO_ERRORS;
   const posted = h.posted ?? {};
-  return html`<style>${safe(PANEL_CSS)}</style>
+  return html`<style>${safe(PANEL_CSS)}${h.registration?.terms_required ? safe(TERMS_CSS) : ""}</style>
 ${packCard(p)}
-${h.registration ? registrationPanel(h.registration, h.mobile, re, !!p.lock, posted) : ""}
-${p.lock ? lockDialog(p, h.registration, h.mobile, pe, re, posted) : ""}`;
+${h.registration ? registrationPanel(h.registration, h.mobile, re, !!p.lock, posted, h.terms ?? null) : ""}
+${p.lock ? lockDialog(p, h.registration, h.mobile, pe, re, posted, h.terms ?? null) : ""}`;
 }

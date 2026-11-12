@@ -108,15 +108,13 @@ export async function POST(request: Request): Promise<Response> {
   let response: Response;
   if (result.state === "ok") {
     const answer: SignInAnswer = result;
-    /* The code just went out by its channel, so that channel's button counts down; the other is open. */
-    const byEmail = action === "email";
     /* A typed email whose code went by email (Coach Ed, 2026-11-12): the page says where, from what the visitor typed. The server
        sends no address and answers alike for unknown contacts, so a typed mobile keeps the neutral message. */
     const typed = action === "request" ? maskEmail(posted.get("contact") ?? "") : "";
     const emailed = !answer.offer_email && typed !== "";
     response = page(request, site, signInModel({
       step: "code", next: key, message: emailed ? `We emailed a code to ${typed}` : answer.message, offer_email: answer.offer_email,
-      sms_in: byEmail || emailed ? 0 : COUNTDOWN, email_in: byEmail || emailed ? COUNTDOWN : 0,
+      sms_in: 0, email_in: COUNTDOWN, /* every code goes by email now */
     }));
   } else if (result.state === "refused") {
     const { model, status } = refused(result, { step, next: key });

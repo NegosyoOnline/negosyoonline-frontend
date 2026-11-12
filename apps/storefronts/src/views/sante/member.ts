@@ -221,7 +221,7 @@ ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>
   : expired ? html`<div class="note bad" role="alert">This code is no longer valid. Ask for a new code.</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>` : ""}
 ${m.offer_email ? html`
-<div class="note warn">Text messages are unavailable right now. We can email your code instead.</div>
+<div class="note warn">We can email your code.</div>
 <form method="post" class="stack">
 ${nextField(m.next)}
 <button class="btn" type="submit" name="action" value="email">Email me a code</button>
@@ -239,20 +239,16 @@ ${nextField(m.next)}
 ${m.field_errors.code ? html`<p class="pp-mb-error" role="alert">${m.field_errors.code}</p>` : ""}
 <button class="btn" type="submit" data-pp-busy-label="Verifying&hellip;">${orders ? "Track My Orders" : "Log in to My Account"}</button>
 </form>`}
-${!m.offer_email ? html`
+${!m.offer_email && !expired ? html`
 <div class="sc-alts"><p class="sc-alts-h">Didn&rsquo;t receive the OTP?</p><div class="sc-alts-row">
 <form method="post">
 ${nextField(m.next)}
-<button class="btn ghost sc-alt" type="submit" name="action" value="email"${m.email_in ? html` disabled data-pp-count="${m.email_in}"` : ""}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Email me the code<b data-pp-count-label>${m.email_in ? ` (${m.email_in}s)` : ""}</b></span></button>
+<button class="btn ghost sc-alt" type="submit" name="action" value="resend"${m.email_in ? html` disabled data-pp-count="${m.email_in}"` : ""}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><span>Send a new code<b data-pp-count-label>${m.email_in ? ` (${m.email_in}s)` : ""}</b></span></button>
 </form>
-${TEXT_ME_ENABLED ? html`<form method="post">
-${nextField(m.next)}
-<button class="btn ghost sc-alt" type="submit" name="action" value="text"${m.sms_in ? html` disabled data-pp-count="${m.sms_in}"` : ""}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Text me the code<b data-pp-count-label>${m.sms_in ? ` (${m.sms_in}s)` : ""}</b></span></button>
-</form>` : ""}
 </div></div>` : ""}
 <form method="post" class="sc-center sc-back">
 ${nextField(m.next)}
-<button class="link-btn" type="submit" name="action" value="restart">&larr; Use a different number</button>
+<button class="link-btn" type="submit" name="action" value="restart">&larr; Use a different email or number</button>
 </form>
 </div>`;
   }
@@ -261,13 +257,13 @@ ${icon}
 <h1>${orders ? "Track Your Orders" : "Member Login"}</h1>
 ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>${m.hint ? html`<br>${m.hint}` : ""}</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>`
-  : html`<p class="sc-lead">${orders ? html`Enter your mobile number. You&rsquo;ll confirm it with one quick text &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the mobile number you registered with to log in to your member dashboard. We&rsquo;ll text you a one-time code &mdash; no password needed.`}</p>`}
+  : html`<p class="sc-lead">${orders ? html`Enter your email or mobile number. You&rsquo;ll confirm it with one quick email &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the email or mobile number you registered with to log in to your member dashboard. We&rsquo;ll email you a one-time code &mdash; no password needed.`}</p>`}
 <form method="post" data-pp-busy-msg="Sending your code&hellip;">
 <input type="hidden" name="action" value="request">
 ${nextField(m.next)}
 <div class="fld">
-<label for="contact">Mobile Number</label>
-<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><span class="sc-phone-prefix">+63</span><input id="contact" class="sc-phone-input" type="tel" name="contact" inputmode="numeric" autocomplete="tel-national" placeholder="9XX XXX XXXX" data-pp-phone required${m.field_errors.contact ? safe(' aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
+<label for="contact">Email or mobile number</label>
+<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><input id="contact" class="sc-phone-input" type="text" name="contact" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required${m.field_errors.contact ? safe(' aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
 ${m.field_errors.contact ? html`<p class="err" id="contact-msg">${m.field_errors.contact}</p>` : ""}
 </div>
 <button class="btn" type="submit" data-pp-busy-label="Sending OTP&hellip;">Send Verification Code</button>
@@ -275,7 +271,7 @@ ${m.field_errors.contact ? html`<p class="err" id="contact-msg">${m.field_errors
 </div>`;
 }
 
-export const SIGN_IN_SCRIPTS = ["js/pack-phone.js", "js/pack-otp.js", "js/pack-busy.js", "js/pack-code-timer.js"];
+export const SIGN_IN_SCRIPTS = ["js/pack-otp.js", "js/pack-busy.js", "js/pack-code-timer.js"];
 
 export function signInDocument(v: Chrome, m: SignInModel): Markup {
   return memberDocument(v, {

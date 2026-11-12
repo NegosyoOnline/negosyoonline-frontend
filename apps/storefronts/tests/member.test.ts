@@ -275,7 +275,8 @@ test("POST email and resend go to their own routes with the binding from the coo
   await withDjango({ "signin/accept-email": json(200, answer), "signin/resend": json(200, answer) }, async (seen) => {
     const e = await signInPost(post("/dashboard/sign-in/", { action: "email" }, {}, `no_member_pre=${BINDING}`));
     const page = await e.text();
-    assert.match(page, /Email me the code<b data-pp-count-label> \(60s\)<\/b>/);
+    assert.match(page, /Send a new code<b data-pp-count-label> \(60s\)<\/b>/);
+    assert.doesNotMatch(page, /Email me the code|Text me the code/);
     assert.match(page, /disabled data-pp-count="60"/);
     await signInPost(post("/dashboard/sign-in/", { action: "resend" }, {}, `no_member_pre=${BINDING}`));
     const bodies = seen.filter((s) => s.url.includes("/member/")).map((s) => JSON.parse(s.init.body as string).binding);
@@ -383,7 +384,7 @@ test("no member page carries an inline script, and every script and style it nam
 test("the shell links the TWCinc stylesheets and scripts by their approved files", () => {
   const signedOut = signInDocument(chrome(SITE), signInModel()).value;
   for (const f of ["css/pack-landing.min.css", "css/pack-footer.min.css", "css/pack-registration.css", "css/pack-dashboard-shell.css", "css/pack-dashboard.css", "css/pack-focus.css",
-    "js/pack-phone.js", "js/pack-otp.js", "js/pack-busy.js", "js/pack-code-timer.js", "js/pack-nav-toggle.js"]) {
+    "js/pack-otp.js", "js/pack-busy.js", "js/pack-code-timer.js", "js/pack-nav-toggle.js"]) {
     assert.ok(signedOut.includes(`/assets/sante/${f}?v=`), f);
   }
   assert.doesNotMatch(signedOut, /pack-basket/);
@@ -392,16 +393,19 @@ test("the shell links the TWCinc stylesheets and scripts by their approved files
 test("the sign-in page keeps TWCinc's wording and its hooks", () => {
   const v = chrome(SITE);
   const code = signInDocument(v, signInModel({ step: "code", message: "If this matches a member of this store, we sent a code." })).value;
-  for (const text of ["Enter your OTP", "Didn&rsquo;t receive the OTP?", "Email me the code", "&larr; Use a different number", "Log in to My Account",
+  for (const text of ["Enter your OTP", "Didn&rsquo;t receive the OTP?", "Send a new code", "&larr; Use a different email or number", "Log in to My Account",
     'data-pp-otp', 'autocomplete="one-time-code"', 'aria-label="Digit 6 of 6"']) assert.ok(code.includes(text), text);
   assert.doesNotMatch(code, /Text me the code/);
   const offer = signInDocument(v, signInModel({ step: "code", offer_email: true })).value;
-  assert.match(offer, /Text messages are unavailable right now\. We can email your code instead\./);
+  assert.match(offer, /We can email your code\./);
+  assert.doesNotMatch(offer, /Text messages|text you|Text me/i);
   assert.match(offer, />Email me a code</);
   const paused = signInDocument(v, signInModel({ error_code: "sms_paused", error_message: "Please try again shortly.", hint: "If you have verified your email, you can sign in with it instead." })).value;
   assert.match(paused, /<b>Please try again shortly\.<\/b><br>If you have verified your email/);
   const contact = signInDocument(v, signInModel()).value;
-  for (const text of ["Mobile Number", "+63", "9XX XXX XXXX", "Send Verification Code", "data-pp-phone"]) assert.ok(contact.includes(text), text);
+  for (const text of ["Email or mobile number", "you@example.com", "Send Verification Code", "We&rsquo;ll email you a one-time code"]) assert.ok(contact.includes(text), text);
+  assert.ok(contact.indexOf("Email or mobile number") > 0 && !/Mobile Number<|\+63|9XX XXX XXXX|data-pp-phone|text you|We&rsquo;ll text/.test(contact), "email first; no SMS wording");
+  assert.match(contact, /<input id="contact"[^>]*type="text"[^>]*name="contact"/);
 });
 
 test("the menu shows only the built sections, and the footer follows TWCinc's pack footer", () => {

@@ -62,14 +62,15 @@ async function body(r: Response): Promise<string> {
 
 test("the checkout page: TWCinc's field names, ticks, button and words", () => {
   const c = packContext(SITE, PACK, new Date("2026-11-12T00:00:00Z"));
-  const page = checkoutDocument(c, checkoutModel({ accounts: [BANK, WALLET], agreement: PACK.agreement })).value;
-  for (const name of ["first_name", "last_name", "mobile", "email", "pay_method", "agreement_accept", "agreement_version_id", "enrollment_authorized", "agree",
+  const page = checkoutDocument(c, checkoutModel({ accounts: [BANK, WALLET] })).value;
+  for (const name of ["first_name", "last_name", "mobile", "email", "pay_method", "enrollment_authorized", "agree",
     "account_id", "sender_bank", "reference_number", "sender_first_name", "sender_last_name", "sender_account_number", "amount_sent", "transferred_at", "proof", "submit_key", "action"]) {
     assert.ok(page.includes(`name="${name}"`), name);
   }
+  assert.ok(!page.includes("agreement_accept") && !page.includes("agreement_version_id") && !page.includes("pp-agr-dlg"), "the Membership Terms popup and its fields moved to the account details step");
   for (const text of ["Customer Information", "Select Payment Method", "Bank or e-wallet transfer", "Send ₱1,488.00 to one of the store's accounts, then upload your proof.",
     "Place Order &mdash; ₱1,488.00", "Account You Paid To *", "Upload the Payment Receipt *", "Time of Transfer *", "Read the privacy notice", "Order Summary",
-    "Santé International Membership Terms &amp; Conditions", "Version v1.0 &middot; Effective November 3, 2026", "Agree &amp; Continue", "Send exactly ₱1,488.00 to this account"]) {
+    "Send exactly ₱1,488.00 to this account"]) {
     assert.ok(page.includes(text), text);
   }
   assert.ok(page.includes("up to 4 MB."), "the receipt hint says the cap the API enforces");
@@ -78,13 +79,13 @@ test("the checkout page: TWCinc's field names, ticks, button and words", () => {
 
 test("no inline script, and no private-media address: scripts are files, QR codes are this host's", () => {
   const c = packContext(SITE, PACK, new Date("2026-11-12T00:00:00Z"));
-  const page = checkoutDocument(c, checkoutModel({ accounts: [BANK], agreement: PACK.agreement })).value;
+  const page = checkoutDocument(c, checkoutModel({ accounts: [BANK] })).value;
   for (const tag of page.matchAll(/<script\b[^>]*>/g)) assert.match(tag[0], /\bsrc="/, tag[0]);
   assert.ok(page.includes('src="/funnel/membership-pack/checkout/qr/acct_1/"'));
   assert.ok(!/https?:\/\/(?!fonts\.g)/.test(page.replace(/https?:\/\/www\.w3\.org[^"]*/g, "")), "no outside address on the page");
   const script = readFileSync(path.join(PUBLIC, "assets/sante/js/pack-checkout.js"), "utf8");
   assert.ok(!/\{\{|\{%/.test(script), "no template tag left in the script");
-  for (const file of ["js/pack-select.js", "js/pack-agreement-popup.js", "js/pack-checkout.js"]) assert.ok(existsSync(path.join(PUBLIC, "assets/sante", file)), file);
+  for (const file of ["js/pack-select.js", "js/pack-checkout.js"]) assert.ok(existsSync(path.join(PUBLIC, "assets/sante", file)), file);
   for (const file of ["pdf.min.mjs", "pdf.worker.min.mjs", "wasm/qcms_bg.wasm", "standard_fonts/FoxitSymbol.pfb", "cmaps/H.bcmap", "iccs/CGATS001Compat-v2-micro.icc"]) {
     assert.ok(existsSync(path.join(PUBLIC, "agreement-viewer", file)), file);
   }
@@ -93,7 +94,7 @@ test("no inline script, and no private-media address: scripts are files, QR code
 test("errors render under their field with TWCinc's markup; the receipt is asked for again", () => {
   const c = packContext(SITE, PACK, new Date("2026-11-12T00:00:00Z"));
   const m = checkoutModel({
-    accounts: [BANK, WALLET], agreement: PACK.agreement, error_code: "invalid_proof", error_message: "Check the highlighted fields.",
+    accounts: [BANK, WALLET], error_code: "invalid_proof", error_message: "Check the highlighted fields.",
     field_errors: { mobile: "That number is in use.", sender_bank: "Enter the sender bank.", proof: "Attach the file.", account_id: "Choose the account you paid to." },
     posted: { first_name: "Juan", sender_bank: "BD<O>", transferred_at: "2026-11-11T10:00" },
   });
@@ -157,7 +158,7 @@ test("a new buyer's contact post: contact, state, then one multipart place with 
   const [contact, , place] = f.calls;
   assert.deepEqual(contact.body, {
     host: "demo.negosyotest.com", visitor_ip: "203.0.113.9", token: "", full_name: "Juan Dela Cruz", mobile: "09171234567", email: "juan@example.com",
-    agreement_version_id: "7", agreement_accept: "1", enrollment_authorized: "1",
+    enrollment_authorized: "1",
   });
   const form = place.body as FormData;
   for (const [k, v] of Object.entries({ host: "demo.negosyotest.com", token: TOKEN, submit_key: POSTED.submit_key, account_id: "acct_1", sender_bank: "BDO", reference_number: "123",
@@ -186,7 +187,7 @@ test("a refused contact stays on the contact step with its field messages and th
   const page = await body(r!);
   assert.equal(r?.status, 200);
   assert.ok(page.includes("This email is already registered.") && page.includes('value="Juan"') && page.includes('value="9171234567"'));
-  assert.ok(page.includes('value="1"') && page.includes("data-held"), "the buyer's agreement tick survives a refused post");
+  assert.ok(page.includes('name="enrollment_authorized" value="1" checked'), "the buyer's enrollment tick survives a refused post");
   assert.equal(r?.headers.get("set-cookie"), null);
   const limited = fake({ "checkout/contact": [err(429, "rate_limited", "Too many attempts. Please try again later.")] });
   assert.equal((await checkoutPost(flowOf(limited), POSTED, PROOF()))?.status, 429);

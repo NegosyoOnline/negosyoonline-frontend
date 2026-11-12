@@ -7,7 +7,7 @@
 import { randomBytes } from "node:crypto";
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
-import { memberMe } from "./django.ts";
+import { fetchPack, memberMe } from "./django.ts";
 import type { Member } from "./django.ts";
 import { html, htmlResponse } from "./html.ts";
 import { redirect, type Call } from "./member.ts";
@@ -20,7 +20,7 @@ import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
 import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
 import { memberDocument } from "../views/sante/member.ts";
-import { NO_ERRORS, homePanels, type PanelErrors } from "../views/sante/pack-member.ts";
+import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
 
 export type Dash = { site: Site; call: Call; calls: Calls; now?: Date };
@@ -28,6 +28,7 @@ export type Dash = { site: Site; call: Call; calls: Calls; now?: Date };
 const TRY_AGAIN = "Please try again shortly.";
 const NO_MOBILE: MobileCheck = { pending: false, mobile: "", locked: false, code_sent_to: "", resend_in: 0, attempts_left: 5 };
 export const HOME_SCRIPTS = ["js/pack-lock.js"];
+const TERMS_SCRIPT = "js/pack-terms-popup.js";
 
 export const RESUBMIT_FIELDS = [
   "account_id", "sender_bank", "reference_number", "sender_name", "sender_account_number", "amount_sent", "transferred_at",
@@ -62,13 +63,17 @@ type Over = { pack_errors?: PanelErrors; reg_errors?: PanelErrors; posted?: Reco
 
 type Figures = Extract<Awaited<ReturnType<typeof memberHome>>, { state: "ok" }> | null;
 
-function render(d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200, figures: Figures = null): Response {
+function render(
+  d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200,
+  figures: Figures = null, terms: TermsVersion | null = null,
+): Response {
   const posted = { ...(over.posted ?? {}), submit_key: randomBytes(12).toString("base64url") };
-  const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted });
+  const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted, terms });
   const locked = !!pack?.lock;
+  const scripts = [...(locked ? HOME_SCRIPTS : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
   const tiles = figures ? heroTiles(figures.summary) : undefined;
   const after = figures && !locked ? html`${orderMonitor(figures.monitor)}${viewAllLink()}` : undefined;
-  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, locked ? HOME_SCRIPTS : [], tiles, after), status);
+  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, scripts, tiles, after), status);
 }
 
 /** The Home: the member's payment card, and the registration card with its mobile check while the form is open. */
@@ -80,13 +85,16 @@ export async function homePage(d: Dash, over: Over = {}, status = 200): Promise<
   if (p.state === "unavailable") return neutralNotFound();
   if (p.state !== "ok") return tryAgain();
   let mobile = NO_MOBILE;
+  let terms: TermsVersion | null = null;
   if (p.registration?.details_form) {
     const r = await memberRegistration(args(d), d.calls);
     if (r.state === "ok") mobile = r.mobile;
+    // The terms tick shows only while the order has no Membership Terms acceptance; the popup shows the active version.
+    if (p.registration.terms_required) terms = { version: (await fetchPack(d.call.host, d.calls.env, d.calls.fetchImpl, d.calls.log))?.agreement?.id ?? null };
   }
   // The tiles and Order Monitoring are the backend's member/home figures; without them the Home still shows its cards.
   const h = await memberHome(args(d), d.calls);
-  return render(d, s.member, p.pack, p.registration, mobile, over, status, h.state === "ok" ? h : null);
+  return render(d, s.member, p.pack, p.registration, mobile, over, status, h.state === "ok" ? h : null, terms);
 }
 
 /** My Orders: every order as a card, newest first. A rejected order locks the dashboard to Home, so it goes there. */
@@ -158,14 +166,22 @@ export async function registrationPost(d: Dash, kind: Kind, text: Record<string,
   const r =
     kind === "mobile_send" ? await registrationMobileSend({ ...a, mobile: (text.mobile ?? "").trim() || undefined }, d.calls)
     : kind === "mobile_verify" ? await registrationMobileVerify({ ...a, code: (text.code ?? "").trim() }, d.calls)
-    : await registrationDetails({ ...a, date_of_birth: (text.date_of_birth ?? "").trim(), desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", ...addressOf(text) }, d.calls);
+    : await registrationDetails({ ...a, date_of_birth: (text.date_of_birth ?? "").trim(), desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", ...termsOf(text), ...addressOf(text) }, d.calls);
   if (r.state === "ok") return redirect(HOME_PATH);
   if (r.state === "unavailable") return neutralNotFound();
   if (r.state === "failed") return tryAgain();
   if (r.status === 401) return signedOut(d);
   const posted = { ...text };
   delete posted.code; // a wrong code is never put back
+  if (r.code === "agreement_changed") delete posted.terms; // the terms moved on: the member agrees to the new version, not the one they ticked
   return homePage(d, { reg_errors: errorsOf(r), posted }, statusOf(r));
+}
+
+/** The terms tick and the version it was shown against, as the onboarding details step posts them. The form carries them
+    only while the registration read says terms_required, so a form without them posts neither. */
+export function termsOf(text: Record<string, string>): { terms?: boolean; agreement_version_id?: string } {
+  if (!("agreement_version_id" in text)) return {};
+  return { terms: !!text.terms, agreement_version_id: /^[0-9]{1,9}$/.test(text.agreement_version_id ?? "") ? text.agreement_version_id : "" };
 }
 
 const ADDRESS_FIELDS = ["line", "barangay", "city", "province", "zip"] as const;

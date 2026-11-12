@@ -401,6 +401,16 @@
       renderGroups();
     });
   });
+  /* The same drawn X as the pop-ups' close button, not a typed letter. */
+  function cross() {
+    var mark = document.querySelector ? document.querySelector("svg") : null, ns = mark ? mark.namespaceURI : null;
+    var svg = document.createElementNS(ns, "svg"), path = document.createElementNS(ns, "path");
+    [["viewBox", "0 0 24 24"], ["fill", "none"], ["stroke", "currentColor"], ["stroke-width", "2"], ["stroke-linecap", "round"],
+      ["stroke-linejoin", "round"], ["aria-hidden", "true"], ["focusable", "false"]].forEach(function (a) { svg.setAttribute(a[0], a[1]); });
+    path.setAttribute("d", "M6 6l12 12M18 6L6 18");
+    svg.appendChild(path);
+    return svg;
+  }
   function renameRow(li, g) {
     li.textContent = "";
     var form = el("form", "find"), input = el("input", "input"), save = el("button", "no-btn no-btn-primary", "Save"), x = el("button", "icon-btn modal-x");
@@ -410,7 +420,7 @@
     save.setAttribute("type", "submit");
     x.setAttribute("type", "button");
     x.setAttribute("aria-label", "Close");
-    x.appendChild(el("span", "", "×"));
+    x.appendChild(cross());
     function close() { renderGroups(); }
     x.addEventListener("click", close);
     input.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });

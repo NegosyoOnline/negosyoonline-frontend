@@ -21,6 +21,9 @@
   var SVG = mark ? mark.namespaceURI : null;
   var nav = document.getElementById("side-nav");
   if (!nav) return;
+  /* Under 900 px the side menu is not shown: the top bar's avatar opens a sheet (shell.js) with the same
+     entries. It is kept from the same list, entry for entry; a page without it draws the side menu alone. */
+  var sheet = document.getElementById("sheet-nav");
 
   function icon(d) {
     var svg = document.createElementNS(SVG, "svg"), path = document.createElementNS(SVG, "path");
@@ -32,19 +35,29 @@
     return svg;
   }
 
-  /* before: an entry already drawn that this one goes in front of (null: at the end). */
-  function entry(item, current, before) {
+  function link(item, current) {
     var a = document.createElement("a"), label = document.createElement("span");
     a.setAttribute("href", item.href);
     if (current) a.setAttribute("aria-current", "page");
     a.appendChild(icon(item.icon));
     label.textContent = item.label;
     a.appendChild(label);
+    return a;
+  }
+  /* before: an entry already drawn that this one goes in front of (null: at the end). The sheet's copy of
+     an entry is its twin, and goes in front of the twin of "before". */
+  function entry(item, current, before) {
+    var a = link(item, current);
     nav.insertBefore(a, before || null);
+    if (sheet) {
+      a.twin = link(item, current);
+      sheet.insertBefore(a.twin, before ? before.twin : null);
+    }
     return a;
   }
 
   nav.textContent = "";
+  if (sheet) sheet.textContent = "";
   MENU.forEach(function (item) { entry(item, location.pathname === item.href); });
   nav.hidden = false;
 
@@ -53,14 +66,14 @@
   var H = window.NOHq;
   if (!H || typeof H.call !== "function") return;
 
-  var pill = null, dots = [], contactsLink = null;
+  var pills = [], dots = [], contactsLink = null;
   function unreadWords(n) { return n > 0 ? "Inbox, " + n + " unread" : "Inbox, no unread texts"; }
 
   /* The unread number on the menu entry and the dot on the bell. The Inbox page calls this after it has
      read the status again. */
   function setUnread(n) {
     n = typeof n === "number" && n > 0 ? Math.floor(n) : 0;
-    if (pill) { pill.textContent = String(n); pill.hidden = n === 0; }
+    pills.forEach(function (pill) { pill.textContent = String(n); pill.hidden = n === 0; });
     dots.forEach(function (d) { d.hidden = n === 0; });
     ["bell-btn", "bell-btn-2"].forEach(function (id) {
       var b = document.getElementById(id);
@@ -82,9 +95,13 @@
   H.call("POST", "inbox/status/", { platform: "sms" }).then(function (res) {
     if (!res || res.status !== 200) return;
     var a = entry(INBOX, location.pathname.indexOf("/inbox/") === 0, contactsLink);
-    pill = document.createElement("span");
-    pill.setAttribute("class", "count");
-    a.appendChild(pill);
+    [a, a.twin].forEach(function (x) {
+      if (!x) return;
+      var pill = document.createElement("span");
+      pill.setAttribute("class", "count");
+      x.appendChild(pill);
+      pills.push(pill);
+    });
     ["search-btn", "search-btn-2"].forEach(function (id) {
       wake(id, "Find a conversation by full number", "/inbox/sms/#find");
     });

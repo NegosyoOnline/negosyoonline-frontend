@@ -19,6 +19,8 @@
     put("menu-ini", me.initials);
     put("menu-name", me.name);
     put("menu-email", String(email || ""));
+    put("sheet-name", me.name);
+    put("sheet-email", String(email || ""));
     if (plain) plain.hidden = true;
     $("acct-row").hidden = false;
     $("acct-btn").hidden = false;
@@ -47,6 +49,30 @@
   }
   if (row && menu) row.addEventListener("click", function () { if (menu.hidden) open(); else close(false); });
 
+  /* Under 900 px the side panel, with the chip above, is not shown: the avatar in the top bar opens a sheet
+     with the same menu entries (menu.js), the name and Sign out. Same behaviour as the pop-up: Escape closes
+     it and returns focus to the avatar, a click outside closes it, no listener stays once it is closed. */
+  var avatar = $("acct-btn"), sheet = $("nav-sheet");
+  function onSheetKey(e) { if (e.key === "Escape") closeSheet(true); }
+  function onSheetDoc(e) { if (!inside(sheet, e.target) && !inside(avatar, e.target)) closeSheet(false); }
+  function closeSheet(refocus) {
+    if (sheet.hidden) return;
+    sheet.hidden = true;
+    avatar.setAttribute("aria-expanded", "false");
+    document.removeEventListener("keydown", onSheetKey);
+    document.removeEventListener("click", onSheetDoc);
+    if (refocus) avatar.focus();
+  }
+  function openSheet() {
+    var nav = $("sheet-nav"), first = nav && nav.children && nav.children[0] ? nav.children[0] : $("sheet-out");
+    sheet.hidden = false;
+    avatar.setAttribute("aria-expanded", "true");
+    document.addEventListener("keydown", onSheetKey);
+    document.addEventListener("click", onSheetDoc);
+    if (first) first.focus();
+  }
+  if (avatar && sheet) avatar.addEventListener("click", function () { if (sheet.hidden) openSheet(); else closeSheet(false); });
+
   /* The pop-up's theme row names the theme it switches to. theme.js owns the choice and its storage. */
   if (theme) {
     theme.hidden = !T;
@@ -65,7 +91,7 @@
 
   /* sign-out is in the pop-up; sign-out-0 stands at the foot of the side panel until the page says who is
      signed in; sign-out-2 and sign-out-3 are a page's own, for phone width. */
-  ["sign-out", "sign-out-0", "sign-out-2", "sign-out-3"].forEach(function (id) {
+  ["sign-out", "sign-out-0", "sign-out-2", "sign-out-3", "sheet-out"].forEach(function (id) {
     var b = $(id);
     if (!b) return;
     b.addEventListener("click", function () {

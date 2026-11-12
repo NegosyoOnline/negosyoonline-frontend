@@ -53,3 +53,18 @@ test("contact page has no message form and no script for it", () => {
   assert.match(html, /\+63 917 309 8619/);
   assert.equal(fs.existsSync(new URL("../public/assets/js/contact.js", import.meta.url)), false);
 });
+
+test("G1e: no COD, Xendit, J&T, Track Order, bulk import, staff roles or discounts claims on any public page or the FAQ", () => {
+  const files = fs.readdirSync(new URL("../public/", import.meta.url)).filter((f) => f.endsWith(".html"));
+  const all = { ...pages };
+  for (const f of files) all[f] = read(f);
+  for (const [name, text] of Object.entries(all)) {
+    for (const re of [/cash on delivery/i, /Xendit/i, /J&(amp;)?T/, /Track Order/i, /in bulk/i, /their own roles/i, /discounts/i]) {
+      assert.doesNotMatch(text, re, `${name} still matches ${re}`);
+    }
+  }
+  const js = pages["assets/js/site.js"];
+  assert.match(js, /Customers pay by bank or e-wallet transfer to your own account/);
+  assert.match(js, /customers can browse and pay comfortably/);
+  assert.match(pages["index.html"], /pay by bank and e-wallet transfer with proof of payment/);
+});

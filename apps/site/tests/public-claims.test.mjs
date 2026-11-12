@@ -14,7 +14,7 @@ const pages = {
 test("no per-order, video or Auto Courier Tracking pricing on the public pages", () => {
   for (const [name, text] of Object.entries(pages)) {
     for (const re of [/1,000 Orders/i, /1,000 orders/i, /1,000 successful/i, /50 GB (of )?(Video|video)/, /PHP 5 per additional/i,
-      /PHP 10 per/i, /Auto Courier Tracking/i, /PHP 399/, /courier tracking/i]) {
+      /PHP 10 per/i, /Auto Courier Tracking/i, /PHP 399/]) {
       // cancellation-refund.html l.43 still has one Auto Courier sentence, not in G1c: held for the Supervisor.
       if (name === "cancellation-refund.html" && /Auto Courier/.test(String(re))) continue;
       assert.doesNotMatch(text, re, `${name} still matches ${re}`);

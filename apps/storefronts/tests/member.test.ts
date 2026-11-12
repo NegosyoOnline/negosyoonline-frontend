@@ -181,6 +181,34 @@ test("POST request: +63 number goes to Django with a new binding; the code step 
   });
 });
 
+test("POST request with a typed email: the page says where the code went, masked from what was typed; a mobile keeps the neutral message", async () => {
+  await withDjango({ "signin/request": json(200, answer) }, async () => {
+    const r = await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "ben.d@example.test" }));
+    const page = await r.text();
+    assert.match(page, /We emailed a code to b\*\*\*@example\.test/);
+    assert.doesNotMatch(page, /ben\.d@/);
+    assert.doesNotMatch(page, /If this matches a member/);
+  });
+  await withDjango({ "signin/request": json(200, answer) }, async () => {
+    const page = await (await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "917 123 4567" }))).text();
+    assert.match(page, /If this matches a member of this store/);
+    assert.doesNotMatch(page, /We emailed a code/);
+  });
+  await withDjango({ "signin/request": json(200, { ...answer, offer_email: true }) }, async () => {
+    const page = await (await signInPost(post("/dashboard/sign-in/", { action: "request", contact: "ben.d@example.test" }))).text();
+    assert.doesNotMatch(page, /We emailed a code/);
+    assert.match(page, /Email me a code/);
+  });
+});
+
+test("maskEmail hides all but the first letter, and gives nothing for a non-address", async () => {
+  const { maskEmail } = await import("../src/lib/member.ts");
+  assert.equal(maskEmail(" Ben.D@Example.test "), "B***@Example.test");
+  assert.equal(maskEmail("917 123 4567"), "");
+  assert.equal(maskEmail("@x.com"), "");
+  assert.equal(maskEmail("a@"), "");
+});
+
 test("POST request: a number Django refuses shows its message under the field, and keeps the number step", async () => {
   const refused = json(400, { error: { code: "invalid_request", message: "x", fields: { contact: ["Enter a valid Philippine mobile number."] } } });
   await withDjango({ "signin/request": refused }, async () => {

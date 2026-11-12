@@ -13,7 +13,7 @@ import {
 } from "../../../lib/django.ts";
 import { postedForm } from "../../../lib/form.ts";
 import { htmlResponse } from "../../../lib/html.ts";
-import { callFor, contactOf, forbidden, postIsSameOrigin, redirect } from "../../../lib/member.ts";
+import { callFor, contactOf, forbidden, maskEmail, postIsSameOrigin, redirect } from "../../../lib/member.ts";
 import { siteFor } from "../../../lib/site.ts";
 import { neutralNotFound } from "../../../views/neutral.ts";
 import {
@@ -110,9 +110,13 @@ export async function POST(request: Request): Promise<Response> {
     const answer: SignInAnswer = result;
     /* The code just went out by its channel, so that channel's button counts down; the other is open. */
     const byEmail = action === "email";
+    /* A typed email whose code went by email (Coach Ed, 2026-11-12): the page says where, from what the visitor typed. The server
+       sends no address and answers alike for unknown contacts, so a typed mobile keeps the neutral message. */
+    const typed = action === "request" ? maskEmail(posted.get("contact") ?? "") : "";
+    const emailed = !answer.offer_email && typed !== "";
     response = page(request, site, signInModel({
-      step: "code", next: key, message: answer.message, offer_email: answer.offer_email,
-      sms_in: byEmail ? 0 : COUNTDOWN, email_in: byEmail ? COUNTDOWN : 0,
+      step: "code", next: key, message: emailed ? `We emailed a code to ${typed}` : answer.message, offer_email: answer.offer_email,
+      sms_in: byEmail || emailed ? 0 : COUNTDOWN, email_in: byEmail || emailed ? COUNTDOWN : 0,
     }));
   } else if (result.state === "refused") {
     const { model, status } = refused(result, { step, next: key });

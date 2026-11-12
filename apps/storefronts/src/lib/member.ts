@@ -63,3 +63,11 @@ export async function isSignedIn(request: Request, calls: Parameters<typeof memb
     return false;
   }
 }
+
+/** "ben.d@example.com" -> "b***@example.com": the typed address with all but its first letter hidden. Empty for anything that is not an address. */
+export function maskEmail(value: string): string {
+  const at = value.trim().lastIndexOf("@");
+  if (at < 1 || at === value.trim().length - 1) return "";
+  const v = value.trim();
+  return `${[...v.slice(0, at)][0]}***${v.slice(at)}`;
+}

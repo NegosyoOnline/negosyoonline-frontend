@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Usage: scripts/wait_vercel_deploy.sh <before-main-sha>
-# Waits until origin/main moves past <before-main-sha>, then until the three Vercel staging
+# Waits until origin/main moves past <before-main-sha>, then until the four Vercel staging
 # projects report a commit status for the new head. Reads GitHub only. Changes nothing.
-# Exit 0: all three Vercel statuses are success. Exit 2: any is failure/error.
+# Exit 0: all four Vercel statuses are success. Exit 2: any is failure/error.
 # Exit 3: not finished at the cap (~20 min). Prints "<STATE> <head-sha-12> <summary>".
 set -uo pipefail
 
@@ -19,7 +19,7 @@ for i in $(seq 1 "$attempts"); do
   if [ -n "$head" ] && [ "$head" != "$before" ]; then
     result="$(gh api "repos/$repo/commits/$head/status" 2>/dev/null | python3 -c '
 import json, sys
-want = ["negosyoonline-site-staging", "negosyoonline-dash-staging", "negosyoonline-storefronts"]
+want = ["negosyoonline-site-staging", "negosyoonline-dash-staging", "negosyoonline-storefronts", "negosyoonline-hq-staging"]
 try:
     d = json.load(sys.stdin)
 except Exception:

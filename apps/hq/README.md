@@ -38,9 +38,9 @@ Shared: `assets/js/hq.js` (the client), `assets/js/theme.js`, `assets/css/hq.css
 
 | Variable | Default (staging) |
 | --- | --- |
-| `HQ_STAFF_API_BASE` | `https://hq-staging.negosyonline.com/staff/v1` |
+| `HQ_STAFF_API_BASE` | `https://hq-api-staging.negosyonline.com/staff/v1` |
 
-The CSP `connect-src` follows it. The backend must name this app's address in `HQ_STAFF_ORIGIN`; no preview address is ever allowed there. Changing the variable changes where staff codes are sent, so it needs Coach Ed's approval.
+A production build (`VERCEL_ENV=production`) fails when `HQ_STAFF_API_BASE` is unset; only preview and local builds use the default. The CSP `connect-src` follows it. The backend must name this app's address in `HQ_STAFF_ORIGIN`; no preview address is ever allowed there. Changing the variable changes where staff codes are sent, so it needs Coach Ed's approval.
 
 ## Local preview
 

@@ -15,6 +15,8 @@ import { termsDialog, termsField } from "./pack-terms.ts";
 
 export const RESUBMIT_PATH = "/dashboard/pack/resubmit/";
 export const REG_DETAILS_PATH = "/dashboard/registration/details/";
+/** A refused post re-renders the page; the fragment lands it on the registration card, not the top (a phone shows the error). */
+export const REG_ANCHOR = "#registration";
 export const REG_MOBILE_SEND_PATH = "/dashboard/registration/mobile/send/";
 export const REG_MOBILE_VERIFY_PATH = "/dashboard/registration/mobile/verify/";
 
@@ -99,7 +101,7 @@ export function mobileConfirm(idp: string, mobile: MobileCheck, e: PanelErrors):
   const fe = e.field_errors;
   return html`${e.error_message ? html`<div class="note bad" role="alert">${e.error_message}</div>` : ""}
 <p class="hint" style="margin:6px 0 12px"><b>Confirm your mobile number</b>: we'll text you a code, then you can add your delivery address.</p>
-<form method="post" action="${REG_MOBILE_SEND_PATH}" novalidate>
+<form method="post" action="${REG_MOBILE_SEND_PATH}${REG_ANCHOR}" novalidate>
 ${mobile.locked ? html`
 <p class="hint">We'll text the code to ${mobile.mobile}. If that is not your number, contact the store and include your order number.</p>` : html`
 <div class="fld"><label for="${idp}-mobile">Mobile number</label>
@@ -108,7 +110,7 @@ ${fe.mobile ? html`<p class="err">${fe.mobile}</p>` : html`<p class="hint">Fix i
 <button class="btn inline" type="submit">${mobile.code_sent_to ? "Send a new code" : "Send code"}</button>
 </form>
 ${mobile.code_sent_to ? html`
-<form method="post" action="${REG_MOBILE_VERIFY_PATH}" novalidate style="margin-top:16px">
+<form method="post" action="${REG_MOBILE_VERIFY_PATH}${REG_ANCHOR}" novalidate style="margin-top:16px">
 <div class="fld"><label for="${idp}-code">6-digit code sent to ${mobile.code_sent_to}</label>
 <input id="${idp}-code" class="inp${bad(fe, "code")}" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="max-width:260px"></div>
 <button class="btn inline" type="submit">Confirm number</button>
@@ -124,7 +126,7 @@ export function detailsForm(idp: string, reg: RegistrationCard, mobile: MobileCh
   const dob = fe.date_of_birth ?? fe.dob;
   return html`
 ${reg.details_erased ? html`<div class="note" role="status">Your details were removed after 90 days to protect your privacy. Please enter them again to finish your registration.</div>` : ""}
-<form method="post" action="${REG_DETAILS_PATH}" novalidate>
+<form method="post" action="${REG_DETAILS_PATH}${REG_ANCHOR}" novalidate>
 ${e.error_message && !Object.keys(fe).length ? html`<div class="note bad" role="alert">${e.error_message}</div>` : ""}
 <div class="fld"><label for="${idp}-dob">Date of birth</label>
 <input id="${idp}-dob" class="inp${dob ? " bad" : ""}" type="date" name="date_of_birth" style="max-width:260px" value="${posted.date_of_birth ?? ""}"${dob ? html` aria-invalid="true" aria-describedby="${idp}-dob-msg"` : ""}>
@@ -157,7 +159,7 @@ ${reg.terms_required && terms ? termsDialog(terms.version) : ""}`;
 /* ---- the registration card (C8) ----------------------------------------------------------------------------------- */
 
 export function registrationPanel(reg: RegistrationCard, mobile: MobileCheck, e: PanelErrors, inDialog: boolean, posted: Record<string, string> = {}, terms: TermsVersion | null = null): Markup {
-  return html`<section class="pk-card" aria-labelledby="pk-reg-title">
+  return html`<section class="pk-card" id="registration" aria-labelledby="pk-reg-title">
 <div class="pk-top"><h2 id="pk-reg-title">Santé membership registration</h2><span class="pk-chip ${reg.tone}">${reg.label}</span></div>
 ${reg.status === "registered" && reg.sante_member_id ? html`
 <div class="row"><div>Santé member ID</div><b>${reg.sante_member_id}</b></div>` : html`

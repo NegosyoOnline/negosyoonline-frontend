@@ -75,11 +75,12 @@ test("the registration card lists the details form, with the mobile check when i
   });
   const form = await (await homePage(dashOf(f))).text();
   assert.match(form, /Santé membership registration/);
-  assert.match(form, /action="\/dashboard\/registration\/details\/"/);
+  assert.match(form, /action="\/dashboard\/registration\/details\/#registration"/);
+  assert.match(form, /<section class="pk-card" id="registration"/); // a refused post re-renders at the card, not the page top
   assert.match(form, /name="date_of_birth"/);
   const mobile = await (await homePage(dashOf(f))).text();
   assert.match(mobile, /Confirm your mobile number/);
-  assert.match(mobile, /action="\/dashboard\/registration\/mobile\/send\/"/);
+  assert.match(mobile, /action="\/dashboard\/registration\/mobile\/send\/#registration"/);
   assert.doesNotMatch(mobile, /name="desired_username"/);
 });
 
@@ -187,6 +188,7 @@ test("a wrong code is shown on the Home and is not put back", async () => {
   assert.match(body, /Confirm your mobile number/);
   assert.match(body, /That code is not right\./);
   assert.doesNotMatch(body, /value="000000"/);
+  assert.match(body, /action="\/dashboard\/registration\/mobile\/verify\/#registration"/);
 });
 
 test("own proof goes through this host, no-store, as an image or PDF only", async () => {

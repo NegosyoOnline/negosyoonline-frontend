@@ -55,14 +55,17 @@ function boot({ rows = ROWS, listStatus = 200, detail = DETAIL, proofStatus = 20
     const p = url.replace("http://api.test/v1", ""), body = opts.body ? JSON.parse(opts.body) : null;
     calls.push({ method: opts.method || "GET", path: p, body, credentials: opts.credentials });
     const res = (status, b) => Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(b), blob: () => Promise.resolve({ blob: true }) });
-    const m = /^\/sites\/site_[0-9a-z]{20}\/pack\/orders\/(?:([a-z0-9_]+)\/(?:(approve|reject)\/|proofs\/([a-z0-9_]+)\/)?)?(?:\?filter=(\w+))?$/.exec(p);
+    const m = /^\/sites\/site_[0-9a-z]{20}\/pack\/orders\/(?:([a-z0-9_]+)\/(?:(approve|reject|shipment\/correct|shipment|delivery)\/|proofs\/([a-z0-9_]+)\/)?)?(?:\?filter=(\w+))?$/.exec(p);
     if (p === "/sites/") return res(200, { items: [{ id: A, template: "sante" }], next_cursor: null });
     if (!m) return res(404, { error: { code: "not_found", message: "Not found." } });
     if (!m[1]) return res(listStatus, listStatus === 200 ? { orders: state.rows } : { error: { code: "x", message: "Broken." } });
     if (m[3]) return proofStatus === 200 ? res(200, {}) : res(proofStatus, {});
     if (m[2]) {
       if (decideStatus !== 200) return res(decideStatus, decideBody || { error: { code: "stale", message: "Stale." } });
-      const o = state.rows.find((r) => r.id === m[1]); o.payment_status = m[2] === "approve" ? "verified" : "rejected"; o.state_version++;
+      const o = state.rows.find((r) => r.id === m[1]);
+      if (m[2] === "shipment") o.shipment_status = "shipped"; else if (m[2] === "delivery") o.shipment_status = "delivered";
+      else if (m[2] !== "shipment/correct") o.payment_status = m[2] === "approve" ? "verified" : "rejected";
+      o.state_version++;
       return res(200, { ...o, price_centavos: 148800 });
     }
     return detail[m[1]] ? res(200, detail[m[1]]) : res(404, { error: { code: "not_found", message: "Not found." } });
@@ -311,4 +314,142 @@ test("leaving Orders closes the dialog; the code builds with textContent only (n
   assert.equal(d.$("po-dlg-slot").all(() => true).length, 0);
   assert.ok(!/innerHTML|insertAdjacentHTML|document\.write|eval\(/.test(read("pack-orders.js")));
   assert.ok(!/gold|#c59a3b|197,\s*154,\s*59/i.test(fs.readFileSync(path.join(PUBLIC, "assets", "css", "pack-orders.css"), "utf8")), "no gold focus border");
+});
+
+/* ---- Shipment (ClickUp z8uq9mek5x, PK-SHIP) ---- */
+const SHIP_ROWS = [
+  row({ id: "ord_50", order_number: "SMP00050", buyer_name: "Ana Cruz", payment_status: "verified", shipping_enabled: true, shipment_status: "not_shipped", state_version: 6 }),
+  row({ id: "ord_51", order_number: "SMP00051", buyer_name: "Ben Lim", payment_status: "verified", shipping_enabled: true, shipment_status: "shipped", courier: "LBC", shipped_on: "2026-11-13", state_version: 7 }),
+  row({ id: "ord_52", order_number: "SMP00052", buyer_name: "Cora Tan", payment_status: "verified", shipping_enabled: true, shipment_status: "delivered", courier: "J&T Express", shipped_on: "2026-11-10", delivered_on: "2026-11-12", state_version: 8 }),
+];
+const shipment = (o) => ({ status: "shipped", courier: "lbc", courier_label: "LBC", courier_other_name: "", tracking_number: "LBC123456", shipped_on: "2026-11-13", recorded_at: "2026-11-13T02:00:00+00:00",
+  recorded_by: "store@example.test", delivered_on: null, delivery_confirmed_at: null, delivery_confirmed_by: "", ...o });
+const SHIP_DETAIL = {
+  ord_50: { ...SHIP_ROWS[0], price_centavos: 148800, currency: "PHP", delivery_address: {}, rejection_lock_active: false, submissions: [sub({})], events: [], shipment: null },
+  ord_51: { ...SHIP_ROWS[1], price_centavos: 148800, currency: "PHP", delivery_address: {}, rejection_lock_active: false, submissions: [sub({})], shipment: shipment({}),
+    events: [{ kind: "shipment_recorded", old: {}, new: { courier: "lbc", courier_other_name: "", tracking_number: "LBC123456", shipped_on: "2026-11-13" }, actor_label: "store@example.test", created_at: "2026-11-13T02:00:00+00:00" }] },
+  ord_52: { ...SHIP_ROWS[2], price_centavos: 148800, currency: "PHP", delivery_address: {}, rejection_lock_active: false, submissions: [sub({})],
+    shipment: shipment({ status: "delivered", courier: "jnt", courier_label: "J&T Express", shipped_on: "2026-11-10", delivered_on: "2026-11-12", delivery_confirmed_by: "store@example.test" }), events: [] },
+};
+const dlgOf = (d) => d.$("po-dlg-slot");
+const typed = (n, v) => { n.value = v; n.fire("input"); };
+
+test("shipping on: five tiles, the chips, the Add shipment button only on a ready order, the courier and date under a shipped chip", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["0Under review", "0Needs attention", "1Ready to ship", "1Shipped", "1Delivered"]);
+  const rows = d.cls(d.body, "mc-rowwrap");
+  assert.ok(d.press(rows[0], "Add shipment") && !d.press(rows[1], "Add shipment") && !d.press(rows[2], "Add shipment"));
+  assert.deepEqual(rows.map((r) => d.cls(r, "chip")[0].textContent), ["Ready to ship", "Shipped", "Delivered"]);
+  assert.deepEqual(rows.slice(1).map((r) => d.cls(r, "mc-sub")[0].textContent), ["LBC · Nov 13", "Delivered · Nov 12"]);
+  d.cls(d.body, "mc-stage")[2].fire("click");
+  assert.equal(d.cls(d.body, "mc-rowwrap").length, 1);
+});
+
+test("shipping off: the three tiles of today and no shipment button, even on a verified order", async () => {
+  const d = boot({ rows: SHIP_ROWS.map((r) => ({ ...r, shipping_enabled: false })), detail: SHIP_DETAIL });
+  await d.show();
+  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["0Under review", "0Needs attention", "3Verified"]);
+  assert.equal(d.buttons(d.body).filter((b) => b.textContent === "Add shipment").length, 0);
+});
+
+test("Add shipment: validation first, a confirm step that names the email, then one POST with the state_version", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[0], "Add shipment").fire("click");
+  assert.equal(dlgOf(d).all((n) => n.tagName === "H2")[0].textContent, "Add shipment for order SMP00050Santé Membership Package");
+  assert.deepEqual(dlgOf(d).all((n) => n.tagName === "OPTION").map((o) => o.textContent), ["Choose the courier", "LBC", "J&T Express", "Flash Express", "Ninja Van", "2GO", "Grab", "Lalamove", "Other"]);
+  d.press(dlgOf(d), "Continue").fire("click");
+  assert.deepEqual(dlgOf(d).all((n) => n.classList.contains("po-error")).map((n) => n.textContent), ["Choose the courier.", "Enter the tracking number."]);
+  const sel = d.$("po-courier"); sel.value = "other"; sel.fire("change");
+  typed(d.$("po-tracking"), "  HAND-1 ");
+  d.press(dlgOf(d), "Continue").fire("click");
+  assert.deepEqual(dlgOf(d).all((n) => n.classList.contains("po-error")).map((n) => n.textContent), ["Enter the courier name."]);
+  typed(d.$("po-courier-other"), "Rider Juan");
+  d.press(dlgOf(d), "Continue").fire("click");
+  assert.ok(dlgOf(d).textContent.includes("Rider Juan") && dlgOf(d).textContent.includes("HAND-1"));
+  assert.ok(dlgOf(d).textContent.includes("The buyer is emailed that order SMP00050 has shipped"));
+  assert.equal(d.calls.length, 2, "nothing is sent before the confirm step");
+  d.press(dlgOf(d), "Confirm shipment").fire("click");
+  await settle();
+  const post = d.calls[2];
+  assert.equal(post.method, "POST"); assert.equal(post.path, BASE + "ord_50/shipment/");
+  assert.deepEqual({ ...post.body, shipped_on: "date" }, { state_version: 6, courier: "other", tracking_number: "HAND-1", shipped_on: "date", courier_other_name: "Rider Juan" });
+  assert.deepEqual(d.toasts, [["Shipment added", "", "ok"]]);
+  assert.equal(dlgOf(d).all(() => true).length, 0);
+});
+
+test("Add shipment on an order that changed (409): the confirm step says so and the dialog stays; a server 422 returns to the form", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL, decideStatus: 409 });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[0], "Add shipment").fire("click");
+  const sel = d.$("po-courier"); sel.value = "lbc"; sel.fire("change"); typed(d.$("po-tracking"), "T1");
+  d.press(dlgOf(d), "Continue").fire("click");
+  d.press(dlgOf(d), "Confirm shipment").fire("click");
+  await settle();
+  assert.ok(dlgOf(d).textContent.includes("This order changed. Reload it and try again."));
+  const e = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL, decideStatus: 422, decideBody: { error: { code: "invalid_shipment", message: "Check the highlighted fields.", fields: { tracking_number: ["Enter the tracking number."] } } } });
+  await e.show();
+  e.press(e.cls(e.body, "mc-rowwrap")[0], "Add shipment").fire("click");
+  const s2 = e.$("po-courier"); s2.value = "lbc"; s2.fire("change"); typed(e.$("po-tracking"), "T1");
+  e.press(dlgOf(e), "Continue").fire("click");
+  e.press(dlgOf(e), "Confirm shipment").fire("click");
+  await settle();
+  assert.ok(dlgOf(e).textContent.includes("Enter the tracking number."), "back on the form with the server's message");
+  assert.ok(e.press(dlgOf(e), "Continue"));
+});
+
+test("Details of a shipped order: the Shipment card with Edit and Mark delivered, the event in History; a delivered order is read-only", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
+  const card = d.cls(d.body, "po-card").find((c) => c.all((n) => n.tagName === "H3")[0].textContent === "Shipment");
+  assert.ok(card.textContent.includes("LBC") && card.textContent.includes("LBC123456") && card.textContent.includes("13 Nov 2026"));
+  assert.ok(d.press(card, "Edit shipment") && d.press(card, "Mark delivered"));
+  assert.ok(d.body.textContent.includes("Shipment recorded"));
+  const e = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await e.show();
+  e.press(e.cls(e.body, "mc-rowwrap")[2], "Details ▾").fire("click"); await settle();
+  const c2 = e.cls(e.body, "po-card").find((c) => c.all((n) => n.tagName === "H3")[0].textContent === "Shipment");
+  assert.ok(c2.textContent.includes("12 Nov 2026") && !e.press(c2, "Edit shipment") && !e.press(c2, "Mark delivered"));
+});
+
+test("Edit shipment is prefilled and posts to the correct route; Mark delivered says it is final, then posts the date", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
+  d.press(d.body, "Edit shipment").fire("click");
+  assert.equal(d.$("po-tracking").value, "LBC123456");
+  typed(d.$("po-tracking"), "LBC999");
+  d.press(dlgOf(d), "Continue").fire("click");
+  assert.ok(dlgOf(d).textContent.includes("The buyer is not emailed about a correction."));
+  const n = d.calls.length;
+  d.press(dlgOf(d), "Save changes").fire("click"); await settle();
+  assert.equal(d.calls[n].path, BASE + "ord_51/shipment/correct/");
+  assert.equal(d.calls[n].body.tracking_number, "LBC999");
+  assert.deepEqual(d.toasts, [["Shipment updated", "", "ok"]]);
+
+  const e = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await e.show();
+  e.press(e.cls(e.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
+  e.press(e.body, "Mark delivered").fire("click");
+  typed(e.$("po-delivered"), "2026-11-01");
+  e.press(dlgOf(e), "Continue").fire("click");
+  assert.ok(dlgOf(e).textContent.includes("Enter a delivery date on or after the shipped date"));
+  typed(e.$("po-delivered"), "2026-11-13");
+  e.press(dlgOf(e), "Continue").fire("click");
+  assert.ok(dlgOf(e).textContent.includes("This is final."));
+  const m = e.calls.length;
+  e.press(dlgOf(e), "Confirm delivered").fire("click"); await settle();
+  assert.deepEqual(e.calls[m], { method: "POST", path: BASE + "ord_51/delivery/", body: { state_version: 7, delivered_on: "2026-11-13" }, credentials: "include" });
+  assert.deepEqual(e.toasts, [["Marked as delivered", "", "ok"]]);
+});
+
+test("a courier name from the API is shown as text, never as markup", async () => {
+  const evil = "<img src=x onerror=alert(1)>";
+  const rows = [{ ...SHIP_ROWS[1], courier: evil }];
+  const d = boot({ rows, detail: { ord_51: { ...SHIP_DETAIL.ord_51, shipment: shipment({ courier: "other", courier_label: evil, courier_other_name: evil }) } } });
+  await d.show();
+  assert.ok(d.cls(d.body, "mc-sub")[0].textContent.includes(evil));
+  assert.equal(d.body.all((n) => n.tagName === "IMG").length, 0);
 });

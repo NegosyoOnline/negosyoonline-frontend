@@ -37,25 +37,23 @@ test("Settings is in the sidebar and not in the profile menu", () => {
   assert.deepEqual(links(PROFILE).filter(isSettings), [], "no Settings or Business Settings entry in the profile menu");
   assert.ok(!/\/settings\//.test(PROFILE), "no settings address in the profile menu");
   assert.ok(!/business settings/i.test(PROFILE));
-  assert.deepEqual(links(PROFILE).map((l) => l[1]), ["My Subscription", "Account Settings", "Help Center"]);
+  assert.deepEqual(links(PROFILE).map((l) => l[1]), ["Account Settings"]);
   /* The phone's More sheet is the sidebar's stand-in: its Settings group opens Business Settings by that name. */
   assert.deepEqual(links(MORE).filter(([href]) => href === "/settings/business/"), [["/settings/business/", "Business Settings"]]);
 });
 
 /* Santé setup (ClickUp z8uq9m92ez): Coach Ed's ruling of 2026-11-11 moved it into Business Settings, so it has no
    Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
-test("Settings has eight tabs and no Santé setup entry anywhere in the menus or the quick links", () => {
+test("Settings has three tabs (Business Settings, Billing, Payments) and no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/plans/", "Plans"], ["/settings/billing/", "Billing"],
-    ["/settings/payments/", "Payments"], ["/settings/shipping/", "Shipping"], ["/settings/domain/", "Domain"],
-    ["/settings/automation/", "Automation Tools"], ["/settings/notification/", "Notification"]]);
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"]]);
   assert.ok(!/\shidden(\s|>)/.test(SET_TABS.replace(/^<nav[^>]*>/, "")), "no tab is hidden");
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
-  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Plans", "Billing", "Payments", "Domain", "Automation", "Notification"]);
+  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments"]);
   assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "")), "only the script that draws the Sponsor ID row names Santé");
   assert.ok(!HTML.includes("data-sante"));
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
-  assert.ok(quick.includes('["Business Settings", "Settings", "/settings/business/"], ["Plans", "Settings", "/settings/plans/"]'), "Plans follows Business Settings");
+  assert.ok(quick.includes('["Business Settings", "Settings", "/settings/business/"], ["Billing", "Settings", "/settings/billing/"]'), "Billing follows Business Settings");
   assert.ok(!/sante|santé/i.test(APP));
 });
 
@@ -149,5 +147,45 @@ test("the first route waits for DOMContentLoaded while the document is loading, 
     assert.equal(late.docOn.DOMContentLoaded, undefined, state + ": nothing waits");
     assert.equal(late.docOn.click.length, 1);
     assert.equal(late.winOn.popstate.length, 1);
+  }
+});
+
+/* Launch hide set (ClickUp z8uq9mek5z; Manager 2026-11-13 under Coach Ed's ruling, log 1100430000509244; seed Ruling 8: Santé
+   Site Type only). The pages below are out of ROUTES and out of every menu, tab row, sheet and quick-link list. */
+const HIDDEN = ["/orders/new/", "/products/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/help/", "/referral/",
+  "/settings/plans/", "/settings/shipping/", "/settings/domain/", "/settings/automation/", "/settings/notification/"];
+const KEPT = ["/", "/orders/", "/account/", "/settings/business/", "/settings/billing/", "/settings/payments/"];
+const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
+const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
+
+test("the hidden pages are not in ROUTES and the kept pages are", () => {
+  for (const h of HIDDEN) assert.ok(!ROUTES_SRC.includes('"' + h + '"'), h + " is not in ROUTES");
+  for (const k of KEPT) assert.ok(ROUTES_SRC.includes('"' + k + '"'), k + " is in ROUTES");
+});
+
+test("no link in the page and no quick link reaches a hidden page", () => {
+  const hrefs = [...HTML.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]);
+  for (const h of HIDDEN) assert.ok(!hrefs.includes(h), h + " has no link in index.html");
+  const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
+  for (const h of HIDDEN) assert.ok(!quick.includes('"' + h + '"'), h + " is not a quick link");
+  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Settings"]);
+  assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders"], "the bottom tabs have no Products tab and no Add order button");
+  assert.ok(!/data-route="(products|orders-new|earnings|people|usage|referral|storefront|media-library)"/.test(HTML));
+});
+
+test("a hidden address opens Overview and resets the address bar to /", async () => {
+  const vm = await import("node:vm");
+  for (const path of HIDDEN) {
+    const nodes = {}, replaced = [];
+    const node = (id) => (nodes[id] = nodes[id] || { id, hidden: false, textContent: "", focus() {}, setAttribute() {}, removeAttribute() {}, appendChild() {}, addEventListener() {} });
+    const location = { pathname: path, search: "" };
+    const history = { replaceState(a, b, url) { replaced.push(url); }, pushState() {} };
+    const document = { readyState: "complete", title: "", getElementById: node, querySelectorAll: () => [], addEventListener() {}, createElement: () => node("x") };
+    const window = { addEventListener() {}, NODash: { el: () => node("x"), requireAccount: () => ({ then(fn) { window.start = fn; } }), cfg: {}, setWorkspace() {}, call: () => new Promise(() => {}) } };
+    vm.runInContext(DASHJS, vm.createContext({ window, document, location, history, console, Intl, Promise, setTimeout, clearTimeout }), { filename: "dashboard.js" });
+    window.start({ first_name: "Nena" });
+    assert.deepEqual(replaced, ["/"], path + " is reset to /");
+    assert.equal(document.title, "Dashboard | NegosyoOnline", path + " shows Overview");
+    assert.equal(nodes["view-overview"].hidden, false);
   }
 });

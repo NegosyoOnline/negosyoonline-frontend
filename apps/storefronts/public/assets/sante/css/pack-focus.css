@@ -10,3 +10,9 @@
 .e4 .sc-phone:focus-within { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
 .e4 .sc-phone .sc-phone-input:focus, .e4 .sc-phone .sc-phone-input:focus-visible { outline: none; box-shadow: none; }
 .e4 h1:focus, .e4 h1:focus-visible, .e4 h2:focus, .e4 h2:focus-visible, .e4 h3:focus, .e4 h3:focus-visible { outline: none; }
+
+/* Coach Ed 2026-11-12: the secondary OTP buttons on the code step ("Email me the code" / "Text me the code") sit centred in the
+   card, desktop and phone. One button is centred; two share the row; under 421px they stack full width. */
+.sc-card .sc-alts-row { display: flex; flex-wrap: wrap; justify-content: center; }
+.sc-card .sc-alts-row form { flex: 0 1 calc(50% - 5px); min-width: 0; }
+@media (max-width: 420px) { .sc-card .sc-alts-row form { flex: 1 1 100%; } }

@@ -416,3 +416,17 @@ test("the focus rule: light blue on inputs, never gold, no ring on headings, loa
   const page = signInDocument(chrome(SITE), signInModel()).value;
   assert.ok(page.indexOf("pack-focus.css") > page.indexOf("pack-dashboard.css"));
 });
+
+test("isSignedIn: true only for a live session; a missing cookie, a 401 and a failure read as signed out", async () => {
+  const { isSignedIn } = await import("../src/lib/member.ts");
+  const env = { apiBase: "http://api.test", secret: "s".repeat(40) } as never;
+  const req = (cookie?: string) => new Request("http://www.santetest.com/", { headers: cookie ? { cookie, host: "www.santetest.com" } : { host: "www.santetest.com" } });
+  const member = { id: "m1", full_name: "Ben", email: "", mobile: "", email_verified: true, mobile_verified: true };
+  const ok = (async () => new Response(JSON.stringify({ member }), { status: 200, headers: { "content-type": "application/json" } })) as never;
+  const denied = (async () => new Response(JSON.stringify({ detail: "no" }), { status: 401, headers: { "content-type": "application/json" } })) as never;
+  const boom = (async () => { throw new Error("down"); }) as never;
+  assert.equal(await isSignedIn(req(), { env, fetchImpl: ok }), false);
+  assert.equal(await isSignedIn(req("no_member=tokentokentokentoken"), { env, fetchImpl: ok }), true);
+  assert.equal(await isSignedIn(req("no_member=tokentokentokentoken"), { env, fetchImpl: denied }), false);
+  assert.equal(await isSignedIn(req("no_member=tokentokentokentoken"), { env, fetchImpl: boom }), false);
+});

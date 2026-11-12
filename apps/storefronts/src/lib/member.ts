@@ -6,6 +6,7 @@ import { requestHost } from "./site.ts";
 import { visitorIp } from "./visitor.ts";
 import { neutralDocument } from "../views/neutral.ts";
 import { htmlResponse } from "./html.ts";
+import { memberMe } from "./django.ts";
 
 export function redirect(location: string, status = 303): Response {
   return new Response(null, { status, headers: { Location: location, "Cache-Control": "no-store", "X-Robots-Tag": "noindex" } });
@@ -49,4 +50,16 @@ export function contactOf(raw: string): string {
   if (digits.startsWith("639")) digits = digits.slice(2);
   else if (digits.startsWith("0")) digits = digits.slice(1);
   return digits ? `+63${digits}` : "";
+}
+
+/** Whether this request carries a live member session: the server-side cookie check, no script. Any failure reads as signed out. */
+export async function isSignedIn(request: Request, calls: Parameters<typeof memberMe>[1] = { env: storefrontEnv() }): Promise<boolean> {
+  const call = callFor(request);
+  if (!call.member_token) return false;
+  try {
+    const me = await memberMe({ host: call.host, token: call.member_token }, { ...calls, log: calls.log ?? (() => {}) });
+    return me.state === "ok";
+  } catch {
+    return false;
+  }
 }

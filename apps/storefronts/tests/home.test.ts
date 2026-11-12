@@ -194,3 +194,13 @@ test("initials, the mobile display and the footer year follow the approved rules
   const newYear = homeDocument(homeModel(SITE, undefined, new Date("2026-12-31T17:00:00Z"))).value;
   assert.match(newYear, /&#169; 2027 Demo Store\./);
 });
+
+test("the header CTA reads Login to a visitor and Dashboard (to /dashboard/) to a signed-in member", () => {
+  const out = homeDocument(homeModel(SITE, undefined, NOW)).value;
+  assert.match(out, /<a href="\/dashboard\/sign-in\/" class="nav-cta">Login<\/a>/);
+  assert.doesNotMatch(out, />Dashboard<\/a>/);
+  const inn = homeDocument(homeModel(SITE, undefined, NOW, true)).value;
+  assert.match(inn, /<a href="\/dashboard\/" class="nav-cta">Dashboard<\/a>/);
+  assert.doesNotMatch(inn, /class="nav-cta">Login/);
+  assert.equal(inn.match(/class="nav-cta"/g)?.length, 1); // the one CTA serves desktop and the phone bar; the menu list has no second one
+});

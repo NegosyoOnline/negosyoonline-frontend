@@ -82,7 +82,7 @@ function boot({ rows = ROWS, listStatus = 200, detail = DETAIL, proofStatus = 20
   const $ = (id) => doc.getElementById(id), body = $("po-body");
   const cls = (n, c) => n.all((x) => x.classList.contains(c));
   const buttons = (n) => n.all((x) => x.tagName === "BUTTON");
-  const press = (n, label, i = 0) => buttons(n).filter((b) => b.textContent === label)[i];
+  const press = (n, label, i = 0) => buttons(n).filter((b) => b.textContent === label || b.getAttribute("aria-label") === label)[i];
   return { doc, calls, toasts, opened, state, $, body, cls, buttons, press, page, tabs,
     list: () => calls.map((c) => c.method + " " + c.path),
     async show() { window.NOPackOrders.show(); await settle(); },
@@ -105,7 +105,7 @@ test("the list: pipeline counts, the review queue, the table and the line under 
   await d.show();
   assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "?filter=all"]);
   assert.equal(d.calls[1].credentials, "include");
-  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["1Under review", "1Needs attention", "1Verified"]);
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["1Under reviewAction needed", "1Needs attentionProof rejected · waiting on buyer", "1VerifiedPayment approved"]);
   assert.equal(d.$("po-sub").textContent, "Track every order from approval to delivery · 3 under current filters");
   assert.equal(d.cls(d.body, "mc-queue-title")[0].textContent, "Payment review queue");
   const ticket = d.cls(d.body, "mc-ticket")[0];
@@ -118,10 +118,11 @@ test("the list: pipeline counts, the review queue, the table and the line under 
   const rows = d.cls(d.body, "mc-rowwrap");
   assert.equal(rows.length, 3);
   assert.deepEqual(d.cls(rows[0], "chip").map((c) => c.textContent), ["Under review"]);
-  assert.ok(d.cls(rows[0], "mc-pointer")[0].textContent.endsWith("In payment review queue"));
-  assert.deepEqual(d.buttons(rows[1]).map((b) => b.textContent), ["Approve", "Details ▾"], "rejected: Approve and Details, no Reject");
-  assert.deepEqual(d.buttons(rows[2]).map((b) => b.textContent), ["Details ▾"]);
-  assert.ok(d.cls(d.body, "mc-th")[0].textContent.startsWith("Order #CustomerPayment"));
+  const labels = (r) => d.buttons(r).map((b) => b.textContent || b.getAttribute("aria-label"));
+  assert.deepEqual(labels(rows[0]), ["Show details"], "under review: Approve and Reject live in the queue above, the row has Details only");
+  assert.deepEqual(labels(rows[1]), ["Approve", "Show details"], "rejected: Approve and Details, no Reject");
+  assert.deepEqual(labels(rows[2]), ["Show details"]);
+  assert.deepEqual(d.cls(d.body, "ol-th")[0].all((n) => n.tagName === "SPAN").map((n) => n.textContent), ["Order #", "Customer", "Payment", "Total", "Status", "Action"], "no Address column");
 });
 
 test("a row that carries price_centavos shows the total with the wording of the mockup", async () => {
@@ -134,13 +135,13 @@ test("a row that carries price_centavos shows the total with the wording of the 
 test("a status tile filters the table, the clear line brings every order back, and the queue stays", async () => {
   const d = boot();
   await d.show();
-  d.cls(d.body, "mc-stage")[1].fire("click");
+  d.cls(d.body, "ol-tile")[1].fire("click");
   assert.equal(d.cls(d.body, "mc-rowwrap").length, 1);
   assert.equal(d.cls(d.cls(d.body, "mc-rowwrap")[0], "mc-order")[0].textContent, "SMP00038");
   assert.equal(d.cls(d.body, "mc-ticket").length, 1, "the review queue is not filtered away");
-  assert.equal(d.cls(d.body, "mc-stage")[1].getAttribute("aria-pressed"), "true");
+  assert.equal(d.cls(d.body, "ol-tile")[1].getAttribute("aria-pressed"), "true");
   assert.equal(d.$("po-sub").textContent, "Track every order from approval to delivery · 1 under current filters");
-  const clear = d.cls(d.body, "mc-clear")[0];
+  const clear = d.cls(d.body, "ol-clear")[0];
   assert.equal(clear.textContent, "× Clear status filter — showing all 3 orders");
   clear.querySelector("button").fire("click");
   assert.equal(d.cls(d.body, "mc-rowwrap").length, 3);
@@ -168,7 +169,7 @@ test("states: empty (also a site with no package: 404), error with Try again, an
   assert.equal(d.$("po-sub").hidden, true);
   assert.deepEqual(d.tabs.all((n) => n.getAttribute("aria-current") === "page").map((n) => n.textContent), ["product"]);
   d.tabs.all((n) => n.tagName === "A")[2].fire("click");
-  assert.equal(d.cls(d.body, "mc-pipe").length, 1);
+  assert.equal(d.cls(d.body, "ol-tiles").length, 1);
 });
 
 test("Details: loads the order, then the proof as a blob; no API address reaches the page", async () => {
@@ -197,7 +198,7 @@ test("Details: loads the order, then the proof as a blob; no API address reaches
 test("Details of a rejected order with a PDF proof: the file card, and the rejection with its reason in History", async () => {
   const d = boot();
   await d.show();
-  d.press(d.cls(d.body, "mc-rowwrap")[1], "Details ▾").fire("click");
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Show details").fire("click");
   await settle();
   const detail = d.cls(d.body, "mc-detail")[0];
   assert.equal(detail.all((n) => n.tagName === "IMG").length, 0);
@@ -228,7 +229,7 @@ test("Approve is one click: POST with the order's state_version, a toast, and th
   assert.deepEqual(d.calls[2], { method: "POST", path: BASE + "ord_42/approve/", body: { state_version: 3 }, credentials: "include" });
   assert.deepEqual(d.toasts, [["Payment approved", "", "ok"]]);
   assert.equal(d.calls[3].path, BASE + "?filter=all");
-  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["0Under review", "1Needs attention", "2Verified"]);
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["0Under reviewAction needed", "1Needs attentionProof rejected · waiting on buyer", "2VerifiedPayment approved"]);
 });
 
 test("Approve on an order that changed (409): the stale message as an error toast and the list read again", async () => {
@@ -337,19 +338,19 @@ const typed = (n, v) => { n.value = v; n.fire("input"); };
 test("shipping on: five tiles, the chips, the Add shipment button only on a ready order, the courier and date under a shipped chip", async () => {
   const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
   await d.show();
-  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["0Under review", "0Needs attention", "1Ready to ship", "1Shipped", "1Delivered"]);
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["0Under reviewAction needed", "0Needs attentionProof rejected · waiting on buyer", "1Ready to shipAdd the tracking number", "1ShippedIn transit", "1DeliveredFinal"]);
   const rows = d.cls(d.body, "mc-rowwrap");
   assert.ok(d.press(rows[0], "Add shipment") && !d.press(rows[1], "Add shipment") && !d.press(rows[2], "Add shipment"));
   assert.deepEqual(rows.map((r) => d.cls(r, "chip")[0].textContent), ["Ready to ship", "Shipped", "Delivered"]);
   assert.deepEqual(rows.slice(1).map((r) => d.cls(r, "mc-sub")[0].textContent), ["LBC · Nov 13", "Delivered · Nov 12"]);
-  d.cls(d.body, "mc-stage")[2].fire("click");
+  d.cls(d.body, "ol-tile")[2].fire("click");
   assert.equal(d.cls(d.body, "mc-rowwrap").length, 1);
 });
 
 test("shipping off: the three tiles of today and no shipment button, even on a verified order", async () => {
   const d = boot({ rows: SHIP_ROWS.map((r) => ({ ...r, shipping_enabled: false })), detail: SHIP_DETAIL });
   await d.show();
-  assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["0Under review", "0Needs attention", "3Verified"]);
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["0Under reviewAction needed", "0Needs attentionProof rejected · waiting on buyer", "3VerifiedPayment approved"]);
   assert.equal(d.buttons(d.body).filter((b) => b.textContent === "Add shipment").length, 0);
 });
 
@@ -402,14 +403,14 @@ test("Add shipment on an order that changed (409): the confirm step says so and 
 test("Details of a shipped order: the Shipment card with Edit and Mark delivered, the event in History; a delivered order is read-only", async () => {
   const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
   await d.show();
-  d.press(d.cls(d.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Show details").fire("click"); await settle();
   const card = d.cls(d.body, "po-card").find((c) => c.all((n) => n.tagName === "H3")[0].textContent === "Shipment");
   assert.ok(card.textContent.includes("LBC") && card.textContent.includes("LBC123456") && card.textContent.includes("13 Nov 2026"));
   assert.ok(d.press(card, "Edit shipment") && d.press(card, "Mark delivered"));
   assert.ok(d.body.textContent.includes("Shipment recorded"));
   const e = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
   await e.show();
-  e.press(e.cls(e.body, "mc-rowwrap")[2], "Details ▾").fire("click"); await settle();
+  e.press(e.cls(e.body, "mc-rowwrap")[2], "Show details").fire("click"); await settle();
   const c2 = e.cls(e.body, "po-card").find((c) => c.all((n) => n.tagName === "H3")[0].textContent === "Shipment");
   assert.ok(c2.textContent.includes("12 Nov 2026") && !e.press(c2, "Edit shipment") && !e.press(c2, "Mark delivered"));
 });
@@ -417,7 +418,7 @@ test("Details of a shipped order: the Shipment card with Edit and Mark delivered
 test("Edit shipment is prefilled and posts to the correct route; Mark delivered says it is final, then posts the date", async () => {
   const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
   await d.show();
-  d.press(d.cls(d.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Show details").fire("click"); await settle();
   d.press(d.body, "Edit shipment").fire("click");
   assert.equal(d.$("po-tracking").value, "LBC123456");
   typed(d.$("po-tracking"), "LBC999");
@@ -431,8 +432,8 @@ test("Edit shipment is prefilled and posts to the correct route; Mark delivered 
 
   const e = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
   await e.show();
-  e.press(e.cls(e.body, "mc-rowwrap")[1], "Details ▾").fire("click"); await settle();
-  e.press(e.body, "Mark delivered").fire("click");
+  e.press(e.cls(e.body, "mc-rowwrap")[1], "Show details").fire("click"); await settle();
+  e.press(e.cls(e.body, "mc-detail")[0], "Mark delivered").fire("click");
   typed(e.$("po-delivered"), "2026-11-01");
   e.press(dlgOf(e), "Continue").fire("click");
   assert.ok(dlgOf(e).textContent.includes("Enter a delivery date on or after the shipped date"));
@@ -452,4 +453,130 @@ test("a courier name from the API is shown as text, never as markup", async () =
   await d.show();
   assert.ok(d.cls(d.body, "mc-sub")[0].textContent.includes(evil));
   assert.equal(d.body.all((n) => n.tagName === "IMG").length, 0);
+});
+
+/* ---- Order list v2 (ClickUp z8uq9mek5x, design packet PK-SHIP page 1): hero, tiles, search, icon buttons ---- */
+const NOW = new Date().toISOString(), OLD = "2020-01-05T03:00:00+00:00";
+const TODAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const V2 = (o) => row({ payment_status: "verified", shipping_enabled: true, shipment_status: "not_shipped", price_centavos: 148800, created_at: NOW, ...o });
+const V2_ROWS = [
+  row({ id: "ord_61", order_number: "SMP00061", buyer_name: "Rico Tan", price_centavos: 148800, created_at: NOW, shipping_enabled: true }), /* under review: not a sale */
+  row({ id: "ord_62", order_number: "SMP00062", buyer_name: "Ana Villanueva", payment_status: "rejected", price_centavos: 148800, created_at: NOW, shipping_enabled: true }), /* rejected: not a sale */
+  V2({ id: "ord_63", order_number: "SMP00063", buyer_name: "Maria Santos" }),
+  V2({ id: "ord_64", order_number: "SMP00064", buyer_name: "Liza Ramos" }),
+  V2({ id: "ord_65", order_number: "SMP00065", buyer_name: "Jun dela Cruz", shipment_status: "shipped", courier: "J&T Express", shipped_on: TODAY, tracking_number: "JT7788" }),
+  V2({ id: "ord_66", order_number: "SMP00066", buyer_name: "Carla Mendoza", shipment_status: "delivered", courier: "LBC", shipped_on: TODAY, delivered_on: TODAY, created_at: OLD }), /* delivered this month, sold in an older month */
+];
+const stat = (d, label) => d.cls(d.body, "ol-stat").filter((s) => s.all((n) => n.tagName === "B")[0].textContent === label)[0];
+const statText = (d, label) => stat(d, label).all((n) => n.tagName !== "B" && n.text === null).map((n) => n.textContent);
+
+test("v2 hero: store line, the title, and four numbers from the rows already read (verified-only sales this month)", async () => {
+  const d = boot({ rows: V2_ROWS });
+  await d.show();
+  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "?filter=all"], "one read, no extra call for the hero");
+  const hero = d.cls(d.body, "ol-hero")[0];
+  assert.equal(d.cls(hero, "ol-eyebrow")[0].textContent, "Subscriber · Santé");
+  assert.equal(d.cls(hero, "ol-title")[0].textContent, "Orders");
+  assert.equal(d.cls(hero, "ol-subtitle")[0].textContent, "Track every order from approval to delivery · 6 under current filters");
+  const month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][+TODAY.slice(5, 7) - 1] + " " + TODAY.slice(0, 4);
+  assert.deepEqual(statText(d, "Sales this month"), ["₱4,464.00", month + " · verified payments"], "three verified orders of this month; review, rejected and the old month do not count");
+  assert.deepEqual(statText(d, "Orders"), ["5", "Placed this month"]);
+  assert.deepEqual(statText(d, "Delivered"), ["1", "This month"]);
+  assert.deepEqual(statText(d, "Needs action"), ["2", "Proofs to review"]);
+  assert.ok(!hero.textContent.includes("48h"), "no 48-hour rule");
+});
+
+test("v2 tiles: five, each with its hint, filter by state; the hero follows the filter", async () => {
+  const d = boot({ rows: V2_ROWS });
+  await d.show();
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["1Under reviewAction needed", "1Needs attentionProof rejected · waiting on buyer", "2Ready to shipAdd the tracking number", "1ShippedIn transit", "1DeliveredFinal"]);
+  for (const [i, n] of [[0, 1], [1, 1], [2, 2], [3, 1], [4, 1]]) {
+    d.cls(d.body, "ol-tile")[i].fire("click");
+    assert.equal(d.cls(d.body, "ol-tile")[i].getAttribute("aria-pressed"), "true");
+    assert.equal(d.cls(d.body, "mc-rowwrap").length, n, "tile " + i);
+    assert.equal(d.cls(d.body, "ol-subtitle")[0].textContent, "Track every order from approval to delivery · " + n + " under current filters");
+    d.cls(d.body, "ol-tile")[i].fire("click");
+  }
+  assert.equal(d.cls(d.body, "mc-rowwrap").length, 6);
+});
+
+test("v2 search: order #, tracking #, customer name; the tiles keep counting all orders; Clear search brings everything back", async () => {
+  const d = boot({ rows: V2_ROWS });
+  await d.show();
+  const input = () => d.$("po-q"), go = () => d.press(d.body, "Search");
+  assert.equal(input().getAttribute("placeholder"), "Search order #, tracking #, or customer name");
+  const search = (v) => { input().value = v; input().fire("input"); go().fire("click"); };
+  const nums = () => d.cls(d.body, "mc-rowwrap").map((r) => d.cls(r, "ol-no")[0].textContent);
+  search("smp00063");
+  assert.deepEqual(nums(), ["SMP00063"]);
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent[0]), ["1", "1", "2", "1", "1"], "tiles count all orders");
+  assert.equal(input().value, "smp00063", "the box keeps what was typed");
+  search("jt7788");
+  assert.deepEqual(nums(), ["SMP00065"], "by tracking number");
+  search("mendoza");
+  assert.deepEqual(nums(), ["SMP00066"], "by customer name");
+  search("rico");
+  assert.deepEqual(nums(), ["SMP00061"], "an under-review order is in the table too");
+  assert.equal(d.cls(d.body, "mc-ticket").length, 1);
+  search("zzz");
+  assert.ok(d.body.textContent.includes("No orders match this search"));
+  input().value = "ana"; input().fire("keydown", { key: "Enter" });
+  assert.deepEqual(nums(), ["SMP00062"], "Enter searches too");
+  d.cls(d.body, "ol-clear")[0].querySelector("button").fire("click");
+  assert.equal(nums().length, 6);
+  assert.equal(input().value, "");
+  // the field's own x button empties the box and fires "input": that clears the applied search too
+  search("zzz");
+  input().value = ""; input().fire("input");
+  assert.equal(nums().length, 6, "x clears the applied search");
+  assert.equal(d.cls(d.body, "ol-clear").length, 0);
+  d.cls(d.body, "ol-tile")[2].fire("click");
+  assert.ok(nums().length > 0, "a status tile after the x still lists orders");
+  d.cls(d.body, "ol-tile")[2].fire("click");
+  search("zzz");
+  search("");
+  assert.equal(nums().length, 6, "an empty submitted search means no search");
+});
+
+test("v2 table: the six columns, Bank transfer, total, date line; icon buttons with a label and tooltip, Add shipment only on Ready to ship, Mark delivered only on Shipped", async () => {
+  const d = boot({ rows: V2_ROWS, detail: { ord_65: { ...V2_ROWS[4], currency: "PHP", delivery_address: {}, rejection_lock_active: false, submissions: [sub({})], events: [], shipment: shipment({ courier: "jnt", courier_label: "J&T Express", tracking_number: "JT7788", shipped_on: TODAY }) } } });
+  await d.show();
+  const rows = d.cls(d.body, "mc-rowwrap"), by = (no) => rows.filter((r) => d.cls(r, "ol-no")[0].textContent === no)[0];
+  assert.equal(d.cls(by("SMP00063"), "ol-pay")[0].textContent, "Bank transfer");
+  assert.equal(d.cls(by("SMP00063"), "num")[0].textContent, "₱1,488.00");
+  assert.ok(/^[A-Z][a-z]{2} \d{1,2}, \d{4} · \d{1,2}:\d{2} [AP]M$/.test(d.cls(by("SMP00063"), "ol-dt")[0].textContent));
+  assert.equal(d.cls(by("SMP00063"), "md-pp")[0].textContent, "Santé Membership Package");
+  const ibs = (r) => d.cls(r, "ol-ib").map((b) => [b.getAttribute("aria-label"), b.getAttribute("data-tip")]);
+  assert.deepEqual(ibs(by("SMP00063")), [["Add shipment", "Add shipment"], ["Show details", "Show details"]]);
+  assert.deepEqual(ibs(by("SMP00065")), [["Mark delivered", "Mark delivered"], ["Show details", "Show details"]]);
+  assert.deepEqual(ibs(by("SMP00066")), [["Show details", "Show details"]]);
+  assert.deepEqual(ibs(by("SMP00061")), [["Show details", "Show details"]]);
+  assert.equal(d.cls(by("SMP00065"), "mc-sub")[0].textContent, "J&T Express · " + ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+TODAY.slice(5, 7) - 1] + " " + +TODAY.slice(8));
+  assert.ok(!d.body.textContent.includes("Address") && !d.body.textContent.includes("Export") && !d.body.textContent.includes("Date placed"));
+  assert.ok(d.cls(by("SMP00065"), "ol-ib")[0].getAttribute("class").includes("check") && d.cls(by("SMP00063"), "ol-ib")[0].getAttribute("class").includes("truck"));
+  d.cls(by("SMP00063"), "ol-ib")[0].fire("click");
+  assert.ok(dlgOf(d).textContent.includes("Add shipment for order SMP00063"), "the truck opens the manual courier and tracking dialog");
+  d.api.hide();
+  d.cls(by("SMP00065"), "ol-ib")[0].fire("click"); await settle();
+  assert.ok(dlgOf(d).textContent.includes("Mark order SMP00065 delivered"), "the check opens the mark delivered dialog");
+});
+
+test("v2 switch off: same hero, search and table; three tiles, Verified, no shipment buttons, Delivered 0", async () => {
+  const d = boot({ rows: V2_ROWS.map((r) => ({ ...r, shipping_enabled: false, shipment_status: undefined })) });
+  await d.show();
+  assert.deepEqual(d.cls(d.body, "ol-tile").map((b) => b.textContent), ["1Under reviewAction needed", "1Needs attentionProof rejected · waiting on buyer", "4VerifiedPayment approved"]);
+  assert.equal(d.cls(d.body, "ol-tiles")[0].classList.contains("off"), true);
+  assert.deepEqual(statText(d, "Delivered")[0], "0");
+  assert.equal(statText(d, "Sales this month")[0], "₱4,464.00");
+  assert.equal(d.cls(d.body, "ol-ib").filter((b) => ["Add shipment", "Mark delivered"].includes(b.getAttribute("aria-label"))).length, 0);
+  assert.ok(d.$("po-q") && d.press(d.body, "Search"));
+  assert.deepEqual(d.cls(d.body, "mc-rowwrap").map((r) => d.cls(r, "chip")[0].textContent).filter((t) => t === "Verified").length, 4);
+});
+
+test("v2 look: light-blue focus, never gold; icon buttons 44 px; the hero is solid brand blue; no TWCinc, no export", () => {
+  const css = fs.readFileSync(path.join(PUBLIC, "assets", "css", "pack-orders.css"), "utf8");
+  assert.ok(/\.ol-search input:focus\{[^}]*var\(--link\)/.test(css) && /\.ol-ib:focus-visible\{[^}]*var\(--link\)/.test(css) && /\.ol-tile:focus-visible\{[^}]*var\(--link\)/.test(css));
+  assert.ok(/\.ol-ib\{[^}]*width:44px;height:44px/.test(css));
+  assert.ok(/\.ol-hero\{[^}]*background:var\(--primary\)/.test(css));
+  assert.ok(!/<h[1-6][^>]*tabindex/.test(read("pack-orders.js")) && !/tabindex/.test(read("pack-orders.js")), "titles in the list are not focusable");
 });

@@ -384,8 +384,8 @@ body.dash-app .sheet-nav a[aria-current="page"] { background: var(--primary); co
 @media (max-width: 899.98px) { .phone-only { display: inline-flex; } }
 
 /* Finance: the queue of bank transfer payments and one payment with its proof (ClickUp z8uq9me581). */
-/* The Finance tabs are the dashboard's Settings menu, rule for rule (.set-tabs): 15px semi-bold, 12px by 16px, 4px apart, a thin line under the row, the current tab brighter with a 2px blue underline, one swipeable line on a phone. */
-.fin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; margin: 0 0 8px; border-bottom: 1px solid var(--c-block-line); }
+/* The Finance tabs are the dashboard's Settings menu, rule for rule (.set-tabs): 15px semi-bold, 12px by 16px, 4px apart, a thin line under the row, the current tab brighter with a 2px blue underline, the row wraps onto a second line when a phone is too narrow for all four (z8uq9memqw). */
+.fin-tabs { display: flex; width: fit-content; max-width: 100%; gap: 4px; flex-wrap: wrap; margin: 0 0 8px; border-bottom: 1px solid var(--c-block-line); }
 .fin-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .fin-tabs button:hover { color: var(--text); }
 .fin-tabs button[aria-pressed="true"] { color: var(--text); border-bottom-color: var(--primary); }

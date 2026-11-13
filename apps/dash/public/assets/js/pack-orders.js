@@ -8,8 +8,9 @@
    .../delivery/. The dash never decides the rules: every button comes from shipping_enabled and shipment_status. */
 (function () {
   var D = window.NODash;
-  var STAGES3 = [["review", "Under review"], ["rejected", "Needs attention"], ["verified", "Verified"]];
-  var STAGES5 = [["review", "Under review"], ["rejected", "Needs attention"], ["ready", "Ready to ship"], ["shipped", "Shipped"], ["delivered", "Delivered"]];
+  var STAGES3 = [["review", "Under review", "t-review", "Action needed"], ["rejected", "Needs attention", "t-attn", "Proof rejected · waiting on buyer"], ["verified", "Verified", "t-done", "Payment approved"]];
+  var STAGES5 = [["review", "Under review", "t-review", "Action needed"], ["rejected", "Needs attention", "t-attn", "Proof rejected · waiting on buyer"], ["ready", "Ready to ship", "t-ready", "Add the tracking number"], ["shipped", "Shipped", "t-ship", "In transit"], ["delivered", "Delivered", "t-done", "Final"]];
+  var MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   var COURIERS = [["lbc", "LBC"], ["jnt", "J&T Express"], ["flash", "Flash Express"], ["ninjavan", "Ninja Van"], ["2go", "2GO"], ["grab", "Grab"], ["lalamove", "Lalamove"], ["other", "Other"]];
   var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var STATUS_KEY = { pending_review: "review", rejected: "rejected", verified: "verified" };
@@ -18,7 +19,7 @@
   var STALE = "This order changed. Reload it and try again.";
   var S, token = 0, urls = {}, closeDlg = null;
 
-  function fresh() { return { site: null, tab: "pack", filter: null, rows: [], listState: "loading", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
+  function fresh() { return { site: null, tab: "pack", filter: null, q: "", draft: "", rows: [], listState: "loading", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
   S = fresh();
 
   function byId(id) { return document.getElementById(id); }
@@ -32,7 +33,7 @@
     [["viewBox", "0 0 24 24"], ["fill", "none"], ["stroke", "currentColor"], ["stroke-width", w || "2"], ["stroke-linecap", "round"], ["stroke-linejoin", "round"], ["aria-hidden", "true"], ["focusable", "false"]].forEach(function (a) { s.setAttribute(a[0], a[1]); });
     p.setAttribute("d", d); s.appendChild(p); return s;
   }
-  var ICON = { doc: "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6", receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 9l2 2 4-4", leaf: "M5 19c0-8 5-13.5 14-14-.5 9-6 14-14 14zM5 19 13 11" };
+  var ICON = { truck: "M2 6h11v10H2zM13 9h4l3 3v4h-7M7 16a2 2 0 1 0 .01 0M17 16a2 2 0 1 0 .01 0", check: "M12 3a9 9 0 1 0 .01 0M8 12.5l3 3 5-6", chev: "M6 9l6 6 6-6", doc: "M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6", receipt: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 9l2 2 4-4", leaf: "M5 19c0-8 5-13.5 14-14-.5 9-6 14-14 14zM5 19 13 11" };
 
   /* ---- formats: centavos to pesos, Manila time ---- */
   function peso(c) {
@@ -83,7 +84,7 @@
   function chipsOf(o) {
     var k = keyOf(o);
     return k === "review" ? h("span", "chip chip-warn", "Under review") : k === "rejected" ? h("span", "chip chip-danger", "Needs attention") : k === "verified" ? h("span", "chip chip-ok", "Verified")
-      : k === "ready" ? h("span", "chip chip-warn", "Ready to ship") : k === "shipped" ? h("span", "chip chip-ok", "Shipped") : k === "delivered" ? h("span", "chip chip-ok", "Delivered") : null;
+      : k === "ready" ? h("span", "chip chip-info", "Ready to ship") : k === "shipped" ? h("span", "chip chip-teal", "Shipped") : k === "delivered" ? h("span", "chip chip-ok", "Delivered") : null;
   }
 
   /* ---- load ---- */
@@ -179,7 +180,6 @@
 
   /* ---- render ---- */
   function counts() { var c = { review: 0, rejected: 0, verified: 0, ready: 0, shipped: 0, delivered: 0, all: S.rows.length }; S.rows.forEach(function (o) { if (c[keyOf(o)] !== undefined) c[keyOf(o)]++; }); return c; }
-  function shown() { return S.rows.filter(function (o) { return !S.filter || keyOf(o) === S.filter; }); }
   function fact(dl, k, v, bad) { add(dl, h("dt", "", k), h("dd", bad ? "is-bad" : "", v)); }
   function facts(rows) { var dl = h("dl", "po-facts"); rows.forEach(function (r) { fact(dl, r[0], r[1]); }); return dl; }
   function card(title, sub) { var c = h("div", "po-card"); add(c, h("h3", "", title), sub ? h("p", "po-sub", sub) : null); return c; }
@@ -290,55 +290,115 @@
     var k = keyOf(o), t = k === "shipped" ? [o.courier, day(o.shipped_on)] : k === "delivered" ? ["Delivered", day(o.delivered_on)] : null;
     return t ? h("div", "mc-sub", t.filter(Boolean).join(" · ")) : null;
   }
+  function ib(cls, label, d, fn) {
+    var b = h("button", "ol-ib " + cls); b.setAttribute("type", "button"); b.setAttribute("aria-label", label); b.setAttribute("data-tip", label);
+    b.appendChild(icon(d)); b.addEventListener("click", function () { fn(b); }); return b;
+  }
+  function placedLong(iso) { var p = parts(iso); return p ? p.month.replace(/\.$/, "") + " " + p.day + ", " + p.year + " · " + p.hour + ":" + p.minute + " " + p.dayPeriod : ""; }
+  function rowActions(o) {
+    var k = keyOf(o), box = [], on = !!S.open[o.id];
+    if (k === "rejected") box.push(btn("Approve", "no-btn-primary", function () { decide(o.id, "approve"); }));
+    if (k === "ready") box.push(ib("truck", "Add shipment", ICON.truck, function (b) { shipDialog(o.id, "add", b); }));
+    if (k === "shipped") box.push(ib("check", "Mark delivered", ICON.check, function (b) { var dd = S.details[o.id]; if (dd && dd.shipment) deliverDialog(o.id, b); else loadDetail(o.id).then(function () { deliverDialog(o.id, b); }); }));
+    var d = ib("chev" + (on ? " is-open" : ""), on ? "Hide details" : "Show details", ICON.chev, function () { toggle(o.id); });
+    d.setAttribute("aria-expanded", on ? "true" : "false"); box.push(d);
+    return box;
+  }
   function tableRow(o) {
-    var w = h("div", "mc-rowwrap"), r = h("div", "mc-row"), first = h("span"), act = h("span", "c mc-act"), k = keyOf(o), amt = amountLine(o);
+    var w = h("div", "mc-rowwrap"), r = h("div", "ol-row"), first = h("div", "c-ord"), act = h("div", "c-act ol-act"), k = keyOf(o), amt = amountLine(o), st = h("div", "c-sta ol-st"), sl = subline(o);
     w.setAttribute("role", "row");
-    add(first, h("span", "mc-order", o.order_number), h("span", "mc-date", when(o.created_at).replace(", ", " ")), add(h("span", "mc-pp"), pill()));
-    if (k === "review") add(act, h("span", "mc-pointer", "↥ In payment review queue"));
-    else { actions(o).forEach(function (b) { act.appendChild(b); }); act.appendChild(toggler(o)); }
-    add(r, first, h("span", "", o.buyer_name), h("span", "mc-pay", "Bank or e-wallet transfer"), h("span", "r num", amt), add(h("span", "c"), chipsOf(o), subline(o)), act);
+    add(first, h("span", "ol-no mc-order", o.order_number), h("span", "ol-dt", placedLong(o.created_at)), pill());
+    rowActions(o).forEach(function (b) { act.appendChild(b); });
+    add(st, chipsOf(o), sl);
+    add(r, first, h("div", "c-cus", o.buyer_name), h("div", "c-pay ol-pay", "Bank transfer"), h("div", "c-tot r num", amt), st, act);
     add(w, r);
     if (S.open[o.id] && k !== "review") add(w, add(h("div", "mc-detail"), detailGrid(o)));
     return w;
   }
+  /* ---- hero numbers: one read of the rows, this month in Manila time; Sales counts verified payments only ---- */
+  function ymd(iso) {
+    var d = new Date(iso); if (isNaN(d.getTime())) return "";
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(d); } catch (e) { return ""; }
+  }
+  function stats() {
+    var now = today(), ym = now.slice(0, 7), r = { sales: 0, orders: 0, delivered: 0, action: 0, label: now ? MONTHS_LONG[+now.slice(5, 7) - 1] + " " + now.slice(0, 4) : "" };
+    S.rows.forEach(function (o) {
+      var k = keyOf(o), mine = ymd(o.created_at).slice(0, 7) === ym;
+      if (mine) { r.orders++; if (o.payment_status === "verified") { var p = priceOf(o); if (p !== null) r.sales += p; } }
+      if (k === "delivered" && isoDate(o.delivered_on).slice(0, 7) === ym) r.delivered++;
+      if (k === "review" || k === "rejected") r.action++;
+    });
+    return r;
+  }
+  function heroStat(cls, label, value, hint) { return add(h("div", "ol-stat " + cls), h("b", "", label), h("strong", "", value), h("small", "", hint)); }
+  function hero(rows, ok) {
+    var st = stats(), sec = h("section", "ol-hero"), l = h("div", "ol-hero-l"), av = h("div", "ol-av", "S"), box = h("div"), ss = h("div", "ol-stats");
+    sec.setAttribute("aria-label", "Orders summary"); av.setAttribute("aria-hidden", "true");
+    add(box, h("span", "ol-eyebrow", "Subscriber · Santé"), h("p", "ol-title", "Orders"), h("p", "ol-subtitle", "Track every order from approval to delivery · " + (ok ? rows.length : 0) + " under current filters"));
+    add(l, av, box);
+    add(ss, heroStat("sales", "Sales this month", ok ? peso(st.sales) : "—", st.label + " · verified payments"), heroStat("", "Orders", ok ? String(st.orders) : "—", "Placed this month"),
+      heroStat("", "Delivered", ok ? String(st.delivered) : "—", "This month"), heroStat("", "Needs action", ok ? String(st.action) : "—", "Proofs to review"));
+    return add(sec, l, ss);
+  }
+  function matches(o, q) {
+    var n = String(q || "").trim().toLowerCase(); if (!n) return true;
+    return [o.order_number, o.tracking_number, o.buyer_name].some(function (v) { return typeof v === "string" && v.toLowerCase().indexOf(n) >= 0; });
+  }
+  function shown() { return S.rows.filter(function (o) { return (!S.filter || keyOf(o) === S.filter) && matches(o, S.q); }); }
+  function tools() {
+    var box = h("div", "ol-tools"), wrap = h("div", "ol-search"), lab = h("label", "sr-only", "Search orders"), inp = D.el("input", { id: "po-q", type: "search", placeholder: "Search order #, tracking #, or customer name", autocomplete: "off" }), go = btn("Search", "no-btn-primary");
+    lab.setAttribute("for", "po-q"); inp.value = S.draft;
+    function run() { S.draft = inp.value; S.q = inp.value.trim(); render(); var n = byId("po-q"); if (n && n.focus) n.focus(); }
+    inp.addEventListener("input", function () { S.draft = inp.value; if (!inp.value && S.q) run(); });
+    inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); run(); } });
+    go.addEventListener("click", run);
+    return add(box, add(wrap, lab, attr(icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5"), { "class": "ol-si" }), inp), go);
+  }
   function listView(root) {
-    var c = counts(), rows = shown(), sub = byId("po-sub");
+    var c = counts(), rows = shown(), ok = S.listState === "ok", sub = byId("po-sub");
+    var vw = byId("view-pack-orders"); if (vw) vw.classList.add("po-hero-on");
     sub.hidden = false;
-    sub.textContent = "Track every order from approval to delivery · " + (S.listState === "ok" ? rows.length : 0) + " under current filters";
-    var pipe = h("div", "mc-pipe");
+    sub.textContent = "Track every order from approval to delivery · " + (ok ? rows.length : 0) + " under current filters";
+    root.appendChild(hero(rows, ok));
+    var pipe = h("div", "ol-tiles" + (shipOn() ? "" : " off"));
     stages().forEach(function (st) {
-      var b = h("button", "mc-stage" + (S.filter === st[0] ? " active" : ""));
+      var b = h("button", "ol-tile " + st[2] + (S.filter === st[0] ? " active" : ""));
       b.setAttribute("type", "button"); b.setAttribute("aria-pressed", S.filter === st[0] ? "true" : "false");
-      add(b, h("span", "mc-count", S.listState === "ok" ? String(c[st[0]]) : "—"), h("span", "mc-label", st[1]));
+      add(b, h("span", "n", ok ? String(c[st[0]]) : "—"), h("span", "l", st[1]), h("span", "h", st[3]));
       b.addEventListener("click", function () { S.filter = S.filter === st[0] ? null : st[0]; render(); });
       pipe.appendChild(b);
     });
     root.appendChild(pipe);
+    root.appendChild(tools());
     if (S.filter) {
-      var cl = h("div", "mc-clear"), cb = h("button", "", "× Clear status filter — showing all " + c.all + " orders"); cb.setAttribute("type", "button");
+      var cl = h("div", "ol-clear"), cb = h("button", "", "× Clear status filter — showing all " + c.all + " orders"); cb.setAttribute("type", "button");
       cb.addEventListener("click", function () { S.filter = null; render(); }); root.appendChild(add(cl, cb));
+    }
+    if (S.q) {
+      var cl2 = h("div", "ol-clear"), cb2 = h("button", "", "× Clear search — showing all " + c.all + " orders"); cb2.setAttribute("type", "button");
+      cb2.addEventListener("click", function () { S.q = ""; S.draft = ""; render(); }); root.appendChild(add(cl2, cb2));
     }
     if (S.listState === "loading") { root.appendChild(skel(3, 4)); return; }
     if (S.listState === "error") { root.appendChild(errBox("We could not load your orders", "Check your connection, then try again.", load)); return; }
-    var queue = S.listState === "ok" ? S.rows.filter(function (o) { return keyOf(o) === "review"; }) : [];
+    var queue = ok ? S.rows.filter(function (o) { return keyOf(o) === "review" && matches(o, S.q); }) : [];
     if (queue.length) {
       root.appendChild(add(h("div", "mc-queue-head"), h("span", "mc-queue-title", "Payment review queue"), h("span", "mc-queue-sub", "newest proof first")));
       queue.forEach(function (o) { root.appendChild(ticket(o)); });
     }
     if (!rows.length) {
       var e = h("section", "dash-card ph-card po-empty"), t = h("span", "icon-tile"); e.setAttribute("aria-labelledby", "po-empty-h"); t.setAttribute("aria-hidden", "true"); t.appendChild(icon(ICON.receipt));
-      var hh = h("h2", "", S.listState === "empty" ? "No orders yet" : "No orders match this filter"); hh.setAttribute("id", "po-empty-h");
-      root.appendChild(add(e, t, hh, h("p", "", S.listState === "empty" ? "Orders show here when someone buys the Membership Pack from your store." : "Clear the status filter to see every order.")));
+      var hh = h("h2", "", S.listState === "empty" ? "No orders yet" : S.q ? "No orders match this search" : "No orders match this filter"); hh.setAttribute("id", "po-empty-h");
+      root.appendChild(add(e, t, hh, h("p", "", S.listState === "empty" ? "Orders show here when someone buys the Membership Pack from your store." : "Clear the status filter or the search to see every order.")));
       return;
     }
-    var tb = h("div", "mc-table"), th = h("div", "mc-th");
+    var tb = h("div", "ol-table"), th = h("div", "ol-th"), body = h("div", "ol-rows");
     tb.setAttribute("role", "table"); tb.setAttribute("aria-label", "Orders"); th.setAttribute("role", "row");
-    [["Order #", ""], ["Customer", ""], ["Payment", ""], ["Total", "r"], ["Status", "c"], ["Action", "c"]].forEach(function (x) { th.appendChild(h("span", x[1], x[0])); });
-    add(tb, th); rows.forEach(function (o) { tb.appendChild(tableRow(o)); });
-    root.appendChild(tb);
+    [["Order #", ""], ["Customer", ""], ["Payment", ""], ["Total", "r"], ["Status", ""], ["Action", "r"]].forEach(function (x) { th.appendChild(h("span", x[1], x[0])); });
+    rows.forEach(function (o) { body.appendChild(tableRow(o)); });
+    add(tb, th, body); root.appendChild(tb);
   }
   function placeholder(root) {
-    var sub = byId("po-sub"); sub.hidden = true; sub.textContent = "";
+    var sub = byId("po-sub"), vw = byId("view-pack-orders"); if (vw) vw.classList.remove("po-hero-on"); sub.hidden = true; sub.textContent = "";
     var name = S.tab === "overview" ? "Overview" : "Product Orders", s = h("section", "dash-card ph-card po-empty"), t = h("span", "icon-tile"), hh = h("h2", "", name), p = h("p"), chip = h("span", "chip chip-warn", "Placeholder");
     s.setAttribute("aria-labelledby", "po-ph-h"); hh.setAttribute("id", "po-ph-h"); t.setAttribute("aria-hidden", "true"); t.appendChild(icon(ICON.receipt));
     root.appendChild(add(s, t, hh, add(p, chip), h("p", "", "This tab is a placeholder. Its content has not been designed yet.")));
@@ -355,7 +415,7 @@
   function tabsInit() {
     if (wired) return; wired = true;
     Array.prototype.forEach.call(byId("orders-tabs").querySelectorAll("a"), function (a) {
-      a.addEventListener("click", function (e) { e.preventDefault(); S.tab = a.getAttribute("data-tab"); S.filter = null; S.open = {}; render(); });
+      a.addEventListener("click", function (e) { e.preventDefault(); S.tab = a.getAttribute("data-tab"); S.filter = null; S.q = ""; S.draft = ""; S.open = {}; render(); });
     });
   }
 

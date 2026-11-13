@@ -110,8 +110,7 @@ test("no usage charge at launch (z8uq9memdk): usage-charge wording is gone from 
     assert.doesNotMatch(text, /PHP 30\b/, `${name} still has PHP 30`);
     assert.doesNotMatch(text, /added to your next monthly bill/i, `${name} still has the next-monthly-bill line`);
     assert.doesNotMatch(text, /Final usage settlement/i, `${name} still has Final usage settlement`);
-    // referral-terms.html lines 47 and 66 still say "usage-only"; the BILLING draft does not name them (open question to the Supervisor).
-    if (name !== "referral-terms.html") assert.doesNotMatch(text, /usage-only/i, `${name} still has usage-only`);
+    assert.doesNotMatch(text, /usage-only/i, `${name} still has usage-only`);
   }
   assert.match(pages["terms.html"], /No usage charge applies at this time\./);
   assert.match(pages["index.html"], /No usage charge at this time/);

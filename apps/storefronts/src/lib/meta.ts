@@ -28,6 +28,24 @@ import { visitorIp } from "./visitor.ts";
 export const CONSENT = "no_meta_consent";
 export const CONSENT_MAX_AGE = 180 * 24 * 3600;
 
+/** The footer's "Cookie settings" link: the home page with this query reopens the notice (withdrawing consent, Privacy
+    Policy section 12). The home page is the one place every store page can reach that carries the Pixel script, so
+    the link needs no script of its own on the pages that do not. */
+export const COOKIE_SETTINGS_QUERY = "cookie-settings";
+export const COOKIE_SETTINGS_PATH = `/?${COOKIE_SETTINGS_QUERY}=1`;
+export const COOKIE_SETTINGS_LABEL = "Cookie settings";
+
+/** True when the site has a Pixel configured: the only case where there is anything to consent to. */
+export function hasPixel(site: Pick<Site, "meta_pixel_id">): boolean {
+  return /^[0-9]{8,20}$/.test(site.meta_pixel_id);
+}
+
+/** The footer list item for the link, or nothing when the site has no Pixel. A plain link, so it is keyboard reachable
+    and takes the footer's own link style and focus ring. */
+export function cookieSettingsItem(show: boolean | undefined): Markup {
+  return show ? html`<li><a href="${COOKIE_SETTINGS_PATH}" class="footer-cookie-settings">${COOKIE_SETTINGS_LABEL}</a></li>` : safe("");
+}
+
 export type MetaEvent = "PageView" | "ViewContent" | "InitiateCheckout";
 const PREFIX: Record<MetaEvent, string> = { PageView: "pv", ViewContent: "vc", InitiateCheckout: "ic" };
 export const CONTENT_ID = "membership-pack"; // backend apps/meta_ads/events.py CONTENT_ID
@@ -109,8 +127,8 @@ export function placeFields(request: Request, site: Site, now: Date = new Date()
   };
 }
 
-/* The notice. Provisional wording (the final words go with the Privacy Policy amendment, NPC task z8uq9md3n8): bare. */
-export const NOTICE_TEXT = "We use Meta tools to measure visits and improve our ads. Allow this?";
+/* The notice. */
+export const NOTICE_TEXT = "We use Meta tools to measure visits and orders and improve our ads. Allow this?";
 export const NOTICE_ACCEPT = "Accept";
 export const NOTICE_DECLINE = "Decline";
 export const NOTICE_LABEL = "Tracking notice";
@@ -152,9 +170,21 @@ export type MetaPageArgs = {
 
 const logMeta = (reason: string) => console.error(`storefront: meta events not sent: ${reason}`);
 
+function reopenRequested(request: Request): boolean {
+  try {
+    return new URL(request.url).searchParams.get(COOKIE_SETTINGS_QUERY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function metaPage(a: MetaPageArgs): MetaPage {
   if (!PIXEL_ID.test(a.site.meta_pixel_id)) return NONE;
   const choice = consentChoice(a.request);
+  /* "?cookie-settings=1": the visitor asked to choose again. Only the notice is drawn, whatever the cookie says, with no
+     data block, no Pixel and no server call, so nothing goes to Meta from this page; the notice's script then writes
+     the new answer and loads the page without the query. */
+  if (reopenRequested(a.request)) return { markup: notice(a.request), send: null };
   if (choice === "declined") return NONE;
   if (choice === "unset") return { markup: notice(a.request), send: null };
   const events = a.events.map((name) => {

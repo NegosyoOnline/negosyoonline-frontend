@@ -2,6 +2,7 @@
    approved template's own variables, so home.ts reads like the template. */
 import type { Site } from "../../lib/django.ts";
 import type { Markup } from "../../lib/html.ts";
+import { hasPixel } from "../../lib/meta.ts";
 
 export type ContactForm = {
   values: { name: string; email: string; subject: string; message: string };
@@ -25,6 +26,8 @@ export type HomeModel = {
   contact_path: string;
   cf: ContactForm;
   policy_links: { label: string; path: string }[];
+  /* The footer's "Cookie settings" link: only on a site with a Meta Pixel (src/lib/meta.ts). */
+  cookie_settings?: boolean;
   biz: {
     registered_name: string;
     tin: string;
@@ -135,6 +138,7 @@ export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now:
     contact_path: CONTACT_PATH,
     cf,
     policy_links: site.policy_links.filter((link) => /^\/[^/\\]/.test(link.path)),
+    cookie_settings: hasPixel(site),
     biz: {
       registered_name: site.business.registered_name,
       tin: site.business.tin,

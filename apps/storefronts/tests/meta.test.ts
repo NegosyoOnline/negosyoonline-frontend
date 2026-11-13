@@ -6,13 +6,17 @@ import { checkoutGet, checkoutPost, type Flow } from "../src/lib/checkout-flow.t
 import { fetchSite, type Pack } from "../src/lib/django.ts";
 import { html } from "../src/lib/html.ts";
 import {
-  buildFbc, consentChoice, consentGiven, dataBlock, metaEventId, metaPage, NOTICE_ACCEPT, NOTICE_DECLINE, NOTICE_TEXT,
+  buildFbc, COOKIE_SETTINGS_PATH, consentChoice, consentGiven, dataBlock, metaEventId, metaPage, NOTICE_ACCEPT, NOTICE_DECLINE, NOTICE_TEXT,
   placeFields, sendEvents,
 } from "../src/lib/meta.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { landingDocument } from "../src/views/sante/pack-landing.ts";
 import { packContext } from "../src/views/sante/pack-page.ts";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import { chrome } from "../src/views/sante/member.ts";
+import { footer as packFooter } from "../src/views/sante/pack-page.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
 
@@ -275,7 +279,7 @@ test("the checkout GET shows the tracking markup the route gives it, and a post 
 
 /* ---- the home route, end to end ---- */
 
-async function homeWith(site: unknown, cookie: string): Promise<{ page: string; events: { url: string; body: Record<string, unknown> }[] }> {
+async function homeWith(site: unknown, cookie: string, path = "/"): Promise<{ page: string; events: { url: string; body: Record<string, unknown> }[] }> {
   const names = ["STOREFRONT_API_BASE", "STOREFRONT_SERVER_SECRET", "STOREFRONT_HOST_ALIASES", "VERCEL"];
   const before = { fetch: globalThis.fetch, env: names.map((n) => process.env[n]) };
   const events: { url: string; body: Record<string, unknown> }[] = [];
@@ -291,7 +295,7 @@ async function homeWith(site: unknown, cookie: string): Promise<{ page: string; 
   Object.assign(process.env, { STOREFRONT_API_BASE: "http://api.test", STOREFRONT_SERVER_SECRET: secret, STOREFRONT_HOST_ALIASES: "", VERCEL: "" });
   try {
     const { GET } = await import("../src/app/route.ts");
-    const response = await GET(new Request("https://www.santetest.com/", { headers: { host: "www.santetest.com", ...(cookie ? { cookie } : {}) } }));
+    const response = await GET(new Request(`https://www.santetest.com${path}`, { headers: { host: "www.santetest.com", ...(cookie ? { cookie } : {}) } }));
     const page = await response.text();
     await new Promise((resolve) => setTimeout(resolve, 20)); // the events call starts after the response
     return { page, events };
@@ -320,6 +324,98 @@ test("the home route: no Pixel ID shows nothing; a Pixel shows the notice first,
   const ids = [...accepted.page.matchAll(/"id":"(pv_[0-9a-f]{16})"/g)].map((m) => m[1]);
   assert.deepEqual((accepted.events[0].body.events as { id: string }[]).map((e) => e.id), ids);
   assert.equal(accepted.events[0].body.consent, true);
+});
+
+/* ---- Cookie settings: withdrawing consent ---- */
+
+test("the notice carries the final wording", () => {
+  assert.equal(NOTICE_TEXT, "We use Meta tools to measure visits and orders and improve our ads. Allow this?");
+});
+
+test("the Cookie settings link is in the store footer on a Pixel site and absent without one", () => {
+  const link = `href="${COOKIE_SETTINGS_PATH}"`;
+  const pixelHome = homeDocument(homeModel(PIXEL_SITE)).value;
+  assert.ok(pixelHome.includes(link) && pixelHome.includes(">Cookie settings</a>"), "store footer");
+  assert.ok(!homeDocument(homeModel(SITE)).value.includes("Cookie settings"));
+  const withPolicies = { ...PIXEL_SITE, policy_links: [{ label: "Terms", path: "/terms/" }] };
+  assert.ok(packFooter(chrome(withPolicies) as never).value.includes(link), "pack footer");
+  assert.ok(packFooter(chrome(PIXEL_SITE) as never).value.includes(link), "pack footer with no policy links");
+  assert.ok(!packFooter(chrome(SITE) as never).value.includes("Cookie settings"));
+  assert.ok(!packFooter(chrome({ ...SITE, meta_pixel_id: "12ab" }) as never).value.includes("Cookie settings"));
+  assert.ok(packContext(PIXEL_SITE, PACK).cookie_settings === true && packContext(SITE, PACK).cookie_settings === false);
+});
+
+test("?cookie-settings=1 reopens the notice after Accept or Decline, with no Meta script, no block and no server call", async () => {
+  for (const cookie of [ACCEPT, DECLINE, ""]) {
+    const m = metaPage(args(req(cookie, "https://www.santetest.com/?cookie-settings=1")));
+    assert.equal(m.send, null);
+    assert.ok(m.markup.value.includes('id="no-meta-notice"') && m.markup.value.includes(NOTICE_TEXT));
+    assert.ok(!m.markup.value.includes('id="no-meta"') && !m.markup.value.includes("123456789012345"));
+  }
+  const noPixel = metaPage({ ...args(req(ACCEPT, "https://www.santetest.com/?cookie-settings=1")), site: SITE });
+  assert.equal(noPixel.markup.value, "", "no Pixel: nothing to consent to, so no notice");
+  const other = metaPage(args(req(DECLINE, "https://www.santetest.com/?cookie-settings=0")));
+  assert.equal(other.markup.value, "");
+  const home = await homeWith(PIXEL_SITE, ACCEPT, "/?cookie-settings=1");
+  assert.ok(home.page.includes('id="no-meta-notice"') && !home.page.includes('id="no-meta">'));
+  assert.equal(home.events.length, 0, "nothing is sent to Meta from the reopened page");
+  assert.equal((await homeWith(PIXEL_SITE, ACCEPT)).events.length, 1, "the ordinary page still sends after Accept");
+});
+
+function runPixelScript(cookieIn: string, search: string) {
+  const source = readFileSync(new URL("../public/assets/sante/js/meta-pixel.js", import.meta.url), "utf8");
+  const state = { cookie: cookieIn, assigned: "", reloaded: 0, appended: 0, clicks: [] as ((e: unknown) => void)[] };
+  const buttons = ["1", "0"].map((v) => ({
+    addEventListener: (_: string, fn: (e: unknown) => void) => state.clicks.push(() => fn({ currentTarget: { getAttribute: () => v } })),
+    getAttribute: () => v,
+  }));
+  const noticeEl = {
+    getAttribute: (n: string) => (n === "data-cookie" ? "__Host-no_meta_consent" : n === "data-max-age" ? "15552000" : null),
+    querySelectorAll: () => buttons,
+  };
+  const doc = {
+    getElementById: (id: string) => (id === "no-meta-notice" ? noticeEl : null),
+    createElement: () => ({}),
+    head: { appendChild: () => { state.appended++; } },
+    set cookie(v: string) { state.cookie = v; },
+    get cookie() { return state.cookie; },
+  };
+  const win: Record<string, unknown> = {
+    document: doc,
+    location: {
+      protocol: "https:", pathname: "/", search, hash: "",
+      reload: () => { state.reloaded++; }, assign: (u: string) => { state.assigned = u; },
+    },
+  };
+  win.window = win;
+  vm.runInNewContext(source, { ...win, parseInt, RegExp, String });
+  return state;
+}
+
+test("Decline after an earlier Accept rewrites the cookie to declined and loads a clean page, so nothing more goes to Meta", () => {
+  const s = runPixelScript("__Host-no_meta_consent=1", "?cookie-settings=1");
+  assert.equal(s.appended, 0, "the reopened page loads no Meta script");
+  s.clicks[1]({}); // Decline
+  assert.ok(s.cookie.startsWith("__Host-no_meta_consent=0; Path=/; Max-Age=15552000"), s.cookie);
+  assert.equal(s.assigned, "/", "back to the page without the query");
+  const after = metaPage(args(req(DECLINE)));
+  assert.equal(after.markup.value, "");
+  assert.equal(after.send, null);
+});
+
+test("Accept after Decline writes 1 and loads the clean page, which then starts the Pixel as the first Accept does", () => {
+  const s = runPixelScript("__Host-no_meta_consent=0", "?a=1&cookie-settings=1");
+  s.clicks[0]({}); // Accept
+  assert.ok(s.cookie.startsWith("__Host-no_meta_consent=1; Path=/"), s.cookie);
+  assert.equal(s.assigned, "/?a=1");
+  assert.ok(metaPage(args(req(ACCEPT))).markup.value.includes('id="no-meta"'));
+});
+
+test("a first choice, with no cookie-settings query, reloads the page as before", () => {
+  const s = runPixelScript("", "");
+  s.clicks[1]({});
+  assert.equal(s.reloaded, 1);
+  assert.equal(s.assigned, "");
 });
 
 /* ---- the policy, exactly ---- */

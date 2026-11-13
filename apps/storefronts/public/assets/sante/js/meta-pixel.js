@@ -1,8 +1,9 @@
 /* Meta Pixel for the home, landing and checkout pages (src/lib/meta.ts). Plain ES5, no inline code.
 
    Two jobs:
-   1. The tracking notice (#no-meta-notice): Accept or Decline writes the one first-party choice cookie and reloads the
-      page. Nothing of Meta's loads before Accept.
+   1. The tracking notice (#no-meta-notice): Accept or Decline writes the one first-party choice cookie and loads the
+      page again (without ?cookie-settings=1, the footer link that reopens this notice, so a choice made there takes
+      effect on a clean page: after Decline nothing more goes to Meta). Nothing of Meta's loads before Accept.
    2. After Accept the page carries the JSON data block #no-meta ({pixel_id, checkout, events:[{name,id,data}]}). This
       file loads Meta's fbevents.js, initialises the Pixel and tracks each listed event with its eventID, the same id
       the server sent to Django, so Meta pairs the browser and the server event. Purchase is never sent from here:
@@ -18,7 +19,11 @@
       if (!/^(__Host-)?no_meta_consent$/.test(name) || !(maxAge > 0)) return;
       var secure = window.location.protocol === "https:" ? "; Secure" : "";
       document.cookie = name + "=" + value + "; Path=/; Max-Age=" + maxAge + "; SameSite=Lax" + secure;
-      window.location.reload();
+      var search = window.location.search.replace(/([?&])cookie-settings=[^&]*(&|$)/, function (m, a, b) {
+        return b ? a : "";
+      });
+      if (search === window.location.search) window.location.reload();
+      else window.location.assign(window.location.pathname + search + window.location.hash);
     };
     var buttons = notice.querySelectorAll("[data-meta-choice]");
     for (var i = 0; i < buttons.length; i++) {

@@ -1,6 +1,7 @@
 /* What the Santé home shows, built from the storefront surface's answer. The names follow the
    approved template's own variables, so home.ts reads like the template. */
 import type { Site } from "../../lib/django.ts";
+import type { Markup } from "../../lib/html.ts";
 
 export type ContactForm = {
   values: { name: string; email: string; subject: string; message: string };
@@ -15,8 +16,8 @@ export type HomeModel = {
   signed_in: boolean;
   free_shipping_banner: boolean;
   year: number;
-  /* The basket. No product page exists yet, so it is always empty: `lines` says whether it has rows. */
-  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string };
+  /* The basket: `lines` says whether it has rows, `rows` is their markup (the shop fills it; the home passes none). */
+  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup };
   dist: { name: string; initials: string; tel: string; phone: string; photo: boolean };
   socials: { instagram: string; tiktok: string };
   contact_path: string;

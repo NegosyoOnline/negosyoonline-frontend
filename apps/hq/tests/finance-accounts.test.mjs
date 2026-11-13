@@ -275,7 +275,7 @@ test("headings are not focusable and the page loads its scripts in order", () =>
 });
 
 test("the five older Finance pages and the new one all carry the Accounts tab, and next.config routes the page", () => {
-  for (const f of ["finance", "finance-usage", "finance-issuer", "finance-invoices", "finance-reconcile", "finance-accounts"]) {
+  for (const f of ["finance", "finance-usage", "finance-issuer", "finance-invoices", "finance-reconcile", "finance-statements", "finance-accounts"]) {
     const html = fs.readFileSync(new URL("../public/" + f + ".html", import.meta.url), "utf8");
     assert.match(html, /<a href="\/finance\/accounts\/"[^>]*>Accounts<\/a><\/nav>/, f);
   }

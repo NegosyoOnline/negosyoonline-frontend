@@ -37,6 +37,12 @@
     return a;
   }
   function nameBody(first, last) { return { name: [first, last].map(function (v) { return String(v || "").trim(); }).filter(Boolean).join(" ") }; }
+  /* The body of the email start call: with the hardening on, it carries the code sent to the current address. */
+  function emailStartBody(email) {
+    var body = { email: email };
+    if (S.stepCode) body.step_up_code = S.stepCode;
+    return body;
+  }
   var CODE_SHORT = "Enter all 6 digits of the code.", NAME_BLANK = "Enter your first or last name.";
   function codeComplete(v) { return /^\d{6}$/.test(String(v || "").trim()); }
   function emailConfirmBody(email, code) { return { email: email, code: String(code || "") }; }
@@ -488,7 +494,60 @@
   }
 
   /* ---- email change (S3, S4, S5, S7; spec D5, D10) ---- */
-  function openEmail(opener) { emailStep1(openDialog(opener, "Change your email"), "", ""); }
+  function openEmail(opener) {
+    var body = openDialog(opener, "Change your email");
+    S.stepCode = "";
+    if (S.data && S.data.email_change_step_up === true) emailStepUp(body, "", false); else emailStep1(body, "", "");
+  }
+  /* The hardened change: first prove the current mailbox with a code, then the new address as before. */
+  function emailStepUp(body, error, sent) {
+    body.textContent = "";
+    clearInterval(S.resendTimer);
+    var a = S.data || {}, send = submitBtn(sent ? "Continue" : "Send code");
+    var lead = D.el("p", { "class": "dash-copy" });
+    if (!sent) {
+      lead.appendChild(txt("To keep your account safe, we first send a 6-digit code to your current email, "));
+      lead.appendChild(D.el("strong", {}, a.email || "your email"));
+      lead.appendChild(txt("."));
+      var err = D.el("p", { "class": "err-box", role: "alert", hidden: "" });
+      var f0 = dlgForm(function () {
+        send.disabled = true; err.hidden = true;
+        D.call("POST", "/account/email/step-up/", null, true).then(function (res) {
+          send.disabled = false;
+          if (res.ok) { emailStepUp(body, "", true); return; }
+          if (res.status === 404) { closeDialog(); load("h-account"); return; }
+          if (codeOf(res) === "email_change_cooldown") { cooldownRefused(body, "", res); return; }
+          err.textContent = messageOf(res, "We could not send the code. Please try again."); err.hidden = false;
+        });
+      });
+      f0.appendChild(lead); f0.appendChild(err);
+      footer(f0, [send]);
+      body.appendChild(f0);
+      return;
+    }
+    var code = field({ id: "acct-stepup-code", name: "code", label: "Code", kind: "code" }), fields = { code: code };
+    lead.appendChild(txt("We sent a 6-digit code to "));
+    lead.appendChild(D.el("strong", {}, a.email || "your email"));
+    lead.appendChild(txt(". Enter it to go on."));
+    var parts = codeStepParts({ code: code, fields: fields, wait: 60, errKey: "code",
+      send: function () { return D.call("POST", "/account/email/step-up/", null, true); },
+      backText: "Cancel", goBack: function () { closeDialog(); } });
+    var f = dlgForm(function () {
+      var value = String(code.input.value || "");
+      setErrors(fields, null);
+      if (value.length !== 6) { setErrors(fields, { code: "Enter the 6-digit code." }); return; }
+      S.stepCode = value; /* checked by the next call; the code is not stored anywhere else */
+      emailStep1(body, "", "");
+    });
+    f.classList.add("acct-code-step");
+    f.appendChild(lead); f.appendChild(code.box); f.appendChild(parts.status); f.appendChild(parts.hint);
+    footer(f, [send]);
+    f.appendChild(parts.back);
+    body.appendChild(f);
+    code.input.focus();
+    parts.cooldown();
+    if (error) setErrors(fields, { code: error });
+  }
   function emailStep1(body, value, error) {
     body.textContent = "";
     clearInterval(S.resendTimer);
@@ -498,9 +557,10 @@
       var email = (em.input.value || "").trim();
       setErrors(fields, null);
       send.disabled = true;
-      D.call("POST", "/account/email/start/", { email: email }, true).then(function (res) {
+      D.call("POST", "/account/email/start/", emailStartBody(email), true).then(function (res) {
         send.disabled = false;
         if (res.ok) { emailStep2(body, email); return; }
+        if (codeOf(res) === "step_up_required") { S.stepCode = ""; emailStepUp(body, "That code is wrong or has expired. Ask for a new one.", true); return; }
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         if (codeOf(res) === "email_change_cooldown") { cooldownRefused(body, email, res); return; }
         setErrors(fields, { email: fieldMsg(res, "email") });
@@ -523,12 +583,13 @@
     var on = function (name) { return (a.providers || []).some(function (p) { return p && p.provider === name && p.connected === true; }); };
     var kept = (on("facebook") ? "Your Facebook sign-in stays connected. " : "") + (on("google") ? "Your Google sign-in stays connected. " : "");
     var parts = codeStepParts({ code: code, fields: fields, wait: 60, errKey: "email",
-      send: function () { return D.call("POST", "/account/email/start/", { email: email }, true); }, /* the path stays a plain string here: the route test reads every call */
+      send: function () { return D.call("POST", "/account/email/start/", emailStartBody(email), true); }, /* the path stays a plain string here: the route test reads every call */
       backText: "Use a different email", goBack: function () { emailStep1(body, email, ""); },
       refused: function (res) { /* the same answers the first send can give */
         var c = codeOf(res);
         if (c === "email_change_cooldown") { cooldownRefused(body, email, res); return true; }
         if (c === "email_taken") { emailStep1(body, email, fieldMsg(res, "email")); return true; }
+        if (c === "step_up_required") { S.stepCode = ""; emailStepUp(body, "That code is wrong or has expired. Ask for a new one.", true); return true; }
         return false;
       } });
     var f = dlgForm(function () {
@@ -538,7 +599,7 @@
       confirm.disabled = true;
       D.call("POST", "/account/email/confirm/", emailConfirmBody(email, code.input.value), true).then(function (res) {
         confirm.disabled = false;
-        if (res.ok && res.data) { S.data = view(res.data); closeDialog(); draw("acct-cool"); D.toast("Email changed", "Your other devices were signed out."); if (D.refreshAccount) D.refreshAccount(); return; } /* the menu shows the new email */
+        if (res.ok && res.data) { S.stepCode = ""; S.data = view(res.data); closeDialog(); draw("acct-cool"); D.toast("Email changed", "Your other devices were signed out."); if (D.refreshAccount) D.refreshAccount(); return; } /* the menu shows the new email */
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         var c = codeOf(res);
         if (c === "email_change_cooldown") { cooldownRefused(body, email, res); return; }

@@ -153,9 +153,9 @@ test("the first route waits for DOMContentLoaded while the document is loading, 
 
 /* Launch hide set (ClickUp z8uq9mek5z; Manager 2026-11-13 under Coach Ed's ruling, log 1100430000509244; seed Ruling 8: Santé
    Site Type only). The pages below are out of ROUTES and out of every menu, tab row, sheet and quick-link list. */
-const HIDDEN = ["/orders/new/", "/products/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/referral/",
+const HIDDEN = ["/orders/new/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/referral/",
   "/settings/plans/", "/settings/shipping/", "/settings/domain/", "/settings/automation/", "/settings/notification/"];
-const KEPT = ["/", "/orders/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/"];
+const KEPT = ["/", "/orders/", "/products/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/"];
 const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
 const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
 
@@ -169,9 +169,9 @@ test("no link in the page and no quick link reaches a hidden page", () => {
   for (const h of HIDDEN) assert.ok(!hrefs.includes(h), h + " has no link in index.html");
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   for (const h of HIDDEN) assert.ok(!quick.includes('"' + h + '"'), h + " is not a quick link");
-  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Settings"]);
-  assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders"], "the bottom tabs have no Products tab and no Add order button");
-  assert.ok(!/data-route="(products|orders-new|earnings|people|usage|referral|storefront|media-library)"/.test(HTML));
+  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Settings"]);
+  assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders", "Products"], "the bottom tabs are Overview, Orders and Products, with no Add order button");
+  assert.ok(!/data-route="(orders-new|earnings|people|usage|referral|storefront|media-library)"/.test(HTML));
 });
 
 test("a hidden address opens Overview and resets the address bar to /", async () => {

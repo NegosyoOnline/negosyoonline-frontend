@@ -310,7 +310,7 @@
   }
   function tableRow(o) {
     var w = h("div", "mc-rowwrap"), r = h("div", "ol-row"), first = h("div", "c-ord"), act = h("div", "c-act ol-act"), k = keyOf(o), amt = amountLine(o), st = h("div", "c-sta ol-st"), sl = subline(o);
-    w.setAttribute("role", "row");
+    w.setAttribute("role", "row"); w.setAttribute("id", "pk-row-" + o.id);
     add(first, h("span", "ol-no mc-order", o.order_number), h("span", "ol-dt", placedLong(o.created_at)), pill());
     rowActions(o).forEach(function (b) { act.appendChild(b); });
     add(st, chipsOf(o), sl, MR() ? MR().holdChip(o) : null, MR() ? MR().helpButton(o) : null);

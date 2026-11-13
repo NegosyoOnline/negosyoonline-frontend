@@ -106,10 +106,28 @@
       F.step = r.data.member.closed ? "closed" : "check"; render();
     });
   }
+  /* After the flow closes the list is drawn again (and once more when the holds are re-read): put the owner back where they were.
+     Done / Cancel / Back to order: scroll that order's row into view and focus its details button. Help another member: the page heading. */
+  function restore(back) {
+    var a = document.activeElement;
+    if (a && a !== document.body && a !== back.el && a.parentNode) return; /* the owner already moved on (back.el: our own focus, on a row the list has since drawn again) */
+    var el = null, row = back.keepOpen && back.id ? byId("pk-row-" + back.id) : null;
+    if (row) {
+      var bs = row.querySelectorAll("button");
+      for (var i = 0; i < bs.length && !el; i++) if (bs[i].hasAttribute("aria-expanded")) el = bs[i];
+      el = el || bs[0] || null;
+      if (row.scrollIntoView) row.scrollIntoView({ block: "center" });
+    }
+    if (!el) el = byId("h-orders");
+    back.el = el; if (el && el.focus) el.focus();
+  }
   function close(keepOpen) {
-    var cb = closeCb; flowToken++; F = null; show(false); var r = root(); if (r) clear(r);
-    load(M.site, M.ids.map(function (id) { return { id: id }; })); /* the hold may have changed */
+    var cb = closeCb, back = { keepOpen: !!keepOpen, id: F && F.order ? F.order.id : "" };
+    flowToken++; F = null; show(false); var r = root(); if (r) clear(r);
+    var p = load(M.site, M.ids.map(function (id) { return { id: id }; })); /* the hold may have changed */
     if (cb) cb(!!keepOpen);
+    restore(back);
+    p.then(function () { restore(back); });
   }
   function reset() {
     flowToken++; M.token++; F = null; M.members = {}; M.ids = [];

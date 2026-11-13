@@ -45,6 +45,7 @@ function boot({ byOrder = BY_ORDER, byOrderStatus = 200, handlers = {} } = {}) {
   const tabs = doc.createElement("nav"); tabs.setAttribute("id", "orders-tabs"); page.appendChild(tabs);
   for (const t of ["overview", "product", "pack"]) { const a = doc.createElement("a"); a.setAttribute("data-tab", t); a.textContent = t; tabs.appendChild(a); }
   const vw = doc.createElement("div"); vw.setAttribute("id", "view-pack-orders"); page.appendChild(vw);
+  const h1 = doc.createElement("h1"); h1.setAttribute("id", "h-orders"); h1.setAttribute("tabindex", "-1"); vw.appendChild(h1);
   for (const id of ["po-sub", "po-body"]) { const n = doc.createElement("div"); n.setAttribute("id", id); vw.appendChild(n); }
   for (const id of ["po-dlg-slot", "mr-root"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   doc.getElementById("mr-root").hidden = true;
@@ -270,6 +271,35 @@ test("saved: Help another member goes back to the list with the order closed; mo
   assert.ok(d.mr.textContent.includes("Not added"));
   d.press(d.mr, "Help another member").click(); await settle();
   assert.equal(d.vw.hidden, false);
+});
+
+test("leaving the flow: Done, Cancel and Back to order scroll that order's row into view and focus its details button; Help another member focuses the heading", async () => {
+  const saved = { "POST mem_1/recovery/": () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ hold_ends_at: HOLD, email_masked: "ma***@gmail.com", mobile_masked: "0917 *** 4821" }) }) };
+  const prep = async (extra) => { /* the first order's flow, with every drawn node recording scrollIntoView */
+    const d = boot(happy(extra)), scrolled = [], make = d.doc.createElement;
+    d.doc.createElement = (tag) => { const n = make(tag); n.scrollIntoView = (o) => scrolled.push([n.id, o && o.block]); return n; };
+    await toContact(d);
+    return { d, scrolled };
+  };
+  const save = async (d) => { d.type("mr-email", "maria.new@gmail.com"); d.mr.all((x) => x.tagName === "FORM")[0].fire("submit"); await settle(); };
+  const expectOnRow = (d, scrolled) => {
+    const btn = d.$("pk-row-ord_42").all((x) => x.tagName === "BUTTON" && x.hasAttribute("aria-expanded"))[0];
+    assert.ok(btn, "the order's details button exists");
+    assert.ok(d.doc.activeElement === btn, "focus is on the order's own control, not the page body");
+    assert.ok(scrolled.some((s) => s[0] === "pk-row-ord_42" && s[1] === "center"), "that row was scrolled into view");
+  };
+  for (const [label, extra] of [["Done", saved], ["Cancel", {}]]) {
+    const { d, scrolled } = await prep(extra);
+    if (label === "Done") await save(d);
+    d.doc.activeElement = d.doc.body; /* what the browser leaves once the flow's nodes are gone */
+    d.press(d.mr, label).click(); await settle();
+    expectOnRow(d, scrolled);
+  }
+  const { d } = await prep(saved);
+  await save(d);
+  d.doc.activeElement = d.doc.body;
+  d.press(d.mr, "Help another member").click(); await settle();
+  assert.ok(d.doc.activeElement === d.$("h-orders"), "the page heading takes focus");
 });
 
 test("errors: a taken email shows on the field; an expired check shows the expired state with Check again; 429 is generic; member_closed closes", async () => {

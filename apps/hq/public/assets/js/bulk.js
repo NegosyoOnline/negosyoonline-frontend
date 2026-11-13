@@ -355,7 +355,20 @@
     var n = String($("b-text").value || "").length + text(status.opt_out_line).length, max = textLimit() || 160;
     $("b-count").textContent = fmt(n) + " / " + max;
     $("b-count").classList.toggle("over", n > max);
-    $("b-check").disabled = n > max || busy;
+    /* Over the limit is said when the check is pressed, not by a button that does nothing. */
+    $("b-check").disabled = busy;
+  }
+  /* An empty or too long message is flagged in the field before anything is sent. Returns true when it is flagged. */
+  function badText() {
+    var typed = String($("b-text").value || ""), n = typed.length + text(status.opt_out_line).length, max = textLimit() || 160, words = "";
+    $("b-text").removeAttribute("aria-invalid");
+    if (!typed.trim()) words = "Write the message to send.";
+    else if (n > max) words = "The message is " + fmt(n - max) + (n - max === 1 ? " character" : " characters") + " too long for one SMS. Shorten it.";
+    if (!words) return false;
+    say("b-text-err", words);
+    $("b-text").setAttribute("aria-invalid", "true");
+    $("b-text").focus();
+    return true;
   }
   function chosen() { return $("to-file").checked ? "file" : $("to-paste").checked ? "pasted" : "groups"; }
   function paintSource() {
@@ -398,7 +411,7 @@
     $("b-confirm").value = "";
     $("b-send").disabled = true;
   }
-  $("b-text").addEventListener("input", function () { dropCheck(); say("b-text-err", ""); paintCount(); });
+  $("b-text").addEventListener("input", function () { dropCheck(); say("b-text-err", ""); $("b-text").removeAttribute("aria-invalid"); paintCount(); });
   $("b-list").addEventListener("input", dropCheck);
   $("b-file").addEventListener("change", function () { dropCheck(); say("b-file-err", ""); });
   ["to-groups", "to-file", "to-paste"].forEach(function (id) {
@@ -465,6 +478,7 @@
     if (busy) return;
     clearErrors();
     dropCheck();
+    if (badText()) return;
     busy = true;
     paintCount();
     readSource().then(function (body) {

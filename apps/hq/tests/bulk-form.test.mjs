@@ -17,7 +17,7 @@ const typed = async (p, text = "Sample announcement") => {
   await submit(p);
 };
 
-test("the counter counts the text plus the opt-out line and disables the check over 160", async () => {
+test("the counter counts the text plus the opt-out line and marks it over 160 without disabling the check", async () => {
   const p = bulk();
   await settle();
   assert.equal(p.text("b-count"), "22 / 160");
@@ -27,7 +27,33 @@ test("the counter counts the text plus the opt-out line and disables the check o
   p.type("b-text", "x".repeat(139));
   assert.equal(p.text("b-count"), "161 / 160");
   assert.equal(p.node["b-count"].classList.contains("over"), true);
-  assert.equal(p.node["b-check"].disabled, true);
+  assert.equal(p.node["b-check"].disabled, false, "the check is not silently disabled");
+});
+
+test("an empty message and a message over the limit are flagged in the field before anything is sent", async () => {
+  const p = bulk(withCheck());
+  await settle();
+  pick(p, "to-paste");
+  p.type("b-list", "0900 000 0101");
+  await submit(p);
+  assert.equal(p.text("b-text-err"), "Write the message to send.");
+  assert.equal(p.shown("b-text-err"), true);
+  assert.equal(p.node["b-text"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.doc.activeElement, p.node["b-text"]);
+  assert.match(fs.readFileSync(new URL("../public/bulk.html", import.meta.url), "utf8"), /id="b-text"[^>]*aria-describedby="b-text-hint b-text-err"/);
+  p.type("b-text", "  ");
+  await submit(p);
+  assert.equal(p.text("b-text-err"), "Write the message to send.");
+  p.type("b-text", "x".repeat(139));
+  assert.equal(p.shown("b-text-err"), false, "typing clears the error");
+  assert.equal(p.node["b-text"].hasAttribute("aria-invalid"), false);
+  await submit(p);
+  assert.equal(p.text("b-text-err"), "The message is 1 character too long for one SMS. Shorten it.");
+  assert.equal(p.node["b-text"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.calls_to("bulk/check/").length, 0);
+  p.type("b-text", "x".repeat(138));
+  await submit(p);
+  assert.equal(p.calls_to("bulk/check/").length, 1);
 });
 
 test("the opt-out line is drawn from the status and is not an editable field; the reserve figures follow the status", async () => {
@@ -79,6 +105,7 @@ test("Check the list posts the right body for each source, and nothing is in any
 test("nothing chosen, nothing pasted, no file: a sentence and no call", async () => {
   const p = bulk(withCheck());
   await settle();
+  p.type("b-text", "Sample announcement");
   await submit(p);
   assert.equal(p.text("b-src-err"), "Choose at least one group.");
   pick(p, "to-paste");
@@ -94,6 +121,7 @@ test("a file over 1,048,576 bytes sends nothing", async () => {
   const p = bulk(withCheck());
   await settle();
   pick(p, "to-file");
+  p.type("b-text", "Sample announcement");
   p.node["b-file"].files = [csv("x", 1048577)];
   await submit(p);
   assert.equal(p.text("b-file-err"), "The file is over 1 MB.");

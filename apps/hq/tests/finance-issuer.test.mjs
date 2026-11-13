@@ -46,6 +46,7 @@ async function page(table) {
   return { ...p, shown, sent };
 }
 const normal = (over = {}) => ({ "GET me/": [200, ME], [GET]: issuers(profile(), pend()), [BOOKS]: books([book(), book({ series: "SAMPLE-B", active: false, atp_reference: "FIXTURE-ATP-0002" })]), ...over });
+const line = (p, id) => p.doc.getElementById(id);
 const text = (p, id) => p.node[id].textContent;
 const fill = (p, ids, values) => ids.forEach((id, i) => { p.node[id].value = values[i]; });
 const GOOD = ["Sample Legal", "Sample Trade", "000-000-000-001", "001", "2 Sample Avenue", "FIXTURE-COR-0003", "2026-11-12", "issuer@example.test"];
@@ -188,6 +189,60 @@ test("the trade name may be left empty; every other value is required, and the C
   await settle();
   assert.equal(p.sent(SET).length, 1);
   assert.equal(p.sent(SET)[0].body.trade_name, "");
+});
+
+test("each bad field of the issuer form has its own line, aria-invalid and aria-describedby; focus goes to the first; typing clears it", async () => {
+  const p = await page(normal({ [SET]: [201, pend()] }));
+  const v = GOOD.slice();
+  v[0] = "";
+  v[5] = "";
+  v[6] = "2026-13-01";
+  v[7] = "nope";
+  submitNew(p, v);
+  assert.equal(line(p, "n-legal-e").textContent, "Legal name is required.");
+  assert.equal(line(p, "n-cor-e").textContent, "COR number is required.");
+  assert.equal(line(p, "n-cordate-e").textContent, "COR date is YYYY-MM-DD.");
+  assert.equal(line(p, "n-mail-e").textContent, "Enter an email address.");
+  assert.equal(line(p, "n-legal-e").getAttribute("role"), "alert");
+  for (const id of ["n-legal", "n-cor", "n-cordate", "n-mail"]) {
+    assert.equal(p.node[id].getAttribute("aria-invalid"), "true", id);
+    assert.equal(p.node[id].getAttribute("aria-describedby"), id + "-e", id);
+  }
+  assert.equal(p.node["n-tin"].hasAttribute("aria-invalid"), false);
+  assert.equal(p.doc.activeElement, p.node["n-legal"]);
+  p.node["n-legal"].value = "Sample Issuer";
+  p.node["n-legal"].fire("input");
+  assert.equal(line(p, "n-legal-e").hidden, true);
+  assert.equal(p.node["n-legal"].hasAttribute("aria-invalid"), false);
+  assert.equal(p.sent(SET).length, 0);
+});
+
+test("a refusal of the issuer fields marks the fields it names", async () => {
+  const p = await page(normal({ [SET]: [400, { error: { code: "invalid_request", message: "Raw.", fields: { tin: ["x"], odd_field: ["z"] } } }] }));
+  submitNew(p);
+  await settle();
+  assert.equal(p.node["n-tin"].getAttribute("aria-invalid"), "true");
+  assert.equal(line(p, "n-tin-e").textContent, "Check the tin.");
+  assert.equal(p.doc.activeElement, p.node["n-tin"]);
+  assert.equal(p.node["n-legal"].hasAttribute("aria-invalid"), false);
+});
+
+test("each bad field of the book form has its own line and takes the focus, first in page order", async () => {
+  const p = await page(normal({ [ADD]: [201, book()] }));
+  const v = GOOD_BOOK.slice();
+  v[1] = "50";
+  v[2] = "10";
+  v[3] = "x";
+  v[6] = "";
+  p.node["book-open"].fire("click");
+  fill(p, BOOK, v);
+  p.node["f-book"].fire("submit");
+  assert.equal(line(p, "b-to-e").textContent, "The last serial cannot be before the first.");
+  assert.equal(line(p, "b-width-e").textContent, "Serial width is a whole number.");
+  assert.equal(line(p, "b-printer-e").textContent, "Printer name is required.");
+  assert.equal(p.node["b-to"].getAttribute("aria-describedby"), "b-to-e");
+  assert.equal(p.doc.activeElement, p.node["b-to"]);
+  assert.equal(p.sent(ADD).length, 0);
 });
 
 test("a refusal of the fields names them in words and never shows the backend's own words", async () => {

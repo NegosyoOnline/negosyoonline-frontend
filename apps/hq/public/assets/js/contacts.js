@@ -212,8 +212,15 @@
 
   /* ---- one contact ---- */
 
+  /* A field's error: the words go in its role=alert line and the field is marked invalid (its aria-describedby names the line). */
+  var FIELD_ERR = { "c-first": "c-first-err", "c-last": "c-last-err", "c-num": "c-num-err" };
+  function badField(inputId, text) {
+    say(FIELD_ERR[inputId], text);
+    $(inputId).setAttribute("aria-invalid", "true");
+  }
+  function mendField(inputId) { say(FIELD_ERR[inputId], ""); $(inputId).removeAttribute("aria-invalid"); }
   function clearForm() {
-    ["c-first", "c-last", "c-num"].forEach(function (id) { $(id).value = ""; });
+    ["c-first", "c-last", "c-num"].forEach(function (id) { $(id).value = ""; $(id).removeAttribute("aria-invalid"); });
     $("c-groups").textContent = "";
     ["c-first-err", "c-last-err", "c-num-err", "c-groups-err", "c-err"].forEach(function (id) { say(id, ""); });
     $("c-existing").hidden = true;
@@ -290,16 +297,20 @@
     if (left(res)) return;
     if (res.status === 404) { leaveForm("That contact is no longer available."); return; }
     if (res.code === "invalid_request") {
-      var shown = false;
-      [["first_name", "c-first-err"], ["last_name", "c-last-err"], ["mobile", "c-num-err"], ["groups", "c-groups-err"]].forEach(function (p) {
+      var shown = false, firstBad = null;
+      [["first_name", "c-first"], ["last_name", "c-last"], ["mobile", "c-num"], ["groups", ""]].forEach(function (p) {
         var m = fieldMessage(res, p[0]);
-        if (m) { say(p[1], m); shown = true; }
+        if (!m) return;
+        if (p[1]) { badField(p[1], m); firstBad = firstBad || p[1]; } else say("c-groups-err", m);
+        shown = true;
       });
       if (!shown) say("c-err", res.message || DOWN);
+      if (firstBad) $(firstBad).focus();
       return;
     }
     if (res.code === "already_exists") {
-      say("c-num-err", "That number is already a contact.");
+      badField("c-num", "That number is already a contact.");
+      $("c-num").focus();
       existing = res.fields && typeof res.fields.contact === "string" ? res.fields.contact : null;
       $("c-existing").hidden = !existing;
       return;
@@ -311,18 +322,19 @@
     var id = existing;
     if (id) openContact(id, $("c-existing"));
   });
-  [["c-first", "c-first-err"], ["c-last", "c-last-err"], ["c-num", "c-num-err"]].forEach(function (p) {
-    $(p[0]).addEventListener("input", function () { say(p[1], ""); });
+  ["c-first", "c-last", "c-num"].forEach(function (id) {
+    $(id).addEventListener("input", function () { mendField(id); });
   });
   $("c-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (!change || busy) return;
     ["c-first-err", "c-last-err", "c-num-err", "c-groups-err", "c-err"].forEach(function (id) { say(id, ""); });
     $("c-existing").hidden = true;
-    var first = String($("c-first").value || "").trim(), mobile = String($("c-num").value || "").trim(), bad = false;
-    if (!first) { say("c-first-err", "Enter a first name."); bad = true; }
-    if (!mobile) { say("c-num-err", "Enter a mobile number."); bad = true; }
-    if (bad) return;
+    ["c-first", "c-last", "c-num"].forEach(function (id) { $(id).removeAttribute("aria-invalid"); });
+    var first = String($("c-first").value || "").trim(), mobile = String($("c-num").value || "").trim(), bad = null;
+    if (!first) { badField("c-first", "Enter a first name."); bad = bad || "c-first"; }
+    if (!mobile) { badField("c-num", "Enter a mobile number."); bad = bad || "c-num"; }
+    if (bad) { $(bad).focus(); return; }
     var body = { first_name: first, last_name: String($("c-last").value || "").trim(), mobile: mobile,
       groups: all($("c-groups"), function (n) { return n.tagName === "INPUT" && n.checked; }).map(function (n) { return n.getAttribute("value"); }) };
     var edit = formMode === "edit" && editId;
@@ -388,12 +400,26 @@
       if (res.ok && Array.isArray(res.data.results)) { groups = own(res.data.results); renderGroups(); }
     });
   }
+  /* Typing a name takes the group error away. */
+  $("g-name").addEventListener("input", function () {
+    say("g-err", "");
+    $("g-name").removeAttribute("aria-invalid");
+    $("g-name").removeAttribute("aria-describedby");
+  });
   $("g-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (!change || busy) return;
     var n = String($("g-name").value || "").trim();
     say("g-err", "");
-    if (!n) { say("g-err", "Enter a name for the group."); return; }
+    $("g-name").removeAttribute("aria-invalid");
+    $("g-name").removeAttribute("aria-describedby");
+    if (!n) {
+      say("g-err", "Enter a name for the group.");
+      $("g-name").setAttribute("aria-invalid", "true");
+      $("g-name").setAttribute("aria-describedby", "g-err");
+      $("g-name").focus();
+      return;
+    }
     H.call("POST", "contacts/groups/add/", { name: n }).then(function (res) {
       if (!res.ok) { groupFail(res); return; }
       $("g-name").value = "";
@@ -424,6 +450,7 @@
     function close() { renderGroups(); }
     x.addEventListener("click", close);
     input.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+    input.addEventListener("input", function () { say("g-err", ""); });
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var n = String(input.value || "").trim();

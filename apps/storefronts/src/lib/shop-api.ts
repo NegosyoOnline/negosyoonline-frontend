@@ -73,6 +73,8 @@ export type Quote = {
   home_address?: Address | null;
   /** Where that address came from: "profile", "pack_order" or "". */
   home_address_source?: string;
+  /** True while the member's home address cannot be changed (a recovery hold); absent from an older backend, which means "not locked". */
+  home_address_locked?: boolean;
 };
 
 export type Address = { line: string; barangay: string; city: string; province: string; zip: string; landmark: string };
@@ -100,6 +102,7 @@ function parseQuote(b: unknown): Quote | null {
     subtotal_centavos: int(b.subtotal_centavos), total_centavos: int(b.total_centavos), fingerprint: str(b.fingerprint),
     errors: arr(b.errors).filter((e): e is string => typeof e === "string"),
     home_address: parseAddress(b.home_address), home_address_source: str(b.home_address_source),
+    home_address_locked: b.home_address_locked === true,
     shipping: {
       charged_centavos: int(s.charged_centavos), policy: str(s.policy), estimated: s.estimated === true, available: s.available !== false,
       error: str(s.error), note: str(s.note),
@@ -117,6 +120,23 @@ export function shopQuote(args: QuoteArgs, c: Calls): Promise<PackResult<{ quote
   };
   if (args.address) payload.address = args.address;
   return packPost("shop/quote", payload, (b) => { const quote = parseQuote(b); return quote ? { quote } : null; }, c);
+}
+
+/* ---- the member's own saved address ---------------------------------------------------------------------------- */
+
+/** POST /storefront/v1/member/address/: the six address keys of the signed-in member. The member is Django's verified session for this
+    host, never a field of this body. 422 invalid_address carries the field messages, 423 address_locked a recovery hold, 429 the throttle. */
+export function saveHomeAddress(args: { host: string; visitor_ip: string; member_token: string; address: Address }, c: Calls) {
+  const { line, barangay, city, province, zip, landmark } = args.address;
+  return packPost(
+    "member/address",
+    { host: args.host, visitor_ip: args.visitor_ip, member_token: args.member_token, line, barangay, city, province, zip, landmark },
+    (b) => {
+      const address = record(b) ? parseAddress(b.home_address) : null;
+      return address ? { address } : null;
+    },
+    c,
+  );
 }
 
 /* ---- the store's payment accounts ----------------------------------------------------------------------------- */

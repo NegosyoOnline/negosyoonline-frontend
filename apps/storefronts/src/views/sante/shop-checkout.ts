@@ -18,6 +18,8 @@ import { money, php } from "./shop-shell.ts";
 export const CHECKOUT_PATH = "/checkout/";
 export const ZIP_PATH = "/checkout/zip/";
 export const QR_PATH = "/checkout/qr/";
+/** The checkout's edit mode for the member's saved address (TWCinc /checkout/?edit=home). */
+export const EDIT_ADDRESS_PATH = "/checkout/?edit=home";
 
 export type Step = "address" | "payment";
 export type Mode = "guest" | "home" | "different";
@@ -28,6 +30,8 @@ export const PAY_FIELDS = ["account_id", "reference_number", "amount_sent"] as c
 
 export type CheckoutModel = {
   step: Step;
+  /** The address form in edit mode: the member changes their saved home address (the page shows only that form). */
+  edit: boolean;
   /** A member with active benefits: the ship-mode cards show. Anyone else is shipped to the typed address at SRP. */
   benefits: boolean;
   member: { name: string; mobile: string } | null;
@@ -75,26 +79,18 @@ const invalid = (m: CheckoutModel, name: string): string => (m.field_errors[name
 
 /* ---- the address form (TWCinc _store_address_form.html) ------------------------------------------------------- */
 
-function addressForm(m: CheckoutModel, mode: "guest" | "different"): Markup {
+function receiverRows(m: CheckoutModel, edit: boolean, autofill: (value: string) => string): Markup {
   const p = m.posted;
-  const autofill = (value: string) => (m.benefits ? "off" : value);
+  if (edit) {
+    // Edit mode changes the address only: the member's own name and mobile are shown as text (no new stored field, plan z8uq9mek5v).
+    const who = m.member ?? { name: "", mobile: "" };
+    return html`
+            <dl class="sf-own-addr-dl">
+              <dt>Name</dt><dd>${who.name}</dd>
+              ${who.mobile ? html`<dt>Mobile</dt><dd>${who.mobile}</dd>` : ""}
+            </dl>`;
+  }
   return html`
-        <form method="post" action="${CHECKOUT_PATH}" id="delivery" novalidate>
-          <input type="hidden" name="action" value="address">${KEYS("ship_mode", mode)}
-          <div class="sf-modal" id="sfConfirmAddressModal" hidden>
-            <div class="sf-modal-card sf-confirm-modal-card">
-              <button type="button" class="sf-modal-close" id="sfConfirmAddressClose">&#x2715;</button>
-              <div class="sf-confirm-icon" aria-hidden="true">&#9888;</div>
-              <h3>Confirm Shipping Details</h3>
-              <p>Please review your shipping address before proceeding to payment.</p>
-              <div class="sf-confirm-actions">
-                <button type="button" class="sf-confirm-review" id="sfConfirmReview">Review again</button>
-                <button type="button" class="btn-cart sf-confirm-proceed" id="sfConfirmProceed">Yes, proceed</button>
-              </div>
-            </div>
-          </div>
-          <fieldset class="sf-block">
-            <legend>Shipping Address</legend>
             <div class="sf-field-row">
               <div class="sf-field">
                 <label for="cf_first_name">First Name *</label>
@@ -123,7 +119,32 @@ function addressForm(m: CheckoutModel, mode: "guest" | "different"): Markup {
                 </div>
                 ${fieldError(m, "contact_email")}
               </div>
+            </div>`;
+}
+
+function addressForm(m: CheckoutModel, mode: "guest" | "different" | "edit"): Markup {
+  const p = m.posted;
+  const edit = mode === "edit";
+  const autofill = (value: string) => (m.benefits ? "off" : value);
+  return html`
+        <form method="post" action="${CHECKOUT_PATH}" id="delivery" novalidate>
+          <input type="hidden" name="action" value="${edit ? "save_home" : "address"}">${edit ? "" : KEYS("ship_mode", mode)}
+          <div class="sf-modal" id="sfConfirmAddressModal" hidden>
+            <div class="sf-modal-card sf-confirm-modal-card">
+              <button type="button" class="sf-modal-close" id="sfConfirmAddressClose">&#x2715;</button>
+              <div class="sf-confirm-icon" aria-hidden="true">&#9888;</div>
+              <h3>Confirm Shipping Details</h3>
+              <p>Please review your shipping address before proceeding to payment.</p>
+              <div class="sf-confirm-actions">
+                <button type="button" class="sf-confirm-review" id="sfConfirmReview">Review again</button>
+                <button type="button" class="btn-cart sf-confirm-proceed" id="sfConfirmProceed">Yes, proceed</button>
+              </div>
             </div>
+          </div>
+          <fieldset class="sf-block">
+            <legend>Shipping Address</legend>
+            ${edit ? html`<p class="sf-locked-note">Who receives your parcel and where it goes. Your account details stay as they are.</p>` : ""}
+            ${receiverRows(m, edit, autofill)}
             <div class="sf-field">
               <label for="cf_line">Address *</label>
               <input type="text" id="cf_line" name="line" maxlength="120" value="${p.line ?? ""}" required autocomplete="${autofill("street-address")}"${m.field_errors.line ? html` class="sf-field-invalid"` : ""}>
@@ -170,8 +191,8 @@ function addressForm(m: CheckoutModel, mode: "guest" | "different"): Markup {
             ${fieldError(m, "delivery_address")}
           </fieldset>
           <div class="sf-step-actions">
-            ${m.benefits ? html`<button type="button" class="sf-step-back-link" id="sfBackToChoice">Back</button>` : html`<a href="/cart/" class="sf-step-back-link">Back</a>`}
-            <button type="submit" class="btn-cart sf-step-next">Confirm Address</button>
+            ${edit ? html`<a href="${CHECKOUT_PATH}" class="sf-step-back-link">Cancel</a>` : m.benefits ? html`<button type="button" class="sf-step-back-link" id="sfBackToChoice">Back</button>` : html`<a href="/cart/" class="sf-step-back-link">Back</a>`}
+            <button type="submit" class="btn-cart sf-step-next">${edit ? "Save Address" : "Confirm Address"}</button>
           </div>
         </form>`;
 }
@@ -226,28 +247,25 @@ function homeAddressOf(m: CheckoutModel): Address | null {
   return m.quotes.home?.home_address ?? m.quotes.different?.home_address ?? m.quote?.home_address ?? null;
 }
 
-/** Where the saved address came from ("profile", "pack_order", "" or absent), read from the quote that carries the address. */
-function homeSourceOf(m: CheckoutModel): string {
-  const q = [m.quotes.home, m.quotes.different, m.quote].find((x) => x?.home_address);
-  return q?.home_address_source ?? "";
-}
-
 /** "line, barangay, city, province ZIP" with an empty part left out. */
 export function addressText(a: Address): string {
   const head = [a.line, a.barangay, a.city, a.province].map((s) => s.trim()).filter(Boolean).join(", ");
   return a.zip ? `${head} ${a.zip}` : head;
 }
 
-/** Where a signed-in member can give the address a Package order carried: the dashboard home, whose registration card takes the delivery address.
-    Edit shows only for that source ("pack_order"). A profile address has no page to change it yet (/dashboard/address/ is not built and the
-    onboarding address step closes once onboarding is done), so no link, as TWCinc hides Edit on a locked address. */
-export const EDIT_ADDRESS_PATH = "/dashboard/#registration";
+/** True while the member's home address cannot be changed (a recovery hold). An older backend sends no flag: not locked. */
+function homeLockedOf(m: CheckoutModel): boolean {
+  return [m.quotes.home, m.quotes.different, m.quote].some((q) => q?.home_address_locked === true);
+}
+
+const LOCK_ICON = html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z" fill="currentColor"/></svg>`;
 
 function shipModeStep(m: CheckoutModel): Markup {
   const earn = m.quotes.home ? savingsOf(m.quotes.home) : 0;
   const homeOff = m.home_reason !== "";
   const who = m.member ?? { name: "", mobile: "" };
   const saved = homeAddressOf(m);
+  const locked = homeLockedOf(m);
   return html`
         <fieldset class="sf-block sf-ship-mode" id="sfShipMode">
           <legend>How should we ship this order?</legend>
@@ -287,8 +305,9 @@ function shipModeStep(m: CheckoutModel): Markup {
                   ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html`<dt>Address</dt><dd>The delivery address saved in your member profile.</dd>`}
                 </dl>
               </div>
-              ${saved && homeSourceOf(m) === "pack_order" ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
+              ${saved && !locked ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
+            ${locked ? html`<div class="sf-own-addr-note" id="sfHomeLockedNote" role="note">${LOCK_ICON}<span>Your home address cannot be changed right now.</span></div>` : ""}
           </div>
           <div class="sf-step-actions">
             <a href="/cart/" class="sf-step-back-link">Back</a>
@@ -412,7 +431,7 @@ export function checkoutContent(m: CheckoutModel): Markup {
 
     <div class="sf-checkout-grid">
       <div class="sf-checkout-main">
-        ${m.step === "payment" ? paymentStep(m) : m.benefits ? shipModeStep(m) : addressForm(m, "guest")}
+        ${m.step === "payment" ? paymentStep(m) : m.edit ? addressForm(m, "edit") : m.benefits ? shipModeStep(m) : addressForm(m, "guest")}
       </div>
       ${summaryAside(m)}
     </div>

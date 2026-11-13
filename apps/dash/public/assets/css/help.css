@@ -1,0 +1,15 @@
+/* Help Center (ClickUp z8uq9mekvc): static articles in the dash's card style. Only spacing for the lists and headings; no new colours. */
+body.dash-app #view-help .help-page { max-width: 820px; }
+body.dash-app #view-help .help-article { scroll-margin-top: 16px; }
+body.dash-app #view-help .help-article h3 { margin: 18px 0 6px; font-size: 16px; font-weight: 700; line-height: 1.3; }
+body.dash-app #view-help .dash-card p { margin: 0 0 12px; color: var(--text-2); }
+body.dash-app #view-help .dash-card ul, body.dash-app #view-help .dash-card ol { margin: 0 0 12px; padding-left: 22px; color: var(--text-2); }
+body.dash-app #view-help .dash-card li { margin: 0 0 8px; overflow-wrap: anywhere; }
+body.dash-app #view-help .dash-card strong { color: var(--text); }
+body.dash-app #view-help .help-index { list-style: none; margin: 0; padding: 0; }
+body.dash-app #view-help .help-index li { margin: 0; padding: 10px 0; border-top: 1px solid var(--card-line); }
+body.dash-app #view-help .help-index li:first-child { border-top: 0; }
+body.dash-app #view-help a { color: var(--link); text-underline-offset: 3px; }
+body.dash-app #view-help a:hover { color: var(--link-hover); }
+/* Focus is the light blue ring the Account and Settings pages use; a heading is never focusable by tab. */
+body.dash-app #view-help :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }

@@ -466,6 +466,22 @@ test("several Santé stores: a chooser, and a change loads that store's list", a
   assert.ok(d.$("pr-site"), "the chooser stays");
 });
 
+test("hiding and showing a product updates the masthead tiles and the strip together", async () => {
+  const many = [];
+  for (let i = 1; i <= 18; i++) many.push(product(String(i), FULL));
+  const d = boot({ products: many });
+  await d.show();
+  const tiles = () => d.all("pr-tile").map((t) => t.all((n) => n.classList.contains("pr-tile-num"))[0].textContent);
+  const strip = () => d.all("pr-stat").map((b) => b.all((n) => n.classList.contains("pr-stat-num"))[0].textContent);
+  assert.deepEqual(tiles(), ["18", "18", "0", "0"]);
+  d.manage(0, "pr-toggle"); await settle();
+  assert.deepEqual(tiles(), ["18", "17", "1", "0"]);
+  assert.deepEqual(strip(), ["18", "17", "1", "0"]);
+  d.manage(0, "pr-toggle"); await settle();
+  assert.deepEqual(tiles(), ["18", "18", "0", "0"]);
+  assert.deepEqual(strip(), ["18", "18", "0", "0"]);
+});
+
 test("pure helper: moveId moves one id a place and stops at the ends", () => {
   const { moveId } = boot().P.util;
   assert.deepEqual(Array.from(moveId(["a", "b", "c"], "b", -1)), ["b", "a", "c"]);

@@ -346,6 +346,20 @@
     var box = S.listBox, view = S.view;
     if (!box) return;
     var c = counts(S.products, S.canEdit);
+    /* The masthead tiles read the same counts as the strip, so they are redrawn with it on every change. */
+    if (S.kpisBox) {
+      clear(S.kpisBox);
+      S.kpisBox.appendChild(tile(c.all, "Products in catalog", "in the shared catalog", "pr-hero-headline"));
+      var small = h("div", "pr-hero-tiles");
+      small.appendChild(tile(c.live, "Live on storefront", "shown in shops", "pr-hero-kpi"));
+      if (S.canEdit) {
+        small.appendChild(tile(c.hidden, "Hidden", "not in shops", "pr-hero-kpi"));
+        var fix = tile(c.incomplete, "Needs a fix", "missing details", "pr-hero-kpi is-action" + (c.incomplete ? " has-work" : ""));
+        if (c.incomplete) fix.firstChild.appendChild(h("span", "pr-hero-dot"));
+        small.appendChild(fix);
+      }
+      S.kpisBox.appendChild(small);
+    }
     clear(S.stripBox);
     statuses().forEach(function (s) {
       var b = D.el("button", { type: "button", "class": "pr-stat pr-cell-" + s[3] + (view.status === s[0] ? " pr-stat-on" : "") });
@@ -463,18 +477,8 @@
     main.appendChild(h("p", "pr-hero-sub", "One product list for every Santé store, with prices and storefront status"));
     hid.appendChild(main);
     hero.appendChild(hid);
-    var kpis = h("div", "pr-hero-kpis");
-    kpis.appendChild(tile(c.all, "Products in catalog", "in the shared catalog", "pr-hero-headline"));
-    var small = h("div", "pr-hero-tiles");
-    small.appendChild(tile(c.live, "Live on storefront", "shown in shops", "pr-hero-kpi"));
-    if (S.canEdit) {
-      small.appendChild(tile(c.hidden, "Hidden", "not in shops", "pr-hero-kpi"));
-      var fix = tile(c.incomplete, "Needs a fix", "missing details", "pr-hero-kpi is-action" + (c.incomplete ? " has-work" : ""));
-      if (c.incomplete) fix.firstChild.appendChild(h("span", "pr-hero-dot"));
-      small.appendChild(fix);
-    }
-    kpis.appendChild(small);
-    hero.appendChild(kpis);
+    S.kpisBox = h("div", "pr-hero-kpis");
+    hero.appendChild(S.kpisBox);
     r.appendChild(hero);
 
     if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));

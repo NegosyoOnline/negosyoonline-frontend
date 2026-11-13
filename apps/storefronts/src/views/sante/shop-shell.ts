@@ -26,6 +26,10 @@ export function safeImage(url: string): string {
   return /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'<>]+$/.test(url) ? url : "";
 }
 
+/** What a product card shows when the product has no photo: a neutral bottle mark centred on the card's own light
+    background (the green and gradient pack-home.css already uses). Decorative, so hidden from readers. */
+export const PRODUCT_PLACEHOLDER: Markup = html`<span class="product-img-placeholder" aria-hidden="true"><svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M19 5h10v6l3 4v26a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V15l3-4z"/><path d="M16 22h16M16 33h16"/></svg></span>`;
+
 export type DrawerLine = { id: string; name: string; unit_centavos: number; quantity: number; available: boolean; image: string };
 
 export function itemsLabel(count: number): string {

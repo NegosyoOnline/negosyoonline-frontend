@@ -66,3 +66,19 @@ test("shop pages carry the skip link first and one main landmark", async () => {
   assert.match(doc, /<body>\n<a class="sf-skip" href="#main-content">Skip to content<\/a>/);
   assert.equal((doc.match(/<main id="main-content" tabindex="-1">/g) ?? []).length, 1);
 });
+
+test("the home serves WebP with the PNG as fallback, and the about background offers WebP first (item 1)", () => {
+  for (const n of ["category_barley", "category_drinks", "category_essential", "category_beauty", "about_1", "about_2", "about_3", "about_4", "blog_1", "blog_2", "blog_3"]) {
+    assert.match(page, new RegExp(`<picture><source type="image/webp" srcset="/assets/sante/img/${n}\\.webp\\?v=[0-9a-f]{8}"><img [^>]*src="/assets/sante/img/${n}\\.png\\?v=[0-9a-f]{8}"[^>]*loading="lazy"[^>]*></picture>`));
+  }
+  assert.match(css("pack-home.css"), /url\('\.\.\/img\/about_bg\.png'\);\s*background-image:[^;]*image-set\(url\('\.\.\/img\/about_bg\.webp'\) type\('image\/webp'\), url\('\.\.\/img\/about_bg\.png'\) type\('image\/png'\)\)/);
+});
+
+test("a product without a photo shows a placeholder, not an empty box (item 2)", () => {
+  const without = productCard(P, false).value;
+  assert.match(without, /<a href="\/products\/SPH1\/" class="product-img-wrap sf-card-link" aria-hidden="true" tabindex="-1">\s*<span class="product-img-placeholder" aria-hidden="true"><svg/);
+  assert.doesNotMatch(without, /<img/);
+  assert.match(css("pack-home.css"), /\.product-img-placeholder \{[^}]*aspect-ratio: 1 \/ 1/);
+  const withImg = productCard({ ...P, image_url: "https://abc123.public.blob.vercel-storage.com/p.jpg" }, false).value;
+  assert.doesNotMatch(withImg, /product-img-placeholder/);
+});

@@ -435,7 +435,93 @@ test("New SMS opens straight on the form with the chips and the reserve sentence
   assert.equal(p.text("n-chip-used"), "610 of 2,000 texts used today");
   assert.equal(p.text("n-reserve"), "300 texts a day are kept for sign-in codes. Staff texts stop once 1,700 are used that day.");
   assert.equal(p.calls_to("inbox/conversations/list/").length, 0);
-  assert.equal(p.node["new-go"].disabled, true);
+  assert.equal(p.node["new-go"].disabled, false, "Send SMS is never silently disabled");
+  assert.equal(p.text("text-count"), "0 / 160 (160 left)");
+});
+
+test("New SMS: the form markup has the 160 limit, live error lines and an enabled button", () => {
+  const html = fs.readFileSync(new URL("../public/inbox.html", import.meta.url), "utf8");
+  assert.match(html, /id="text" maxlength="160"/);
+  assert.match(html, /id="to-err" role="alert"/);
+  assert.match(html, /id="text-err" role="alert"/);
+  assert.match(html, /id="to"[^>]*aria-describedby="to-hint to-err"/);
+  assert.doesNotMatch(html, /id="new-go" disabled/);
+});
+
+test("New SMS: an empty number and an empty message each say so by the field, focus goes to the number, and nothing is sent", async () => {
+  const p = await newPage();
+  submit(p, "new-form");
+  await settle();
+  assert.equal(p.text("to-err"), "Enter the mobile number to send to.");
+  assert.equal(p.text("text-err"), "Write the message to send.");
+  assert.equal(p.node.to.getAttribute("aria-invalid"), "true");
+  assert.equal(p.node.text.getAttribute("aria-invalid"), "true");
+  assert.equal(p.doc.activeElement, p.node.to);
+  assert.equal(p.shown("n-box"), true);
+  assert.equal(p.calls_to("inbox/compose/").length, 0);
+  type(p, "to", "0900 000 0142");
+  assert.equal(p.shown("to-err"), false);
+  submit(p, "new-form");
+  await settle();
+  assert.equal(p.doc.activeElement, p.node.text, "focus goes to the first bad field");
+  assert.equal(p.shown("to-err"), false);
+  assert.equal(p.calls_to("inbox/compose/").length, 0);
+});
+
+test("New SMS: a message over 160 characters is flagged in the field, and the counter shows what is left", async () => {
+  const p = await newPage();
+  type(p, "to", "0900 000 0142");
+  type(p, "text", "x".repeat(150));
+  assert.equal(p.text("text-count"), "150 / 160 (10 left)");
+  type(p, "text", "x".repeat(161));
+  assert.equal(p.text("text-count"), "161 / 160 (0 left)");
+  submit(p, "new-form");
+  await settle();
+  assert.equal(p.text("text-err"), "The message is over 160 characters. Shorten it to send.");
+  assert.equal(p.node.text.getAttribute("aria-invalid"), "true");
+  assert.equal(p.doc.activeElement, p.node.text);
+  assert.equal(p.calls_to("inbox/compose/").length, 0);
+});
+
+test("New SMS: a number the backend refuses moves focus to the number", async () => {
+  const p = await newPage({ "inbox/compose/": () => [400, refusal("invalid_mobile", "x", { to: ["Enter a valid Philippine mobile number."] })] });
+  type(p, "to", "0123");
+  type(p, "text", "Hi");
+  p.doc.activeElement = null;
+  submit(p, "new-form");
+  await settle();
+  assert.equal(p.doc.activeElement, p.node.to);
+  assert.equal(p.node.to.getAttribute("aria-invalid"), "true");
+});
+
+test("Find: an empty or non-number submit says so, marks the field and calls nothing; typing clears it", async () => {
+  const p = inbox({ "inbox/conversations/find/": () => [200, { results: [], next: null }] });
+  await settle();
+  submit(p, "find-form");
+  await settle();
+  assert.equal(p.text("l-msg"), "Enter a full mobile number to find.");
+  assert.equal(p.node["find-number"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.node["find-number"].getAttribute("aria-describedby"), "l-msg");
+  assert.equal(p.doc.activeElement, p.node["find-number"]);
+  p.node["find-number"].value = "abc";
+  submit(p, "find-form");
+  await settle();
+  assert.match(p.text("l-msg"), /^That is not a mobile number/);
+  assert.equal(p.node["find-number"].value, "abc", "what was typed is kept");
+  p.node["find-number"].fire("input");
+  assert.equal(p.shown("l-msg"), false);
+  assert.equal(p.node["find-number"].hasAttribute("aria-invalid"), false);
+  assert.equal(p.calls_to("inbox/conversations/find/").length, 0);
+});
+
+test("Find: a number the backend refuses shows the same clear message", async () => {
+  const p = inbox({ "inbox/conversations/find/": () => [400, refusal("invalid_mobile", "x")] });
+  await settle();
+  p.node["find-number"].value = "0900";
+  submit(p, "find-form");
+  await settle();
+  assert.match(p.text("l-msg"), /^That is not a mobile number/);
+  assert.equal(p.node["find-number"].getAttribute("aria-invalid"), "true");
 });
 
 test("without send there is no form, only the read-only card", async () => {

@@ -419,6 +419,19 @@ test("an amount that is not money is refused in the dialog and nothing is sent",
   assert.equal(p.node.amount.hasAttribute("aria-invalid"), false);
 });
 
+test("a bad amount puts the focus on the amount, its line is an alert, and typing clears the mark", async () => {
+  const p = await opened({ [C]: [200, payment(CONFIRMED)] });
+  p.node["open-confirm"].fire("click");
+  p.doc.activeElement = null;
+  p.node.amount.value = "abc";
+  p.node["confirm-form"].fire("submit");
+  assert.equal(p.doc.activeElement, p.node.amount);
+  assert.match(fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8"), /id="amount-err" role="alert"/);
+  p.node.amount.fire("input");
+  assert.equal(p.node["amount-err"].hidden, true);
+  assert.equal(p.node.amount.hasAttribute("aria-invalid"), false);
+});
+
 test("a confirmation runs a progress bar for two seconds at least, then shows the result on the Under review list", async () => {
   const p = await opened({ [C]: [200, payment(CONFIRMED)] });
   confirmDialog(p, "4,999.00");
@@ -615,6 +628,27 @@ test("a rejection needs a reason, a note for Another reason, and a note of 300 c
   await settle();
   assert.deepEqual(p.sent(R)[0].body, { payment: "btp_one", reason: "other", note: "Paid to an old account." });
   assert.equal(p.node["reject-err"].hidden, true);
+});
+
+test("a failed rejection marks the field that is wrong and puts the focus on it, not on the page", async () => {
+  const p = await opened({ [R]: [200, payment({ status: "rejected" })] });
+  p.node["open-reject"].fire("click");
+  const box = p.node.reason.parentNode.all((n) => n.tagName === "INPUT")[0];
+  p.doc.activeElement = null;
+  p.node.reason.value = "";
+  p.node["reject-form"].fire("submit");
+  assert.equal(p.doc.activeElement, box);
+  assert.equal(box.getAttribute("aria-invalid"), "true");
+  assert.equal(box.getAttribute("aria-describedby"), "reject-err");
+  p.node.reason.value = "other";
+  p.node.note.value = " ";
+  p.node["reject-form"].fire("submit");
+  assert.equal(p.doc.activeElement, p.node.note);
+  assert.equal(p.node.note.getAttribute("aria-invalid"), "true");
+  assert.equal(box.hasAttribute("aria-invalid"), false);
+  p.node.note.fire("input");
+  assert.equal(p.node.note.hasAttribute("aria-invalid"), false);
+  assert.match(fs.readFileSync(new URL("../public/finance.html", import.meta.url), "utf8"), /id="note" maxlength="300" aria-describedby="note-hint reject-err"/);
 });
 
 test("rejecting sends the reason and the note, waits for nothing, and returns to the list with a confirmation", async () => {

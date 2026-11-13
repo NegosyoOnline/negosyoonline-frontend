@@ -90,18 +90,18 @@
         <div class="cols" id="v-form" hidden>
           <form class="dash-card form-card" id="c-form" aria-label="Contact" novalidate>
             <div class="pair">
-              <div class="field"><label for="c-first">First name</label><input class="input" id="c-first" autocomplete="off"><p class="field-err" id="c-first-err" hidden></p></div>
-              <div class="field"><label for="c-last">Last name</label><input class="input" id="c-last" autocomplete="off"><p class="field-err" id="c-last-err" hidden></p></div>
+              <div class="field"><label for="c-first">First name</label><input class="input" id="c-first" autocomplete="off" aria-describedby="c-first-err"><p class="field-err" id="c-first-err" role="alert" hidden></p></div>
+              <div class="field"><label for="c-last">Last name</label><input class="input" id="c-last" autocomplete="off" aria-describedby="c-last-err"><p class="field-err" id="c-last-err" role="alert" hidden></p></div>
             </div>
             <div class="field">
               <label for="c-num">Mobile number</label>
               <input class="input" id="c-num" inputmode="tel" autocomplete="off" aria-describedby="c-num-hint c-num-err">
               <p class="hint" id="c-num-hint">A Philippine mobile number. One contact per number.</p>
-              <p class="field-err" id="c-num-err" hidden></p>
+              <p class="field-err" id="c-num-err" role="alert" hidden></p>
               <p><button type="button" class="no-btn no-btn-ghost" id="c-existing" hidden>Open that contact</button></p>
             </div>
-            <fieldset class="field checks" id="c-groups"><legend>Groups</legend></fieldset>
-            <p class="field-err" id="c-groups-err" hidden></p>
+            <fieldset class="field checks" id="c-groups" aria-describedby="c-groups-err"><legend>Groups</legend></fieldset>
+            <p class="field-err" id="c-groups-err" role="alert" hidden></p>
             <p class="field-err" id="c-err" role="alert" hidden></p>
             <p class="small" id="c-ro" hidden>You can read contacts but not change them.</p>
             <p class="small" id="c-recorded" hidden>Opening this contact was recorded under your name.</p>
@@ -157,7 +157,7 @@
                 <label for="u-group">Add them to this group</label>
                 <select class="input" id="u-group"></select>
                 <p class="hint" id="u-nogroup" hidden><a href="/contacts/groups/">Add a group first</a></p>
-                <p class="field-err" id="u-group-err" hidden></p>
+                <p class="field-err" id="u-group-err" role="alert" hidden></p>
               </div>
               <p class="field-err" id="u-err" role="alert" hidden></p>
               <div class="form-foot">
@@ -225,6 +225,6 @@
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261111d"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
-<script src="/assets/js/contacts.js?v=20261111b"></script>
+<script src="/assets/js/contacts.js?v=20261113a"></script>
 </body>
 </html>

@@ -1,0 +1,29 @@
+/* Orders > Product Orders (ClickUp z8uq9mekuw): the Subscriber confirms or cancels Santé shop orders and ships them.
+   The layout classes (.mc-*, .po-*) are the Package Order screen's own, from pack-orders.css, which index.html loads first;
+   this file adds only what is new here. Scoped to #view-shop-orders, #shop-tabs and .so-*; every colour is a dash token.
+   Focus is the dash's light blue (--link). */
+#view-shop-orders{display:flex;flex-direction:column;gap:20px;min-width:0}
+#so-body{display:contents}
+@media (max-width:479.98px){body.dash-app #shop-tabs a{padding:12px 9px;font-size:14px}body.dash-app #shop-tabs{margin-bottom:8px}}
+#view-shop-orders .chip{min-height:26px;white-space:nowrap}
+#view-shop-orders .chip-warn{background:var(--bl-chip-warn-bg);color:var(--bl-chip-warn)}
+#view-shop-orders .chip-danger{background:var(--err-bg);color:var(--err-h)}
+/* focus: light blue ring; card titles and the heading are never focus targets */
+#view-shop-orders :focus-visible{outline:2px solid var(--link);outline-offset:2px}
+#view-shop-orders .no-btn:focus-visible,#view-shop-orders .mc-stage:focus-visible,#view-shop-orders .mc-clear button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--link)}
+#view-shop-orders h1:focus,#view-shop-orders h1:focus-visible,#view-shop-orders .po-card h3,#view-shop-orders .po-card h3:focus{outline:none}
+/* order lines in the detail */
+.so-lines{list-style:none;margin:8px 0 12px;padding:0}
+.so-lines li{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;padding:8px 0;border-top:1px solid var(--card-line)}
+.so-lines li:first-child{border-top:0}
+.so-line-name{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.so-line-name span{color:var(--text-2);font-size:14px}
+/* dialog fields */
+.so-field{display:grid;gap:6px;margin:12px 0 4px}
+.so-field label{font-weight:600;color:var(--text-2);font-size:14px}
+.so-input{display:block;width:100%;min-height:44px;padding:0 12px;box-sizing:border-box;border:1px solid var(--bl-select-line);border-radius:8px;background:var(--bl-select-bg);color:var(--bl-select-text);font:inherit;font-size:16px}
+.so-text{min-height:96px;padding:10px 12px;resize:vertical}
+.so-input:focus,.so-input:focus-visible{outline:none;border-color:var(--link);box-shadow:0 0 0 1px var(--link)}
+.so-input[aria-invalid="true"]{border-color:var(--err-line)}
+.so-field .po-error,.po-dialog>.po-error{margin:2px 0}
+.po-error[hidden]{display:none}

@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/assets/css/storefront-settings.css?v=20261103ss1">
 <link rel="stylesheet" href="/assets/css/earnings.css?v=20261106e8a">
 <link rel="stylesheet" href="/assets/css/pack-orders.css?v=20261112po1">
+<link rel="stylesheet" href="/assets/css/shop-orders.css?v=20261113so1">
 <link rel="stylesheet" href="/assets/css/help.css?v=20261113hc1">
 <noscript><style>#boot{display:none!important}</style></noscript>
 </head>
@@ -105,6 +106,14 @@
           <p>Orders are not part of your dashboard yet. There is nothing to set up here for now.</p>
           <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
         </section>
+      <section class="view" id="view-shop-orders" aria-labelledby="h-shop-orders" hidden>
+        <nav class="set-tabs" id="shop-tabs" aria-label="Orders"><a href="#" data-tab="overview">Overview</a><a href="/orders/products/" data-tab="products" aria-current="page">Product Orders</a><a href="/orders/" data-tab="package">Package Order</a></nav>
+        <div id="view-product-orders" aria-live="polite">
+          <header class="view-head"><p class="dash-eyebrow">Orders</p><h1 id="h-shop-orders" tabindex="-1">Orders</h1><p class="view-sub" id="so-sub" hidden></p></header>
+          <div id="so-body" aria-busy="true"></div>
+        </div>
+        <div id="so-dlg-slot"></div>
+      </section>
       </section>
       <section class="view" id="view-products" aria-labelledby="h-products" hidden>
         <header class="view-head"><p class="dash-eyebrow">Products</p><h1 id="h-products" tabindex="-1">Products</h1></header>
@@ -347,7 +356,7 @@
 </dialog>
 <script src="/assets/js/config.js?v=20261028zy"></script>
 <script src="/assets/js/app.js?v=20261113dh1"></script>
-<script src="/assets/js/dashboard.js?v=20261113dh2"></script>
+<script src="/assets/js/dashboard.js?v=20261113so1"></script>
 <script src="/assets/js/account.js?v=20261111mc4"></script>
 <script src="/assets/js/billing.js?v=20261113bl2"></script>
 <script src="/assets/vendor/cropperjs/cropper.min.js?v=162"></script>
@@ -357,6 +366,7 @@
 <script src="/assets/js/storefront-settings.js?v=20261110na1"></script>
 <script src="/assets/js/earnings.js?v=20261110na1"></script>
 <script src="/assets/js/pack-orders.js?v=20261112po1"></script>
+<script src="/assets/js/shop-orders.js?v=20261113so1"></script>
 <script src="/assets/js/help.js?v=20261113hc2"></script>
 </body>
 </html>

@@ -7,8 +7,8 @@
    Only files a page links by name are listed. Images the stylesheets load (../img/...) are not. */
 
 const VERSIONS: Record<string, string> = {
-  "css/pack-home.css": "a655c94f",
-  "css/pack-storefront.css": "70960666",
+  "css/pack-home.css": "b95b223c",
+  "css/pack-storefront.css": "9fb8fdd2",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -17,7 +17,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
-  "css/pack-focus.css": "e2ba8248", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "2a7b1304", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
   "js/pack-busy.js": "cd6351f6",

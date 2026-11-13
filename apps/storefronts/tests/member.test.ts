@@ -227,7 +227,8 @@ test("POST request: a number Django refuses shows its message under the field, a
     assert.equal(r.status, 200);
     const page = await r.text();
     assert.match(page, /<h1>Member Login<\/h1>/);
-    assert.match(page, /<p class="err" id="contact-msg">Enter a valid Philippine mobile number\.<\/p>/);
+    assert.match(page, /<p class="err" id="contact-msg" role="alert">Enter a valid Philippine mobile number\.<\/p>/);
+    assert.match(page, /autofocus aria-invalid="true" aria-describedby="contact-msg"/);
   });
 });
 

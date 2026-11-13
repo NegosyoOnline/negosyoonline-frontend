@@ -10,7 +10,8 @@
    - the details form is TWCinc's own: one date field, the two usernames and, while the member has no address, the
      delivery address block (the backend's member/registration/details takes date_of_birth and delivery_address). */
 import { html, safe, type Markup } from "../../lib/html.ts";
-import type { MemberPack, MobileCheck, RegistrationCard } from "../../lib/pack-api.ts";
+import type { MemberPack, MobileCheck, OrderCard, RegistrationCard } from "../../lib/pack-api.ts";
+import { shortDate } from "./pack-orders.ts";
 import { termsDialog, termsField } from "./pack-terms.ts";
 
 export const RESUBMIT_PATH = "/dashboard/pack/resubmit/";
@@ -170,13 +171,29 @@ ${reg.details_form && !inDialog ? detailsForm("reg", reg, mobile, e, posted, ter
 
 /* ---- the payment card (C7) and the rejection dialog (C9) ----------------------------------------------------------- */
 
-function packCard(p: MemberPack): Markup {
+/** The shipment line of a paid order, from the same member/orders card My Orders shows: delivered (all four steps done, with its date),
+    shipped (courier and tracking number), else the store's "will let you know" text. No card (the read failed) keeps that text. */
+function shipmentLine(card: OrderCard | null): Markup {
+  if (card) {
+    const last = card.steps[card.steps.length - 1];
+    if (card.steps.length === 4 && last.state === "done") {
+      const when = shortDate(last.date);
+      return html`Delivered${when ? html` on ${when}` : ""}`;
+    }
+    if (card.courier || card.tracking) {
+      return html`${card.courier ? html`Shipped via <b>${card.courier}</b>` : html`Shipped`}${card.tracking ? html` &middot; Tracking# ${card.tracking}` : ""}`;
+    }
+  }
+  return html`The store will let you know when it ships`;
+}
+
+function packCard(p: MemberPack, card: OrderCard | null = null): Markup {
   const paid = p.payment_status === "verified";
   return html`<section class="pk-card" aria-labelledby="pk-pack-title">
 <div class="pk-top"><h2 id="pk-pack-title">Membership Pack</h2><span class="pk-chip ${p.tone}">${p.payment_label}</span></div>
 <div class="row"><div>Order number</div><b>${p.order_number}</b></div>
 <div class="row"><div>Payment</div><span>${p.method_label} · ${pesos(p.price_centavos)}</span></div>
-${paid ? html`<div class="row"><div>Shipment</div><span>The store will let you know when it ships</span></div>`
+${paid ? html`<div class="row"><div>Shipment</div><span>${shipmentLine(card)}</span></div>`
   : html`<div class="row"><div>Shipment</div><span>Ships after the store verifies your payment</span></div>`}
 </section>`;
 }
@@ -245,6 +262,8 @@ export type HomePanels = {
   reg_errors?: PanelErrors;
   posted?: Record<string, string>;
   terms?: TermsVersion | null;
+  /** The member/orders card of this pack order, for the Shipment line. */
+  order?: OrderCard | null;
 };
 
 /** The panels the home shows, in TWCinc's order: the payment card, the registration card (the lock dialog when rejected). */
@@ -255,7 +274,7 @@ export function homePanels(h: HomePanels): Markup {
   const re = h.reg_errors ?? NO_ERRORS;
   const posted = h.posted ?? {};
   return html`<style>${safe(PANEL_CSS)}${h.registration?.terms_required ? safe(TERMS_CSS) : ""}</style>
-${packCard(p)}
+${packCard(p, h.order ?? null)}
 ${h.registration ? registrationPanel(h.registration, h.mobile, re, !!p.lock, posted, h.terms ?? null) : ""}
 ${p.lock ? lockDialog(p, h.registration, h.mobile, pe, re, posted, h.terms ?? null) : ""}`;
 }

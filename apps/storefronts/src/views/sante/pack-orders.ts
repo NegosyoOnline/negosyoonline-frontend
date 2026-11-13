@@ -63,7 +63,7 @@ export function viewAllLink(): Markup {
   return html`<p class="sf-dash-all"><a href="/dashboard/orders/">View all orders</a></p>`;
 }
 
-function card(c: OrderCard): Markup {
+function card(c: OrderCard, i = 0): Markup {
   const tail = c.problem
     ? html`<div class="oc-problem-banner">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -103,8 +103,8 @@ function card(c: OrderCard): Markup {
       ${m.act ? html`<a href="/dashboard/" class="oc-member-link">Review your details &rarr;</a>` : ""}
     </div>
   </div>` : ""}
-  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false">View Details &rarr;</button></div>
-  <div class="oc-detail" hidden>
+  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-p${i}">View Details &rarr;</button></div>
+  <div class="oc-detail" id="oc-detail-p${i}" hidden>
     <div class="oc-dgrid">
       <div class="oc-dcard">
         <div class="oc-dcard-head"><span class="oc-dcard-ic ic-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg></span><span class="oc-dcard-htxt">Waybill</span></div>
@@ -131,7 +131,7 @@ const SHOP_TRACK = ["placed", "confirmed", "shipped", "delivered"] as const;
 
 /** A shop order as a card beside the pack's (TWCinc _store_order_card.html over the pack card's look): the buyer's four-step tracker,
     "This order was cancelled." for a cancelled one, the courier line and the details. Django's buyer view is the source of every word. */
-export function shopCard(o: BuyerOrder): Markup {
+export function shopCard(o: BuyerOrder, i = 0): Markup {
   const at = SHOP_TRACK.indexOf(o.status as (typeof SHOP_TRACK)[number]);
   const names = o.tracker.length === 4 ? o.tracker : ["Order Placed", "Order Confirmed", "Shipped", "Delivered"];
   const dates = [o.created_at, "", o.shipped_on, o.delivered_on];
@@ -161,8 +161,8 @@ export function shopCard(o: BuyerOrder): Markup {
     <span class="sf-status-chip ${chip}">${o.cancelled ? "Cancelled" : o.status_label}</span>
   </div>
   ${tail}
-  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false">View Details &rarr;</button></div>
-  <div class="oc-detail" hidden>
+  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-s${i}">View Details &rarr;</button></div>
+  <div class="oc-detail" id="oc-detail-s${i}" hidden>
     <div class="oc-dgrid">
       <div class="oc-dcard">
         <div class="oc-dcard-head"><span class="oc-dcard-htxt">Items &middot; ${o.lines.reduce((n, l) => n + l.quantity, 0)}</span></div>
@@ -181,7 +181,7 @@ export function shopCard(o: BuyerOrder): Markup {
 
 export function ordersContent(memberName: string, cards: OrderCard[], shop: BuyerOrder[] = []): Markup {
   // Package and shop cards share one list, newest first
-  const all = [...cards.map((c) => ({ at: Date.parse(c.created_at) || 0, view: card(c) })), ...shop.map((o) => ({ at: Date.parse(o.created_at) || 0, view: shopCard(o) }))].sort((x, y) => y.at - x.at);
+  const all = [...cards.map((c, i) => ({ at: Date.parse(c.created_at) || 0, view: card(c, i) })), ...shop.map((o, i) => ({ at: Date.parse(o.created_at) || 0, view: shopCard(o, i) }))].sort((x, y) => y.at - x.at);
   return html`<div class="pd" id="pp-dash-orders">
 <div class="acct-hero">
   <div class="acct-hero-id">

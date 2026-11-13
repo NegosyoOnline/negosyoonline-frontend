@@ -28,6 +28,9 @@ test("the billing article is in the index between the orders and support article
   assert.ok(/^help-[a-z]+$/.test("help-billing"), "the anchor matches help.js");
   const t = text(VIEW.slice(VIEW.indexOf('id="h-help-billing"'), VIEW.indexOf('<article class="dash-card help-article" id="help-support"')));
   assert.ok(t.includes("Monthly") && t.includes("Annual") && t.includes("7 calendar days"));
+  assert.ok(t.includes("When your free trial ends"), "the trial-end section exists");
+  assert.ok(VIEW.indexOf("<h3>When your free trial ends</h3>") < VIEW.indexOf("<h3>If a payment is late</h3>"), "trial-end comes before late payment");
+  assert.ok(t.includes("paused") && !/suspended/i.test(t), "the article says paused, never suspended");
   assert.ok(!/PHP|₱|\d{1,3},\d{3}/.test(t), "no amount or account number");
   for (const bad of ["per order", "per sale", "card", "gateway", "auto-debit", "usage"]) assert.ok(!t.includes(bad), bad + " is not mentioned");
 });

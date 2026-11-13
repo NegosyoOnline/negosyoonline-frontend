@@ -269,7 +269,7 @@
      Static list (no request). Arrow keys move the highlight, Escape closes and returns focus to the button, and a click
      outside closes it. Labels reach the page through textContent only; hrefs come from this fixed list. */
   var QUICK_LINKS = [
-    ["Overview", "", "/"], ["Orders", "", "/orders/"],
+    ["Overview", "", "/"], ["Orders", "", "/orders/"], ["Products", "", "/products/"],
     ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
     ["Business Settings", "Settings", "/settings/business/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"]
   ];

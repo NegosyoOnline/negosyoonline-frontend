@@ -64,11 +64,8 @@ export function storeFooter(v: HomeModel): Markup {
         <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
         <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted for over two decades, present in 20+ countries.</p>
         <div class="payment-row">
-          <span class="pay-badge">GCash</span>
-          <span class="pay-badge">Maya</span>
-          <span class="pay-badge">Visa</span>
-          <span class="pay-badge">Mastercard</span>
           <span class="pay-badge">Bank Transfer</span>
+          <span class="pay-badge">E-wallet</span>
         </div>
       </div>
       <div>
@@ -695,7 +692,7 @@ ${storeNav(v)}
           What payment methods do you accept?
           <span class="faq-icon">+</span>
         </div>
-        <div class="faq-a">We accept GCash, Maya, Visa, Mastercard, and bank transfer. Cash on Delivery may be available depending on your location.</div>
+        <div class="faq-a">We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.</div>
       </div>
 
     </div></div>

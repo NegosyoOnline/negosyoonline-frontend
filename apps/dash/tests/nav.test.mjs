@@ -37,7 +37,7 @@ test("Settings is in the sidebar and not in the profile menu", () => {
   assert.deepEqual(links(PROFILE).filter(isSettings), [], "no Settings or Business Settings entry in the profile menu");
   assert.ok(!/\/settings\//.test(PROFILE), "no settings address in the profile menu");
   assert.ok(!/business settings/i.test(PROFILE));
-  assert.deepEqual(links(PROFILE).map((l) => l[1]), ["Account Settings"]);
+  assert.deepEqual(links(PROFILE).map((l) => l[1]), ["Account Settings", "Help Center"]); /* Help Center is back for launch (z8uq9mekvc) */
   /* The phone's More sheet is the sidebar's stand-in: its Settings group opens Business Settings by that name. */
   assert.deepEqual(links(MORE).filter(([href]) => href === "/settings/business/"), [["/settings/business/", "Business Settings"]]);
 });
@@ -50,7 +50,8 @@ test("Settings has three tabs (Business Settings, Billing, Payments) and no Sant
   assert.ok(!/\shidden(\s|>)/.test(SET_TABS.replace(/^<nav[^>]*>/, "")), "no tab is hidden");
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
   assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments"]);
-  assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "")), "only the script that draws the Sponsor ID row names Santé");
+  /* The Help Center articles (z8uq9mekvc) are text on /help/ and name Santé; they are not a menu entry, so they are left out here. */
+  assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "").replace(/<section class="view" id="view-help"[\s\S]*?<section class="view" id="view-referral"/, "")), "only the script that draws the Sponsor ID row names Santé");
   assert.ok(!HTML.includes("data-sante"));
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   assert.ok(quick.includes('["Business Settings", "Settings", "/settings/business/"], ["Billing", "Settings", "/settings/billing/"]'), "Billing follows Business Settings");
@@ -152,9 +153,9 @@ test("the first route waits for DOMContentLoaded while the document is loading, 
 
 /* Launch hide set (ClickUp z8uq9mek5z; Manager 2026-11-13 under Coach Ed's ruling, log 1100430000509244; seed Ruling 8: Santé
    Site Type only). The pages below are out of ROUTES and out of every menu, tab row, sheet and quick-link list. */
-const HIDDEN = ["/orders/new/", "/products/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/help/", "/referral/",
+const HIDDEN = ["/orders/new/", "/products/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/referral/",
   "/settings/plans/", "/settings/shipping/", "/settings/domain/", "/settings/automation/", "/settings/notification/"];
-const KEPT = ["/", "/orders/", "/account/", "/settings/business/", "/settings/billing/", "/settings/payments/"];
+const KEPT = ["/", "/orders/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/"];
 const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
 const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
 

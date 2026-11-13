@@ -13,6 +13,7 @@
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
     "/orders/": { view: "orders", title: "Orders | NegosyoOnline" },
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
+    "/help/": { view: "help", title: "Help Center | NegosyoOnline" }, /* back for launch (z8uq9mekvc): six articles, reached from the profile menu */
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
@@ -51,6 +52,7 @@
     /* A known path keeps its query string (the Billing page reads ?site= and ?setup=); an unknown path resets to "/". */
     if (typeof history !== "undefined" && history.replaceState && (!known || location.pathname !== p)) { try { history.replaceState(null, "", known ? p + location.search : "/"); } catch (e) { /* ignore */ } }
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== r.view; });
+    if (r.view === "help" && window.NOHelp) window.NOHelp.toAnchor(); /* a fresh load on /help/#help-x: help.js ran its own scroll while this view was still hidden */
     Array.prototype.forEach.call(document.querySelectorAll("#side [data-route], #tabs [data-route], #set-tabs [data-route]"), function (a) {
       if (a.getAttribute("data-route") === r.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });

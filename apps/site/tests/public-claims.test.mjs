@@ -96,3 +96,10 @@ test("G1b: Santé site is what is available now, Shop is planned", () => {
   assert.doesNotMatch(html, /run by real business owners|id="real-stores"/);
   assert.doesNotMatch(pages["assets/js/site.js"], /NegosyoOnline Shop is currently available/);
 });
+
+test("Terms and Cancellation no longer tell every Subscriber to add a payment method (z8uq9mek5u)", () => {
+  for (const name of ["terms.html", "cancellation-refund.html"]) {
+    assert.doesNotMatch(pages[name], /add a payment method for that website/, name);
+    assert.doesNotMatch(pages[name], /add a valid payment method/, name);
+  }
+});

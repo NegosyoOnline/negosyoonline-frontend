@@ -309,7 +309,7 @@
 
 
   function focusables(box) {
-    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
+    return Array.prototype.slice.call(box.querySelectorAll("input, textarea, button")).filter(function (n) { return !n.disabled && !n.hidden; });
   }
   function inside(box, n) { for (; n; n = n.parentNode) if (n === box) return true; return false; }
   function onKey(e) {

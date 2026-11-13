@@ -1032,3 +1032,25 @@ test("the input is sized from the measured width of its text, so the .00 sits ri
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   assert.match(css, /\.fin-amt-ruler \{ position: absolute; visibility: hidden;/);
 });
+
+test("Tab and Shift+Tab wrap inside an open Payments dialog, and the page asks the DOM only for what a browser has", async () => {
+  const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
+  assert.doesNotMatch(js, /\b(?:box|dialog)\.all\(/, "all() exists only in the test stand-in, never in a browser");
+  const p = await opened();
+  p.node["open-confirm"].fire("click");
+  const dlg = p.node["m-confirm"];
+  /* The stand-in page holds each id as a bare node, so give the dialog the Tab stops of the real markup. */
+  for (const tag of ["input", "button", "button"]) dlg.appendChild(p.doc.createElement(tag));
+  const stops = dlg.querySelectorAll("input, textarea, button").filter((n) => !n.disabled && !n.hidden);
+  assert.ok(stops.length >= 2, "the dialog has Tab stops");
+  const first = stops[0], last = stops[stops.length - 1];
+  p.doc.activeElement = last;
+  const fwd = p.doc.fire("keydown", { key: "Tab", shiftKey: false });
+  assert.equal(fwd.prevented, true);
+  assert.equal(p.doc.activeElement, first, "Tab from the last stop wraps to the first");
+  const back = p.doc.fire("keydown", { key: "Tab", shiftKey: true });
+  assert.equal(back.prevented, true);
+  assert.equal(p.doc.activeElement, last, "Shift+Tab from the first stop wraps to the last");
+  p.doc.activeElement = stops[1];
+  assert.equal(p.doc.fire("keydown", { key: "Tab", shiftKey: false }).prevented, false, "a stop in the middle is left to the browser");
+});

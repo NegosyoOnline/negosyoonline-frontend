@@ -161,7 +161,7 @@
   function dialogs(busy) {
     var dialog = null, opener = null;
     function focusables(box) {
-      return box.querySelectorAll("input, textarea, button, select").filter(function (n) { return !n.disabled && !n.hidden; });
+      return Array.from(box.querySelectorAll("input, textarea, button, select")).filter(function (n) { return !n.disabled && !n.hidden; });
     }
     function onKey(e) {
       if (!dialog) return;

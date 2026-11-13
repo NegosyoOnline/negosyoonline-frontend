@@ -16,6 +16,8 @@
     atp_reference: "Authority reference", atp_date: "Authority date", printer_name: "Printer name", note: "Note" };
   var LOST = "That did not go through. Check the page before trying again.";
   var NOTE_MAX = 300;
+  var BOOK_REFUSED = { issuer_not_verified: "No issuer is verified yet. Verify one first.",
+    serial_range_overlaps: "These serials overlap an existing book of the same series." };
   var DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
   var known = false, pending = null, loadRun = 0, booksRun = 0, busy = false;
@@ -71,6 +73,8 @@
       if (cur.verification_note) rows.push(["Verification note", cur.verification_note]);
       facts($("i-cur-facts"), rows);
     }
+    /* A verified issuer makes the form's "No issuer is verified yet" line out of date. */
+    if (cur && $("b-err").textContent === BOOK_REFUSED.issuer_not_verified) F.say("b-err", "");
     $("i-pend").hidden = !pending;
     if (pending) {
       var prow = values(pending);
@@ -235,8 +239,6 @@
   /* ---- Add a book ---- */
 
   var BOOK = ["b-series", "b-from", "b-to", "b-width", "b-atp", "b-atpd", "b-printer"];
-  var BOOK_REFUSED = { issuer_not_verified: "No issuer is verified yet. Verify one first.",
-    serial_range_overlaps: "These serials overlap an existing book of the same series." };
   $("book-open").addEventListener("click", function () {
     BOOK.forEach(function (id) { $(id).value = ""; });
     F.say("b-err", "");
@@ -248,7 +250,7 @@
     if (busy) return;
     var v = {}, wrong = "", from, to, width;
     BOOK.forEach(function (id) { v[id] = String($(id).value || "").trim(); });
-    if (!v["b-from"] || !v["b-to"] || !v["b-width"] || !v["b-atp"] || !v["b-atpd"]) wrong = "Fill in every required field.";
+    if (!v["b-from"] || !v["b-to"] || !v["b-width"] || !v["b-atp"] || !v["b-atpd"] || !v["b-printer"]) wrong = "Fill in every required field.";
     else if (!/^\d{1,9}$/.test(v["b-from"]) || !/^\d{1,9}$/.test(v["b-to"]) || !/^\d{1,2}$/.test(v["b-width"])) wrong = "Serials and width are whole numbers.";
     else if (!isDate(v["b-atpd"])) wrong = "Authority date is YYYY-MM-DD.";
     else if (Number(v["b-to"]) < Number(v["b-from"])) wrong = "The last serial cannot be before the first.";

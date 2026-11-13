@@ -339,6 +339,57 @@ test("issuer_not_verified, serial_range_overlaps and a refused field are worded"
   }
 });
 
+test("the Printer name is required, plain, and refused when empty; Trade name and Series stay optional", async () => {
+  const html = fs.readFileSync(new URL("../public/finance-issuer.html", import.meta.url), "utf8");
+  assert.match(html, /<label for="b-printer">Printer name<\/label>/);
+  assert.match(html, /<label for="n-trade">Trade name \(optional\)<\/label>/);
+  assert.match(html, /<label for="b-series">Series \(optional\)<\/label>/);
+  const p = await page(normal({ [ADD]: [201, book()] }));
+  const v = GOOD_BOOK.slice();
+  v[6] = "   ";
+  p.node["book-open"].fire("click");
+  fill(p, BOOK, v);
+  p.node["f-book"].fire("submit");
+  assert.equal(text(p, "b-err"), "Fill in every required field.");
+  assert.equal(p.sent(ADD).length, 0);
+});
+
+test("every COR date and Authority date input has a label for its id, besides the placeholder", () => {
+  const html = fs.readFileSync(new URL("../public/finance-issuer.html", import.meta.url), "utf8");
+  for (const [id, name] of [["n-cordate", "COR date"], ["b-atpd", "Authority date"]]) {
+    assert.match(html, new RegExp('<label for="' + id + '">' + name + "</label>"), id);
+    assert.equal(html.split('id="' + id + '"').length, 2, id + " is one element");
+  }
+  for (const id of [...NEW, ...BOOK]) assert.match(html, new RegExp('<label for="' + id + '">'), id + " has a label");
+});
+
+test("verifying an issuer clears the Add a book form's no-issuer-verified line", async () => {
+  let reads = 0;
+  const p = await page(normal({ [GET]: () => (++reads === 1 ? issuers(null, pend()) : issuers(profile(), null)), [ADD]: [409, refused("issuer_not_verified")],
+    [VERIFY]: [200, pend({ verified_at: "2026-11-13T10:00:00+08:00" })] }));
+  submitBook(p);
+  await settle();
+  assert.equal(text(p, "b-err"), "No issuer is verified yet. Verify one first.");
+  p.node["open-verify"].fire("click");
+  p.node["verify-form"].fire("submit");
+  await settle();
+  assert.equal(p.node["f-book"].hidden, false, "the form is still open");
+  assert.equal(p.node["b-err"].hidden, true);
+  assert.equal(text(p, "b-err"), "");
+});
+
+test("a book error that is not about the issuer is kept when the issuer reloads", async () => {
+  let reads = 0;
+  const p = await page(normal({ [GET]: () => (++reads === 1 ? issuers(profile(), pend()) : issuers(profile(), null)), [ADD]: [409, refused("serial_range_overlaps")],
+    [VERIFY]: [200, pend({ verified_at: "2026-11-13T10:00:00+08:00" })] }));
+  submitBook(p);
+  await settle();
+  p.node["open-verify"].fire("click");
+  p.node["verify-form"].fire("submit");
+  await settle();
+  assert.equal(text(p, "b-err"), "These serials overlap an existing book of the same series.");
+});
+
 test("an empty series is allowed and is shown as no series", async () => {
   const p = await page(normal({ [BOOKS]: books([book({ series: "" })]), [ADD]: [201, book({ series: "" })] }));
   assert.match(p.node.books.children[0].textContent, /^No series/);

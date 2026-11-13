@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { open, settle, BASE, refused } from "./page.mjs";
 
-const IDS = ["boot", "v-list", "v-one", "v-closed", "v-down", "retry", "u-msg", "u-h", "u-count", "u-loading", "u-rows", "u-empty", "more-row", "more",
+const IDS = ["boot", "v-list", "v-one", "v-closed", "v-down", "retry", "u-msg", "u-h", "u-count", "u-loading", "u-rows", "u-empty", "u-more-err", "more-row", "more",
   "u-back", "uo-loading", "uo-body", "uo-site", "uo-reason", "uo-gb", "uo-cycle", "uo-pend", "uo-recv", "uo-hist-h", "uo-hist", "uo-admit", "uo-dismiss", "uo-note",
   "m-admit", "admit-x", "admit-form", "admit-f", "admit-hint", "admit-count", "admit-e", "admit-go", "admit-cancel",
   "m-dismiss", "dismiss-x", "dismiss-form", "dismiss-f", "dismiss-hint", "dismiss-count", "dismiss-e", "dismiss-go", "dismiss-cancel",
@@ -89,6 +89,33 @@ test("Load more asks for the next page with the cursor and adds to the list", as
   assert.equal(p.node["u-rows"].children.length, 2);
   assert.match(p.node["u-rows"].children[1].textContent, /^Sample Store C/);
   assert.equal(p.node["more-row"].hidden, true);
+});
+
+test("a failed Load more keeps the loaded rows, says so under them, and can be tried again", async () => {
+  let fail = [400, refused("invalid_cursor")];
+  const p = await page({ "GET me/": [200, ME], [LIST]: (call) => (call.body.cursor
+    ? fail
+    : list([entry()], { next_cursor: "ue_one", needs_review_count: 2 })) });
+  p.node.more.fire("click");
+  await settle();
+  assert.deepEqual(p.shown(), ["v-list"], "the list stays, not the error card");
+  assert.equal(p.node["u-rows"].children.length, 1);
+  assert.equal(p.node["u-more-err"].hidden, false);
+  assert.equal(p.node["u-more-err"].textContent, "More records could not be loaded. Try Load more again.");
+  assert.doesNotMatch(p.node["u-more-err"].textContent, /invalid_cursor/);
+  assert.equal(p.node["more-row"].hidden, false);
+  assert.equal(p.node.more.disabled, false);
+  fail = [500, {}];
+  p.node.more.fire("click");
+  await settle();
+  assert.deepEqual(p.shown(), ["v-list"]);
+  assert.equal(p.node["u-rows"].children.length, 1);
+  assert.equal(p.node["u-more-err"].hidden, false);
+  fail = list([entry({ entry: "ue_two", site: { id: "s", name: "Sample Store C" } })]);
+  p.node.more.fire("click");
+  await settle();
+  assert.equal(p.node["u-rows"].children.length, 2);
+  assert.equal(p.node["u-more-err"].hidden, true, "the error goes once a retry works");
 });
 
 test("a 404 shows the not-switched-on view and any other failure shows the down view with a retry", async () => {

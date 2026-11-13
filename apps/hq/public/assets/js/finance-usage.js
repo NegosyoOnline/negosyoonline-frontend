@@ -53,12 +53,15 @@
       $("more-row").hidden = true;
       $("u-loading").hidden = false;
     }
+    F.say("u-more-err", "");
     $("more").disabled = true;
     H.call("POST", "finance/usage/review/list/", body).then(function (res) {
       if (run !== listRun) return;
       $("u-loading").hidden = true;
       $("more").disabled = false;
       if (F.left(res)) return;
+      /* A failed Load more keeps the rows already loaded and says so under them; Load more can be tried again. */
+      if (more && !res.ok) { F.say("u-more-err", "More records could not be loaded. Try Load more again."); return; }
       if (res.status === 404) { show("v-closed"); return; }
       if (!res.ok) { show("v-down"); return; }
       var d = res.data, items = Array.isArray(d.items) ? d.items : [];

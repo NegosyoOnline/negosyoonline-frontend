@@ -94,6 +94,27 @@ test("Escape in the dropdown closes the list and not the dialog around it", () =
   assert.equal(e.stopped, true);
 });
 
+test("the focus trap works when querySelectorAll returns a NodeList, which has no filter method", () => {
+  const { doc, F } = common(["m"]);
+  const m = doc.getElementById("m"), opener = doc.createElement("button"), a = doc.createElement("button"), b = doc.createElement("textarea");
+  doc.body.appendChild(opener);
+  m.appendChild(b);
+  m.appendChild(a);
+  const found = m.querySelectorAll.bind(m);
+  m.querySelectorAll = (sel) => { const list = found(sel); return { length: list.length, item: (i) => list[i], 0: list[0], 1: list[1], [Symbol.iterator]: () => list[Symbol.iterator]() }; };
+  assert.equal(typeof m.querySelectorAll("button").filter, "undefined", "the stand-in is NodeList-like");
+  const dlg = F.dialogs(() => false);
+  dlg.open("m", opener, b);
+  doc.activeElement = a;
+  let e = doc.fire("keydown", { key: "Tab", shiftKey: false });
+  assert.equal(e.prevented, true);
+  assert.equal(doc.activeElement, b, "Tab from the last control goes to the first");
+  e = doc.fire("keydown", { key: "Tab", shiftKey: true });
+  assert.equal(doc.activeElement, a, "Shift+Tab from the first goes to the last");
+  doc.fire("keydown", { key: "Escape" });
+  assert.equal(dlg.isOpen(), false);
+});
+
 test("a dialog keeps focus inside, closes on Escape unless busy, and returns focus to its opener", () => {
   const { doc, F } = common(["m"]);
   const m = doc.getElementById("m"), opener = doc.createElement("button"), a = doc.createElement("button"), b = doc.createElement("textarea");

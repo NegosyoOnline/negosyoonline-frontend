@@ -109,7 +109,7 @@ test("the email and the mobile code step are both laid out like the site's code 
   }
   /* resend is each step's own start call again, inside the /account/ routes */
   assert.ok(email.includes("wait: 60,") && email.includes('send: function () { return D.call("POST", "/account/email/start/", emailStartBody(email), true); }') && email.includes('"Use a different email"'));
-  assert.ok(mobile.includes("wait: 30,") && mobile.includes('send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); }') && mobile.includes('"Use a different number"'));
+  assert.ok(mobile.includes("wait: 30,") && mobile.includes('send: function () { return D.call("POST", "/account/mobile/start/", mobileStartBody(number), true); }') && mobile.includes('"Use a different number"'));
   /* the approved wording is kept */
   assert.ok(email.includes('". Enter it to confirm this address."') && email.includes('"You cannot change your email again for 24 hours."'));
   assert.ok(email.includes('"Confirm email"') && email.includes("email_change_cooldown") && email.includes("email_taken"));
@@ -119,15 +119,41 @@ test("the email and the mobile code step are both laid out like the site's code 
   assert.ok(css.includes("height: 56px; min-width: 0;") && css.includes("font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
 });
 
-/* Email change hardening (ClickUp z8uq9m8htt): the step-up is read from the account answer, never assumed. */
-test("the email change asks for the current mailbox's code only when the read says so", () => {
+/* Email change hardening (ClickUp z8uq9m8htt): the first gate is read from the account answer, never assumed. */
+test("the email change asks for a code first only when the read says so", () => {
   const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
-  const open = src.slice(src.indexOf("function openEmail("), src.indexOf("function emailStepUp("));
-  assert.ok(open.includes("email_change_step_up === true") && open.includes("emailStep1(body"), "off: the old first step");
-  assert.ok(src.includes('D.call("POST", "/account/email/step-up/", null, true)'));
+  const open = src.slice(src.indexOf("function openEmail("), src.indexOf("function stepUpCall("));
+  assert.ok(open.includes("stepChannels().length") && open.includes("emailStep1(body"), "off: the old first step");
+  assert.ok(src.includes('D.call("POST", "/account/email/step-up/", null, true)'), "an older backend: the email route");
+  assert.ok(src.includes('D.call("POST", "/account/step-up/", { channel: channel, purpose: purpose }, true)'));
   assert.ok(src.includes("body.step_up_code = S.stepCode"), "the code rides on the start call");
   assert.ok(src.includes('"step_up_required"'), "a refused code sends the person back to the code step");
   assert.ok(src.includes('S.stepCode = ""'), "the code is dropped after use");
+});
+
+test("adding or changing a mobile asks for the same first gate, only when the read says so", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const open = src.slice(src.indexOf("function openMobile("), src.indexOf("function mobileStep1("));
+  assert.ok(open.includes('stepChannels().length') && open.includes('stepUp(body, "mobile_change", mobileStep1') && open.includes("else mobileStep1(body)"), "off: the old first step");
+  assert.ok(src.includes('D.call("POST", "/account/mobile/start/", mobileStartBody(number), true)'));
+});
+
+test("the places a code can go come from the read: none with the switch off, the email alone as the fallback", () => {
+  assert.deepEqual(plain(U.stepChannels({})), []);
+  assert.deepEqual(plain(U.stepChannels({ email_change_step_up: false, step_up_channels: [] })), []);
+  assert.deepEqual(plain(U.stepChannels({ email_change_step_up: true })), ["email"]);
+  assert.deepEqual(plain(U.stepChannels({ email_change_step_up: true, step_up_channels: ["email"] })), ["email"]);
+  assert.deepEqual(plain(U.stepChannels({ email_change_step_up: true, step_up_channels: ["email", "mobile", "fax"] })), ["email", "mobile"]);
+});
+
+test("the choice shows the masked email, and the mobile as the page shows it", () => {
+  assert.equal(U.emailShown("ana.reyes@example.com"), "a\u2022\u2022\u2022\u2022@example.com");
+  assert.equal(U.emailShown(""), "your email");
+  assert.ok(!U.emailShown("ana.reyes@example.com").includes("reyes"));
+});
+
+test("the mobile start body carries a step-up code only after one was entered", () => {
+  assert.deepEqual(plain(U.mobileStartBody("+639171234567")), { mobile: "+639171234567" });
 });
 
 test("the dead verify-email and social flows are gone", () => {

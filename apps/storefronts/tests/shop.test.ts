@@ -434,11 +434,25 @@ test("'Ship to my address' shows the saved address card with Edit, in the panel 
   assert.match(page, /<dt>Mobile<\/dt><dd>\+639171234567<\/dd>/);
   assert.match(page, /<dt>Address<\/dt><dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
   assert.match(page, /<dt>Landmark<\/dt><dd>Blue gate<\/dd>/);
-  assert.match(page, /<a href="\/dashboard\/#registration" class="sf-own-addr-edit"[^>]*>Edit<\/a>/);
+  assert.doesNotMatch(page, /sf-own-addr-edit/); // a profile address has no page to edit it yet
   assert.doesNotMatch(page, /The delivery address saved in your member profile\./);
   const pay = await text((await checkoutPost(shop(b, memberCookie), { action: "choose", choice: "home" }, null)) as Response);
   assert.match(pay, /7 Rizal St, Poblacion, Makati, Metro Manila 1210 — Landmark: Blue gate/);
   assert.doesNotMatch(pay, /The delivery address saved in your member profile/);
+});
+
+test("Edit shows only for a Package-order address; a profile address or an older response with no source has the card but no Edit", async () => {
+  const edit = /<a href="\/dashboard\/#registration" class="sf-own-addr-edit"[^>]*>Edit<\/a>/;
+  const cases: [Record<string, unknown>, boolean][] = [
+    [{ home_address: HOME, home_address_source: "pack_order" }, true],
+    [{ home_address: HOME, home_address_source: "profile" }, false],
+    [{ home_address: HOME }, false],
+  ];
+  for (const [quoteExtra, shown] of cases) {
+    const page = await text(await checkoutGet(shop(backend({ member: true, quoteExtra }), memberCookie)));
+    assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
+    assert.equal(edit.test(page), shown, JSON.stringify(quoteExtra));
+  }
 });
 
 test("without home_address (an older backend, or none saved) the sentence stays and there is no Edit link", async () => {

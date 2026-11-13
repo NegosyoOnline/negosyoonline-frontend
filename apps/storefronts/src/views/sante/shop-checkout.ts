@@ -226,14 +226,21 @@ function homeAddressOf(m: CheckoutModel): Address | null {
   return m.quotes.home?.home_address ?? m.quotes.different?.home_address ?? m.quote?.home_address ?? null;
 }
 
+/** Where the saved address came from ("profile", "pack_order", "" or absent), read from the quote that carries the address. */
+function homeSourceOf(m: CheckoutModel): string {
+  const q = [m.quotes.home, m.quotes.different, m.quote].find((x) => x?.home_address);
+  return q?.home_address_source ?? "";
+}
+
 /** "line, barangay, city, province ZIP" with an empty part left out. */
 export function addressText(a: Address): string {
   const head = [a.line, a.barangay, a.city, a.province].map((s) => s.trim()).filter(Boolean).join(", ");
   return a.zip ? `${head} ${a.zip}` : head;
 }
 
-/** Where a signed-in member can change a saved address: the dashboard home, whose registration card takes the delivery address.
-    There is no dashboard address page yet (/dashboard/address/ is not built) and the onboarding address step closes once onboarding is done. */
+/** Where a signed-in member can give the address a Package order carried: the dashboard home, whose registration card takes the delivery address.
+    Edit shows only for that source ("pack_order"). A profile address has no page to change it yet (/dashboard/address/ is not built and the
+    onboarding address step closes once onboarding is done), so no link, as TWCinc hides Edit on a locked address. */
 export const EDIT_ADDRESS_PATH = "/dashboard/#registration";
 
 function shipModeStep(m: CheckoutModel): Markup {
@@ -280,7 +287,7 @@ function shipModeStep(m: CheckoutModel): Markup {
                   ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html`<dt>Address</dt><dd>The delivery address saved in your member profile.</dd>`}
                 </dl>
               </div>
-              ${saved ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
+              ${saved && homeSourceOf(m) === "pack_order" ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
           </div>
           <div class="sf-step-actions">

@@ -19,5 +19,5 @@
   siteLinks();
   window.addEventListener("load", toAnchor);
   window.addEventListener("hashchange", toAnchor);
-  window.NOHelp = { siteLinks: siteLinks };
+  window.NOHelp = { siteLinks: siteLinks, toAnchor: toAnchor };
 })();

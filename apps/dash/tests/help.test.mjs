@@ -53,3 +53,21 @@ test("site links take their host from the config and fall back to plain text", (
   assert.equal(run("https://www-staging.negosyonline.com/").href, "https://www-staging.negosyonline.com/terms#complaints");
   assert.equal(run("").href, undefined);
 });
+
+test("a fresh load scrolls to the article once the router shows the help view", () => {
+  assert.ok(/r\.view === "help" && window\.NOHelp\) window\.NOHelp\.toAnchor\(\)/.test(DASH), "the router calls toAnchor after showing the view");
+  const run = (hash, hidden) => {
+    let scrolled = [];
+    const view = { hidden };
+    const node = (id) => ({ scrollIntoView() { scrolled.push(id); } });
+    const window = { NODash: { cfg: {} }, addEventListener() {} };
+    const document = { querySelectorAll: () => [], getElementById: (id) => (id === "view-help" ? view : node(id)) };
+    new Function("window", "document", "location", JS)(window, document, { hash });
+    window.NOHelp.toAnchor();
+    view.hidden = false;
+    window.NOHelp.toAnchor();
+    return scrolled;
+  };
+  assert.deepEqual(run("#help-orders", true), ["help-orders"], "scrolls only once the view is visible");
+  assert.deepEqual(run("#bogus<x>", false), [], "an id outside help-[a-z]+ is ignored");
+});

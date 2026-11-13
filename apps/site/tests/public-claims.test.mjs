@@ -9,6 +9,7 @@ const pages = {
   "assets/js/site.js": read("assets/js/site.js"),
   "terms.html": read("terms.html"),
   "cancellation-refund.html": read("cancellation-refund.html"),
+  "referral-terms.html": read("referral-terms.html"),
 };
 
 test("no per-order, video or Auto Courier Tracking pricing on the public pages", () => {
@@ -102,4 +103,15 @@ test("Terms and Cancellation no longer tell every Subscriber to add a payment me
     assert.doesNotMatch(pages[name], /add a payment method for that website/, name);
     assert.doesNotMatch(pages[name], /add a valid payment method/, name);
   }
+});
+
+test("no usage charge at launch (z8uq9memdk): usage-charge wording is gone from the public pages", () => {
+  for (const [name, text] of Object.entries(pages)) {
+    assert.doesNotMatch(text, /PHP 30\b/, `${name} still has PHP 30`);
+    assert.doesNotMatch(text, /added to your next monthly bill/i, `${name} still has the next-monthly-bill line`);
+    assert.doesNotMatch(text, /Final usage settlement/i, `${name} still has Final usage settlement`);
+    assert.doesNotMatch(text, /usage-only/i, `${name} still has usage-only`);
+  }
+  assert.match(pages["terms.html"], /No usage charge applies at this time\./);
+  assert.match(pages["index.html"], /No usage charge at this time/);
 });

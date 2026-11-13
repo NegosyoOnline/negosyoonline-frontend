@@ -8,7 +8,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "tab-submitted", "tab-confirmed", "tab-rejected", "tab-replaced", "q-msg", "q-loading", "rows", "q-empty", "more-row", "more",
-  "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-ref",
+  "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-time", "p-ref", "p-sender-name", "p-sender-bank", "p-sender-acct", "p-sent-amount", "p-mismatch",
   "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
   "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
   "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-group", "amount-ruler", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
@@ -171,6 +171,25 @@ test("the closed state when bank transfer is off, and the not-reached state with
 });
 
 /* ---- one payment ---- */
+
+test("the sender's details show, and a typed amount that differs from the amount due is flagged", async () => {
+  const sender = { transferred_at: "2026-11-20T14:05:00+08:00", sender_bank: "BDO", sender_first_name: "Juan", sender_last_name: "dela Cruz",
+    sender_account_number: "1234 5678 12", amount_sent_centavos: 499900, amount_sent_differs: false };
+  const a = await opened({}, detail(sender));
+  assert.equal(a.node["p-time"].textContent, "20 Nov 2026, 2:05 PM");
+  assert.equal(a.node["p-sender-name"].textContent, "Juan dela Cruz");
+  assert.equal(a.node["p-sender-bank"].textContent, "BDO");
+  assert.equal(a.node["p-sender-acct"].textContent, "1234 5678 12");
+  assert.equal(a.node["p-sent-amount"].textContent, "PHP 4,999.00");
+  assert.equal(a.node["p-mismatch"].hidden, true);
+  const b = await opened({}, detail({ ...sender, amount_sent_centavos: 249900, amount_sent_differs: true }));
+  assert.equal(b.node["p-mismatch"].hidden, false);
+  assert.equal(b.node["p-mismatch"].textContent, "The Subscriber typed PHP 2,499.00, but the amount due is PHP 4,999.00. Check the amount that arrived before you confirm.");
+  const old = await opened({}, detail());
+  assert.equal(old.node["p-sender-name"].textContent, "Not given");
+  assert.equal(old.node["p-time"].textContent, "Not given");
+  assert.equal(old.node["p-mismatch"].hidden, true);
+});
 
 test("a payment opens with its facts, the Subscriber's email, its history and the two actions", async () => {
   const p = await opened();
@@ -1012,4 +1031,26 @@ test("the input is sized from the measured width of its text, so the .00 sits ri
   assert.equal(p.node["amount-ruler"].textContent, "0", "an empty box measures its 0 placeholder");
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   assert.match(css, /\.fin-amt-ruler \{ position: absolute; visibility: hidden;/);
+});
+
+test("Tab and Shift+Tab wrap inside an open Payments dialog, and the page asks the DOM only for what a browser has", async () => {
+  const js = fs.readFileSync(new URL("../public/assets/js/finance.js", import.meta.url), "utf8");
+  assert.doesNotMatch(js, /\b(?:box|dialog)\.all\(/, "all() exists only in the test stand-in, never in a browser");
+  const p = await opened();
+  p.node["open-confirm"].fire("click");
+  const dlg = p.node["m-confirm"];
+  /* The stand-in page holds each id as a bare node, so give the dialog the Tab stops of the real markup. */
+  for (const tag of ["input", "button", "button"]) dlg.appendChild(p.doc.createElement(tag));
+  const stops = dlg.querySelectorAll("input, textarea, button").filter((n) => !n.disabled && !n.hidden);
+  assert.ok(stops.length >= 2, "the dialog has Tab stops");
+  const first = stops[0], last = stops[stops.length - 1];
+  p.doc.activeElement = last;
+  const fwd = p.doc.fire("keydown", { key: "Tab", shiftKey: false });
+  assert.equal(fwd.prevented, true);
+  assert.equal(p.doc.activeElement, first, "Tab from the last stop wraps to the first");
+  const back = p.doc.fire("keydown", { key: "Tab", shiftKey: true });
+  assert.equal(back.prevented, true);
+  assert.equal(p.doc.activeElement, last, "Shift+Tab from the first stop wraps to the last");
+  p.doc.activeElement = stops[1];
+  assert.equal(p.doc.fire("keydown", { key: "Tab", shiftKey: false }).prevented, false, "a stop in the middle is left to the browser");
 });

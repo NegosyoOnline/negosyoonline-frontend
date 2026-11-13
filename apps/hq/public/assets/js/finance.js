@@ -189,6 +189,14 @@
     $("p-plan").textContent = (plan.name || "") + ", " + plan.months + (plan.months === 1 ? " month" : " months");
     $("p-date").textContent = day(d.transferred_on);
     $("p-ref").textContent = d.transfer_reference || "Not given";
+    $("p-time").textContent = d.transferred_at ? H.when(d.transferred_at) : "Not given";
+    $("p-sender-name").textContent = [d.sender_first_name, d.sender_last_name].filter(Boolean).join(" ") || "Not given";
+    $("p-sender-bank").textContent = d.sender_bank || "Not given";
+    $("p-sender-acct").textContent = d.sender_account_number || "Not given";
+    $("p-sent-amount").textContent = money(d.amount_sent_centavos) || "Not given";
+    /* The backend flags it (amount_sent_differs); the page only words it. The proof is still reviewed as usual. */
+    say("p-mismatch", d.amount_sent_differs === true && money(d.amount_sent_centavos)
+      ? "The Subscriber typed " + money(d.amount_sent_centavos) + ", but the amount due is " + money(d.amount_centavos) + ". Check the amount that arrived before you confirm." : "");
     $("p-submitted").textContent = H.when(d.submitted_at);
     $("p-email").textContent = d.subscriber_email || "";
     say("p-decided", decided(d));
@@ -301,7 +309,7 @@
 
 
   function focusables(box) {
-    return box.all(function (n) { return (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "BUTTON") && !n.disabled && !n.hidden; });
+    return Array.prototype.slice.call(box.querySelectorAll("input, textarea, button")).filter(function (n) { return !n.disabled && !n.hidden; });
   }
   function inside(box, n) { for (; n; n = n.parentNode) if (n === box) return true; return false; }
   function onKey(e) {

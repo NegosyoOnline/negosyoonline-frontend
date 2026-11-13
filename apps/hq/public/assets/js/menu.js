@@ -12,7 +12,7 @@
   /* href: the page's address. label: its name. icon: the path of a 24 by 24 line icon. */
   var MENU = [
     { href: "/", label: "Admin console", icon: "M4 11l8-7 8 7v9H4z" },
-    { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3" },
+    { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3", within: true },
   ];
   var INBOX = { href: "/inbox/sms/", label: "Inbox", icon: "M4 5h16v11H8l-4 4zM8 9h8M8 12h5" };
   var CONTACTS = { href: "/contacts/", label: "Contacts", icon: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.2a3.5 3.5 0 0 1 0 6.6" };
@@ -58,7 +58,10 @@
 
   nav.textContent = "";
   if (sheet) sheet.textContent = "";
-  MENU.forEach(function (item) { entry(item, location.pathname === item.href); });
+  /* within: the entry is current for every address under its own (Finance has sub-pages). */
+  MENU.forEach(function (item) {
+    entry(item, item.within ? location.pathname.indexOf(item.href) === 0 : location.pathname === item.href);
+  });
   nav.hidden = false;
 
   /* ---- the Inbox, only when the backend says this person may open it ---- */

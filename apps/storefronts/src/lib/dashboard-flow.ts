@@ -16,6 +16,7 @@ import {
   registrationMobileSend, registrationMobileVerify,
   type Calls, type MemberPack, type MobileCheck, type PackRefusal, type RegistrationCard,
 } from "./pack-api.ts";
+import { memberShopOrders } from "./shop-api.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
 import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
@@ -107,7 +108,9 @@ export async function ordersPage(d: Dash): Promise<Response> {
   if (o.state === "refused" && o.status === 401) return signedOut(d);
   if (o.state === "unavailable") return neutralNotFound();
   if (o.state !== "ok") return tryAgain();
-  const content = ordersContent(s.member.full_name, o.cards);
+  // The shop's cards come from their own route; a shop that is off or a call that fails leaves the Package cards as they were.
+  const shop = await memberShopOrders({ host: d.call.host, token: d.call.member_token }, d.calls);
+  const content = ordersContent(s.member.full_name, o.cards, shop.state === "ok" ? shop.cards : []);
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Orders", member: s.member.full_name, current: "orders", content, scripts: ["js/pack-dashboard.js"] }));
 }
 

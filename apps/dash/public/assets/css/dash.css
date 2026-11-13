@@ -1722,6 +1722,7 @@ body.dash-app .acct-otp.acct-otp-err:focus-within .acct-code-box-on { border-col
    code step, in the dashboard's own dialog and theme tokens. Centred; boxes 56px high, up to 60px wide, 8px apart
    (the rules above); a resend line; a quiet way back. */
 body.dash-app .acct-code-step { text-align: center; }
+body.dash-app .acct-code-step strong { overflow-wrap: anywhere; }
 body.dash-app .acct-code-step .ob-err { margin-top: 10px; text-align: center; }
 body.dash-app .acct-code-hint { margin: 0; font-size: .92rem; color: var(--text-2); }
 body.dash-app .acct-code-hint:empty { display: none; }

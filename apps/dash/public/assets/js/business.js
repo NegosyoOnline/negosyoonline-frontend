@@ -350,7 +350,9 @@
         return r.blob();
       }).then(function (b) {
         if (my !== S.seq || !S.site || S.site.id !== id) return;
-        S.sealUrl = URL.createObjectURL(b); draw();
+        S.sealUrl = URL.createObjectURL(b);
+        var held = document.activeElement && document.activeElement.id; /* the badge arriving redraws the card: focus stays on the seal control it was on (z8uq9men7r L5) */
+        draw(/^bs-seal-/.test(held || "") ? held : undefined);
       }).catch(function () { var w = $("bs-seal-wait"); if (w && my === S.seq) w.textContent = "The badge could not be shown."; });
     }
     var file = D.el("input", { id: "bs-seal-file", type: "file", name: "seal", accept: SEAL_TYPES.join(","), "aria-describedby": "bs-seal-help bs-seal-msg" });
@@ -372,7 +374,7 @@
       if (bad) { fail(bad); return; }
       var fd = new FormData(); fd.append("seal", f);
       S.sealBusy = true; up.disabled = true;
-      D.send("POST", "/sites/" + id + "/business-profile/seal/", fd).then(function (res) { after(res, "bs-seal-file"); });
+      D.send("POST", "/sites/" + id + "/business-profile/seal/", fd).then(function (res) { after(res, "bs-seal-up"); }); /* focus returns to Replace, which stays after a successful upload (z8uq9men7r L5) */
     });
     if (del) del.addEventListener("click", function () {
       if (S.sealBusy) return;

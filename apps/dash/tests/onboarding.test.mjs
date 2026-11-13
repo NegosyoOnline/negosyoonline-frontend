@@ -266,6 +266,7 @@ test("a failed setup re-read inside the popup keeps the popup open on its own lo
   await p.click(p.buttons(p.popup())[1]); /* Get started */
   const form = p.popup().all((x) => x.tagName === "FORM")[0];
   form.all((x) => x.tagName === "INPUT")[0].value = "Ana's Store";
+  form.all((x) => x.tagName === "INPUT")[1].value = "anas-store";
   form.fire("submit"); /* the stub answers 404 to the create, which makes the page read the setup again */
   await settle();
   const card = () => p.byClass(p.popup(), "err-box")[0];
@@ -341,6 +342,7 @@ test("a failed sites read after a re-read inside the popup keeps the popup open 
   const behind = p.normalOverview(); /* what is behind the popup before the read fails */
   const form = p.popup().all((x) => x.tagName === "FORM")[0];
   form.all((x) => x.tagName === "INPUT")[0].value = "Ana's Store";
+  form.all((x) => x.tagName === "INPUT")[1].value = "anas-store";
   form.fire("submit"); /* the stub answers 404 to the create, which makes the page read the setup again */
   await settle();
   const card = () => p.byClass(p.popup(), "err-box")[0];
@@ -353,4 +355,27 @@ test("a failed sites read after a re-read inside the popup keeps the popup open 
   assert.deepEqual([p.setupReads(), p.sitesReads()], [3, 2], "Try again reads the setup and the sites again");
   assert.equal(card(), undefined);
   assert.equal(p.$("ob-h-blocked").textContent, "Your site was removed");
+});
+
+test("step 2: an empty submit flags the name and the web address, and the name message goes once it is fixed (z8uq9men7r L3)", async () => {
+  const p = await bootPage([NOT_STARTED]);
+  await p.click(p.buttons(p.popup())[1]); /* Get started */
+  const form = p.popup().all((x) => x.tagName === "FORM")[0];
+  const [name, addr] = form.all((x) => x.tagName === "INPUT");
+  form.fire("submit");
+  await settle();
+  assert.equal(p.$("ob-display_name-msg").hidden, false);
+  assert.equal(p.$("ob-display_name-msg").textContent, "Use 1 to 80 characters.");
+  assert.equal(name.getAttribute("aria-invalid"), "true");
+  assert.equal(addr.getAttribute("aria-invalid"), "true", "the web address is flagged too");
+  assert.equal(p.$("ob-subdomain-msg").textContent, "Enter a web address.");
+  assert.equal(p.doc.activeElement, name, "focus goes to the first flagged field");
+  assert.ok(!p.calls.some((c) => c.method === "POST"), "nothing is sent");
+  name.value = "Ana's Store"; name.fire("input");
+  assert.equal(p.$("ob-display_name-msg").hidden, true, "the stale name message is gone");
+  assert.equal(name.getAttribute("aria-invalid"), null);
+  assert.equal(p.$("ob-subdomain-msg").textContent, "Enter a web address.", "the address message stays until it is typed into");
+  addr.value = "anas-store"; addr.fire("input");
+  assert.equal(p.$("ob-subdomain-msg").textContent, "");
+  assert.equal(addr.getAttribute("aria-invalid"), null);
 });

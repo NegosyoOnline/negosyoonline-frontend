@@ -54,10 +54,10 @@ function boot({ search = "", sites = [SITE_A], routes } = {}) {
     return { status: 200, body: state.sites[at] };
   };
   const fetch = (url, opts) => {
-    const p = url.replace("http://api.test/v1", ""), body = opts.body ? JSON.parse(opts.body) : null;
+    const p = url.replace("http://api.test/v1", ""), body = typeof opts.body === "string" ? JSON.parse(opts.body) : null;
     calls.push({ method: opts.method, path: p, body });
     const answer = (routes && routes(opts.method, p, body, state)) || fallback(opts.method, p, body);
-    return Promise.resolve(answer).then((a) => ({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) }));
+    return Promise.resolve(answer).then((a) => ({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body), blob: () => Promise.resolve("blob") }));
   };
   const storage = (name) => ({ getItem: () => null, removeItem() {}, setItem(k) { stored.push(name + ":" + k); } });
   const digits = (raw) => String(raw || "").replace(/\D/g, "").replace(/^63(?=9)/, "").replace(/^0/, "").slice(0, 10);
@@ -67,7 +67,8 @@ function boot({ search = "", sites = [SITE_A], routes } = {}) {
   const location = { search, pathname: "/settings/business/", replace() {}, assign() {} };
   const history = { replaceState(a, b, url) { location.search = url.slice(url.indexOf("?")); } };
   const context = vm.createContext({ window, document: doc, location, history, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl,
-    localStorage: storage("local"), sessionStorage: storage("session"), requestAnimationFrame() {}, fetch });
+    localStorage: storage("local"), sessionStorage: storage("session"), requestAnimationFrame() {}, fetch,
+    FormData: class { append() {} }, URL: { createObjectURL: () => "blob:badge", revokeObjectURL() {} } });
   for (const f of ["app.js", "business.js"]) vm.runInContext(fs.readFileSync(path.join(JS, f), "utf8"), context, { filename: f });
   window.NODash.toast = (title) => toasts.push(title);
   const $ = (id) => doc.getElementById(id);
@@ -389,4 +390,20 @@ test("BIR registration badge: the row is Public with Upload; the file rules use 
   assert.equal(U.sealProblem({ type: "image/gif", size: 10 }), "Upload a JPEG, PNG or WebP image.");
   assert.equal(U.sealProblem({ type: "image/png", size: 2 * 1024 * 1024 + 1 }), "The file is too large. The limit is 2 MB.");
   assert.equal(U.sealProblem({ type: "image/webp", size: 2 * 1024 * 1024 }), "");
+});
+
+test("a badge upload leaves focus on Replace, and the badge appearing does not drop it to the page (z8uq9men7r L5)", async () => {
+  const routes = (method, p, body, state) => {
+    if (method === "POST" && /\/business-profile\/seal\/$/.test(p)) { Object.assign(state.profiles[A], { has_seal: true }); return { status: 200, body: state.profiles[A] }; }
+    if (method === undefined && /\/business-profile\/seal\/$/.test(p)) return { status: 200, body: {} };
+    return null;
+  };
+  const d = boot({ routes });
+  await d.show();
+  d.$("bs-seal-file").files = [{ type: "image/png", size: 1024 }];
+  d.$("bs-seal-up").fire("click");
+  await settle();
+  assert.ok(d.$("bs-seal-img"), "the badge is shown after the upload");
+  assert.equal(d.$("bs-seal-up").textContent, "Replace");
+  assert.equal(d.doc.activeElement, d.$("bs-seal-up"), "focus is on the Replace button, not the page body");
 });

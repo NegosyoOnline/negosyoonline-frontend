@@ -148,3 +148,22 @@ test("a dialog keeps focus inside, closes on Escape unless busy, and returns foc
   assert.equal(doc.body.classList.contains("modal-open"), false);
   assert.equal((doc.listeners.keydown || []).length, 0, "no listener stays once it is closed");
 });
+
+test("exception words: a code with words is shown, a day count must be a whole number, anything else is left out", () => {
+  const { F } = common();
+  assert.equal(F.exceptionWords({ code: "overdue", days: 3 }), "Overdue by 3 days");
+  assert.equal(F.exceptionWords({ code: "overdue", days: 1 }), "Overdue by 1 day");
+  assert.equal(F.exceptionWords({ code: "issued_late", days: 0 }), "Issued late by 0 days");
+  for (const bad of [{ code: "overdue" }, { code: "overdue", days: -1 }, { code: "issued_late", days: 1.5 }, { code: "mystery" }, { code: "toString" }, {}, null, "x"]) {
+    assert.equal(F.exceptionWords(bad), "", JSON.stringify(bad));
+  }
+  for (const [code, words] of [["unknown_plan_wording", "Unknown plan wording"], ["serial_out_of_range", "Serial out of range"], ["serial_gap", "Serial gap"],
+    ["serial_out_of_order", "Serial out of order"], ["issued_before_payment", "Issued before payment"], ["service_dates_differ", "Service dates differ"],
+    ["discount_or_withholding", "Discount or withholding present"]]) assert.equal(F.exceptionWords({ code }), words, code);
+});
+
+test("isDate accepts a real calendar date only", () => {
+  const { F } = common();
+  for (const ok of ["2026-11-12", "2028-02-29"]) assert.equal(F.isDate(ok), true, ok);
+  for (const bad of ["2026-02-29", "2026-13-01", "2026-1-1", "11/12/2026", "", null, "2026-11-12 "]) assert.equal(!!F.isDate(bad), false, String(bad));
+});

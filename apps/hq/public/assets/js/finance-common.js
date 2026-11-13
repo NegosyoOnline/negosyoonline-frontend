@@ -192,6 +192,41 @@
     return { open: open, close: close, isOpen: function () { return !!dialog; } };
   }
 
+  /* The register's exceptions (Billing HQ-F2): what an operator must see about a sale or its invoice, in words.
+     A code this page has no words for is left out, never shown raw. days: a whole number of days, or none. */
+  var EXCEPTION = { unknown_plan_wording: "Unknown plan wording", serial_out_of_range: "Serial out of range", serial_gap: "Serial gap",
+    serial_out_of_order: "Serial out of order", issued_before_payment: "Issued before payment", service_dates_differ: "Service dates differ",
+    discount_or_withholding: "Discount or withholding present" };
+  function days(n) { return n + (n === 1 ? " day" : " days"); }
+  function exceptionWords(e) {
+    var n = e && typeof e.days === "number" && e.days >= 0 && e.days % 1 === 0 ? e.days : null;
+    if (!e || typeof e.code !== "string") return "";
+    if (e.code === "overdue") return n === null ? "" : "Overdue by " + days(n);
+    if (e.code === "issued_late") return n === null ? "" : "Issued late by " + days(n);
+    return words(EXCEPTION, e.code);
+  }
+  /* One chip per exception this page has words for, or "None" when there is nothing to show. */
+  function exceptionChips(box, list, none) {
+    var shown = 0;
+    box.textContent = "";
+    (Array.isArray(list) ? list : []).forEach(function (e) {
+      var w = exceptionWords(e);
+      if (!w) return;
+      box.appendChild(el("span", "chip chip-warn", w));
+      shown++;
+    });
+    if (!shown && none) box.textContent = none;
+    return shown;
+  }
+  /* A real calendar date as YYYY-MM-DD, or false. */
+  function isDate(text) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(text || "")), d;
+    if (!m) return false;
+    d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    return d.getUTCFullYear() === Number(m[1]) && d.getUTCMonth() === Number(m[2]) - 1 && d.getUTCDate() === Number(m[3]);
+  }
+
   window.NOFin = { el: el, say: say, money: money, centavos: centavos, day: day, dayOf: dayOf, stamp: stamp, waited: waited,
-    gb: gb, words: words, inside: inside, left: left, combo: combo, dialogs: dialogs };
+    gb: gb, words: words, inside: inside, left: left, combo: combo, dialogs: dialogs, days: days, exceptionWords: exceptionWords,
+    exceptionChips: exceptionChips, isDate: isDate };
 })();

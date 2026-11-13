@@ -96,7 +96,7 @@ function card(c: PortalCard): Markup {
     </div>`)}
   </div>
   ${c.courier || c.tracking ? html`<div class="oc-courier">${c.courier ? html`Shipping via <strong>${c.courier}</strong>` : ""}${c.tracking ? html`${c.courier ? html` &middot; ` : ""}Tracking# ${c.tracking}` : ""}</div>` : ""}
-  ${c.proofs.length ? html`<ul class="oc-proofs">${c.proofs.map((p) => html`<li><a href="/portal/proof/${p.id}/" target="_blank" rel="noopener">Payment proof ${p.seq}</a> &middot; &#8369;${money(p.amount_sent_centavos)}${p.reference_number ? html` &middot; ${p.reference_number}` : ""}</li>`)}</ul>` : ""}
+  ${c.proofs.length ? html`<div class="oc-detail"><div class="oc-dcard">${c.proofs.map((p) => html`<div class="oc-drow"><span><a href="/portal/proof/${p.id}/" target="_blank" rel="noopener">Payment proof ${p.seq}</a></span><b>&#8369;${money(p.amount_sent_centavos)}${p.reference_number ? html` &middot; ${p.reference_number}` : ""}</b></div>`)}</div></div>` : ""}
   ${m ? html`<div class="oc-member">
     <div class="oc-member-body">
       <p><strong>${m.label}</strong></p>

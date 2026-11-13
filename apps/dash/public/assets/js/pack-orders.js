@@ -519,9 +519,15 @@
   }
   function field(label, node, id, err) {
     var w = h("div", "po-field"), l = h("label", "", label); l.setAttribute("for", id); node.setAttribute("id", id);
-    if (err) { node.classList.add("is-bad"); node.setAttribute("aria-invalid", "true"); }
+    var e = null;
+    if (err) { e = h("p", "po-error", err); e.setAttribute("id", id + "-err"); e.setAttribute("role", "alert"); node.classList.add("is-bad"); node.setAttribute("aria-invalid", "true"); node.setAttribute("aria-describedby", id + "-err"); }
     add(w, l, node);
-    if (err) { var e = h("p", "po-error", err); e.setAttribute("role", "alert"); w.appendChild(e); }
+    if (e) {
+      w.appendChild(e);
+      /* The message clears with the fix: the field drops its flag and its link to the message. */
+      var fixed = function () { if (!e) return; if (e.parentNode) e.parentNode.removeChild(e); e = null; node.classList.remove("is-bad"); node.removeAttribute("aria-invalid"); node.removeAttribute("aria-describedby"); };
+      node.addEventListener("input", fixed); node.addEventListener("change", fixed);
+    }
     return w;
   }
   function shipDialog(id, mode, opener) {
@@ -573,7 +579,8 @@
         });
         add(dlg, add(h("div", "po-actions"), btn("Back", "no-btn-ghost", function () { st.step = 1; st.stale = false; paint(); }), go));
       }
-      var f = dlg.querySelector("select") || dlg.querySelector("button"); if (f && f.focus) f.focus();
+      /* After a failed Continue, focus the first field with an error; otherwise the first field. */
+      var f = (st.step === 1 && dlg.querySelector("[aria-invalid]")) || dlg.querySelector("select") || dlg.querySelector("button"); if (f && f.focus) f.focus();
     }
     paint();
   }

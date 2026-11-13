@@ -367,7 +367,7 @@
     function setErr(key, text) {
       var n = errs[key]; if (!n) return;
       n.textContent = text || ""; n.hidden = !text;
-      if (text) inputs[key].setAttribute("aria-invalid", "true"); else inputs[key].removeAttribute("aria-invalid");
+      if (text) { inputs[key].setAttribute("aria-invalid", "true"); inputs[key].setAttribute("aria-describedby", n.id); } else { inputs[key].removeAttribute("aria-invalid"); inputs[key].removeAttribute("aria-describedby"); }
     }
     var title = h("h2", "", spec.title + " " + o.order_number); title.setAttribute("id", "so-dh");
     add(dlg, title, facts([["Order", o.order_number], ["Customer", o.receiver_name], ["Total", peso(o.total_centavos)]]));
@@ -379,7 +379,7 @@
       else if (f.type === "date") { inp = D.el("input", { id: fid, type: "date", "class": "so-input" }); if (today) { inp.value = today; inp.setAttribute("max", today); } }
       else inp = D.el("input", { id: fid, type: "text", maxlength: String(f.max), autocomplete: "off", "class": "so-input" });
       inp.addEventListener("input", function () { setErr(f.key, ""); if (cnt) cnt.textContent = inp.value.length + " of " + f.max; });
-      var er = h("p", "po-error"); er.setAttribute("role", "alert"); er.hidden = true;
+      var er = h("p", "po-error"); er.setAttribute("id", fid + "-err"); er.setAttribute("role", "alert"); er.hidden = true;
       inputs[f.key] = inp; errs[f.key] = er; add(wrap, lab, inp, cnt, er); dlg.appendChild(wrap);
     });
     topErr.setAttribute("role", "alert"); topErr.hidden = true; dlg.appendChild(topErr);

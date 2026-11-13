@@ -35,3 +35,21 @@ test("a heading never shows a ring, takes no tabindex and is never given focus b
     assert.doesNotMatch(js, /\$\("(?:mc-h|mr-h|history-h|proof-h|p-site|h-closed|h-down|h-[a-z-]+)"\)\.focus|querySelector\("h[1-6][^"]*"\)\.focus|\btabindex\b|tabIndex/i, f);
   }
 });
+
+test("the Finance usage and issuer pages follow the focus rule: no heading is focusable or given focus", () => {
+  for (const f of ["finance-usage.html", "finance-issuer.html"]) assert.ok(pages.includes(f), f);
+  for (const f of ["finance-common.js", "finance-usage.js", "finance-issuer.js"]) {
+    assert.ok(scripts.includes(f), f);
+    const js = fs.readFileSync(PUB + "assets/js/" + f, "utf8");
+    assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|uo-site|u-h|i-h|b-h|pend-h)"\)\.focus/, f);
+  }
+  /* The only controls that take focus when a dialog opens are fields. */
+  assert.match(fs.readFileSync(PUB + "assets/js/finance-usage.js", "utf8"), /dlg\.open\("m-" \+ kind, \$\(open\), \$\(kind \+ "-f"\)\)/);
+  assert.match(fs.readFileSync(PUB + "assets/js/finance-issuer.js", "utf8"), /dlg\.open\("m-verify", \$\("open-verify"\), \$\("verify-f"\)\)/);
+});
+
+test("the Finance sub-navigation, switch and form styles use the HQ colours and no gold", () => {
+  const block = css.slice(css.indexOf("Finance, usage review and issuer pages"));
+  assert.ok(block.length > 200, "the HQ-F1 block is at the end of hq.css");
+  assert.doesNotMatch(block, /#F2D99B|#C59A3B|var\(--gold\)|var\(--c-focus\)/i);
+});

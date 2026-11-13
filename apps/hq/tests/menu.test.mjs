@@ -29,3 +29,12 @@ test("each entry has an icon that a screen reader skips", () => {
   assert.equal(icon.getAttribute("aria-hidden"), "true");
   assert.equal(icon.children[0].tagName, "PATH");
 });
+
+test("Finance is the current entry for every /finance/ address, and only for those", () => {
+  for (const at of ["/finance/", "/finance/usage/", "/finance/issuer/"]) {
+    const nav = menu(at);
+    assert.equal(nav.children[1].getAttribute("aria-current"), "page", at);
+    assert.equal(nav.children[0].hasAttribute("aria-current"), false, at);
+  }
+  for (const at of ["/financex/", "/", "/inbox/sms/"]) assert.equal(menu(at).children[1].hasAttribute("aria-current"), false, at);
+});

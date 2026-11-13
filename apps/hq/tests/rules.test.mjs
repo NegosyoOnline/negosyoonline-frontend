@@ -52,3 +52,37 @@ test("the Bulk confirm field takes the full width at phone width, like the butto
   const css = all.find((f) => f.name === path.join("assets", "css", "hq.css")).text;
   assert.match(css, /@media \(max-width: 600px\)\s*\{[^}]*\.input\.narrow\s*\{\s*max-width: none;/);
 });
+
+test("no page, script or style claims BIR compliance, PTI, EIS or ESP status, or names the Django admin", () => {
+  assert.deepEqual(named(/\bBIR[- ]compliant\b|\bPTI\b|\bEIS\b|\bESP\b|django admin/i), []);
+});
+
+test("the Finance usage and issuer pages are covered, and load their scripts in order", () => {
+  for (const f of ["finance-usage.html", "finance-issuer.html", path.join("assets", "js", "finance-common.js"),
+    path.join("assets", "js", "finance-usage.js"), path.join("assets", "js", "finance-issuer.js")]) {
+    assert.ok(all.some((x) => x.name === f), f);
+  }
+  for (const [page, script] of [["finance-usage.html", "finance-usage.js"], ["finance-issuer.html", "finance-issuer.js"]]) {
+    const html = all.find((x) => x.name === page).text;
+    const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
+    assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", script.replace(".js", "")], page);
+  }
+});
+
+test("the Finance sub-navigation names five sections and links only the ones that exist", () => {
+  for (const page of ["finance-usage.html", "finance-issuer.html"]) {
+    const html = all.find((x) => x.name === page).text;
+    const nav = /<nav class="set-tabs fin-sub"[^>]*>(.*?)<\/nav>/.exec(html)[1];
+    assert.deepEqual([...nav.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]), ["/finance/", "/finance/usage/", "/finance/issuer/"], page);
+    assert.equal((nav.match(/fin-sub-off/g) || []).length, 2, page);
+    assert.equal((nav.match(/aria-current="page"/g) || []).length, 1, page);
+    assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile/, page);
+  }
+});
+
+test("the issuer page offers no tax type choice and holds no default value", () => {
+  const html = all.find((x) => x.name === "finance-issuer.html").text;
+  assert.doesNotMatch(html, /<select/i);
+  assert.doesNotMatch(html, /<input[^>]*\bvalue=/i);
+  assert.doesNotMatch(html, /<textarea[^>]*>[^<]+<\/textarea>/i);
+});

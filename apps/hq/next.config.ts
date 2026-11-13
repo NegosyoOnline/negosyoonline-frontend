@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         { source: "/", destination: "/index.html" },
         { source: "/finance/", destination: "/finance.html" },
+        { source: "/finance/usage/", destination: "/finance-usage.html" },
+        { source: "/finance/issuer/", destination: "/finance-issuer.html" },
         { source: "/inbox/sms/", destination: "/inbox.html" },
         { source: "/inbox/sms/new/", destination: "/inbox.html" },
         { source: "/inbox/sms/bulk/", destination: "/bulk.html" },
@@ -40,6 +42,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/index.html", destination: "/", permanent: false },
       { source: "/finance.html", destination: "/finance/", permanent: false },
+      { source: "/finance-usage.html", destination: "/finance/usage/", permanent: false },
+      { source: "/finance-issuer.html", destination: "/finance/issuer/", permanent: false },
       { source: "/inbox/", destination: "/inbox/sms/", permanent: false },
       { source: "/inbox.html", destination: "/inbox/sms/", permanent: false },
       { source: "/bulk.html", destination: "/inbox/sms/bulk/", permanent: false },

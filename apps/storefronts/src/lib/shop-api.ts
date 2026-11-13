@@ -69,9 +69,19 @@ export type Quote = {
   ok: boolean; member_price: boolean; ship_mode: string; lines: QuoteLine[]; subtotal_centavos: number;
   shipping: { charged_centavos: number; policy: string; estimated: boolean; available: boolean; error: string; note: string };
   total_centavos: number; fingerprint: string; errors: string[];
+  /** The member's saved delivery address ("Ship to my address"); null when they have none, absent from an older backend. */
+  home_address?: Address | null;
+  /** Where that address came from: "profile", "pack_order" or "". */
+  home_address_source?: string;
 };
 
 export type Address = { line: string; barangay: string; city: string; province: string; zip: string; landmark: string };
+
+/** An address with a street line, or null (absent, null, not an object or no line). */
+function parseAddress(v: unknown): Address | null {
+  if (!record(v) || str(v.line).trim() === "") return null;
+  return { line: str(v.line), barangay: str(v.barangay), city: str(v.city), province: str(v.province), zip: str(v.zip), landmark: str(v.landmark) };
+}
 
 function parseQuote(b: unknown): Quote | null {
   if (!record(b) || !Array.isArray(b.lines) || !record(b.shipping) || typeof b.total_centavos !== "number" || typeof b.subtotal_centavos !== "number") return null;
@@ -89,6 +99,7 @@ function parseQuote(b: unknown): Quote | null {
     ok: b.ok === true, member_price: b.member_price === true, ship_mode: str(b.ship_mode), lines,
     subtotal_centavos: int(b.subtotal_centavos), total_centavos: int(b.total_centavos), fingerprint: str(b.fingerprint),
     errors: arr(b.errors).filter((e): e is string => typeof e === "string"),
+    home_address: parseAddress(b.home_address), home_address_source: str(b.home_address_source),
     shipping: {
       charged_centavos: int(s.charged_centavos), policy: str(s.policy), estimated: s.estimated === true, available: s.available !== false,
       error: str(s.error), note: str(s.note),
@@ -178,8 +189,13 @@ export type BuyerOrder = {
   ship_mode: string; receiver_name: string; delivery_address: Partial<Address>;
   subtotal_centavos: number; shipping_charged_centavos: number; total_centavos: number;
   courier: string; tracking_no: string; shipped_on: string; delivered_on: string;
-  lines: { code: string; name: string; quantity: number; line_charged_centavos: number }[];
+  lines: { code: string; name: string; quantity: number; line_charged_centavos: number; unit_centavos?: number; image_url?: string }[];
+  /* From the parity backend; each is absent from an older one, and the pages then show what they showed before. */
+  receiver_mobile?: string; receiver_email?: string; verified_at?: string;
+  member_savings_centavos?: number; srp_subtotal_centavos?: number;
 };
+
+const optInt = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : undefined);
 
 export function parseBuyerOrder(v: unknown): BuyerOrder | null {
   if (!record(v) || typeof v.id !== "string" || typeof v.order_number !== "string" || typeof v.total_centavos !== "number") return null;
@@ -191,7 +207,12 @@ export function parseBuyerOrder(v: unknown): BuyerOrder | null {
     delivery_address: { line: str(a.line), barangay: str(a.barangay), city: str(a.city), province: str(a.province), zip: str(a.zip), landmark: str(a.landmark) },
     subtotal_centavos: int(v.subtotal_centavos), shipping_charged_centavos: int(v.shipping_charged_centavos), total_centavos: int(v.total_centavos),
     courier: str(v.courier), tracking_no: str(v.tracking_no), shipped_on: str(v.shipped_on), delivered_on: str(v.delivered_on),
-    lines: arr(v.lines).flatMap((l) => record(l) ? [{ code: str(l.code), name: str(l.name), quantity: int(l.quantity), line_charged_centavos: int(l.line_charged_centavos) }] : []),
+    lines: arr(v.lines).flatMap((l) => record(l) ? [{
+      code: str(l.code), name: str(l.name), quantity: int(l.quantity), line_charged_centavos: int(l.line_charged_centavos),
+      unit_centavos: optInt(l.unit_centavos), image_url: str(l.image_url),
+    }] : []),
+    receiver_mobile: str(v.receiver_mobile), receiver_email: str(v.receiver_email), verified_at: str(v.verified_at),
+    member_savings_centavos: optInt(v.member_savings_centavos), srp_subtotal_centavos: optInt(v.srp_subtotal_centavos),
   };
 }
 

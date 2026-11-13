@@ -562,7 +562,7 @@
       return renderChoose(r);
     }
     var trial = inTrial(), promo = !!(offer.consent && offer.consent.required), maxBytes = (S.pay.proof_rules && S.pay.proof_rules.max_bytes) || 5242880;
-    var F = {}, errs = {}, touched = {}, banner = attrs(h("p", "bl-note"), { role: "alert" });
+    var F = {}, errs = {}, touched = {}, banner = attrs(h("p", "bl-note"), { role: "alert", tabindex: "-1" });
     banner.hidden = true;
     var left = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-sp" });
     add(left, attrs(h("h2", "bl-h2", "Your payment details"), { id: "bl-sp" }));
@@ -586,22 +586,30 @@
     var hr = sel("bl-f-hr", "Hour", "Hour", hours), mn = sel("bl-f-mn", "Minute", "Min", mins), ap = sel("bl-f-ap", "AM or PM", "AM/PM", ["AM", "PM"]);
     var terr = attrs(h("p", "bl-ferr"), { id: "bl-f-time-err", role: "alert" }); terr.hidden = true;
     add(tg, date, hr, mn, ap); add(tw, tl, tg, terr); add(left, tw);
-    F.time = { err: terr };
+    F.time = { err: terr, controls: [date, hr, mn, ap] };
+    [date, hr, mn, ap].forEach(function (n) { n.setAttribute("aria-describedby", "bl-f-time-err"); });
     var fw = h("div", "bl-field"), file = attrs(h("input", "bl-input bl-drop"), { id: "bl-f-file", type: "file", accept: TYPES.join(","), "aria-describedby": "bl-f-file-err" });
     var ferr = attrs(h("p", "bl-ferr"), { id: "bl-f-file-err", role: "alert" }); ferr.hidden = true;
-    F.file = { err: ferr };
+    F.file = { err: ferr, controls: [file] };
     add(fw, attrs(h("label", "bl-label", "Upload the Payment Receipt *"), { "for": "bl-f-file" }), file, h("p", "bl-meta bl-hint", "JPEG, PNG or PDF, up to " + mb(maxBytes) + "."), ferr);
     add(left, fw, h("p", "bl-meta", "We review your proof and confirm your payment."));
     var consent = null, consentErr = null;
     if (promo) {
       var cb = attrs(h("input", ""), { type: "checkbox", id: "bl-consent" }), cwrap = h("div", "bl-consent");
       consentErr = attrs(h("p", "bl-ferr"), { id: "bl-consent-err", role: "alert" }); consentErr.hidden = true;
-      F.consent = { err: consentErr };
+      F.consent = { err: consentErr, controls: [cb] };
+      cb.setAttribute("aria-describedby", "bl-consent-err");
       add(cwrap, para(consentText(offer, trial), "bl-consent-text"), add(h("label", "bl-check"), cb, h("span", "", "I understand and accept the Launch Promo terms above.")), consentErr);
       add(left, cwrap); consent = cb;
     }
     var send = btn("Send proof — " + peso(offer.amount_centavos), "primary", null, "bl-full"); send.setAttribute("id", "bl-send");
-    add(left, send);
+    /* While Send is disabled, a visible line says what is still needed; it is the button's description and is hidden when all is valid. */
+    var need = h("p", "bl-meta", ""); need.setAttribute("id", "bl-send-need"); need.hidden = true;
+    send.setAttribute("aria-describedby", "bl-send-need");
+    add(left, send, need);
+    var NAMES = { bank: "Sender Bank", ref: "Reference Number", first: "Sender First Name", last: "Sender Last Name", acct: "Sender Account Number", amount: "Amount",
+      time: "Time of Transfer", file: "Payment Receipt", consent: "Launch Promo terms" };
+    var KEYS = ["bank", "ref", "first", "last", "acct", "amount", "time", "file", "consent"];
 
     function values() {
       return { bank: F.bank.input.value, ref: F.ref.input.value, first: F.first.input.value, last: F.last.input.value, acct: F.acct.input.value, amount: F.amount.input.value,
@@ -612,12 +620,19 @@
       var e = F[key] && F[key].err; if (!e) return;
       var msg = errs[key] && on ? errs[key] : "";
       e.textContent = msg; e.hidden = !msg;
-      if (F[key].input) { if (msg) F[key].input.setAttribute("aria-invalid", "true"); else F[key].input.removeAttribute("aria-invalid"); }
+      (F[key].controls || (F[key].input ? [F[key].input] : [])).forEach(function (c) { if (msg) c.setAttribute("aria-invalid", "true"); else c.removeAttribute("aria-invalid"); });
     }
     function update() {
       errs = check();
       Object.keys(F).forEach(function (k) { paint(k, !!touched[k]); });
+      var missing = KEYS.filter(function (k) { return errs[k]; }).map(function (k) { return NAMES[k]; });
+      need.textContent = missing.length ? "Still needed: " + missing.join(", ") : ""; need.hidden = !missing.length;
       setDisabled(send, busy || Object.keys(errs).length > 0);
+    }
+    /* Focus the first shown error in form order, else the alert message; never leave it on a disabled button or body. */
+    function focusFirstBad() {
+      var bad = KEYS.filter(function (k) { return F[k] && !F[k].err.hidden; })[0], f = bad && F[bad], t = f && (f.controls ? f.controls[0] : f.input);
+      if (t && t.focus) t.focus(); else if (!banner.hidden && banner.focus) banner.focus();
     }
     function mark(key) { return function () { touched[key] = true; update(); }; }
     ["bank", "ref", "first", "last", "acct", "amount"].forEach(function (k) {
@@ -629,7 +644,7 @@
 
     send.addEventListener("click", function () {
       if (busy) return;
-      update(); if (Object.keys(errs).length) { Object.keys(errs).forEach(function (k) { touched[k] = true; }); update(); return; }
+      update(); if (Object.keys(errs).length) { Object.keys(errs).forEach(function (k) { touched[k] = true; }); update(); focusFirstBad(); return; }
       var v = values(), fd = new FormData();
       fd.append("plan", offer.plan);
       fd.append("transferred_at", localStamp(v.date, v.hour, v.minute, v.ap)); fd.append("transferred_on", v.date);
@@ -659,10 +674,10 @@
         /* A field with no place on this form is named in the banner, by the page's own label; an unknown key is never quoted. */
         if (rest.length) { banner.textContent = "Check these fields: " + rest.join(", ") + "."; banner.hidden = false; }
         else if (!shown || unknown) { banner.textContent = refusal(res); banner.hidden = false; }
-        setDisabled(send, false);
+        setDisabled(send, false); focusFirstBad();
         if (res.status === 409) {
           toast("That did not work", refusal(res), "error");
-          reload().then(function (ok) { if (ok && mine === token) render(); });
+          reload().then(function (ok) { if (ok && mine === token) { render(); focusTop(); } });
         }
       });
     });

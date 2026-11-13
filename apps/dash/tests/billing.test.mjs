@@ -554,3 +554,98 @@ test("a 409 on submit reloads and re-renders the page from the new answer", asyn
   assert.ok(d.toasts.some((t) => /already paid for the next term/.test(t) && /\[error\]/.test(t)));
   assert.doesNotMatch(d.text(), /RAW/);
 });
+
+/* A11Y-B1 (ClickUp z8uq9men80, audit M2 and L8). */
+test("page B: a visible 'Still needed' line beside the disabled Send lists what is missing, shrinks as fields are filled, and is hidden when all is valid", async () => {
+  const d = boot();
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  const need = d.$("bl-send-need");
+  assert.equal(d.sendBtn().getAttribute("aria-describedby"), "bl-send-need");
+  assert.equal(d.sendBtn().disabled, true);
+  assert.equal(need.hidden, false);
+  assert.equal(need.textContent, "Still needed: Sender Bank, Reference Number, Sender First Name, Sender Last Name, Sender Account Number, Amount, Time of Transfer, Payment Receipt");
+  d.fill("bl-f-bank", "BDO"); d.fill("bl-f-ref", "R1");
+  assert.equal(need.textContent, "Still needed: Sender First Name, Sender Last Name, Sender Account Number, Amount, Time of Transfer, Payment Receipt");
+  d.fill("bl-f-first", "Ana"); d.fill("bl-f-last", "Reyes"); d.fill("bl-f-acct", "12"); /* filled but not valid */
+  assert.match(need.textContent, /^Still needed: Sender Account Number, Amount, Time of Transfer, Payment Receipt$/);
+  await fillForm(d);
+  assert.equal(need.hidden, true);
+  assert.equal(need.textContent, "");
+  assert.equal(d.sendBtn().disabled, false);
+  d.file(null);
+  assert.equal(need.textContent, "Still needed: Payment Receipt");
+  /* the Launch Promo adds its consent */
+  const p = boot();
+  await p.go("?site=" + A + "&pay=send&plan=launch_promo");
+  await fillForm(p);
+  assert.equal(p.$("bl-send-need").textContent, "Still needed: Launch Promo terms");
+});
+
+test("page B: a required field shows its error once touched and left empty, with aria-invalid and aria-describedby, and clears when fixed; untouched fields stay quiet", async () => {
+  const d = boot();
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  const bank = d.$("bl-f-bank"), e = d.$("bl-f-bank-err");
+  assert.equal(e.hidden, true, "untouched: no error");
+  assert.equal(bank.getAttribute("aria-invalid"), null);
+  bank.fire("blur");
+  assert.equal(e.hidden, false);
+  assert.equal(e.textContent, "Sender bank is required.");
+  assert.equal(bank.getAttribute("aria-invalid"), "true");
+  assert.equal(bank.getAttribute("aria-describedby"), "bl-f-bank-err");
+  assert.equal(d.$("bl-f-ref-err").hidden, true, "another untouched field stays quiet");
+  d.fill("bl-f-bank", "BDO");
+  assert.equal(e.hidden, true);
+  assert.equal(bank.getAttribute("aria-invalid"), null);
+  /* the receipt and the time group too */
+  d.$("bl-f-file").fire("change");
+  assert.equal(d.$("bl-f-file-err").textContent, "Add your payment receipt.");
+  assert.equal(d.$("bl-f-file").getAttribute("aria-invalid"), "true");
+  d.$("bl-f-hr").fire("change");
+  assert.equal(d.$("bl-f-time-err").hidden, false);
+  assert.equal(d.$("bl-f-date").getAttribute("aria-invalid"), "true");
+  assert.equal(d.$("bl-f-ap").getAttribute("aria-describedby"), "bl-f-time-err");
+  d.file(JPEG());
+  assert.equal(d.$("bl-f-file-err").hidden, true);
+  assert.equal(d.$("bl-f-file").getAttribute("aria-invalid"), null);
+});
+
+test("page B: after a server-refused submit, focus is on the first invalid field in form order, or on the alert when no field is named; never body", async () => {
+  const d = boot();
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  await fillForm(d, { "bl-f-amount": "2,499" });
+  d.st.routes["POST " + B + "payments/"] = err(400, "invalid_request", "Invalid.", { proof: ["Not a proof."], sender_account_number: ["Use 6 to 34 digits."], transferred_at: ["Too late."] });
+  d.click(d.root, "Send proof");
+  await settle();
+  assert.equal(d.doc.activeElement, d.$("bl-f-acct"), "the account number comes first in the form");
+  assert.equal(d.$("bl-f-acct").getAttribute("aria-invalid"), "true");
+  /* only the time named: focus goes to its first control */
+  const t = boot();
+  await t.go("?site=" + A + "&pay=send&plan=monthly");
+  await fillForm(t, { "bl-f-amount": "2,499" });
+  t.st.routes["POST " + B + "payments/"] = err(400, "invalid_request", "Invalid.", { transferred_at: ["Too late."] });
+  t.click(t.root, "Send proof");
+  await settle();
+  assert.equal(t.doc.activeElement, t.$("bl-f-date"));
+  /* no field named: the role=alert message */
+  for (const res of [err(429, "rate_limited", "RAW"), err(400, "invalid_request", "RAW", { plan: ["Bad plan."] }), err(400, "invalid_request", "RAW", { secret_key: ["x"] })]) {
+    const e = boot();
+    await e.go("?site=" + A + "&pay=send&plan=monthly");
+    await fillForm(e, { "bl-f-amount": "2,499" });
+    e.st.routes["POST " + B + "payments/"] = res;
+    e.click(e.root, "Send proof");
+    await settle();
+    const alert = e.has(e.root, "bl-note")[0];
+    assert.equal(alert.getAttribute("role"), "alert");
+    assert.equal(alert.hidden, false);
+    assert.equal(e.doc.activeElement, alert, "the alert holds focus");
+    assert.notEqual(e.doc.activeElement, e.doc.body);
+  }
+  /* a 409 re-renders the page and leaves focus on the page heading, not body */
+  const c = boot();
+  await c.go("?site=" + A + "&pay=send&plan=monthly");
+  await fillForm(c, { "bl-f-amount": "2,499" });
+  c.st.routes["POST " + B + "payments/"] = () => { c.st.pay = payInfo({ payable: false, not_payable_reason: "paid_ahead" }); return err(409, "paid_ahead", "RAW"); };
+  c.click(c.root, "Send proof");
+  await settle();
+  assert.equal(c.doc.activeElement, c.$("h-settings-billing"));
+});

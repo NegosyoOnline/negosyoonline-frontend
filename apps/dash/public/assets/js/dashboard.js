@@ -4,8 +4,8 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
-  var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products"]; /* every other view is reached through the mobile More sheet */
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+  var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
      names and page scripts stay in the code; to bring a page back, add its line here and its link to index.html. */
@@ -19,7 +19,9 @@
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
-    "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" }
+    "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
+    "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
+    "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" }
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
@@ -70,6 +72,12 @@
     var P = window.NOPayments; /* payments.js loads after this file; same enter/leave hooks as Billing */
     if (P && shownView === "settings-payments" && r.view !== "settings-payments") P.hide();
     if (P && r.view === "settings-payments" && shownView !== "settings-payments") P.show();
+    var IB = window.NOInbox; /* inbox.js loads after this file; same enter/leave hooks as Payments */
+    if (IB && shownView === "inbox" && r.view !== "inbox") IB.hide();
+    if (IB && r.view === "inbox" && shownView !== "inbox") IB.show();
+    var IS = window.NOInboxSettings; /* inbox-settings.js loads after this file; same enter/leave hooks as Payments */
+    if (IS && shownView === "settings-inbox" && r.view !== "settings-inbox") IS.hide();
+    if (IS && r.view === "settings-inbox" && shownView !== "settings-inbox") IS.show();
     var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
     if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
     if (PO && r.view === "orders" && shownView !== "orders") PO.show();
@@ -1337,6 +1345,7 @@
         e.stopPropagation(); e.preventDefault(); go("/orders/products/");
       }, true);
       load();
+      if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   });

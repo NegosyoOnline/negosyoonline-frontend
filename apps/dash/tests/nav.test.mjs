@@ -44,12 +44,15 @@ test("Settings is in the sidebar and not in the profile menu", () => {
 
 /* Santé setup (ClickUp z8uq9m92ez): Coach Ed's ruling of 2026-11-11 moved it into Business Settings, so it has no
    Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
-test("Settings has three tabs (Business Settings, Billing, Payments) and no Santé setup entry anywhere in the menus or the quick links", () => {
+test("Settings has three tabs (Business Settings, Billing, Payments) and the Inbox tab that stays hidden until the API opens the inbox, and no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"]]);
-  assert.ok(!/\shidden(\s|>)/.test(SET_TABS.replace(/^<nav[^>]*>/, "")), "no tab is hidden");
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"]]);
+  /* G2 Unified Inbox (z8uq9md3n6): the Inbox links start hidden and inbox.js shows them only when the API says the inbox is open. */
+  const hiddenTabs = [...SET_TABS.replace(/^<nav[^>]*>/, "").matchAll(/<a\b[^>]*\bhidden\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(hiddenTabs.length, 1, "one tab is hidden: Inbox");
+  assert.ok(hiddenTabs[0].includes('href="/settings/inbox/"') && hiddenTabs[0].includes("data-inbox-nav"));
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
-  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments"]);
+  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments", "Inbox"]);
   /* The Help Center articles (z8uq9mekvc) are text on /help/ and name Santé; they are not a menu entry, so they are left out here. */
   assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "").replace(/<section class="view" id="view-help"[\s\S]*?<section class="view" id="view-referral"/, "")), "only the script that draws the Sponsor ID row names Santé");
   assert.ok(!HTML.includes("data-sante"));
@@ -169,8 +172,8 @@ test("no link in the page and no quick link reaches a hidden page", () => {
   for (const h of HIDDEN) assert.ok(!hrefs.includes(h), h + " has no link in index.html");
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   for (const h of HIDDEN) assert.ok(!quick.includes('"' + h + '"'), h + " is not a quick link");
-  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Settings"]);
-  assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders", "Products"], "the bottom tabs are Overview, Orders and Products, with no Add order button");
+  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox", "Settings"]);
+  assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox"], "the bottom tabs are Overview, Orders, Products and the Inbox link (hidden until the API opens the inbox), with no Add order button");
   assert.ok(!/data-route="(orders-new|earnings|people|usage|referral|storefront|media-library)"/.test(HTML));
 });
 

@@ -18,6 +18,7 @@
     ["reference_mismatch", "Reference number is missing or does not match."], ["wrong_account", "Payment was sent to the wrong account."], ["other", "Other, with a mandatory written explanation."]];
   var STALE = "This order changed. Reload it and try again.";
   var S, token = 0, urls = {}, closeDlg = null;
+  function MR() { return window.NOMemberRecovery || null; } /* member-recovery.js loads after this file (ClickUp z8uq9mek5y) */
 
   function fresh() { return { site: null, tab: "pack", filter: null, q: "", draft: "", rows: [], listState: "loading", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
   S = fresh();
@@ -89,7 +90,7 @@
 
   /* ---- load ---- */
   function show() { token++; S = fresh(); revokeAll(); tabsInit(); load(); }
-  function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); }
+  function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); if (MR()) MR().reset(); }
   function revokeAll() { Object.keys(urls).forEach(function (k) { try { URL.revokeObjectURL(urls[k]); } catch (e) { /* ignore */ } }); urls = {}; }
   function load() {
     var mine = ++token; S.listState = "loading"; render();
@@ -109,6 +110,7 @@
       if (!r.ok) { if (!quiet) { S.listState = "error"; render(); } return; }
       S.rows = Array.isArray(r.data.orders) ? r.data.orders : [];
       S.listState = S.rows.length ? "ok" : "empty"; render();
+      if (MR()) MR().load(S.site, S.rows);
     });
   }
   function loadDetail(id) {
@@ -254,7 +256,7 @@
     var sub = proofOf(id), g = h("div", "mc-grid"), left = h("div", "mc-col"), right = h("div", "mc-col"), kind = sub && sub.account_kind === "ewallet" ? "E-wallet" : "Bank";
     if (d.shipping_enabled === true && d.payment_status === "verified") add(left, shipmentCard(o, d));
     add(left, proofCard(id, d), historyCard(id, d));
-    add(right, add(card("Buyer"), facts([["Name", d.buyer_name], ["Mobile", d.mobile_masked]])));
+    add(right, add(card("Buyer"), facts([["Name", d.buyer_name], ["Mobile", d.mobile_masked]])), MR() ? MR().banner(o) : null);
     if (sub) {
       add(right, add(card("Paid to", "The account the buyer chose, as it was when they paid."), facts([["Account", sub.account_provider_name + " · " + kind], ["Account name", sub.account_name], ["Account number", "ending " + sub.account_number_last4]])));
       add(right, add(card("Payment details from the buyer"), facts([["Order total", peso(d.price_centavos)], ["Amount sent", peso(sub.amount_sent_centavos)], ["Reference number", sub.reference_number],
@@ -311,7 +313,7 @@
     w.setAttribute("role", "row");
     add(first, h("span", "ol-no mc-order", o.order_number), h("span", "ol-dt", placedLong(o.created_at)), pill());
     rowActions(o).forEach(function (b) { act.appendChild(b); });
-    add(st, chipsOf(o), sl);
+    add(st, chipsOf(o), sl, MR() ? MR().holdChip(o) : null, MR() ? MR().helpButton(o) : null);
     add(r, first, h("div", "c-cus", o.buyer_name), h("div", "c-pay ol-pay", "Bank transfer"), h("div", "c-tot r num", amt), st, act);
     add(w, r);
     if (S.open[o.id] && k !== "review") add(w, add(h("div", "mc-detail"), detailGrid(o)));
@@ -606,5 +608,9 @@
     paint();
   }
 
+  if (MR()) {
+    MR().onChange(function () { render(); });
+    MR().onClose(function (keepOpen) { if (!keepOpen) S.open = {}; render(); });
+  }
   window.NOPackOrders = { show: show, hide: hide };
 })();

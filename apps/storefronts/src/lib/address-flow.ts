@@ -21,21 +21,22 @@ function signedOut(d: Dash): Response {
   return response;
 }
 
-const NONE: AddressPage = { address: { ...EMPTY_ADDRESS }, field_errors: {}, error_message: "", saved: false, locked: false };
+const NONE: AddressPage = { address: { ...EMPTY_ADDRESS }, field_errors: {}, error_message: "", saved: false, locked: false, unreadable: false };
 
 function page(d: Dash, name: string, p: AddressPage, status = 200): Response {
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "Home address", member: name, current: "account", content: addressContent(p), scripts: SCRIPTS }), status);
 }
 
-/** The saved address and whether it is locked, from a quote; a catalog or quote that cannot be had leaves the form blank and open. */
-async function savedAddress(d: Dash): Promise<{ address: Address | null; locked: boolean }> {
+/** The saved address and whether it is locked, from a quote. "unreadable" when the catalog or quote cannot be had, or the quote is not a
+    member-price one (a member without benefits): the page then offers no form, so nobody overwrites an address they cannot see. */
+async function savedAddress(d: Dash): Promise<{ address: Address | null; locked: boolean } | "unreadable"> {
   const products = await fetchCatalog(d.call.host, d.calls);
   const probe = products?.[0];
-  if (!probe) return { address: null, locked: false };
+  if (!probe) return "unreadable";
   const r = await shopQuote({
     host: d.call.host, visitor_ip: d.call.visitor_ip, lines: [{ id: probe.id, qty: 1 }], member_token: d.call.member_token, ship_mode: "home", address: null,
   }, d.calls);
-  if (r.state !== "ok") return { address: null, locked: false };
+  if (r.state !== "ok" || !r.quote.member_price) return "unreadable";
   return { address: r.quote.home_address ?? null, locked: r.quote.home_address_locked === true };
 }
 
@@ -53,6 +54,7 @@ export async function addressGet(d: Dash): Promise<Response> {
   const g = await gate(d);
   if ("response" in g) return g.response;
   const saved = await savedAddress(d);
+  if (saved === "unreadable") return page(d, g.name, { ...NONE, unreadable: true });
   const justSaved = new URL(d.call.request.url).searchParams.get("saved") === "1";
   return page(d, g.name, { ...NONE, address: { ...(saved.address ?? EMPTY_ADDRESS) }, locked: saved.locked, saved: justSaved && !saved.locked });
 }

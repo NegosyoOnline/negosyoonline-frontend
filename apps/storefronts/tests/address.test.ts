@@ -61,13 +61,30 @@ test("the page shows the saved address in the member shell with Account current,
   assert.equal(quote?.ship_mode, "home");
 });
 
-test("?saved=1 shows 'Saved.'; no saved address, no catalog or a failing quote leave a blank form", async () => {
+test("?saved=1 shows 'Saved.'; a member with no saved address (quote ok, home_address absent or null) gets a blank form", async () => {
   const ok = await (await addressGet(dashOf(fake({ quote: { home_address: HOME } }), "?saved=1"))).text();
   assert.match(ok, /<div class="note info" role="status">Saved\.<\/div>/);
-  for (const o of [{}, { catalog: [] }, { quoteStatus: 500 }]) {
-    const b = await (await addressGet(dashOf(fake(o)))).text();
+  for (const quote of [{}, { home_address: null }]) {
+    const b = await (await addressGet(dashOf(fake({ quote })))).text();
     assert.match(b, /name="line" maxlength="200" value="" required/);
-    assert.doesNotMatch(b, /Your home address cannot be changed/);
+    assert.doesNotMatch(b, /cannot be loaded/);
+  }
+});
+
+test("when the address cannot be read (no catalog, quote error or 404, timeout) or the member has no benefits, there is no form, only the sentence", async () => {
+  const timeout = fake();
+  const failing = { calls: timeout.calls, fetchImpl: (url: string, init: RequestInit) => (url.includes("shop/quote") ? Promise.reject(new DOMException("t", "TimeoutError")) : timeout.fetchImpl(url, init)) };
+  const cases: [string, Dash][] = [
+    ["no catalog", dashOf(fake({ catalog: [] }))],
+    ["quote 500", dashOf(fake({ quoteStatus: 500 }))],
+    ["quote 404", dashOf(fake({ quoteStatus: 404 }))],
+    ["timeout", dashOf(failing as ReturnType<typeof fake>)],
+    ["no benefits", dashOf(fake({ quote: { member_price: false, home_address: HOME } }))],
+  ];
+  for (const [name, d] of cases) {
+    const b = await (await addressGet(d)).text();
+    assert.match(b, /Your address cannot be loaded right now\. Please try again later\./, name);
+    assert.doesNotMatch(b, /action="\/dashboard\/address\/"|name="line"|Saved\./, name);
   }
 });
 

@@ -6,7 +6,7 @@
    - "Saved." is the notice TWCinc shows after a save (its ?saved=1 redirect). */
 import { html, type Markup } from "../../lib/html.ts";
 import type { Address } from "../../lib/shop-api.ts";
-import { MSG_ADDRESS_LOCKED } from "../../lib/shop-flow-text.ts";
+import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_UNREADABLE } from "../../lib/shop-flow-text.ts";
 
 export const ADDRESS_PAGE_PATH = "/dashboard/address/";
 
@@ -16,6 +16,8 @@ export type AddressPage = {
   error_message: string;
   saved: boolean;
   locked: boolean;
+  /** The saved address could not be read: no form is drawn, so a member cannot overwrite an address they cannot see. */
+  unreadable: boolean;
 };
 
 export const EMPTY_ADDRESS: Address = { line: "", barangay: "", city: "", province: "", zip: "", landmark: "" };
@@ -45,7 +47,7 @@ export function addressContent(p: AddressPage): Markup {
 <p>New home orders ship here. Orders you already placed keep the address they were placed with.</p>
 ${p.saved ? html`<div class="note info" role="status">Saved.</div>` : ""}
 ${p.error_message ? html`<div class="note bad" role="alert">${p.error_message}</div>` : ""}
-${p.locked ? html`<div class="note warn" role="status"><b>${MSG_ADDRESS_LOCKED}</b></div>` : html`<form method="post" action="${ADDRESS_PAGE_PATH}">
+${p.unreadable ? html`<div class="note warn" role="status"><b>${MSG_ADDRESS_UNREADABLE}</b></div>` : p.locked ? html`<div class="note warn" role="status"><b>${MSG_ADDRESS_LOCKED}</b></div>` : html`<form method="post" action="${ADDRESS_PAGE_PATH}">
 ${FIELDS.map((f) => field(f, p))}
 <button class="btn" type="submit">Save address</button>
 </form>`}

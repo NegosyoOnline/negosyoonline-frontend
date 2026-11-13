@@ -118,3 +118,21 @@ test("the email and the mobile code step are both laid out like the site's code 
   assert.ok(css.includes("body.dash-app .acct-otp { position: relative; box-sizing: border-box; width: 100%; max-width: 400px; margin: 8px auto 0; }"));
   assert.ok(css.includes("height: 56px; min-width: 0;") && css.includes("font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }"));
 });
+
+/* ---- Change email and Edit name: errors announced, nothing blank sent (ClickUp z8uq9men7r, L2 and L4) ---- */
+test("the change-email code must be exactly six digits before it is sent", () => {
+  assert.equal(U.codeComplete("123456"), true);
+  assert.equal(U.codeComplete(" 123456 "), true);
+  for (const v of ["", "   ", "12345", "1234567", "12a456", null, undefined]) assert.equal(U.codeComplete(v), false, String(v));
+});
+
+test("field errors are announced, the email box is capped at 254, and a blank name or short code is stopped before the request", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const between = (from, to) => src.slice(src.indexOf(from), src.indexOf(to));
+  assert.ok(src.includes('id: o.id + "-err", role: "alert"'), "every field error, #acct-email-code-err included, is role=alert");
+  assert.ok(src.includes('input.setAttribute("maxlength", "254")'), "the new-email field is capped at 254");
+  const email = between("function emailStep2(", "function cooldownRefused(");
+  assert.ok(email.indexOf("codeComplete(code.input.value)") > 0 && email.indexOf("codeComplete(code.input.value)") < email.indexOf('"/account/email/confirm/"'), "the code is checked before the confirm request");
+  const name = between("function editName(", "/* ---- sign out other devices");
+  assert.ok(name.indexOf("NAME_BLANK") > 0 && name.indexOf("NAME_BLANK") < name.indexOf('D.call("PATCH"'), "a blank name is stopped before the PATCH");
+});

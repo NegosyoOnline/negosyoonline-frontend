@@ -37,6 +37,8 @@
     return a;
   }
   function nameBody(first, last) { return { name: [first, last].map(function (v) { return String(v || "").trim(); }).filter(Boolean).join(" ") }; }
+  var CODE_SHORT = "Enter all 6 digits of the code.", NAME_BLANK = "Enter your first or last name.";
+  function codeComplete(v) { return /^\d{6}$/.test(String(v || "").trim()); }
   function emailConfirmBody(email, code) { return { email: email, code: String(code || "") }; }
   /* The provider's own address from a connect start, or "" when the answer is anything else. */
   function providerUrl(name, res) {
@@ -337,7 +339,7 @@
       mirror();
     } else if (o.kind === "email" || o.kind === "phone") {
       var g = window.NOContact.group(o.kind, input, o.id);
-      if (o.kind === "email") input.setAttribute("autocomplete", "email");
+      if (o.kind === "email") { input.setAttribute("autocomplete", "email"); input.setAttribute("maxlength", "254"); } /* the longest valid address (z8uq9men7r L2) */
       box.appendChild(g.group);
       if (g.hint) { box.appendChild(g.hint); hint = g.hint.id; input.setAttribute("aria-describedby", hint); }
     } else {
@@ -346,7 +348,7 @@
       box.appendChild(input);
     }
     if (o.readonly) input.setAttribute("readonly", "");
-    var err = D.el("p", { "class": "ob-err", id: o.id + "-err" });
+    var err = D.el("p", { "class": "ob-err", id: o.id + "-err", role: "alert" }); /* announced when it shows (z8uq9men7r L4) */
     err.hidden = true;
     box.appendChild(err);
     return { box: box, input: input, err: err, hint: hint };
@@ -532,6 +534,7 @@
     var f = dlgForm(function () {
       setErrors(fields, null);
       parts.status.textContent = "";
+      if (!codeComplete(code.input.value)) { setErrors(fields, { code: CODE_SHORT }); return; } /* an empty or short code is never sent (z8uq9men7r L4) */
       confirm.disabled = true;
       D.call("POST", "/account/email/confirm/", emailConfirmBody(email, code.input.value), true).then(function (res) {
         confirm.disabled = false;
@@ -580,6 +583,7 @@
     var save = submitBtn("Save name");
     var f = dlgForm(function () {
       setErrors(fields, null);
+      if (!nameBody(fields.first_name.input.value, fields.last_name.input.value).name) { setErrors(fields, { first_name: NAME_BLANK }); return; } /* a blank name is never saved (z8uq9men7r L4) */
       save.disabled = true;
       D.call("PATCH", "/account/", nameBody(fields.first_name.input.value, fields.last_name.input.value), true).then(function (res) {
         save.disabled = false;
@@ -773,5 +777,5 @@
 
   window.addEventListener("popstate", function () { closeDialog(); }); /* leaving the view by history never leaves a dialog open */
   window.NOAccount = { show: function () { S.devices = false; S.ret = takeReturn(); load(); },
-    util: { view: view, nameBody: nameBody, emailConfirmBody: emailConfirmBody, providerUrl: providerUrl, returnLine: returnLine } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
+    util: { view: view, nameBody: nameBody, codeComplete: codeComplete, emailConfirmBody: emailConfirmBody, providerUrl: providerUrl, returnLine: returnLine } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
 })();

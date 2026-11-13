@@ -14,8 +14,8 @@
     <form id="form1" novalidate>
       <fieldset class="reg-card">
         <label for="email" class="lbl-caps">Email address <span class="req" aria-hidden="true">*</span></label>
-        <div class="phone-input plain"><input id="email" name="email" type="email" autocomplete="email" placeholder="e.g. juan@email.com" required></div>
-        <p class="err" id="email-err" hidden></p>
+        <div class="phone-input plain"><input id="email" name="email" type="email" autocomplete="email" maxlength="254" placeholder="e.g. juan@email.com" required></div>
+        <p class="err" id="email-err" role="alert" hidden></p>
       </fieldset>
       <p class="err" id="accept-err" role="alert" hidden></p>
       <button class="btn btn-primary btn-pill" type="submit" id="btn1">Continue <span aria-hidden="true">&rarr;</span></button>

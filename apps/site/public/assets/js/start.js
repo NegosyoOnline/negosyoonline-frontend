@@ -12,9 +12,16 @@
     status.textContent = "";
     ["email-err", "accept-err", "code-err"].forEach(function (id) { var e = $(id); e.hidden = true; e.textContent = ""; });
     document.querySelectorAll(".field.invalid").forEach(function (f) { f.classList.remove("invalid"); });
-    $("email").parentNode.classList.remove("is-invalid");
+    emailInvalid(false);
   }
   function fieldError(id, msg) { var e = $(id); e.textContent = msg; e.hidden = false; }
+  /* The email box's error state: the red border, aria-invalid and the link to #email-err, all set and removed together. */
+  function emailInvalid(on) {
+    var input = $("email");
+    input.parentNode.classList.toggle("is-invalid", on);
+    if (on) { input.setAttribute("aria-invalid", "true"); input.setAttribute("aria-describedby", "email-err"); }
+    else { input.removeAttribute("aria-invalid"); input.removeAttribute("aria-describedby"); }
+  }
   function showBanner(message) {
     clearErrors();
     var box = A.el("div", { "class": "error-summary", role: "alert" });
@@ -46,7 +53,7 @@
   /* Continuing is the agreement (the notice under the button). The server records its own policy list and
      version when the code is verified with accept_policies. */
   $("email").addEventListener("input", function () {
-    $("email-err").hidden = true; this.parentNode.classList.remove("is-invalid");
+    $("email-err").hidden = true; emailInvalid(false);
     this.parentNode.classList.toggle("is-valid", EMAIL_RE.test(this.value.trim()));
   });
 
@@ -56,7 +63,7 @@
       btn.disabled = false; btn.textContent = label;
       if (res.ok) { clearErrors(); done(); return; }
       var f = res.data.fields || {};
-      if (f.email) { fieldError("email-err", f.email); $("email").parentNode.classList.add("is-invalid"); show("step1"); }
+      if (f.email) { fieldError("email-err", f.email); emailInvalid(true); show("step1"); }
       else showBanner(res.status === 429 ? "Too many attempts. Please try again in a few minutes." : (res.data.message || "We could not send the code. Please try again."));
     });
   }
@@ -65,7 +72,7 @@
     e.preventDefault();
     clearErrors();
     email = $("email").value.trim();
-    if (!EMAIL_RE.test(email)) { fieldError("email-err", "Enter a valid email address."); $("email").parentNode.classList.add("is-invalid"); $("email").focus(); return; }
+    if (!EMAIL_RE.test(email)) { fieldError("email-err", "Enter a valid email address."); emailInvalid(true); $("email").focus(); return; }
     sendCode($("btn1"), "Continue", showCode);
   });
 

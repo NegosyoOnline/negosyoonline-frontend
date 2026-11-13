@@ -353,7 +353,7 @@
         S.sealUrl = URL.createObjectURL(b); draw();
       }).catch(function () { var w = $("bs-seal-wait"); if (w && my === S.seq) w.textContent = "The badge could not be shown."; });
     }
-    var file = D.el("input", { id: "bs-seal-file", type: "file", name: "seal", accept: SEAL_TYPES.join(","), "aria-describedby": "bs-seal-help bs-seal-msg" });
+    var file = D.el("input", { id: "bs-seal-file", type: "file", name: "seal", accept: SEAL_TYPES.join(","), "aria-label": "Business seal image", "aria-describedby": "bs-seal-help bs-seal-msg" });
     var up = D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "bs-seal-up" }, has ? "Replace" : "Upload");
     var del = has ? D.el("button", { type: "button", "class": "no-btn no-btn-ghost", id: "bs-seal-del" }, "Remove") : null;
     var msg = D.el("p", { "class": "ob-err", id: "bs-seal-msg", role: "alert" }, S.sealMsg);

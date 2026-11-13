@@ -84,3 +84,12 @@ test("a fresh load scrolls to the article once the router shows the help view", 
   assert.deepEqual(run("#help-orders", true), ["help-orders"], "scrolls only once the view is visible");
   assert.deepEqual(run("#bogus<x>", false), [], "an id outside help-[a-z]+ is ignored");
 });
+
+test("Help Center subheadings take the dash text token, so they are light on the dark card (no fall-through to the marketing navy)", () => {
+  const rule = CSS.match(/#view-help \.help-article h3 \{([^}]*)\}/);
+  assert.ok(rule, "the article h3 rule is in help.css");
+  assert.ok(/color: var\(--text\)/.test(rule[1]), "h3 colour is var(--text)");
+  const DASHCSS = fs.readFileSync(new URL("../public/assets/css/dash.css", import.meta.url), "utf8");
+  assert.ok(/body\.dash-app \{[^}]*--text: #F2F4FA/.test(DASHCSS), "the dark default of --text is light");
+  assert.ok(/html\[data-theme="light"\] body\.dash-app \{[^}]*--text: #0B163F/.test(DASHCSS), "light keeps the navy text");
+});

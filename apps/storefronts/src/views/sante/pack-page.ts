@@ -17,6 +17,9 @@ export type PackCtx = Chrome & {
   total: string;
   message: string;
   video_url: string;
+  /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Set only for the
+     landing and checkout pages. */
+  tracking?: Markup;
 };
 
 export const LANDING_PATH = "/funnel/membership-pack/landing-page/";
@@ -141,6 +144,7 @@ ${footer(c)}
 ${args.afterShell ?? ""}
 ${args.noPolicyPopup ? "" : policyDialog(c)}
 ${(args.scripts ?? []).map((s) => html`<script src="${asset(s)}"></script>`)}
+${c.tracking ?? ""}
 </body>
 </html>
 `;

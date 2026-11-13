@@ -845,6 +845,7 @@ ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>
 <script src="${asset("js/contact-form.js")}"></script>
+${v.tracking ?? ""}
 </body>
 </html>
 `;

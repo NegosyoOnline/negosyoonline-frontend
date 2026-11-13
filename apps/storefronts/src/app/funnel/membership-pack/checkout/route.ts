@@ -6,6 +6,7 @@ import { checkoutGet, checkoutPost, readPost, type Flow } from "../../../../lib/
 import { fetchPack } from "../../../../lib/django.ts";
 import { storefrontEnv } from "../../../../lib/env.ts";
 import { forbidden, postIsSameOrigin } from "../../../../lib/member.ts";
+import { afterResponse, metaPage } from "../../../../lib/meta.ts";
 import { requestHost, siteFor } from "../../../../lib/site.ts";
 import { visitorIp } from "../../../../lib/visitor.ts";
 import { neutralNotFound } from "../../../../views/neutral.ts";
@@ -28,7 +29,15 @@ async function flowFor(request: Request): Promise<Flow | null> {
 export async function GET(request: Request): Promise<Response> {
   const flow = await flowFor(request);
   if (!flow) return neutralNotFound();
-  return checkoutGet(flow);
+  /* The Meta Pixel: the notice, or after Accept the data block (checkout: Meta's form reading stays off), with the
+     server events sent after the response. A GET only. */
+  if (!flow.pack.available) return checkoutGet(flow); // the page answers with the landing page: no checkout view to count
+  const meta = metaPage({
+    request, site: flow.site, host: flow.host, env: flow.calls.env, events: ["PageView", "InitiateCheckout"],
+    pack: flow.pack, checkout: true,
+  });
+  if (meta.send) await afterResponse(meta.send);
+  return checkoutGet({ ...flow, tracking: meta.markup });
 }
 
 export async function POST(request: Request): Promise<Response> {

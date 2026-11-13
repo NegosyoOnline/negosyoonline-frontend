@@ -1,0 +1,47 @@
+/* Meta Pixel settings (ClickUp z8uq9md3n5, /settings/meta-pixel/, meta-pixel.js). The card repeats the Payments and Inbox card
+   look, scoped to its own view id, so dash.css and inbox.css are not touched. Colours come from the dash tokens. */
+#view-settings-meta-pixel .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+#view-settings-meta-pixel .pm-root > .pm-card { margin-bottom: 16px; }
+#view-settings-meta-pixel .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
+#view-settings-meta-pixel .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#view-settings-meta-pixel .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+#view-settings-meta-pixel .pm-head .pm-h2 { margin: 0; }
+#view-settings-meta-pixel .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#view-settings-meta-pixel .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+#view-settings-meta-pixel .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
+#view-settings-meta-pixel .chip { min-height: 26px; }
+#view-settings-meta-pixel .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-settings-meta-pixel .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#view-settings-meta-pixel .pm-field { margin: 0 0 14px; }
+#view-settings-meta-pixel .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+#view-settings-meta-pixel .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+#view-settings-meta-pixel .pm-input:focus, #view-settings-meta-pixel .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-settings-meta-pixel .pm-input.pm-invalid { border-color: var(--err-line); }
+#view-settings-meta-pixel .pm-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
+#view-settings-meta-pixel .pm-error[hidden] { display: none; }
+#view-settings-meta-pixel .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+#view-settings-meta-pixel .pm-actions .no-btn { min-height: 44px; }
+#view-settings-meta-pixel .pm-danger { color: var(--err-h); }
+#view-settings-meta-pixel .pm-secret { position: relative; }
+#view-settings-meta-pixel .mk-saved { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 8px 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); }
+#view-settings-meta-pixel .mk-saved-text { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); }
+#view-settings-meta-pixel .mk-saved-text svg { width: 18px; height: 18px; color: var(--meta); }
+#view-settings-meta-pixel .mk-saved-actions { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+#view-settings-meta-pixel .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
+#view-settings-meta-pixel .mk-test { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 2px 0 16px; padding: 12px 14px; border-radius: 12px; font-size: 15px; color: var(--text-2); }
+#view-settings-meta-pixel .mk-test-ok { background: var(--chip-ok-bg); }
+#view-settings-meta-pixel .mk-test-bad { background: var(--bl-chip-danger-bg); }
+#view-settings-meta-pixel .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
+#view-settings-meta-pixel .mk-list li { margin-bottom: 6px; }
+/* the last events: a plain list, one row each */
+#view-settings-meta-pixel .mp-events { margin: 0; padding: 0; list-style: none; }
+#view-settings-meta-pixel .mp-event { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--card-line); font-size: 15px; color: var(--text-2); }
+#view-settings-meta-pixel .mp-event:first-child { border-top: 0; }
+#view-settings-meta-pixel .mp-event-name { font-weight: 600; color: var(--text); }
+#view-settings-meta-pixel .mp-event-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--meta); overflow-wrap: anywhere; }
+#view-settings-meta-pixel .mp-event-when { margin-left: auto; color: var(--meta); font-size: 14px; }
+@media (max-width: 640px) {
+  #view-settings-meta-pixel .pm-card { padding: 18px 16px; }
+  #view-settings-meta-pixel .pm-actions .no-btn { width: 100%; }
+  #view-settings-meta-pixel .mp-event-when { margin-left: 0; width: 100%; }
+}

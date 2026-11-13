@@ -11,6 +11,8 @@ export type ContactForm = {
 };
 
 export type HomeModel = {
+  /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Only the home route sets it. */
+  tracking?: Markup;
   store_name: string;
   /* A signed-in member sees "Dashboard" in the header CTA where a visitor sees "Login" (Coach Ed, 2026-11-12). */
   signed_in: boolean;

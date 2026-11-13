@@ -28,6 +28,9 @@ export type Site = {
   distributor: { name: string; mobile: string; has_photo: boolean };
   policy_links: { label: string; path: string }[];
   free_shipping_banner: boolean;
+  /* The site's Meta Pixel ID, "" for none. The backend sends it only while its Meta switch is on; an older backend
+     sends no key at all, which reads as "" (src/lib/django.ts fetchSite). */
+  meta_pixel_id: string;
 };
 
 export const SECRET_MIN_LENGTH = 32; // the backend's own rule: shorter counts as not set
@@ -50,10 +53,12 @@ function has(value: Record<string, unknown>, strings: string[], booleans: string
   );
 }
 
-function isSite(value: unknown): value is Site {
+/** The shape check. `meta_pixel_id` may be absent (an older backend), but a key of the wrong type is a wrong shape. */
+export function isSite(value: unknown): value is Omit<Site, "meta_pixel_id"> & { meta_pixel_id?: string } {
   return (
     record(value) &&
     value.template === "sante" &&
+    (value.meta_pixel_id === undefined || typeof value.meta_pixel_id === "string") &&
     has(
       value,
       ["id", "display_name", "accent_color", "facebook_url", "instagram_url", "tiktok_url"],
@@ -113,7 +118,7 @@ export async function fetchSite(
     log("the API answer was not a Santé site");
     return null;
   }
-  return body;
+  return { ...body, meta_pixel_id: body.meta_pixel_id ?? "" };
 }
 
 export type ContactMessage = {

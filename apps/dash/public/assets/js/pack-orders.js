@@ -156,7 +156,7 @@
 
   /* ---- decisions ---- */
   var DONE = { approve: "Payment approved", reject: "Payment rejected", "shipment": "Shipment added", "shipment/correct": "Shipment updated", "delivery": "Marked as delivered" };
-  function decide(id, kind, body, onStale, onInvalid) {
+  function decide(id, kind, body, onStale, onInvalid, onFail) {
     var o = find(id); if (!o || S.busy) return;
     S.busy = true;
     var payload = body || {}; payload.state_version = o.state_version;
@@ -174,7 +174,9 @@
         return reloadList(token, true).then(function () { if (S.open[id]) return loadDetail(id); });
       }
       if (r.status === 422 && onInvalid) { onInvalid(r); return; }
-      D.toast("That did not work", msg(r, "We could not save the decision. Please try again."), "error");
+      var fallback = "We could not save the decision. Please try again.";
+      if (onFail) { onFail(msg(r, fallback)); return; } /* a dialog shows it inside itself */
+      D.toast("That did not work", msg(r, fallback), "error");
     });
   }
 
@@ -423,7 +425,7 @@
   function rejectDialog(id, opener) {
     var o = find(id); if (!o) return;
     if (closeDlg) closeDlg(false);
-    var slot = byId("po-dlg-slot"), overlay = h("div", "po-overlay"), dlg = h("div", "po-dialog"), st = { step: 1, reason: "", text: "", err: "", stale: false };
+    var slot = byId("po-dlg-slot"), overlay = h("div", "po-overlay"), dlg = h("div", "po-dialog"), st = { step: 1, reason: "", text: "", err: "", stale: false, fail: "" };
     dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "po-dh");
     function close(returnFocus) {
       if (closeDlg !== close) return;
@@ -443,9 +445,11 @@
       var title = h("h2", "", "Reject order " + o.order_number); title.setAttribute("id", "po-dh"); add(title, add(h("span", "mc-mpp"), pill())); dlg.appendChild(title);
       if (st.step === 1) {
         var fs = h("fieldset", "po-reasons"); fs.appendChild(h("legend", "", "Reason for rejection"));
+        if (st.err === "reason") fs.setAttribute("aria-describedby", "po-reason-err");
         REASONS.forEach(function (r) {
           var lab = h("label"), inp = D.el("input", { type: "radio", name: "po-reason", value: r[0] });
           inp.checked = st.reason === r[0];
+          if (st.err === "reason") { inp.setAttribute("aria-invalid", "true"); inp.setAttribute("aria-describedby", "po-reason-err"); }
           inp.addEventListener("change", function () { st.reason = r[0]; st.err = ""; paint("radio"); });
           add(lab, inp, h("span", "", reasonLabel(r[0], o))); fs.appendChild(lab);
         });
@@ -453,14 +457,15 @@
         if (st.reason === "other") {
           var w = h("div", "po-other"), lab2 = h("label", "", "Explanation (required for Other)"), ta = D.el("textarea", { id: "po-other", maxlength: "500", rows: "3", "class": st.err === "text" ? "is-bad" : "" }), cnt = h("div", "po-count", st.text.length + " of 500");
           lab2.setAttribute("for", "po-other"); ta.value = st.text;
+          if (st.err === "text") { ta.setAttribute("aria-invalid", "true"); ta.setAttribute("aria-describedby", "po-other-err"); }
           ta.addEventListener("input", function () { st.text = ta.value; cnt.textContent = st.text.length + " of 500"; });
           add(w, lab2, ta, cnt); dlg.appendChild(w);
         }
-        if (st.err === "text") { var e1 = h("p", "po-error", "Explain the reason."); e1.setAttribute("role", "alert"); dlg.appendChild(e1); }
-        if (st.err === "reason") { var e2 = h("p", "po-error", "Choose a reason."); e2.setAttribute("role", "alert"); dlg.appendChild(e2); }
+        if (st.err === "text") { var e1 = h("p", "po-error", "Explain the reason."); e1.setAttribute("id", "po-other-err"); e1.setAttribute("role", "alert"); dlg.appendChild(e1); }
+        if (st.err === "reason") { var e2 = h("p", "po-error", "Choose a reason."); e2.setAttribute("id", "po-reason-err"); e2.setAttribute("role", "alert"); dlg.appendChild(e2); }
         add(dlg, add(h("div", "po-actions"), btn("Cancel", "no-btn-ghost", function () { close(true); }), btn("Continue", "no-btn-primary", function () {
           if (!st.reason) st.err = "reason"; else if (st.reason === "other" && !st.text.trim()) st.err = "text"; else { st.err = ""; st.step = 2; }
-          paint(st.step === 2 ? "back" : "radio");
+          paint(st.step === 2 ? "back" : st.err === "text" ? "text" : "radio");
         })));
       } else {
         var rows = [["Order", o.order_number], ["Customer", o.buyer_name], ["Reason", reasonLabel(st.reason, o)]];
@@ -468,15 +473,19 @@
         var p = h("p", "", "The buyer is told their payment for order " + o.order_number + " needs attention. They see your reason when they sign in and can send a new proof.");
         p.style.marginTop = "14px"; add(dlg, facts(rows), p);
         if (st.stale) { var e3 = h("p", "po-error", STALE); e3.setAttribute("role", "alert"); dlg.appendChild(e3); }
+        if (st.fail) { var e4 = h("p", "po-error", st.fail); e4.setAttribute("role", "alert"); dlg.appendChild(e4); }
         var go = btn("Confirm Reject", "no-btn-ghost po-btn-danger", function () {
           var body = { reason_code: st.reason }; if (st.reason === "other") body.other_text = st.text.trim();
-          go.setAttribute("aria-busy", "true");
-          var run = decide(id, "reject", body, function () { st.stale = true; });
-          Promise.resolve(run).then(function () { if (closeDlg === close && st.stale) paint("back"); });
+          st.fail = ""; go.setAttribute("aria-busy", "true");
+          var run = decide(id, "reject", body, function () { st.stale = true; }, null, function (m) { st.fail = m; });
+          /* Repaint on a failure too: the new Confirm button is not busy, and the error shows inside the dialog. */
+          Promise.resolve(run).then(function () { if (closeDlg === close && (st.stale || st.fail)) paint(st.fail ? "confirm" : "back"); });
         });
         add(dlg, add(h("div", "po-actions"), btn("Back", "no-btn-ghost", function () { st.step = 1; st.stale = false; paint("radio"); }), go));
       }
-      var f = focusSel === "back" ? dlg.querySelector("button") : (dlg.querySelector("input") || dlg.querySelector("button"));
+      var f = focusSel === "back" ? dlg.querySelector("button")
+        : focusSel === "confirm" ? Array.prototype.slice.call(dlg.querySelectorAll("button")).pop()
+        : focusSel === "text" ? dlg.querySelector("textarea") : (dlg.querySelector("input") || dlg.querySelector("button"));
       if (f && f.focus) f.focus();
     }
     closeDlg = close; S.dlg = true;

@@ -580,3 +580,83 @@ test("v2 look: light-blue focus, never gold; icon buttons 44 px; the hero is sol
   assert.ok(/\.ol-hero\{[^}]*background:var\(--primary\)/.test(css));
   assert.ok(!/<h[1-6][^>]*tabindex/.test(read("pack-orders.js")) && !/tabindex/.test(read("pack-orders.js")), "titles in the list are not focusable");
 });
+
+/* ---- Reject dialog form fixes (ClickUp z8uq9men7m, L7) ---- */
+test("Reject: an unchosen reason marks every radio invalid, names the error, and puts focus on the first radio", async () => {
+  const d = boot();
+  await d.show();
+  d.press(d.cls(d.body, "mc-ticket")[0], "Reject…").fire("click");
+  d.doc.activeElement = null;
+  d.press(d.$("po-dlg-slot"), "Continue").fire("click");
+  const radios = d.$("po-dlg-slot").all((n) => n.tagName === "INPUT");
+  assert.equal(radios.length, 6);
+  for (const r of radios) { assert.equal(r.getAttribute("aria-invalid"), "true"); assert.equal(r.getAttribute("aria-describedby"), "po-reason-err"); }
+  const err = d.$("po-reason-err");
+  assert.equal(err.textContent, "Choose a reason.");
+  assert.equal(err.getAttribute("role"), "alert");
+  assert.equal(d.doc.activeElement, radios[0]);
+  radios[1].fire("change"); /* choosing one clears the error and the marks */
+  assert.equal(d.$("po-dlg-slot").all((n) => n.tagName === "INPUT").some((r) => r.getAttribute("aria-invalid")), false);
+});
+
+test("Reject: Other without a note marks #po-other invalid, names its error, and puts focus on the note, not the first radio", async () => {
+  const d = boot();
+  await d.show();
+  d.press(d.cls(d.body, "mc-ticket")[0], "Reject…").fire("click");
+  d.$("po-dlg-slot").all((n) => n.tagName === "INPUT")[5].fire("change");
+  assert.equal(d.$("po-other").getAttribute("aria-invalid"), null, "not invalid before Continue");
+  d.press(d.$("po-dlg-slot"), "Continue").fire("click");
+  const ta = d.$("po-other");
+  assert.equal(ta.getAttribute("aria-invalid"), "true");
+  assert.equal(ta.getAttribute("aria-describedby"), "po-other-err");
+  assert.equal(ta.attrs["class"], "is-bad");
+  assert.equal(d.$("po-other-err").textContent, "Explain the reason.");
+  assert.equal(d.$("po-other-err").getAttribute("role"), "alert");
+  assert.equal(d.doc.activeElement, ta, "focus is on the field that needs fixing");
+  assert.equal(d.$("po-dlg-slot").all((n) => n.tagName === "INPUT").some((r) => r.getAttribute("aria-invalid")), false, "the radios are fine");
+});
+
+test("Reject: a 500 on Confirm shows an announced error inside the open dialog, no toast, and the button is no longer busy", async () => {
+  const d = boot({ decideStatus: 500, decideBody: { error: { code: "server_error", message: "Something went wrong on our side." } } });
+  await d.show();
+  d.press(d.cls(d.body, "mc-ticket")[0], "Reject…").fire("click");
+  d.$("po-dlg-slot").all((n) => n.tagName === "INPUT")[1].fire("change");
+  d.press(d.$("po-dlg-slot"), "Continue").fire("click");
+  const go = d.press(d.$("po-dlg-slot"), "Confirm Reject");
+  go.fire("click");
+  assert.equal(go.getAttribute("aria-busy"), "true", "busy while the request runs");
+  await settle();
+  const errs = d.$("po-dlg-slot").all((n) => n.classList.contains("po-error"));
+  assert.deepEqual(errs.map((e) => e.textContent), ["Something went wrong on our side."]);
+  assert.equal(errs[0].getAttribute("role"), "alert");
+  assert.deepEqual(d.toasts, []);
+  const again = d.press(d.$("po-dlg-slot"), "Confirm Reject");
+  assert.ok(again, "the dialog stays open on the confirm step");
+  assert.equal(again.getAttribute("aria-busy"), null);
+  assert.equal(d.doc.activeElement, again);
+  /* a second try is possible and clears the old error while it runs */
+  again.fire("click");
+  await settle();
+  assert.equal(d.calls.filter((c) => c.path.endsWith("/reject/")).length, 2);
+
+  /* with no message from the API, the generic one is shown inside the dialog */
+  const e = boot({ decideStatus: 500, decideBody: {} });
+  await e.show();
+  e.press(e.cls(e.body, "mc-ticket")[0], "Reject…").fire("click");
+  e.$("po-dlg-slot").all((n) => n.tagName === "INPUT")[1].fire("change");
+  e.press(e.$("po-dlg-slot"), "Continue").fire("click");
+  e.press(e.$("po-dlg-slot"), "Confirm Reject").fire("click");
+  await settle();
+  assert.deepEqual(e.$("po-dlg-slot").all((n) => n.classList.contains("po-error")).map((x) => x.textContent), ["We could not save the decision. Please try again."]);
+});
+
+test("Reject: a long note with no spaces wraps inside the dialog, which scrolls within the viewport", () => {
+  const css = fs.readFileSync(path.join(PUBLIC, "assets", "css", "pack-orders.css"), "utf8");
+  assert.match(css, /\.po-dialog\{overflow-wrap:anywhere\}/);
+  assert.match(css, /\.po-dialog\{[^}]*max-height:calc\(100vh - 48px\);overflow-y:auto/);
+  assert.match(css, /\.po-facts dd\{[^}]*overflow-wrap:anywhere\}/);
+});
+
+test("index.html loads pack-orders.js and .css under a new version", () => {
+  assert.ok(!/pack-orders\.(js|css)\?v=20261113ol2/.test(HTML));
+});

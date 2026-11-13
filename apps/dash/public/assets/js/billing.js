@@ -309,14 +309,25 @@
     } else if (st === "payment_requires_attention") {
       m = { chip: ["warn", "Payment needs attention"], head: "Pay by " + dateShort(b.attention_ends_at) + " to keep your site online.", lines: [], actions: [pay ? "pay" : null, cancelBtn] };
     } else if (st === "suspended") {
-      m = { chip: ["danger", "Suspended"], head: "Your site is limited to Billing.", lines: [b.deletion_due_at ? "Your data is kept until " + dateShort(b.deletion_due_at) + (b.pay_by ? "; pay by " + dateShort(b.pay_by) + " to continue." : ".") : null, downloadLine(b)], actions: [pay ? "pay" : null] };
+      m = { chip: ["danger", "Suspended"], head: "Your site is limited to Billing.", lines: [b.deletion_due_at ? "Your data is kept until " + dateShort(b.deletion_due_at) + (b.pay_by ? "; pay by " + dateShort(b.pay_by) + " to continue." : ".") : null, downloadLine(b)], actions: [pay ? "pay" : null], data: true };
     } else if (b.can_reactivate) {
       m = { chip: ["danger", "Cancelled"], head: "Cancelled.", lines: ["Your site stays online until " + dateShort(b.service_end_at) + "."], actions: ["reactivate"] };
     } else {
       m = { chip: ["danger", st === "cancelled_no_payment_method" ? "Trial ended" : "Cancelled"], head: "Your site is limited to Billing.",
-        lines: [b.deletion_due_at ? "Pay to bring it back; your data is kept until " + dateShort(b.deletion_due_at) + "." : "Pay to bring it back.", downloadLine(b)], actions: [pay ? "pay" : null] };
+        lines: [b.deletion_due_at ? "Pay to bring it back; your data is kept until " + dateShort(b.deletion_due_at) + "." : "Pay to bring it back.", downloadLine(b)], actions: [pay ? "pay" : null], data: true };
     }
     return m;
+  }
+  /* The data-request paragraph (z8uq9mep8q): at the bottom of the Billing-only notice, for a suspended or ended site only. */
+  function dataNote() {
+    var base = String((D.cfg && D.cfg.siteUrl) || "").replace(/\/+$/, "");
+    var p = h("p", "bl-line bl-data");
+    function link(label, href) { return attrs(h("a", "", label), { href: href }); }
+    function t(s) { return h("span", "", s); }
+    add(p, t("To ask for a copy of your store data, or for any other request about your data, email "), link(SUPPORT, "mailto:" + SUPPORT),
+      t(" from your account email. What happens to your data after the service ends is set out in our "), link("Terms of Service", base + "/terms"),
+      t(" and "), link("Privacy Policy", base + "/privacy"), t("."));
+    return p;
   }
   function heroEl(m) {
     var el = h("header", "bl-hero"), acts = h("div", "bl-actions");
@@ -333,6 +344,7 @@
       else if (a === "reactivate") add(acts, btn("Keep my subscription", "primary", function (b) { reactivate(b); }));
     });
     if (acts.children.length) add(el, acts);
+    if (m.data) add(el, dataNote());
     return el;
   }
   function planRows() {

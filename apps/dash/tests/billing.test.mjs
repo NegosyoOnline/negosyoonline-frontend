@@ -159,6 +159,43 @@ for (const [name, init, want] of STATES) {
   });
 }
 
+/* ---- the data-request paragraph (z8uq9mep8q): the Billing-only notice of a suspended or ended site, and no other ---- */
+const DATA_TEXT = "To ask for a copy of your store data, or for any other request about your data, email support@negosyoonline.com from your account email. What happens to your data after the service ends is set out in our Terms of Service and Privacy Policy.";
+const ENDED = { deletion_due_at: "2027-01-01T00:00:00+08:00", billing_only: true, can_cancel: false };
+const dataParas = (d) => d.has(d.hero(), "bl-data");
+for (const [name, init] of [
+  ["suspended", { billing: billing({ state: "suspended", ...ENDED, pay_by: "2026-12-30T00:00:00+08:00" }) }],
+  ["cancelled and ended", { billing: billing({ state: "cancelled", ...ENDED }) }],
+  ["trial ended, no payment method", { billing: billing({ state: "cancelled_no_payment_method", ...ENDED }) }],
+  ["suspended, nothing payable", { billing: billing({ state: "suspended", ...ENDED }), pay: payInfo({ payable: false, not_payable_reason: "payments_closed" }) }],
+]) {
+  test(`data request text: shown, exact, with its links, for ${name}`, async () => {
+    const d = boot(init);
+    await d.show();
+    const hero = d.hero(), paras = dataParas(d);
+    assert.equal(paras.length, 1);
+    assert.equal(paras[0].textContent, DATA_TEXT);
+    assert.equal(hero.children[hero.children.length - 1], paras[0], "the last thing in the notice");
+    const links = paras[0].all((x) => x.tagName === "A").map((a) => [a.textContent, a.getAttribute("href")]);
+    assert.deepEqual(links, [["support@negosyoonline.com", "mailto:support@negosyoonline.com"], ["Terms of Service", "http://www.test/terms"], ["Privacy Policy", "http://www.test/privacy"]]);
+  });
+}
+for (const [name, init] of [
+  ["trial", { billing: billing() }],
+  ["active", { billing: billing({ state: "active", current_cycle: { sequence: 1, start_at: "2026-11-20T00:00:00+08:00", end_at: "2026-12-20T00:00:00+08:00", settlement: "paid" } }) }],
+  ["payment needs attention", { billing: billing({ state: "payment_requires_attention", attention_ends_at: "2026-12-01T00:00:00+08:00" }) }],
+  ["cancelled, still running", { billing: billing({ state: "cancelled", can_cancel: false, can_reactivate: true, service_end_at: "2026-12-20T00:00:00+08:00" }), pay: payInfo({ payable: false, not_payable_reason: "cancel_scheduled" }) }],
+  ["billing exempt", { billing: billing({ billing_exempt: true }), pay: payInfo({ payable: false, not_payable_reason: "billing_exempt" }) }],
+  ["the last date to pay has passed", { billing: billing({ state: "suspended", billing_only: true, can_cancel: false }), pay: payInfo({ payable: false, not_payable_reason: "past_deletion_date" }) }],
+]) {
+  test(`data request text: hidden for ${name}`, async () => {
+    const d = boot(init);
+    await d.show();
+    assert.equal(dataParas(d).length, 0);
+    assert.doesNotMatch(d.text(), /copy of your store data/);
+  });
+}
+
 test("billing exempt: no Plan, Payment or history card and no way to pay or cancel", async () => {
   const d = boot({ billing: billing({ billing_exempt: true }), pay: payInfo({ payable: false, not_payable_reason: "billing_exempt" }) });
   await d.show();

@@ -632,7 +632,11 @@
     /* Focus the first shown error in form order, else the alert message; never leave it on a disabled button or body. */
     function focusFirstBad() {
       var bad = KEYS.filter(function (k) { return F[k] && !F[k].err.hidden; })[0], f = bad && F[bad], t = f && (f.controls ? f.controls[0] : f.input);
-      if (t && t.focus) t.focus(); else if (!banner.hidden && banner.focus) banner.focus();
+      var el = (t && t.focus) ? t : (!banner.hidden && banner.focus ? banner : null);
+      if (!el) return;
+      /* preventScroll then centre it: the browser's own focus scroll can leave the field under the sticky top bar. */
+      el.focus({ preventScroll: true });
+      if (el.scrollIntoView) el.scrollIntoView({ block: "center" });
     }
     function mark(key) { return function () { touched[key] = true; update(); }; }
     ["bank", "ref", "first", "last", "acct", "amount"].forEach(function (k) {

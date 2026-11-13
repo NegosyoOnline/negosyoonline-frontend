@@ -614,9 +614,12 @@ test("page B: after a server-refused submit, focus is on the first invalid field
   await d.go("?site=" + A + "&pay=send&plan=monthly");
   await fillForm(d, { "bl-f-amount": "2,499" });
   d.st.routes["POST " + B + "payments/"] = err(400, "invalid_request", "Invalid.", { proof: ["Not a proof."], sender_account_number: ["Use 6 to 34 digits."], transferred_at: ["Too late."] });
+  const seen = [];
+  d.$("bl-f-acct").scrollIntoView = function (o) { seen.push(o && o.block); };
   d.click(d.root, "Send proof");
   await settle();
   assert.equal(d.doc.activeElement, d.$("bl-f-acct"), "the account number comes first in the form");
+  assert.deepEqual(seen, ["center"], "the field is centred so the sticky top bar cannot cover it");
   assert.equal(d.$("bl-f-acct").getAttribute("aria-invalid"), "true");
   /* only the time named: focus goes to its first control */
   const t = boot();

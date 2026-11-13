@@ -134,7 +134,7 @@ test("a refused field is named in words, never in the backend's own words; accou
   const p = await page(normal({ [ADD]: [400, { error: { code: "invalid_request", message: "Raw.", fields: { account_number: ["x"] } } }] }));
   submitNew(p);
   await settle();
-  assert.equal(text(p, "n-number-e"), "Check the account number.");
+  assert.equal(text(p, "n-number-e"), "Use 6 to 40 digits; spaces and dashes are allowed.");
   assert.equal(p.node["n-number"].getAttribute("aria-invalid"), "true");
 });
 
@@ -207,11 +207,15 @@ test("deactivating the last active account shows the refusal, says to add the ne
   const sw = buttons(p, 0)[0];
   sw.fire("click");
   await settle();
-  assert.equal(text(p, "a-msg"), LAST);
-  assert.equal(p.node["a-msg"].hidden, false);
+  const note = p.node.accounts.children[0].all((n) => n.tagName === "P")[0];
+  assert.equal(note.textContent, LAST);
+  assert.equal(note.hidden, false);
+  assert.equal(note.getAttribute("role"), "alert");
+  assert.equal(p.node["a-msg"].hidden, true, "not the status box at the top");
+  assert.equal(p.doc.activeElement, sw);
   assert.equal(sw.getAttribute("aria-checked"), "true");
   assert.equal(sw.disabled, false);
-  assert.doesNotMatch(text(p, "a-msg"), /last_active_account|A message the page does not show/);
+  assert.doesNotMatch(note.textContent, /last_active_account|A message the page does not show/);
 });
 
 test("a switch that fails keeps its state and says so", async () => {
@@ -220,7 +224,7 @@ test("a switch that fails keeps its state and says so", async () => {
   sw.fire("click");
   await settle();
   assert.equal(sw.getAttribute("aria-checked"), "true");
-  assert.equal(text(p, "a-msg"), "That did not go through. Check the page before trying again.");
+  assert.equal(p.node.accounts.children[0].all((n) => n.tagName === "P")[0].textContent, "That did not go through. Check the page before trying again.");
 });
 
 test("a 404 shows the not-switched-on view; another failure shows the down view and Try again retries", async () => {

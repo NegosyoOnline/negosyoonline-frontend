@@ -10,6 +10,7 @@
   var LOST = "That did not go through. Check the page before trying again.";
   var LAST = "Add the new account first, then switch this one off.";
   var EXISTS = "That account is already listed. Edit or reactivate that account instead.";
+  var HINT = { account_number: "Use 6 to 40 digits; spaces and dashes are allowed.", sort_order: "Use a whole number from 0 to 999." };
   var NAME = { kind: "Type", provider_name: "Bank or e-wallet name", account_name: "Account name", account_number: "Account number", sort_order: "Order" };
 
   var loadRun = 0, busy = false, known = false, editing = null;
@@ -62,7 +63,7 @@
     if (res.status === 409 && res.code === "last_active_account") { F.say(s.err, LAST); return; }
     if (res.status === 400 && res.code === "invalid_request") {
       bad = s.ids.filter(function (id) { return Object.prototype.hasOwnProperty.call(res.fields || {}, keyOf(set, id)); })
-        .map(function (id) { return [id, "Check the " + NAME[keyOf(set, id)].toLowerCase() + "."]; });
+        .map(function (id) { return [id, HINT[keyOf(set, id)] || "Check the " + NAME[keyOf(set, id)].toLowerCase() + "."]; });
       F.say(s.err, bad.length ? "Check these fields: " + bad.map(function (b) { return NAME[keyOf(set, b[0])]; }).join(", ") + "." : "Check the values and try again.");
       flagFields(s.ids, bad);
       return;
@@ -87,6 +88,9 @@
   function row(a) {
     var li = F.el("li", "batch"), main = F.el("div", "batch-main"), title = F.el("div", "batch-title"), end = F.el("div", "batch-end");
     var sw = F.el("button", "sw"), label = F.el("span", "sw-l"), edit = F.el("button", "no-btn no-btn-ghost", "Edit");
+    var note = F.el("p", "field-err batch-note");
+    note.setAttribute("role", "alert");
+    note.hidden = true;
     title.appendChild(F.el("span", "", (F.words(KIND, a.kind) || "Account") + ", " + (a.provider_name || "")));
     main.appendChild(title);
     main.appendChild(F.el("span", "item-sub", (a.account_name || "") + " · " + (a.account_number || "")));
@@ -106,14 +110,18 @@
       var was = sw.getAttribute("aria-checked") === "true";
       sw.disabled = true;
       F.say("a-msg", "");
+      note.textContent = "";
+      note.hidden = true;
       H.call("POST", "finance/accounts/active/", { account: a.id, active: !was }).then(function (res) {
         sw.disabled = false;
         if (F.left(res)) return;
         if (res.ok) { paint(res.data.active === true); load(); return; }
         paint(was);
         if (res.status === 404) { load(); return; }
-        if (res.status === 409 && res.code === "last_active_account") { F.say("a-msg", LAST); return; }
-        F.say("a-msg", LOST);
+        /* The refusal sits under this account's own switch, so it is seen where the switch was tapped. */
+        note.textContent = res.status === 409 && res.code === "last_active_account" ? LAST : LOST;
+        note.hidden = false;
+        sw.focus();
       });
     });
     edit.setAttribute("type", "button");
@@ -123,6 +131,7 @@
     end.appendChild(edit);
     li.appendChild(main);
     li.appendChild(end);
+    li.appendChild(note);
     return li;
   }
 

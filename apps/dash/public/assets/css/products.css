@@ -2,24 +2,61 @@
    Focus is the dash's light blue (--link), never gold. dash.css is not touched. */
 body.dash-app #view-products .pr-meta { margin: 2px 0 12px; color: var(--meta); font-size: 14px; line-height: 1.45; }
 body.dash-app #view-products .pr-note { margin: 0 0 16px; color: var(--text-2); font-size: 14px; line-height: 1.45; }
-body.dash-app #view-products .pr-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin: 0 0 16px; }
-body.dash-app #view-products .pr-count { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-2); }
+/* Header band and tiles */
+body.dash-app #view-products .pr-band { margin: 0 0 16px; padding: 16px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: var(--card-shadow); }
+body.dash-app #view-products .pr-band-line { margin: 0 0 12px; font-size: 14px; color: var(--meta); }
+body.dash-app #view-products .pr-tiles { display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 12px; }
+body.dash-app #view-products .pr-tile { min-width: 0; padding: 12px 14px; border-radius: 10px; background: var(--tile); color: var(--tile-ink); }
+body.dash-app #view-products .pr-tile-main { background: var(--primary); color: #fff; }
+body.dash-app #view-products .pr-tile-num { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.1; }
+body.dash-app #view-products .pr-tile-label { margin: 4px 0 0; font-size: 14px; font-weight: 600; }
+body.dash-app #view-products .pr-tile-sub { margin: 2px 0 0; font-size: 12px; opacity: .85; }
+/* Status strip */
+body.dash-app #view-products .pr-strip { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+body.dash-app #view-products .pr-stat { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; padding: 6px 14px; border: 1px solid var(--ghost-line); border-radius: 999px; background: var(--ghost-bg); color: var(--ghost-text); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+body.dash-app #view-products .pr-stat:hover { background: var(--ghost-hover); }
+body.dash-app #view-products .pr-stat-on { border-color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+body.dash-app #view-products .pr-stat-num { font-weight: 700; }
+body.dash-app #view-products .pr-stat:focus-visible, body.dash-app #view-products .pr-menu-item:focus-visible, body.dash-app #view-products .pr-manage:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+/* Toolbar */
+body.dash-app #view-products .pr-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0 0 16px; }
+body.dash-app #view-products .pr-tool { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+body.dash-app #view-products .pr-tool-search { flex: 1 1 220px; }
+body.dash-app #view-products .pr-tool-label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-products .pr-bar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+/* Table */
+body.dash-app #view-products .pr-shown { margin: 0 0 8px; font-size: 13px; color: var(--meta); }
+body.dash-app #view-products .pr-table { width: 100%; border-collapse: collapse; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); color: var(--text); }
+body.dash-app #view-products .pr-table th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--meta); border-bottom: 1px solid var(--card-line); }
+body.dash-app #view-products .pr-table td { padding: 12px 14px; vertical-align: middle; border-bottom: 1px solid var(--card-line); }
+body.dash-app #view-products .pr-table tbody tr:last-child td { border-bottom: 0; }
+body.dash-app #view-products .pr-row-off .pr-thumb img { opacity: .55; }
+body.dash-app #view-products .pr-prod { display: flex; gap: 12px; align-items: center; min-width: 0; }
+body.dash-app #view-products .pr-thumb { display: grid; place-items: center; flex: none; width: 56px; height: 56px; border-radius: 8px; background: var(--tile); color: var(--tile-ink); overflow: hidden; }
+body.dash-app #view-products .pr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+body.dash-app #view-products .pr-thumb-none { font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+body.dash-app #view-products .pr-prod-text { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; min-width: 0; }
+body.dash-app #view-products .pr-name { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+body.dash-app #view-products .pr-cat { min-height: 22px; padding: 0 8px; font-size: 12px; }
+body.dash-app #view-products .pr-price { margin: 0; font-size: 14px; }
+body.dash-app #view-products .pr-price-k { color: var(--meta); }
+body.dash-app #view-products .pr-price-v { font-weight: 700; }
+body.dash-app #view-products .pr-c-store .chip { margin: 0 6px 4px 0; }
+body.dash-app #view-products .pr-gap-list { display: block; font-size: 12px; color: var(--meta); }
+body.dash-app #view-products .pr-c-manage { width: 1%; white-space: nowrap; }
+body.dash-app #view-products .pr-menuwrap { position: relative; display: inline-block; }
+body.dash-app #view-products .pr-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 5; display: flex; flex-direction: column; min-width: 180px; padding: 6px; border: 1px solid var(--card-line); border-radius: 10px; background: var(--card); box-shadow: 0 8px 24px rgba(11,22,63,.18); }
+body.dash-app #view-products .pr-menu-item { min-height: 44px; padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+body.dash-app #view-products .pr-menu-item:hover { background: var(--ghost-hover); }
+body.dash-app #view-products .pr-pager { display: flex; gap: 12px; align-items: center; justify-content: center; margin: 14px 0 0; font-size: 14px; color: var(--text-2); }
+body.dash-app #view-products .pr-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 body.dash-app #view-products .pr-pick { margin: 0 0 16px; max-width: 360px; }
 body.dash-app #view-products .pr-pick-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
-body.dash-app #view-products .pr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-body.dash-app #view-products .pr-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); overflow: hidden; }
-body.dash-app #view-products .pr-card-off .pr-pic img { opacity: .55; }
 body.dash-app #view-products .pr-pic { display: grid; place-items: center; aspect-ratio: 4 / 3; background: var(--tile); color: var(--tile-ink); overflow: hidden; }
 body.dash-app #view-products .pr-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 body.dash-app #view-products .pr-pic-none { font-size: 13px; font-weight: 600; }
 body.dash-app #view-products .pr-pic-sm { width: 120px; flex: none; border-radius: 8px; }
-body.dash-app #view-products .pr-card-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; min-width: 0; flex: 1; }
-body.dash-app #view-products .pr-card-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 body.dash-app #view-products .pr-code { margin: 0; font-size: 13px; color: var(--meta); letter-spacing: .02em; }
-body.dash-app #view-products .pr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
-body.dash-app #view-products .pr-money { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0; }
-body.dash-app #view-products .pr-money dt { font-size: 12px; color: var(--meta); }
-body.dash-app #view-products .pr-money dd { margin: 0; font-size: 16px; font-weight: 700; }
 body.dash-app #view-products .pr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; }
 body.dash-app #view-products .pr-empty { padding: 28px 20px; border: 1px dashed var(--card-line); border-radius: 12px; text-align: center; }
 body.dash-app #view-products .pr-empty-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text); }
@@ -58,6 +95,15 @@ body.dash-app #view-products .pr-histwhen { font-size: 14px; font-weight: 600; c
 body.dash-app #view-products .pr-histchange { margin: 2px 0 0; font-size: 15px; line-height: 1.45; color: var(--text-2); }
 @media (max-width: 640px) {
   body.dash-app #view-products .pr-pair, body.dash-app #view-products .pr-dgrid { grid-template-columns: 1fr; }
-  body.dash-app #view-products .pr-grid { grid-template-columns: 1fr; }
-  body.dash-app #view-products .pr-formactions .no-btn, body.dash-app #view-products .pr-bar .no-btn { width: 100%; }
+  body.dash-app #view-products .pr-formactions .no-btn { width: 100%; }
+  body.dash-app #view-products .pr-tiles { grid-template-columns: 1fr 1fr; }
+  body.dash-app #view-products .pr-tile-main { grid-column: 1 / -1; }
+  body.dash-app #view-products .pr-tool, body.dash-app #view-products .pr-bar-actions { flex: 1 1 100%; margin-left: 0; }
+  body.dash-app #view-products .pr-bar-actions .no-btn { flex: 1; }
+  body.dash-app #view-products .pr-table, body.dash-app #view-products .pr-table tbody, body.dash-app #view-products .pr-table tr, body.dash-app #view-products .pr-table td { display: block; width: auto; border: 0; }
+  body.dash-app #view-products .pr-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  body.dash-app #view-products .pr-table tr { margin: 0 0 12px; padding: 4px 0; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); }
+  body.dash-app #view-products .pr-table td { padding: 8px 14px; }
+  body.dash-app #view-products .pr-table td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; color: var(--meta); }
+  body.dash-app #view-products .pr-c-manage { width: auto; }
 }

@@ -149,56 +149,301 @@
 
   function chip(text, cls) { return h("span", "chip " + cls, text); }
 
-  function card(p) {
-    var art = D.el("article", { "class": "pr-card" + (p.is_active ? "" : " pr-card-off") });
-    var pic = h("div", "pr-pic"), src = safeImage(p.image_url);
+  function newView() { return { q: "", status: "all", cat: "all", page: 1, menu: null }; }
+
+  /* A shipping or catalog gap: what the shop and shipping need before a product is complete. Labels, once each, in this order. */
+  function gaps(p) {
+    var out = [];
+    function add(l) { if (out.indexOf(l) < 0) out.push(l); }
+    if (!p.image_url) add("Photo");
+    if (!p.category) add("Category");
+    if (!p.short_description || !p.long_description) add("Description");
+    if (p.length_cm == null || p.width_cm == null || p.height_cm == null) add("Packed size");
+    if (p.volume_slot == null || p.shipping_qty == null) add("Shipping details");
+    return out;
+  }
+  /* Tile counts. They never sum: a live product can also be incomplete. Incomplete is the owner's only (ownerView). */
+  function counts(products, ownerView) {
+    var c = { all: products.length, live: 0, hidden: 0, incomplete: 0 };
+    products.forEach(function (p) {
+      if (p.is_active) c.live++; else c.hidden++;
+      if (ownerView && gaps(p).length) c.incomplete++;
+    });
+    return c;
+  }
+  /* The rows the toolbar selects: search on name or code (case-insensitive), the status, the category. */
+  function filterProducts(products, f, ownerView) {
+    var q = String((f && f.q) || "").trim().toLowerCase(), st = (f && f.status) || "all", cat = (f && f.cat) || "all";
+    return products.filter(function (p) {
+      if (q && String(p.name || "").toLowerCase().indexOf(q) < 0 && String(p.code || "").toLowerCase().indexOf(q) < 0) return false;
+      if (cat !== "all" && p.category !== cat) return false;
+      if (st === "live" && !p.is_active) return false;
+      if (st === "hidden" && p.is_active) return false;
+      if (st === "incomplete" && !(ownerView && gaps(p).length)) return false;
+      return true;
+    });
+  }
+  /* One CSV cell. A cell that starts = + - @ (or a tab or return) gets a leading apostrophe so a spreadsheet never runs it. */
+  function csvCell(v) {
+    var s = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function pesoPlain(c) { return typeof c === "number" && c >= 0 ? Math.floor(c / 100) + "." + pad(c % 100, 2) : ""; }
+  /* The file for the rows now on screen. The earnings rate is never in it; the owner file adds Incomplete and its gaps. */
+  function csvText(rows, ownerView) {
+    var head = ["Code", "Name", "Category", "SRP", "Members price", "Storefront"];
+    if (ownerView) head.push("Incomplete", "Missing");
+    var lines = [head.map(csvCell).join(",")];
+    rows.forEach(function (p) {
+      var g = ownerView ? gaps(p) : [];
+      var cells = [p.code, p.name, categoryLabel(p.category), pesoPlain(p.srp_centavos), pesoPlain(p.unit_members_price_centavos), p.is_active ? "Live" : "Hidden"];
+      if (ownerView) cells.push(g.length ? "Yes" : "No", g.join("; "));
+      lines.push(cells.map(csvCell).join(","));
+    });
+    return lines.join("\r\n") + "\r\n";
+  }
+  function downloadCsv(text) {
+    try {
+      var blob = new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = D.el("a", { href: url, download: "products.csv" });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  var PAGE = 20;
+  var STATUS_OWNER = [["all", "All"], ["live", "Live"], ["hidden", "Hidden"], ["incomplete", "Incomplete"]];
+  var STATUS_VIEW = [["all", "All"], ["live", "Live"]];
+  function statuses() { return S.canEdit ? STATUS_OWNER : STATUS_VIEW; }
+
+  function tile(count, label, sub, cls) {
+    var t = h("div", "pr-tile " + (cls || ""));
+    t.appendChild(h("p", "pr-tile-num", String(count)));
+    t.appendChild(h("p", "pr-tile-label", label));
+    if (sub) t.appendChild(h("p", "pr-tile-sub", sub));
+    return t;
+  }
+
+  function toggleActive(p) {
+    D.call("PATCH", productPath(p), { revision: p.revision, is_active: !p.is_active }, true).then(function (res) {
+      if (!S || S.mode !== "list") return;
+      if (res.ok && res.data && res.data.id === p.id) {
+        replaceProduct(res.data);
+        D.toast(res.data.is_active ? "Shown in shops" : "Hidden from shops", res.data.name);
+        refreshList();
+        return;
+      }
+      var e = describeError(res);
+      D.toast("Not saved", e.kind === "stale" ? MSG.stale + " Reloading the list." : e.message || MSG.generic, "error");
+      if (e.kind === "stale") loadList();
+    });
+  }
+
+  function thumb(p) {
+    var pic = h("div", "pr-thumb"), src = safeImage(p.image_url);
     if (src) pic.appendChild(D.el("img", { src: src, alt: "", loading: "lazy" }));
-    else pic.appendChild(h("span", "pr-pic-none", "No image"));
-    art.appendChild(pic);
-    var body = h("div", "pr-card-body");
-    body.appendChild(h("h2", "pr-card-title", p.name));
-    body.appendChild(h("p", "pr-code", p.code));
-    var chips = h("p", "pr-chips");
-    if (categoryLabel(p.category)) chips.appendChild(chip(categoryLabel(p.category), "chip-neutral"));
-    chips.appendChild(chip(p.is_active ? "Active" : "Hidden", p.is_active ? "chip-ok" : "chip-neutral"));
-    body.appendChild(chips);
-    var money = h("dl", "pr-money");
-    var a = h("div"); a.appendChild(h("dt", "", "SRP")); a.appendChild(h("dd", "", formatPeso(p.srp_centavos))); money.appendChild(a);
-    var b = h("div"); b.appendChild(h("dt", "", "Members price")); b.appendChild(h("dd", "", formatPeso(p.unit_members_price_centavos))); money.appendChild(b);
-    body.appendChild(money);
-    if (S.canEdit) {
-      var row = h("div", "pr-actions");
-      var edit = button("Edit", "no-btn-ghost pr-edit", function () { openForm(p); });
-      edit.setAttribute("aria-label", "Edit " + p.name);
-      var hist = button("History", "no-btn-ghost pr-hist", function () { openHistory(p); });
-      hist.setAttribute("aria-label", "History of " + p.name);
-      row.appendChild(edit); row.appendChild(hist);
-      body.appendChild(row);
+    else pic.appendChild(h("span", "pr-thumb-none", String(p.code || "").slice(0, 3).toUpperCase()));
+    return pic;
+  }
+
+  function manageMenu(p) {
+    var wrap = h("div", "pr-menuwrap"), open = S.view.menu === p.id;
+    var b = button("Manage", "no-btn-ghost pr-manage", function () {
+      S.view.menu = open ? null : p.id;
+      refreshList();
+      var first = !open && S.listBox && S.listBox.querySelector(".pr-menu-item");
+      if (first && first.focus) first.focus();
+    });
+    b.setAttribute("aria-haspopup", "true");
+    b.setAttribute("aria-expanded", open ? "true" : "false");
+    b.setAttribute("aria-label", "Manage " + p.name);
+    wrap.appendChild(b);
+    if (open) {
+      var m = h("div", "pr-menu");
+      m.setAttribute("role", "group");
+      m.setAttribute("aria-label", "Manage " + p.name);
+      m.appendChild(button("Edit details", "pr-menu-item pr-edit", function () { S.view.menu = null; openForm(p); }));
+      m.appendChild(button("History", "pr-menu-item pr-hist", function () { S.view.menu = null; openHistory(p); }));
+      m.appendChild(button(p.is_active ? "Hide from shops" : "Show in shops", "pr-menu-item pr-toggle", function () { S.view.menu = null; toggleActive(p); }));
+      m.addEventListener("keydown", function (ev) { if (ev && ev.key === "Escape") { S.view.menu = null; refreshList(); var mb = S.listBox && S.listBox.querySelector(".pr-manage"); if (mb && mb.focus) mb.focus(); } });
+      wrap.appendChild(m);
     }
-    art.appendChild(body);
-    return art;
+    return wrap;
+  }
+
+  function rowFor(p) {
+    var tr = D.el("tr", { "class": "pr-row" + (p.is_active ? "" : " pr-row-off") });
+    var c1 = D.el("td", { "class": "pr-c-product" });
+    var box = h("div", "pr-prod");
+    box.appendChild(thumb(p));
+    var txt = h("div", "pr-prod-text");
+    txt.appendChild(h("p", "pr-name", p.name));
+    txt.appendChild(h("p", "pr-code", p.code));
+    if (categoryLabel(p.category)) txt.appendChild(chip(categoryLabel(p.category), "chip-neutral pr-cat"));
+    box.appendChild(txt);
+    c1.appendChild(box);
+    tr.appendChild(c1);
+    var c2 = D.el("td", { "class": "pr-c-price", "data-label": "Price" });
+    var a = h("p", "pr-price"); a.appendChild(h("span", "pr-price-k", "SRP ")); a.appendChild(h("span", "pr-price-v", formatPeso(p.srp_centavos))); c2.appendChild(a);
+    var b = h("p", "pr-price"); b.appendChild(h("span", "pr-price-k", "Members ")); b.appendChild(h("span", "pr-price-v", formatPeso(p.unit_members_price_centavos))); c2.appendChild(b);
+    tr.appendChild(c2);
+    var c3 = D.el("td", { "class": "pr-c-store", "data-label": "Storefront" });
+    c3.appendChild(chip(p.is_active ? "Live" : "Hidden", p.is_active ? "chip-ok" : "chip-neutral"));
+    if (S.canEdit) {
+      var g = gaps(p);
+      if (g.length) {
+        var gb = chip("Incomplete", "chip-info pr-gap");
+        gb.setAttribute("title", "Missing: " + g.join(", "));
+        c3.appendChild(gb);
+        c3.appendChild(h("span", "pr-gap-list", "Missing: " + g.join(", ")));
+      }
+    }
+    tr.appendChild(c3);
+    if (S.canEdit) {
+      var c4 = D.el("td", { "class": "pr-c-manage" });
+      c4.appendChild(manageMenu(p));
+      tr.appendChild(c4);
+    }
+    return tr;
+  }
+
+  function pageOf(rows) {
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (S.view.page > pages) S.view.page = pages;
+    if (S.view.page < 1) S.view.page = 1;
+    return { pages: pages, slice: rows.slice((S.view.page - 1) * PAGE, S.view.page * PAGE) };
+  }
+
+  /* Redraw only the status strip and the results, so the search box keeps its focus while typing. */
+  function refreshList() {
+    var box = S.listBox, view = S.view;
+    if (!box) return;
+    var c = counts(S.products, S.canEdit);
+    clear(S.stripBox);
+    statuses().forEach(function (s) {
+      var b = button("", "pr-stat" + (view.status === s[0] ? " pr-stat-on" : ""), function () {
+        view.status = s[0]; view.page = 1; view.menu = null;
+        if (S.statusSel) S.statusSel.value = s[0];
+        refreshList();
+      });
+      b.appendChild(h("span", "pr-stat-num", String(c[s[0]])));
+      b.appendChild(h("span", "pr-stat-label", s[1]));
+      b.setAttribute("aria-pressed", view.status === s[0] ? "true" : "false");
+      S.stripBox.appendChild(b);
+    });
+    clear(S.resultBox);
+    var rows = filterProducts(S.products, view, S.canEdit);
+    if (!rows.length) {
+      var empty = h("div", "pr-empty");
+      if (!S.products.length) {
+        empty.appendChild(h("p", "pr-empty-title", S.canEdit ? "Add your first product" : "No products yet"));
+        empty.appendChild(h("p", "pr-meta", S.canEdit ? "Products you add here are shared with every Santé store." : "Products will show here once they are added."));
+      } else {
+        empty.appendChild(h("p", "pr-empty-title", "No products match"));
+        empty.appendChild(button("Clear filters", "no-btn-ghost pr-clear", function () {
+          view.q = ""; view.status = "all"; view.cat = "all"; view.page = 1;
+          if (S.searchIn) S.searchIn.value = ""; if (S.statusSel) S.statusSel.value = "all"; if (S.catSel) S.catSel.value = "all";
+          refreshList();
+        }));
+      }
+      S.resultBox.appendChild(empty);
+      say(S.products.length ? "No products match." : "");
+      return;
+    }
+    var pg = pageOf(rows);
+    S.resultBox.appendChild(h("p", "pr-shown", "Showing " + rows.length + " of " + S.products.length));
+    var table = D.el("table", { "class": "pr-table" });
+    table.appendChild(D.el("caption", { "class": "pr-sr" }, "Products"));
+    var head = D.el("tr");
+    [["Product", "pr-c-product"], ["Price", "pr-c-price"], ["Storefront", "pr-c-store"]].concat(S.canEdit ? [["Manage", "pr-c-manage"]] : []).forEach(function (hd) {
+      head.appendChild(D.el("th", { scope: "col", "class": hd[1] }, hd[0]));
+    });
+    var thead = D.el("thead"); thead.appendChild(head); table.appendChild(thead);
+    var tbody = D.el("tbody");
+    pg.slice.forEach(function (p) { tbody.appendChild(rowFor(p)); });
+    table.appendChild(tbody);
+    S.resultBox.appendChild(table);
+    if (pg.pages > 1) {
+      var nav = h("div", "pr-pager");
+      var prev = button("Previous", "no-btn-ghost pr-prev", function () { view.page--; view.menu = null; refreshList(); });
+      var next = button("Next", "no-btn-ghost pr-next", function () { view.page++; view.menu = null; refreshList(); });
+      if (view.page <= 1) prev.disabled = true;
+      if (view.page >= pg.pages) next.disabled = true;
+      nav.appendChild(prev); nav.appendChild(h("span", "pr-page", "Page " + view.page + " of " + pg.pages)); nav.appendChild(next);
+      S.resultBox.appendChild(nav);
+    }
+  }
+
+  function select(id, label, opts, value, onChange) {
+    var wrap = h("div", "pr-tool");
+    wrap.appendChild(D.el("label", { "for": id, "class": "pr-tool-label" }, label));
+    var sel = D.el("select", { id: id, "class": "pr-input pr-select" });
+    opts.forEach(function (o) { var op = D.el("option", { value: o[0] }, o[1]); if (o[0] === value) op.selected = true; sel.appendChild(op); });
+    sel.value = value;
+    sel.addEventListener("change", function () { onChange(sel.value); });
+    wrap.appendChild(sel);
+    return { wrap: wrap, sel: sel };
   }
 
   function listView() {
     S.mode = "list";
+    if (!S.view) S.view = newView();
+    S.view.menu = null;
+    var view = S.view;
     var r = clear(pane());
     r.removeAttribute("aria-busy");
-    var bar = h("div", "pr-bar");
-    var count = S.products.length;
-    bar.appendChild(h("p", "pr-count", count === 1 ? "1 product" : count + " products"));
-    if (S.canEdit) bar.appendChild(button("Add product", "no-btn-primary pr-add", function () { openForm(null); }));
-    r.appendChild(bar);
-    if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));
-    if (!count) {
-      var empty = h("div", "pr-empty");
-      empty.appendChild(h("p", "pr-empty-title", S.canEdit ? "Add your first product" : "No products yet"));
-      empty.appendChild(h("p", "pr-meta", S.canEdit ? "Products you add here are shared with every Santé store." : "Products will show here once they are added."));
-      r.appendChild(empty);
-      return;
+    var c = counts(S.products, S.canEdit);
+
+    var band = h("section", "pr-band");
+    band.setAttribute("aria-label", "Catalog summary");
+    band.appendChild(h("p", "pr-band-line", "The shared Santé catalog"));
+    var tiles = h("div", "pr-tiles");
+    tiles.appendChild(tile(c.all, "Products in catalog", "", "pr-tile-main"));
+    tiles.appendChild(tile(c.live, "Live on storefront", "", ""));
+    if (S.canEdit) {
+      tiles.appendChild(tile(c.hidden, "Hidden", "not in shops", ""));
+      tiles.appendChild(tile(c.incomplete, "Needs a fix", "missing details", ""));
     }
-    var grid = h("div", "pr-grid");
-    S.products.forEach(function (p) { grid.appendChild(card(p)); });
-    r.appendChild(grid);
+    band.appendChild(tiles);
+    r.appendChild(band);
+
+    if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));
+
+    S.stripBox = h("div", "pr-strip");
+    S.stripBox.setAttribute("role", "group");
+    S.stripBox.setAttribute("aria-label", "Filter by status");
+    r.appendChild(S.stripBox);
+
+    var bar = h("div", "pr-toolbar");
+    var sw = h("div", "pr-tool pr-tool-search");
+    sw.appendChild(D.el("label", { "for": "pr-search", "class": "pr-tool-label" }, "Search"));
+    var q = D.el("input", { id: "pr-search", type: "search", "class": "pr-input", placeholder: "Name or code", autocomplete: "off" });
+    q.value = view.q;
+    q.addEventListener("input", function () { view.q = q.value; view.page = 1; view.menu = null; refreshList(); });
+    sw.appendChild(q);
+    bar.appendChild(sw);
+    var st = select("pr-status", "Status", statuses(), view.status, function (v) { view.status = v; view.page = 1; view.menu = null; refreshList(); });
+    bar.appendChild(st.wrap);
+    var ct = select("pr-category", "Category", [["all", "All"]].concat(CATEGORIES), view.cat, function (v) { view.cat = v; view.page = 1; view.menu = null; refreshList(); });
+    bar.appendChild(ct.wrap);
+    var acts = h("div", "pr-bar-actions");
+    acts.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
+      var rows = filterProducts(S.products, view, S.canEdit);
+      if (!rows.length) { D.toast("Nothing to export", "No products match the filters.", "error"); return; }
+      if (downloadCsv(csvText(rows, S.canEdit))) D.toast("CSV downloaded", rows.length === 1 ? "1 product" : rows.length + " products");
+      else D.toast("Could not export", "Try again.", "error");
+    }));
+    if (S.canEdit) acts.appendChild(button("Add product", "no-btn-primary pr-add", function () { openForm(null); }));
+    bar.appendChild(acts);
+    r.appendChild(bar);
+
+    S.listBox = r; S.searchIn = q; S.statusSel = st.sel; S.catSel = ct.sel;
+    S.resultBox = h("div", "pr-results");
+    r.appendChild(S.resultBox);
+    refreshList();
   }
 
   function loadList(focusId) {
@@ -218,7 +463,7 @@
       S.canEdit = d.can_edit === true;
       S.products = d.products;
       listView();
-      if (focusId) { var f = r.querySelector(".pr-edit"); if (f && f.focus) f.focus(); }
+      if (focusId) { var f = r.querySelector(".pr-manage"); if (f && f.focus) f.focus(); }
     });
   }
 
@@ -592,6 +837,7 @@
         sel.addEventListener("change", function () {
           if (ids.indexOf(sel.value) < 0) return;
           S.site = sel.value;
+          S.view = newView();
           loadInto(inner);
         });
         wrap.appendChild(lab); wrap.appendChild(sel);
@@ -609,10 +855,20 @@
     loadList();
   }
 
+  /* A click outside an open Manage menu closes it. */
+  function outside(ev) {
+    var t = ev && ev.target;
+    if (!S || S.mode !== "list" || !S.view || !S.view.menu) return;
+    if (t && t.closest && t.closest(".pr-menuwrap")) return;
+    S.view.menu = null;
+    refreshList();
+  }
+
   window.NOProducts = {
     util: { pesosToCentavos: pesosToCentavos, formatPeso: formatPeso, centavosToField: centavosToField, percentToRate: percentToRate,
-      rateToPercent: rateToPercent, membersPrice: membersPrice, describeError: describeError, changes: changes, categoryLabel: categoryLabel },
-    show: function () { start(); },
-    hide: function () { token++; say(""); }
+      rateToPercent: rateToPercent, membersPrice: membersPrice, describeError: describeError, changes: changes, categoryLabel: categoryLabel,
+      gaps: gaps, counts: counts, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText },
+    show: function () { document.addEventListener("click", outside); start(); },
+    hide: function () { token++; say(""); document.removeEventListener("click", outside); }
   };
 })();

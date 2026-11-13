@@ -65,6 +65,9 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
   return { doc, window, calls, toasts, stored, state, $, all, buttons, form, P: window.NOProducts,
     writes: () => calls.filter((c) => c.method !== "GET"),
     async show() { window.NOProducts.show(); await settle(); },
+    manage(i, cls) { all("pr-manage")[i].fire("click"); all(cls)[0].fire("click"); },
+    async pick(i, cls) { this.manage(i, cls); await settle(); },
+    rows: () => all("pr-row"),
     set(id, v) { const n = $("pr-f-" + id); n.value = v; n.fire("input"); return n; },
     async submit() { form().fire("submit"); await settle(); },
     error(name) { const n = $("pr-e-" + name); return n && !n.hidden ? n.textContent : ""; } };
@@ -130,34 +133,135 @@ test("history phrases: what changed, no writer", () => {
   assert.deepEqual(Array.from(changes(a, a)), ["Saved with no changes"]);
 });
 
-test("owner list: a card for each product with image or placeholder, chips, SRP and members price; cards and titles are not focusable", async () => {
+const FULL = { image_url: "https://media.test/x.jpg", short_description: "s", long_description: "l", volume_slot: 1, shipping_qty: 2, length_cm: "1", width_cm: "1", height_cm: "1" };
+const tileText = (d) => d.all("pr-tile").map((t) => t.textContent);
+const stat = (d, label) => d.all("pr-stat").find((b) => b.textContent.endsWith(label));
+const names = (d) => d.rows().map((r) => r.all((n) => n.classList.contains("pr-name"))[0].textContent);
+
+test("owner list: a table row for each product with thumbnail or code placeholder, SRP, members price, Live or Hidden; no card, no focusable cell", async () => {
   const d = boot();
   await d.show();
   assert.deepEqual(d.calls.map((c) => c.method + " " + c.path), ["GET /sites/", `GET /sites/${SITE}/catalog/products/`]);
-  const cards = d.all("pr-card");
-  assert.equal(cards.length, 2);
-  assert.equal(d.all("pr-count")[0].textContent, "2 products");
+  assert.equal(d.all("pr-card").length, 0, "the card grid is gone");
+  assert.equal(d.$("pr-root").all((n) => n.tagName === "TABLE").length, 1);
+  const rows = d.rows();
+  assert.equal(rows.length, 2);
   assert.equal(d.buttons("Add product").length, 1);
-  assert.equal(d.all("pr-edit").length, 2);
-  assert.match(cards[0].textContent, /SPH1/);
-  assert.match(cards[0].textContent, /₱450\.00/);
-  assert.match(cards[0].textContent, /₱270\.00/);
-  assert.match(cards[0].textContent, /No image/);
-  assert.match(cards[1].textContent, /Hidden/);
-  assert.equal(cards[1].all((n) => n.tagName === "IMG").length, 1);
-  for (const c of cards) {
-    for (const n of [c, ...c.all()]) assert.equal(n.getAttribute("tabindex"), null, "nothing in a card has a tabindex");
-    assert.equal(c.all((n) => n.tagName === "H2")[0].getAttribute("tabindex"), null);
-  }
+  assert.equal(d.buttons("Export CSV").length, 1);
+  assert.equal(d.buttons("Arrange").length, 0, "Arrange is a later PR");
+  assert.equal(d.all("pr-manage").length, 2);
+  assert.match(rows[0].textContent, /SPH1/);
+  assert.match(rows[0].textContent, /₱450\.00/);
+  assert.match(rows[0].textContent, /₱270\.00/);
+  assert.match(rows[0].textContent, /SPH/, "placeholder is the first three letters of the code");
+  assert.match(rows[0].textContent, /Live/);
+  assert.match(rows[1].textContent, /Hidden/);
+  assert.equal(rows[1].all((n) => n.tagName === "IMG").length, 1);
+  for (const r of rows) for (const n of [r, ...r.all()]) assert.equal(n.getAttribute("tabindex"), null, "nothing in a row has a tabindex");
+  assert.equal(d.$("pr-root").all((n) => n.tagName === "H2").length, 0, "no card titles");
   assert.deepEqual(d.stored, [], "no storage key");
 });
 
-test("a store that cannot edit sees the list read-only with a one-line note", async () => {
+test("owner header tiles: products, live, hidden, needs a fix; status strip counts", async () => {
+  const d = boot({ products: [product("1", FULL), product("2", { ...FULL, is_active: false }), product("3")] });
+  await d.show();
+  assert.deepEqual(tileText(d), ["3Products in catalog", "2Live on storefront", "1Hiddennot in shops", "1Needs a fixmissing details"]);
+  assert.deepEqual(d.all("pr-stat").map((b) => b.textContent), ["3All", "2Live", "1Hidden", "1Incomplete"]);
+  assert.equal(d.all("pr-stat")[0].getAttribute("aria-pressed"), "true");
+  assert.match(d.rows()[2].textContent, /Incomplete/);
+  assert.match(d.rows()[2].textContent, /Missing: Photo, Description, Packed size, Shipping details/);
+  assert.ok(!/Incomplete/.test(d.rows()[0].textContent));
+});
+
+test("status tiles filter, search matches name or code, category narrows, paging at 20, clear filters", async () => {
+  const many = [];
+  for (let i = 1; i <= 25; i++) many.push(product(String(i), { ...FULL, name: i === 3 ? "Barley Mix" : "Item " + i, category: i === 3 ? "drinks" : "barley", is_active: i % 5 !== 0 }));
+  const d = boot({ products: many });
+  await d.show();
+  assert.equal(d.rows().length, 20);
+  assert.match(d.$("pr-root").textContent, /Page 1 of 2/);
+  d.all("pr-next")[0].fire("click");
+  assert.equal(d.rows().length, 5);
+  stat(d, "Hidden").fire("click");
+  assert.equal(d.rows().length, 5, "five hidden, back on page 1");
+  assert.equal(d.$("pr-status").value, "hidden", "the select follows the tile");
+  assert.equal(stat(d, "Hidden").getAttribute("aria-pressed"), "true");
+  stat(d, "All").fire("click");
+  const q = d.$("pr-search"); q.value = "BARLEY"; q.fire("input");
+  assert.deepEqual(names(d), ["Barley Mix"]);
+  q.value = "sph7"; q.fire("input");
+  assert.deepEqual(names(d), ["Item 7"], "by code");
+  q.value = "zzz"; q.fire("input");
+  assert.equal(d.rows().length, 0);
+  assert.match(d.$("pr-root").textContent, /No products match/);
+  d.all("pr-clear")[0].fire("click");
+  assert.equal(d.rows().length, 20);
+  const c = d.$("pr-category"); c.value = "drinks"; c.fire("change");
+  assert.deepEqual(names(d), ["Barley Mix"]);
+  assert.deepEqual(d.calls.filter((x) => x.method === "GET").length, 2, "filtering never calls the server");
+});
+
+test("pure helpers: gaps, counts, filters", () => {
+  const u = boot().P.util;
+  assert.deepEqual(Array.from(u.gaps(product("1", FULL))), []);
+  assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, image_url: "", category: "", short_description: "", width_cm: null, shipping_qty: null }))),
+    ["Photo", "Category", "Description", "Packed size", "Shipping details"]);
+  const ps = [product("1", FULL), product("2", { is_active: false })];
+  assert.deepEqual({ ...u.counts(ps, true) }, { all: 2, live: 1, hidden: 1, incomplete: 1 });
+  assert.equal(u.counts(ps, false).incomplete, 0, "incomplete is the owner's only");
+  assert.equal(u.filterProducts(ps, { status: "incomplete" }, false).length, 0);
+  assert.equal(u.filterProducts(ps, { status: "incomplete" }, true).length, 1);
+});
+
+test("CSV: formula-looking cells get an apostrophe, quotes and commas are escaped, the rate is never in it", () => {
+  const u = boot().P.util;
+  for (const c of ["=1+1", "+5", "-2", "@SUM(A1)"]) assert.equal(u.csvCell(c), "'" + c);
+  assert.equal(u.csvCell('He said "hi", ok'), '"He said ""hi"", ok"');
+  assert.equal(u.csvCell("=a,b"), "\"'=a,b\"");
+  const rows = [product("1", { ...FULL, name: "=HYPERLINK(1)", srp_centavos: 45050 }), product("2", { is_active: false })];
+  const owner = u.csvText(rows, true).split("\r\n");
+  assert.equal(owner[0], "Code,Name,Category,SRP,Members price,Storefront,Incomplete,Missing");
+  assert.equal(owner[1], "SPH1,'=HYPERLINK(1),Barley,450.50,270.00,Live,No,");
+  assert.match(owner[2], /^SPH2,Product 2,Barley,450\.00,270\.00,Hidden,Yes,Photo; /);
+  const member = u.csvText(rows, false).split("\r\n");
+  assert.equal(member[0], "Code,Name,Category,SRP,Members price,Storefront");
+  assert.ok(!/0\.4000|Incomplete|Missing/.test(u.csvText(rows, false)));
+});
+
+test("Manage menu: edit, history, hide and show; hide sends the loaded revision", async () => {
+  const d = boot();
+  await d.show();
+  assert.equal(d.all("pr-menu").length, 0);
+  d.all("pr-manage")[0].fire("click");
+  assert.equal(d.all("pr-menu").length, 1);
+  assert.deepEqual(d.all("pr-menu-item").map((b) => b.textContent), ["Edit details", "History", "Hide from shops"]);
+  d.all("pr-toggle")[0].fire("click"); await settle();
+  const w = d.writes();
+  assert.equal(w.length, 1);
+  assert.equal(w[0].method, "PATCH");
+  assert.deepEqual(w[0].body, { revision: 1, is_active: false });
+  assert.match(d.rows()[0].textContent, /Hidden/);
+  assert.ok(d.toasts.some((t) => /Hidden from shops/.test(t)));
+  d.all("pr-manage")[0].fire("click");
+  assert.equal(d.all("pr-toggle")[0].textContent, "Show in shops");
+  d.all("pr-manage")[0].fire("click");
+  assert.equal(d.all("pr-menu").length, 0, "Manage again closes the menu");
+});
+
+test("a store that cannot edit sees the same table read-only, with no owner controls", async () => {
   const d = boot({ canEdit: false });
   await d.show();
-  assert.equal(d.all("pr-card").length, 2);
+  assert.equal(d.rows().length, 2);
   assert.equal(d.buttons("Add product").length, 0);
+  assert.equal(d.buttons("Arrange").length, 0);
+  assert.equal(d.buttons("Export CSV").length, 1);
+  assert.equal(d.all("pr-manage").length, 0);
   assert.equal(d.all("pr-edit").length + d.all("pr-hist").length, 0);
+  assert.ok(!d.$("pr-root").all((n) => n.tagName === "TH").some((th) => th.textContent === "Manage"));
+  assert.deepEqual(tileText(d), ["2Products in catalog", "1Live on storefront"]);
+  assert.deepEqual(d.all("pr-stat").map((b) => b.textContent), ["2All", "1Live"]);
+  assert.deepEqual(Array.from(d.$("pr-status").children).map((o) => o.value), ["all", "live"]);
+  assert.ok(!/Incomplete|Missing|Needs a fix/.test(d.$("pr-root").textContent));
   assert.equal(d.all("pr-note").length, 1);
   assert.match(d.all("pr-note")[0].textContent, /managed centrally/);
 });
@@ -197,7 +301,7 @@ test("add: pesos become centavos, the 40% rate goes as \"0.4000\", the code is u
   assert.equal(w[0].body.earnings_rate, "0.4000");
   assert.equal(w[0].body.weight_kg, "0.00");
   assert.ok(!("is_active" in w[0].body) && !("revision" in w[0].body));
-  assert.equal(d.all("pr-card").length, 1, "back on the list");
+  assert.equal(d.rows().length, 1, "back on the list");
   assert.ok(d.toasts.some((t) => /Saved/.test(t)));
 });
 
@@ -235,7 +339,7 @@ test("server field errors and a taken code show under their fields", async () =>
 test("edit: only the changed fields go, with the loaded revision; the code is read-only; an unchanged form sends nothing", async () => {
   const d = boot();
   await d.show();
-  d.all("pr-edit")[0].fire("click");
+  d.manage(0, "pr-edit");
   assert.equal(d.$("pr-f-code").readOnly, true);
   assert.equal(d.$("pr-f-srp_centavos").value, "450");
   assert.equal(d.$("pr-f-earnings_rate").value, "40");
@@ -253,7 +357,7 @@ test("edit: only the changed fields go, with the loaded revision; the code is re
 test("edit: hiding a product sends is_active false", async () => {
   const d = boot();
   await d.show();
-  d.all("pr-edit")[0].fire("click");
+  d.manage(0, "pr-edit");
   d.$("pr-f-is_active").checked = false;
   await d.submit();
   assert.deepEqual(d.writes()[0].body, { revision: 1, is_active: false });
@@ -263,7 +367,7 @@ test("stale revision: its own sentence and a Reload that brings the fresh values
   let first = true;
   const d = boot({ routes: (m) => { if (m === "PATCH" && first) { first = false; return { status: 409, body: { error: { code: "stale_revision", message: "server" } } }; } return null; } });
   await d.show();
-  d.all("pr-edit")[0].fire("click");
+  d.manage(0, "pr-edit");
   d.state.products[0].name = "Changed elsewhere"; d.state.products[0].revision = 4;
   d.set("srp_centavos", "999");
   await d.submit();
@@ -281,7 +385,7 @@ test("read-only and billing refusals use their own sentences", async () => {
   for (const [code, re] of [["catalog_read_only", /Only the catalog owner site/], ["billing_only", /Billing/]]) {
     const d = boot({ routes: (m) => m === "PATCH" ? { status: 403, body: { error: { code, message: "server" } } } : null });
     await d.show();
-    d.all("pr-edit")[0].fire("click");
+    d.manage(0, "pr-edit");
     d.set("name", "x");
     await d.submit();
     assert.match(d.form().textContent, re);
@@ -291,7 +395,7 @@ test("read-only and billing refusals use their own sentences", async () => {
 test("image: upload sends file and revision as multipart, replace and remove follow the new revision; the 2 MB and type limits are checked first", async () => {
   const d = boot();
   await d.show();
-  d.all("pr-edit")[0].fire("click");
+  d.manage(0, "pr-edit");
   const file = d.$("pr-f-image");
   file.files = [{ type: "application/pdf", size: 10 }];
   file.fire("change");
@@ -320,7 +424,7 @@ test("image store failures show their own sentences", async () => {
   for (const [status, code, re] of [[503, "image_store_not_configured", /image store is not set up/], [502, "image_not_saved", /could not be stored/]]) {
     const d = boot({ routes: (m, p) => m === "POST" && /image/.test(p) ? { status, body: { error: { code, message: "server" } } } : null });
     await d.show();
-    d.all("pr-edit")[0].fire("click");
+    d.manage(0, "pr-edit");
     d.$("pr-f-image").files = [{ type: "image/jpeg", size: 100 }];
     d.$("pr-f-image").fire("change"); await settle();
     assert.match(d.$("pr-e-image").textContent, re);
@@ -334,7 +438,7 @@ test("history: newest first, each revision against the one before, Seed or Owner
     { ...base, revision: 2, srp_centavos: 50000, source: "owner", changed_at: "2026-11-14T02:00:00Z" },
     { ...base, revision: 1, source: "seed", changed_at: "2026-11-13T02:00:00Z" }];
   await d.show();
-  d.all("pr-hist")[0].fire("click"); await settle();
+  d.manage(0, "pr-hist"); await settle();
   assert.equal(d.calls.pop().path, `/sites/${SITE}/catalog/products/prod_1/revisions/`);
   const items = d.all("pr-histitem");
   assert.equal(items.length, 2);

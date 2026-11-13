@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
         { source: "/finance/", destination: "/finance.html" },
         { source: "/finance/usage/", destination: "/finance-usage.html" },
         { source: "/finance/issuer/", destination: "/finance-issuer.html" },
+        { source: "/settings/", destination: "/settings.html" },
         { source: "/inbox/sms/", destination: "/inbox.html" },
         { source: "/inbox/sms/new/", destination: "/inbox.html" },
         { source: "/inbox/sms/bulk/", destination: "/bulk.html" },

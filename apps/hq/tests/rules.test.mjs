@@ -86,3 +86,11 @@ test("the issuer page offers no tax type choice and holds no default value", () 
   assert.doesNotMatch(html, /<input[^>]*\bvalue=/i);
   assert.doesNotMatch(html, /<textarea[^>]*>[^<]+<\/textarea>/i);
 });
+
+test("the Settings page loads its scripts in order, and nothing in it is prefilled or inline", () => {
+  for (const f of ["settings.html", path.join("assets", "js", "settings.js")]) assert.ok(all.some((x) => x.name === f), f);
+  const html = all.find((x) => x.name === "settings.html").text;
+  const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", "settings"]);
+  assert.doesNotMatch(html, /<input[^>]*\bvalue=/i);
+});

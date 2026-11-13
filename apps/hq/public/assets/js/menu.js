@@ -6,6 +6,7 @@
    with the platform in its body, nothing in the address, no audit entry on the backend, no text held) also
    wakes the search and bell buttons. On any other answer, offline, or with no client, nothing is drawn and
    the buttons stay as the page ships them.
+   Settings (ClickUp z8uq9mek62) is the one plain entry after the list: always drawn, last, with Inbox and Contacts in front of it.
    Contacts is the second gated entry (ClickUp z8uq9me128): not drawn until contacts/status/ answers 200, always
    after Inbox when there is one, current for every /contacts/ path. That call carries nothing at all. */
 (function () {
@@ -14,6 +15,8 @@
     { href: "/", label: "Admin console", icon: "M4 11l8-7 8 7v9H4z" },
     { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3", within: true },
   ];
+  /* Settings is always drawn, and always last: the gated entries below go in front of it. */
+  var SETTINGS = { href: "/settings/", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2" };
   var INBOX = { href: "/inbox/sms/", label: "Inbox", icon: "M4 5h16v11H8l-4 4zM8 9h8M8 12h5" };
   var CONTACTS = { href: "/contacts/", label: "Contacts", icon: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.2a3.5 3.5 0 0 1 0 6.6" };
   /* The SVG namespace, read from the wordmark already on the page. */
@@ -62,6 +65,7 @@
   MENU.forEach(function (item) {
     entry(item, item.within ? location.pathname.indexOf(item.href) === 0 : location.pathname === item.href);
   });
+  var settingsLink = entry(SETTINGS, location.pathname === SETTINGS.href, null);
   nav.hidden = false;
 
   /* ---- the Inbox, only when the backend says this person may open it ---- */
@@ -97,7 +101,7 @@
 
   H.call("POST", "inbox/status/", { platform: "sms" }).then(function (res) {
     if (!res || res.status !== 200) return;
-    var a = entry(INBOX, location.pathname.indexOf("/inbox/") === 0, contactsLink);
+    var a = entry(INBOX, location.pathname.indexOf("/inbox/") === 0, contactsLink || settingsLink);
     [a, a.twin].forEach(function (x) {
       if (!x) return;
       var pill = document.createElement("span");
@@ -122,7 +126,7 @@
 
   H.call("POST", "contacts/status/").then(function (res) {
     if (!res || res.status !== 200) return;
-    contactsLink = entry(CONTACTS, location.pathname.indexOf("/contacts/") === 0, null);
+    contactsLink = entry(CONTACTS, location.pathname.indexOf("/contacts/") === 0, settingsLink);
   });
 
   window.NOHqMenu = { setUnread: setUnread };

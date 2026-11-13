@@ -21,7 +21,7 @@ body {
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
 img { max-width: 100%; height: auto; display: block; }
 a { color: var(--blue); }
-:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
 .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 20px; }
 section[id] { scroll-margin-top: calc(var(--header-h) + 12px); }
 h1, h2, h3 { line-height: 1.2; margin: 0 0 .6em; color: var(--ink); }
@@ -259,7 +259,7 @@ dialog::backdrop { background: rgba(11,22,63,.55); }
 body.dash-app {
   --c-bg: #08102B; --c-line: #1B275A; --c-card: #111B44; --c-block-line: #2B3A75;
   --c-text: #F2F4FA; --c-text-2: #C9D1EA; --c-meta: #AEB8D6; --c-hover: #141F4C;
-  --c-ghost-text: #E4E9F8; --c-ghost-line: #6474B0; --c-switch-line: #33427A; --c-switch-bg: #0D1638; --c-tile: #1A2862; --c-focus: #F2D99B;
+  --c-ghost-text: #E4E9F8; --c-ghost-line: #6474B0; --c-switch-line: #33427A; --c-switch-bg: #0D1638; --c-tile: #1A2862; --c-focus: #9DB4FF; --c-cat: #F2D99B;
   --primary: #173DB8; --primary-hover: #2A50D0;
   --bg: #0A1230; --card: #111B44; --card-line: #24326A; --card-shadow: none;
   --text: #F2F4FA; --text-2: #C9D1EA; --meta: #AEB8D6; --link: #9DB4FF; --link-hover: #C7D4FF;
@@ -269,7 +269,7 @@ body.dash-app {
   --banner: #10205E; --banner-line: #2B47B0; --banner-text: #D3DCF7;
   --skeleton: #1C2858;
   --err-bg: #1E1220; --err-line: #7A3328; --err-h: #FFB8AC; --err-text: #E9C9C3;
-  --focus: #F2D99B;
+  --focus: var(--link); --cat: #F2D99B;
   --chip-ok-bg: rgba(46,170,110,.16); --chip-ok: #8FE3BC;
   --chip-info-bg: rgba(120,150,255,.16); --chip-info: #BCCBFF;
   --chip-neutral-bg: #1C2858; --chip-neutral: #C9D1EA;
@@ -285,7 +285,7 @@ html[data-theme="light"] body.dash-app {
   --banner: #EEF2FD; --banner-line: #C5D1F5; --banner-text: #3A4560;
   --skeleton: #E4E8F2;
   --err-bg: #FDF0EE; --err-line: #E3A89D; --err-h: #A8321F; --err-text: #5A2A22;
-  --focus: #173DB8;
+  --focus: #173DB8; --cat: #173DB8;
   --chip-ok-bg: #E2F5EC; --chip-ok: #146B45;
   --chip-info-bg: #E8EDFB; --chip-info: #173DB8;
   --chip-neutral-bg: #EEF1F7; --chip-neutral: #3A4560;
@@ -301,7 +301,7 @@ html[data-theme="light"] body.dash-app {
     --banner: #EEF2FD; --banner-line: #C5D1F5; --banner-text: #3A4560;
     --skeleton: #E4E8F2;
     --err-bg: #FDF0EE; --err-line: #E3A89D; --err-h: #A8321F; --err-text: #5A2A22;
-    --focus: #173DB8;
+    --focus: #173DB8; --cat: #173DB8;
     --chip-ok-bg: #E2F5EC; --chip-ok: #146B45;
     --chip-info-bg: #E8EDFB; --chip-info: #173DB8;
     --chip-neutral-bg: #EEF1F7; --chip-neutral: #3A4560;
@@ -312,7 +312,7 @@ body.dash-app .dash-chrome {
   --text: var(--c-text); --text-2: var(--c-text-2); --meta: var(--c-meta); --card: var(--c-card);
   --ghost-text: var(--c-ghost-text); --ghost-line: var(--c-ghost-line); --ghost-bg: transparent; --ghost-hover: var(--c-hover);
   --switch-bg: var(--c-switch-bg); --switch-line: var(--c-switch-line); --switch-text: var(--c-text-2); --switch-text-hover: var(--c-text);
-  --focus: var(--c-focus);
+  --focus: var(--c-focus); --cat: var(--c-cat);
   background: var(--c-bg); color: var(--c-text);
 }
 
@@ -722,11 +722,11 @@ body.dash-app .notif-txt { min-width: 0; }
 body.dash-app .notif-title { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.35; color: #fff; overflow-wrap: anywhere; }
 body.dash-app .notif-desc { margin: 4px 0 0; font-size: 15px; line-height: 1.4; color: var(--c-meta); }
 body.dash-app .notif-meta { margin: 10px 0 0; font-size: 14px; color: var(--c-meta); }
-body.dash-app .notif-cat { font-weight: 700; color: var(--c-focus); }
+body.dash-app .notif-cat { font-weight: 700; color: var(--c-cat); }
 body.dash-app .notif-dot { width: 10px; height: 10px; margin-top: 6px; border-radius: 50%; background: #E8604C; }
 body.dash-app .notif-item[data-read] .notif-dot { visibility: hidden; }
 body.dash-app .notif-foot { border-top: 1px solid var(--c-block-line); }
-body.dash-app .notif-all { display: block; width: 100%; min-height: 48px; border: 0; background: transparent; color: var(--c-focus); font: inherit; font-size: 16px; font-weight: 700; text-align: center; }
+body.dash-app .notif-all { display: block; width: 100%; min-height: 48px; border: 0; background: transparent; color: var(--c-cat); font: inherit; font-size: 16px; font-weight: 700; text-align: center; }
 body.dash-app .notif-all:disabled { opacity: .55; cursor: not-allowed; }
 
 /* Notification panel, empty state: icon, short title, one helpful line; the footer link is hidden when there is nothing to view */
@@ -747,7 +747,7 @@ body.dash-app .notif-h, body.dash-app .notif-title, body.dash-app .notif-empty-t
 body.dash-app .notif-desc, body.dash-app .notif-meta, body.dash-app .notif-empty-sub { color: var(--meta); }
 body.dash-app .notif-item { background: var(--card); border-bottom-color: var(--card-line); }
 body.dash-app .notif-ico, body.dash-app .notif-empty-ico { background: var(--tile); color: var(--tile-ink); }
-body.dash-app .notif-cat, body.dash-app .notif-all { color: var(--focus); }
+body.dash-app .notif-cat, body.dash-app .notif-all { color: var(--cat); }
 body.dash-app .notif-foot { border-top-color: var(--card-line); }
 
 /* Notification panel: blue title on a tinted header and footer band, so the panel reads clearly against the page */
@@ -1722,6 +1722,7 @@ body.dash-app .acct-otp.acct-otp-err:focus-within .acct-code-box-on { border-col
    code step, in the dashboard's own dialog and theme tokens. Centred; boxes 56px high, up to 60px wide, 8px apart
    (the rules above); a resend line; a quiet way back. */
 body.dash-app .acct-code-step { text-align: center; }
+body.dash-app .acct-code-step strong { overflow-wrap: anywhere; }
 body.dash-app .acct-code-step .ob-err { margin-top: 10px; text-align: center; }
 body.dash-app .acct-code-hint { margin: 0; font-size: .92rem; color: var(--text-2); }
 body.dash-app .acct-code-hint:empty { display: none; }

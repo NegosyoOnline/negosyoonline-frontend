@@ -3,7 +3,7 @@
    when Django says this buyer is a member with active benefits (quote.member_price); a guest never gets it. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
-import { php, safeImage } from "./shop-shell.ts";
+import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 
 /** The four categories as the store's own footer names them (backend apps/catalog/services.py CATEGORIES). */
 export const CATEGORIES: readonly { value: string; label: string }[] = [
@@ -21,12 +21,14 @@ export function truncate(text: string, max: number): string {
   return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
 }
 
+/* The image link only repeats the title link beside it, so keyboard and screen-reader users skip it (aria-hidden,
+   tabindex -1); the title link names the product. A photo keeps its alt text. */
 export function productCard(p: CatalogProduct, members: boolean): Markup {
   const image = safeImage(p.image_url);
   return html`
       <div class="product-card">
-        <a href="/products/${p.code}/" class="product-img-wrap sf-card-link">
-          ${image ? html`<img src="${image}" alt="${p.name}" loading="lazy">` : ""}
+        <a href="/products/${p.code}/" class="product-img-wrap sf-card-link" aria-hidden="true" tabindex="-1">
+          ${image ? html`<img src="${image}" alt="${p.name}" loading="lazy">` : PRODUCT_PLACEHOLDER}
         </a>
         <div class="product-info">
           <div class="product-name"><a href="/products/${p.code}/">${p.name}</a></div>

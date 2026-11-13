@@ -543,6 +543,7 @@
   var SUPPORT_EMAIL = "support@negosyoonline.com";
   var CHECK_DELAY_MS = 600; /* the live check waits for a pause in typing; well inside the 60 per 10 minutes throttle */
   var NAME_ERR = "Use 1 to 80 characters.";
+  var ADDR_ERR = "Enter a web address.";
   var BIZ_ERR = "Enter your business name.";
   var EMAIL_ERR = "Enter your email address.";
   var MOBILE_ERR = "Enter your mobile number.";
@@ -1099,6 +1100,7 @@
     s.appendChild(later);
     OB.lastChecked = ""; OB.lastResult = null;
     wireLiveCheck(addr);
+    name.input.addEventListener("input", function () { if (!name.msg.hidden && !siteNameError(name.input.value)) setFieldError(name, ""); }); /* the message goes once the value is fixed (z8uq9men7r L3) */
     form.addEventListener("submit", function (ev) { ev.preventDefault(); onCreate(name, addr, btn, alertSlot); });
     if (focus) $("ob-h-site").focus();
   }
@@ -1126,8 +1128,13 @@
     if (OB.busy) return;
     alertSlot.textContent = "";
     setFieldError(name, "");
-    var nameErr = siteNameError(name.input.value);
-    if (nameErr) { setFieldError(name, nameErr); name.input.focus(); return; }
+    var nameErr = siteNameError(name.input.value), addrBlank = !addr.input.value.trim();
+    if (nameErr || addrBlank) { /* both blank fields are flagged together; focus goes to the first one (z8uq9men7r L3) */
+      if (nameErr) setFieldError(name, nameErr);
+      if (addrBlank) { if (OB.timer) { clearTimeout(OB.timer); OB.timer = null; } OB.seq++; OB.lastChecked = ""; OB.lastResult = null; setAddress(addr, { kind: "error", text: ADDR_ERR }); }
+      (nameErr ? name : addr).input.focus();
+      return;
+    }
     if (OB.timer) { clearTimeout(OB.timer); OB.timer = null; }
     OB.seq++;  /* no live check fires or lands after Create (audit r3 PLAN-10) */
     OB.busy = true; btn.disabled = true; btn.textContent = "Creating your site…";

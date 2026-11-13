@@ -175,10 +175,12 @@ export function homeDocument(v: HomeModel): Markup {
   <link rel="stylesheet" href="${asset("css/pack-storefront.css")}">
 </head>
 <body>
+<a class="sf-skip" href="#main-content">Skip to content</a>
 ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE SHIPPING</strong> on all orders — for a limited time!</div>` : ""}
 
 ${storeNav(v)}
 
+<main id="main-content" tabindex="-1">
 <div id="home"></div>
 
 <!-- HERO CAROUSEL -->
@@ -209,7 +211,7 @@ ${storeNav(v)}
     <div class="carousel-slide">
       <div class="hero-content">
         <div class="hero-badge">&#127807; Premium Organic Wellness</div>
-        <h1 class="hero-title">Your Trusted Daily <span>Wellness</span> Partner</h1>
+        <div class="hero-title">Your Trusted Daily <span>Wellness</span> Partner</div>
         <p class="hero-subtitle">Premium organic wellness products for Filipino families, busy professionals, and active individuals. Good health starts here.</p>
         <div class="hero-ctas">
           <a href="/products/" class="btn-white">Shop Sant&eacute; Products</a>
@@ -227,7 +229,7 @@ ${storeNav(v)}
     <div class="carousel-slide">
       <div class="hero-content">
         <div class="hero-badge">&#127806; From New Zealand's Farms</div>
-        <h1 class="hero-title">From New Zealand's Fields to Your <span>Daily Routine</span></h1>
+        <div class="hero-title">From New Zealand's Fields to Your <span>Daily Routine</span></div>
         <p class="hero-subtitle">Pure organic barley grass, harvested at its peak and delivered straight to your door. Wellness made simple.</p>
         <div class="hero-ctas">
           <a href="/products/" class="btn-white">Shop Sant&eacute; Products</a>
@@ -385,7 +387,7 @@ ${storeNav(v)}
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Barley &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_barley.png")}" alt="Sant&eacute; Barley, certified organic barley grass from New Zealand" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_barley.webp")}"><img class="cat-split-img" src="${asset("img/category_barley.png")}" alt="Sant&eacute; Barley, certified organic barley grass from New Zealand" loading="lazy"></picture>
       </div>
     </div>
 
@@ -405,7 +407,7 @@ ${storeNav(v)}
         <a href="/products/" class="cat-split-cta">Explore Special Drinks &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_drinks.png")}" alt="Sant&eacute; Special Drinks, wellness drinks for every day" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_drinks.webp")}"><img class="cat-split-img" src="${asset("img/category_drinks.png")}" alt="Sant&eacute; Special Drinks, wellness drinks for every day" loading="lazy"></picture>
       </div>
     </div>
 
@@ -425,7 +427,7 @@ ${storeNav(v)}
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Essentials &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_essential.png")}" alt="Sant&eacute; Essentials, everyday health support products" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_essential.webp")}"><img class="cat-split-img" src="${asset("img/category_essential.png")}" alt="Sant&eacute; Essentials, everyday health support products" loading="lazy"></picture>
       </div>
     </div>
 
@@ -445,7 +447,7 @@ ${storeNav(v)}
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Beauty &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_beauty.png")}" alt="Sant&eacute; Beauty, collagen and barley-powered beauty products" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_beauty.webp")}"><img class="cat-split-img" src="${asset("img/category_beauty.png")}" alt="Sant&eacute; Beauty, collagen and barley-powered beauty products" loading="lazy"></picture>
       </div>
     </div>
 
@@ -481,7 +483,7 @@ ${storeNav(v)}
     <!-- Panel 1: Our Story -->
     <div class="about-panel active" id="tab-our-story">
       <div class="about-panel-img">
-        <img src="${asset("img/about_1.png")}" alt="Our Story">
+        <picture><source type="image/webp" srcset="${asset("img/about_1.webp")}"><img src="${asset("img/about_1.png")}" alt="Our Story" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3>More Than a <span>Wellness Brand</span></h3>
@@ -493,7 +495,7 @@ ${storeNav(v)}
     <!-- Panel 2: Trusted Since 2007 -->
     <div class="about-panel" id="tab-trusted">
       <div class="about-panel-img">
-        <img src="${asset("img/about_2.png")}" alt="Trusted Since 2007">
+        <picture><source type="image/webp" srcset="${asset("img/about_2.webp")}"><img src="${asset("img/about_2.png")}" alt="Trusted Since 2007" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Trusted</span> Since 2007</h3>
@@ -505,7 +507,7 @@ ${storeNav(v)}
     <!-- Panel 3: Biogro New Zealand -->
     <div class="about-panel" id="tab-biogro">
       <div class="about-panel-img">
-        <img src="${asset("img/about_3.png")}" alt="Biogro New Zealand">
+        <picture><source type="image/webp" srcset="${asset("img/about_3.webp")}"><img src="${asset("img/about_3.png")}" alt="Biogro New Zealand" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Biogro</span> Certified Barley Source</h3>
@@ -517,7 +519,7 @@ ${storeNav(v)}
     <!-- Panel 4: Global Standard -->
     <div class="about-panel" id="tab-global">
       <div class="about-panel-img">
-        <img src="${asset("img/about_4.png")}" alt="Global Standard">
+        <picture><source type="image/webp" srcset="${asset("img/about_4.webp")}"><img src="${asset("img/about_4.png")}" alt="Global Standard" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Global</span> Standard, Local Impact</h3>
@@ -598,7 +600,7 @@ ${storeNav(v)}
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_1.png")}" alt="Morning Wellness Routine" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_1.webp")}"><img class="lookbook-bg" src="${asset("img/blog_1.png")}" alt="Morning Wellness Routine" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Morning Wellness Routine</div>
@@ -608,7 +610,7 @@ ${storeNav(v)}
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_2.png")}" alt="Workday Energy Support" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_2.webp")}"><img class="lookbook-bg" src="${asset("img/blog_2.png")}" alt="Workday Energy Support" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Workday Energy Support</div>
@@ -618,7 +620,7 @@ ${storeNav(v)}
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_3.png")}" alt="Active Lifestyle Support" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_3.webp")}"><img class="lookbook-bg" src="${asset("img/blog_3.png")}" alt="Active Lifestyle Support" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Active Lifestyle Support</div>
@@ -823,6 +825,7 @@ ${v.biz.contact_email ? html`          <div style="display: flex; align-items: f
   </div>
   <button class="sales-popup-close">&#x2715;</button>
 </div>
+</main>
 
 ${storeFooter(v)}
 ${storeDrawer(v)}

@@ -17,7 +17,7 @@ const inert = (p) => IDS.slice(1).every((id) => p.node[id].getAttribute("aria-di
 test("with a 200 the Inbox entry follows Finance, with the unread number", async () => {
   const p = menu(() => [200, status({ unread: 3 })]);
   await settle();
-  assert.deepEqual(names(p), ["Admin console", "Finance", "Inbox3"]);
+  assert.deepEqual(names(p), ["Admin console", "Finance", "Inbox3", "Settings"]);
   const a = p.node["side-nav"].children[2];
   assert.equal(a.getAttribute("href"), "/inbox/sms/");
   const pill = a.children.find((n) => n.classList.contains("count"));
@@ -75,11 +75,11 @@ test("on 404, 401, 503, offline, or with no client, no Inbox entry, both buttons
   for (const reply of [() => [404, refusal("not_found")], () => [401, refusal("unauthenticated")], () => [503, {}], () => "offline"]) {
     const p = menu(reply);
     await settle();
-    assert.deepEqual(names(p), ["Admin console", "Finance"]);
+    assert.deepEqual(names(p), ["Admin console", "Finance", "Settings"]);
     assert.equal(inert(p), true);
   }
   const none = menu(() => { throw new Error("no call expected"); }, { noClient: true });
-  assert.deepEqual(names(none), ["Admin console", "Finance"]);
+  assert.deepEqual(names(none), ["Admin console", "Finance", "Settings"]);
   assert.equal(inert(none), true);
 });
 

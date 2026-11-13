@@ -548,15 +548,16 @@
       if (channels.length > 1) {
         lead.appendChild(txt("To keep your account safe, we first send a 6-digit code. Where should we send it?"));
         f0.appendChild(lead);
-        var group = D.el("fieldset", { "class": "acct-stepup-choice", id: "acct-stepup-choice" });
-        group.appendChild(D.el("legend", { "class": "sr-only" }, "Send the code to"));
-        channels.forEach(function (c, i) {
-          var id = "acct-stepup-" + c, row = D.el("label", { "class": "dash-copy", "for": id }), r = D.el("input", { type: "radio", name: "channel", id: id, value: c });
+        var group = D.el("div", { id: "acct-stepup-choice", role: "radiogroup", "aria-label": "Send the code to" });
+        channels.forEach(function (c, i) { /* one option per row: the radio, then the label with the masked value on its own line */
+          var id = "acct-stepup-" + c, row = D.el("div", { "class": "dash-copy" }), r = D.el("input", { type: "radio", name: "channel", id: id, value: c });
           if (i === 0) r.checked = true;
           r.addEventListener("change", function () { chosen = c; });
-          row.appendChild(r);
-          row.appendChild(txt(" " + (c === "mobile" ? "Text my mobile " : "Email me at ")));
-          row.appendChild(D.el("strong", {}, channelShown(c, a)));
+          var lab = D.el("label", { "for": id });
+          lab.appendChild(txt(" " + (c === "mobile" ? "Text my mobile" : "Email me")));
+          lab.appendChild(D.el("br"));
+          lab.appendChild(D.el("strong", {}, channelShown(c, a)));
+          row.appendChild(r); row.appendChild(lab);
           group.appendChild(row);
         });
         f0.appendChild(group);
@@ -742,7 +743,7 @@
 
   /* ---- change mobile over the existing /account/mobile/* routes (spec D3; their messages are shown as sent) ---- */
   function openMobile(opener) {
-    var body = openDialog(opener, "Change your mobile");
+    var body = openDialog(opener, hasMobile(S.data) ? "Change your mobile" : "Add your mobile");
     S.stepCode = ""; S.stepChannel = "";
     if (stepChannels().length) stepUp(body, "mobile_change", mobileStep1, "", false); else mobileStep1(body);
   }

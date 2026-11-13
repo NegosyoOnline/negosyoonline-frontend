@@ -59,10 +59,11 @@ test("no page, script or style claims BIR compliance, PTI, EIS or ESP status, or
 
 test("the Finance usage and issuer pages are covered, and load their scripts in order", () => {
   for (const f of ["finance-usage.html", "finance-issuer.html", path.join("assets", "js", "finance-common.js"),
-    path.join("assets", "js", "finance-usage.js"), path.join("assets", "js", "finance-issuer.js")]) {
+    path.join("assets", "js", "finance-usage.js"), path.join("assets", "js", "finance-issuer.js"),
+    "finance-accounts.html", path.join("assets", "js", "finance-accounts.js")]) {
     assert.ok(all.some((x) => x.name === f), f);
   }
-  for (const [page, script] of [["finance-usage.html", "finance-usage.js"], ["finance-issuer.html", "finance-issuer.js"]]) {
+  for (const [page, script] of [["finance-usage.html", "finance-usage.js"], ["finance-issuer.html", "finance-issuer.js"], ["finance-accounts.html", "finance-accounts.js"]]) {
     const html = all.find((x) => x.name === page).text;
     const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
     assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", script.replace(".js", "")], page);
@@ -80,17 +81,17 @@ test("the invoice register and reconciliation pages are covered, and load their 
   }
 });
 
-test("every Finance page carries the same sub-navigation: five links, the page's own marked current", () => {
-  const LINKS = ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/"];
+test("every Finance page carries the same sub-navigation: six links, the page's own marked current", () => {
+  const LINKS = ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/", "/finance/accounts/"];
   const OWN = { "finance.html": "/finance/", "finance-usage.html": "/finance/usage/", "finance-issuer.html": "/finance/issuer/",
-    "finance-invoices.html": "/finance/invoices/", "finance-reconcile.html": "/finance/invoices/reconcile/" };
+    "finance-invoices.html": "/finance/invoices/", "finance-reconcile.html": "/finance/invoices/reconcile/", "finance-accounts.html": "/finance/accounts/" };
   for (const [page, own] of Object.entries(OWN)) {
     const html = all.find((x) => x.name === page).text;
     const nav = /<nav class="set-tabs fin-sub"[^>]*>(.*?)<\/nav>/.exec(html)[1];
     assert.deepEqual([...nav.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]), LINKS, page);
     assert.equal((nav.match(/aria-current="page"/g) || []).length, 1, page);
     assert.match(nav, new RegExp(`<a href="${own}" aria-current="page">`), page);
-    assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile/, page);
+    assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile.*Accounts/, page);
   }
 });
 

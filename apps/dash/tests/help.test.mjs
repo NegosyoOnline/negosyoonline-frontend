@@ -1,4 +1,4 @@
-/* Help Center (ClickUp z8uq9mekvc): the five articles on /help/ are in the page, each reachable from the index, and the
+/* Help Center (ClickUp z8uq9mekvc): the six articles on /help/ are in the page, each reachable from the index, and the
    "not available yet" placeholder is gone. The articles are static HTML, so the markup is what is read. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,7 @@ const DASH = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.
 const CSS = fs.readFileSync(new URL("../public/assets/css/help.css", import.meta.url), "utf8");
 const JS = fs.readFileSync(new URL("../public/assets/js/help.js", import.meta.url), "utf8");
 const VIEW = HTML.slice(HTML.indexOf('<section class="view" id="view-help"'), HTML.indexOf('<section class="view" id="view-referral"'));
-const ARTICLES = ["help-store", "help-sante", "help-payments", "help-orders", "help-support"];
+const ARTICLES = ["help-store", "help-sante", "help-payments", "help-orders", "help-billing", "help-support"];
 const text = (h) => h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 test("the Help Center view has every article and an index link to each", () => {
@@ -20,6 +20,19 @@ test("the Help Center view has every article and an index link to each", () => {
     assert.ok(VIEW.includes('id="h-' + id + '"'), id + " has its heading");
   }
   assert.equal((VIEW.match(/<article /g) || []).length, ARTICLES.length, "no other article is on the page");
+});
+
+test("the billing article is in the index between the orders and support articles, and states no amount or account", () => {
+  const i = (id) => VIEW.indexOf('<a href="#' + id + '">');
+  assert.ok(i("help-orders") < i("help-billing") && i("help-billing") < i("help-support"), "indexed after orders, before support");
+  assert.ok(/^help-[a-z]+$/.test("help-billing"), "the anchor matches help.js");
+  const t = text(VIEW.slice(VIEW.indexOf('id="h-help-billing"'), VIEW.indexOf('<article class="dash-card help-article" id="help-support"')));
+  assert.ok(t.includes("Monthly") && t.includes("Annual") && t.includes("7 calendar days"));
+  assert.ok(t.includes("When your free trial ends"), "the trial-end section exists");
+  assert.ok(VIEW.indexOf("<h3>When your free trial ends</h3>") < VIEW.indexOf("<h3>If a payment is late</h3>"), "trial-end comes before late payment");
+  assert.ok(t.includes("paused") && !/suspended/i.test(t), "the article says paused, never suspended");
+  assert.ok(!/PHP|₱|\d{1,3},\d{3}/.test(t), "no amount or account number");
+  for (const bad of ["per order", "per sale", "card", "gateway", "auto-debit", "usage"]) assert.ok(!t.includes(bad), bad + " is not mentioned");
 });
 
 test("the placeholder is gone and no title is focusable", () => {

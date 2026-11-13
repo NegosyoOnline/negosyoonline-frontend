@@ -12,8 +12,9 @@
 import { randomBytes } from "node:crypto";
 import { CHECKOUT, CHECKOUT_MAX_AGE, clearCookie, setCookie } from "./cookies.ts";
 import type { Pack, Site } from "./django.ts";
-import { htmlResponse } from "./html.ts";
+import { htmlResponse, type Markup } from "./html.ts";
 import { redirect } from "./member.ts";
+import { placeFields } from "./meta.ts";
 import {
   PROOF_MAX_BYTES, checkoutCodeSend, checkoutCodeVerify, checkoutContact, checkoutPlace, checkoutState,
   type Calls, type PackRefusal,
@@ -46,6 +47,9 @@ export type Flow = {
   calls: Calls;
   request: Request;
   now?: Date;
+  /** The Meta notice or Pixel markup (src/lib/meta.ts). Set by the route for a GET only, so a refused post that
+      shows the page again never fires a second PageView. */
+  tracking?: Markup;
 };
 
 /** The box shows 9XX XXX XXXX after a fixed +63; the services take 09XXXXXXXXX (TWCinc _local_mobile). */
@@ -81,7 +85,7 @@ function model(flow: Flow, step: CheckoutStep, over: Partial<CheckoutModel> = {}
 }
 
 function page(flow: Flow, m: CheckoutModel, status = 200): Response {
-  return htmlResponse(checkoutDocument(packContext(flow.site, flow.pack, flow.now), m), status);
+  return htmlResponse(checkoutDocument({ ...packContext(flow.site, flow.pack, flow.now), tracking: flow.tracking }, m), status);
 }
 
 function slide(response: Response, flow: Flow, value: string): Response {
@@ -146,6 +150,9 @@ function placeForm(flow: Flow, token: string, text: Record<string, string>, proo
   form.append("token", token);
   form.append("submit_key", key);
   for (const name of TRANSFER_FIELDS) form.append(name, text[name] ?? "");
+  /* The Meta identifiers (consent "1", _fbp, _fbc, user agent, page address) go only after Accept on a site with a
+     Pixel; Django reads them only with the consent, and builds Purchase and AddPaymentInfo from the order itself. */
+  for (const [name, value] of Object.entries(placeFields(flow.request, flow.site, flow.now))) form.append(name, value);
   if (proof) form.append("proof", proof, proof.name || "proof");
   return form;
 }

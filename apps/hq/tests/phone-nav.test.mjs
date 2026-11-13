@@ -8,7 +8,7 @@ import { open, settle, BASE } from "./page.mjs";
 import { status } from "./inbox-page.mjs";
 
 const PUB = new URL("../public/", import.meta.url).pathname;
-const SIGNED_IN = ["index.html", "finance.html", "inbox.html", "inbox-platform.html", "contacts.html", "bulk.html"];
+const SIGNED_IN = ["index.html", "finance.html", "finance-invoices.html", "finance-reconcile.html", "inbox.html", "inbox-platform.html", "contacts.html", "bulk.html"];
 
 test("every signed-in page has the avatar button, the sheet, its list, its name and its Sign out; the sign-in pages have none", () => {
   for (const f of SIGNED_IN) {

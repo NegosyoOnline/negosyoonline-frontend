@@ -115,3 +115,24 @@ test("a refusal also carries its own words and field errors; a success and an un
     assert.equal(JSON.stringify(res.fields), "{}");
   }
 });
+
+test("upload sends the form as it is: the cookie, no hand-set Content-Type, the same answer shape as call", async () => {
+  const form = new FormData();
+  form.append("invoice", "inv_one");
+  form.append("scan", new Blob(["x"], { type: "image/png" }), "scan.png");
+  const page = open(["hq.js"], { answers: () => [201, { scan: "sc_one", status: "uploaded" }] });
+  const res = await page.window.NOHq.upload("finance/invoices/upload/", form);
+  assert.equal(page.calls[0].url, BASE + "/finance/invoices/upload/");
+  assert.equal(page.calls[0].method, "POST");
+  assert.equal(page.calls[0].credentials, "include");
+  assert.equal(page.calls[0].headers, undefined);
+  assert.equal(page.calls[0].body, form);
+  assert.deepEqual([res.ok, res.status, res.code, res.data.scan], [true, 201, "", "sc_one"]);
+  const no = await client([409, { error: { code: "duplicate_scan", message: "Shown by nobody.", fields: { scan: ["x"] } } }]).upload("finance/invoices/upload/", form);
+  assert.deepEqual([no.ok, no.status, no.code, no.message], [false, 409, "duplicate_scan", "Shown by nobody."]);
+  assert.equal(JSON.stringify(no.data), "{}");
+  const off = await client("offline").upload("finance/invoices/upload/", form);
+  assert.deepEqual([off.ok, off.status, off.code], [false, 0, ""]);
+  const empty = await client([502]).upload("finance/invoices/upload/", form);
+  assert.deepEqual([empty.ok, empty.status, empty.code], [false, 502, ""]);
+});

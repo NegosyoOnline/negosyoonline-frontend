@@ -31,7 +31,7 @@ test("each entry has an icon that a screen reader skips", () => {
 });
 
 test("Finance is the current entry for every /finance/ address, and only for those", () => {
-  for (const at of ["/finance/", "/finance/usage/", "/finance/issuer/"]) {
+  for (const at of ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/"]) {
     const nav = menu(at);
     assert.equal(nav.children[1].getAttribute("aria-current"), "page", at);
     assert.equal(nav.children[0].hasAttribute("aria-current"), false, at);

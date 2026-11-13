@@ -75,10 +75,16 @@
             <dl class="fin-facts">
               <div><dt>Plan</dt><dd id="p-plan"></dd></div>
               <div><dt>Transfer date</dt><dd id="p-date"></dd></div>
+              <div><dt>Time of transfer</dt><dd id="p-time"></dd></div>
               <div><dt>Bank reference</dt><dd id="p-ref"></dd></div>
+              <div><dt>Sender name</dt><dd id="p-sender-name"></dd></div>
+              <div><dt>Sender bank</dt><dd id="p-sender-bank"></dd></div>
+              <div><dt>Sender account number</dt><dd id="p-sender-acct"></dd></div>
+              <div><dt>Amount the Subscriber typed</dt><dd id="p-sent-amount"></dd></div>
               <div><dt>Submitted</dt><dd id="p-submitted"></dd></div>
               <div><dt>Subscriber email</dt><dd id="p-email"></dd></div>
             </dl>
+            <p class="dash-copy is-rejected" id="p-mismatch" role="status" hidden></p>
             <p class="dash-copy" id="p-decided" hidden></p>
             <div class="fin-hist"><h3 id="history-h">History</h3><ol class="list" id="history" aria-labelledby="history-h"></ol></div>
             <div class="fin-row fin-cta" id="act" hidden>
@@ -116,7 +122,7 @@
     <div class="modal-head"><h2 id="mc-h">Confirm payment</h2><button type="button" class="icon-btn modal-x" id="confirm-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <p class="small" id="mc-sub"></p>
     <form class="form-card" id="confirm-form" novalidate>
-      <div class="field"><label for="amount">Amount received (PHP)</label><div class="fin-amt" id="amount-group"><span class="fin-amt-fix" aria-hidden="true">₱</span><input class="num" id="amount" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="0" aria-describedby="amount-err amount-hint"><span class="fin-amt-fix" aria-hidden="true">.00</span><span class="fin-amt-ruler" id="amount-ruler" aria-hidden="true"></span></div><p class="field-err" id="amount-err" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
+      <div class="field"><label for="amount">Amount received (PHP)</label><div class="fin-amt" id="amount-group"><span class="fin-amt-fix" aria-hidden="true">₱</span><input class="num" id="amount" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="0" aria-describedby="amount-err amount-hint"><span class="fin-amt-fix" aria-hidden="true">.00</span><span class="fin-amt-ruler" id="amount-ruler" aria-hidden="true"></span></div><p class="field-err" id="amount-err" role="alert" hidden></p><p class="hint" id="amount-hint">Type the amount that arrived in the bank account.</p></div>
       <p class="field-err" id="confirm-err" role="alert" hidden></p>
       <div class="fin-progress" id="confirm-bar" role="progressbar" aria-label="Confirming the payment" hidden><span></span></div>
       <button class="no-btn no-btn-primary fin-block" type="submit" id="confirm-go">Confirm payment</button>
@@ -147,6 +153,6 @@
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261111d"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
-<script src="/assets/js/finance.js?v=20261111h"></script>
+<script src="/assets/js/finance.js?v=20261113a"></script>
 </body>
 </html>

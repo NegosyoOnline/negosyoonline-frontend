@@ -1,0 +1,34 @@
+/* This storefront's own file, not one of the approved TWCinc files. Loaded after pack-select.css on the checkout:
+   (1) maps the dropdown's variables and the checkout field look onto it (TWCinc's pack-storefront.css did this for its own
+       twc- names; the dropdown here is the pk- copy the Membership Pack uses);
+   (2) Coach Ed's focus rule (2026-11-11): an input in focus gets a light-blue border and a 1px ring, never gold, never the
+       store accent;
+   (3) the "Cancel Order" / "Change address" control is a button in a form here (TWCinc had a link). */
+.sf-checkout-page {
+  --pk-tint: var(--border);
+  --pk-content-blue: var(--green);
+  --pk-charcoal: var(--text);
+  --pk-muted: var(--text-light);
+  --pk-ice: #F2FAF5;
+  --shadow-card: var(--shadow-hover);
+}
+.sf-field .pk-select { flex: 1; }
+.sf-field .set-lbl { display: block !important; }
+.sf-field .pk-select-label { display: none; }
+.sf-field .pk-select-box { padding: 13px 40px 13px 14px; border-radius: 10px; }
+.sf-field .pk-select-input { border: 0; border-radius: 0; padding: 0; background: transparent; width: auto; font-size: 15px; }
+.pk-select.sf-field-invalid .pk-select-box { border-color: #C0392B; }
+.pk-select-box .sf-field-check { right: 38px; }
+.pk-select-box.sf-field-ok { border-color: var(--green); }
+.sf-field-country .pk-select.is-disabled .pk-select-box { opacity: 1; cursor: default; }
+.sf-field-country .pk-select-input { color: var(--text); }
+
+.sf-checkout-page .sf-field input:focus, .sf-checkout-page .sf-field select:focus,
+.sf-checkout-page .sf-field input:focus-visible, .sf-checkout-page .pk-select-box:focus-within {
+  outline: none; border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF;
+}
+.sf-checkout-page .sf-phone-combo:focus-within { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
+.sf-checkout-page .sf-phone-combo input:focus, .sf-checkout-page .sf-phone-combo input:focus-visible { outline: none; box-shadow: none; border-color: transparent; }
+
+.sf-edit-address { margin: 0; }
+button.sf-cancel-order-link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }

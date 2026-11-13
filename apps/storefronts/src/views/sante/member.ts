@@ -128,7 +128,7 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     </ul>
     <div class="pdn-actions">
       <a href="/dashboard/sign-in/?next=orders" class="pdn-track">Track Order</a>
-      <a href="/products/" class="pdn-cart" aria-label="Basket">
+      <a href="/cart/" class="pdn-cart" aria-label="Basket">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       </a>
       <a href="/dashboard/sign-in/" class="pdn-login">Login</a>
@@ -281,8 +281,8 @@ ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>
 ${nextField(m.next)}
 <div class="fld">
 <label for="contact">Email or mobile number</label>
-<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><input id="contact" class="sc-phone-input" type="text" name="contact" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required${m.field_errors.contact ? safe(' aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
-${m.field_errors.contact ? html`<p class="err" id="contact-msg">${m.field_errors.contact}</p>` : ""}
+<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><input id="contact" class="sc-phone-input" type="text" name="contact" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required${m.field_errors.contact ? safe(' autofocus aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
+${m.field_errors.contact ? html`<p class="err" id="contact-msg" role="alert">${m.field_errors.contact}</p>` : ""}
 </div>
 <button class="btn" type="submit" data-pp-busy-label="Sending OTP&hellip;">Send Verification Code</button>
 </form>

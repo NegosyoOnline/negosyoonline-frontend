@@ -31,6 +31,20 @@ test("Add posts the name and puts the answer in the list; the sentence for a nam
   assert.equal(p.node["g-err"].textContent, "A group with that name already exists.");
 });
 
+test("the group error clears when the name is typed, and an empty name marks the field and takes the focus", async () => {
+  const p = await g();
+  p.node["g-form"].fire("submit");
+  await settle();
+  assert.equal(p.node["g-err"].textContent, "Enter a name for the group.");
+  assert.equal(p.node["g-name"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.node["g-name"].getAttribute("aria-describedby"), "g-err");
+  assert.equal(p.doc.activeElement, p.node["g-name"]);
+  p.node["g-name"].value = "A";
+  p.node["g-name"].fire("input");
+  assert.equal(p.node["g-err"].hidden, true);
+  assert.equal(p.node["g-name"].hasAttribute("aria-invalid"), false);
+});
+
 test("Rename turns the row into a field; Save posts the id from memory; Escape and the X post nothing", async () => {
   const p = await g();
   const row = () => p.node["g-rows"].children[0];

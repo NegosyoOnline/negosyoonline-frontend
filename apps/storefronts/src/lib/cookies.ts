@@ -5,6 +5,8 @@
    no_member       the signed-in session, 30 days, fixed: use never extends it
    no_member_pre   the sign-in attempt's binding, 600 seconds: a code is good only in the browser it was asked from
    no_checkout     the checkout token, 2 hours, sliding (set by the checkout slice; the name and lifetime live here)
+   no_cart         the shop basket: product id and quantity only ("id.qty~id.qty"), 7 days, sliding (src/lib/shop-cart.ts)
+   no_order        the placing buyer's key to the order-done page ("orderid.token"), 2 hours (src/lib/shop-flow.ts)
 
    The raw value goes to Django as data, which stores only its SHA-256. Reading is by exact name: a name that
    arrives twice is refused (a sibling host could have set the second), and so is a value of the wrong shape. */
@@ -14,9 +16,14 @@ export const MEMBER = "no_member";
 export const MEMBER_PRE = "no_member_pre";
 export const CHECKOUT = "no_checkout";
 
+export const CART = "no_cart";
+export const ORDER = "no_order";
+
 export const MEMBER_MAX_AGE = 30 * 24 * 3600;
 export const MEMBER_PRE_MAX_AGE = 600;
 export const CHECKOUT_MAX_AGE = 2 * 3600;
+export const CART_MAX_AGE = 7 * 24 * 3600;
+export const ORDER_MAX_AGE = 2 * 3600;
 
 const VALUE = /^[A-Za-z0-9_-]{16,200}$/; // what Django accepts as a binding, and what the tokens look like
 
@@ -37,6 +44,11 @@ export function cookieName(base: string, secure: boolean): string {
 
 /** The value of the one cookie with exactly this name, or "" for none, a duplicate or a malformed value. */
 export function readCookie(header: string | null, name: string): string {
+  return readCookieShaped(header, name, VALUE);
+}
+
+/** The same exact-name, once-only read, for a value of another shape (the basket and order cookies). */
+export function readCookieShaped(header: string | null, name: string, shape: RegExp): string {
   if (!header) return "";
   let found = "";
   let count = 0;
@@ -48,7 +60,7 @@ export function readCookie(header: string | null, name: string): string {
     found = part.slice(at + 1).trim();
   }
   if (count !== 1) return "";
-  return VALUE.test(found) ? found : "";
+  return shape.test(found) ? found : "";
 }
 
 export function readMemberCookie(request: Request, base: string): string {

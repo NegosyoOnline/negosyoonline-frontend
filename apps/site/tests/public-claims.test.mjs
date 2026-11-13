@@ -9,6 +9,7 @@ const pages = {
   "assets/js/site.js": read("assets/js/site.js"),
   "terms.html": read("terms.html"),
   "cancellation-refund.html": read("cancellation-refund.html"),
+  "referral-terms.html": read("referral-terms.html"),
 };
 
 test("no per-order, video or Auto Courier Tracking pricing on the public pages", () => {
@@ -95,4 +96,32 @@ test("G1b: Santé site is what is available now, Shop is planned", () => {
   assert.doesNotMatch(html, /starts with the all-in-one Shop/);
   assert.doesNotMatch(html, /run by real business owners|id="real-stores"/);
   assert.doesNotMatch(pages["assets/js/site.js"], /NegosyoOnline Shop is currently available/);
+});
+
+test("Terms and Cancellation no longer tell every Subscriber to add a payment method (z8uq9mek5u)", () => {
+  for (const name of ["terms.html", "cancellation-refund.html"]) {
+    assert.doesNotMatch(pages[name], /add a payment method for that website/, name);
+    assert.doesNotMatch(pages[name], /add a valid payment method/, name);
+  }
+});
+
+test("no usage charge at launch (z8uq9memdk): usage-charge wording is gone from the public pages", () => {
+  for (const [name, text] of Object.entries(pages)) {
+    assert.doesNotMatch(text, /PHP 30\b/, `${name} still has PHP 30`);
+    assert.doesNotMatch(text, /added to your next monthly bill/i, `${name} still has the next-monthly-bill line`);
+    assert.doesNotMatch(text, /Final usage settlement/i, `${name} still has Final usage settlement`);
+    assert.doesNotMatch(text, /usage-only/i, `${name} still has usage-only`);
+  }
+  assert.match(pages["terms.html"], /No usage charge applies at this time\./);
+  assert.match(pages["index.html"], /No usage charge at this time/);
+});
+
+test("contrast: dark-gold text token on light backgrounds, 24px trial switch (z8uq9m7ydk)", () => {
+  const css = read("assets/css/site.css");
+  assert.match(css, /--gold-text:\s*#8A6513/);
+  assert.match(css, /\.eyebrow\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  assert.match(css, /\.rd-cmp-ghead \.rd-cmp-eyebrow\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  assert.match(css, /\.rd-sp-label \.rd-year\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  const m = css.match(/\.switch-mode \.link-inline\s*\{[^}]*min-height:\s*(\d+)px/);
+  assert.ok(m && Number(m[1]) >= 24, "#switch-mode needs min-height >= 24px");
 });

@@ -2,6 +2,7 @@
    (design 22.3). The page shows what the backend's answer leads to and checks no code itself. */
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { open, settle, BASE, refused } from "./page.mjs";
 
 const VIEWS = ["sign-in", "code", "verify", "paused", "down"];
@@ -149,6 +150,14 @@ test("someone already signed in who sends a form is taken where me/ says", async
   const p = await page("/sign-in/", { "GET me/": [SIGNED_OUT, SIGNED_IN], "POST sign-in/": [[409, refused("already_signed_in")]] });
   await p.submit("sign-in", "email", "a@b.co");
   assert.equal(p.location.replaced, "/");
+});
+
+test("only the error and status lines are live regions: not the whole main, so a view swap is not read out", async () => {
+  const html = fs.readFileSync(new URL("../public/auth.html", import.meta.url), "utf8");
+  assert.match(html, /<main class="auth-main" id="main">/);
+  assert.doesNotMatch(html, /aria-live/);
+  for (const id of ["email-err", "code-err", "second-err"]) assert.match(html, new RegExp('id="' + id + '" role="alert"'), id);
+  assert.match(html, /id="code-notice" hidden|role="status" id="code-notice"/);
 });
 
 test("the back button asks the backend again", async () => {

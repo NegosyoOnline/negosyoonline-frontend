@@ -270,7 +270,7 @@
      outside closes it. Labels reach the page through textContent only; hrefs come from this fixed list. */
   var QUICK_LINKS = [
     ["Overview", "", "/"], ["Orders", "", "/orders/"],
-    ["Account Settings", "Account", "/account/"],
+    ["Account Settings", "Account", "/account/"], ["Help Center", "Account", "/help/"],
     ["Business Settings", "Settings", "/settings/business/"], ["Billing", "Settings", "/settings/billing/"], ["Payments", "Settings", "/settings/payments/"]
   ];
   function quickSearch() {

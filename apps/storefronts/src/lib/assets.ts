@@ -7,8 +7,8 @@
    Only files a page links by name are listed. Images the stylesheets load (../img/...) are not. */
 
 const VERSIONS: Record<string, string> = {
-  "css/pack-home.css": "5ba10b0b",
-  "css/pack-storefront.css": "dc54b2a8",
+  "css/pack-home.css": "b95b223c",
+  "css/pack-storefront.css": "9fb8fdd2",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -17,7 +17,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
-  "css/pack-focus.css": "e2ba8248", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "2a7b1304", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
   "js/pack-busy.js": "cd6351f6",
@@ -27,6 +27,8 @@ const VERSIONS: Record<string, string> = {
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "80d50155",
   "css/pack-select.css": "096379bc",
+  "css/pack-shop.css": "bc0c601f", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
+  "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
   "img/bundle-1.webp": "79f1b43a",
   "img/bundle-2.webp": "7e5a838a",
@@ -64,6 +66,18 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.png": "c2362ffc",
   "img/blog_2.png": "559075d2",
   "img/blog_3.png": "ba6adeb3",
+  "img/category_barley.webp": "1913a511",
+  "img/category_drinks.webp": "6659b3a5",
+  "img/category_essential.webp": "032d1772",
+  "img/category_beauty.webp": "e50e284a",
+  "img/about_1.webp": "789fd579",
+  "img/about_2.webp": "eb05a0ce",
+  "img/about_3.webp": "07f4632f",
+  "img/about_4.webp": "a903b606",
+  "img/about_bg.webp": "6d5189a8",
+  "img/blog_1.webp": "99d5623c",
+  "img/blog_2.webp": "6870f46a",
+  "img/blog_3.webp": "cc22ea9b",
 };
 
 export const ASSET_BASE = "/assets/sante/";

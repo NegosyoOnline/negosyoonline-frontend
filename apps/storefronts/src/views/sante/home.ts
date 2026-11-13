@@ -10,7 +10,8 @@
    - "Email Us" shows the store's own contact email, and only when it has one, where the template
      printed one fixed support address for every store;
    - the contact form has no CSRF token field: a post carries no sign-in for one to protect;
-   - the basket drawer has no rows: no product page exists yet, so the basket is always empty;
+   - the basket drawer's rows come from the shop (src/views/sante/shop-shell.ts); a visitor with no basket sees it empty;
+   - the nav and footer are the functions storeNav and storeFooter, shared with the shop pages;
    - the "Send a Message" card carries id="contact-form", which the template does not have: the
      form posts to /contact/#contact-form so the answer opens at the card, with its note in view;
    - Subject Topic is a required field (Coach Ed, 2026-11-11): it sits in its own block with an
@@ -20,6 +21,105 @@
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { HomeModel } from "./model.ts";
+
+export function storeNav(v: HomeModel): Markup {
+  return html`
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="navbar-inner">
+  <a href="/" class="navbar-logo">
+    <img src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
+  </a>
+  <ul class="nav-links" id="sfNavLinks">
+    <li><a href="/">Home</a></li>
+    <li><a href="/#about">About</a></li>
+    <li><a href="/#faq">FAQ</a></li>
+    <li><a href="/#contact">Contact</a></li>
+    <li><a href="/products/">Shop</a></li>
+    <li class="nav-track-li"><a href="/dashboard/sign-in/?next=orders">Track Order</a></li>
+  </ul>
+  <div class="nav-actions">
+    <a href="/dashboard/sign-in/?next=orders" class="nav-track">Track Order</a>
+    <a href="/cart/" class="nav-cart" aria-label="Basket" data-sf-open-drawer>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span class="nav-cart-count" data-cart-count${!v.drawer.count ? html` hidden` : ""}>${v.drawer.count}</span>
+    </a>
+    ${v.signed_in ? html`<a href="/dashboard/" class="nav-cta">Dashboard</a>` : html`<a href="/dashboard/sign-in/" class="nav-cta">Login</a>`}
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-controls="sfNavLinks" aria-expanded="false" data-sf-nav-toggle>
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  </div>
+</nav>
+`;
+}
+
+export function storeFooter(v: HomeModel): Markup {
+  return html`
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div>
+        <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
+        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted for over two decades, present in 20+ countries.</p>
+        <div class="payment-row">
+          <span class="pay-badge">Bank Transfer</span>
+          <span class="pay-badge">E-wallet</span>
+        </div>
+      </div>
+      <div>
+        <div class="footer-col-title">Shop</div>
+        <ul class="footer-links">
+          <li><a href="/products/">Sant&eacute; Barley</a></li>
+          <li><a href="/products/">Sant&eacute; Special Drinks</a></li>
+          <li><a href="/products/">Sant&eacute; Essentials</a></li>
+          <li><a href="/products/">Sant&eacute; Beauty</a></li>
+          <li><a href="/products/">All Products</a></li>
+          <li><a href="/funnel/membership-pack/landing-page/">Sant&eacute; Membership Package</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Company</div>
+        <ul class="footer-links">
+          <li><a href="/#about">About Sant&eacute;</a></li>
+          <li><a href="/#about">Our Story</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Support</div>
+        <ul class="footer-links">
+          <li><a href="/#faq">FAQs</a></li>
+          <li><a href="/#contact">Contact Us</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Legal</div>
+        <ul class="footer-links">
+          ${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}
+        </ul>
+      </div>
+    </div>
+    ${v.biz.has_seal || v.biz.registered_name || v.biz.tin || v.biz.dti_business_number ? html`
+    <div class="footer-registration">
+      <ul class="footer-reg-list">
+        ${v.biz.registered_name ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V6l8-3 8 3v15M9 21v-5h6v5M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/></svg><div><span>Registered business</span>${v.biz.registered_name}</div></li>` : ""}
+        ${v.biz.dti_business_number ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5M5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 21h18M3 9h18"/></svg><div><span>DTI registration no.</span>${v.biz.dti_business_number}</div></li>` : ""}
+        ${v.biz.tin ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></svg><div><span>BIR tax ID no. (TIN)</span>${v.biz.tin}</div></li>` : ""}
+      </ul>
+      ${v.biz.has_seal ? html`<div class="footer-seal-box"><img class="footer-seal" src="/business-seal/" alt="BIR registered business seal" width="240" height="84"></div>` : ""}
+    </div>
+    ` : ""}
+    <div class="footer-bottom">
+      <div class="footer-meta">
+        <div class="footer-copyright">&#169; ${v.year} ${v.store_name}. All rights reserved.</div>
+        <div class="footer-disclaimer">Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.</div>
+      </div>
+    </div>
+  </div>
+</footer>
+`;
+}
 
 export function storeDrawer(v: HomeModel): Markup {
   return html`
@@ -40,7 +140,7 @@ export function storeDrawer(v: HomeModel): Markup {
   <div class="sf-drawer-body">
     ${v.drawer.error ? html`<p class="sf-quote-error" role="alert">${v.drawer.error}</p>` : ""}
     <div id="sfDrawerItems">
-      
+      ${v.drawer.rows ?? ""}
     </div>
     <div class="sf-drawer-empty" id="sfDrawerEmpty"${v.drawer.lines ? html` hidden` : ""}>
       <p>Your basket is empty.</p>
@@ -75,36 +175,12 @@ export function homeDocument(v: HomeModel): Markup {
   <link rel="stylesheet" href="${asset("css/pack-storefront.css")}">
 </head>
 <body>
+<a class="sf-skip" href="#main-content">Skip to content</a>
 ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE SHIPPING</strong> on all orders — for a limited time!</div>` : ""}
 
-<!-- NAVBAR -->
-<nav class="navbar">
-  <div class="navbar-inner">
-  <a href="/" class="navbar-logo">
-    <img src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
-  </a>
-  <ul class="nav-links" id="sfNavLinks">
-    <li><a href="/">Home</a></li>
-    <li><a href="/#about">About</a></li>
-    <li><a href="/#faq">FAQ</a></li>
-    <li><a href="/#contact">Contact</a></li>
-    <li><a href="/products/">Shop</a></li>
-    <li class="nav-track-li"><a href="/dashboard/sign-in/?next=orders">Track Order</a></li>
-  </ul>
-  <div class="nav-actions">
-    <a href="/dashboard/sign-in/?next=orders" class="nav-track">Track Order</a>
-    <a href="/cart/" class="nav-cart" aria-label="Basket" data-sf-open-drawer>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-      <span class="nav-cart-count" data-cart-count${!v.drawer.count ? html` hidden` : ""}>${v.drawer.count}</span>
-    </a>
-    ${v.signed_in ? html`<a href="/dashboard/" class="nav-cta">Dashboard</a>` : html`<a href="/dashboard/sign-in/" class="nav-cta">Login</a>`}
-    <button type="button" class="nav-toggle" aria-label="Menu" aria-controls="sfNavLinks" aria-expanded="false" data-sf-nav-toggle>
-      <span></span><span></span><span></span>
-    </button>
-  </div>
-  </div>
-</nav>
+${storeNav(v)}
 
+<main id="main-content" tabindex="-1">
 <div id="home"></div>
 
 <!-- HERO CAROUSEL -->
@@ -135,7 +211,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <div class="carousel-slide">
       <div class="hero-content">
         <div class="hero-badge">&#127807; Premium Organic Wellness</div>
-        <h1 class="hero-title">Your Trusted Daily <span>Wellness</span> Partner</h1>
+        <div class="hero-title">Your Trusted Daily <span>Wellness</span> Partner</div>
         <p class="hero-subtitle">Premium organic wellness products for Filipino families, busy professionals, and active individuals. Good health starts here.</p>
         <div class="hero-ctas">
           <a href="/products/" class="btn-white">Shop Sant&eacute; Products</a>
@@ -153,7 +229,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <div class="carousel-slide">
       <div class="hero-content">
         <div class="hero-badge">&#127806; From New Zealand's Farms</div>
-        <h1 class="hero-title">From New Zealand's Fields to Your <span>Daily Routine</span></h1>
+        <div class="hero-title">From New Zealand's Fields to Your <span>Daily Routine</span></div>
         <p class="hero-subtitle">Pure organic barley grass, harvested at its peak and delivered straight to your door. Wellness made simple.</p>
         <div class="hero-ctas">
           <a href="/products/" class="btn-white">Shop Sant&eacute; Products</a>
@@ -311,7 +387,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Barley &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_barley.png")}" alt="Sant&eacute; Barley, certified organic barley grass from New Zealand" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_barley.webp")}"><img class="cat-split-img" src="${asset("img/category_barley.png")}" alt="Sant&eacute; Barley, certified organic barley grass from New Zealand" loading="lazy"></picture>
       </div>
     </div>
 
@@ -331,7 +407,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
         <a href="/products/" class="cat-split-cta">Explore Special Drinks &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_drinks.png")}" alt="Sant&eacute; Special Drinks, wellness drinks for every day" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_drinks.webp")}"><img class="cat-split-img" src="${asset("img/category_drinks.png")}" alt="Sant&eacute; Special Drinks, wellness drinks for every day" loading="lazy"></picture>
       </div>
     </div>
 
@@ -351,7 +427,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Essentials &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_essential.png")}" alt="Sant&eacute; Essentials, everyday health support products" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_essential.webp")}"><img class="cat-split-img" src="${asset("img/category_essential.png")}" alt="Sant&eacute; Essentials, everyday health support products" loading="lazy"></picture>
       </div>
     </div>
 
@@ -371,7 +447,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
         <a href="/products/" class="cat-split-cta">Explore Sant&eacute; Beauty &#8594;</a>
       </div>
       <div class="cat-split-image">
-        <img class="cat-split-img" src="${asset("img/category_beauty.png")}" alt="Sant&eacute; Beauty, collagen and barley-powered beauty products" loading="lazy">
+        <picture><source type="image/webp" srcset="${asset("img/category_beauty.webp")}"><img class="cat-split-img" src="${asset("img/category_beauty.png")}" alt="Sant&eacute; Beauty, collagen and barley-powered beauty products" loading="lazy"></picture>
       </div>
     </div>
 
@@ -407,7 +483,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <!-- Panel 1: Our Story -->
     <div class="about-panel active" id="tab-our-story">
       <div class="about-panel-img">
-        <img src="${asset("img/about_1.png")}" alt="Our Story">
+        <picture><source type="image/webp" srcset="${asset("img/about_1.webp")}"><img src="${asset("img/about_1.png")}" alt="Our Story" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3>More Than a <span>Wellness Brand</span></h3>
@@ -419,7 +495,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <!-- Panel 2: Trusted Since 2007 -->
     <div class="about-panel" id="tab-trusted">
       <div class="about-panel-img">
-        <img src="${asset("img/about_2.png")}" alt="Trusted Since 2007">
+        <picture><source type="image/webp" srcset="${asset("img/about_2.webp")}"><img src="${asset("img/about_2.png")}" alt="Trusted Since 2007" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Trusted</span> Since 2007</h3>
@@ -431,7 +507,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <!-- Panel 3: Biogro New Zealand -->
     <div class="about-panel" id="tab-biogro">
       <div class="about-panel-img">
-        <img src="${asset("img/about_3.png")}" alt="Biogro New Zealand">
+        <picture><source type="image/webp" srcset="${asset("img/about_3.webp")}"><img src="${asset("img/about_3.png")}" alt="Biogro New Zealand" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Biogro</span> Certified Barley Source</h3>
@@ -443,7 +519,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
     <!-- Panel 4: Global Standard -->
     <div class="about-panel" id="tab-global">
       <div class="about-panel-img">
-        <img src="${asset("img/about_4.png")}" alt="Global Standard">
+        <picture><source type="image/webp" srcset="${asset("img/about_4.webp")}"><img src="${asset("img/about_4.png")}" alt="Global Standard" width="1549" height="1015" loading="lazy"></picture>
       </div>
       <div class="about-panel-body">
         <h3><span>Global</span> Standard, Local Impact</h3>
@@ -524,7 +600,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_1.png")}" alt="Morning Wellness Routine" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_1.webp")}"><img class="lookbook-bg" src="${asset("img/blog_1.png")}" alt="Morning Wellness Routine" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Morning Wellness Routine</div>
@@ -534,7 +610,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_2.png")}" alt="Workday Energy Support" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_2.webp")}"><img class="lookbook-bg" src="${asset("img/blog_2.png")}" alt="Workday Energy Support" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Workday Energy Support</div>
@@ -544,7 +620,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
 
       <div class="lookbook-card">
         <div class="lookbook-img-wrap">
-          <img class="lookbook-bg" src="${asset("img/blog_3.png")}" alt="Active Lifestyle Support" loading="lazy">
+          <picture><source type="image/webp" srcset="${asset("img/blog_3.webp")}"><img class="lookbook-bg" src="${asset("img/blog_3.png")}" alt="Active Lifestyle Support" loading="lazy"></picture>
         </div>
         <div class="lookbook-caption">
           <div class="lookbook-title">Active Lifestyle Support</div>
@@ -618,7 +694,7 @@ ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE 
           What payment methods do you accept?
           <span class="faq-icon">+</span>
         </div>
-        <div class="faq-a">We accept GCash, Maya, Visa, Mastercard, and bank transfer. Cash on Delivery may be available depending on your location.</div>
+        <div class="faq-a">We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.</div>
       </div>
 
     </div></div>
@@ -749,72 +825,9 @@ ${v.biz.contact_email ? html`          <div style="display: flex; align-items: f
   </div>
   <button class="sales-popup-close">&#x2715;</button>
 </div>
+</main>
 
-<!-- FOOTER -->
-<footer class="footer">
-  <div class="footer-inner">
-    <div class="footer-top">
-      <div>
-        <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
-        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted for over two decades, present in 20+ countries.</p>
-        <div class="payment-row">
-          <span class="pay-badge">GCash</span>
-          <span class="pay-badge">Maya</span>
-          <span class="pay-badge">Visa</span>
-          <span class="pay-badge">Mastercard</span>
-          <span class="pay-badge">Bank Transfer</span>
-        </div>
-      </div>
-      <div>
-        <div class="footer-col-title">Shop</div>
-        <ul class="footer-links">
-          <li><a href="/products/">Sant&eacute; Barley</a></li>
-          <li><a href="/products/">Sant&eacute; Special Drinks</a></li>
-          <li><a href="/products/">Sant&eacute; Essentials</a></li>
-          <li><a href="/products/">Sant&eacute; Beauty</a></li>
-          <li><a href="/products/">All Products</a></li>
-          <li><a href="/funnel/membership-pack/landing-page/">Sant&eacute; Membership Package</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Company</div>
-        <ul class="footer-links">
-          <li><a href="/#about">About Sant&eacute;</a></li>
-          <li><a href="/#about">Our Story</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Support</div>
-        <ul class="footer-links">
-          <li><a href="/#faq">FAQs</a></li>
-          <li><a href="/#contact">Contact Us</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Legal</div>
-        <ul class="footer-links">
-          ${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}
-        </ul>
-      </div>
-    </div>
-    ${v.biz.has_seal || v.biz.registered_name || v.biz.tin || v.biz.dti_business_number ? html`
-    <div class="footer-registration">
-      <ul class="footer-reg-list">
-        ${v.biz.registered_name ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V6l8-3 8 3v15M9 21v-5h6v5M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/></svg><div><span>Registered business</span>${v.biz.registered_name}</div></li>` : ""}
-        ${v.biz.dti_business_number ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5M5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 21h18M3 9h18"/></svg><div><span>DTI registration no.</span>${v.biz.dti_business_number}</div></li>` : ""}
-        ${v.biz.tin ? html`<li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v13H7zM14 3v5h5M10 13h6M10 17h6"/></svg><div><span>BIR tax ID no. (TIN)</span>${v.biz.tin}</div></li>` : ""}
-      </ul>
-      ${v.biz.has_seal ? html`<div class="footer-seal-box"><img class="footer-seal" src="/business-seal/" alt="BIR registered business seal" width="240" height="84"></div>` : ""}
-    </div>
-    ` : ""}
-    <div class="footer-bottom">
-      <div class="footer-meta">
-        <div class="footer-copyright">&#169; ${v.year} ${v.store_name}. All rights reserved.</div>
-        <div class="footer-disclaimer">Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.</div>
-      </div>
-    </div>
-  </div>
-</footer>
+${storeFooter(v)}
 ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>

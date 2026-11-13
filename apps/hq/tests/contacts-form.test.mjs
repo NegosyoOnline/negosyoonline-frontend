@@ -1,6 +1,7 @@
 /* contacts.js, one contact: open, edit, add, delete (plan 7, task 3). The number is in the form field only. */
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { settle } from "./page.mjs";
 import { page, R, ANA, BEN, FULL, err, byText, buttons, everything } from "./contacts-page.mjs";
 
@@ -85,6 +86,32 @@ test("only an empty first name or number is stopped in the page; nothing is sent
   assert.equal(p.node["c-first-err"].hidden, false);
   assert.equal(p.node["c-num-err"].hidden, false);
   assert.equal(p.sent(R.add).length, 0);
+});
+
+test("a bad field is marked aria-invalid, focus goes to the first one, typing clears it; the lines are alerts described by their fields", async () => {
+  const p = await page({}, { pathname: "/contacts/new/" });
+  await save(p);
+  assert.equal(p.node["c-first"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.node["c-num"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.doc.activeElement, p.node["c-first"]);
+  p.node["c-first"].value = "Ana";
+  p.node["c-first"].fire("input");
+  assert.equal(p.node["c-first-err"].hidden, true);
+  assert.equal(p.node["c-first"].hasAttribute("aria-invalid"), false);
+  await save(p);
+  assert.equal(p.doc.activeElement, p.node["c-num"]);
+  const html = fs.readFileSync(new URL("../public/contacts.html", import.meta.url), "utf8");
+  for (const id of ["c-first-err", "c-last-err", "c-num-err", "c-groups-err", "u-group-err"]) assert.match(html, new RegExp('id="' + id + '" role="alert"'), id);
+  assert.match(html, /id="c-first"[^>]*aria-describedby="c-first-err"/);
+  assert.match(html, /id="c-num"[^>]*aria-describedby="c-num-hint c-num-err"/);
+});
+
+test("a number the backend says is already a contact marks the number and takes the focus", async () => {
+  const p = await page({ [R.add]: [409, err("already_exists", "x", { contact: "cont_1" })] }, { pathname: "/contacts/new/" });
+  p.node["c-first"].value = "Ana"; p.node["c-num"].value = "0900 000 0101";
+  await save(p);
+  assert.equal(p.node["c-num"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.doc.activeElement, p.node["c-num"]);
 });
 
 test("invalid_request shows each field's message under that field; others go in the error box", async () => {

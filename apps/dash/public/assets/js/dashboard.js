@@ -3,16 +3,18 @@
    reads the clock. API strings reach the page through textContent, D.el or input.value only. */
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
-  var VIEWS = ["overview", "orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
+  var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
     "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
-  var TAB_VIEWS = ["overview", "orders", "orders-new", "products"]; /* every other view is reached through the mobile More sheet */
+  var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
      names and page scripts stay in the code; to bring a page back, add its line here and its link to index.html. */
   var ROUTES = {
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
     "/orders/": { view: "orders", title: "Orders | NegosyoOnline" },
+    "/orders/products/": { view: "shop-orders", nav: "orders", title: "Product Orders | NegosyoOnline" }, /* Orders > Product Orders (z8uq9mekuw); nav: the menu link that stays current */
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
+    "/help/": { view: "help", title: "Help Center | NegosyoOnline" }, /* back for launch (z8uq9mekvc): six articles, reached from the profile menu */
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
@@ -51,8 +53,9 @@
     /* A known path keeps its query string (the Billing page reads ?site= and ?setup=); an unknown path resets to "/". */
     if (typeof history !== "undefined" && history.replaceState && (!known || location.pathname !== p)) { try { history.replaceState(null, "", known ? p + location.search : "/"); } catch (e) { /* ignore */ } }
     VIEWS.forEach(function (v) { $("view-" + v).hidden = v !== r.view; });
+    if (r.view === "help" && window.NOHelp) window.NOHelp.toAnchor(); /* a fresh load on /help/#help-x: help.js ran its own scroll while this view was still hidden */
     Array.prototype.forEach.call(document.querySelectorAll("#side [data-route], #tabs [data-route], #set-tabs [data-route]"), function (a) {
-      if (a.getAttribute("data-route") === r.view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      if (a.getAttribute("data-route") === (r.nav || r.view)) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
     var more = $("tab-more");
     if (more) { if (TAB_VIEWS.indexOf(r.view) < 0) more.setAttribute("aria-current", "page"); else more.removeAttribute("aria-current"); }
@@ -69,6 +72,9 @@
     var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
     if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
     if (PO && r.view === "orders" && shownView !== "orders") PO.show();
+    var SO = window.NOShopOrders; /* shop-orders.js loads after this file; same enter/leave hooks as Orders */
+    if (SO && shownView === "shop-orders" && r.view !== "shop-orders") SO.hide();
+    if (SO && r.view === "shop-orders" && shownView !== "shop-orders") SO.show();
     var G = window.NOBusiness; /* business.js loads after this file; same enter/leave hooks as Billing */
     if (G && shownView === "settings-general" && r.view !== "settings-general") G.hide();
     if (G && r.view === "settings-general" && shownView !== "settings-general") G.show();
@@ -93,6 +99,10 @@
     var href = a ? a.getAttribute("href") : null;
     if (!href || !has(ROUTES, href) || (a.target && a.target !== "_self")) return;
     e.preventDefault();
+    go(href, a);
+  }
+  /* Moves to a known dashboard path with the History API. */
+  function go(href) {
     /* Moving between Settings tabs keeps ?site= so General, Billing and Payments stay on the same store. */
     var store = /[?&]site=site_[0-9a-z]{20}/.exec(location.search), keep = store && href.indexOf("/settings/") === 0 && currentPath().indexOf("/settings/") === 0;
     if (href !== currentPath() && typeof history !== "undefined" && history.pushState) history.pushState(null, "", keep ? href + "?" + store[0].slice(1) : href);
@@ -533,6 +543,7 @@
   var SUPPORT_EMAIL = "support@negosyoonline.com";
   var CHECK_DELAY_MS = 600; /* the live check waits for a pause in typing; well inside the 60 per 10 minutes throttle */
   var NAME_ERR = "Use 1 to 80 characters.";
+  var ADDR_ERR = "Enter a web address.";
   var BIZ_ERR = "Enter your business name.";
   var EMAIL_ERR = "Enter your email address.";
   var MOBILE_ERR = "Enter your mobile number.";
@@ -1089,6 +1100,7 @@
     s.appendChild(later);
     OB.lastChecked = ""; OB.lastResult = null;
     wireLiveCheck(addr);
+    name.input.addEventListener("input", function () { if (!name.msg.hidden && !siteNameError(name.input.value)) setFieldError(name, ""); }); /* the message goes once the value is fixed (z8uq9men7r L3) */
     form.addEventListener("submit", function (ev) { ev.preventDefault(); onCreate(name, addr, btn, alertSlot); });
     if (focus) $("ob-h-site").focus();
   }
@@ -1116,8 +1128,13 @@
     if (OB.busy) return;
     alertSlot.textContent = "";
     setFieldError(name, "");
-    var nameErr = siteNameError(name.input.value);
-    if (nameErr) { setFieldError(name, nameErr); name.input.focus(); return; }
+    var nameErr = siteNameError(name.input.value), addrBlank = !addr.input.value.trim();
+    if (nameErr || addrBlank) { /* both blank fields are flagged together; focus goes to the first one (z8uq9men7r L3) */
+      if (nameErr) setFieldError(name, nameErr);
+      if (addrBlank) { if (OB.timer) { clearTimeout(OB.timer); OB.timer = null; } OB.seq++; OB.lastChecked = ""; OB.lastResult = null; setAddress(addr, { kind: "error", text: ADDR_ERR }); }
+      (nameErr ? name : addr).input.focus();
+      return;
+    }
     if (OB.timer) { clearTimeout(OB.timer); OB.timer = null; }
     OB.seq++;  /* no live check fires or lands after Create (audit r3 PLAN-10) */
     OB.busy = true; btn.disabled = true; btn.textContent = "Creating your site…";
@@ -1307,6 +1324,14 @@
       route(true);
       window.addEventListener("popstate", function () { route(false); });
       document.addEventListener("click", onLinkClick);
+      /* pack-orders.js owns the clicks of every link in the Package Order tab bar and cancels them. Product Orders is a page of
+         its own, so its link is taken here, in the capture phase, before that handler sees the click. */
+      var otabs = $("orders-tabs");
+      if (otabs) otabs.addEventListener("click", function (e) {
+        var a = e.target && e.target.closest ? e.target.closest("a[data-tab]") : null;
+        if (!a || a.getAttribute("data-tab") !== "product" || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.stopPropagation(); e.preventDefault(); go("/orders/products/");
+      }, true);
       load();
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();

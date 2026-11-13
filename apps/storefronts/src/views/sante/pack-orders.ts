@@ -3,6 +3,8 @@
    names and order are the templates'. Money arrives formatted from the backend. Dates are Manila's, as TWCinc's. */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { HomeSummary, OrderCard, OrderMonitor } from "../../lib/pack-api.ts";
+import type { BuyerOrder } from "../../lib/shop-api.ts";
+import { money } from "./shop-shell.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "M j, Y" (Nov 12, 2026), or "M j" without the year, in Manila time; "" for an unreadable date. */
@@ -61,7 +63,7 @@ export function viewAllLink(): Markup {
   return html`<p class="sf-dash-all"><a href="/dashboard/orders/">View all orders</a></p>`;
 }
 
-function card(c: OrderCard): Markup {
+function card(c: OrderCard, i = 0): Markup {
   const tail = c.problem
     ? html`<div class="oc-problem-banner">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -101,8 +103,8 @@ function card(c: OrderCard): Markup {
       ${m.act ? html`<a href="/dashboard/" class="oc-member-link">Review your details &rarr;</a>` : ""}
     </div>
   </div>` : ""}
-  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false">View Details &rarr;</button></div>
-  <div class="oc-detail" hidden>
+  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-p${i}">View Details &rarr;</button></div>
+  <div class="oc-detail" id="oc-detail-p${i}" hidden>
     <div class="oc-dgrid">
       <div class="oc-dcard">
         <div class="oc-dcard-head"><span class="oc-dcard-ic ic-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg></span><span class="oc-dcard-htxt">Waybill</span></div>
@@ -125,7 +127,61 @@ function card(c: OrderCard): Markup {
 </div>`;
 }
 
-export function ordersContent(memberName: string, cards: OrderCard[]): Markup {
+const SHOP_TRACK = ["placed", "confirmed", "shipped", "delivered"] as const;
+
+/** A shop order as a card beside the pack's (TWCinc _store_order_card.html over the pack card's look): the buyer's four-step tracker,
+    "This order was cancelled." for a cancelled one, the courier line and the details. Django's buyer view is the source of every word. */
+export function shopCard(o: BuyerOrder, i = 0): Markup {
+  const at = SHOP_TRACK.indexOf(o.status as (typeof SHOP_TRACK)[number]);
+  const names = o.tracker.length === 4 ? o.tracker : ["Order Placed", "Order Confirmed", "Shipped", "Delivered"];
+  const dates = [o.created_at, "", o.shipped_on, o.delivered_on];
+  const headline = o.lines.map((l) => `${l.quantity} × ${l.name || "Product"}`).join(", ");
+  const chip = o.cancelled ? "sf-status-expired" : o.status === "placed" ? "" : "sf-status-approved";
+  const a = o.delivery_address;
+  const tail = o.cancelled
+    ? html`<div class="oc-problem-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>${o.status_label} Contact the store with this order number if you have questions.</p></div>`
+    : html`<div class="oc-track">
+    ${names.map((label, i) => {
+      const state = i < at || (at === 3 && i === 3) ? "done" : i === at ? "current" : "todo";
+      return html`<div class="oc-track-step is-${state}">
+      <div class="oc-track-dot">${state === "done" ? html`&#10003;` : state === "current" ? html`<span class="oc-track-pip"></span>` : i + 1}</div>
+      <div class="oc-track-label">${label}</div>
+      ${state !== "todo" && dates[i] && shortDate(dates[i], false) ? html`<div class="oc-track-date">${shortDate(dates[i], false)}</div>` : ""}
+    </div>`;
+    })}
+  </div>
+  ${o.courier || o.tracking_no ? html`<div class="oc-courier">${o.courier ? html`Shipping via <strong>${o.courier}</strong>` : ""}${o.tracking_no ? html`${o.courier ? html` &middot; ` : ""}Tracking# ${o.tracking_no}` : ""}</div>` : ""}`;
+  return html`<div class="oc-card${o.cancelled ? " problem" : ""}">
+  <div class="oc-top">
+    <div><div class="oc-ref">${o.order_number}</div><div class="oc-date">Placed ${shortDate(o.created_at)}</div></div>
+    <div class="oc-total"><span>Total &middot; ${o.cancelled ? "Cancelled" : o.status_label}</span>&#8369;${money(o.total_centavos)}</div>
+  </div>
+  <div class="oc-body">
+    <div class="oc-items-text"><strong>${headline}</strong></div>
+    <span class="sf-status-chip ${chip}">${o.cancelled ? "Cancelled" : o.status_label}</span>
+  </div>
+  ${tail}
+  <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-s${i}">View Details &rarr;</button></div>
+  <div class="oc-detail" id="oc-detail-s${i}" hidden>
+    <div class="oc-dgrid">
+      <div class="oc-dcard">
+        <div class="oc-dcard-head"><span class="oc-dcard-htxt">Items &middot; ${o.lines.reduce((n, l) => n + l.quantity, 0)}</span></div>
+        ${o.lines.map((l) => html`<div class="oc-ditem"><span class="oc-dqty">&times;${l.quantity}</span><span class="oc-diname">${l.name || "Product"}</span></div>`)}
+        <div class="oc-drow"><span>Shipping</span><b>${o.shipping_charged_centavos === 0 ? "FREE" : html`&#8369;${money(o.shipping_charged_centavos)}`}</b></div>
+      </div>
+      ${a.line ? html`<div class="oc-dcard">
+        <div class="oc-dcard-head"><span class="oc-dcard-htxt">Deliver to</span></div>
+        <div class="oc-dname">${o.receiver_name}</div>
+        <div class="oc-daddr">${[a.line, a.barangay, a.city, a.province].filter(Boolean).join(", ")}${a.zip ? ` ${a.zip}` : ""}</div>
+      </div>` : ""}
+    </div>
+  </div>
+</div>`;
+}
+
+export function ordersContent(memberName: string, cards: OrderCard[], shop: BuyerOrder[] = []): Markup {
+  // Package and shop cards share one list, newest first
+  const all = [...cards.map((c, i) => ({ at: Date.parse(c.created_at) || 0, view: card(c, i) })), ...shop.map((o, i) => ({ at: Date.parse(o.created_at) || 0, view: shopCard(o, i) }))].sort((x, y) => y.at - x.at);
   return html`<div class="pd" id="pp-dash-orders">
 <div class="acct-hero">
   <div class="acct-hero-id">
@@ -136,7 +192,7 @@ export function ordersContent(memberName: string, cards: OrderCard[]): Markup {
     </div>
   </div>
 </div>
-${cards.length ? html`<div class="oc-list">${cards.map(card)}</div>` : html`<div class="sf-empty"><p>No orders on your dashboard yet.</p></div>`}
+${all.length ? html`<div class="oc-list">${all.map((x) => x.view)}</div>` : html`<div class="sf-empty"><p>No orders on your dashboard yet.</p></div>`}
 <div class="sf-dash-foot"><p>Need help? Contact the store with your order number.</p></div>
 </div>`;
 }

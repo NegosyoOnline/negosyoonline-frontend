@@ -137,3 +137,21 @@ test("the dead verify-email and social flows are gone", () => {
     assert.ok(!fs.existsSync(new URL("../public/" + file, import.meta.url)), file);
   }
 });
+
+/* ---- Change email and Edit name: errors announced, nothing blank sent (ClickUp z8uq9men7r, L2 and L4) ---- */
+test("the change-email code must be exactly six digits before it is sent", () => {
+  assert.equal(U.codeComplete("123456"), true);
+  assert.equal(U.codeComplete(" 123456 "), true);
+  for (const v of ["", "   ", "12345", "1234567", "12a456", null, undefined]) assert.equal(U.codeComplete(v), false, String(v));
+});
+
+test("field errors are announced, the email box is capped at 254, and a blank name or short code is stopped before the request", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const between = (from, to) => src.slice(src.indexOf(from), src.indexOf(to));
+  assert.ok(src.includes('id: o.id + "-err", role: "alert"'), "every field error, #acct-email-code-err included, is role=alert");
+  assert.ok(src.includes('input.setAttribute("maxlength", "254")'), "the new-email field is capped at 254");
+  const email = between("function emailStep2(", "function cooldownRefused(");
+  assert.ok(email.indexOf("codeComplete(code.input.value)") > 0 && email.indexOf("codeComplete(code.input.value)") < email.indexOf('"/account/email/confirm/"'), "the code is checked before the confirm request");
+  const name = between("function editName(", "/* ---- sign out other devices");
+  assert.ok(name.indexOf("NAME_BLANK") > 0 && name.indexOf("NAME_BLANK") < name.indexOf('D.call("PATCH"'), "a blank name is stopped before the PATCH");
+});

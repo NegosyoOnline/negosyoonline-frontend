@@ -13,6 +13,10 @@ Vercel frontend workspace with separate applications for the public site, subscr
 
 Vercel linkage and environment variables are intentionally deferred until the corresponding deployment setup is approved.
 
+## CI and release
+
+Frontend CI runs on pull requests and, through `promote-production`, on the tagged commit; it no longer runs on push to `main`. Promote now builds on the tag: pushing a `v*` tag runs all four apps before production moves.
+
 ## Storefronts staging domains
 
 `negosyoonline-storefronts` has Vercel "Auto-assign Custom Domains" on, so each deploy from `main` is aliased to the project's attached domains. The `*.storefronts-staging.negosyonline.com` wildcard has a valid certificate, so any subdomain resolves without being attached individually. This relies on Vercel DNS being enabled for `negosyonline.com` and the `_acme-challenge.storefronts-staging` NS delegation to Vercel in Cloudflare; the production wildcard needs the same setup before launch.

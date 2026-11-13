@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 concurrency:
   group: promote-production
@@ -26,17 +25,17 @@ jobs:
         run: |
           git fetch origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      - name: Require a passing CI run for the tagged commit
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          passed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "Frontend CI" \
-            --commit "$GITHUB_SHA" --status success --json databaseId --jq 'length')
-          test "$passed" -ge 1
+
+  ci:
+    # Runs the full Frontend CI suite once on the tagged commit (no push-to-main CI).
+    name: Frontend CI on tagged commit
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
 
   promote:
     name: Fast-forward production branch
-    needs: verify
+    needs: [verify, ci]
     runs-on: ubuntu-24.04
     environment: production
     steps:

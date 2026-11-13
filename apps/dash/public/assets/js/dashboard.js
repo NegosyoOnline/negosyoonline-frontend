@@ -12,6 +12,7 @@
   var ROUTES = {
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
     "/orders/": { view: "orders", title: "Orders | NegosyoOnline" },
+    "/products/": { view: "products", title: "Products | NegosyoOnline" }, /* back for launch (z8uq9mek5w): the shared Santé catalog */
     "/orders/products/": { view: "shop-orders", nav: "orders", title: "Product Orders | NegosyoOnline" }, /* Orders > Product Orders (z8uq9mekuw); nav: the menu link that stays current */
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
     "/help/": { view: "help", title: "Help Center | NegosyoOnline" }, /* back for launch (z8uq9mekvc): six articles, reached from the profile menu */
@@ -75,6 +76,9 @@
     var SO = window.NOShopOrders; /* shop-orders.js loads after this file; same enter/leave hooks as Orders */
     if (SO && shownView === "shop-orders" && r.view !== "shop-orders") SO.hide();
     if (SO && r.view === "shop-orders" && shownView !== "shop-orders") SO.show();
+    var PR = window.NOProducts; /* products.js loads after this file; same enter/leave hooks as Orders */
+    if (PR && shownView === "products" && r.view !== "products") PR.hide();
+    if (PR && r.view === "products" && shownView !== "products") PR.show();
     var G = window.NOBusiness; /* business.js loads after this file; same enter/leave hooks as Billing */
     if (G && shownView === "settings-general" && r.view !== "settings-general") G.hide();
     if (G && r.view === "settings-general" && shownView !== "settings-general") G.show();
@@ -1265,7 +1269,7 @@
   }
   var OPTIONAL = [
     ["Add your socials", "Links to your social media pages", "/settings/business/"],
-    ["See your Santé products", "The Santé catalog your site sells", ""],
+    ["See your Santé products", "The Santé catalog your site sells", "/products/"],
     ["Set up Billing", "Your plan and payment method", "/settings/billing/"],
     ["Your own domain", "Use a .com address for your site", ""],
     ["Launch checklist", "See what's left before you go live", ""]

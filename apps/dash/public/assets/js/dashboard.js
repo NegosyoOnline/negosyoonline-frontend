@@ -13,6 +13,7 @@
     "/": { view: "overview", title: "Dashboard | NegosyoOnline" },
     "/orders/": { view: "orders", title: "Orders | NegosyoOnline" },
     "/account/": { view: "account", title: "Account Settings | NegosyoOnline" },
+    "/help/": { view: "help", title: "Help Center | NegosyoOnline" }, /* back for launch (z8uq9mekvc): six articles, reached from the profile menu */
     "/settings/business/": { view: "settings-general", title: "Business Settings | NegosyoOnline" },
     "/settings/general/": { view: "settings-general", title: "Business Settings | NegosyoOnline" }, /* the old address still opens the page (Phase 5 D9) */
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },

@@ -1,0 +1,55 @@
+/* Help Center (ClickUp z8uq9mekvc): the five articles on /help/ are in the page, each reachable from the index, and the
+   "not available yet" placeholder is gone. The articles are static HTML, so the markup is what is read. */
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+const HTML = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+const DASH = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
+const CSS = fs.readFileSync(new URL("../public/assets/css/help.css", import.meta.url), "utf8");
+const JS = fs.readFileSync(new URL("../public/assets/js/help.js", import.meta.url), "utf8");
+const VIEW = HTML.slice(HTML.indexOf('<section class="view" id="view-help"'), HTML.indexOf('<section class="view" id="view-referral"'));
+const ARTICLES = ["help-store", "help-sante", "help-payments", "help-orders", "help-support"];
+const text = (h) => h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+test("the Help Center view has every article and an index link to each", () => {
+  assert.ok(VIEW.length > 500, "the view is found");
+  for (const id of ARTICLES) {
+    assert.equal((VIEW.match(new RegExp('<article [^>]*id="' + id + '"', "g")) || []).length, 1, id + " is in the view once");
+    assert.ok(VIEW.includes('<a href="#' + id + '">'), id + " is linked from the index");
+    assert.ok(VIEW.includes('id="h-' + id + '"'), id + " has its heading");
+  }
+  assert.equal((VIEW.match(/<article /g) || []).length, ARTICLES.length, "no other article is on the page");
+});
+
+test("the placeholder is gone and no title is focusable", () => {
+  assert.ok(!/not available yet/i.test(VIEW));
+  assert.ok(!/ph-card|chip-neutral|Help Center is not available/.test(VIEW));
+  assert.ok(!/<h2[^>]*tabindex/.test(VIEW), "card titles are never focusable");
+  assert.ok(!/gold/i.test(CSS) && !/--focus\b/.test(CSS), "focus is not the gold token");
+  assert.ok(/:focus-visible \{ outline: 2px solid var\(--link\)/.test(CSS));
+});
+
+test("the page is reachable: /help/ is in ROUTES and the profile menu, and the old route is not hidden", () => {
+  assert.ok(DASH.slice(DASH.indexOf("var ROUTES = {")).includes('"/help/": { view: "help"'));
+  assert.ok(/<a class="menu-row menu-link" role="menuitem" href="\/help\/"/.test(HTML));
+});
+
+test("the support article states the published periods and contacts, and nothing after launch", () => {
+  const t = text(VIEW.slice(VIEW.indexOf('id="help-support"')));
+  for (const s of ["support@negosyoonline.com", "+63 917 309 8619", "within 1 business day", "within 7 business days", "30 calendar days", "90 calendar days"]) assert.ok(t.includes(s), s);
+  const all = text(VIEW);
+  for (const bad of ["J&T", "Track Order", "Xendit", "own domain", "self-service", "ticket"]) assert.ok(!all.includes(bad), bad + " is not mentioned");
+});
+
+test("site links take their host from the config and fall back to plain text", () => {
+  const run = (siteUrl) => {
+    const a = { attrs: { "data-site-path": "/terms#complaints", href: "#" }, getAttribute(k) { return this.attrs[k]; }, setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; } };
+    const window = { NODash: { cfg: { siteUrl } }, addEventListener() {} };
+    const document = { querySelectorAll: () => [a], getElementById: () => ({ hidden: true }) };
+    new Function("window", "document", "location", JS)(window, document, { hash: "" });
+    return a.attrs;
+  };
+  assert.equal(run("https://www-staging.negosyonline.com/").href, "https://www-staging.negosyonline.com/terms#complaints");
+  assert.equal(run("").href, undefined);
+});

@@ -459,7 +459,9 @@ test("Santé setup is no longer a page: no view, tab, tile, quick link or styles
   assert.ok(!HTML.includes("view-settings-sante") && !HTML.includes("h-settings-sante"));
   for (const id of ["st-site-line", "st-root", "st-live"]) assert.ok(!HTML.includes('id="' + id + '"'), id);
   assert.ok(!/href="\/settings\/sante\/"/.test(HTML), "no link to the old address");
-  assert.ok(!HTML.includes("data-sante") && !HTML.includes("Santé setup"));
+  /* The Help Center article about Santé setup (z8uq9mekvc) is text on /help/, not an entry: it is left out of this check. */
+  const NOHELP = HTML.replace(/<section class="view" id="view-help"[\s\S]*?<section class="view" id="view-referral"/, "");
+  assert.ok(!HTML.includes("data-sante") && !NOHELP.includes("Santé setup"));
   assert.ok(!/sante/i.test(app), "app.js has no Santé quick link and no Santé switch");
   assert.ok(!/sante/i.test(CSS), "no style rule names the old page");
   assert.ok(!/st-card|st-h-sponsor|st-row/.test(CSS) && !SRC.includes("st-card") && !SRC.includes("dash-card"), "nothing left of the separate card");

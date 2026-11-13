@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="/assets/css/storefront-settings.css?v=20261103ss1">
 <link rel="stylesheet" href="/assets/css/earnings.css?v=20261106e8a">
 <link rel="stylesheet" href="/assets/css/pack-orders.css?v=20261112po1">
+<link rel="stylesheet" href="/assets/css/help.css?v=20261113hc1">
 <noscript><style>#boot{display:none!important}</style></noscript>
 </head>
 <body class="dash dash-app">
@@ -47,6 +48,7 @@
         <div class="menu-head"><span class="menu-ini" data-acct-initials aria-hidden="true"></span><span class="menu-info"><span class="menu-name" data-acct-name></span><span class="menu-email" data-acct-email></span></span><span class="chip" data-acct-chip></span></div>
         <div class="menu-div"></div>
         <a class="menu-row menu-link" role="menuitem" href="/account/" data-menu-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>Account Settings</a>
+        <a class="menu-row menu-link" role="menuitem" href="/help/" data-menu-link><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg>Help Center</a>
         <div class="menu-div"></div>
         <div class="menu-actions"><button type="button" class="menu-row" data-theme-toggle><span class="menu-ico" data-ico="sun" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="menu-ico" data-ico="moon" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span><span data-theme-label>Light theme</span></button><button type="button" class="menu-row menu-out" data-signout><span>Sign out</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0"/></svg></button></div>
       </div>
@@ -170,14 +172,96 @@
         <div id="acct-body"></div>
       </section>
       <section class="view" id="view-help" aria-labelledby="h-help" hidden>
-        <header class="view-head"><p class="dash-eyebrow">Help Center</p><h1 id="h-help" tabindex="-1">Help Center</h1></header>
-        <section class="dash-card ph-card" aria-labelledby="h-help-ph">
-          <span class="icon-tile" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg></span>
-          <span class="chip chip-neutral">Not available yet</span>
-          <h2 id="h-help-ph">Help Center is not available yet</h2>
-          <p>Help articles and support requests are not part of your dashboard yet.</p>
-          <a class="no-btn no-btn-ghost" href="/">Back to Overview</a>
-        </section>
+        <header class="view-head"><p class="dash-eyebrow">Help Center</p><h1 id="h-help" tabindex="-1">Help Center</h1><p class="view-sub">Short guides to the screens you use to set up and run your site.</p></header>
+        <div class="stack help-page">
+          <section class="dash-card" aria-labelledby="h-help-index">
+            <h2 id="h-help-index">Help articles</h2>
+            <ul class="help-index">
+              <li><a href="#help-store">Your store profile and web address</a></li>
+              <li><a href="#help-sante">Santé setup</a></li>
+              <li><a href="#help-payments">Payment accounts and your QR code</a></li>
+              <li><a href="#help-orders">Reviewing Membership Package orders and their proof of payment</a></li>
+              <li><a href="#help-support">Support, your data and leaving</a></li>
+            </ul>
+          </section>
+          <article class="dash-card help-article" id="help-store" aria-labelledby="h-help-store">
+            <h2 id="h-help-store">Your store profile and web address</h2>
+            <p>Open <strong>Settings</strong> to see Business Settings for your site. The Site readiness list at the top shows what is done and what is still needed. It does not switch anything on or off.</p>
+            <ul>
+              <li><strong>Business identity.</strong> Your business name, site name and business address. Each has an Edit button. The site name is shown at the top of your site and in this dashboard.</li>
+              <li><strong>Customer contact.</strong> Your store email, store mobile and social links, so customers can reach you. They are not your sign-in email or mobile.</li>
+              <li><strong>Public and Private.</strong> Public means customers can see it on your site. Private means only you and NegosyoOnline see it.</li>
+              <li><strong>Saving.</strong> Each Edit window saves its own section when you press Save.</li>
+            </ul>
+            <h3>Your web address</h3>
+            <p>You chose your web address when you created your site: 3 to 30 lowercase letters, digits or single hyphens. It is reserved for your site and is never given to another site. It cannot be changed on the screen. To change it, email <a href="mailto:support@negosyoonline.com">support@negosyoonline.com</a>.</p>
+          </article>
+          <article class="dash-card help-article" id="help-sante" aria-labelledby="h-help-sante">
+            <h2 id="h-help-sante">Santé setup</h2>
+            <p>Everything for your Santé site is on Business Settings.</p>
+            <ul>
+              <li><strong>Santé Username.</strong> In Business identity. New members who register through your site are registered under it. Use letters, digits and hyphens, up to 32 characters. Member registration on your site cannot start until you add it.</li>
+              <li><strong>Legal page details.</strong> Your registered business name, DTI business name number, BIR Official Control Number, TIN and privacy contact email. They are printed on your site’s legal pages, except your TIN. These are not your NegosyoOnline invoice details; those are in Billing.</li>
+              <li><strong>BIR registration badge.</strong> Upload a JPEG, PNG or WebP image, up to 2 MB. It is shown in the registration block at the bottom of your site. You can replace or remove it. Only the account owner can change it.</li>
+              <li><strong>Delivery estimates and Shipping Policy.</strong> The estimates are suggested values. Your Shipping Policy stays offline until you review them: change anything that does not match how you ship, tick that you reviewed them, and save.</li>
+              <li><strong>Membership Terms.</strong> Buyers review and agree to the Santé Membership Terms when they complete their account details after paying.</li>
+            </ul>
+          </article>
+          <article class="dash-card help-article" id="help-payments" aria-labelledby="h-help-payments">
+            <h2 id="h-help-payments">Payment accounts and your QR code</h2>
+            <p>Open <strong>Settings</strong>, then <strong>Payments</strong>. Buyers send the amount to one of your accounts by bank or e-wallet transfer and upload their proof. You verify each payment.</p>
+            <ol>
+              <li>Press <strong>Add account</strong>.</li>
+              <li>Choose Bank or E-wallet. For a bank, also choose Savings or Checking.</li>
+              <li>Enter the bank or e-wallet name, the account name and the account number.</li>
+              <li>Optional: add a QR code image (JPEG, PNG or WebP) that buyers can scan. Drag the square over your QR code so only the code is kept, then press <strong>Use this area</strong>.</li>
+              <li>Press <strong>Add account</strong> to save.</li>
+            </ol>
+            <ul>
+              <li>Buyers who choose transfer see your accounts in full at checkout. This page shows only the last 4 digits of each number.</li>
+              <li>Use <strong>Change</strong> to edit an account or replace its QR code. <strong>Remove</strong> asks you to confirm.</li>
+              <li>The Bank or e-wallet transfer switch can be turned on once you have added an account. If no payment method is showing, buyers cannot check out.</li>
+            </ul>
+          </article>
+          <article class="dash-card help-article" id="help-orders" aria-labelledby="h-help-orders">
+            <h2 id="h-help-orders">Reviewing Membership Package orders and their proof of payment</h2>
+            <p>Open <strong>Orders</strong>, then the <strong>Package Order</strong> tab. Each order is for one Membership Pack.</p>
+            <ul>
+              <li><strong>Under review</strong> orders wait in the Payment review queue, newest proof first. <strong>Needs attention</strong> orders were rejected. <strong>Verified</strong> orders were approved. Press a count to filter the list, and press it again to clear the filter.</li>
+              <li>Press <strong>Details</strong> on an order to see the payment proof (an image or a PDF; you can open or download it), the buyer’s name and masked mobile, the account the buyer paid to, and the payment details the buyer entered: order total, amount sent, reference number, bank, sender name and date sent. The History shows each proof and each decision.</li>
+            </ul>
+            <h3>Approve</h3>
+            <p>Check that the amount sent matches the order total, the reference number matches, and the money is in the account the buyer paid to. Then press <strong>Approve</strong>. The order moves to Verified.</p>
+            <h3>Reject</h3>
+            <ol>
+              <li>Press <strong>Reject</strong> and choose a reason: the amount does not match, the payment was not found in the receiving account, the proof is unreadable or incomplete, the reference number is missing or does not match, it was sent to the wrong account, or Other. Other needs a written explanation of up to 500 characters.</li>
+              <li>Press <strong>Continue</strong>, check the summary, then press <strong>Confirm Reject</strong>.</li>
+            </ol>
+            <p><strong>What the buyer sees.</strong> The buyer is told their payment for that order needs attention. They see your reason when they sign in and can send a new proof. A rejected order can still be approved later.</p>
+          </article>
+          <article class="dash-card help-article" id="help-support" aria-labelledby="h-help-support">
+            <h2 id="h-help-support">Support, your data and leaving</h2>
+            <h3>Contact support</h3>
+            <p>Email <a href="mailto:support@negosyoonline.com">support@negosyoonline.com</a> or call or text <a href="tel:+639173098619">+63 917 309 8619</a>. Include your account email, your business name, what happened and when, and any Billing Statement or payment reference. Please do not put a sign-in code in an email.</p>
+            <ul>
+              <li>We confirm we received your message within 1 business day and give you a reference number.</li>
+              <li>Within 7 business days of your complaint, we resolve it or explain in writing what we found, what we will do, and when.</li>
+              <li>If you are not satisfied, reply with your reference number and ask for escalation. The founder gives a final written response within 7 business days of your request.</li>
+              <li>Business days are Monday to Friday, excluding Philippine public holidays.</li>
+            </ul>
+            <p>The full process is in the <a href="#" data-site-path="/terms#complaints">Terms of Service</a>.</p>
+            <h3>Your data</h3>
+            <p>To get an export of your store data, email support from your account email. In Billing, Export data on a cancelled site opens that email. To delete your account and personal information, see <a href="#" data-site-path="/data-deletion">Data Deletion</a>: we reply within 1 business day and complete it within 30 calendar days. Billing and tax records, including your Billing Statements, are kept for at least 5 years.</p>
+            <h3>When a subscription ends</h3>
+            <p>Each site has its own subscription. A site’s service ends when you cancel, when a trial ends with no payment method, or when a payment is still unpaid 7 days after its due date and the subscription is suspended. When it ends:</p>
+            <ul>
+              <li>Your site is no longer shown to customers, and the dashboard is limited to Billing.</li>
+              <li>You have 30 calendar days from the end of the service to download your store data. Your records are kept meanwhile.</li>
+              <li>You can reactivate before 90 calendar days from the end of the service (30 days for a site that never had a successful payment) by choosing a plan, adding a payment method and paying. After that, the site’s store data is deleted or anonymised and the site cannot be reactivated.</li>
+            </ul>
+            <p>Billing shows the exact dates for your site. The details are in the <a href="#" data-site-path="/terms">Terms of Service</a> and the <a href="#" data-site-path="/cancellation-refund">Cancellation and Refund Policy</a>.</p>
+          </article>
+        </div>
       </section>
       <section class="view" id="view-referral" aria-labelledby="h-referral" hidden>
         <header class="view-head"><p class="dash-eyebrow">Referral</p><h1 id="h-referral" tabindex="-1">Referral</h1></header>
@@ -273,5 +357,6 @@
 <script src="/assets/js/storefront-settings.js?v=20261110na1"></script>
 <script src="/assets/js/earnings.js?v=20261110na1"></script>
 <script src="/assets/js/pack-orders.js?v=20261112po1"></script>
+<script src="/assets/js/help.js?v=20261113hc1"></script>
 </body>
 </html>

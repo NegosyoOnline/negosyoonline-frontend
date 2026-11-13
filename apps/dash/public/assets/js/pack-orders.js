@@ -2,10 +2,16 @@
    proofs of Membership Package orders. Reads GET /sites/ and GET /sites/{id}/pack/orders/ (one read of everything, the three
    pipeline tiles filter it here), GET .../{order}/ for the detail, GET .../{order}/proofs/{proof}/ as a blob (the file
    never has a URL in the page), POST .../approve/ and .../reject/ with the order's state_version. Every status, name and
-   amount comes from the API; API strings reach the page through textContent or D.el only. No per-order billing figure. */
+   amount comes from the API; API strings reach the page through textContent or D.el only. No per-order billing figure.
+   Shipment (ClickUp z8uq9mek5x, PK-SHIP): when the API says shipping_enabled, a verified order is Ready to ship, Shipped or Delivered
+   (shipment_status); the Subscriber adds, corrects and marks delivered through POST .../shipment/, .../shipment/correct/ and
+   .../delivery/. The dash never decides the rules: every button comes from shipping_enabled and shipment_status. */
 (function () {
   var D = window.NODash;
-  var STAGES = [["review", "Under review"], ["rejected", "Needs attention"], ["verified", "Verified"]];
+  var STAGES3 = [["review", "Under review"], ["rejected", "Needs attention"], ["verified", "Verified"]];
+  var STAGES5 = [["review", "Under review"], ["rejected", "Needs attention"], ["ready", "Ready to ship"], ["shipped", "Shipped"], ["delivered", "Delivered"]];
+  var COURIERS = [["lbc", "LBC"], ["jnt", "J&T Express"], ["flash", "Flash Express"], ["ninjavan", "Ninja Van"], ["2go", "2GO"], ["grab", "Grab"], ["lalamove", "Lalamove"], ["other", "Other"]];
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   var STATUS_KEY = { pending_review: "review", rejected: "rejected", verified: "verified" };
   var REASONS = [["amount_mismatch", null], ["payment_not_found", "Payment not found in the receiving account."], ["proof_unreadable", "Proof is unreadable or incomplete."],
     ["reference_mismatch", "Reference number is missing or does not match."], ["wrong_account", "Payment was sent to the wrong account."], ["other", "Other, with a mandatory written explanation."]];
@@ -48,7 +54,18 @@
   function when(iso) { var p = parts(iso); return p ? p.day + " " + p.month.replace(/\.$/, "") + " " + p.year + ", " + p.hour + ":" + p.minute + " " + p.dayPeriod : ""; }
   function placed(iso) { var p = parts(iso); return p ? p.month.replace(/\.$/, "") + " " + p.day + ", " + p.hour + ":" + p.minute + " " + p.dayPeriod : ""; }
   function msg(res, fallback) { var m = res && res.data && res.data.message; return typeof m === "string" && m ? m : fallback; }
-  function keyOf(o) { return STATUS_KEY[o.payment_status] || ""; }
+  function keyOf(o) {
+    var k = STATUS_KEY[o.payment_status] || "";
+    if (k === "verified" && o.shipping_enabled === true) return o.shipment_status === "shipped" ? "shipped" : o.shipment_status === "delivered" ? "delivered" : "ready";
+    return k;
+  }
+  function shipOn() { return S.rows.some(function (r) { return r.shipping_enabled === true; }); }
+  function stages() { return shipOn() ? STAGES5 : STAGES3; }
+  function today() { try { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); } catch (e) { return ""; } }
+  function isoDate(v) { return typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : ""; }
+  function day(v) { var d = isoDate(v); return d ? MONTHS[+d.slice(5, 7) - 1] + " " + (+d.slice(8, 10)) : ""; }
+  function dayLong(v) { var d = isoDate(v); return d ? (+d.slice(8, 10)) + " " + MONTHS[+d.slice(5, 7) - 1] + " " + d.slice(0, 4) : ""; }
+  function courierLabel(code, other) { var c = COURIERS.filter(function (x) { return x[0] === code; })[0]; return code === "other" && other ? other : c ? c[1] : ""; }
   function priceOf(o) { var c = typeof o.price_centavos === "number" ? o.price_centavos : S.price[o.id]; return typeof c === "number" ? c : null; }
   function reasonLabel(code, o) {
     if (code !== "amount_mismatch") return REASONS.filter(function (r) { return r[0] === code; })[0][1];
@@ -65,7 +82,8 @@
   }
   function chipsOf(o) {
     var k = keyOf(o);
-    return k === "review" ? h("span", "chip chip-warn", "Under review") : k === "rejected" ? h("span", "chip chip-danger", "Needs attention") : k === "verified" ? h("span", "chip chip-ok", "Verified") : null;
+    return k === "review" ? h("span", "chip chip-warn", "Under review") : k === "rejected" ? h("span", "chip chip-danger", "Needs attention") : k === "verified" ? h("span", "chip chip-ok", "Verified")
+      : k === "ready" ? h("span", "chip chip-warn", "Ready to ship") : k === "shipped" ? h("span", "chip chip-ok", "Shipped") : k === "delivered" ? h("span", "chip chip-ok", "Delivered") : null;
   }
 
   /* ---- load ---- */
@@ -136,7 +154,8 @@
   }
 
   /* ---- decisions ---- */
-  function decide(id, kind, body, onStale) {
+  var DONE = { approve: "Payment approved", reject: "Payment rejected", "shipment": "Shipment added", "shipment/correct": "Shipment updated", "delivery": "Marked as delivered" };
+  function decide(id, kind, body, onStale, onInvalid) {
     var o = find(id); if (!o || S.busy) return;
     S.busy = true;
     var payload = body || {}; payload.state_version = o.state_version;
@@ -145,7 +164,7 @@
       if (r.status === 401) return;
       if (r.ok) {
         S.dlg = null; if (closeDlg) closeDlg(false);
-        D.toast(kind === "approve" ? "Payment approved" : "Payment rejected");
+        D.toast(DONE[kind] || "Saved");
         delete S.details[id]; delete S.proofErr[id];
         return reloadList(token, true).then(function () { if (S.open[id]) return loadDetail(id).then(function () { return loadProof(id); }); });
       }
@@ -153,12 +172,13 @@
         if (onStale) onStale(); else D.toast(STALE, "", "error");
         return reloadList(token, true).then(function () { if (S.open[id]) return loadDetail(id); });
       }
+      if (r.status === 422 && onInvalid) { onInvalid(r); return; }
       D.toast("That did not work", msg(r, "We could not save the decision. Please try again."), "error");
     });
   }
 
   /* ---- render ---- */
-  function counts() { var c = { review: 0, rejected: 0, verified: 0, all: S.rows.length }; S.rows.forEach(function (o) { if (c[keyOf(o)] !== undefined) c[keyOf(o)]++; }); return c; }
+  function counts() { var c = { review: 0, rejected: 0, verified: 0, ready: 0, shipped: 0, delivered: 0, all: S.rows.length }; S.rows.forEach(function (o) { if (c[keyOf(o)] !== undefined) c[keyOf(o)]++; }); return c; }
   function shown() { return S.rows.filter(function (o) { return !S.filter || keyOf(o) === S.filter; }); }
   function fact(dl, k, v, bad) { add(dl, h("dt", "", k), h("dd", bad ? "is-bad" : "", v)); }
   function facts(rows) { var dl = h("dl", "po-facts"); rows.forEach(function (r) { fact(dl, r[0], r[1]); }); return dl; }
@@ -197,6 +217,12 @@
         items.push({ k: no ? "no" : "yes", t: no ? "Rejected" : "Approved", s: text || "", at: x.decided_at, actor: x.actor_label });
       });
     });
+    (d.events || []).forEach(function (e) {
+      var n = e.new || {}, line = courierLabel(n.courier, n.courier_other_name) + (n.tracking_number ? " · Tracking " + n.tracking_number : "") + (n.shipped_on ? " · Shipped " + dayLong(n.shipped_on) : "");
+      if (e.kind === "shipment_recorded") items.push({ k: "yes", t: "Shipment recorded", s: line, at: e.created_at, actor: e.actor_label });
+      else if (e.kind === "shipment_corrected") items.push({ k: "sent", t: "Shipment corrected", s: line, at: e.created_at, actor: e.actor_label });
+      else if (e.kind === "delivered") items.push({ k: "yes", t: "Marked delivered", s: n.delivered_on ? "Delivered " + dayLong(n.delivered_on) + "." : "", at: e.created_at, actor: e.actor_label });
+    });
     return items.sort(function (a, b) { return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
   }
   function historyCard(id, d) {
@@ -209,11 +235,22 @@
     });
     return add(c, ol);
   }
+  function shipmentCard(o, d) {
+    var sh = d.shipment, st = d.shipment_status, c = card("Shipment");
+    if (!sh || st === "not_shipped") {
+      add(c, h("p", "po-sub", "Not yet added. The buyer sees the courier and tracking number once you add them."));
+      return add(c, add(h("div", "po-actions"), btn("Add shipment", "no-btn-primary", function (b) { shipDialog(o.id, "add", b); })));
+    }
+    add(c, facts([["Courier", sh.courier_label || courierLabel(sh.courier, sh.courier_other_name)], ["Tracking number", sh.tracking_number], ["Shipped on", dayLong(sh.shipped_on)], ["Recorded by", sh.recorded_by || ""]]));
+    if (st === "delivered") { add(c, facts([["Delivered on", dayLong(sh.delivered_on)], ["Confirmed by", sh.delivery_confirmed_by || ""]])); return c; }
+    return add(c, add(h("div", "po-actions"), btn("Edit shipment", "no-btn-ghost", function (b) { shipDialog(o.id, "edit", b); }), btn("Mark delivered", "no-btn-primary", function (b) { deliverDialog(o.id, b); })));
+  }
   function detailGrid(o) {
     var id = o.id, d = S.details[id];
     if (!d) return skel(2, 3);
     if (d.error) return errBox("We could not load this order", d.error, function () { loadDetail(id).then(function () { loadProof(id); }); });
     var sub = proofOf(id), g = h("div", "mc-grid"), left = h("div", "mc-col"), right = h("div", "mc-col"), kind = sub && sub.account_kind === "ewallet" ? "E-wallet" : "Bank";
+    if (d.shipping_enabled === true && d.payment_status === "verified") add(left, shipmentCard(o, d));
     add(left, proofCard(id, d), historyCard(id, d));
     add(right, add(card("Buyer"), facts([["Name", d.buyer_name], ["Mobile", d.mobile_masked]])));
     if (sub) {
@@ -226,6 +263,7 @@
   function actions(o) {
     var k = keyOf(o), box = [];
     if (k === "review" || k === "rejected") box.push(btn("Approve", "no-btn-primary", function () { decide(o.id, "approve"); }));
+    if (k === "ready") box.push(btn("Add shipment", "no-btn-primary", function (b) { shipDialog(o.id, "add", b); }));
     if (k === "review") box.push(btn("Reject…", "no-btn-ghost po-btn-danger", function (b) { rejectDialog(o.id, b); }));
     return box;
   }
@@ -248,13 +286,17 @@
     if (S.open[o.id]) add(t, add(h("div", "mc-detail"), detailGrid(o)));
     return t;
   }
+  function subline(o) {
+    var k = keyOf(o), t = k === "shipped" ? [o.courier, day(o.shipped_on)] : k === "delivered" ? ["Delivered", day(o.delivered_on)] : null;
+    return t ? h("div", "mc-sub", t.filter(Boolean).join(" · ")) : null;
+  }
   function tableRow(o) {
     var w = h("div", "mc-rowwrap"), r = h("div", "mc-row"), first = h("span"), act = h("span", "c mc-act"), k = keyOf(o), amt = amountLine(o);
     w.setAttribute("role", "row");
     add(first, h("span", "mc-order", o.order_number), h("span", "mc-date", when(o.created_at).replace(", ", " ")), add(h("span", "mc-pp"), pill()));
     if (k === "review") add(act, h("span", "mc-pointer", "↥ In payment review queue"));
     else { actions(o).forEach(function (b) { act.appendChild(b); }); act.appendChild(toggler(o)); }
-    add(r, first, h("span", "", o.buyer_name), h("span", "mc-pay", "Bank or e-wallet transfer"), h("span", "r num", amt), add(h("span", "c"), chipsOf(o)), act);
+    add(r, first, h("span", "", o.buyer_name), h("span", "mc-pay", "Bank or e-wallet transfer"), h("span", "r num", amt), add(h("span", "c"), chipsOf(o), subline(o)), act);
     add(w, r);
     if (S.open[o.id] && k !== "review") add(w, add(h("div", "mc-detail"), detailGrid(o)));
     return w;
@@ -264,7 +306,7 @@
     sub.hidden = false;
     sub.textContent = "Track every order from approval to delivery · " + (S.listState === "ok" ? rows.length : 0) + " under current filters";
     var pipe = h("div", "mc-pipe");
-    STAGES.forEach(function (st) {
+    stages().forEach(function (st) {
       var b = h("button", "mc-stage" + (S.filter === st[0] ? " active" : ""));
       b.setAttribute("type", "button"); b.setAttribute("aria-pressed", S.filter === st[0] ? "true" : "false");
       add(b, h("span", "mc-count", S.listState === "ok" ? String(c[st[0]]) : "—"), h("span", "mc-label", st[1]));
@@ -380,6 +422,119 @@
     closeDlg = close; S.dlg = true;
     add(slot, add(overlay, dlg)); document.addEventListener("keydown", onKey); document.body.style.overflow = "hidden";
     paint("radio");
+  }
+
+  /* ---- the shipment dialogs (ClickUp z8uq9mek5x): a form, then a confirm step, as the Reject dialog has ---- */
+  function shell(opener) {
+    if (closeDlg) closeDlg(false);
+    var slot = byId("po-dlg-slot"), overlay = h("div", "po-overlay"), dlg = h("div", "po-dialog");
+    dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "po-dh");
+    function close(returnFocus) {
+      if (closeDlg !== close) return;
+      closeDlg = null; document.removeEventListener("keydown", onKey); clear(slot); S.dlg = null; document.body.style.overflow = "";
+      if (returnFocus && opener && opener.focus) opener.focus();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") { e.preventDefault(); close(true); return; }
+      if (e.key !== "Tab") return;
+      var items = Array.prototype.filter.call(dlg.querySelectorAll("input, select, textarea, button"), function (n) { return !n.disabled; });
+      var first = items[0], last = items[items.length - 1], now = document.activeElement;
+      if (e.shiftKey && (now === first || items.indexOf(now) < 0)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && (now === last || items.indexOf(now) < 0)) { e.preventDefault(); first.focus(); }
+    }
+    closeDlg = close; S.dlg = true;
+    add(slot, add(overlay, dlg)); document.addEventListener("keydown", onKey); document.body.style.overflow = "hidden";
+    return { dlg: dlg, close: close, title: function (text) { clear(dlg); var t = h("h2", "", text); t.setAttribute("id", "po-dh"); add(t, add(h("span", "mc-mpp"), pill())); dlg.appendChild(t); } };
+  }
+  function field(label, node, id, err) {
+    var w = h("div", "po-field"), l = h("label", "", label); l.setAttribute("for", id); node.setAttribute("id", id);
+    if (err) { node.classList.add("is-bad"); node.setAttribute("aria-invalid", "true"); }
+    add(w, l, node);
+    if (err) { var e = h("p", "po-error", err); e.setAttribute("role", "alert"); w.appendChild(e); }
+    return w;
+  }
+  function shipDialog(id, mode, opener) {
+    var o = find(id), d = S.details[id]; if (!o) return;
+    var sh = mode === "edit" && d && d.shipment ? d.shipment : null;
+    var st = { step: 1, courier: sh ? sh.courier : "", other: sh ? sh.courier_other_name || "" : "", tracking: sh ? sh.tracking_number : "", date: sh ? isoDate(sh.shipped_on) : today(), errs: {}, stale: false };
+    var sx = shell(opener);
+    function validate() {
+      var e = {};
+      if (!st.courier) e.courier = "Choose the courier.";
+      if (st.courier === "other" && !st.other.trim()) e.other = "Enter the courier name.";
+      if (!st.tracking.trim()) e.tracking = "Enter the tracking number.";
+      if (!st.date || (today() && st.date > today())) e.date = "Enter a shipped date that is not in the future.";
+      return e;
+    }
+    function paint() {
+      var dlg = sx.dlg; sx.title((mode === "edit" ? "Edit shipment for order " : "Add shipment for order ") + o.order_number);
+      if (st.step === 1) {
+        var sel = D.el("select", {});
+        add(sel, D.el("option", { value: "" }, "Choose the courier"));
+        COURIERS.forEach(function (c) { var op = D.el("option", { value: c[0] }, c[1]); if (st.courier === c[0]) op.setAttribute("selected", "selected"); sel.appendChild(op); });
+        sel.value = st.courier; sel.addEventListener("change", function () { st.courier = sel.value; st.errs = {}; paint(); });
+        add(dlg, field("Courier", sel, "po-courier", st.errs.courier));
+        if (st.courier === "other") {
+          var oi = D.el("input", { type: "text", maxlength: "60" }); oi.value = st.other; oi.addEventListener("input", function () { st.other = oi.value; });
+          add(dlg, field("Courier name", oi, "po-courier-other", st.errs.other));
+        }
+        var ti = D.el("input", { type: "text", maxlength: "64", autocomplete: "off" }); ti.value = st.tracking; ti.addEventListener("input", function () { st.tracking = ti.value; });
+        add(dlg, field("Tracking number", ti, "po-tracking", st.errs.tracking));
+        var di = D.el("input", { type: "date" }); if (today()) di.setAttribute("max", today()); di.value = st.date; di.addEventListener("input", function () { st.date = di.value; });
+        add(dlg, field("Shipped date", di, "po-shipped", st.errs.date));
+        if (st.errs.form) { var ef = h("p", "po-error", st.errs.form); ef.setAttribute("role", "alert"); dlg.appendChild(ef); }
+        add(dlg, add(h("div", "po-actions"), btn("Cancel", "no-btn-ghost", function () { sx.close(true); }), btn("Continue", "no-btn-primary", function () {
+          st.errs = validate(); if (!Object.keys(st.errs).length) st.step = 2; paint();
+        })));
+      } else {
+        var rows = [["Order", o.order_number], ["Courier", courierLabel(st.courier, st.other.trim())], ["Tracking number", st.tracking.trim()], ["Shipped on", dayLong(st.date)]];
+        add(dlg, facts(rows), h("p", "po-note-line", mode === "edit" ? "The buyer is not emailed about a correction." : "The buyer is emailed that order " + o.order_number + " has shipped, with the courier and tracking number."));
+        if (st.stale) { var e3 = h("p", "po-error", STALE); e3.setAttribute("role", "alert"); dlg.appendChild(e3); }
+        var go = btn(mode === "edit" ? "Save changes" : "Confirm shipment", "no-btn-primary", function () {
+          var body = { courier: st.courier, tracking_number: st.tracking.trim(), shipped_on: st.date };
+          if (st.courier === "other") body.courier_other_name = st.other.trim();
+          go.setAttribute("aria-busy", "true");
+          var run = decide(id, mode === "edit" ? "shipment/correct" : "shipment", body, function () { st.stale = true; }, function (r) {
+            var f = (r.data && r.data.fields) || {}; st.errs = { courier: f.courier, other: f.courier_other_name, tracking: f.tracking_number, date: f.shipped_on, form: msg(r, "Check the highlighted fields.") };
+            st.step = 1;
+          });
+          Promise.resolve(run).then(function () { if (closeDlg === sx.close && (st.stale || st.step === 1)) paint(); });
+        });
+        add(dlg, add(h("div", "po-actions"), btn("Back", "no-btn-ghost", function () { st.step = 1; st.stale = false; paint(); }), go));
+      }
+      var f = dlg.querySelector("select") || dlg.querySelector("button"); if (f && f.focus) f.focus();
+    }
+    paint();
+  }
+  function deliverDialog(id, opener) {
+    var o = find(id), d = S.details[id]; if (!o || !d || !d.shipment) return;
+    var sh = d.shipment, st = { step: 1, date: today(), err: "", stale: false }, dl = shell(opener);
+    function paint() {
+      var dlg = dl.dlg; dl.title("Mark order " + o.order_number + " delivered");
+      var rows = [["Order", o.order_number], ["Courier", sh.courier_label || courierLabel(sh.courier, sh.courier_other_name)], ["Shipped on", dayLong(sh.shipped_on)]];
+      if (st.step === 1) {
+        add(dlg, facts(rows));
+        var di = D.el("input", { type: "date" }); if (today()) di.setAttribute("max", today()); di.setAttribute("min", isoDate(sh.shipped_on)); di.value = st.date; di.addEventListener("input", function () { st.date = di.value; });
+        var w = field("Delivered date", di, "po-delivered", st.err); w.style.marginTop = "14px"; dlg.appendChild(w);
+        add(dlg, add(h("div", "po-actions"), btn("Cancel", "no-btn-ghost", function () { dl.close(true); }), btn("Continue", "no-btn-primary", function () {
+          var min = isoDate(sh.shipped_on);
+          st.err = !st.date || st.date < min || (today() && st.date > today()) ? "Enter a delivery date on or after the shipped date and not in the future." : "";
+          if (!st.err) st.step = 2; paint();
+        })));
+      } else {
+        rows.push(["Delivered on", dayLong(st.date)]);
+        add(dlg, facts(rows), h("p", "po-note-line", "This is final. You cannot change the delivery date afterwards. The buyer is emailed that order " + o.order_number + " was delivered."));
+        if (st.stale) { var e3 = h("p", "po-error", STALE); e3.setAttribute("role", "alert"); dlg.appendChild(e3); }
+        var go = btn("Confirm delivered", "no-btn-primary", function () {
+          go.setAttribute("aria-busy", "true");
+          var run = decide(id, "delivery", { delivered_on: st.date }, function () { st.stale = true; }, function (r) { st.err = (r.data && r.data.fields && r.data.fields.delivered_on) || msg(r, "Check the delivered date."); st.step = 1; });
+          Promise.resolve(run).then(function () { if (closeDlg === dl.close && (st.stale || st.step === 1)) paint(); });
+        });
+        add(dlg, add(h("div", "po-actions"), btn("Back", "no-btn-ghost", function () { st.step = 1; st.stale = false; paint(); }), go));
+      }
+      var f = dlg.querySelector("input") || dlg.querySelector("button"); if (f && f.focus) f.focus();
+    }
+    paint();
   }
 
   window.NOPackOrders = { show: show, hide: hide };

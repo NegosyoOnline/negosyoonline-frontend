@@ -7,8 +7,8 @@
    Only files a page links by name are listed. Images the stylesheets load (../img/...) are not. */
 
 const VERSIONS: Record<string, string> = {
-  "css/pack-home.css": "5ba10b0b",
-  "css/pack-storefront.css": "dc54b2a8",
+  "css/pack-home.css": "a655c94f",
+  "css/pack-storefront.css": "70960666",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -66,6 +66,18 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.png": "c2362ffc",
   "img/blog_2.png": "559075d2",
   "img/blog_3.png": "ba6adeb3",
+  "img/category_barley.webp": "1913a511",
+  "img/category_drinks.webp": "6659b3a5",
+  "img/category_essential.webp": "032d1772",
+  "img/category_beauty.webp": "e50e284a",
+  "img/about_1.webp": "789fd579",
+  "img/about_2.webp": "eb05a0ce",
+  "img/about_3.webp": "07f4632f",
+  "img/about_4.webp": "a903b606",
+  "img/about_bg.webp": "6d5189a8",
+  "img/blog_1.webp": "99d5623c",
+  "img/blog_2.webp": "6870f46a",
+  "img/blog_3.webp": "cc22ea9b",
 };
 
 export const ASSET_BASE = "/assets/sante/";

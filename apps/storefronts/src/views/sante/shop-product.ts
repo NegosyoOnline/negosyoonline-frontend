@@ -6,7 +6,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
-import { php, safeImage } from "./shop-shell.ts";
+import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 
 export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean };
 
@@ -95,7 +95,7 @@ export function productContent(m: ProductModel): Markup {
           const img = safeImage(r.image_url);
           return html`
         <div class="product-card">
-          <div class="product-img-wrap">${img ? html`<img src="${img}" alt="${r.name}" loading="lazy">` : ""}</div>
+          <div class="product-img-wrap">${img ? html`<img src="${img}" alt="${r.name}" loading="lazy">` : PRODUCT_PLACEHOLDER}</div>
           <div class="product-info">
             <div class="product-name">${r.name}</div>
             <div class="product-pricing-block"><div class="product-price">${php(r.srp_centavos)}</div></div>

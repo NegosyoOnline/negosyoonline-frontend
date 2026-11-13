@@ -853,6 +853,17 @@
       transition: transform 0.3s;
     }
 
+    .product-img-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 100%;
+      aspect-ratio: 1 / 1;
+      color: var(--green-dark);
+      opacity: 0.45;
+    }
+
     .product-card:hover .product-img-wrap img { transform: scale(1.04); }
 
     .product-badge {
@@ -943,12 +954,18 @@
     .benefit-title { font-weight: 700; font-size: 15px; margin-bottom: 10px; color: white; }
     .benefit-body { font-size: 13px; color: rgba(255,255,255,0.68); line-height: 1.65; }
 
+    /* The WebP <picture> wrapper takes no box of its own, so the images lay out as before. */
+    picture { display: contents; }
+
     /* ABOUT */
     .about-section {
       position: relative;
       background-image:
         linear-gradient(rgba(0, 45, 24, 0.82), rgba(0, 45, 24, 0.88)),
         url('../img/about_bg.png');
+      background-image:
+        linear-gradient(rgba(0, 45, 24, 0.82), rgba(0, 45, 24, 0.88)),
+        image-set(url('../img/about_bg.webp') type('image/webp'), url('../img/about_bg.png') type('image/png'));
       background-size: cover;
       background-position: center;
       background-repeat: no-repeat;

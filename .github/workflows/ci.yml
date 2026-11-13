@@ -13,16 +13,129 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  nextjs:
-    name: ${{ matrix.app }} lint and build
+  changes:
+    name: changes
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [site, dash, storefronts, hq]
+    outputs:
+      site: ${{ steps.detect.outputs.site }}
+      dash: ${{ steps.detect.outputs.dash }}
+      storefronts: ${{ steps.detect.outputs.storefronts }}
+      hq: ${{ steps.detect.outputs.hq }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Select apps to check
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Only a pull request can skip apps; every other event runs all four.
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            scripts/ci-changed-apps.sh "$BASE_SHA" HEAD | tee -a "$GITHUB_OUTPUT"
+          else
+            printf '%s=true\n' site dash storefronts hq | tee -a "$GITHUB_OUTPUT"
+          fi
+
+  site:
+    name: site lint and build
+    needs: changes
+    # A job skipped by its own `if:` counts as passing for a required check.
+    # If the changes job failed, run anyway (fail safe).
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.site == 'true') }}
+    runs-on: ubuntu-24.04
     defaults:
       run:
-        working-directory: apps/${{ matrix.app }}
+        working-directory: apps/site
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22.23.1"
+          package-manager-cache: false
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm run --if-present test
+      - name: Build
+        run: pnpm build
+
+  dash:
+    name: dash lint and build
+    needs: changes
+    # A job skipped by its own `if:` counts as passing for a required check.
+    # If the changes job failed, run anyway (fail safe).
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.dash == 'true') }}
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/dash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22.23.1"
+          package-manager-cache: false
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm run --if-present test
+      - name: Build
+        run: pnpm build
+
+  storefronts:
+    name: storefronts lint and build
+    needs: changes
+    # A job skipped by its own `if:` counts as passing for a required check.
+    # If the changes job failed, run anyway (fail safe).
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.storefronts == 'true') }}
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/storefronts
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: "22.23.1"
+          package-manager-cache: false
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Test
+        run: pnpm run --if-present test
+      - name: Build
+        run: pnpm build
+
+  hq:
+    name: hq lint and build
+    needs: changes
+    # A job skipped by its own `if:` counts as passing for a required check.
+    # If the changes job failed, run anyway (fail safe).
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.hq == 'true') }}
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/hq
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

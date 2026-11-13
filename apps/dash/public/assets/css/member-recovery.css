@@ -1,0 +1,66 @@
+/* Orders > Package Order > "Help this member sign in" (ClickUp z8uq9mek5y, MEM-R; mockups 01 to 05). Scoped to #mr-root and .mr-*; every colour is a dash token.
+   Focus is the dash's light blue border, never gold. Only the h1 takes programmatic focus; card titles are not focusable. */
+#mr-root{display:flex;flex-direction:column;gap:16px;min-width:0}
+#mr-root[hidden],#view-pack-orders[hidden]{display:none}
+.mr-wrap{display:flex;flex-direction:column;gap:20px;min-width:0;max-width:880px;width:100%}
+.mr-wrap>*{min-width:0}
+#mr-root h1:focus,#mr-root h1:focus-visible{outline:none}
+/* the entry points inside the Package Order list */
+.mr-help{min-height:36px;padding:0 12px;font-size:14px;white-space:normal;text-align:center}
+.mr-help-main{margin-top:10px}
+.ol-st .mr-chip{white-space:normal}
+.mr-banner{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;padding:14px 16px;margin:0 0 16px;border-radius:10px;border:1px solid var(--banner-line);background:var(--banner);color:var(--banner-text)}
+.mr-banner svg{flex:none;width:22px;height:22px;margin-top:1px}
+.mr-banner p{margin:0;flex:1 1 220px;min-width:0}.mr-banner strong{display:block;color:var(--text);margin-bottom:2px}
+.mr-banner .no-btn{margin:0}
+/* the flow */
+.mr-back{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--link);font-weight:600;text-decoration:none}
+.mr-back svg{width:18px;height:18px}
+.mr-crumb{display:flex;flex-wrap:wrap;gap:4px 8px;font-size:14px;color:var(--meta)}.mr-crumb a{color:var(--link);text-decoration:none}.mr-crumb b{color:var(--text-2);font-weight:600}
+.mr-steps{display:flex;gap:8px;flex-wrap:wrap;margin:0;padding:0;list-style:none;font-size:14px;color:var(--meta)}
+.mr-steps li{padding:4px 12px;border-radius:999px;border:1px solid var(--card-line)}
+.mr-steps li[aria-current=step]{border-color:var(--link);color:var(--link);font-weight:700}.mr-steps li.done{color:var(--chip-ok)}
+.mr-card{min-width:0;padding:22px 24px;border:1px solid var(--card-line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow)}
+.mr-card h2{margin:0 0 6px;font-size:19px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.mr-card h3{margin:0;font-size:16px;font-weight:700;color:var(--text)}
+.mr-titlerow{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}.mr-titlerow h2{margin:0}
+.mr-saved-h{margin-top:10px!important}
+.mr-sub{margin:0 0 12px;color:var(--meta);font-size:14px}
+.mr-titlerow~.mr-sub{margin-top:14px}
+.mr-facts{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:8px 16px;margin:8px 0 0}
+.mr-facts dt{color:var(--text-2)}.mr-facts dd{margin:0;text-align:right;font-weight:600;color:var(--text);overflow-wrap:anywhere}
+.mr-hist{list-style:none;margin:8px 0 0;padding:0}
+.mr-hist li{padding:8px 0;border-top:1px solid var(--bl-row-line,var(--card-line));display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:15px;color:var(--text)}
+.mr-hist li:first-child{border-top:0}.mr-hist time{color:var(--meta);font-size:14px}
+.mr-chk{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.mr-chk li{padding:16px;border:1px solid var(--card-line);border-radius:10px;background:var(--bg)}
+.mr-ask{margin:2px 0 8px;color:var(--meta);font-size:14px}
+.mr-onfile{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--card);border:1px solid var(--card-line);color:var(--text)}
+.mr-onfile span{color:var(--meta);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}.mr-onfile b{overflow-wrap:anywhere}
+.mr-seg{display:flex;gap:8px;border:0;margin:0;padding:0;min-width:0}
+.mr-seg label{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border:1px solid var(--ghost-line);border-radius:6px;font-weight:600;cursor:pointer;color:var(--ghost-text);text-align:center}
+.mr-seg input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.mr-seg label:has(input:checked){border-color:var(--link);box-shadow:0 0 0 1px var(--link);color:var(--link);font-weight:800}
+.mr-seg label:has(input.no:checked){border-color:var(--err-h);box-shadow:0 0 0 1px var(--err-h);color:var(--err-h)}
+.mr-seg label:has(input:focus-visible){border-color:var(--link);box-shadow:0 0 0 2px var(--link)}
+.mr-field{display:grid;gap:6px;margin:0 0 16px}.mr-field label{font-size:14px;font-weight:600;color:var(--text-2)}
+.mr-input{display:block;box-sizing:border-box;width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--bl-select-line);border-radius:10px;background:var(--bl-select-bg);color:var(--bl-select-text);font:inherit;font-size:16px}
+.mr-input:focus,.mr-input:focus-visible{outline:none;border-color:var(--link);box-shadow:0 0 0 1px var(--link)}
+.mr-input.is-bad{border-color:var(--err-line)}
+.mr-err{margin:0;color:var(--err-h);font-size:14px;padding-left:8px;border-left:3px solid var(--err-line)}
+.mr-hint{margin:0;color:var(--meta);font-size:14px}
+.mr-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+.mr-note{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:10px;border:1px solid var(--banner-line);background:var(--banner);color:var(--banner-text);min-width:0}
+.mr-note svg{flex:none;width:22px;height:22px;margin-top:1px}.mr-note p{margin:0}.mr-note strong{display:block;color:var(--text);margin-bottom:2px}
+.mr-note>div{min-width:0}
+.mr-note.ok{background:var(--chip-ok-bg);border-color:var(--chip-ok)}.mr-note.ok strong{color:var(--chip-ok)}
+.mr-note.warn{background:var(--bl-chip-warn-bg);border-color:var(--bl-chip-warn);color:var(--text);margin:0 0 16px}.mr-note.warn strong{color:var(--bl-chip-warn)}
+.mr-note.bad{background:var(--err-bg);border-color:var(--err-line);color:var(--err-text)}.mr-note.bad strong{color:var(--err-h)}
+.mr-note.bad .mr-actions{margin-top:10px}
+.mr-skel{height:160px;border-radius:10px;background:var(--skeleton,var(--card-line))}
+@media (max-width:559.98px){
+ .mr-facts{grid-template-columns:1fr}.mr-facts dd{text-align:left;margin-bottom:6px}
+ .mr-actions .no-btn{flex:1 1 100%}
+ .mr-card{padding:18px 16px}
+ .mr-seg{flex-direction:column}
+}

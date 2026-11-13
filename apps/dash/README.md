@@ -9,8 +9,6 @@ The dashboard is static HTML, CSS and JavaScript in `public/`, moved as is from 
 | Path | File | Purpose |
 | --- | --- | --- |
 | `/` and every dashboard section (`/orders/`, `/account/`, `/settings/billing/`, `/settings/general/`, `/settings/shipping/`, `/earnings/`, ...) | `public/index.html`, `assets/js/dashboard.js` and the per-section scripts | The dashboard. `dashboard.js` routes sections in the browser with the History API. |
-| `/verify-email/` | `public/verify-email.html`, `assets/js/verify.js` | Target of the emailed verification link |
-| `/social-complete/` | `public/social-complete.html`, `assets/js/social-complete.js` | Finishes a Facebook or Google sign-in |
 
 Shared: `assets/js/app.js` (API client, shell, formatting), `assets/css/dash.css`, `assets/js/theme.js`.
 

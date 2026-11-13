@@ -429,40 +429,7 @@
     call("POST", "/auth/logout/", null, true).then(function () { location.replace(cfg.siteUrl || "/"); });
   }
 
-  /* "Check your email": the whole page for an account whose email is not verified yet.
-     The API refuses the dashboard until it is, so this is a courtesy, not the lock. */
-  function verifyGate(account) {
-    var main = document.getElementById("main");
-    if (!main) return;
-    main.textContent = "";
-    var card = el("div", { "class": "gate-card", "aria-live": "polite" });
-    var h = el("h1", { tabindex: "-1" }, "Check your email");
-    card.appendChild(h);
-    var p = el("p"); p.appendChild(document.createTextNode("We sent a verification link to "));
-    p.appendChild(el("strong", {}, account.email));
-    p.appendChild(document.createTextNode(". Open it to unlock your dashboard. Your 14-day free trial started when you created your account. No credit card is needed."));
-    card.appendChild(p);
-    card.appendChild(el("p", { "class": "gate-hint" }, "The link works once and expires in 48 hours. Check your spam folder if you do not see it."));
-    var msg = el("p", { "class": "gate-hint gate-status", role: "status" });
-    var row = el("div", { "class": "gate-actions" });
-    var resend = el("button", { type: "button", "class": "no-btn no-btn-primary" }, "Resend verification email");
-    var done = el("button", { type: "button", "class": "no-btn no-btn-ghost" }, "I have verified my email");
-    resend.addEventListener("click", function () {
-      resend.disabled = true;
-      call("POST", "/auth/resend-verification/", null, true).then(function (res) {
-        resend.disabled = false;
-        msg.textContent = res.ok ? "A new link is on its way. Check your inbox."
-          : res.status === 429 ? "Too many requests. Please try again later." : (res.data.message || "We could not send the email. Please try again.");
-      });
-    });
-    done.addEventListener("click", function () { location.reload(); });
-    row.appendChild(resend); row.appendChild(done);
-    card.appendChild(row); card.appendChild(msg);
-    main.appendChild(card);
-    h.focus();
-  }
-
-  /* Gate a page: needs a valid /me/ (the session cookie) and a verified email. Resolves the account, or redirects/stops. */
+  /* Gate a page: needs a valid /me/ (the session cookie). Resolves the account, or redirects/stops. Every account's email is verified when it is created, so there is no verify step. */
   function requireAccount(current) {
     return call("GET", "/me/", null, true).then(function (res) {
       if (!res.ok) {
@@ -482,42 +449,7 @@
       }
       var account = accountView(res.data);
       shell(account, current);
-      if (!account.email_verified) { verifyGate(account); return new Promise(function () {}); }
       return account;
-    });
-  }
-
-  var SOCIAL_ERRORS = {
-    not_configured: "That sign-in option is not available yet. Please use an email code instead.",
-    cancelled: "Sign-in was cancelled. You can try again or use an email code.",
-    failed: "We could not complete that sign-in. Please try again.",
-    invalid_state: "That sign-in session expired. Please try again.",
-    policies: "Please agree to the policies to create your account.",
-    no_account: "We could not find an account for that sign-in. Start your free trial to create one.",
-    email_exists: "An account with that email already exists. Sign in with an email code instead.",
-    no_email: "That account did not share an email address, so we cannot create your NegosyoOnline account. Please use another option.",
-    disabled: "This account is not active. Please contact support.",
-    in_use: "That Facebook account is already connected to another NegosyoOnline account."
-  };
-  function socialErrorMessage(code) { return SOCIAL_ERRORS[code] || "We could not complete that sign-in. Please try again."; }
-
-  /* "Continue with Facebook / Google". Shows only providers the API says are configured.
-     `getQuery` returns the start-URL query string, or null to block the click (it shows its own message). */
-  function socialButtons(container, getQuery) {
-    return call("GET", "/auth/social/providers/").then(function (res) {
-      var list = res.ok && res.data.providers ? res.data.providers : [];
-      container.textContent = "";
-      list.forEach(function (p) {
-        var b = el("button", { type: "button", "class": "btn social-btn" }, "Continue with " + p.label);
-        b.addEventListener("click", function () {
-          var q = getQuery();
-          if (q === null) return;
-          b.disabled = true;
-          location.assign(cfg.apiBase + "/auth/social/" + encodeURIComponent(p.id) + "/start/?" + q);
-        });
-        container.appendChild(b);
-      });
-      return list.length;
     });
   }
 
@@ -534,7 +466,7 @@
     container.appendChild(box); container.focus();
   }
 
-  /* A one-time confirmation after sign-in (set by social-complete, shown on the next page, then forgotten). */
+  /* A one-time confirmation after sign-in (held in sessionStorage, shown on the next page, then forgotten). */
   function toast(title, sub, kind) {
     var failed = kind === "error"; /* optional third argument; no argument keeps today's success toast byte for byte */
     var t = el("div", { "class": failed ? "toast toast-error" : "toast", role: "status" });
@@ -569,5 +501,5 @@
   window.NODash = { call: call, send: send, el: el, date: date, nextPath: nextPath,
     flatten: flatten, accountView: accountView, initials: initials, sitesOf: sitesOf, siteFromQuery: siteFromQuery, SITE_ID_RE: SITE_ID_RE,
     setWorkspace: setWorkspace, shell: shell, requireAccount: requireAccount, errorSummary: errorSummary,
-    socialButtons: socialButtons, socialErrorMessage: socialErrorMessage, cfg: cfg, toast: toast, signOut: signOut, refreshAccount: refreshAccount };
+    cfg: cfg, toast: toast, signOut: signOut, refreshAccount: refreshAccount };
 })();

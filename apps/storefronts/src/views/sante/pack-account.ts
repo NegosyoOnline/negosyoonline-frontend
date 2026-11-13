@@ -25,10 +25,12 @@ function alert(e: StepErrors): Markup {
 
 function codeField(e: StepErrors): Markup {
   const bad = !!e.field_errors.code;
+  // A refused code puts focus back on the field (the page is a fresh load, so autofocus), and its message is announced.
+  const focus = bad || !!e.error_message;
   return html`<div class="fld">
 <label for="code">6-digit code</label>
-<input id="code" class="inp${bad ? " bad" : ""}" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required${bad ? html` aria-invalid="true" aria-describedby="code-msg"` : ""}>
-${bad ? html`<p class="err" id="code-msg">${e.field_errors.code}</p>` : html`<p class="hint">The code expires in 10 minutes.</p>`}
+<input id="code" class="inp${bad ? " bad" : ""}" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required${focus ? html` autofocus` : ""}${bad ? html` aria-invalid="true" aria-describedby="code-msg"` : ""}>
+${bad ? html`<p class="err" id="code-msg" role="alert">${e.field_errors.code}</p>` : html`<p class="hint">The code expires in 10 minutes.</p>`}
 </div>`;
 }
 
@@ -110,7 +112,7 @@ ${back}
 <h1>Confirm your new ${f === "mobile" ? "mobile" : "email"}</h1>
 <p>We sent a code to your new ${f === "mobile" ? "mobile number" : "email"}.</p>
 ${alert(e)}
-<form method="post" action="${action}">
+<form method="post" action="${action}" novalidate>
 <input type="hidden" name="action" value="verify_replacement">
 ${codeField(e)}
 <button class="btn" type="submit">Change ${f === "mobile" ? "mobile" : "email"}</button>
@@ -127,7 +129,7 @@ ${back}
 <h1>${heading}</h1>
 ${lede}
 ${alert(e)}
-${s.step === "current_code" ? html`<form method="post" action="${action}">
+${s.step === "current_code" ? html`<form method="post" action="${action}" novalidate>
 <input type="hidden" name="action" value="verify_current">
 ${codeField(e)}
 <button class="btn" type="submit">Continue</button>

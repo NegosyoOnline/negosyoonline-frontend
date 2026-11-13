@@ -101,19 +101,21 @@ export async function changePost(d: Dash, field: ChangeField, text: Record<strin
   if ("response" in g) return g.response;
   const action = text.action;
   if (!ACTIONS.has(action ?? "")) return neutralNotFound();
-  const r = await memberChangeAct(field, {
+  const emptyCode = action?.startsWith("verify_") && !(text.code ?? "").trim();
+  // An empty code is answered here, in words, instead of by the browser's own bubble or by nothing.
+  const r = emptyCode ? null : await memberChangeAct(field, {
     ...args(d), action: action as "send_current", code: (text.code ?? "").trim(), new_value: (text.new_value ?? "").trim(),
   }, d.calls);
-  let errors = NO_STEP_ERRORS;
+  let errors = emptyCode ? { error_message: "", error_code: "", field_errors: { code: "Enter the 6-digit code we sent you." } } : NO_STEP_ERRORS;
   let status = 200;
   let code = "";
-  if (r.state === "ok" && r.changed) {
+  if (r && r.state === "ok" && r.changed) {
     // The contact was replaced and every session ended: this one's cookie goes, and the page is shown signed out.
     const done = htmlResponse(memberDocument(chrome(d.site, d.now), { title: changeDoneTitle(field), member: null, current: "account", content: changeDoneContent(field), scripts: [] }));
     clearCookie(done, d.call.request, MEMBER);
     return done;
   }
-  if (r.state !== "ok") {
+  if (r && r.state !== "ok") {
     const out = ended(d, r);
     if (out) return out;
     const refusal = r as PackRefusal;

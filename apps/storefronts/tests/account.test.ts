@@ -82,7 +82,7 @@ test("verify email: send step, code step with its error under the field, done wi
   const bad = await verifyEmailPost(d, { action: "verify", code: " 000000 " });
   assert.equal(bad.status, 400);
   const html = await bad.text();
-  assert.match(html, /<p class="err" id="code-msg">That code is not right\.<\/p>/);
+  assert.match(html, /<p class="err" id="code-msg" role="alert">That code is not right\.<\/p>/);
   assert.doesNotMatch(html, /note bad/); // a field message goes under its field, not in an alert
   assert.deepEqual(f.calls.find((c) => c.path.endsWith("/verify"))!.body, { host: "demo.negosyotest.com", visitor_ip: "", token: "M".repeat(43), code: "000000" });
   const g = fake({
@@ -147,4 +147,29 @@ test("the replacement confirmed ends every session: shown signed out, the cookie
   assert.match(b, /href="\/dashboard\/sign-in\/">Sign in again<\/a>/);
   assert.doesNotMatch(b, /pdn-out/); // no signed-in menu
   assert.deepEqual(f.calls.find((c) => c.path.endsWith("/act"))!.body.action, "verify_replacement");
+});
+
+test("change step 1 (confirm code): a wrong code is announced and focus goes to the code field, for email and mobile", async () => {
+  for (const field of ["email", "mobile"] as const) {
+    const S = ok({ field, current_masked: "x***", proof_channel: "sms", proof_masked: "+63 917 *** 4567", step: "current_code" });
+    const f = fake({
+      "member/me": [ME], "member/pack": [NOT_LOCKED], [`member/account/change/${field}`]: [S],
+      [`member/account/change/${field}/act`]: [err(400, "wrong_code", "That code did not work. Please try again.", { code: ["That code did not work. Please try again."] })],
+    });
+    const b = await (await changePost(dashOf(f), field, { action: "verify_current", code: "000000" })).text();
+    assert.match(b, /<p class="err" id="code-msg" role="alert">That code did not work\. Please try again\.<\/p>/);
+    assert.match(b, /<input id="code"[^>]* autofocus aria-invalid="true" aria-describedby="code-msg">/);
+  }
+});
+
+test("change step 1: an empty submit gets a visible, announced message, with no call to the API", async () => {
+  for (const field of ["email", "mobile"] as const) {
+    const S = ok({ field, current_masked: "x***", proof_channel: "sms", proof_masked: "+63 917 *** 4567", step: "current_code" });
+    const f = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], [`member/account/change/${field}`]: [S] });
+    const b = await (await changePost(dashOf(f), field, { action: "verify_current", code: "  " })).text();
+    assert.match(b, /<p class="err" id="code-msg" role="alert">Enter the 6-digit code we sent you\.<\/p>/);
+    assert.match(b, / autofocus aria-invalid="true"/);
+    assert.match(b, /<form method="post" action="[^"]+" novalidate>\s*<input type="hidden" name="action" value="verify_current">/);
+    assert.ok(!f.calls.some((c) => c.path.endsWith("/act")));
+  }
 });

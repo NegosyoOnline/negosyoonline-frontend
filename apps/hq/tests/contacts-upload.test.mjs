@@ -1,12 +1,15 @@
 /* contacts.js, the two-step CSV upload (plan 7, task 5). The file's text is held in memory between the check and
    the save, sent twice, and never shown, stored or put in an address. All names and numbers here are made up. */
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
 import { settle } from "./page.mjs";
 import { page, R, GROUPS, err, everything } from "./contacts-page.mjs";
 
 const CSV = "first,last,mobile\nZed,Madeup,0900 000 7777\nYan,Invented,0900 000 8888\nbad line\n";
-const file = (text = CSV, size = text.length) => ({ size, text: () => Promise.resolve(text) });
+const file = (text = CSV, size = text.length, name = "contacts.csv", type = "text/csv") => ({ name, type, size, text: () => Promise.resolve(text) });
 const REASON = "The mobile number is not a Philippine mobile.";
 const CHECK = { lines: 800, new: 748, existing: 40, repeated: 3, refused: [{ line: 14, reason: REASON }, { line: 203, reason: "This line has fewer than three columns." }, { line: 9, reason: "Something new" }], refused_count: 12 };
 const up = (extra = {}, opts = {}) => page({ [R.uc]: [200, CHECK], ...extra }, { pathname: "/contacts/upload/", ...opts });
@@ -37,7 +40,7 @@ test("a file over 1,048,576 bytes sends nothing", async () => {
   await check(p, { f: file("x", 1048577) });
   assert.equal(p.sent(R.uc).length, 0);
   assert.equal(p.node["u-file-err"].textContent, "The file is over 1 MB.");
-  await check(p, { f: file("x", 1048576) });
+  await check(p, { f: file("a,b,c", 1048576) });
   assert.equal(p.sent(R.uc).length, 1);
 });
 
@@ -184,4 +187,74 @@ test("read-only shows no form, the line, and the link back", async () => {
   p.node["u-form"].fire("submit");
   await settle();
   assert.equal(p.sent(R.uc).length, 0);
+});
+
+/* ---- the sample CSV, the non-CSV refusal (L19) and the empty-file wording ---- */
+
+const NOT_CSV = "This is not a CSV file. Save it as CSV UTF-8 and choose it again, or use the sample CSV.";
+const here = dirname(fileURLToPath(import.meta.url));
+
+test("the sample CSV is one header line, no data row, and the page links to it for download", () => {
+  const sample = readFileSync(join(here, "../public/assets/sample-contacts.csv"));
+  assert.equal(sample.toString("utf8"), "First name,Last name,Mobile number\n");
+  const html = readFileSync(join(here, "../public/contacts.html"), "utf8");
+  assert.match(html, /<a href="\/assets\/sample-contacts\.csv" download="sample-contacts\.csv" id="u-sample">Download sample CSV<\/a>/);
+  assert.ok(html.indexOf('id="u-file-hint"') < html.indexOf('id="u-sample"'));
+});
+
+test("a non-CSV file is refused at step 1 with the hint, the alert and focus on the file field, and nothing is sent", async () => {
+  const p = await up();
+  const cases = [
+    file("PK\u0003\u0004 binary", 20, "list.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+    file("a,b,c\n", 6, "list.txt", "text/plain"),
+    file("a,b,c\n", 6, "list", ""),
+    file("a,b,c\n", 6, "list.csv.exe", "application/octet-stream")
+  ];
+  for (const f of cases) {
+    p.node["u-err"].textContent = "";
+    await check(p, { f });
+    assert.equal(p.node["u-file-err"].textContent, NOT_CSV);
+    assert.equal(p.node["u-file-err"].hidden, false);
+    assert.equal(p.doc.activeElement, p.node["u-file"]);
+    assert.equal(p.node["u-step2"].hidden, true);
+  }
+  assert.equal(p.sent(R.uc).length, 0);
+});
+
+test("a file named .csv is refused when its text is a ZIP, has a NUL byte, or no comma or semicolon on its first line", async () => {
+  const p = await up();
+  for (const t of ["PK\u0003\u0004zipped", "a,b\u0000c\n", "just some words\nand more\n", "\n\n  \nfirst name\n"]) {
+    await check(p, { f: file(t) });
+    assert.equal(p.node["u-file-err"].textContent, NOT_CSV, JSON.stringify(t));
+    assert.equal(p.doc.activeElement, p.node["u-file"]);
+  }
+  assert.equal(p.sent(R.uc).length, 0);
+  assert.equal(p.node["u-check"].disabled, false, "the button is usable again");
+});
+
+test("real CSVs get through: any case of .csv, an empty or spreadsheet type, a BOM, semicolons, leading blank lines", async () => {
+  const p = await up();
+  for (const f of [file(CSV, undefined, "LIST.CSV", ""), file(CSV, undefined, "list.csv", "application/vnd.ms-excel"), file("\uFEFFFirst name,Last name,Mobile number\n"),
+    file("a;b;c\n"), file("\r\n\r\nfirst,last,mobile\r\n"), file(CSV, undefined, "noext", "text/csv")]) {
+    await check(p, { f });
+    assert.equal(p.node["u-file-err"].hidden, true);
+  }
+  assert.equal(p.sent(R.uc).length, 6);
+});
+
+test("the sample unchanged (no lines read) says the file has no contacts yet, not 0 new contacts", async () => {
+  const p = await up({ [R.uc]: [200, { lines: 0, new: 0, existing: 0, repeated: 0, refused: [], refused_count: 0 }] });
+  await check(p, { f: file("First name,Last name,Mobile number\n") });
+  assert.equal(p.node["u-step2"].hidden, false);
+  assert.equal(p.node["u-sentence"].textContent, "This file has no contacts yet. Add one line for each person under the header row, then check it again.");
+  assert.equal(p.node["u-sentence"].textContent.includes("0 new"), false);
+  assert.equal(p.node["u-save"].disabled, true);
+});
+
+test("every line refused: says no line could be read and leaves out the already-in-contacts sentence", async () => {
+  const p = await up({ [R.uc]: [200, { lines: 3, new: 0, existing: 0, repeated: 0, refused: [{ line: 2, reason: REASON }], refused_count: 3 }] });
+  await check(p);
+  assert.equal(p.node["u-sentence"].textContent, "No line could be read. Save the file as CSV UTF-8 and check it again.");
+  assert.equal(p.node["u-sentence"].textContent.includes("already in contacts"), false);
+  assert.equal(p.node["u-save"].disabled, true);
 });

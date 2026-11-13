@@ -11,6 +11,9 @@
   var INNER = ["v-list", "v-form", "v-groups", "v-upload"];
   var DOWN = "That did not go through. Check the list before trying again.";
   var MAX_FILE = 1048576;
+  var NOT_CSV = "This is not a CSV file. Save it as CSV UTF-8 and choose it again, or use the sample CSV.";
+  var NO_LINE = "No line could be read. Save the file as CSV UTF-8 and check it again.";
+  var NO_CONTACTS = "This file has no contacts yet. Add one line for each person under the header row, then check it again.";
   /* The four reasons the backend gives for a refused line, in words, keyed on its sentences. */
   var REASONS = {
     "This line has fewer than three columns.": "Fewer than three columns",
@@ -505,18 +508,36 @@
     if (!f) { say("u-file-err", "Choose a CSV file."); return; }
     if (f.size > MAX_FILE) { say("u-file-err", "The file is over 1 MB."); return; }
     if (!g) { say("u-group-err", "Choose a group."); return; }
+    if (!csvName(f)) { refuseFile(); return; }
     busy = true;
     $("u-check").disabled = true;
     f.text().then(function (t) {
+      if (!csvContent(t)) { busy = false; $("u-check").disabled = false; refuseFile(); return null; }
       csvText = t;
       return H.call("POST", "contacts/upload/check/", { group: g, csv: t });
     }).then(function (res) {
+      if (!res) return;
       busy = false;
       $("u-check").disabled = false;
       if (!res.ok) { csvText = null; uploadFail(res, "u-err"); return; }
       showCheck(res.data, g);
     }, function () { busy = false; $("u-check").disabled = false; csvText = null; say("u-file-err", "The file could not be read."); });
   });
+  /* A CSV is told by its name first: some browsers give a real CSV an empty or spreadsheet type. With no .csv
+     ending the type must say text/csv. The text is then checked quickly: a spreadsheet (.xlsx is a ZIP, "PK")
+     or any binary file has NUL bytes or no separator on its first line. */
+  function csvName(f) {
+    var n = typeof f.name === "string" ? f.name.toLowerCase() : "", t = typeof f.type === "string" ? f.type.toLowerCase() : "";
+    return /\.csv$/.test(n) || (!/\.[^.]+$/.test(n) && t === "text/csv") || (n === "" && t === "text/csv");
+  }
+  function csvContent(t) {
+    t = text(t).replace(/^\uFEFF/, "");
+    if (t.indexOf("\u0000") !== -1 || t.slice(0, 2) === "PK") return false;
+    var lines = t.split(/\r\n|\n|\r/), first = "";
+    for (var i = 0; i < lines.length; i++) if (lines[i].trim()) { first = lines[i]; break; }
+    return first === "" || /[,;]/.test(first);
+  }
+  function refuseFile() { csvText = null; say("u-file-err", NOT_CSV); $("u-file").focus(); }
   function uploadFail(res, where) {
     if (left(res)) return;
     if (res.code === "changed") { dropUpload(); say("u-err", "The file or the list of contacts is not as it was when it was checked. Check it again."); return; }
@@ -540,11 +561,17 @@
     $("f-repeated-box").hidden = !(checked.repeated > 0);
     var s = $("u-sentence");
     s.textContent = "";
-    var b1 = el("strong", "", plural(checked.news, "new contact", "new contacts")), b2 = el("strong", "", gname);
-    s.appendChild(b1);
-    s.appendChild(el("span", "", " will be added to "));
-    s.appendChild(b2);
-    s.appendChild(el("span", "", ". The " + checked.existing + " numbers already in contacts are not added again; they are put in " + gname + " and keep their names."));
+    if (checked.lines === 0 && checked.refusedCount === 0) {
+      s.textContent = NO_CONTACTS;
+    } else if (checked.news === 0 && checked.existing === 0 && checked.refusedCount > 0) {
+      s.textContent = NO_LINE;
+    } else {
+      var b1 = el("strong", "", plural(checked.news, "new contact", "new contacts")), b2 = el("strong", "", gname);
+      s.appendChild(b1);
+      s.appendChild(el("span", "", " will be added to "));
+      s.appendChild(b2);
+      s.appendChild(el("span", "", ". The " + checked.existing + " numbers already in contacts are not added again; they are put in " + gname + " and keep their names."));
+    }
     $("u-results").textContent = "";
     checked.refused.slice(0, 200).forEach(function (r) {
       var li = el("li");

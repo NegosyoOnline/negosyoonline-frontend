@@ -115,3 +115,13 @@ test("no usage charge at launch (z8uq9memdk): usage-charge wording is gone from 
   assert.match(pages["terms.html"], /No usage charge applies at this time\./);
   assert.match(pages["index.html"], /No usage charge at this time/);
 });
+
+test("contrast: dark-gold text token on light backgrounds, 24px trial switch (z8uq9m7ydk)", () => {
+  const css = read("assets/css/site.css");
+  assert.match(css, /--gold-text:\s*#8A6513/);
+  assert.match(css, /\.eyebrow\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  assert.match(css, /\.rd-cmp-ghead \.rd-cmp-eyebrow\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  assert.match(css, /\.rd-sp-label \.rd-year\s*\{[^}]*color:\s*var\(--gold-text\)/);
+  const m = css.match(/\.switch-mode \.link-inline\s*\{[^}]*min-height:\s*(\d+)px/);
+  assert.ok(m && Number(m[1]) >= 24, "#switch-mode needs min-height >= 24px");
+});

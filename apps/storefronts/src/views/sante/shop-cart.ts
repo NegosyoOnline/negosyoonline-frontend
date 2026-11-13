@@ -13,6 +13,12 @@ export function shippingCell(q: Quote): Markup {
   return q.shipping.policy === "zero" ? html`FREE` : php(q.shipping.charged_centavos);
 }
 
+/** The shipping row's label: TWCinc's estimate_label while the quote's shipping is an estimate, else "Shipping". */
+export const ESTIMATE_LABEL = "Estimated shipping (Metro Manila)";
+export function shippingLabel(q: Quote): string {
+  return q.shipping.estimated ? ESTIMATE_LABEL : "Shipping";
+}
+
 export function cartContent(m: CartModel): Markup {
   const q = m.quote;
   const lines = q?.lines ?? [];
@@ -71,7 +77,7 @@ export function cartContent(m: CartModel): Markup {
       <div class="sf-totals">
         ${ready && q ? html`
         <div class="sf-totals-row"><span>Subtotal</span><strong>${php(q.subtotal_centavos)}</strong></div>
-        <div class="sf-totals-row"><span>Shipping</span><strong>${shippingCell(q)}</strong></div>
+        <div class="sf-totals-row"><span>${shippingLabel(q)}</span><strong>${shippingCell(q)}</strong></div>
         <div class="sf-totals-row sf-totals-grand"><span>Total</span><strong>${php(q.total_centavos)}</strong></div>` : q && q.errors.length > 0 ? html`<p class="sf-quote-error" role="alert">${q.errors[0]}</p>` : ""}
       </div>
 

@@ -215,16 +215,30 @@
   }
 
   var PAGE = 20;
-  var STATUS_OWNER = [["all", "All"], ["live", "Live"], ["hidden", "Hidden"], ["incomplete", "Incomplete"]];
-  var STATUS_VIEW = [["all", "All"], ["live", "Live"]];
+  /* value, label, hint under the count, accent kind. The select shows "All status" for the first. */
+  var STATUS_OWNER = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"], ["hidden", "Hidden", "not in shops", "dr"], ["incomplete", "Incomplete", "missing details", "inc"]];
+  var STATUS_VIEW = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"]];
   function statuses() { return S.canEdit ? STATUS_OWNER : STATUS_VIEW; }
 
-  function tile(count, label, sub, cls) {
+  /* A header tile: label, big value, note (the Inventory page's order). */
+  function tile(count, label, note, cls) {
     var t = h("div", "pr-tile " + (cls || ""));
-    t.appendChild(h("p", "pr-tile-num", String(count)));
     t.appendChild(h("p", "pr-tile-label", label));
-    if (sub) t.appendChild(h("p", "pr-tile-sub", sub));
+    t.appendChild(h("p", "pr-tile-num", String(count)));
+    if (note) t.appendChild(h("p", "pr-tile-sub", note));
     return t;
+  }
+  function badge(text, kind, title) {
+    var b = h("span", "pr-badge pr-b-" + kind, text);
+    if (title) b.setAttribute("title", title);
+    return b;
+  }
+  /* Move one id up (delta -1) or down (+1) in a list of ids; a new array, the same list when it cannot move. */
+  function moveId(ids, id, delta) {
+    var i = ids.indexOf(id), j = i + delta, out = ids.slice();
+    if (i < 0 || j < 0 || j >= ids.length) return out;
+    out[i] = out[j]; out[j] = id;
+    return out;
   }
 
   function toggleActive(p) {
@@ -251,11 +265,13 @@
 
   function manageMenu(p) {
     var wrap = h("div", "pr-menuwrap"), open = S.view.menu === p.id;
-    var b = button("Manage", "no-btn-ghost pr-manage", function () {
+    var b = D.el("button", { type: "button", "class": "pr-manage" }, "Manage ");
+    b.appendChild(h("span", "pr-arrow", "▾"));
+    b.addEventListener("click", function () {
       S.view.menu = open ? null : p.id;
       refreshList();
       var first = !open && S.listBox && S.listBox.querySelector(".pr-menu-item");
-      if (first && first.focus) first.focus();
+      if (first && first.focus) first.focus({ preventScroll: true });
     });
     b.setAttribute("aria-haspopup", "true");
     b.setAttribute("aria-expanded", open ? "true" : "false");
@@ -263,11 +279,19 @@
     wrap.appendChild(b);
     if (open) {
       var m = h("div", "pr-menu");
-      m.setAttribute("role", "group");
+      m.setAttribute("role", "menu");
       m.setAttribute("aria-label", "Manage " + p.name);
-      m.appendChild(button("Edit details", "pr-menu-item pr-edit", function () { S.view.menu = null; openForm(p); }));
-      m.appendChild(button("History", "pr-menu-item pr-hist", function () { S.view.menu = null; openHistory(p); }));
-      m.appendChild(button(p.is_active ? "Hide from shops" : "Show in shops", "pr-menu-item pr-toggle", function () { S.view.menu = null; toggleActive(p); }));
+      var item = function (text, cls, fn) {
+        var it = D.el("button", { type: "button", "class": "pr-menu-item " + cls }, text);
+        it.addEventListener("click", fn);
+        it.setAttribute("role", "menuitem");
+        return it;
+      };
+      m.appendChild(item("Edit details", "pr-edit", function () { S.view.menu = null; openForm(p); }));
+      m.appendChild(h("div", "pr-menu-sep"));
+      m.appendChild(item("History", "pr-hist", function () { S.view.menu = null; openHistory(p); }));
+      m.appendChild(h("div", "pr-menu-sep"));
+      m.appendChild(item(p.is_active ? "Hide from shops" : "Show in shops", "pr-toggle", function () { S.view.menu = null; toggleActive(p); }));
       m.addEventListener("keydown", function (ev) { if (ev && ev.key === "Escape") { S.view.menu = null; refreshList(); var mb = S.listBox && S.listBox.querySelector(".pr-manage"); if (mb && mb.focus) mb.focus(); } });
       wrap.appendChild(m);
     }
@@ -282,7 +306,7 @@
     var txt = h("div", "pr-prod-text");
     txt.appendChild(h("p", "pr-name", p.name));
     txt.appendChild(h("p", "pr-code", p.code));
-    if (categoryLabel(p.category)) txt.appendChild(chip(categoryLabel(p.category), "chip-neutral pr-cat"));
+    if (categoryLabel(p.category)) txt.appendChild(h("span", "pr-cat", categoryLabel(p.category)));
     box.appendChild(txt);
     c1.appendChild(box);
     tr.appendChild(c1);
@@ -291,12 +315,12 @@
     var b = h("p", "pr-price"); b.appendChild(h("span", "pr-price-k", "Members ")); b.appendChild(h("span", "pr-price-v", formatPeso(p.unit_members_price_centavos))); c2.appendChild(b);
     tr.appendChild(c2);
     var c3 = D.el("td", { "class": "pr-c-store", "data-label": "Storefront" });
-    c3.appendChild(chip(p.is_active ? "Live" : "Hidden", p.is_active ? "chip-ok" : "chip-neutral"));
+    c3.appendChild(badge(p.is_active ? "Live" : "Hidden", p.is_active ? "ok" : "dr"));
     if (S.canEdit) {
       var g = gaps(p);
       if (g.length) {
-        var gb = chip("Incomplete", "chip-info pr-gap");
-        gb.setAttribute("title", "Missing: " + g.join(", "));
+        /* Orthogonal to Live or Hidden: a live row with gaps shows both badges. */
+        var gb = badge("Incomplete", "inc pr-gap", "Missing: " + g.join(", "));
         c3.appendChild(gb);
         c3.appendChild(h("span", "pr-gap-list", "Missing: " + g.join(", ")));
       }
@@ -324,62 +348,90 @@
     var c = counts(S.products, S.canEdit);
     clear(S.stripBox);
     statuses().forEach(function (s) {
-      var b = button("", "pr-stat" + (view.status === s[0] ? " pr-stat-on" : ""), function () {
+      var b = D.el("button", { type: "button", "class": "pr-stat pr-cell-" + s[3] + (view.status === s[0] ? " pr-stat-on" : "") });
+      b.addEventListener("click", function () {
         view.status = s[0]; view.page = 1; view.menu = null;
         if (S.statusSel) S.statusSel.value = s[0];
         refreshList();
       });
       b.appendChild(h("span", "pr-stat-num", String(c[s[0]])));
       b.appendChild(h("span", "pr-stat-label", s[1]));
+      b.appendChild(h("span", "pr-stat-hint", s[2]));
       b.setAttribute("aria-pressed", view.status === s[0] ? "true" : "false");
       S.stripBox.appendChild(b);
     });
     clear(S.resultBox);
     var rows = filterProducts(S.products, view, S.canEdit);
-    if (!rows.length) {
-      var empty = h("div", "pr-empty");
+    var pg = pageOf(rows);
+    var card = h("div", "pr-tablecard");
+    var table = D.el("table", { "class": "pr-table" });
+    table.appendChild(D.el("caption", { "class": "pr-sr" }, "Products"));
+    var head = D.el("tr");
+    var cols = [["Product", "pr-c-product"], ["Price", "pr-c-price"], ["Storefront", "pr-c-store"]].concat(S.canEdit ? [["Action", "pr-c-manage"]] : []);
+    cols.forEach(function (hd) { head.appendChild(D.el("th", { scope: "col", "class": hd[1] }, hd[0])); });
+    var thead = D.el("thead"); thead.appendChild(head); table.appendChild(thead);
+    var tbody = D.el("tbody");
+    if (rows.length) {
+      pg.slice.forEach(function (p) { tbody.appendChild(rowFor(p)); });
+    } else {
+      var er = D.el("tr", { "class": "pr-empty-row" });
+      var ec = D.el("td", { "class": "pr-empty-state", colspan: String(cols.length) });
       if (!S.products.length) {
-        empty.appendChild(h("p", "pr-empty-title", S.canEdit ? "Add your first product" : "No products yet"));
-        empty.appendChild(h("p", "pr-meta", S.canEdit ? "Products you add here are shared with every Santé store." : "Products will show here once they are added."));
+        ec.appendChild(h("span", "pr-empty-title", S.canEdit ? "No products yet — add your first product to get started." : "No products yet."));
       } else {
-        empty.appendChild(h("p", "pr-empty-title", "No products match"));
-        empty.appendChild(button("Clear filters", "no-btn-ghost pr-clear", function () {
+        ec.appendChild(h("span", "pr-empty-title", "No products match these filters."));
+        ec.appendChild(button("Clear filters", "no-btn-ghost pr-clear", function () {
           view.q = ""; view.status = "all"; view.cat = "all"; view.page = 1;
           if (S.searchIn) S.searchIn.value = ""; if (S.statusSel) S.statusSel.value = "all"; if (S.catSel) S.catSel.value = "all";
           refreshList();
         }));
       }
-      S.resultBox.appendChild(empty);
-      say(S.products.length ? "No products match." : "");
-      return;
+      er.appendChild(ec); tbody.appendChild(er);
     }
-    var pg = pageOf(rows);
-    S.resultBox.appendChild(h("p", "pr-shown", "Showing " + rows.length + " of " + S.products.length));
-    var table = D.el("table", { "class": "pr-table" });
-    table.appendChild(D.el("caption", { "class": "pr-sr" }, "Products"));
-    var head = D.el("tr");
-    [["Product", "pr-c-product"], ["Price", "pr-c-price"], ["Storefront", "pr-c-store"]].concat(S.canEdit ? [["Manage", "pr-c-manage"]] : []).forEach(function (hd) {
-      head.appendChild(D.el("th", { scope: "col", "class": hd[1] }, hd[0]));
-    });
-    var thead = D.el("thead"); thead.appendChild(head); table.appendChild(thead);
-    var tbody = D.el("tbody");
-    pg.slice.forEach(function (p) { tbody.appendChild(rowFor(p)); });
     table.appendChild(tbody);
-    S.resultBox.appendChild(table);
-    if (pg.pages > 1) {
-      var nav = h("div", "pr-pager");
-      var prev = button("Previous", "no-btn-ghost pr-prev", function () { view.page--; view.menu = null; refreshList(); });
-      var next = button("Next", "no-btn-ghost pr-next", function () { view.page++; view.menu = null; refreshList(); });
+    card.appendChild(table);
+    if (rows.length && pg.pages > 1) {
+      var nav = h("div", "pr-pagination");
+      nav.appendChild(h("div", "pr-page", "Page " + view.page + " of " + pg.pages));
+      var links = h("div", "pr-pagination-links");
+      var prev = button("← Previous", "no-btn-ghost pr-prev", function () { view.page--; view.menu = null; refreshList(); });
+      var next = button("Next →", "no-btn-ghost pr-next", function () { view.page++; view.menu = null; refreshList(); });
       if (view.page <= 1) prev.disabled = true;
       if (view.page >= pg.pages) next.disabled = true;
-      nav.appendChild(prev); nav.appendChild(h("span", "pr-page", "Page " + view.page + " of " + pg.pages)); nav.appendChild(next);
-      S.resultBox.appendChild(nav);
+      links.appendChild(prev); links.appendChild(next);
+      nav.appendChild(links);
+      card.appendChild(nav);
     }
+    S.resultBox.appendChild(card);
+    say(rows.length ? rows.length + (rows.length === 1 ? " product shown." : " products shown.") : S.products.length ? "No products match." : "");
+    placeMenu();
+  }
+
+  /* The open Manage menu is a fixed popover (it would be clipped inside the rounded table card): put it under its button,
+     right-aligned, or above it when there is no room below. */
+  function placeMenu() {
+    var box = S && S.listBox, menu = box && box.querySelector(".pr-menu");
+    if (!menu) return;
+    var btn = menu.parentNode && menu.parentNode.querySelector(".pr-manage");
+    if (!btn || !btn.getBoundingClientRect || !menu.offsetWidth) return;
+    var r = btn.getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
+    var top = r.bottom + 6;
+    if (top + mh > window.innerHeight - 8 && r.top - mh - 6 > 8) top = r.top - mh - 6;
+    var left = r.right - mw;
+    if (left < 8) left = 8;
+    menu.style.top = Math.round(top) + "px";
+    menu.style.left = Math.round(left) + "px";
+  }
+  /* A scroll or a resize closes an open menu, as the Inventory page does. */
+  function closeMenuOnMove() {
+    if (!S || S.mode !== "list" || !S.view || !S.view.menu) return;
+    S.view.menu = null;
+    refreshList();
   }
 
   function select(id, label, opts, value, onChange) {
     var wrap = h("div", "pr-tool");
-    wrap.appendChild(D.el("label", { "for": id, "class": "pr-tool-label" }, label));
+    wrap.appendChild(D.el("label", { "for": id, "class": "pr-sr" }, label));
     var sel = D.el("select", { id: id, "class": "pr-input pr-select" });
     opts.forEach(function (o) { var op = D.el("option", { value: o[0] }, o[1]); if (o[0] === value) op.selected = true; sel.appendChild(op); });
     sel.value = value;
@@ -389,6 +441,8 @@
   }
 
   function listView() {
+    stopDrag();
+    S.arrange = null;
     S.mode = "list";
     if (!S.view) S.view = newView();
     S.view.menu = null;
@@ -397,18 +451,31 @@
     r.removeAttribute("aria-busy");
     var c = counts(S.products, S.canEdit);
 
-    var band = h("section", "pr-band");
-    band.setAttribute("aria-label", "Catalog summary");
-    band.appendChild(h("p", "pr-band-line", "The shared Santé catalog"));
-    var tiles = h("div", "pr-tiles");
-    tiles.appendChild(tile(c.all, "Products in catalog", "", "pr-tile-main"));
-    tiles.appendChild(tile(c.live, "Live on storefront", "", ""));
+    /* Masthead: the store, the page, and the catalog numbers (the Inventory page's blue hero). */
+    var name = S.siteName || "Santé store";
+    var hero = h("section", "pr-hero");
+    hero.setAttribute("aria-label", "Catalog summary");
+    var hid = h("div", "pr-hero-id");
+    hid.appendChild(h("div", "pr-hero-logo", name.charAt(0).toUpperCase()));
+    var main = h("div", "pr-hero-id-main");
+    main.appendChild(h("p", "pr-hero-eyebrow", "Santé store · " + name));
+    main.appendChild(h("p", "pr-hero-title", "The shared Santé catalog"));
+    main.appendChild(h("p", "pr-hero-sub", "One product list for every Santé store, with prices and storefront status"));
+    hid.appendChild(main);
+    hero.appendChild(hid);
+    var kpis = h("div", "pr-hero-kpis");
+    kpis.appendChild(tile(c.all, "Products in catalog", "in the shared catalog", "pr-hero-headline"));
+    var small = h("div", "pr-hero-tiles");
+    small.appendChild(tile(c.live, "Live on storefront", "shown in shops", "pr-hero-kpi"));
     if (S.canEdit) {
-      tiles.appendChild(tile(c.hidden, "Hidden", "not in shops", ""));
-      tiles.appendChild(tile(c.incomplete, "Needs a fix", "missing details", ""));
+      small.appendChild(tile(c.hidden, "Hidden", "not in shops", "pr-hero-kpi"));
+      var fix = tile(c.incomplete, "Needs a fix", "missing details", "pr-hero-kpi is-action" + (c.incomplete ? " has-work" : ""));
+      if (c.incomplete) fix.firstChild.appendChild(h("span", "pr-hero-dot"));
+      small.appendChild(fix);
     }
-    band.appendChild(tiles);
-    r.appendChild(band);
+    kpis.appendChild(small);
+    hero.appendChild(kpis);
+    r.appendChild(hero);
 
     if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));
 
@@ -418,26 +485,30 @@
     r.appendChild(S.stripBox);
 
     var bar = h("div", "pr-toolbar");
+    var form = h("div", "pr-search-form");
+    form.setAttribute("role", "search");
     var sw = h("div", "pr-tool pr-tool-search");
-    sw.appendChild(D.el("label", { "for": "pr-search", "class": "pr-tool-label" }, "Search"));
-    var q = D.el("input", { id: "pr-search", type: "search", "class": "pr-input", placeholder: "Name or code", autocomplete: "off" });
+    sw.appendChild(D.el("label", { "for": "pr-search", "class": "pr-sr" }, "Search product name or code"));
+    var q = D.el("input", { id: "pr-search", type: "search", "class": "pr-input pr-search-input", placeholder: "Search product name or code", autocomplete: "off" });
     q.value = view.q;
     q.addEventListener("input", function () { view.q = q.value; view.page = 1; view.menu = null; refreshList(); });
     sw.appendChild(q);
-    bar.appendChild(sw);
-    var st = select("pr-status", "Status", statuses(), view.status, function (v) { view.status = v; view.page = 1; view.menu = null; refreshList(); });
-    bar.appendChild(st.wrap);
-    var ct = select("pr-category", "Category", [["all", "All"]].concat(CATEGORIES), view.cat, function (v) { view.cat = v; view.page = 1; view.menu = null; refreshList(); });
-    bar.appendChild(ct.wrap);
-    var acts = h("div", "pr-bar-actions");
-    acts.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
+    form.appendChild(sw);
+    var statusOpts = statuses().map(function (s, i) { return [s[0], i ? s[1] : "All status"]; });
+    var st = select("pr-status", "Status", statusOpts, view.status, function (v) { view.status = v; view.page = 1; view.menu = null; refreshList(); });
+    form.appendChild(st.wrap);
+    var ct = select("pr-category", "Category", [["all", "All categories"]].concat(CATEGORIES), view.cat, function (v) { view.cat = v; view.page = 1; view.menu = null; refreshList(); });
+    form.appendChild(ct.wrap);
+    form.appendChild(button("Search", "no-btn-ghost pr-search-btn", function () { view.q = q.value; view.page = 1; view.menu = null; refreshList(); }));
+    bar.appendChild(form);
+    if (S.canEdit) bar.appendChild(button("⇅ Arrange", "no-btn-ghost pr-arrange", function () { arrangeView(); }));
+    bar.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
       var rows = filterProducts(S.products, view, S.canEdit);
       if (!rows.length) { D.toast("Nothing to export", "No products match the filters.", "error"); return; }
       if (downloadCsv(csvText(rows, S.canEdit))) D.toast("CSV downloaded", rows.length === 1 ? "1 product" : rows.length + " products");
       else D.toast("Could not export", "Try again.", "error");
     }));
-    if (S.canEdit) acts.appendChild(button("Add product", "no-btn-primary pr-add", function () { openForm(null); }));
-    bar.appendChild(acts);
+    if (S.canEdit) bar.appendChild(button("＋ Add product", "no-btn-primary pr-add", function () { openForm(null); }));
     r.appendChild(bar);
 
     S.listBox = r; S.searchIn = q; S.statusSel = st.sel; S.catSel = ct.sel;
@@ -445,6 +516,186 @@
     r.appendChild(S.resultBox);
     refreshList();
   }
+
+  /* ---------- arrange (owner only) ---------- */
+
+  /* The storefront order: every product, hidden ones too, top to bottom. A drag by the grip (mouse or touch) or the arrow keys on the
+     grip moves a row; each drop saves the whole order at once (POST .../catalog/products/order/ {product_ids}), one request at a time,
+     the last order wins. A failed save leaves the order on screen and says it is unsaved. */
+  var AR_IDLE = "Changes save automatically";
+
+  function arrangeView() {
+    if (!S.canEdit) return;
+    S.mode = "arrange";
+    ++token;
+    var r = clear(pane());
+    r.removeAttribute("aria-busy");
+    var A = { ids: S.products.map(function (p) { return p.id; }), inFlight: false, queued: false, drag: null, timer: null };
+    A.saved = A.ids.join(",");
+    S.arrange = A;
+
+    var card = h("section", "pr-ar");
+    card.setAttribute("aria-label", "Arrange storefront order");
+    var head = h("div", "pr-ar-head");
+    var hid = h("div", "pr-ar-headtext");
+    var title = D.el("h2", { "class": "pr-ar-title", tabindex: "-1" }, "Arrange storefront order");
+    hid.appendChild(title);
+    hid.appendChild(h("p", "pr-ar-sub", "Customers see these top-to-bottom. Drag the handle to rearrange, or focus it and press the up and down arrow keys. Changes save automatically. " + A.ids.length + (A.ids.length === 1 ? " product." : " products.")));
+    hid.appendChild(h("p", "pr-ar-note", "Hidden products are arranged too; they take their place once they are shown in shops."));
+    head.appendChild(hid);
+    head.appendChild(button("← Back to Products", "no-btn-ghost pr-ar-back", function () { stopDrag(); token++; loadList(); }));
+    card.appendChild(head);
+
+    var bar = h("div", "pr-ar-actions");
+    var status = h("span", "pr-ar-status");
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    status.setAttribute("data-state", "idle");
+    status.appendChild(h("span", "pr-ar-dot"));
+    var statusText = h("span", "pr-ar-status-text", AR_IDLE);
+    status.appendChild(statusText);
+    bar.appendChild(status);
+    var reload = button("Reload products", "no-btn-ghost pr-ar-reload", function () { stopDrag(); token++; loadList(); });
+    reload.hidden = true;
+    bar.appendChild(reload);
+    card.appendChild(bar);
+
+    var cols = h("div", "pr-ar-cols");
+    ["", "", "", "Product", "Storefront", "Price"].forEach(function (t, i) { cols.appendChild(h("span", i === 5 ? "pr-ar-col-price" : i === 4 ? "pr-ar-col-store" : "", t)); });
+    card.appendChild(cols);
+
+    var list = D.el("ol", { "class": "pr-ar-list" });
+    card.appendChild(list);
+    r.appendChild(card);
+
+    function setStatus(state, text) {
+      clearTimeout(A.timer);
+      status.setAttribute("data-state", state);
+      statusText.textContent = text;
+      reload.hidden = state !== "error";
+      if (state === "saved") A.timer = setTimeout(function () { setStatus("idle", AR_IDLE); }, 2600);
+    }
+    function renumber() {
+      var rows = list.children, n = rows.length;
+      for (var i = 0; i < n; i++) {
+        var pos = rows[i].querySelector(".pr-ar-pos"), grip = rows[i].querySelector(".pr-ar-grip");
+        if (pos) pos.textContent = (i + 1) + ".";
+        if (grip) grip.setAttribute("aria-label", "Move " + (rows[i].getAttribute("data-name") || "product") + ", position " + (i + 1) + " of " + n + ". Press the up or down arrow key to move it.");
+      }
+    }
+    function orderFromList() {
+      var out = [], rows = list.children;
+      for (var i = 0; i < rows.length; i++) out.push(rows[i].getAttribute("data-id"));
+      return out;
+    }
+    function save() {
+      var order = A.ids.slice(), key = order.join(",");
+      if (key === A.saved) { if (status.getAttribute("data-state") === "error") setStatus("idle", AR_IDLE); return; }
+      if (A.inFlight) { A.queued = true; return; }
+      A.inFlight = true;
+      setStatus("saving", "Saving…");
+      D.call("POST", productPath() + "order/", { product_ids: order }, true).then(function (res) {
+        A.inFlight = false;
+        if (res.status === 401) return;
+        if (res.ok && res.data && Array.isArray(res.data.products)) {
+          A.saved = key;
+          S.products = res.data.products;
+          if (S.arrange === A) setStatus("saved", "Saved — shops now show this order");
+        } else if (S.arrange === A) {
+          var e = describeError(res);
+          var text = e.kind === "readonly" || e.kind === "billing" ? e.message
+            : e.kind === "fields" ? "The product list changed. Reload the products and arrange them again."
+            : e.message || MSG.generic;
+          setStatus("error", "Not saved. " + text);
+          D.toast("Order not saved", text, "error");
+        }
+        if (A.queued) { A.queued = false; if (S.arrange === A) save(); }
+      });
+    }
+    function drawRows(focusId) {
+      clear(list);
+      A.ids.forEach(function (id, i) {
+        var p = findProduct(id);
+        if (!p) return;
+        var li = D.el("li", { "class": "pr-ar-row" });
+        li.setAttribute("data-id", id);
+        li.setAttribute("data-name", p.name);
+        var grip = D.el("button", { type: "button", "class": "pr-ar-grip" }, "⠿");
+        grip.addEventListener("keydown", function (ev) {
+          var d = ev && ev.key === "ArrowUp" ? -1 : ev && ev.key === "ArrowDown" ? 1 : 0;
+          if (!d) return;
+          if (ev.preventDefault) ev.preventDefault();
+          var next = moveId(A.ids, id, d);
+          if (next.join(",") === A.ids.join(",")) return;
+          A.ids = next;
+          drawRows(id);
+          say(p.name + " moved to position " + (A.ids.indexOf(id) + 1) + " of " + A.ids.length + ".");
+          save();
+        });
+        li.appendChild(grip);
+        li.appendChild(h("span", "pr-ar-pos", (i + 1) + "."));
+        li.appendChild(thumb(p));
+        var nm = h("span", "pr-ar-name", p.name);
+        li.appendChild(nm);
+        li.appendChild(h("span", "pr-ar-store", "")).appendChild(badge(p.is_active ? "Live" : "Hidden", p.is_active ? "ok" : "dr"));
+        li.appendChild(h("span", "pr-ar-price", formatPeso(p.srp_centavos)));
+        list.appendChild(li);
+      });
+      renumber();
+      if (focusId) {
+        var g = list.querySelector(".pr-ar-row[data-id]");
+        var rows = list.children;
+        for (var i = 0; i < rows.length; i++) if (rows[i].getAttribute("data-id") === focusId) { g = rows[i].querySelector(".pr-ar-grip"); break; }
+        if (g && g.focus) g.focus();
+      }
+    }
+
+    /* Pointer drag, from the grip only (so the rest of the row still scrolls on a phone). */
+    function moveDrag(e) {
+      if (!A.drag) return;
+      var rows = list.children, before = null;
+      for (var i = 0; i < rows.length; i++) {
+        if (rows[i] === A.drag) continue;
+        var b = rows[i].getBoundingClientRect();
+        if (e.clientY < b.top + b.height / 2) { before = rows[i]; break; }
+      }
+      if (before) list.insertBefore(A.drag, before); else list.appendChild(A.drag);
+      renumber();
+    }
+    function endDrag() {
+      if (!A.drag) return;
+      A.drag.classList.remove("pr-ar-drag");
+      A.drag = null;
+      window.removeEventListener("pointermove", moveDrag);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+      A.ids = orderFromList();
+      save();
+    }
+    A.stop = function () {
+      if (!A.drag) return;
+      A.drag.classList.remove("pr-ar-drag"); A.drag = null;
+      window.removeEventListener("pointermove", moveDrag);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
+    };
+    list.addEventListener("pointerdown", function (e) {
+      var grip = e.target && e.target.closest && e.target.closest(".pr-ar-grip");
+      if (!grip || A.drag) return;
+      A.drag = grip.closest(".pr-ar-row");
+      A.drag.classList.add("pr-ar-drag");
+      if (grip.setPointerCapture) { try { grip.setPointerCapture(e.pointerId); } catch (x) { /* a synthetic pointer */ } }
+      window.addEventListener("pointermove", moveDrag);
+      window.addEventListener("pointerup", endDrag);
+      window.addEventListener("pointercancel", endDrag);
+      if (e.preventDefault) e.preventDefault();
+    });
+
+    drawRows();
+    title.focus();
+    say("Arrange storefront order. " + A.ids.length + " products.");
+  }
+  function stopDrag() { if (S && S.arrange && S.arrange.stop) S.arrange.stop(); }
 
   function loadList(focusId) {
     var mine = ++token;
@@ -825,6 +1076,11 @@
       }
       var ids = sites.map(function (s) { return s.id; });
       S.site = D.siteFromQuery(ids);
+      function nameOf(id) {
+        for (var i = 0; i < sites.length; i++) if (sites[i].id === id) return sites[i].display_name || sites[i].subdomain || "Santé store";
+        return "Santé store";
+      }
+      S.siteName = nameOf(S.site);
       clear(r);
       if (sites.length > 1) {
         var wrap = h("div", "pr-pick"), lab = D.el("label", { "for": "pr-site", "class": "pr-pick-label" }, "Store");
@@ -837,6 +1093,7 @@
         sel.addEventListener("change", function () {
           if (ids.indexOf(sel.value) < 0) return;
           S.site = sel.value;
+          S.siteName = nameOf(S.site);
           S.view = newView();
           loadInto(inner);
         });
@@ -867,8 +1124,18 @@
   window.NOProducts = {
     util: { pesosToCentavos: pesosToCentavos, formatPeso: formatPeso, centavosToField: centavosToField, percentToRate: percentToRate,
       rateToPercent: rateToPercent, membersPrice: membersPrice, describeError: describeError, changes: changes, categoryLabel: categoryLabel,
-      gaps: gaps, counts: counts, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText },
-    show: function () { document.addEventListener("click", outside); start(); },
-    hide: function () { token++; say(""); document.removeEventListener("click", outside); }
+      gaps: gaps, counts: counts, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText, moveId: moveId },
+    show: function () {
+      document.addEventListener("click", outside);
+      window.addEventListener("scroll", closeMenuOnMove, true);
+      window.addEventListener("resize", closeMenuOnMove);
+      start();
+    },
+    hide: function () {
+      token++; say(""); stopDrag();
+      document.removeEventListener("click", outside);
+      window.removeEventListener("scroll", closeMenuOnMove, true);
+      window.removeEventListener("resize", closeMenuOnMove);
+    }
   };
 })();

@@ -16,3 +16,10 @@
 .sc-card .sc-alts-row { display: flex; flex-wrap: wrap; justify-content: center; }
 .sc-card .sc-alts-row form { flex: 0 1 calc(50% - 5px); min-width: 0; }
 @media (max-width: 420px) { .sc-card .sc-alts-row form { flex: 1 1 100%; } }
+
+/* Coach Ed 2026-11-13 (task z8uq9memq8, Part B): the TWCinc sheets stay byte for byte, so the contrast fixes for the
+   signed-in orders list and the membership landing footer sit here, after them. Same colours as the storefront sheets:
+   grey #657389, amber #966800 (default chip only, not the approved or expired ones), footer small print white 48%. */
+.oc-date, .oc-total span { color: #657389; }
+.sf-status-chip:not(.sf-status-approved):not(.sf-status-expired) { color: #966800; }
+.footer-copyright, .footer-disclaimer { color: rgba(255,255,255,0.48); }

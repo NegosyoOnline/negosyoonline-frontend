@@ -395,6 +395,38 @@ test("Mark shipped…: courier is required; tracking and date go with it; the da
   assert.deepEqual(d.cls(d.body, "mc-stage").map((b) => b.textContent), ["1Under review", "0To ship", "3Shipped"]);
 });
 
+test("Mark shipped…: each error is linked to its field (aria-describedby), focus lands on the first bad field, and the link clears when fixed", async () => {
+  const d = boot();
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Mark shipped…").fire("click");
+  d.press(d.slot(), "Mark shipped").fire("click");
+  const c = d.$("so-f-courier");
+  assert.equal(c.getAttribute("aria-invalid"), "true");
+  assert.equal(c.getAttribute("aria-describedby"), "so-f-courier-err");
+  assert.equal(d.$("so-f-courier-err").textContent, "Enter the courier.");
+  assert.equal(d.$("so-f-tracking_no").getAttribute("aria-describedby"), null);
+  assert.equal(d.doc.activeElement, c);
+  c.value = "LBC"; c.fire("input");
+  assert.equal(c.getAttribute("aria-describedby"), null);
+  assert.equal(c.getAttribute("aria-invalid"), null);
+});
+
+test("Mark shipped…: a future date alone puts focus on the date, linked to its message", async () => {
+  const d = boot();
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[1], "Mark shipped…").fire("click");
+  const c = d.$("so-f-courier"); c.value = "LBC"; c.fire("input");
+  const dt = d.$("so-f-shipped_on"); dt.value = "2999-01-01"; dt.fire("input");
+  d.press(d.slot(), "Mark shipped").fire("click");
+  assert.equal(dt.getAttribute("aria-invalid"), "true");
+  assert.equal(dt.getAttribute("aria-describedby"), "so-f-shipped_on-err");
+  assert.equal(d.$("so-f-shipped_on-err").textContent, "Enter a valid date that is not in the future.");
+  assert.equal(c.getAttribute("aria-describedby"), null);
+  assert.equal(d.doc.activeElement, dt);
+  dt.value = TODAY; dt.fire("input");
+  assert.equal(dt.getAttribute("aria-describedby"), null);
+});
+
 test("a server answer on a field (422) shows under that field and keeps the dialog open", async () => {
   const d = boot({ writeStatus: 422, writeBody: { error: { code: "courier_required", message: "Enter the courier.", fields: { courier: ["Enter the courier."] } } } });
   await d.show();

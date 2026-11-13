@@ -37,15 +37,16 @@ test("a heading never shows a ring, takes no tabindex and is never given focus b
 });
 
 test("the Finance usage and issuer pages follow the focus rule: no heading is focusable or given focus", () => {
-  for (const f of ["finance-usage.html", "finance-issuer.html"]) assert.ok(pages.includes(f), f);
-  for (const f of ["finance-common.js", "finance-usage.js", "finance-issuer.js"]) {
+  for (const f of ["finance-usage.html", "finance-issuer.html", "finance-accounts.html"]) assert.ok(pages.includes(f), f);
+  for (const f of ["finance-common.js", "finance-usage.js", "finance-issuer.js", "finance-accounts.js"]) {
     assert.ok(scripts.includes(f), f);
     const js = fs.readFileSync(PUB + "assets/js/" + f, "utf8");
-    assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|uo-site|u-h|i-h|b-h|pend-h)"\)\.focus/, f);
+    assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|uo-site|u-h|i-h|b-h|a-h|pend-h|m-edit-h)"\)\.focus/, f);
   }
   /* The only controls that take focus when a dialog opens are fields. */
   assert.match(fs.readFileSync(PUB + "assets/js/finance-usage.js", "utf8"), /dlg\.open\("m-" \+ kind, \$\(open\), \$\(kind \+ "-f"\)\)/);
   assert.match(fs.readFileSync(PUB + "assets/js/finance-issuer.js", "utf8"), /dlg\.open\("m-verify", \$\("open-verify"\), \$\("verify-f"\)\)/);
+  assert.match(fs.readFileSync(PUB + "assets/js/finance-accounts.js", "utf8"), /dlg\.open\("m-edit", from, \$\("e-provider"\)\)/);
 });
 
 test("the invoice register and reconciliation pages follow the focus rule: no heading is focusable or given focus", () => {

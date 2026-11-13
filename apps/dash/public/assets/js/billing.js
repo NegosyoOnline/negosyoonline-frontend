@@ -1,292 +1,236 @@
-/* Billing page (Phase 4, /settings/billing/). Reads GET /billing/sites/, .../overview/, .../payment/ and
-   .../statements/; every figure, status and date comes from the API. The only browser arithmetic is the meter fill
-   width and bytes shown as GB (spec 8.3). API strings reach the page through textContent or D.el only. No storage. */
+/* Billing page (/settings/billing/), ClickUp z8uq9mek5q. SaaS plan only, paid by bank transfer with a proof.
+   Reads GET /sites/{id}/billing/, billing/payment/, billing/payments/ and, for the Annual saving, GET /plan/;
+   writes POST billing/payments/ (multipart), billing/cancel/ and billing/reactivate/; a proof is shown only from
+   billing/payments/{id}/proof/ through a blob URL. Every status, date and amount comes from the API; the only
+   browser arithmetic is integer centavos to pesos for display. API strings reach the page through textContent only.
+   Nothing is kept in the browser: no storage, and no payment detail outlives the form. */
 (function () {
   var D = window.NODash;
-  var LABEL = "Internal Billing Statement — Not an Official BIR Receipt or BIR Electronic Invoice.";
-  var NUMBER_RE = /^NO(BS|CN)(-TEST)?-\d{4}-\d{6}$/;
   var TZ = "Asia/Manila";
+  var SUPPORT = "support@negosyoonline.com";
+  var BEST_BADGE = "Best Value";
+  var PLANS = {
+    monthly: { name: "NegosyoOnline Monthly", card: "NegosyoOnline Monthly", short: "Monthly" },
+    launch_promo: { name: "NegosyoOnline Launch Promo (6 Months)", card: "Launch Promo (6 Months)", short: "Launch Promo (6 months)" },
+    annual: { name: "NegosyoOnline Annual", card: "NegosyoOnline Annual", short: "Annual" }
+  };
+  var ORDER = ["monthly", "launch_promo", "annual"];
+  var FEATURES = ["Storefront and orders in one place", "One online shop", "Hosting and security updates", "No platform fees on your sales",
+    "No hidden fees, no VAT added", "Free custom domain, like yourbusiness.com, after your first payment"];
+  var REASONS = {
+    unreadable: "We could not read your proof. Send a clearer photo or file.",
+    amount_mismatch: "The amount we received is not the amount due.",
+    not_received: "We did not see the transfer in our account.",
+    wrong_account: "The transfer went to a different account.",
+    duplicate: "This transfer was already counted.",
+    other: "Another reason"
+  };
+  var NOT_PAYABLE = {
+    billing_exempt: "Billing does not apply to this site.",
+    cancel_scheduled: "Your subscription is cancelled. Keep your subscription first, then pay.",
+    past_deletion_date: "The last date to pay has passed. Email " + SUPPORT + ".",
+    paid_ahead: "You have already paid for the next term."
+  };
+  var NOTRIAL_NOTE = "Billing is for your site’s plan only. Nothing is charged per order or per sale.";
+  var TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
   /* ---- pure helpers (no document access; exported as NOBilling.util and node-tested) ---- */
   function q(search, key) { var m = new RegExp("[?&]" + key + "=([^&#]*)").exec(search || ""); if (!m) return null; try { return decodeURIComponent(m[1]); } catch (e) { return null; } }
   function groups(intPart) { var s = intPart, out = ""; while (s.length > 3) { out = "," + s.slice(-3) + out; s = s.slice(0, -3); } return s + out; }
-  /* "2499.00" -> "PHP 2,499.00"; string work only, no numeric parse (P4-1). */
-  function money(str) {
-    var s = String(str), neg = s.charAt(0) === "-", body = neg ? s.slice(1) : s, dot = body.indexOf(".");
-    var ip = dot < 0 ? body : body.slice(0, dot), dp = dot < 0 ? "" : body.slice(dot);
-    return "PHP " + (neg ? "-" : "") + groups(ip) + dp;
-  }
-  function whole(n) { return groups(String(n)); }
-  function gb(bytes) { return (Math.round(bytes / 1e8) / 10).toFixed(1); } /* display only */
-  function pct(count, included) { return included > 0 ? Math.min(count / included, 1) * 100 : 0; } /* width only */
-  function fmt(iso, opts) { return new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: TZ }, opts)).format(new Date(iso)).replace(/[  ]/g, " "); }
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  /* Integer centavos to "PHP 4,999.00": an integer split, never decimal arithmetic. */
+  function peso(c) { var n = Math.abs(Math.round(+c || 0)); return "PHP " + (c < 0 ? "-" : "") + groups(String(Math.floor(n / 100))) + "." + pad(n % 100); }
+  function fmt(iso, opts) { return new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: TZ }, opts)).format(new Date(iso)).replace(/[  ]/g, " "); }
   function dateShort(iso) { return iso ? fmt(iso, { month: "short", day: "numeric", year: "numeric" }) : ""; }
   function instant(iso) { return iso ? dateShort(iso) + ", " + fmt(iso, { hour: "numeric", minute: "2-digit", hour12: true }) : ""; }
-  function monthDay(iso) { return fmt(iso, { month: "short", day: "numeric" }); }
-  function rangeShort(a, b) { return monthDay(a) + " to " + dateShort(b); }
-  function rangeLong(a, b) { return instant(a) + " to " + instant(b); }
-  function trialHead(n) { return n === 1 ? "1 day left in your free trial" : n + " days left in your free trial"; }
-  function attentionLead(n, endsIso) { return (n === 0 ? "Fix it today" : "Fix it within " + (n === 1 ? "1 day" : n + " days")) + ", by " + dateShort(endsIso) + ","; }
-  function pickSite(search, sites) {
-    var raw = q(search, "site"), ids = sites.map(function (s) { return s.id; });
-    if (raw !== null && D.SITE_ID_RE.test(raw) && ids.indexOf(raw) >= 0) return { id: raw, corrected: false };
-    return { id: ids[0], corrected: true };
+  function range(a, b) { return dateShort(a) + " to " + dateShort(b); }
+  function planOf(code) { return PLANS[code] || { name: code || "Plan", card: code || "Plan", short: code || "Plan" }; }
+  function sortOffers(list) {
+    var rank = function (o) { var i = ORDER.indexOf(o.plan); return i < 0 ? ORDER.length : i; };
+    return (list || []).slice().sort(function (a, b) { return rank(a) - rank(b); });
   }
-  function pickStatement(search) { var n = q(search, "statement"); return n !== null && NUMBER_RE.test(n) ? n : null; }
-  /* spec 8.2 step 5 (overview and payment statuses after the parallel fetch) */
-  function afterFetch(ovStatus, payStatus, retried) {
-    var ok = function (s) { return s >= 200 && s < 300; };
-    if ((ovStatus === 404 || payStatus === 404) && !retried) return "retry";
-    return ok(ovStatus) && ok(payStatus) ? "render" : "panelH";
+  function perUnit(o) { return o.months === 1 ? " a month" : o.months === 12 ? " a year" : ""; }
+  /* "A, PHP 1; B, PHP 2 a month; or C, PHP 3 a year." from the offers the backend names. */
+  function offersLine(offers) {
+    var parts = sortOffers(offers).map(function (o) { return planOf(o.plan).name + ", " + peso(o.amount_centavos) + perUnit(o); });
+    if (!parts.length) return "";
+    if (parts.length === 1) return parts[0] + ".";
+    return parts.slice(0, -1).join("; ") + "; or " + parts[parts.length - 1] + ".";
   }
+  /* "6 months, starts when your trial ends on Nov 22, 2026." (the period start is the backend's). */
+  function startsText(o, inTrial) {
+    if (o.starts_at_confirmation) return "starts when your payment is approved";
+    return o.period_start_at ? (inTrial ? "starts when your trial ends on " : "starts on ") + dateShort(o.period_start_at) : "starts when your payment is approved";
+  }
+  function monthsText(o) { return o.months === 1 ? "1 month" : o.months + " months"; }
+  function offerLines(o, inTrial) {
+    var first = (o.plan === "annual" ? "Pay for a year. " : "") + monthsText(o) + ", " + startsText(o, inTrial) + ".";
+    if (o.then && o.plan === "launch_promo") {
+      return [first + " Then " + peso(o.then.amount_centavos) + " a month " + (o.then.first_due_at ? "from " + dateShort(o.then.first_due_at) : "after that") + "."];
+    }
+    return [first];
+  }
+  function consentText(o, inTrial) {
+    var c = o.consent || {}, then = c.then || o.then || {}, due = c.first_due_at || then.first_due_at;
+    return "Launch Promo: " + peso(o.amount_centavos) + " paid once for " + monthsText(o) + ", " + (o.starts_at_confirmation ? "starting when your payment is approved"
+      : o.period_start_at ? "starting " + (inTrial ? "when your trial ends on " : "on ") + dateShort(o.period_start_at) : "starting when your payment is approved") +
+      ". After that your site continues at " + peso(then.amount_centavos) + " a month, with the first monthly payment due " + (due ? dateShort(due) : "when the " + monthsText(o) + " end") +
+      ". Cancel any time before then to stop it.";
+  }
+  /* "4,999" or "4999.5" to "4999.00" / "4999.50", or null when it is not a positive peso amount with at most 2 decimals. */
+  function amountText(raw) {
+    var m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(String(raw == null ? "" : raw).replace(/,/g, "").trim());
+    if (!m) return null;
+    var whole = m[1].replace(/^0+(?=\d)/, ""), frac = ((m[2] || "") + "00").slice(0, 2);
+    return /^0+$/.test(whole) && /^0+$/.test(frac) ? null : whole + "." + frac;
+  }
+  /* Date + 1 to 12 + minute + AM/PM to the backend's local Manila "YYYY-MM-DDTHH:MM". */
+  function localStamp(date, hour, minute, ap) { return date + "T" + pad((+hour % 12) + (ap === "PM" ? 12 : 0)) + ":" + minute; }
+  /* The current Manila wall time as "YYYY-MM-DDTHH:MM" (to refuse a future time before any call). */
+  function manilaNow(d) {
+    var p = {};
+    new Intl.DateTimeFormat("en-US", { timeZone: TZ, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+      .formatToParts(d || new Date()).forEach(function (x) { p[x.type] = x.value; });
+    return p.year + "-" + p.month + "-" + p.day + "T" + p.hour + ":" + p.minute;
+  }
+  function mb(bytes) { return Math.max(1, Math.round(bytes / 1048576)) + " MB"; }
+  /* The page's checks, the backend's rules: errors by field key, empty when the form may be sent. */
+  function validate(v, ctx) {
+    var e = {};
+    function text(key, val, max, label) {
+      var s = String(val || "").trim();
+      if (!s) e[key] = label + " is required."; else if (s.length > max) e[key] = label + " is too long.";
+    }
+    text("bank", v.bank, 80, "Sender bank"); text("ref", v.ref, 64, "Reference number");
+    text("first", v.first, 80, "First name"); text("last", v.last, 80, "Last name");
+    var acct = String(v.acct || "").trim();
+    if (!acct) e.acct = "Account number is required.";
+    else if (!/^[0-9 -]+$/.test(acct) || acct.length < 6 || acct.length > 34) e.acct = "Use 6 to 34 digits, spaces or dashes.";
+    if (!String(v.amount || "").trim()) e.amount = "Amount is required.";
+    else if (!amountText(v.amount)) e.amount = "Enter a peso amount above zero, with up to 2 decimals.";
+    if (!v.date || !v.hour || !v.minute || !v.ap) e.time = "Choose the date and the time of the transfer.";
+    else if (localStamp(v.date, v.hour, v.minute, v.ap) > ctx.now) e.time = "The time of transfer cannot be in the future.";
+    if (!v.file) e.file = "Add your payment receipt.";
+    else if (TYPES.indexOf(v.file.type) < 0) e.file = "The receipt must be a JPEG, PNG or PDF.";
+    else if (v.file.size > ctx.maxBytes) e.file = "The receipt is too large. The limit is " + mb(ctx.maxBytes) + ".";
+    if (ctx.needConsent && !v.consent) e.consent = "Tick the box to accept the Launch Promo terms.";
+    return e;
+  }
+  /* Why a refused submit, in words (never the raw API text). */
+  function refusal(res) {
+    var c = res && res.data && res.data.code, s = res && res.status;
+    if (s === 429 || c === "rate_limited") return "You have sent too many proofs. Please try again in an hour.";
+    if (c === "paid_ahead") return NOT_PAYABLE.paid_ahead;
+    if (c === "too_early") return "You can pay for the next term later. The date is shown on this page.";
+    if (c === "past_deletion_date") return NOT_PAYABLE.past_deletion_date;
+    if (c === "billing_exempt") return NOT_PAYABLE.billing_exempt;
+    if (c === "cancel_scheduled") return NOT_PAYABLE.cancel_scheduled;
+    if (c === "already_cancelled") return "Your subscription is already cancelled.";
+    if (c === "payment_required") return "Your service has already ended. Pay to bring your site back.";
+    if (s === 0) return "We could not reach the server. Please check your connection and try again.";
+    if (s === 400) return "Please check the details and try again.";
+    return "That did not work. Please try again.";
+  }
+  var FIELD_OF = { transferred_at: "time", transferred_on: "time", renewal_consent: "consent", consent_version: "consent", proof: "file",
+    sender_bank: "bank", transfer_reference: "ref", sender_first_name: "first", sender_last_name: "last", sender_account_number: "acct", amount_sent: "amount" };
+  function routeOf(search) {
+    var pay = q(search, "pay");
+    return { pay: pay === "choose" || pay === "send" ? pay : null, plan: pay === "send" ? q(search, "plan") : null };
+  }
+  function urlFor(site, pay, plan) { return "/settings/billing/?site=" + site + (pay ? "&pay=" + pay : "") + (pay === "send" && plan ? "&plan=" + encodeURIComponent(plan) : ""); }
 
-  /* One statements-list item to the strings the row shows (design 4.4, N-2, N-16). */
-  function statementRow(item) {
-    var first = item.is_test ? ["test", "TEST DATA"] : item.document_type === "credit_note" ? ["info", "Credit"]
-      : item.status === "replaced" ? ["neutral", "Replaced by " + item.replaced_by] : ["ok", "Issued"];
-    var d = item.delivery || {}, links = ["PDF", "JSON"];
-    if (item.receipt_attached) links.push("Receipt");
-    return {
-      numberSub: item.document_type === "credit_note" ? "Credit note" : "Statement",
-      chips: [first].concat(item.receipt_attached ? [["ok", "Receipt on file"]] : []),
-      cycleText: item.is_test ? "Test cycle" : rangeShort(item.cycle.start_at, item.cycle.end_at),
-      total: money(item.total),
-      email: d.status === "sent" ? "Emailed " + monthDay(d.last_try_at) : d.status === "sending" ? "Sending" : "Not sent",
-      links: links
-    };
-  }
-  /* The server's display_rows to table cells (N-17); the browser never groups or sums. */
-  function detailRows(rows) {
-    return rows.map(function (r) {
-      if (r.type === "order" && r.line_count > 1) {
-        var m = /beyond ([0-9,]+)\)/.exec(r.description || "");
-        return { desc: "Processed orders above " + (m ? m[1] : "1,000"), note: "Cycle " + r.source_cycle + " · " + r.line_count + " lines, one per order",
-          qty: r.quantity_display, unit: r.unit_price, amount: r.amount };
-      }
-      return { desc: r.description, note: r.source_note, qty: r.quantity_display, unit: r.unit_price, amount: r.amount };
-    });
-  }
-  function deliveryChip(d) {
-    d = d || {};
-    return d.status === "sent" ? ["ok", "Sent " + dateShort(d.last_try_at)] : d.status === "sending" ? ["info", "Sending"] : ["neutral", "Not sent"];
-  }
-  /* "on Nov 5, 2026" while the 5th after issue is still ahead of the server's as_of, else "shortly". */
-  function receiptDueText(issuedAt, asOf) {
-    var ip = new Intl.DateTimeFormat("en-US", { timeZone: TZ, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(new Date(issuedAt)),
-      part = function (t) { return +ip.filter(function (x) { return x.type === t; })[0].value; },
-      py = part("year"), pm = part("month") - 1, pd = part("day"),
-      due = new Date(Date.UTC(py, pd < 5 ? pm : pm + 1, 5, 12)).toISOString();
-    return asOf && due > asOf ? "on " + dateShort(due) : "shortly";
-  }
-  function receiptExt(type) { return type === "image/jpeg" ? "jpg" : type === "image/png" ? "png" : type === "application/pdf" ? "pdf" : "bin"; }
-
-  var ATTEMPT_CHIP = { paid: ["ok", "Paid"], test_payment: ["test", "TEST DATA"], processing: ["info", "Processing"],
-    failed: ["danger", "Failed"], under_review: ["warn", "Under review"] };
-  var CANCELLED = ["cancelled", "cancelled_no_payment_method"];
-  /* What to show, decided from server fields only. ISO UTC strings from one server compare in time order, so the S8
-     (ended) and S8b (running) split compares service_end_at with the server's own as_of, never the browser clock. */
-  function viewModel(ov, pay, list, search) {
-    var sub = ov.subscription, st = sub.state, nc = pay.next_charge, pm = pay.payment_method;
-    var asOf = ov.as_of, cyc = ov.current_cycle, avail = ov.payments_available, coll = ov.collection_enabled;
-    var cancelled = CANCELLED.indexOf(st) >= 0;
-    var ended = cancelled && !!sub.service_end_at && sub.service_end_at <= asOf;
-    var running = cancelled && !!sub.service_end_at && sub.service_end_at > asOf;
-    var returning = q(search, "setup") === "return" && !(pm && pm.status === "active");
-    var notices = [];
-    if (st === "suspended") notices.push("SUSPENDED");
-    if (ended) notices.push("D");
-    if (running) notices.push("D8B");
-    if (nc && nc.kind === "final_usage") notices.push("E");
-    if (st === "payment_requires_attention") notices.push("A");
-    if (returning) notices.push("B");
-    if (!avail && st !== "trial_active") notices.push("C"); /* Coach Ed 2026-10-30: no such notice during a trial */
-    var paidCycle = !!(cyc && cyc.settlement === "paid" && (st === "active" || running));
-    var trial = st === "trial_active", days = sub.trial_days_left, trialEnded = trial && days === 0;
-    var activeMethod = !!(pm && pm.status === "active");
-    var empty = trial ? ["Nothing is billed during the trial."].concat(ov.statements_enabled ? [
-        "After your first successful payment, an internal billing statement for it appears here, with a PDF and a data file you can download."] : [])
-      : (ov.statements_enabled ? ["An internal billing statement appears here after each successful payment."] : []);
-    return {
-      state: st, notices: notices, polling: returning,
-      status: trial ? { chip: ["info", "Free trial"], h2: days > 0 ? trialHead(days) : "Your free trial period has ended" }
-        : st === "active" ? { chip: ["ok", "Active"], h2: "Your subscription is active" }
-        : st === "payment_requires_attention" ? { chip: ["warn", "Payment needs attention"], h2: null }
-        : st === "suspended" ? { chip: ["danger", "Suspended"], h2: null }
-        : { chip: ["danger", "Cancelled"], h2: null },
-      over: { orders: !!(ov.usage && ov.usage.orders.over > 0),
-              storage: !!(ov.usage && ov.usage.storage && ov.usage.storage.billable_gb > 0),
-              video: !!(ov.usage && ov.usage.video && ov.usage.video.billable_gb > 0) },
-      cards: {
-        plan: trial ? { firstPayment: avail && days > 0 && !!(nc && nc.kind === "first" && nc.date) } : null,
-        preview: !!(nc && st === "active"), /* S2 and S2b only (design 4.3); hidden when next_charge is null */
-        usage: paidCycle && !!ov.usage,
-        lastPayment: pay.recent_attempts.length ? { chip: ATTEMPT_CHIP[pay.recent_attempts[0].status] || ["neutral", pay.recent_attempts[0].status] } : null,
-        cancel: !cancelled && !(st === "suspended" && !!sub.reactivate_until && sub.reactivate_until <= asOf), fees: true, statements: true, /* SA-2 Yes: server as_of only, never the browser clock */
-        /* the trial note exists only while trial days remain (never in S1b, any payments flag value; spec 17 M-3) */
-        method: { trialNote: trial && days > 0 && avail && !activeMethod }
-      },
-      actions: {
-        addMethod: avail && !returning && !activeMethod && !trialEnded && !cancelled, /* never in S1b (gap 1) */
-        replaceMethod: avail && activeMethod && !cancelled,
-        updateMethod: avail && st === "payment_requires_attention",
-        reactivate: avail && coll && !!(nc && nc.kind === "reactivation") && (st === "suspended" || ended),
-        retryFinal: avail && coll && !!(nc && nc.kind === "final_usage"),
-        exportData: !!(ended && sub.download_until && sub.download_until > asOf)
-      },
-      /* S1b: exactly one branch (spec 8.3 S1b, item T) */
-      trialBody: !trialEnded ? null
-        : !avail ? "Payments are not open yet, so nothing has been charged."
-        : activeMethod ? "We have not confirmed your first payment yet. This page updates once our payment provider confirms it."
-        : "No payment method was active when your trial ended. Email support@negosyoonline.com for help with this website.",
-      /* Cancel card and dialog bodies for trial states only (spec 17 M-3); null elsewhere, where the renderer uses the
-         active-cycle or attention/suspended copy */
-      cancelBody: !trial ? null : days > 0
-        ? "Cancelling during your trial ends your subscription for this site right away, with no fee. Your records are kept and you can export your data for 30 days."
-        : "Cancelling ends your subscription for this site right away, with no fee. Your records are kept and you can export your data for 30 days.",
-      cancelDialogBody: !trial ? null : days > 0
-        ? "Your trial ends now. Nothing is charged. You can export your data for 30 days."
-        : "Your subscription for this site ends now. Nothing is charged. You can export your data for 30 days.",
-      /* Notice C body (item C): the trial sentence only while trial days remain; every other case, S1b included */
-      noticeCBody: "Adding or replacing a payment method isn’t open right now.",
-      statementsEmpty: empty
-    };
-  }
-
-  /* ---- DOM part: builds the page from the view model; D.el and textContent only ---- */
-  var countTimer = null, token = 0, pollTimer = null, polls = 0, urls = [], lastPayload = null, stBody = null, openerNumber = null, stCache = null, dialogKey = null;
+  /* ---- state ---- */
+  var S = null, token = 0, tickTimer = null, urls = [], dlg = null, busy = false;
   function h(tag, cls, text) { return D.el(tag, cls ? { "class": cls } : {}, text); }
   function add(parent) { for (var i = 1; i < arguments.length; i++) { if (arguments[i]) parent.appendChild(arguments[i]); } return parent; }
   function byId(id) { return document.getElementById(id); }
   function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
   function rootEl() { return byId("bl-root"); }
-  function bname(s) { return (s || "").trim() || "My Business"; }
-  function api(path) { return D.call("GET", path, null, true); }
-  function errMsg(res) { var m = res && res.data && res.data.message; return typeof m === "string" ? m : ""; } /* local; dashboard.js messageOf is private */
   function say(text) { var l = byId("bl-live"); if (l) l.textContent = text; }
-  function chip(pair) { return h("span", "chip chip-" + pair[0], pair[1]); }
-  function para(text, cls) { return h("p", cls || "bl-p", text); }
-  /* rows: [label, value, optional class]; value is a string or a node */
-  function dl(rows) {
-    var d = h("dl", "bl-dl");
-    rows.forEach(function (r) {
-      if (!r) return;
-      var w = h("div", "bl-dl-row" + (r[2] ? " " + r[2] : ""));
-      var dd = h("dd", "");
-      if (typeof r[1] === "string") dd.textContent = r[1]; else dd.appendChild(r[1]);
-      add(w, h("dt", "", r[0]), dd);
-      d.appendChild(w);
-    });
-    return d;
-  }
-  function both(wide, narrow) { var s = h("span", ""); add(s, h("span", "bl-wide", wide), h("span", "bl-narrow", narrow)); return s; }
-  function card(id, title, cls) {
-    var s = h("section", "bl-card" + (cls ? " " + cls : ""));
-    s.setAttribute("aria-labelledby", "bl-h-" + id);
-    var t = h("h2", "bl-h2", title); t.setAttribute("id", "bl-h-" + id); t.setAttribute("tabindex", "-1");
-    add(s, t);
-    return s;
-  }
-  function btn(label, kind, fn) {
-    var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : kind === "danger" ? "no-btn-ghost bl-danger" : "no-btn-ghost"), label);
-    b.setAttribute("type", "button");
+  function chip(kind, text) { return h("span", "chip chip-" + kind, text); }
+  function attrs(n, o) { Object.keys(o).forEach(function (k) { n.setAttribute(k, o[k]); }); return n; }
+  function para(text, cls) { return h("p", cls || "bl-line", text); }
+  function btn(label, kind, fn, extra) {
+    var b = attrs(h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : kind === "cancel" ? "bl-btn-cancel" : kind === "danger" ? "bl-btn-danger" : "no-btn-ghost") + (extra ? " " + extra : ""), label), { type: "button" });
     if (fn) b.addEventListener("click", function () { fn(b); });
     return b;
   }
-  function stopPoll() { if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; } }
-  function stopCount() { if (countTimer) { clearInterval(countTimer); countTimer = null; } }
-  /* Live trial countdown to trial_end_at. Visual only (aria-hidden): the heading keeps the static "N days left" text for
-     screen readers, so nothing is announced every second. Stops at zero; the next load reports the real state. */
-  function countdownEl(endIso) {
-    var wrap = h("div", "bl-count"), cells = [];
-    wrap.setAttribute("aria-hidden", "true");
-    ["days", "hours", "mins", "secs"].forEach(function (u) {
-      var cell = h("div", "bl-count-cell"), num = h("span", "bl-count-num", "00");
-      add(cell, num, h("span", "bl-count-unit", u)); add(wrap, cell); cells.push(num);
-    });
-    function tick() {
-      var left = Math.max(0, Math.floor((new Date(endIso).getTime() - Date.now()) / 1000));
-      var parts = [Math.floor(left / 86400), Math.floor(left % 86400 / 3600), Math.floor(left % 3600 / 60), left % 60];
-      parts.forEach(function (n, i) { cells[i].textContent = (n < 10 ? "0" : "") + n; });
-      if (left === 0) stopCount();
-    }
-    stopCount(); tick(); countTimer = setInterval(tick, 1000);
-    return wrap;
+  function setDisabled(b, on) { b.disabled = !!on; if (on) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled"); }
+  function facts(rows) {
+    var d = h("dl", "bl-facts");
+    rows.forEach(function (r) { if (r) add(d, add(h("div", ""), h("dt", "", r[0]), typeof r[1] === "string" ? h("dd", "", r[1]) : add(h("dd", ""), r[1]))); });
+    return d;
   }
-  function revokeAll() { urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = []; }
-  function base() { return "/billing/sites/" + lastPayload.site + "/"; }
   function focusTop() { var t = byId("h-settings-billing"); if (t) t.focus(); }
+  function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
+  function revokeAll() { urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) { /* ignore */ } }); urls = []; }
+  function base() { return "/sites/" + S.site + "/billing/"; }
+  function api(path) { return D.call("GET", path); }
+  function toast(title, sub, kind) { if (D.toast) D.toast(title, sub, kind); }
 
-  /* ---- load sequence (spec 8.2) ---- */
-  function show() { window.removeEventListener("popstate", onPop); window.addEventListener("popstate", onPop); load(false); }
-  function hide() {
-    window.removeEventListener("popstate", onPop); stopPoll(); stopCount(); revokeAll(); token++;
-    say(""); var slot = byId("bl-dialog-slot"); if (slot) clear(slot);
-    if (dialogKey) { document.removeEventListener("keydown", dialogKey); dialogKey = null; }
+  /* ---- data ---- */
+  function fetchAll(site) {
+    var b = "/sites/" + site + "/billing/";
+    return Promise.all([api(b), api(b + "payment/"), api(b + "payments/?limit=20")]).then(function (r) {
+      return { billing: r[0], pay: r[1], list: r[2] };
+    });
   }
-  function onPop() { if ((location.pathname.slice(-1) === "/" ? location.pathname : location.pathname + "/") === "/settings/billing/") load(false); }
-  function load(retriedAfter404) {
+  function adopt(site, r) {
+    S = { site: S ? S.site : site, sites: S ? S.sites : null, billing: r.billing.data, pay: r.pay.ok ? r.pay.data : null,
+      payments: r.list.ok && r.list.data && Array.isArray(r.list.data.items) ? r.list.data.items : [], plans: S && S.plans ? S.plans : null };
+    if (site) S.site = site;
+  }
+  function reload() {
+    var mine = token;
+    return fetchAll(S.site).then(function (r) {
+      if (mine !== token) return false;
+      if (r.billing.status === 401) return false;
+      if (!r.billing.ok) return false;
+      adopt(S.site, r);
+      return true;
+    });
+  }
+  function newest(status) {
+    var l = S.payments.slice().sort(function (a, b) { return a.submitted_at < b.submitted_at ? 1 : a.submitted_at > b.submitted_at ? -1 : 0; });
+    for (var i = 0; i < l.length; i++) if (l[i].status === status) return l[i];
+    return null;
+  }
+  function underReview() { return (S.pay && S.pay.under_review) || newest("submitted"); }
+  function latestPay() {
+    if (S.pay && S.pay.latest) return S.pay.latest;
+    return S.payments.slice().sort(function (a, b) { return a.submitted_at < b.submitted_at ? 1 : -1; })[0] || null;
+  }
+  function accounts() { return (S.pay && S.pay.transfer_accounts) || []; }
+  function canPay() { return !!(S.pay && S.pay.payable && S.pay.offers && S.pay.offers.length && accounts().length && !S.billing.billing_exempt); }
+  function inTrial() { return S.billing.state === "trial_active"; }
+
+  /* ---- load ---- */
+  function show() { window.removeEventListener("popstate", onPop); window.addEventListener("popstate", onPop); load(); }
+  function hide() {
+    window.removeEventListener("popstate", onPop); stopTick(); revokeAll(); token++; closeDialog(false); say("");
+  }
+  function onPop() {
+    if ((location.pathname.slice(-1) === "/" ? location.pathname : location.pathname + "/") !== "/settings/billing/") return;
+    if (S) { render(); focusTop(); } else load();
+  }
+  function load() {
     var mine = ++token;
-    stopPoll(); revokeAll(); say(""); stCache = null; skeleton();
-    var marker = q(location.search, "setup") === "return";
-    api("/billing/sites/").then(function (res) {
+    stopTick(); revokeAll(); closeDialog(false); say(""); skeleton();
+    D.call("GET", "/sites/").then(function (res) {
       if (mine !== token || res.status === 401) return;
       if (!res.ok) { panelH(); return; }
-      var sites = (res.data && res.data.sites) || [];
+      var sites = D.sitesOf(res);
       if (!sites.length) { renderNoSite(); return; }
-      var pick = pickSite(location.search, sites), number = pickStatement(location.search);
-      var clean = "/settings/billing/?site=" + pick.id + (number ? "&statement=" + encodeURIComponent(number) : "");
-      if (pick.corrected || marker || location.search !== clean.slice("/settings/billing/".length)) { try { history.replaceState(null, "", clean); } catch (e) { /* ignore */ } }
-      var path = "/billing/sites/" + pick.id + "/";
-      Promise.all([api(path + "overview/"), api(path + "payment/")]).then(function (r) {
-        if (mine !== token) return;
-        if (r[0].status === 401 || r[1].status === 401) return;
-        /* spec 8.2 step 5: a 404 on the overview OR the payment read re-runs the site list once; a second
-           consecutive 404 (or status 0 / 5xx) shows panel H */
-        var next = afterFetch(r[0].status, r[1].status, retriedAfter404);
-        if (next === "retry") { load(true); return; }
-        if (next === "panelH") { panelH(); return; }
-        lastPayload = { site: pick.id, sites: sites, ov: r[0].data, pay: r[1].data, search: marker ? "?setup=return" : "" };
-        if (marker && r[1].data.payment_method && r[1].data.payment_method.status === "active") { lastPayload.search = ""; say("Your payment method is active."); }
-        if (number) { openDetail(number, false); return; }
-        render(lastPayload, null);
-        api(path + "statements/").then(function (s) { if (mine === token) renderStatements(s, lastPayload); });
-        if (lastPayload.search) startPoll(mine);
+      var ids = sites.map(function (s) { return s.id; }), site = D.siteFromQuery(ids, location.search);
+      fetchAll(site).then(function (r) {
+        if (mine !== token || r.billing.status === 401) return;
+        if (r.billing.status === 404) { renderUnavailable(); return; }
+        if (!r.billing.ok) { panelH(); return; }
+        S = null; adopt(site, r); S.sites = sites;
+        var want = urlFor(site, routeOf(location.search).pay, routeOf(location.search).plan);
+        if (location.pathname + location.search !== want) { try { history.replaceState(null, "", want); } catch (e) { /* ignore */ } }
+        render();
       });
-    });
-  }
-
-  /* ---- polling after a return from the provider (spec 5 steps 3 to 5): at most 4 checks, 5 seconds apart ---- */
-  function startPoll(mine) { polls = 0; schedule(mine); }
-  function schedule(mine) {
-    if (polls >= 4) return;
-    pollTimer = setTimeout(function () {
-      if (mine !== token) return;
-      if (document.visibilityState !== "visible") { schedule(mine); return; } /* a hidden tab pauses the count */
-      polls++;
-      api(base() + "payment/").then(function (res) {
-        if (mine !== token || !res.ok) { if (mine === token) schedule(mine); return; }
-        lastPayload.pay = res.data;
-        if (res.data.payment_method && res.data.payment_method.status === "active") {
-          lastPayload.search = ""; render(lastPayload, "method"); say("Your payment method is active."); return;
-        }
-        schedule(mine);
-      });
-    }, 5000);
-  }
-  function checkAgain(b) {
-    if (b.getAttribute("aria-busy") === "true") return;
-    b.setAttribute("aria-busy", "true");
-    var mine = token;
-    Promise.all([api(base() + "overview/"), api(base() + "payment/")]).then(function (r) {
-      if (mine !== token) return;
-      b.removeAttribute("aria-busy");
-      if (r[0].ok && r[1].ok) {
-        lastPayload.ov = r[0].data; lastPayload.pay = r[1].data;
-        var active = r[1].data.payment_method && r[1].data.payment_method.status === "active";
-        if (active) { lastPayload.search = ""; stopPoll(); }
-        render(lastPayload, active ? "method" : null);
-        if (active) say("Your payment method is active.");
-      } else { D.toast("That did not work", errMsg(r[0].ok ? r[1] : r[0]) || "We could not check your payment method. Please try again.", "error"); }
     });
   }
 
@@ -294,637 +238,444 @@
   function skeleton() {
     var r = clear(rootEl()); r.setAttribute("aria-busy", "true");
     add(r, h("p", "bl-sr", "Loading your billing"));
-    for (var i = 0; i < 4; i++) { var s = h("div", "bl-card bl-skel"); s.setAttribute("aria-hidden", "true"); add(s, h("span", "bl-skel-line bl-skel-w1"), h("span", "bl-skel-line bl-skel-w2"), h("span", "bl-skel-line bl-skel-w3")); r.appendChild(s); }
+    for (var i = 0; i < 3; i++) add(r, add(attrs(h("div", "bl-card bl-skel"), { "aria-hidden": "true" }), h("span", "bl-skel-line bl-skel-w1"), h("span", "bl-skel-line bl-skel-w2"), h("span", "bl-skel-line bl-skel-w3")));
+  }
+  function plain(title, text) {
+    var r = clear(rootEl()); r.removeAttribute("aria-busy");
+    return add(r, add(h("section", "bl-card"), h("h2", "bl-h2", title), para(text)));
   }
   function panelH() {
     var r = clear(rootEl()); r.removeAttribute("aria-busy");
-    var s = h("section", "bl-card bl-panel-err"); s.setAttribute("role", "alert");
-    add(s, h("h2", "bl-h2", "We couldn’t load your billing"), para("Check your connection and try again. Nothing was changed."),
-      btn("Try again", "ghost", function () { load(false); focusTop(); }));
+    var s = attrs(h("section", "bl-card bl-panel-err"), { role: "alert" });
+    add(s, h("h2", "bl-h2", "We couldn’t load your billing"), para("Check your connection and try again. Nothing was changed."), btn("Try again", "ghost", function () { load(); focusTop(); }));
     r.appendChild(s);
   }
-  function panelI() {
-    var r = clear(rootEl()); r.removeAttribute("aria-busy");
-    var s = h("section", "bl-card bl-panel-err"); s.setAttribute("role", "alert");
-    add(s, h("h2", "bl-h2", "This statement can’t be shown right now"),
-      para("NegosyoOnline has been told. Try again later, or contact support and quote the statement number."));
-    r.appendChild(s);
+  function renderNoSite() { plain("Billing is not available for this account yet", "There is no website with a subscription on this account."); }
+  function renderUnavailable() { plain("Billing is not available for this site yet", "Please check again later."); }
+
+  /* ---- routing between the home, the plan choice and the payment details ---- */
+  function go(pay, plan) {
+    try { history.pushState(null, "", urlFor(S.site, pay, plan)); } catch (e) { /* ignore */ }
+    render(); focusTop();
   }
-  function renderNoSite() {
-    var r = clear(rootEl()); r.removeAttribute("aria-busy");
-    var s = card("nosite", "Billing is not available for this account yet");
-    add(s, para("There is no website with a subscription on this account."));
-    r.appendChild(s);
+  function render() {
+    stopTick(); revokeAll(); closeDialog(false);
+    var rt = routeOf(location.search), r = clear(rootEl());
+    r.removeAttribute("aria-busy");
+    if (rt.pay === "choose") return renderChoose(r);
+    if (rt.pay === "send") return renderSend(r, rt.plan);
+    renderHome(r);
   }
 
-  /* ---- actions ---- */
-  function post(path, body, b) {
-    if (b && b.getAttribute("aria-busy") === "true") return Promise.resolve(null);
-    if (b) b.setAttribute("aria-busy", "true");
-    return D.call("POST", path, body || {}, true).then(function (res) { if (b) b.removeAttribute("aria-busy"); return res; });
-  }
-  /* Same in-flight guard as post(): a second click while the request is out is ignored and Save is disabled. */
-  function put(path, body, b) {
-    if (b && b.getAttribute("aria-busy") === "true") return Promise.resolve(null);
-    if (b) { b.setAttribute("aria-busy", "true"); b.disabled = true; }
-    return D.call("PUT", path, body || {}, true).then(function (res) { if (b) { b.removeAttribute("aria-busy"); b.disabled = false; } return res; });
-  }
-  /* A refused POST: 503 payments_unavailable re-renders with notice C forced; anything else is a failure toast. */
-  function failed(res) {
-    if (res.status === 503 && res.data && res.data.code === "payments_unavailable") { lastPayload.ov.payments_available = false; render(lastPayload, null); return; }
-    D.toast("That did not work", errMsg(res), "error");
-  }
-  function refresh() {
-    var mine = token;
-    return Promise.all([api(base() + "overview/"), api(base() + "payment/")]).then(function (r) {
-      if (mine !== token) return;
-      if (r[0].ok && r[1].ok) { lastPayload.ov = r[0].data; lastPayload.pay = r[1].data; render(lastPayload, null); } else { panelH(); }
+  /* ---- home: hero, Plan and Payment cards, payment history ---- */
+  function countdown(endIso) {
+    var wrap = attrs(h("div", "bl-tiles"), { "aria-hidden": "true" }), nums = [];
+    ["Days", "Hours", "Mins", "Secs"].forEach(function (u, i) {
+      if (i) add(wrap, h("i", "", ":"));
+      var num = h("b", "", "00"); nums.push(num); add(wrap, add(h("div", "bl-tile"), num, h("span", "", u)));
     });
-  }
-  function startSetup(b) {
-    post(base() + "payment-method/setup/", {}, b).then(function (res) {
-      if (!res) return;
-      if (!res.ok) { failed(res); return; }
-      var url = res.data && res.data.redirect_url, ok = false;
-      try { ok = typeof url === "string" && new URL(url).protocol === "https:"; } catch (e) { ok = false; }
-      if (ok) location.assign(url); else D.toast("That did not work", "The payment page could not be opened. Please try again.", "error");
-    });
-  }
-  function simplePost(suffix) {
-    return function (b) { post(base() + suffix, {}, b).then(function (res) { if (!res) return; if (!res.ok) { failed(res); return; } refresh(); }); };
-  }
-
-  /* ---- cancel copy: trial bodies come from the view model; the rest are the active-cycle and attention copy ---- */
-  function cancelCopy(vm, ov) {
-    var cyc = ov.current_cycle, paid = ov.subscription.state === "active" && cyc && cyc.settlement === "paid";
-    if (vm.cancelBody) return { card: vm.cancelBody, dialog: vm.cancelDialogBody };
-    if (paid) {
-      return { card: "If you cancel now, billing and renewal for " + bname(ov.site.business_name) + " stop on " + instant(cyc.end_at) + " Manila time, the end of the cycle you already paid for. Usage from that cycle is charged once, after it ends. Your records are kept and you can export your data for 30 days.",
-        narrow: "Billing stops on " + instant(cyc.end_at) + ", the end of the cycle you paid for.",
-        dialog: "Billing and renewal stop on " + instant(cyc.end_at) + ". Usage from this cycle is charged once after that. You can reactivate later, before 90 days have passed." };
+    function tick() {
+      var left = Math.max(0, Math.floor((new Date(endIso).getTime() - Date.now()) / 1000));
+      [Math.floor(left / 86400), Math.floor(left % 86400 / 3600), Math.floor(left % 3600 / 60), left % 60].forEach(function (n, i) { nums[i].textContent = pad(n); });
+      if (left === 0) stopTick();
     }
-    return { card: null, dialog: "Your subscription for this site ends now and the unpaid monthly fee is not charged. Usage from your last paid cycle, if any, is still charged once." };
+    stopTick(); tick(); tickTimer = setInterval(tick, 1000);
+    return wrap;
   }
-
-  /* ---- notices ---- */
-  function notice(tone, chipPair, title, bodyText, buttons, id) {
-    var s = card(id, title, "bl-notice bl-notice-" + tone);
-    var head = h("div", "bl-notice-head"); add(head, chip(chipPair)); s.insertBefore(head, s.firstChild);
-    if (bodyText) add(s, para(bodyText));
-    if (buttons && buttons.length) { var row = h("div", "bl-actions"); buttons.forEach(function (b) { add(row, b); }); add(s, row); }
-    return s;
+  function downloadLine(b) {
+    return b.download_until && b.download_until > new Date().toISOString() ? "You can download your data until " + dateShort(b.download_until) + "." : null;
   }
-  function noticeEl(code, p, vm) {
-    var ov = p.ov, pay = p.pay, sub = ov.subscription, name = bname(ov.site.business_name), nc = pay.next_charge, A = vm.actions;
-    if (code === "SUSPENDED") return suspendedEl(p, vm, name);
-    if (code === "D") {
-      var btns = [];
-      if (A.reactivate) btns.push(btn("Reactivate", "primary", simplePost("reactivate/")));
-      if (A.exportData) { var a = h("a", "no-btn no-btn-ghost", "Export data"); a.setAttribute("href", "mailto:support@negosyoonline.com"); btns.push(a); }
-      return notice("cancelled", ["danger", "Cancelled"], name + " is cancelled",
-        "Service ended " + dateShort(sub.service_end_at) + "." + (A.exportData ? " You can export your data until " + dateShort(sub.download_until) + "." : "") + (A.reactivate && sub.reactivate_until ? " You can reactivate until " + dateShort(sub.reactivate_until) + "." : "") + " Records are kept. Your statements stay available below.", btns, "n-d");
+  /* What the top of the page says, decided from the API's fields only. */
+  function heroModel() {
+    var b = S.billing, st = b.state, p = S.pay, offers = (p && p.offers) || [], pay = canPay();
+    var cancelBtn = b.can_cancel ? "cancel" : null;
+    if (b.billing_exempt) return { chip: ["ok", "No billing"], head: "Billing does not apply to this site.", lines: [], actions: [] };
+    if (p && !p.payable && p.not_payable_reason === "past_deletion_date") {
+      return { chip: ["danger", "Last date passed"], head: "The last date to pay has passed.", lines: ["Email " + SUPPORT + "."], actions: [] };
     }
-    if (code === "D8B") {
-      return notice("cancelled", ["danger", "Cancelled"], name + " is cancelled",
-        "Billing and renewal stop on " + instant(sub.service_end_at) + " Manila time, the end of the cycle you already paid for. Usage from that cycle is charged once, after it ends.", null, "n-d8b");
-    }
-    if (code === "E") {
-      return notice("attention", ["warn", "Final usage due"], "Last cycle’s usage is still to be paid",
-        money(nc.total_amount) + " for usage above the included amounts in your last paid cycle. Paying it does not restart the subscription or start a new cycle.",
-        A.retryFinal ? [btn("Retry final payment", "primary", simplePost("final-usage/retry/"))] : null, "n-e");
-    }
-    if (code === "A") {
-      var rec = pay.recovery, body = "";
-      if (rec) body = attentionLead(rec.days_left, rec.ends_at) + " so your subscription continues." + (rec.next_retry_at ? " We will try again on " + dateShort(rec.next_retry_at) + "." : "");
-      var ab = [];
-      if (A.updateMethod) ab.push(btn("Update payment method", "primary", startSetup));
-      ab.push(btn("Cancel subscription", "danger", function (b) { openCancel(p, vm, b); }));
-      return notice("attention", ["warn", "Payment needs attention"], "We couldn’t collect your payment", body, ab, "n-a");
-    }
-    if (code === "B") {
-      return notice("info", ["info", "Confirming"], "We’re confirming your payment method",
-        "Coming back from the payment page is not confirmation. Your method shows here once our payment provider confirms it, usually within a minute.",
-        [btn("Check again", "ghost", checkAgain)], "n-b");
-    }
-    return notice("neutral", ["neutral", "Not available yet"], "Adding a payment method isn’t open yet", vm.noticeCBody, null, "n-c");
-  }
-  function suspendedEl(p, vm, name) {
-    var ov = p.ov, pay = p.pay, sub = ov.subscription, nc = pay.next_charge, pm = pay.payment_method, A = vm.actions;
-    var s = card("n-susp", name + " is suspended", "bl-notice bl-notice-cancelled");
-    var head = h("div", "bl-notice-head"); add(head, chip(["danger", "Suspended"])); s.insertBefore(head, s.firstChild);
-    var kept = sub.delete_after
-      ? "Your records are kept until " + dateShort(sub.delete_after) + ". Pay before then to reactivate; after that date this website’s store data is anonymised."
-      : "Your records are kept and are not deleted because of a suspension.";
-    add(s, para("We couldn’t collect your subscription payment within the 7 days. Pay the balance to restore the subscription. " + kept));
-    if (sub.download_until) add(s, para("You can export your data until " + dateShort(sub.download_until) + "."));
-    if (A.reactivate && sub.reactivate_until && !sub.delete_after) add(s, para("You can pay and reactivate until " + dateShort(sub.reactivate_until) + "."));  // DV-18
-    var due = h("div", "bl-due");
-    if (nc && nc.kind === "reactivation") add(due, h("p", "bl-due-amount", money(nc.total_amount)), h("p", "bl-meta", "Unpaid since " + dateShort(sub.attention_started_at)));
-    add(due, dl([["Plan", ov.plan.name + " · Monthly"], ["Plan price", money(ov.plan.price) + " per month"],
-      pm && pm.status === "active" ? ["Payment method", "Card ending " + pm.last4] : null, ["Restores", "Right after payment clears"]]));
-    add(s, due);
-    var row = h("div", "bl-actions");
-    if (A.reactivate) add(row, btn("Pay balance", "primary", simplePost("reactivate/")));
-    if (ov.payments_available) add(row, btn("Update payment method", "ghost", startSetup));
-    add(s, row);
-    var links = h("p", "bl-links");
-    var l1 = h("a", "bl-link", "See what your subscription includes"); l1.setAttribute("href", "#bl-h-fees");
-    var l2 = h("a", "bl-link", "Full terms and cancellation"); l2.setAttribute("href", (D.cfg.siteUrl || "") + "/terms");
-    add(links, l1, l2); add(s, links);
-    return s;
-  }
-
-  /* ---- cards ---- */
-  function statusCard(p, vm) {
-    var ov = p.ov, pay = p.pay, sub = ov.subscription, cyc = ov.current_cycle, nc = pay.next_charge, trial = sub.state === "trial_active";
-    /* A row, not a card: title and text on the left, the action on the right, divided by thin lines. */
-    var s = card("status", vm.status.h2 && ov.subscription.state === "active" ? "Active Plan" : (vm.status.h2 || "Subscription"), "bl-status bl-row");
-    if (!vm.status.h2) s.firstChild.className = "bl-sr";
-    var main = h("div", "bl-row-main"), side = h("div", "bl-row-side"), title = s.firstChild;
-    s.removeChild(title);
-    stopCount();
-    var counting = trial && !vm.trialBody && sub.trial_end_at;
-    if (counting) { s.className += " bl-row-count"; title.className = "bl-sr"; } /* kept for screen readers; the visible title is the countdown label */
-    var titleRow = h("div", "bl-row-title"); add(titleRow, title, counting ? h("span", "bl-h2", "Your free trial ends in") : chip(sub.state === "active" ? ["ok", "Monthly Plan"] : vm.status.chip)); /* an active site shows its billing interval; only monthly exists until the annual build */ add(main, titleRow); /* the countdown label already says "free trial", so no chip beside it */
-    add(s, main, side);
-    /* Ruling 2026-11-02 (P7.1): a trial may be cancelled at any time, so Cancel Plan shows in every state cards.cancel allows. In the
-       trial countdown it sits in the side slot, centred below, so the centred countdown label stays centred (OD-1 option A). */
-    if (vm.cards.cancel) { var cb = btn("Cancel Plan", "ghost", function (b) { openCancel(p, vm, b); }); cb.className += " bl-cancel-solid"; add(counting ? side : titleRow, cb); } /* otherwise right-most in the header row */
-    if (trial) {
-      if (vm.trialBody) add(main, para(vm.trialBody));
-      else {
-        if (counting) add(main, countdownEl(sub.trial_end_at));
-        var endsP = h("p", "bl-p");
-        add(endsP, h("span", "bl-line", "Your trial ends " + instant(sub.trial_end_at) + " Manila time."), document.createTextNode(" "),
-          h("span", "bl-line", "After that, the subscription is " + money(ov.plan.price) + " per month for this site."));
-        add(main, endsP);
-      }
-      return s;
-    }
-    add(main, dl([["Product", "NegosyoOnline Store", "bl-wide-row"], /* the interval is in the header chip */ ["Price", money(ov.plan.price) + " per month"],
-      cyc ? ["Current cycle", rangeShort(cyc.start_at, cyc.end_at), "bl-wide-row"] : null,
-      nc && nc.date ? ["Next payment", instant(nc.date)] : null,
-      vm.cards.preview ? ["Estimated total", money(nc.total_amount), "bl-narrow-row"] : null]));
-    /* Annual upsell (ruling 2026-10-29: PHP 24,990 per 12-month term, 10 monthly payments, switching at renewal only). Text only: switching is not built yet. */
-    if (sub.state === "active") {
-      var up = h("div", "bl-upsell");
-      add(up, h("b", "bl-upsell-h", "Go annual, get 2 months free"),
-        para("PHP 24,990 a year, paid in advance. You save PHP 4,998."));
-      /* Not wired: the annual build has no API yet, so the button only says so instead of pretending to switch. */
-      var upNote = para("Switching to annual isn’t open yet.", "bl-note"); upNote.hidden = true;
-      var upBtn = btn("Switch to annual plan", "primary", function () { upNote.hidden = false; });
-      add(up, upBtn, upNote);
-      add(main, up);
-    }
-    return s;
-  }
-  function planCard(p, vm) {
-    var ov = p.ov, nc = p.pay.next_charge, s = card("plan", "Plan");
-    add(s, dl([["Plan", ov.plan.name], ["Billing", "Monthly"], ["Price", money(ov.plan.price) + " per month"],
-      vm.cards.plan.firstPayment ? ["First payment", instant(nc.date)] : null]));
-    add(s, para("Usage meters start with your first paid billing cycle. Nothing is metered or billed during the trial.", "bl-note"));
-    return s;
-  }
-  function meterEl(count, included, over, label) {
-    var m = h("div", "bl-meter"); m.setAttribute("role", "img"); m.setAttribute("aria-label", label);
-    var f = h("span", "bl-meter-fill" + (over ? " over" : "")); f.style.width = pct(count, included) + "%";
-    add(m, f); return m;
-  }
-  function usageCard(p, vm) {
-    var ov = p.ov, u = ov.usage, cyc = ov.current_cycle, R = ov.rates, o = u.orders, running = ov.subscription.state !== "active";
-    var s = card("usage", "Usage for this billing cycle");
-    /* "?" beside a meter title: what the number means, as a hover/focus tooltip */
-    function titled(name, tip) {
-      var t = h("p", "bl-meter-title", name), q = h("button", "bl-tip", "?");
-      q.setAttribute("type", "button"); q.setAttribute("aria-label", "About " + name.toLowerCase() + ": " + tip); q.setAttribute("data-tip", tip);
-      add(t, q); return t;
-    }
-    var ord = h("div", "bl-meter-block");
-    add(ord, titled("Processed orders", "Successful online orders placed this cycle, with SMS notifications included. Above " + whole(o.included) + " orders it is " + money(R.orders.unit_price) + " per order."), h("p", "bl-meter-val", whole(o.count) + " of " + whole(o.included) + " orders included"),
-      meterEl(o.count, o.included, vm.over.orders, "Processed orders: " + whole(o.count) + " of " + whole(o.included) + " orders included"));
-    if (vm.over.orders) add(ord, para(whole(o.over) + " orders above the allowance. " + money(o.amount) + " so far at " + money(R.orders.unit_price) + " each. " + (running ? "Charged once after this cycle ends." : "Billed with your next renewal."), "bl-over"));
-    add(s, ord);
-    [["storage", "Media storage", "stored"], ["video", "Video streaming", "streamed"]].forEach(function (m) {
-      var snap = u[m[0]], rate = R[m[0]], blk = h("div", "bl-meter-block"), video = m[0] === "video";
-      add(blk, titled(m[1], (video ? "Data viewers watched this cycle." : "Total media you store, measured at the end of the cycle.") + " Above " + rate.included_gb + " GB it is " + money(rate.unit_price) + " per GB."));
-      var used = snap ? gb(snap.measured_bytes) : "0", lbl = used + " GB " + m[2] + " of " + rate.included_gb + " GB included";
-      add(blk, h("p", "bl-meter-val", lbl), meterEl(snap ? snap.measured_bytes : 0, snap ? snap.included_bytes : rate.included_gb, snap ? vm.over[m[0]] : false, m[1] + ": " + lbl));
-      add(s, blk);
-    });
-    return s;
-  }
-  function methodCard(p, vm) {
-    var ov = p.ov, pm = p.pay.payment_method, A = vm.actions, s = card("method", "Payment method");
-    var paid = null;
-    p.pay.recent_attempts.forEach(function (a) { if (!paid && a.status === "paid") paid = a; });
-    if (pm && pm.status === "active") {
-      var row = h("div", "bl-method"), brand = (pm.brand || "").toLowerCase();
-      add(row, h("span", "bl-brand", (pm.brand || "").toUpperCase()), h("span", "bl-method-name", brand.charAt(0).toUpperCase() + brand.slice(1) + " ending " + pm.last4), chip(["ok", "Active"]), pm.is_test ? chip(["test", "TEST DATA"]) : null);
-      add(s, row);
-      add(s, para((paid && !vm.cards.lastPayment ? "Last payment: " + money(paid.amount) + " on " + dateShort(paid.date) + ". " : "") + "Only the card brand and last 4 digits are shown.", "bl-note bl-wide"));
-      if (A.replaceMethod) { var mrow = h("div", "bl-actions bl-actions-end"); add(mrow, btn("Replace payment method", "ghost", startSetup)); add(s, mrow); }
-    } else if (pm && pm.status === "pending_setup") {
-      add(s, chip(["info", "Waiting for confirmation"]), para("Your payment method shows here once our payment provider confirms it."));
-    } else if (pm && pm.status === "setup_failed") {
-      add(s, chip(["warn", "Not added"]), para("Adding the payment method did not finish. You can try again."));
-      if (A.addMethod) add(s, btn("Add payment method", "primary", startSetup));
+    var m;
+    if (st === "trial_active") {
+      m = { head: "Your free trial ends in", tiles: b.trial_end_at, lines: ["Your trial ends " + instant(b.trial_end_at) + " Manila time.",
+        offers.length ? "After that, pick a plan: " + offersLine(offers) : "After that, pick a plan."], actions: [pay ? "pay" : null, cancelBtn] };
+    } else if (st === "active") {
+      var paid = b.current_cycle && b.current_cycle.settlement === "paid";
+      m = { chip: ["ok", "Active"], head: "Your subscription is active", lines: [paid ? "Paid until " + dateShort(b.current_cycle.end_at) + "." : "Your next payment is due " + dateShort(b.next_due_at) + ".",
+        paid && b.next_due_at ? "Next payment due " + dateShort(b.next_due_at) + ": " + peso(b.plan.price_centavos) + "." : null],
+        meta: p && p.not_payable_reason === "too_early" && p.payable_from ? "You can pay for the next term from " + dateShort(p.payable_from) + "." : null,
+        actions: [pay ? "pay-next" : null, cancelBtn] };
+    } else if (st === "payment_requires_attention") {
+      m = { chip: ["warn", "Payment needs attention"], head: "Pay by " + dateShort(b.attention_ends_at) + " to keep your site online.", lines: [], actions: [pay ? "pay" : null, cancelBtn] };
+    } else if (st === "suspended") {
+      m = { chip: ["danger", "Suspended"], head: "Your site is limited to Billing.", lines: [b.deletion_due_at ? "Your data is kept until " + dateShort(b.deletion_due_at) + (b.pay_by ? "; pay by " + dateShort(b.pay_by) + " to continue." : ".") : null, downloadLine(b)], actions: [pay ? "pay" : null] };
+    } else if (b.can_reactivate) {
+      m = { chip: ["danger", "Cancelled"], head: "Cancelled.", lines: ["Your site stays online until " + dateShort(b.service_end_at) + "."], actions: ["reactivate"] };
     } else {
-      add(s, para(pm ? "No active payment method." : "No payment method added yet."));
-      if (vm.cards.method.trialNote) add(s, para("You are not charged during the trial. Add a method before " + instant(ov.subscription.trial_end_at) + " so billing can start when the trial ends. You add it on a secure page hosted by our payment provider. NegosyoOnline never sees or stores your card number.", "bl-note"));
-      if (A.addMethod) add(s, btn("Add payment method", "primary", startSetup));
+      m = { chip: ["danger", st === "cancelled_no_payment_method" ? "Trial ended" : "Cancelled"], head: "Your site is limited to Billing.",
+        lines: [b.deletion_due_at ? "Pay to bring it back; your data is kept until " + dateShort(b.deletion_due_at) + "." : "Pay to bring it back.", downloadLine(b)], actions: [pay ? "pay" : null] };
     }
-    return s;
+    return m;
   }
-  function lastCard(p, vm) {
-    var a = p.pay.recent_attempts[0], s = card("last", "Last payment");
-    add(s, dl([["Date", dateShort(a.date)], ["Amount", money(a.amount)], ["Status", chip(vm.cards.lastPayment.chip)]]));
-    return s;
-  }
-  function feesCard(p) {
-    var ov = p.ov, R = ov.rates, s = card("fees", "What you pay and why");
-    add(s, para("NegosyoOnline charges only for your subscription and the usage below. Your customers’ payments and sales are yours and never appear here."));
-    var t = h("table", "bl-table"), tb = h("tbody", "");
-    var hr = h("tr", ""); ["Charge", "Included", "Rate"].forEach(function (c) { var th = h("th", "", c); th.setAttribute("scope", "col"); add(hr, th); });
-    add(t, add(h("thead", ""), hr));
-    [["NegosyoOnline Subscription", "Monthly, per site", money(ov.plan.price) + " per month"],
-      ["Processed orders", whole(R.orders.included) + " per billing cycle", money(R.orders.unit_price) + " per order above " + whole(R.orders.included)],
-      ["Media storage", R.storage.included_gb + " GB", money(R.storage.unit_price) + " per GB above " + R.storage.included_gb + " GB"],
-      ["Video delivery", R.video.included_gb + " GB", money(R.video.unit_price) + " per GB above " + R.video.included_gb + " GB"],
-      ["Transactional SMS", "Free", "No charge"]].forEach(function (r) {
-      var tr = h("tr", ""); r.forEach(function (c) { add(tr, h("td", "", c)); }); add(tb, tr);
+  function heroEl(m) {
+    var el = h("header", "bl-hero"), acts = h("div", "bl-actions");
+    if (m.chip) add(el, chip(m.chip[0], m.chip[1]));
+    var head = h("h2", "bl-head", m.head); head.setAttribute("id", "bl-hd");
+    add(el, head);
+    if (m.tiles) add(el, countdown(m.tiles));
+    m.lines.forEach(function (l) { if (l) add(el, para(l)); });
+    if (m.meta) add(el, para(m.meta, "bl-meta"));
+    m.actions.forEach(function (a) {
+      if (a === "pay") add(acts, btn("Pay by bank transfer", "primary", function () { go("choose"); }));
+      else if (a === "pay-next") add(acts, btn("Pay for the next period", "primary", function () { go("choose"); }));
+      else if (a === "cancel") add(acts, btn("Cancel subscription", "cancel", function (b) { openCancel(b); }));
+      else if (a === "reactivate") add(acts, btn("Keep my subscription", "primary", function (b) { reactivate(b); }));
     });
-    add(t, tb); add(s, t);
-    add(s, para("Usage above the included amounts is added to your next renewal payment. It is never charged on its own mid-cycle. 1 GB is 1,000,000,000 bytes.", "bl-note"));
-    var links = h("p", "bl-links");
-    var l1 = h("a", "bl-link", "Full terms"); l1.setAttribute("href", (D.cfg.siteUrl || "") + "/terms");
-    var l2 = h("a", "bl-link", "Cancellation and Refund Policy"); l2.setAttribute("href", (D.cfg.siteUrl || "") + "/cancellation-refund");
-    add(links, l1, l2); add(s, links);
+    if (acts.children.length) add(el, acts);
+    return el;
+  }
+  function planRows() {
+    var b = S.billing, c = newest("confirmed");
+    if (inTrial()) return { rows: [["Plan", "Free trial"], ["Length", b.plan.trial_days + " days"], ["After the trial", "Pick a plan"]],
+      note: ((S.pay && S.pay.offers && S.pay.offers.length) ? "Pick " + offersLine(S.pay.offers) + " " : "") + NOTRIAL_NOTE };
+    var rows, cancelled = b.state === "cancelled" || b.state === "cancelled_no_payment_method";
+    if (c) {
+      var p = planOf(c.plan), amt = peso(c.amount_centavos - (c.usage_centavos || 0));
+      if (c.plan === "monthly") rows = [["Plan", p.name], ["Billing", "Monthly"], ["Price", amt + " a month"]];
+      else {
+        rows = [["Plan", p.name], ["Billing", (c.plan === "annual" ? "12 months" : "6 months") + ", paid once"], ["Price", amt]];
+        if (c.cycle) rows.push(["Ends", dateShort(c.cycle.end_at)]);
+        if (c.plan === "launch_promo" && !cancelled) rows.push(["Then", peso(b.plan.price_centavos) + " a month"]);
+      }
+    } else rows = [["Plan", b.plan.name], ["Billing", "Monthly"], ["Price", peso(b.plan.price_centavos) + " a month"]];
+    return { rows: rows, note: NOTRIAL_NOTE };
+  }
+  function planCard() {
+    var pr = planRows(), s = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-pl" });
+    add(s, attrs(h("h2", "bl-h2", "Plan"), { id: "bl-pl" }), facts(pr.rows), para(pr.note, "bl-meta bl-cardnote"));
     return s;
   }
-  /* Billing details and billing address cards. Values come from ov.billing_profile; Save writes them for this site
-     (PUT profile/), shows field errors inline and re-renders with the saved profile. The server checks every limit. */
-  var DETAIL_FIELDS = [["company", "Company name"], ["tin", "TIN"], ["mobile", "Billing mobile"], ["email", "Billing email"]];
-  var ADDRESS_FIELDS = [["line1", "Address line 1"], ["barangay", "Barangay"], ["city", "City"], ["province", "Province"], ["zip", "ZIP code"]];
-  function profile(p) { return (p.ov && p.ov.billing_profile) || {}; }
-  function detailsCard(p) {
-    var d = profile(p), s = card("details", "Billing details");
-    add(s, dl(DETAIL_FIELDS.map(function (f) { return [f[1], d[f[0]] || "Not set"]; })));
-    var row = h("div", "bl-actions bl-actions-end"); add(row, btn("Update", "ghost", function (b) { openForm("Billing details", DETAIL_FIELDS, d, b); })); add(s, row);
-    return s;
+  function proofRows(p) {
+    return [["Plan", planOf(p.plan).name], ["Amount", peso(p.amount_centavos)],
+      p.transferred_at ? ["Time of transfer", instant(p.transferred_at)] : ["Date of transfer", p.transferred_on ? dateShort(p.transferred_on + "T12:00:00+08:00") : ""],
+      p.transfer_reference ? ["Reference", p.transfer_reference] : null, ["Sent", instant(p.submitted_at)]];
   }
-  function addressCard(p) {
-    var a = profile(p), s = card("address", "Billing address");
-    var region = [a.province, a.zip].filter(Boolean).join(", ");
-    add(s, dl([["Address line 1", a.line1 || "Not set"], ["Barangay", a.barangay || "Not set"], ["City", a.city || "Not set"],
-      ["Province, ZIP, Country", region ? region + ", PH" : "Not set"]]));
-    var row = h("div", "bl-actions bl-actions-end"); add(row, btn("Update", "ghost", function (b) { openForm("Billing address", ADDRESS_FIELDS, a, b); })); add(s, row);
-    return s;
+  function rejectBox(p) {
+    var box = h("div", "bl-reject");
+    add(box, add(h("p", ""), h("strong", "", REASONS[p.reject_reason] || "Your proof was not accepted.")));
+    if (p.reject_reason === "other" && p.reject_note) add(box, h("p", "", p.reject_note));
+    add(box, h("p", "", "Your money has not been counted. Send a new proof, or contact us if you have already paid the right amount."));
+    return box;
   }
-  function openForm(titleText, fields, values, opener) {
-    var slot = clear(byId("bl-dialog-slot")), overlay = h("div", "bl-overlay"), dlg = h("div", "bl-dialog"), inputs = [], errs = {}, save;
-    dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "bl-h-form");
-    var title = h("h2", "bl-h2", titleText); title.setAttribute("id", "bl-h-form"); add(dlg, title);
-    fields.forEach(function (f) {
-      var lab = h("label", "bl-label", f[1]), input = h("input", "bl-input");
-      lab.setAttribute("for", "bl-f-" + f[0]); input.setAttribute("id", "bl-f-" + f[0]); input.setAttribute("type", "text"); input.setAttribute("maxlength", f[0] === "zip" ? "4" : f[0] === "tin" || f[0] === "mobile" ? "32" : "200");
-      input.value = values[f[0]] || ""; inputs.push(input); add(dlg, lab, input);
-      var er = h("p", "bl-field-error", ""); er.setAttribute("id", "bl-e-" + f[0]); er.hidden = true; errs[f[0]] = { input: input, node: er }; add(dlg, er);
-    });
-    function setErrors(map) {
-      fields.forEach(function (f) {
-        var e = errs[f[0]], msg = map && map[f[0]], has = typeof msg === "string" && msg !== "";
-        e.node.textContent = has ? msg : ""; e.node.hidden = !has;
-        if (has) { e.input.setAttribute("aria-invalid", "true"); e.input.setAttribute("aria-describedby", "bl-e-" + f[0]); e.input.classList.add("bl-input-invalid"); }
-        else { e.input.removeAttribute("aria-invalid"); e.input.removeAttribute("aria-describedby"); e.input.classList.remove("bl-input-invalid"); }
-      });
-      for (var i = 0; i < fields.length; i++) { if (map && typeof map[fields[i][0]] === "string") { inputs[i].focus(); break; } }
+  function payCard() {
+    var s = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-pm" }), top = h("div", "bl-top"), acts = h("div", "bl-actions");
+    add(top, attrs(h("h2", "bl-h2", "Payment"), { id: "bl-pm" }));
+    var rev = underReview(), last = latestPay(), pay = canPay(), body;
+    function viewBtn(p) { return btn("View proof", "ghost", function (b) { openProof(p, b); }); }
+    if (rev) {
+      add(top, chip("warn", "Proof under review")); body = facts(proofRows(rev));
+      add(acts, viewBtn(rev)); if (pay) add(acts, btn("Replace proof", "ghost", function () { go("choose"); }));
+    } else if (last && last.status === "rejected") {
+      add(top, chip("reject", "Proof rejected")); body = add(h("div", ""), rejectBox(last), facts(proofRows(last)));
+      if (pay) add(acts, btn("Send a new proof", "primary", function () { go("choose"); }));
+      add(acts, viewBtn(last));
+    } else if (last && last.status === "confirmed") {
+      add(top, chip("ok", "Approved"));
+      var only = S.billing.billing_only, cy = last.cycle;
+      body = facts([only ? ["Last payment", "Approved " + dateShort(last.decided_at)] : ["Status", "Payment approved"], only ? null : ["Approved", dateShort(last.decided_at)],
+        cy ? [only ? "Plan ran" : "Plan runs", range(cy.start_at, cy.end_at)] : null]);
+      if (pay) add(acts, btn(only ? "Pay by bank transfer" : "Pay for the next period", "primary", function () { go("choose"); }));
+      add(acts, viewBtn(last));
+    } else {
+      add(top, chip("neutral", "No payment yet"));
+      body = para(pay ? "Pay by bank transfer to continue after your trial. No payment method is stored; you send a transfer and add your proof." : "Payments are not open yet.");
+      if (pay) add(acts, btn("Pay by bank transfer", "primary", function () { go("choose"); }));
     }
-    var cancel = btn("Cancel", "ghost", function () { close(true); });
-    save = btn("Save", "primary", function (b) {
-      var body = {};
-      fields.forEach(function (f, i) { body[f[0]] = (inputs[i].value || "").trim(); });
-      setErrors(null);
-      put(base() + "profile/", body, b).then(function (res) {
-        if (!res) return;
-        if (!res.ok) {
-          var map = res.data && res.data.fields;
-          if (res.status === 400 && map && typeof map === "object" && Object.keys(map).length) { setErrors(map); return; }
-          D.toast("That did not work", errMsg(res), "error"); return;
-        }
-        close(true);
-        lastPayload.ov.billing_profile = res.data || body; render(lastPayload, null);
-        D.toast("Saved", titleText + " saved.");
-      });
+    add(s, top, body);
+    if (acts.children.length) add(s, acts);
+    return s;
+  }
+  function histEl() {
+    var s = attrs(h("section", "bl-card bl-hist"), { "aria-labelledby": "bl-hi" });
+    add(s, attrs(h("h2", "bl-h2", "Payment history"), { id: "bl-hi" }));
+    if (!S.payments.length) { add(s, para("No payments yet. Your payments appear here once you send a proof.", "bl-empty")); return s; }
+    var CH = { submitted: ["warn", "Under review"], confirmed: ["ok", "Approved"], rejected: ["reject", "Rejected"], replaced: ["neutral", "Replaced"] };
+    S.payments.forEach(function (p) {
+      var c = CH[p.status] || ["neutral", p.status], row = h("div", "bl-hrow");
+      add(row, h("span", "", dateShort(p.submitted_at)), h("span", "", planOf(p.plan).short), h("span", "", peso(p.amount_centavos)), chip(c[0], c[1]),
+        btn("View proof", "ghost", function (b) { openProof(p, b); }));
+      add(s, row);
     });
-    var row = h("div", "bl-actions"); add(row, cancel, save); add(dlg, row); add(overlay, dlg); add(slot, overlay);
+    return s;
+  }
+  function renderHome(r) {
+    var b = S.billing;
+    add(r, heroEl(heroModel()));
+    if (!b.billing_exempt) {
+      add(r, add(h("div", "bl-two"), planCard(), payCard()), histEl());
+      if (b.outstanding_centavos > 0) add(r, para("Unpaid usage: " + peso(b.outstanding_centavos), "bl-meta"));
+    }
+  }
+
+  /* ---- pop-ups: X and Escape close; no Cancel button; a click outside does nothing ---- */
+  function closeDialog(returnFocus) {
+    if (!dlg) return;
+    var d = dlg; dlg = null;
+    document.removeEventListener("keydown", d.onKey);
+    var slot = byId("bl-dialog-slot"); if (slot) clear(slot);
+    if (d.url) { try { URL.revokeObjectURL(d.url); } catch (e) { /* ignore */ } }
+    if (returnFocus && d.opener && d.opener.focus) d.opener.focus();
+  }
+  function openDialog(titleText, opener, fill) {
+    closeDialog(false);
+    var slot = clear(byId("bl-dialog-slot")), overlay = h("div", "bl-overlay"), box = attrs(h("div", "bl-dialog"), { role: "dialog", "aria-modal": "true", "aria-labelledby": "bl-dlg-h" });
+    var x = attrs(h("button", "bl-x", "×"), { type: "button", "aria-label": "Close" });
+    var d = { opener: opener, busy: false, url: null, box: box };
     function onKey(e) {
-      if (e.key === "Escape") { e.preventDefault(); close(true); return; }
+      if (e.key === "Escape") { e.preventDefault(); if (!d.busy) closeDialog(true); return; }
       if (e.key !== "Tab") return;
-      var items = inputs.concat([cancel, save]), first = items[0], last = items[items.length - 1], now = document.activeElement;
+      var items = Array.prototype.slice.call(box.querySelectorAll("button, a[href], input")).filter(function (n) { return !n.disabled && !n.hidden; });
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1], now = document.activeElement;
       if (e.shiftKey && (now === first || items.indexOf(now) < 0)) { e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && (now === last || items.indexOf(now) < 0)) { e.preventDefault(); first.focus(); }
     }
-    function close(returnFocus) {
-      document.removeEventListener("keydown", onKey); dialogKey = null; clear(slot);
-      if (returnFocus && opener && opener.focus) opener.focus();
-    }
-    dialogKey = onKey; document.addEventListener("keydown", onKey);
-    inputs[0].focus();
+    d.onKey = onKey; dlg = d;
+    x.addEventListener("click", function () { if (!d.busy) closeDialog(true); });
+    add(box, x, attrs(h("h2", "bl-dlg-h", titleText), { id: "bl-dlg-h" }));
+    fill(box, d);
+    add(overlay, box); add(slot, overlay);
+    document.addEventListener("keydown", onKey);
+    x.focus();
   }
-  /* A payment with no statement yet: show what the payment record holds, read-only. */
-  function openPayment(a, pm, opener) {
-    var slot = clear(byId("bl-dialog-slot")), overlay = h("div", "bl-overlay"), dlg = h("div", "bl-dialog");
-    dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "bl-h-pay");
-    var title = h("h2", "bl-h2", "Payment details"); title.setAttribute("id", "bl-h-pay");
-    var brand = pm && pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1).toLowerCase() + " ending " + pm.last4 : null;
-    var rows = [["Paid on", dateShort(a.date)], ["Product", "NegosyoOnline Store"], ["Plan", "Monthly"], ["Amount", money(a.amount)], ["Status", chip(ATTEMPT_CHIP[a.status] || ["neutral", a.status])], brand ? ["Payment method", brand] : null];
-    var done = btn("Close", "primary", function () { close(true); }), row = h("div", "bl-actions");
-    add(row, done); add(dlg, title, dl(rows), para("Your billing statement for this payment appears in Billing History once it is issued.", "bl-note"), row); add(overlay, dlg); add(slot, overlay);
-    function onKey(e) {
-      if (e.key === "Escape") { e.preventDefault(); close(true); }
-      else if (e.key === "Tab") { e.preventDefault(); done.focus(); }
-    }
-    function close(returnFocus) {
-      document.removeEventListener("keydown", onKey); dialogKey = null; clear(slot);
-      if (returnFocus && opener && opener.focus) opener.focus();
-    }
-    dialogKey = onKey; document.addEventListener("keydown", onKey);
-    done.focus();
-  }
-  function statementsShell() {
-    var s = card("statements", "Billing History", "bl-statements"); s.setAttribute("id", "bl-statements");
-    stBody = h("div", "bl-statements-body", ""); add(stBody, para("Loading statements.", "bl-meta")); add(s, stBody);
-    return s;
-  }
-
-  function render(p, focusTarget) {
-    var ov = p.ov, vm = viewModel(ov, p.pay, null, p.search), r = clear(rootEl());
-    r.removeAttribute("aria-busy");
-    vm.notices.forEach(function (code) { add(r, noticeEl(code, p, vm)); });
-    var trial = ov.subscription.state === "trial_active";
-    var status = statusCard(p, vm);
-    if (trial) {
-      add(r, status);
-      var pair = h("div", "bl-grid"); add(pair, planCard(p, vm), methodCard(p, vm)); add(r, pair);
-      var info = h("div", "bl-grid"); add(info, detailsCard(p), addressCard(p)); add(r, info);
-      add(r, statementsShell());
-    } else {
-      var split = h("div", "bl-grid-split"); add(split, status, vm.cards.usage ? usageCard(p, vm) : null); add(r, split);
-      var mid = h("div", "bl-grid"); add(mid, methodCard(p, vm), vm.cards.lastPayment ? lastCard(p, vm) : null); add(r, mid);
-      var info = h("div", "bl-grid"); add(info, detailsCard(p), addressCard(p)); add(r, info);
-      add(r, statementsShell());
-    }
-    if (stCache && stCache.site === p.site) renderStatements(stCache.res, p);
-    if (focusTarget === "method") { var t = byId("bl-h-method"); if (t) t.focus(); }
-  }
-
-  /* ---- authenticated downloads and the receipt image (spec 8.8): fetch with the session cookie, read a Blob ---- */
-  function receiptAbsent() {
-    var host = byId("bl-receipt"); if (!host) return;
-    clear(host); add(host, para("No physical receipt has been attached to this statement yet."));
-  }
-  function fetchBlob(path, filename, b, asImage) {
-    if (b && b.getAttribute("aria-busy") === "true") return Promise.resolve(null);
-    if (b) b.setAttribute("aria-busy", "true");
-    return fetch(D.cfg.apiBase + path, { credentials: "include" }).then(function (r) {
-      if (r.status === 401) { location.replace((D.cfg.siteUrl || "") + "/?signin=1"); return null; }
-      if (!r.ok) {
-        return r.json().catch(function () { return {}; }).then(function (raw) {
-          var data = D.flatten(raw);
-          if (r.status === 500 && data && data.code === "statement_integrity_error") panelI();
-          else if (data && data.code === "receipt_not_found") receiptAbsent();
-          else D.toast("That did not work", typeof data.message === "string" ? data.message : "", "error");
-          return null;
+  function openCancel(opener) {
+    var b = S.billing, paid = b.current_cycle && b.current_cycle.settlement === "paid" && b.state === "active";
+    var text = paid ? "Your site stays online until " + dateShort(b.current_cycle.end_at) + ", then it is limited to Billing."
+      : "Your site’s service ends now. Nothing is charged." + (b.deletion_due_at ? " Your data is kept until " + dateShort(b.deletion_due_at) + "." : "");
+    openDialog("Cancel your subscription?", opener, function (box, d) {
+      var yes = btn("Cancel subscription", "danger", function () {
+        if (d.busy) return;
+        d.busy = true; yes.setAttribute("aria-busy", "true");
+        D.call("POST", base() + "cancel/").then(function (res) {
+          d.busy = false; yes.removeAttribute("aria-busy");
+          if (res.status === 401) return;
+          if (!res.ok) { toast("That did not work", refusal(res), "error"); if (res.status === 409) { closeDialog(false); load(); } return; }
+          S.billing = res.data; closeDialog(false); render(); focusTop();
+          if (D.refreshAccount) D.refreshAccount();
+          toast("Subscription cancelled", ""); reload().then(function (ok) { if (ok) render(); });
         });
-      }
-      return r.blob().then(function (blob) {
-        var url = URL.createObjectURL(blob);
-        if (asImage) { urls.push(url); return url; }
-        var a = document.createElement("a"); a.href = url; a.download = typeof filename === "function" ? filename(blob) : filename;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function () { URL.revokeObjectURL(url); }, 0);
-        return url;
+      }, "bl-full");
+      add(box, para(text), yes);
+    });
+  }
+  function reactivate(b) {
+    if (busy) return;
+    busy = true; b.setAttribute("aria-busy", "true");
+    D.call("POST", base() + "reactivate/").then(function (res) {
+      busy = false; b.removeAttribute("aria-busy");
+      if (res.status === 401) return;
+      if (!res.ok) { toast("That did not work", refusal(res), "error"); if (res.status === 409) load(); return; }
+      S.billing = res.data; render(); focusTop();
+      if (D.refreshAccount) D.refreshAccount();
+      toast("Your subscription continues", ""); reload().then(function (ok) { if (ok) render(); });
+    });
+  }
+  /* The proof is read only from .../payments/{id}/proof/, with the cookie, and shown from a blob URL. */
+  function fetchProof(id) {
+    return fetch(D.cfg.apiBase + base() + "payments/" + encodeURIComponent(id) + "/proof/", { method: "GET", credentials: "include" })
+      .then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });
+  }
+  function openProof(p, opener) {
+    openDialog("Proof of payment", opener, function (box, d) {
+      var hold = h("div", "bl-proof"), slotEl = h("div", "");
+      add(hold, para("Loading the proof…", "bl-meta")); add(box, hold, slotEl);
+      fetchProof(p.id).then(function (blob) {
+        if (dlg !== d) return;
+        clear(hold);
+        if (!blob) { add(hold, para("We could not load the proof. Please try again.", "bl-meta")); return; }
+        var url = URL.createObjectURL(blob); d.url = url;
+        var pdf = blob.type === "application/pdf" || (p.proof && p.proof.content_type === "application/pdf");
+        if (pdf) add(hold, para("This proof is a PDF.", "bl-meta"));
+        else add(hold, attrs(h("img", "bl-proof-img"), { src: url, alt: "The proof of payment you sent" }));
+        add(slotEl, attrs(h("a", "no-btn no-btn-primary bl-full", pdf ? "Open the proof (PDF)" : "Open the proof"), { href: url, target: "_blank", rel: "noopener" }));
       });
-    }).catch(function () { D.toast("That did not work", "We could not reach the server. Please check your connection and try again.", "error"); return null; })
-      .then(function (v) { if (b) b.removeAttribute("aria-busy"); return v; });
-  }
-  function linkBtn(label, fn) {
-    var b = h("button", "bl-link-btn", label); b.setAttribute("type", "button");
-    b.addEventListener("click", function () { fn(b); });
-    return b;
-  }
-  /* The one row action: open that statement's detail view (the PDF, data file and receipt are downloaded from there). */
-  function actionBtns(number) {
-    return [btn("View Details", "ghost", function (b) { openFromList(number, b); })];
+    });
   }
 
-  /* ---- statements card (design 4.4) ---- */
-  function openFromList(number, a) {
-    openerNumber = number;
-    try { history.pushState(null, "", "/settings/billing/?site=" + lastPayload.site + "&statement=" + encodeURIComponent(number)); } catch (e) { /* ignore */ }
-    openDetail(number, true);
-  }
-  function numberLink(number) {
-    var a = h("a", "bl-num", number); a.setAttribute("data-number", number);
-    a.setAttribute("href", "/settings/billing/?site=" + lastPayload.site + "&statement=" + encodeURIComponent(number));
-    a.addEventListener("click", function (e) { e.preventDefault(); openFromList(number, a); });
+  /* ---- page A: choose a plan ---- */
+  function backLink(label, fn) {
+    var a = attrs(h("a", "bl-back", label), { href: "/settings/billing/?site=" + S.site });
+    a.addEventListener("click", function (e) { e.preventDefault(); fn(); });
     return a;
   }
-  function renderStatements(res, p) {
-    if (!stBody) return;
-    stCache = { site: p.site, res: res }; /* a re-render of the page repaints the card from this, without a request */
-    clear(stBody);
-    if (!res.ok) {
-      var err = h("div", "bl-panel-err"); err.setAttribute("role", "alert");
-      add(err, h("h3", "bl-h3", "We couldn’t load your billing"), para("Check your connection and try again. Nothing was changed."),
-        btn("Try again", "ghost", function () { load(false); focusTop(); }));
-      add(stBody, err); return;
-    }
-    var list = (res.data && res.data.statements) || [], vm = viewModel(p.ov, p.pay, null, p.search);
-    /* The label is shown on the statement itself (detail view) and as the footnote under this list. */
-    if (!list.length) {
-      /* No statements yet (the flag is off): list the payments that went through, so history agrees with Last payment. */
-      var paidRows = p.pay.recent_attempts.filter(function (a) { return a.status === "paid"; });
-      if (paidRows.length) {
-        var pt = h("table", "bl-table"), phr = h("tr", ""), ptb = h("tbody", "");
-        add(pt, h("caption", "bl-sr", "Payments received"));
-        ["Paid on", "Product", "Plan", "Total", "Status", "Action"].forEach(function (c) { var th = h("th", c === "Total" ? "bl-num-cell" : (c === "Status" || c === "Action" ? "bl-mid-cell" : ""), c); th.setAttribute("scope", "col"); add(phr, th); });
-        add(pt, add(h("thead", ""), phr));
-        paidRows.forEach(function (a) {
-          add(ptb, add(h("tr", ""), h("td", "", dateShort(a.date)), h("td", "", "NegosyoOnline Store"), h("td", "", "Monthly"), h("td", "bl-num-cell", money(a.amount)), add(h("td", "bl-mid-cell"), chip(ATTEMPT_CHIP[a.status] || ["neutral", a.status])), add(h("td", "bl-dl-cell bl-mid-cell"), btn("View Details", "ghost", function (b) { openPayment(a, p.pay.payment_method, b); }))));
-        });
-        add(pt, ptb); add(stBody, pt, para("Your billing statements appear here once they are issued.", "bl-note"));
-        return;
-      }
-      var box = h("div", "bl-empty bl-empty-center"); add(box, para("No payments yet. Your billing statements appear here once they are issued.", "bl-p"));
-      add(stBody, box); return;
-    }
-    var rows = list.map(function (it) { return { it: it, v: statementRow(it) }; }), name = bname(p.ov.site.business_name);
-    var table = h("table", "bl-table bl-desk"), cap = h("caption", "bl-sr", "Internal billing statements for " + name);
-    add(table, cap);
-    var hr = h("tr", ""); ["Issued", "Product", "Plan", "Cycle", "Total", "Action"].forEach(function (c) { var th = h("th", c === "Total" ? "bl-num-cell" : "", c); th.setAttribute("scope", "col"); add(hr, th); });
-    add(table, add(h("thead", ""), hr));
-    var tb = h("tbody", ""), cards = h("div", "bl-mobile");
-    rows.forEach(function (r) {
-      var it = r.it, v = r.v, tr = h("tr", ""), dn = h("td", "bl-dl-cell");
-      actionBtns(it.number).forEach(function (b) { add(dn, b); });
-      add(tr, h("td", "", dateShort(it.issued_at)), h("td", "", "NegosyoOnline Store"), h("td", "", it.billing_interval === "year" ? "Annual" : "Monthly" /* the statements API has no interval field yet; only monthly exists */), h("td", "", v.cycleText), h("td", "bl-num-cell", v.total), dn);
-      add(tb, tr);
-      var art = h("article", "bl-art"), top = h("div", "bl-art-top");
-      var dl2 = h("div", "bl-art-dl"), facts = h("dl", "bl-art-facts");
-      add(top, numberLink(it.number));
-      /* the same six facts as the desktop columns, each labelled */
-      [["Issued", dateShort(it.issued_at)], ["Product", "NegosyoOnline Store"], ["Plan", it.billing_interval === "year" ? "Annual" : "Monthly"], ["Cycle", v.cycleText], ["Total", v.total]].forEach(function (f) {
-        add(facts, h("dt", "", f[0]), h("dd", f[0] === "Total" ? "bl-art-total" : "", f[1]));
-      });
-      actionBtns(it.number).forEach(function (b) { add(dl2, b); });
-      add(art, top, facts, dl2);
-      add(cards, art);
-    });
-    add(table, tb); add(stBody, table, cards);
-    add(stBody, para(LABEL, "bl-note"));
-    if (res.data.has_more) add(stBody, para("Showing the 200 most recent documents. Ask support@negosyoonline.com for older ones.", "bl-meta"));
-    if (openerNumber) {
-      var again = stBody.querySelector ? stBody.querySelector('[data-number="' + openerNumber + '"]') : null;
-      openerNumber = null; if (again) again.focus();
-    }
+  function notPayable(r) {
+    var reason = S.pay && S.pay.not_payable_reason, text = !S.pay || !S.pay.offers || !accounts().length ? "Payments are not open yet."
+      : reason === "too_early" && S.pay.payable_from ? "You can pay for the next term from " + dateShort(S.pay.payable_from) + "." : NOT_PAYABLE[reason] || "You cannot pay right now.";
+    add(r, backLink("← Back to billing", function () { go(null); }), add(h("section", "bl-card"), h("h2", "bl-h2", "Pay by bank transfer"), para(text)));
   }
-
-  /* ---- statement detail (design 4.4, board C) ---- */
-  function backToList(push) {
-    if (push) { try { history.pushState(null, "", "/settings/billing/?site=" + lastPayload.site); } catch (e) { /* ignore */ } }
-    revokeAll();
-    var mine = token; render(lastPayload, null);
-    api(base() + "statements/").then(function (s) { if (mine === token) renderStatements(s, lastPayload); });
+  function planCardEl(o, trial, saving) {
+    var promo = o.plan === "launch_promo", art = attrs(h("article", "bl-plan" + (promo ? " bl-plan-hot" : "")), { "aria-labelledby": "bl-pl-" + o.plan });
+    if (promo) add(art, h("span", "bl-badge bl-badge-top", BEST_BADGE));
+    var desc = h("div", "bl-plan-desc");
+    offerLines(o, trial).forEach(function (l) { add(desc, h("p", "bl-plan-line", l)); });
+    if (o.plan === "annual" && saving) add(desc, add(h("p", "bl-save bl-plan-line", "Save " + peso(saving)), h("span", "bl-pill", "2 months FREE")));
+    var ul = h("ul", "bl-feat"); FEATURES.forEach(function (f) { add(ul, h("li", "", f)); });
+    add(art, attrs(h("h2", "bl-plan-name", planOf(o.plan).card), { id: "bl-pl-" + o.plan }), h("p", "bl-plan-price", peso(o.amount_centavos)), desc, ul,
+      btn(promo ? "Pay for this plan" : "Choose", promo ? "primary" : "ghost", function () { go("send", o.plan); }, "bl-full"));
+    return art;
   }
-  function detailCard(id, title) { return card(id, title, "bl-detail-card"); }
-  function openDetail(number, focus) {
-    var mine = token;
-    api(base() + "statements/" + encodeURIComponent(number) + "/").then(function (res) {
-      if (mine !== token || res.status === 401) return;
-      if (res.status === 404) {
-        D.toast("That statement was not found.", "", "error");
-        try { history.replaceState(null, "", "/settings/billing/?site=" + lastPayload.site); } catch (e) { /* ignore */ }
-        backToList(false); return;
-      }
-      if (res.status === 500 && res.data && res.data.code === "statement_integrity_error") { panelI(); return; }
-      if (!res.ok) { D.toast("That did not work", errMsg(res), "error"); backToList(true); return; }
-      var data = res.data, doc = data.document;
-      if (!doc || doc.label !== LABEL) { panelI(); return; }
-      renderDetail(data, number, focus);
+  function annualSaving() {
+    if (S.plans) return Promise.resolve(S.plans);
+    return api("/plan/").then(function (res) {
+      var a = res.ok && res.data && Array.isArray(res.data.plans) ? res.data.plans.filter(function (p) { return p.plan === "annual"; })[0] : null;
+      S.plans = { annual: a && a.saving_centavos > 0 ? a.saving_centavos : 0 };
+      return S.plans;
     });
   }
-  function renderDetail(data, number, focus) {
-    var tk = token, doc = data.document, p = lastPayload, r = clear(rootEl()), credit = doc.document_type === "credit_note", path = base() + "statements/" + encodeURIComponent(number) + "/";
-    r.removeAttribute("aria-busy");
-    var back = h("a", "bl-back", "← Back to Billing"); back.setAttribute("href", "/settings/billing/?site=" + p.site);
-    back.addEventListener("click", function (e) { e.preventDefault(); openerNumber = number; backToList(true); });
-    var head = h("div", "bl-detail-head"), h1 = h("h1", "bl-h1", doc.number); h1.setAttribute("id", "bl-h-detail"); h1.setAttribute("tabindex", "-1");
-    add(head, h1);
-    add(head, data.status === "replaced" ? chip(["neutral", "Replaced by " + data.replaced_by]) : chip(["ok", "Issued"]));
-    if (data.receipt) add(head, chip(["ok", "Receipt on file"]));
-    if (doc.is_test) add(head, chip(["test", "TEST DATA"]));
-    if (credit) add(head, chip(["info", "Credit"]));
-    var note = h("div", "bl-labelnote", LABEL); note.setAttribute("role", "note");
-    add(r, back, head, note);
+  function renderChoose(r) {
+    if (!canPay()) return notPayable(r);
+    var offers = sortOffers(S.pay.offers), trial = inTrial(), mine = token;
+    var sec = h("section", "bl-choose"), plans = h("div", "bl-plans bl-plans-" + Math.min(offers.length, 3));
+    var title = h("h2", "bl-choose-h", "Choose how to pay"); title.setAttribute("id", "bl-ch");
+    add(sec, title, h("p", "bl-meta bl-choose-sub", "Pick a plan. You pay by bank transfer and send your proof on the next page."), plans);
+    add(r, backLink("← Back to billing", function () { go(null); }), sec);
+    function draw(saving) { clear(plans); offers.forEach(function (o) { add(plans, planCardEl(o, trial, saving)); }); }
+    var hasAnnual = offers.some(function (o) { return o.plan === "annual"; });
+    draw(0);
+    if (hasAnnual) annualSaving().then(function (pl) { if (mine === token && pl.annual && routeOf(location.search).pay === "choose") draw(pl.annual); });
+  }
 
-    var lines = detailCard("lines", "What this payment covers"), t = h("table", "bl-table"), cap = h("caption", "bl-sr", "Statement lines");
-    add(t, cap);
-    var hr = h("tr", ""); ["Description", "Qty", "Unit (PHP)", "Amount (PHP)"].forEach(function (c) { var th = h("th", c === "Description" ? "" : "bl-num-cell", c); th.setAttribute("scope", "col"); add(hr, th); });
-    add(t, add(h("thead", ""), hr));
-    var tb = h("tbody", "");
-    detailRows(data.display_rows || []).forEach(function (row) {
-      var tr = h("tr", ""), c1 = h("td", ""); add(c1, h("span", "bl-line-desc", row.desc), row.note ? h("span", "bl-sub-line", row.note) : null);
-      add(tr, c1, h("td", "bl-num-cell", row.qty), h("td", "bl-num-cell", row.unit), h("td", "bl-num-cell", row.amount)); add(tb, tr);
+  /* ---- page B: payment details ---- */
+  function field(key, label, ph, extra) {
+    var w = h("div", "bl-field"), id = "bl-f-" + key, input = attrs(h("input", "bl-input"), { id: id, name: key, placeholder: ph, autocomplete: "off" });
+    if (extra) attrs(input, extra);
+    var err = attrs(h("p", "bl-ferr"), { id: id + "-err", role: "alert" }); err.hidden = true;
+    input.setAttribute("aria-describedby", id + "-err");
+    add(w, attrs(h("label", "bl-label", label + " *"), { "for": id }), input, err);
+    return { wrap: w, input: input, err: err };
+  }
+  function renderSend(r, code) {
+    var offer = canPay() ? S.pay.offers.filter(function (o) { return o.plan === code; })[0] : null;
+    if (!offer) {
+      try { history.replaceState(null, "", urlFor(S.site, "choose")); } catch (e) { /* ignore */ }
+      return renderChoose(r);
+    }
+    var trial = inTrial(), promo = !!(offer.consent && offer.consent.required), maxBytes = (S.pay.proof_rules && S.pay.proof_rules.max_bytes) || 5242880;
+    var F = {}, errs = {}, touched = {}, banner = attrs(h("p", "bl-note"), { role: "alert" });
+    banner.hidden = true;
+    var left = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-sp" });
+    add(left, attrs(h("h2", "bl-h2", "Your payment details"), { id: "bl-sp" }));
+    if (underReview()) add(left, h("p", "bl-note", "Sending a new proof replaces the one under review."));
+    add(left, banner);
+    var grid = h("div", "bl-grid2");
+    [["bank", "Sender Bank", "BDO", { maxlength: "80" }], ["ref", "Reference Number", "1234 5678 90", { maxlength: "64" }], ["first", "Sender First Name", "Juan", { maxlength: "80" }],
+      ["last", "Sender Last Name", "dela Cruz", { maxlength: "80" }], ["acct", "Sender Account Number", "1234 5678 12", { maxlength: "34", inputmode: "numeric" }],
+      ["amount", "Amount", peso(offer.amount_centavos).replace("PHP ", ""), { inputmode: "decimal" }]].forEach(function (f) { F[f[0]] = field(f[0], f[1], f[2], f[3]); add(grid, F[f[0]].wrap); });
+    add(left, grid);
+    var tw = h("div", "bl-field"), tl = attrs(h("span", "bl-label", "Time of Transfer *"), { id: "bl-tt" }), tg = attrs(h("div", "bl-time"), { role: "group", "aria-labelledby": "bl-tt" });
+    var date = attrs(h("input", "bl-input"), { id: "bl-f-date", type: "date", "aria-label": "Date of transfer", max: manilaNow().slice(0, 10) });
+    function sel(id, label, first, vals) {
+      var s = attrs(h("select", "bl-input"), { id: id, "aria-label": label });
+      add(s, attrs(h("option", "", first), { value: "" })); vals.forEach(function (v) { add(s, attrs(h("option", "", v), { value: v })); });
+      return s;
+    }
+    var hours = [], mins = [], i;
+    for (i = 1; i <= 12; i++) hours.push(String(i));
+    for (i = 0; i < 60; i++) mins.push(pad(i));
+    var hr = sel("bl-f-hr", "Hour", "Hour", hours), mn = sel("bl-f-mn", "Minute", "Min", mins), ap = sel("bl-f-ap", "AM or PM", "AM/PM", ["AM", "PM"]);
+    var terr = attrs(h("p", "bl-ferr"), { id: "bl-f-time-err", role: "alert" }); terr.hidden = true;
+    add(tg, date, hr, mn, ap); add(tw, tl, tg, terr); add(left, tw);
+    F.time = { err: terr };
+    var fw = h("div", "bl-field"), file = attrs(h("input", "bl-input bl-drop"), { id: "bl-f-file", type: "file", accept: TYPES.join(","), "aria-describedby": "bl-f-file-err" });
+    var ferr = attrs(h("p", "bl-ferr"), { id: "bl-f-file-err", role: "alert" }); ferr.hidden = true;
+    F.file = { err: ferr };
+    add(fw, attrs(h("label", "bl-label", "Upload the Payment Receipt *"), { "for": "bl-f-file" }), file, h("p", "bl-meta bl-hint", "JPEG, PNG or PDF, up to " + mb(maxBytes) + "."), ferr);
+    add(left, fw, h("p", "bl-meta", "We review your proof and confirm your payment."));
+    var consent = null, consentErr = null;
+    if (promo) {
+      var cb = attrs(h("input", ""), { type: "checkbox", id: "bl-consent" }), cwrap = h("div", "bl-consent");
+      consentErr = attrs(h("p", "bl-ferr"), { id: "bl-consent-err", role: "alert" }); consentErr.hidden = true;
+      F.consent = { err: consentErr };
+      add(cwrap, para(consentText(offer, trial), "bl-consent-text"), add(h("label", "bl-check"), cb, h("span", "", "I understand and accept the Launch Promo terms above.")), consentErr);
+      add(left, cwrap); consent = cb;
+    }
+    var send = btn("Send proof — " + peso(offer.amount_centavos), "primary", null, "bl-full"); send.setAttribute("id", "bl-send");
+    add(left, send);
+
+    function values() {
+      return { bank: F.bank.input.value, ref: F.ref.input.value, first: F.first.input.value, last: F.last.input.value, acct: F.acct.input.value, amount: F.amount.input.value,
+        date: date.value, hour: hr.value, minute: mn.value, ap: ap.value, file: file.files && file.files[0] || null, consent: consent ? consent.checked : false };
+    }
+    function check() { return validate(values(), { now: manilaNow(), maxBytes: maxBytes, needConsent: promo }); }
+    function paint(key, on) {
+      var e = F[key] && F[key].err; if (!e) return;
+      var msg = errs[key] && on ? errs[key] : "";
+      e.textContent = msg; e.hidden = !msg;
+      if (F[key].input) { if (msg) F[key].input.setAttribute("aria-invalid", "true"); else F[key].input.removeAttribute("aria-invalid"); }
+    }
+    function update() {
+      errs = check();
+      Object.keys(F).forEach(function (k) { paint(k, !!touched[k]); });
+      setDisabled(send, busy || Object.keys(errs).length > 0);
+    }
+    function mark(key) { return function () { touched[key] = true; update(); }; }
+    ["bank", "ref", "first", "last", "acct", "amount"].forEach(function (k) {
+      F[k].input.addEventListener("input", update); F[k].input.addEventListener("change", update); F[k].input.addEventListener("blur", mark(k));
     });
-    add(t, tb); add(lines, t);
-    var T = doc.totals;
-    /* Left of the totals: when and how it was issued, then the footnote. */
-    var foot = h("div", "bl-lines-foot"), info = h("div", "bl-lines-info"), kindText = { first: "First payment", renewal: "Renewal", recovery: "Retry", reactivation: "Reactivation", final_usage: "Final usage" };
-    add(info, dl([["Issued", doc.issued_at_display], doc.payment ? ["Payment", kindText[doc.payment.kind] || doc.payment.kind] : null,
-      doc.payment ? ["Payment reference", doc.payment.reference] : null].filter(Boolean)),
-      para("Every line comes from the frozen record made when this statement was issued. Order lines are shown one per order. This page never recalculates them.", "bl-note"));
-    add(foot, info, dl([["Subtotal", T.subtotal], ["Tax", T.tax], ["Total", money(T.total), "bl-total"],
-      T.amount_paid != null ? ["Paid", money(T.amount_paid)] : null, T.balance != null ? ["Balance", money(T.balance)] : null]));
-    add(lines, foot);
-    add(r, lines);
+    [date, hr, mn, ap].forEach(function (n) { n.addEventListener("input", update); n.addEventListener("change", function () { touched.time = true; update(); }); });
+    file.addEventListener("input", update); file.addEventListener("change", function () { touched.file = true; update(); });
+    if (consent) { consent.addEventListener("input", update); consent.addEventListener("change", function () { touched.consent = true; update(); }); }
 
-    /* Download PDF sits at the top of the lines card, on the title row. */
-    var pdfBtn = btn("Download PDF", "primary", function (b) { fetchBlob(path + "pdf/", number + ".pdf", b); }); pdfBtn.className += " bl-lines-dl";
-    add(lines, pdfBtn);
-    var pair = h("div", "bl-detail-pair"); /* receipt details on the left, the receipt photo on the other side */
-
-    if (!credit) {
-      var rc = detailCard("receipt", "Physical receipt"); rc.setAttribute("id", "bl-receipt-card");
-      var host = h("div", "bl-receipt"); host.setAttribute("id", "bl-receipt");
-      if (data.receipt) {
-        var R = data.receipt, panel = h("div", "bl-receipt-img");
-        if (R.content_type !== "application/pdf") {
-          fetchBlob(path + "receipt/", number + "-receipt." + receiptExt(R.content_type), null, true).then(function (url) {
-            if (!url || tk !== token) return;
-            var img = h("img", "bl-receipt-photo"); img.setAttribute("alt", "Photo of the physical receipt"); img.setAttribute("src", url);
-            clear(panel); add(panel, img);
+    send.addEventListener("click", function () {
+      if (busy) return;
+      update(); if (Object.keys(errs).length) { Object.keys(errs).forEach(function (k) { touched[k] = true; }); update(); return; }
+      var v = values(), fd = new FormData();
+      fd.append("plan", offer.plan);
+      fd.append("transferred_at", localStamp(v.date, v.hour, v.minute, v.ap)); fd.append("transferred_on", v.date);
+      fd.append("transfer_reference", v.ref.trim()); fd.append("sender_bank", v.bank.trim());
+      fd.append("sender_first_name", v.first.trim()); fd.append("sender_last_name", v.last.trim());
+      fd.append("sender_account_number", v.acct.trim()); fd.append("amount_sent", amountText(v.amount));
+      if (promo) { fd.append("renewal_consent", "true"); fd.append("consent_version", offer.consent.version); }
+      fd.append("proof", v.file);
+      busy = true; send.setAttribute("aria-busy", "true"); setDisabled(send, true); banner.hidden = true;
+      var mine = token;
+      D.send("POST", base() + "payments/", fd).then(function (res) {
+        busy = false; send.removeAttribute("aria-busy");
+        if (mine !== token || res.status === 401) return;
+        if (res.ok) { /* 201 new, 200 the same file again: both are a proof under review */
+          toast("Proof sent", "We will review your proof and confirm your payment.");
+          reload().then(function () { try { history.pushState(null, "", urlFor(S.site, null)); } catch (e) { /* ignore */ } render(); focusTop(); });
+          return;
+        }
+        var fields = res.data && res.data.fields, shown = false;
+        if (res.status === 400 && fields) {
+          Object.keys(fields).forEach(function (k) {
+            var key = FIELD_OF[k]; if (!key || !F[key]) return;
+            errs[key] = String(fields[k]); touched[key] = true; paint(key, true); shown = true;
           });
         }
-        add(host, panel,
-          para("A record copy of the receipt NegosyoOnline issued by hand for this payment. It was uploaded by NegosyoOnline staff. It is not generated by this system."));
-        /* Left card: what is printed on the receipt. Optional fields show only when the record carries them. */
-        var dlc = detailCard("receipt-details", "Receipt details");
-        var rBtn = btn("Download Receipt", "primary", function (b) { fetchBlob(path + "receipt/", number + "-receipt." + receiptExt(R.content_type), b); }); rBtn.className += " bl-lines-dl";
-        add(dlc, rBtn, dl([["Receipt number", R.receipt_number], ["Receipt date", dateShort(R.issued_on)],
-          ["Issued by", R.issuer], ["Tax status", R.tax_status], ["TIN", R.tin],
-          ["Business address", R.address]]
-          .filter(function (x) { return x[1]; })));
-        add(pair, dlc);
-      } else {
-        /* Receipts are uploaded on the 5th of each month: the first 5th after the statement was issued. A due date that
-           has already passed on the server is never promised (R2-02: the server as_of, never the browser clock). */
-        add(host, para("No physical receipt has been attached to this statement yet. It will be uploaded " +
-          receiptDueText(doc.issued_at, lastPayload && lastPayload.ov && lastPayload.ov.as_of) + "."));
-      }
-      add(rc, host); add(pair, rc); add(r, pair);
-    }
-    if (focus) h1.focus();
-  }
-  /* ---- cancel dialog (design 4.5, spec 8.7): modal, Esc closes, Tab stays inside, focus returns to the opener ---- */
-  function openCancel(p, vm, opener) {
-    var slot = clear(byId("bl-dialog-slot")), c = cancelCopy(vm, p.ov), name = bname(p.ov.site.business_name);
-    var overlay = h("div", "bl-overlay"), dlg = h("div", "bl-dialog");
-    dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "bl-h-cancel");
-    var title = h("h2", "bl-h2", "Cancel " + name + "?"); title.setAttribute("id", "bl-h-cancel");
-    var lab = h("label", "bl-label", "Reason (optional)"), input = h("input", "bl-input");
-    lab.setAttribute("for", "bl-reason"); input.setAttribute("id", "bl-reason"); input.setAttribute("type", "text"); input.setAttribute("maxlength", "200");
-    var keep = btn("Keep subscription", "primary", function () { close(true); });
-    var yes = btn("Yes, cancel", "danger", function (b) {
-      var reason = (input.value || "").trim();
-      post(base() + "cancel/", reason ? { reason: reason } : {}, b).then(function (res) {
-        if (!res) return;
-        if (!res.ok) { failed(res); return; } /* the dialog stays open on a failure */
-        close(false); lastPayload.pay = res.data;
-        refresh().then(focusTop);
-        D.refreshAccount && D.refreshAccount(); /* the sidebar chip follows the cancel (OI540) */
+        if (!shown) { banner.textContent = refusal(res); banner.hidden = false; }
+        setDisabled(send, false);
+        if (res.status === 409) reload();
       });
     });
-    var row = h("div", "bl-actions"); add(row, keep, yes);
-    add(dlg, title, para(c.dialog), lab, input, row); add(overlay, dlg); add(slot, overlay);
-    function onKey(e) {
-      if (e.key === "Escape") { e.preventDefault(); close(true); return; }
-      if (e.key !== "Tab") return;
-      var items = [input, keep, yes], first = items[0], last = items[items.length - 1], now = document.activeElement;
-      if (e.shiftKey && (now === first || items.indexOf(now) < 0)) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && (now === last || items.indexOf(now) < 0)) { e.preventDefault(); first.focus(); }
-    }
-    function close(returnFocus) {
-      document.removeEventListener("keydown", onKey); dialogKey = null; clear(slot);
-      if (returnFocus && opener && opener.focus) opener.focus();
-    }
-    dialogKey = onKey; document.addEventListener("keydown", onKey);
-    keep.focus();
+
+    /* right column: where to send the money, and the summary */
+    var side = h("div", "bl-side"), to = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-to" });
+    add(to, attrs(h("h2", "bl-h2", "Send exactly " + peso(offer.amount_centavos) + " to this account"), { id: "bl-to" }));
+    accounts().forEach(function (a) {
+      var no = h("span", "bl-acctno", a.account_number), cp = btn("Copy", "ghost", function () {
+        try { navigator.clipboard.writeText(a.account_number).then(function () { toast("Copied", ""); }, function () { /* ignore */ }); } catch (e) { /* ignore */ }
+      }, "bl-copy");
+      add(to, facts([[a.kind === "ewallet" ? "E-wallet" : "Bank", a.provider_name], ["Account name", a.account_name], ["Account number", add(h("span", ""), no, cp)]]));
+    });
+    var sum = attrs(h("aside", "bl-card"), { "aria-labelledby": "bl-su" });
+    add(sum, attrs(h("h2", "bl-h2", "Summary"), { id: "bl-su" }), h("p", "bl-sum-name", planOf(offer.plan).name));
+    offerLines(offer, trial).forEach(function (l) { add(sum, h("p", "bl-meta", l)); });
+    add(sum, add(h("div", "bl-total"), h("span", "", "Total"), h("b", "", peso(offer.amount_centavos))));
+    add(side, to, sum);
+    add(r, add(h("div", "bl-backs"), backLink("← Change plan", function () { go("choose"); }), backLink("Back to billing", function () { go(null); })), add(h("div", "bl-pay"), left, side));
+    update();
   }
 
-
-  window.NOBilling = { show: show, hide: hide, util: { money: money, whole: whole, gb: gb, pct: pct, dateShort: dateShort,
-    instant: instant, rangeShort: rangeShort, rangeLong: rangeLong, trialHead: trialHead, attentionLead: attentionLead,
-    pickSite: pickSite, pickStatement: pickStatement, afterFetch: afterFetch, viewModel: viewModel,
-    statementRow: statementRow, detailRows: detailRows, receiptDueText: receiptDueText } };
+  window.NOBilling = { show: show, hide: hide, util: { peso: peso, dateShort: dateShort, instant: instant, offersLine: offersLine, offerLines: offerLines,
+    consentText: consentText, amountText: amountText, localStamp: localStamp, manilaNow: manilaNow, validate: validate, refusal: refusal, routeOf: routeOf, urlFor: urlFor, sortOffers: sortOffers } };
 })();

@@ -24,6 +24,21 @@
       .catch(function () { return { ok: false, status: 0, code: "", message: "", fields: {}, data: {} }; });
   }
 
+  /* A multipart form (a file and its fields) to a staff route. The same credentials and the same answer as
+     call(). No Content-Type is set here: the browser writes it with the form's boundary. */
+  function upload(path, form) {
+    return fetch(cfg.staffApi + "/" + path, { method: "POST", credentials: "include", body: form })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          var e = data && data.error;
+          return { ok: r.ok, status: r.status, code: e && typeof e.code === "string" ? e.code : "",
+            message: e && typeof e.message === "string" ? e.message : "",
+            fields: e && e.fields && typeof e.fields === "object" ? e.fields : {}, data: r.ok ? data || {} : {} };
+        });
+      })
+      .catch(function () { return { ok: false, status: 0, code: "", message: "", fields: {}, data: {} }; });
+  }
+
   /* A private file from the staff routes, as {ok, status, code, blob}. The file is held in this tab's
      memory only; the caller shows it from an object address and releases it. */
   function file(path, body) {
@@ -72,5 +87,5 @@
     b.addEventListener("click", function () { api.set(api.current() === "dark" ? "light" : "dark"); });
   });
 
-  window.NOHq = { cfg: cfg, call: call, file: file, placeFor: placeFor, when: when, who: who };
+  window.NOHq = { cfg: cfg, call: call, upload: upload, file: file, placeFor: placeFor, when: when, who: who };
 })();

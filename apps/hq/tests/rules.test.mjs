@@ -69,15 +69,39 @@ test("the Finance usage and issuer pages are covered, and load their scripts in 
   }
 });
 
-test("the Finance sub-navigation names five sections and links only the ones that exist", () => {
-  for (const page of ["finance-usage.html", "finance-issuer.html"]) {
+test("the invoice register and reconciliation pages are covered, and load their scripts in order", () => {
+  for (const f of ["finance-invoices.html", "finance-reconcile.html", path.join("assets", "js", "finance-invoices.js"), path.join("assets", "js", "finance-reconcile.js")]) {
+    assert.ok(all.some((x) => x.name === f), f);
+  }
+  for (const [page, script] of [["finance-invoices.html", "finance-invoices"], ["finance-reconcile.html", "finance-reconcile"]]) {
+    const html = all.find((x) => x.name === page).text;
+    const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
+    assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", script], page);
+  }
+});
+
+test("every Finance page carries the same sub-navigation: five links, the page's own marked current", () => {
+  const LINKS = ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/"];
+  const OWN = { "finance.html": "/finance/", "finance-usage.html": "/finance/usage/", "finance-issuer.html": "/finance/issuer/",
+    "finance-invoices.html": "/finance/invoices/", "finance-reconcile.html": "/finance/invoices/reconcile/" };
+  for (const [page, own] of Object.entries(OWN)) {
     const html = all.find((x) => x.name === page).text;
     const nav = /<nav class="set-tabs fin-sub"[^>]*>(.*?)<\/nav>/.exec(html)[1];
-    assert.deepEqual([...nav.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]), ["/finance/", "/finance/usage/", "/finance/issuer/"], page);
-    assert.equal((nav.match(/fin-sub-off/g) || []).length, 2, page);
+    assert.deepEqual([...nav.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]), LINKS, page);
     assert.equal((nav.match(/aria-current="page"/g) || []).length, 1, page);
+    assert.match(nav, new RegExp(`<a href="${own}" aria-current="page">`), page);
     assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile/, page);
   }
+});
+
+test("the invoice register page shows the two exact strings and never an inline value", () => {
+  const html = all.find((x) => x.name === "finance-invoices.html").text;
+  const js = all.find((x) => x.name === path.join("assets", "js", "finance-invoices.js")).text;
+  assert.match(html, /DO NOT issue invoices in a single delayed Monday batch\./);
+  assert.match(js, /"WRITE THIS ON PAPER"/);
+  /* The form holds no default: the serial and the issue date have no value attribute. */
+  assert.doesNotMatch(html, /<input[^>]*id="r-(?:serial|issued)"[^>]*\bvalue=/i);
+  assert.doesNotMatch(html, /<input[^>]*type="file"[^>]*\bvalue=/i);
 });
 
 test("the issuer page offers no tax type choice and holds no default value", () => {

@@ -2,7 +2,7 @@
    Transcribed from TWCinc's negosyoonline_members templates account.html, verify_email.html, change_contact.html,
    change_done.html and _alert.html: text, class names and order are the templates'. Different from them, on purpose:
    - no CSRF field: every POST is checked by its Origin / Sec-Fetch-Site (src/lib/cookies.ts);
-   - the "Home address" link is left out: that page (/dashboard/address/) is not in this milestone, so no dead link;
+   - the "Home address" link goes to /dashboard/address/ (src/lib/address-flow.ts), as TWCinc's does;
    - the Verify email / Change links always show: the backend's account answer has no data_entry_open flag (TWCinc's
      switches.bind_enforced()). */
 import { html, type Markup } from "../../lib/html.ts";
@@ -42,7 +42,7 @@ export function accountContent(a: AccountInfo): Markup {
 <div class="row"><div>Mobile<small>${a.mobile_masked}</small></div>${badge(a.mobile_state)}</div>
 <div class="row"><div>Email<small>${a.email_masked}</small></div>${badge(a.email_state)}</div>
 <div class="row"><div>Sign-in codes go to<small>${a.default_channel === "email" ? "Your email" : "Your mobile"}</small></div></div>
-<p class="links" style="margin:12px 0 0">${a.email_state !== "verified" ? html`<a class="lnk" href="${VERIFY_EMAIL_PATH}">Verify email</a> &middot; ` : ""}<a class="lnk" href="${changePath("mobile")}">Change mobile</a> &middot; <a class="lnk" href="${changePath("email")}">Change email</a></p>
+<p class="links" style="margin:12px 0 0">${a.email_state !== "verified" ? html`<a class="lnk" href="${VERIFY_EMAIL_PATH}">Verify email</a> &middot; ` : ""}<a class="lnk" href="${changePath("mobile")}">Change mobile</a> &middot; <a class="lnk" href="${changePath("email")}">Change email</a> &middot; <a class="lnk" href="/dashboard/address/">Home address</a></p>
 </div>`;
 }
 

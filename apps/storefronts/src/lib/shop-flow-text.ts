@@ -9,3 +9,6 @@ export const MSG_TRY_AGAIN = "Please try again shortly.";
 export const MSG_NO_HOME_ADDRESS = "Add your delivery address to your member profile first.";
 export const MSG_SHIP_MODE = "Choose how to ship this order.";
 export const MSG_QUOTE_FAILED = "We could not price your cart. Please try again.";
+export const MSG_ADDRESS_LOCKED = "Your home address cannot be changed right now.";
+export const MSG_ADDRESS_NOT_SAVED = "We could not save your address. Please try again shortly.";
+export const MSG_ADDRESS_UNREADABLE = "Your address cannot be loaded right now. Please try again later.";

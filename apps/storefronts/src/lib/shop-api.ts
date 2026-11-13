@@ -5,7 +5,7 @@
    a quote or an order carries product ids, quantities, the ship mode and an address, and Django prices them.
    Nothing a visitor typed, no token and no file is ever logged. */
 import { SECRET_MIN_LENGTH } from "./django.ts";
-import { packPost, type Calls, type PackResult } from "./pack-api.ts";
+import { addressZip, packPost, type Calls, type PackResult } from "./pack-api.ts";
 
 const TIMEOUT_MS = 10000;
 const PLACE_TIMEOUT_MS = 30000;
@@ -69,9 +69,21 @@ export type Quote = {
   ok: boolean; member_price: boolean; ship_mode: string; lines: QuoteLine[]; subtotal_centavos: number;
   shipping: { charged_centavos: number; policy: string; estimated: boolean; available: boolean; error: string; note: string };
   total_centavos: number; fingerprint: string; errors: string[];
+  /** The member's saved delivery address ("Ship to my address"); null when they have none, absent from an older backend. */
+  home_address?: Address | null;
+  /** Where that address came from: "profile", "pack_order" or "". */
+  home_address_source?: string;
+  /** True while the member's home address cannot be changed (a recovery hold); absent from an older backend, which means "not locked". */
+  home_address_locked?: boolean;
 };
 
 export type Address = { line: string; barangay: string; city: string; province: string; zip: string; landmark: string };
+
+/** An address with a street line, or null (absent, null, not an object or no line). */
+function parseAddress(v: unknown): Address | null {
+  if (!record(v) || str(v.line).trim() === "") return null;
+  return { line: str(v.line), barangay: str(v.barangay), city: str(v.city), province: str(v.province), zip: str(v.zip), landmark: str(v.landmark) };
+}
 
 function parseQuote(b: unknown): Quote | null {
   if (!record(b) || !Array.isArray(b.lines) || !record(b.shipping) || typeof b.total_centavos !== "number" || typeof b.subtotal_centavos !== "number") return null;
@@ -89,6 +101,8 @@ function parseQuote(b: unknown): Quote | null {
     ok: b.ok === true, member_price: b.member_price === true, ship_mode: str(b.ship_mode), lines,
     subtotal_centavos: int(b.subtotal_centavos), total_centavos: int(b.total_centavos), fingerprint: str(b.fingerprint),
     errors: arr(b.errors).filter((e): e is string => typeof e === "string"),
+    home_address: parseAddress(b.home_address), home_address_source: str(b.home_address_source),
+    home_address_locked: b.home_address_locked === true,
     shipping: {
       charged_centavos: int(s.charged_centavos), policy: str(s.policy), estimated: s.estimated === true, available: s.available !== false,
       error: str(s.error), note: str(s.note),
@@ -106,6 +120,38 @@ export function shopQuote(args: QuoteArgs, c: Calls): Promise<PackResult<{ quote
   };
   if (args.address) payload.address = args.address;
   return packPost("shop/quote", payload, (b) => { const quote = parseQuote(b); return quote ? { quote } : null; }, c);
+}
+
+/* ---- the member's own saved address ---------------------------------------------------------------------------- */
+
+/** POST /storefront/v1/member/address/: the six address keys of the signed-in member. The member is Django's verified session for this
+    host, never a field of this body. 422 invalid_address carries the field messages, 423 address_locked a recovery hold, 429 the throttle. */
+export function saveHomeAddress(args: { host: string; visitor_ip: string; member_token: string; address: Address }, c: Calls) {
+  const { line, barangay, city, province, zip, landmark } = args.address;
+  return packPost(
+    "member/address",
+    { host: args.host, visitor_ip: args.visitor_ip, member_token: args.member_token, line, barangay, city, province, zip, landmark },
+    (b) => {
+      const address = record(b) ? parseAddress(b.home_address) : null;
+      return address ? { address } : null;
+    },
+    c,
+  );
+}
+
+/** The ZIP of an address posted without one. The checkout's address form hides the ZIP row while the barangay lookup is the authority
+    (pack-address.js clears it), and orders get the ZIP from Django's lookup; the saved address is stored as posted, so the ZIP is filled
+    here: the lookup's ZIP when it is exact for the barangay or the city, else the saved ZIP when province, city and barangay are
+    unchanged, else left empty. A typed ZIP is never replaced. */
+export async function withZip(
+  a: Address, saved: Address | null, who: { host: string; visitor_ip: string }, c: Calls,
+): Promise<Address> {
+  if (a.zip || !a.province || !a.city || !a.barangay) return a;
+  const r = await addressZip({ host: who.host, visitor_ip: who.visitor_ip, province: a.province, city: a.city, barangay: a.barangay }, c);
+  if (r.state === "ok" && r.ok && /^\d{4}$/.test(r.zip_code) && (r.zip_precision === "barangay" || r.zip_precision === "city_unique")) return { ...a, zip: r.zip_code };
+  const same = (x: string, y: string) => x.trim().toLowerCase() === y.trim().toLowerCase();
+  if (saved && saved.zip && same(saved.province, a.province) && same(saved.city, a.city) && same(saved.barangay, a.barangay)) return { ...a, zip: saved.zip };
+  return a;
 }
 
 /* ---- the store's payment accounts ----------------------------------------------------------------------------- */
@@ -178,8 +224,13 @@ export type BuyerOrder = {
   ship_mode: string; receiver_name: string; delivery_address: Partial<Address>;
   subtotal_centavos: number; shipping_charged_centavos: number; total_centavos: number;
   courier: string; tracking_no: string; shipped_on: string; delivered_on: string;
-  lines: { code: string; name: string; quantity: number; line_charged_centavos: number }[];
+  lines: { code: string; name: string; quantity: number; line_charged_centavos: number; unit_centavos?: number; image_url?: string }[];
+  /* From the parity backend; each is absent from an older one, and the pages then show what they showed before. */
+  receiver_mobile?: string; receiver_email?: string; verified_at?: string;
+  member_savings_centavos?: number; srp_subtotal_centavos?: number;
 };
+
+const optInt = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : undefined);
 
 export function parseBuyerOrder(v: unknown): BuyerOrder | null {
   if (!record(v) || typeof v.id !== "string" || typeof v.order_number !== "string" || typeof v.total_centavos !== "number") return null;
@@ -191,7 +242,12 @@ export function parseBuyerOrder(v: unknown): BuyerOrder | null {
     delivery_address: { line: str(a.line), barangay: str(a.barangay), city: str(a.city), province: str(a.province), zip: str(a.zip), landmark: str(a.landmark) },
     subtotal_centavos: int(v.subtotal_centavos), shipping_charged_centavos: int(v.shipping_charged_centavos), total_centavos: int(v.total_centavos),
     courier: str(v.courier), tracking_no: str(v.tracking_no), shipped_on: str(v.shipped_on), delivered_on: str(v.delivered_on),
-    lines: arr(v.lines).flatMap((l) => record(l) ? [{ code: str(l.code), name: str(l.name), quantity: int(l.quantity), line_charged_centavos: int(l.line_charged_centavos) }] : []),
+    lines: arr(v.lines).flatMap((l) => record(l) ? [{
+      code: str(l.code), name: str(l.name), quantity: int(l.quantity), line_charged_centavos: int(l.line_charged_centavos),
+      unit_centavos: optInt(l.unit_centavos), image_url: str(l.image_url),
+    }] : []),
+    receiver_mobile: str(v.receiver_mobile), receiver_email: str(v.receiver_email), verified_at: str(v.verified_at),
+    member_savings_centavos: optInt(v.member_savings_centavos), srp_subtotal_centavos: optInt(v.srp_subtotal_centavos),
   };
 }
 

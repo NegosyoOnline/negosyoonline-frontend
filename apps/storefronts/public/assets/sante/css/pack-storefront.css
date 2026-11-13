@@ -782,10 +782,12 @@ a.sf-order-cta { display: block; width: fit-content; margin: 18px auto 0; text-a
 }
 
 /* Cart is an icon with a count badge on its corner, as on REMAX (Coach Ed, 2026-10-08). */
-.nav-cart { position: relative; display: inline-flex; align-items: center; }
+/* The link is 44 x 44 px (WCAG 2.5.8 target size). The -11px margin gives its 22px icon back the room it had, so
+   the bar does not move, and the badge offsets are the old ones plus the 11px. */
+.nav-cart { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: -11px; }
 .nav-cart svg { width: 22px; height: 22px; display: block; }
 .nav-cart-count {
-  position: absolute; top: -7px; right: -10px;
+  position: absolute; top: -18px; right: -21px;
   display: inline-block; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
   background: var(--green); color: #fff; font-size: 10px; font-weight: 800; line-height: 18px; text-align: center;
 }
@@ -1564,3 +1566,13 @@ body.sf-noscroll { overflow: hidden; }
 .sf-direct-panel .sf-phone-combo { background: #fff; }
 .sf-direct-panel .sf-field input[type="file"] { padding: 10px 12px; }
 .sf-direct-panel .sf-field:last-child { margin-bottom: 0; }
+
+/* Keyboard focus (audit z8uq9memq8): one 2px light-blue ring in the dashboard's link blue, darkened 2% from #6C8CFF
+   to #6A89FA so it reaches 3:1 on white (3.20) and on the #F7F9F7 cards (3.02); never gold. Keyboard focus only.
+   Card titles are plain text and are not focusable. The ring is meant to win over the older green rules. */
+:root { --sf-focus: #6A89FA; }
+:root :focus-visible { outline: 2px solid var(--sf-focus); outline-offset: 2px; }
+#main-content:focus { outline: none; }
+/* Skip to content: off-screen until it takes keyboard focus. */
+.sf-skip { position: absolute; left: 8px; top: -100px; z-index: 10000; background: #fff; color: #111; padding: 10px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; }
+.sf-skip:focus, .sf-skip:focus-visible { top: 8px; }

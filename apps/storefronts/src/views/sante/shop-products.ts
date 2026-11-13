@@ -21,11 +21,13 @@ export function truncate(text: string, max: number): string {
   return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
 }
 
+/* The image link only repeats the title link beside it, so keyboard and screen-reader users skip it (aria-hidden,
+   tabindex -1); the title link names the product. A photo keeps its alt text. */
 export function productCard(p: CatalogProduct, members: boolean): Markup {
   const image = safeImage(p.image_url);
   return html`
       <div class="product-card">
-        <a href="/products/${p.code}/" class="product-img-wrap sf-card-link">
+        <a href="/products/${p.code}/" class="product-img-wrap sf-card-link" aria-hidden="true" tabindex="-1">
           ${image ? html`<img src="${image}" alt="${p.name}" loading="lazy">` : ""}
         </a>
         <div class="product-info">

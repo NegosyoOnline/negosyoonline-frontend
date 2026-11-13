@@ -99,9 +99,12 @@ export function shopDocument(v: HomeModel, p: ShopPage): Markup {
   ${(p.css ?? []).map((c) => html`<link rel="stylesheet" href="${asset(c)}">`)}
 </head>
 <body>
+<a class="sf-skip" href="#main-content">Skip to content</a>
 ${v.free_shipping_banner ? html`<div class="sf-announce">&#128666; <strong>FREE SHIPPING</strong> on all orders — for a limited time!</div>` : ""}
 ${storeNav(v)}
+<main id="main-content" tabindex="-1">
 ${p.content}
+</main>
 ${storeFooter(v)}
 ${p.afterContent ?? ""}
 ${storeDrawer(v)}

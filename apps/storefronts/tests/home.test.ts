@@ -63,7 +63,7 @@ test("the basket is empty: badge hidden, empty note shown, totals hidden, checko
 
 test("no free shipping banner unless the answer says so", () => {
   assert.doesNotMatch(render(), /sf-announce/);
-  assert.match(render({ ...SITE, free_shipping_banner: true }), /<body>\n<div class="sf-announce">/);
+  assert.match(render({ ...SITE, free_shipping_banner: true }), /<body>\n<a class="sf-skip" href="#main-content">Skip to content<\/a>\n<div class="sf-announce">/);
 });
 
 test("the distributor card: name, initials in place of a photo, mobile and Call now", () => {

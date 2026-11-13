@@ -26,7 +26,7 @@ test("the billing article is in the index between the orders and support article
   const i = (id) => VIEW.indexOf('<a href="#' + id + '">');
   assert.ok(i("help-orders") < i("help-billing") && i("help-billing") < i("help-support"), "indexed after orders, before support");
   assert.ok(/^help-[a-z]+$/.test("help-billing"), "the anchor matches help.js");
-  const t = text(VIEW.slice(VIEW.indexOf('id="help-billing"'), VIEW.indexOf('id="help-support"')));
+  const t = text(VIEW.slice(VIEW.indexOf('id="h-help-billing"'), VIEW.indexOf('<article class="dash-card help-article" id="help-support"')));
   assert.ok(t.includes("Monthly") && t.includes("Annual") && t.includes("7 calendar days"));
   assert.ok(!/PHP|₱|\d{1,3},\d{3}/.test(t), "no amount or account number");
   for (const bad of ["per order", "per sale", "card", "gateway", "auto-debit", "usage"]) assert.ok(!t.includes(bad), bad + " is not mentioned");

@@ -212,3 +212,81 @@ body.dash-app #view-products .pr-histchange { margin: 2px 0 0; font-size: 15px; 
   body.dash-app #view-products .pr-ar-row { grid-template-columns: 44px 3ch 36px minmax(0, 1fr); }
   body.dash-app #view-products .pr-ar-price { display: none; }
 }
+
+/* The house dropdown (mirrors the pm-combo of Payments settings, dash.css): list filters and the Category field. The native select
+   stays under it, hidden, with its id. Focus is the light blue (--link), never gold. */
+body.dash-app #view-products .pr-combo { position: relative; }
+body.dash-app #view-products .pr-combo .pr-combo-native { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; appearance: none; -webkit-appearance: none; }
+body.dash-app #view-products .pr-combo-box { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 36px 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); cursor: pointer; }
+body.dash-app #view-products .pr-combo-box:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+body.dash-app #view-products .pr-combo-native[aria-invalid="true"] + .pr-combo-box { border-color: var(--err-line); }
+body.dash-app #view-products .pr-combo-input { flex: 1; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--bl-select-text); font: inherit; font-size: 16px; cursor: pointer; }
+body.dash-app #view-products .pr-combo-input:focus { outline: none; }
+body.dash-app #view-products .pr-combo-input::placeholder { color: var(--meta); opacity: 1; }
+body.dash-app #view-products .pr-combo-caret { position: absolute; top: 50%; right: 15px; width: 7px; height: 7px; border-right: 2px solid var(--meta); border-bottom: 2px solid var(--meta); transform: translateY(-70%) rotate(45deg); transition: transform .15s ease; pointer-events: none; }
+body.dash-app #view-products .pr-combo.is-open .pr-combo-caret { transform: translateY(-30%) rotate(225deg); }
+body.dash-app #view-products .pr-combo-panel { display: none; position: fixed; z-index: 70; box-sizing: border-box; padding: 6px; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: var(--card-shadow); }
+body.dash-app #view-products .pr-combo.is-open .pr-combo-panel { display: block; }
+body.dash-app #view-products .pr-combo-opt { padding: 10px 12px; border-radius: 8px; color: var(--text); font-size: 15px; cursor: pointer; }
+body.dash-app #view-products .pr-combo-opt:hover, body.dash-app #view-products .pr-combo-opt.is-active { background: color-mix(in srgb, var(--link) 12%, transparent); }
+body.dash-app #view-products .pr-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
+body.dash-app #view-products .pr-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
+@media (prefers-reduced-motion: reduce) { body.dash-app #view-products .pr-combo-caret { transition: none; } }
+
+/* Add product (the TWCinc add screen): crumb and header, a "Form sections" spine, five numbered cards, a sticky footer. */
+body.dash-app #view-products .pr-form.pr-add { max-width: 1060px; }
+body.dash-app #view-products .pr-crumb { margin: 0 0 10px; }
+body.dash-app #view-products .pr-addhead { margin: 0 0 16px; }
+body.dash-app #view-products .pr-addhead .pr-formtitle { font-size: 24px; }
+body.dash-app #view-products .pr-addsub { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--meta); }
+body.dash-app #view-products .pr-addgrid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 18px; align-items: start; }
+body.dash-app #view-products .pr-spine { position: sticky; top: 14px; display: flex; flex-direction: column; gap: 2px; }
+body.dash-app #view-products .pr-sp { display: block; width: 100%; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 0; border-radius: 8px; background: transparent; color: var(--meta); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+body.dash-app #view-products .pr-sp:hover { background: var(--card); color: var(--text); }
+body.dash-app #view-products .pr-sp:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; background: var(--ghost-hover); }
+body.dash-app #view-products .pr-cards { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body.dash-app #view-products .pr-card { scroll-margin-top: 14px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
+body.dash-app #view-products .pr-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: var(--primary); color: #fff; }
+body.dash-app #view-products .pr-card-ico { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,.16); color: #fff; }
+body.dash-app #view-products .pr-card-head-text { flex: 1; min-width: 0; }
+body.dash-app #view-products .pr-card-head h3 { margin: 0 0 2px; font-size: 16px; font-weight: 700; color: #fff; }
+body.dash-app #view-products .pr-card-hint { margin: 0; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.8); }
+body.dash-app #view-products .pr-card-body { padding: 18px 22px 8px; }
+body.dash-app #view-products .pr-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+body.dash-app #view-products .pr-slotrow { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; margin: 0 0 14px; }
+body.dash-app #view-products .pr-islot { position: relative; flex: none; width: 160px; aspect-ratio: 1; border: 1.5px dashed var(--bl-select-line); border-radius: 12px; background: var(--tile); color: var(--meta); overflow: hidden; }
+body.dash-app #view-products .pr-islot.filled { border-style: solid; }
+body.dash-app #view-products .pr-islot-btn { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+body.dash-app #view-products .pr-islot-btn:hover { background: var(--ghost-hover); }
+body.dash-app #view-products .pr-islot-btn:focus-visible { outline: 2px solid var(--link); outline-offset: -3px; }
+body.dash-app #view-products .pr-islot-plus { font-size: 28px; font-weight: 800; line-height: 1; }
+body.dash-app #view-products .pr-islot-text { font-weight: 600; }
+body.dash-app #view-products .pr-islot-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+body.dash-app #view-products .pr-main { position: absolute; top: 8px; left: 8px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; pointer-events: none; }
+body.dash-app #view-products .pr-abar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); box-shadow: 0 -4px 18px rgba(20,30,80,.12); }
+body.dash-app #view-products .pr-abar .pr-check { margin: 0; }
+body.dash-app #view-products .pr-abar-sp { margin-left: auto; }
+
+/* The square-crop dialog for the photo (Cropper.js; the cropper's own stylesheet is already loaded by the dash page). */
+body.dash-app #view-products .pr-crop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(5,10,30,.66); }
+body.dash-app #view-products .pr-crop-box { box-sizing: border-box; width: min(520px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); box-shadow: 0 18px 50px rgba(10,14,40,.45); }
+body.dash-app #view-products .pr-crop-lead { margin: 0 0 12px; font-size: 14px; color: var(--text-2); }
+body.dash-app #view-products .pr-crop-stage { max-height: min(60vh, 420px); overflow: hidden; border: 1px solid var(--card-line); border-radius: 12px; background: var(--bl-select-bg); }
+body.dash-app #view-products .pr-crop-img { display: block; max-width: 100%; }
+body.dash-app #view-products .pr-crop-actions { justify-content: flex-end; margin-top: 14px; }
+
+@media (max-width: 899.98px) {
+  body.dash-app #view-products .pr-abar { bottom: 76px; }
+}
+@media (max-width: 840px) {
+  body.dash-app #view-products .pr-addgrid { grid-template-columns: minmax(0, 1fr); }
+  body.dash-app #view-products .pr-spine { position: static; flex-direction: row; flex-wrap: wrap; }
+  body.dash-app #view-products .pr-sp { width: auto; }
+}
+@media (max-width: 640px) {
+  body.dash-app #view-products .pr-trio { grid-template-columns: 1fr; }
+  body.dash-app #view-products .pr-card-head { padding: 12px 16px; }
+  body.dash-app #view-products .pr-card-body { padding: 16px 16px 6px; }
+  body.dash-app #view-products .pr-abar { padding: 12px; }
+  body.dash-app #view-products .pr-abar .no-btn { flex: 1; }
+}

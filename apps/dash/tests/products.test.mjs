@@ -22,8 +22,11 @@ const product = (n, over = {}) => ({ id: "prod_" + n, code: "SPH" + n, name: "Pr
 
 class FakeForm { constructor() { this.parts = []; } append(k, v) { this.parts.push([k, v]); } get(k) { const p = this.parts.find((x) => x[0] === k); return p ? p[1] : null; } }
 
-function boot({ products = [product("1"), product("2", { is_active: false, image_url: "https://media.test/p2.jpg" })], canEdit = true, routes, sites } = {}) {
+function boot({ products = [product("1"), product("2", { is_active: false, image_url: "https://media.test/p2.jpg" })], canEdit = true, routes, sites, cropper } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], stored = [];
+  /* The stand-in nodes have no dispatchEvent; the dropdown announces its change that way, so give them one. */
+  const make = doc.createElement;
+  doc.createElement = (tag) => { const n = make(tag); n.dispatchEvent = (e) => n.fire(e.type); return n; };
   const page = doc.body.appendChild(doc.createElement("div"));
   for (const id of ["pr-root", "pr-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   const state = { products: products.map((p) => ({ ...p })), canEdit, revisions: {} };
@@ -54,7 +57,14 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
   const storage = (name) => ({ getItem: () => null, removeItem() {}, setItem(k) { stored.push(name + ":" + k); } });
   const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800 };
   const location = { search: "", pathname: "/products/", replace() {}, assign() {} };
-  const context = vm.createContext({ window, document: doc, location, history: { replaceState() {} }, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Date,
+  /* cropper: { sizes: [png bytes, jpeg bytes] } puts a stand-in Cropper.js and object URLs on the page. */
+  const made = [], revoked = [];
+  if (cropper) {
+    window.URL = { createObjectURL: (b) => { made.push(b); return "blob:test/" + made.length; }, revokeObjectURL: (u) => revoked.push(u) };
+    window.Cropper = class { constructor(img, opts) { this.opts = opts; window.cropperOpts = opts; } destroy() { window.cropperDestroyed = true; }
+      getCroppedCanvas(o) { window.cropOut = o; return { toBlob: (cb, type) => cb(cropper.sizes[type === "image/png" ? 0 : 1] == null ? null : { type, size: cropper.sizes[type === "image/png" ? 0 : 1] }) }; } };
+  }
+  const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, ...(cropper ? { URL: window.URL } : {}), location, history: { replaceState() {} }, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Date,
     FormData: FakeForm, localStorage: storage("local"), sessionStorage: storage("session"), requestAnimationFrame() {}, fetch });
   for (const f of ["app.js", "products.js"]) vm.runInContext(read(f), context, { filename: f });
   window.NODash.toast = (title, sub) => toasts.push(title + (sub ? ": " + sub : ""));
@@ -63,7 +73,7 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
   /* The icon glyph before "Add product" and "Arrange" is not part of the name a test asks for. */
   const buttons = (text, root = $("pr-root")) => root.all((n) => n.tagName === "BUTTON" && n.textContent.replace(/^[＋⇅]\s/, "") === text);
   const form = () => $("pr-root").all((n) => n.tagName === "FORM")[0];
-  return { doc, window, calls, toasts, stored, state, $, all, buttons, form, P: window.NOProducts,
+  return { doc, window, calls, toasts, stored, state, made, revoked, $, all, buttons, form, P: window.NOProducts,
     writes: () => calls.filter((c) => c.method !== "GET"),
     async show() { window.NOProducts.show(); await settle(); },
     manage(i, cls) { all("pr-manage")[i].fire("click"); all(cls)[0].fire("click"); },
@@ -581,6 +591,275 @@ test("Arrange is the owner's only, and the Manage menu has separators and no sto
   assert.ok(!/Restock|Adjust|Threshold|Remove|Toggle availability/.test(d.$("pr-root").textContent), "no stock actions: there is no stock");
   assert.ok(!/Stock|Cover|Health|Units on hand|Inventory value|Low stock/.test(d.$("pr-root").textContent), "no stock columns or tiles");
 });
+
+/* ---- round 2: the house dropdown, and the Add screen after the TWCinc add-product page ---- */
+
+const optionTexts = (sel) => Array.from(sel.children).map((o) => o.textContent);
+const comboOf = (d, id) => { const sel = d.$(id); return sel.parentNode; };
+const pickRow = (d, id, text) => { const wrap = comboOf(d, id); wrap.all((n) => n.classList.contains("pr-combo-box"))[0].fire("click"); wrap.all((n) => n.classList.contains("pr-combo-opt")).find((n) => n.textContent === text).fire("click"); };
+
+test("dropdowns: the list filters and the Category field use the house dropdown, the native select stays under it with its id", async () => {
+  const d = boot({ products: [product("1", { category: "barley" }), product("2", { category: "drinks", is_active: false })] });
+  await d.show();
+  assert.equal(d.all("pr-combo").length, 2, "status and category");
+  for (const id of ["pr-status", "pr-category"]) {
+    const sel = d.$(id), wrap = sel.parentNode;
+    assert.ok(wrap.classList.contains("pr-combo"));
+    assert.ok(sel.classList.contains("pr-combo-native"));
+    assert.equal(sel.getAttribute("aria-hidden"), "true");
+    assert.equal(sel.getAttribute("tabindex"), "-1");
+    const input = wrap.all((n) => n.classList.contains("pr-combo-input"))[0];
+    assert.equal(input.getAttribute("role"), "combobox");
+    assert.equal(input.getAttribute("aria-expanded"), "false");
+  }
+  const input = (id) => comboOf(d, id).all((n) => n.classList.contains("pr-combo-input"))[0];
+  assert.equal(input("pr-status").value, "All status");
+  assert.equal(input("pr-category").value, "All categories");
+  /* the panel lists every option, the first too, so a chosen filter can be un-picked */
+  comboOf(d, "pr-status").all((n) => n.classList.contains("pr-combo-box"))[0].fire("click");
+  assert.equal(comboOf(d, "pr-status").classList.contains("is-open"), true);
+  assert.deepEqual(comboOf(d, "pr-status").all((n) => n.classList.contains("pr-combo-opt")).map((n) => n.textContent), ["All status", "Live", "Hidden", "Incomplete"]);
+  pickRow(d, "pr-status", "Hidden");
+  assert.equal(d.$("pr-status").value, "hidden");
+  assert.equal(input("pr-status").value, "Hidden");
+  assert.equal(comboOf(d, "pr-status").classList.contains("is-open"), false, "choosing closes it");
+  assert.deepEqual(names(d), ["Product 2"]);
+  pickRow(d, "pr-status", "All status");
+  assert.equal(d.$("pr-status").value, "all");
+  assert.equal(names(d).length, 2);
+  pickRow(d, "pr-category", "Specialty Drinks");
+  assert.deepEqual(names(d), ["Product 2"]);
+  /* a status tile and Clear filters redraw the box */
+  stat(d, "Live").fire("click");
+  assert.equal(input("pr-status").value, "Live");
+  d.$("pr-search").value = "zzz"; d.$("pr-search").fire("input");
+  d.all("pr-clear")[0].fire("click");
+  assert.equal(input("pr-status").value, "All status");
+  assert.equal(input("pr-category").value, "All categories");
+});
+
+test("dropdowns: typing filters the options, arrows and Enter pick, Escape closes", async () => {
+  const d = boot();
+  await d.show();
+  const wrap = comboOf(d, "pr-category"), input = wrap.all((n) => n.classList.contains("pr-combo-input"))[0];
+  const opts = () => wrap.all((n) => n.classList.contains("pr-combo-opt")).map((n) => n.textContent);
+  input.value = "bea"; input.fire("input");
+  assert.deepEqual(opts(), ["Beauty"]);
+  input.value = "zzz"; input.fire("input");
+  assert.deepEqual(opts(), ["No matches"]);
+  input.value = ""; input.fire("input");
+  input.fire("keydown", { key: "ArrowDown" });
+  input.fire("keydown", { key: "ArrowDown" });
+  input.fire("keydown", { key: "Enter" });
+  assert.equal(d.$("pr-category").value, "barley", "arrow down twice lands on the second row");
+  input.fire("click");
+  wrap.all((n) => n.classList.contains("pr-combo-box"))[0].fire("click");
+  assert.equal(wrap.classList.contains("is-open"), true);
+  const esc = input.fire("keydown", { key: "Escape", stopPropagation() {} });
+  assert.equal(wrap.classList.contains("is-open"), false);
+  assert.equal(esc.prevented, true);
+});
+
+test("dropdowns: the form Category is the house dropdown too, and No category can be picked again", async () => {
+  const d = boot({ products: [product("1", { category: "barley" })] });
+  await d.show();
+  d.manage(0, "pr-edit");
+  const sel = d.$("pr-f-category");
+  assert.ok(sel.parentNode.classList.contains("pr-combo"));
+  assert.equal(sel.getAttribute("aria-hidden"), "true");
+  const input = sel.parentNode.all((n) => n.classList.contains("pr-combo-input"))[0];
+  assert.equal(input.getAttribute("aria-describedby"), "pr-e-category");
+  assert.equal(input.value, "Barley");
+  assert.deepEqual(optionTexts(sel), ["No category", "Barley", "Specialty Drinks", "Essentials", "Beauty"]);
+  pickRow(d, "pr-f-category", "No category");
+  assert.equal(sel.value, "");
+  assert.equal(input.value, "No category");
+  await d.submit();
+  assert.equal(d.writes()[0].body.category, "", "the cleared category is what is sent");
+  assert.ok(!("name" in d.writes()[0].body), "edit still sends only what changed");
+});
+
+test("the Products page has no eyebrow above its title, and the cache-bust strings moved", () => {
+  const html = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
+  const sect = /<section class="view" id="view-products"[^>]*>\s*<header[^>]*>([^]*?)<\/header>/.exec(html)[1];
+  assert.ok(!/dash-eyebrow/.test(sect), "no eyebrow");
+  assert.match(sect, /<h1 id="h-products"/);
+  assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
+  assert.match(html, /products\.css\?v=20261114prod2/);
+  assert.match(html, /products\.js\?v=20261114prod2/);
+});
+
+const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
+const fill = (d, over = {}) => { d.set("code", "x1"); d.set("name", "Mug"); d.set("srp_centavos", "100"); for (const k of Object.keys(over)) d.set(k, over[k]); };
+
+test("add screen: crumb, title, form sections spine, five numbered cards, sticky footer; no TWC wording and no stock", async () => {
+  const d = await openAdd();
+  assert.deepEqual(d.buttons("Back to products").length, 1);
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Add a product");
+  assert.equal(d.all("pr-formtitle")[0].getAttribute("tabindex"), "-1");
+  const spine = d.all("pr-spine")[0];
+  assert.equal(spine.getAttribute("aria-label"), "Form sections");
+  assert.deepEqual(spine.children.map((b) => b.tagName + ":" + b.textContent), ["BUTTON:1 · Identity", "BUTTON:2 · Content", "BUTTON:3 · Photo", "BUTTON:4 · Pricing", "BUTTON:5 · Shipping"]);
+  const cards = d.all("pr-card");
+  assert.deepEqual(cards.map((c) => c.getAttribute("id")), ["pr-s1", "pr-s2", "pr-s3", "pr-s4", "pr-s5"]);
+  assert.deepEqual(cards.map((c) => c.all((n) => n.tagName === "H3")[0].textContent), ["1 · Identity", "2 · Content", "3 · Photo", "4 · Pricing", "5 · Shipping"]);
+  for (const c of cards) {
+    assert.equal(c.all((n) => n.tagName === "H3")[0].getAttribute("tabindex"), null, "card titles are not focusable");
+    assert.equal(c.all((n) => n.tagName === "SVG").length, 1, "an icon");
+    assert.equal(c.all((n) => n.classList.contains("pr-card-hint")).length, 1, "a hint");
+  }
+  const inCard = (n, f) => cards[n].all((x) => x.attrs.id === f).length === 1;
+  assert.ok(inCard(0, "pr-f-code") && inCard(0, "pr-f-name") && inCard(0, "pr-f-category"));
+  assert.ok(inCard(1, "pr-f-short_description") && inCard(1, "pr-f-long_description"));
+  assert.ok(inCard(2, "pr-f-image"));
+  assert.ok(inCard(3, "pr-f-srp_centavos") && inCard(3, "pr-f-earnings_rate"));
+  assert.ok(cards[3].all((n) => n.classList.contains("pr-preview")).length === 1, "today's live members price sits in Pricing");
+  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "volume_slot", "shipping_qty"]) assert.ok(inCard(4, "pr-f-" + k), k);
+  assert.equal(cards[2].all((n) => n.classList.contains("pr-main"))[0].textContent, "MAIN");
+  assert.equal(cards[2].all((n) => n.classList.contains("pr-islot")).length, 1, "one photo slot");
+  const foot = d.all("pr-abar")[0];
+  assert.equal(foot.all((n) => n.attrs.id === "pr-f-is_active").length, 1, "Show in shops is in the footer");
+  assert.deepEqual(foot.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Cancel", "Add product"]);
+  assert.equal(foot.all((n) => n.tagName === "BUTTON")[1].getAttribute("type"), "submit");
+  const text = d.$("pr-root").textContent;
+  assert.ok(!/TWC|approve|Features|Specifications|Advantages|Benefits|commission|Opening stock|Units on hand/i.test(text), "no TWC-only wording, no sections we have no field for");
+});
+
+test("add screen: a spine button scrolls its card into view; the edit screen keeps its single column", async () => {
+  const d = await openAdd();
+  const hits = [];
+  d.all("pr-card").forEach((c, i) => { c.scrollIntoView = (o) => hits.push([i, o.block]); });
+  d.all("pr-sp")[3].fire("click");
+  assert.deepEqual(hits, [[3, "start"]]);
+  d.buttons("Cancel")[0].fire("click"); await settle();
+  const e = boot({ products: [product("1")] });
+  await e.show();
+  e.manage(0, "pr-edit");
+  assert.equal(e.all("pr-card").length + e.all("pr-spine").length + e.all("pr-abar").length, 0);
+  assert.equal(e.all("pr-formtitle")[0].textContent, "Edit product");
+  assert.equal(e.all("pr-details").length, 1, "Shipping details stay in the collapsible block");
+  assert.equal(e.all("pr-image").length, 1);
+});
+
+test("add with a photo (no cropper available): product, then the photo with the new revision; kept within 2 MB", async () => {
+  const d = await openAdd();
+  fill(d);
+  const png = { type: "image/png", size: 1000, name: "mug.png" };
+  d.$("pr-f-image").files = [png]; d.$("pr-f-image").fire("change");
+  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
+  assert.equal(d.buttons("Remove photo").length, 1);
+  await d.submit();
+  assert.deepEqual(d.writes().map((c) => c.method + " " + c.path), [`POST /sites/${SITE}/catalog/products/`, `POST /sites/${SITE}/catalog/products/prod_1/image/`]);
+  assert.equal(d.writes()[1].form.get("revision"), "1");
+  assert.equal(d.writes()[1].form.get("file"), png);
+  assert.equal(d.rows().length, 1, "back on the list");
+  assert.ok(d.toasts.some((t) => /Saved: The product is added\./.test(t)));
+});
+
+test("add with a photo and Show in shops off: product, photo, then the hide call carries the photo's new revision", async () => {
+  const d = await openAdd();
+  fill(d);
+  d.$("pr-f-is_active").checked = false;
+  d.$("pr-f-image").files = [{ type: "image/jpeg", size: 5, name: "a.jpg" }]; d.$("pr-f-image").fire("change");
+  await d.submit();
+  assert.deepEqual(d.writes().map((c) => c.method), ["POST", "POST", "PATCH"]);
+  assert.deepEqual(d.writes()[2].body, { revision: 2, is_active: false });
+  assert.ok(d.toasts.some((t) => /added and hidden/.test(t)));
+});
+
+test("add: the photo is refused over 10 MB, over 2 MB without a cropper, and for a wrong type; Remove photo clears it", async () => {
+  const d = await openAdd();
+  const pick = (f) => { d.$("pr-f-image").files = [f]; d.$("pr-f-image").fire("change"); };
+  pick({ type: "application/pdf", size: 5 });
+  assert.match(d.$("pr-e-image").textContent, /JPEG, PNG or WebP/);
+  pick({ type: "image/png", size: 10 * 1024 * 1024 + 1 });
+  assert.match(d.$("pr-e-image").textContent, /10 MB/);
+  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), false);
+  pick({ type: "image/png", size: 3 * 1024 * 1024 });
+  assert.match(d.$("pr-e-image").textContent, /2 MB/);
+  pick({ type: "image/png", size: 2 * 1024 * 1024, name: "ok.png" });
+  assert.equal(d.$("pr-e-image").hidden, true);
+  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
+  d.buttons("Remove photo")[0].fire("click");
+  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), false);
+  fill(d); await d.submit();
+  assert.equal(d.writes().length, 1, "no photo, so no image call");
+});
+
+test("add: the photo opens the square crop; the cropped output is checked against 2 MB, PNG first then JPEG", async () => {
+  const d = await openAdd({ cropper: { sizes: [500, 400] } });
+  const pick = (size = 3 * 1024 * 1024) => { d.$("pr-f-image").files = [{ type: "image/png", size, name: "big.png" }]; d.$("pr-f-image").fire("change"); };
+  pick();
+  const ov = d.all("pr-crop")[0];
+  assert.ok(ov, "the crop dialog opens");
+  assert.equal(ov.getAttribute("role"), "dialog");
+  const img = ov.all((n) => n.tagName === "IMG")[0];
+  assert.equal(img.getAttribute("src"), "blob:test/1");
+  img.fire("load");
+  assert.deepEqual({ ...d.window.cropperOpts }, { aspectRatio: 1, viewMode: 2, autoCropArea: 0.9, background: false, responsive: true });
+  d.buttons("Use this crop")[0].fire("click");
+  assert.equal(d.all("pr-crop").length, 0, "the dialog closes");
+  assert.equal(d.window.cropperDestroyed, true);
+  assert.deepEqual(d.revoked, ["blob:test/1"]);
+  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
+  assert.equal(d.all("pr-islot-img").length, 1, "the cropped photo is the preview");
+  fill(d); await d.submit();
+  const sent = d.writes()[1].form.get("file");
+  assert.equal(sent.type, "image/png");
+  assert.equal(sent.size, 500);
+  assert.deepEqual(d.revoked, ["blob:test/1", "blob:test/2"], "the preview URL is released once the product is added");
+});
+
+test("add: a PNG over 2 MB falls back to a JPEG; both over 2 MB refuses; Cancel keeps nothing", async () => {
+  const MB = 1024 * 1024;
+  const d = await openAdd({ cropper: { sizes: [3 * MB, MB] } });
+  const pick = () => { d.$("pr-f-image").files = [{ type: "image/jpeg", size: 9 * MB, name: "a.jpg" }]; d.$("pr-f-image").fire("change"); d.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load"); };
+  pick(); d.buttons("Use this crop")[0].fire("click");
+  fill(d); await d.submit();
+  assert.equal(d.writes()[1].form.get("file").type, "image/jpeg");
+  const big = await openAdd({ cropper: { sizes: [3 * MB, 3 * MB] } });
+  big.$("pr-f-image").files = [{ type: "image/png", size: MB, name: "a.png" }]; big.$("pr-f-image").fire("change");
+  big.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load");
+  big.buttons("Use this crop")[0].fire("click");
+  assert.match(big.$("pr-e-image").textContent, /still over 2 MB/);
+  assert.equal(big.all("pr-islot")[0].classList.contains("filled"), false);
+  const c = await openAdd({ cropper: { sizes: [1, 1] } });
+  c.$("pr-f-image").files = [{ type: "image/png", size: 1, name: "a.png" }]; c.$("pr-f-image").fire("change");
+  c.buttons("Cancel").find((b) => b.classList.contains("pr-crop-cancel")).fire("click");
+  assert.equal(c.all("pr-crop").length, 0);
+  assert.equal(c.all("pr-islot")[0].classList.contains("filled"), false);
+});
+
+test("add: when the photo step fails the product is kept and its edit form opens with the message; nothing is created twice", async () => {
+  const d = await openAdd({ routes: (method, p) => (method === "POST" && /image\/$/.test(p) ? { status: 503, body: { error: { code: "image_store_not_configured", message: "x" } } } : null) });
+  fill(d);
+  d.$("pr-f-is_active").checked = false;
+  d.$("pr-f-image").files = [{ type: "image/png", size: 9, name: "a.png" }]; d.$("pr-f-image").fire("change");
+  await d.submit();
+  assert.deepEqual(d.writes().map((c) => c.method), ["POST", "POST", "PATCH"], "the hide step is still tried");
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product", "the edit form of the created product");
+  assert.equal(d.$("pr-f-code").value, "X1");
+  assert.equal(d.$("pr-f-code").readOnly, true);
+  const msg = d.all("pr-topmsg")[0];
+  assert.equal(msg.hidden, false);
+  assert.match(msg.textContent, /product was added/);
+  assert.match(msg.textContent, /image store is not set up/);
+  assert.equal(d.state.products.length, 1, "one product");
+  assert.equal(d.state.products[0].is_active, false, "hidden anyway");
+  assert.equal(d.all("pr-card").length, 0);
+});
+
+test("add: when the hide step fails the product is kept, active, and the edit form opens with Show in shops off", async () => {
+  const d = await openAdd({ routes: (method) => (method === "PATCH" ? { status: 500, body: { error: { code: "boom", message: "Server trouble." } } } : null) });
+  fill(d);
+  d.$("pr-f-is_active").checked = false;
+  await d.submit();
+  assert.deepEqual(d.writes().map((c) => c.method), ["POST", "PATCH"]);
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product");
+  assert.match(d.all("pr-topmsg")[0].textContent, /couldn’t be hidden/);
+  assert.equal(d.$("pr-f-is_active").checked, false);
+});
+
 
 test("source rules: API strings never reach innerHTML, no storage key, focus is light blue and never gold", () => {
   assert.ok(!/innerHTML|insertAdjacentHTML|document\.write|localStorage|sessionStorage|eval\(/.test(SRC));

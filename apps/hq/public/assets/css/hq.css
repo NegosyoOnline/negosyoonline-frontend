@@ -460,3 +460,26 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .fin-note { padding: 16px; }
   .fin-amount { font-size: 28px; }
 }
+
+/* Finance, usage review and issuer pages (Billing HQ-F1, ClickUp z8uq9mektc): the sub-navigation row, the Active
+   switch, the two-column form grid, the pending card and the history rows. One block, kept at the end of the file. */
+.fin-sub { margin-bottom: 0 !important; }
+.fin-sub .fin-sub-off { flex: 0 0 auto; padding: 12px 16px; border-bottom: 2px solid transparent; color: var(--meta); font-size: 15px; font-weight: 600; white-space: nowrap; cursor: default; }
+@media (max-width: 899.98px) { .fin-sub { flex-wrap: wrap; overflow: visible; row-gap: 0; } }
+.fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
+.fgrid .wide { grid-column: 1 / -1; }
+.rec-form { max-width: none; }
+.dash-card > .rec-form { margin-top: 8px; }
+.fin-lbl { font-size: 15px; font-weight: 700; }
+.fin-fixed { margin: 0; font-weight: 600; }
+.pending-card { border-style: dashed; }
+.fin-hist .list li { padding: 10px 0; }
+.fin-hist .list li + li { border-top: 1px solid var(--card-line); }
+.ev { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; }
+.char-count { text-align: right; }
+.sw { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
+.sw:disabled { opacity: .55; cursor: default; }
+.sw-track { position: relative; width: 44px; height: 26px; border-radius: 999px; background: var(--chip-neutral-bg); border: 1px solid var(--field-line); transition: background .15s; }
+.sw-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--text-2); transition: transform .15s; }
+.sw[aria-checked="true"] .sw-track { background: var(--primary); border-color: var(--primary); }
+.sw[aria-checked="true"] .sw-track::after { transform: translateX(18px); background: #fff; }

@@ -49,7 +49,7 @@ class Node {
     return out;
   }
   /* One ".class" or "#id" only, which is all dashboard.js asks of these two. */
-  matches(sel) { return sel.charAt(0) === "." ? this.classList.contains(sel.slice(1)) : sel.charAt(0) === "#" && this.id === sel.slice(1); }
+  matches(sel) { if (/^\[[a-z-]+\]$/i.test(sel)) return this.hasAttribute(sel.slice(1, -1)); return sel.charAt(0) === "." ? this.classList.contains(sel.slice(1)) : sel.charAt(0) === "#" && this.id === sel.slice(1); }
   querySelector(sel) { return this.all((n) => n.matches(sel))[0] || null; }
   closest(sel) { return this.matches(sel) ? this : this.parentNode ? this.parentNode.closest(sel) : null; }
   /* Only the form of selector the scripts use: a comma list of tag names, with an optional [attribute]. */

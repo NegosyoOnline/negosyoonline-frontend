@@ -380,6 +380,45 @@ test("Add shipment: validation first, a confirm step that names the email, then 
   assert.equal(dlgOf(d).all(() => true).length, 0);
 });
 
+test("Add shipment: each error is linked to its field (aria-describedby), focus goes to the first bad field, and the link clears when fixed", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[0], "Add shipment").fire("click");
+  d.press(dlgOf(d), "Continue").fire("click");
+  const sel = d.$("po-courier"), trk = d.$("po-tracking"), dt = d.$("po-shipped");
+  for (const [n, id] of [[sel, "po-courier-err"], [trk, "po-tracking-err"]]) {
+    assert.equal(n.getAttribute("aria-invalid"), "true");
+    assert.equal(n.getAttribute("aria-describedby"), id);
+    assert.ok(d.$(id) && d.$(id).classList.contains("po-error"), "the message carries the id the field points at");
+  }
+  assert.equal(dt.getAttribute("aria-describedby"), null);
+  assert.equal(d.doc.activeElement, sel, "focus is on the first field with an error");
+  typed(trk, "X1");
+  assert.equal(trk.getAttribute("aria-describedby"), null);
+  assert.equal(trk.getAttribute("aria-invalid"), null);
+  assert.equal(d.$("po-tracking-err"), null, "the message goes with the fix");
+  assert.equal(sel.getAttribute("aria-describedby"), "po-courier-err", "the other field keeps its link");
+});
+
+test("Add shipment: a future date alone puts focus on the date field, linked to its message", async () => {
+  const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL });
+  await d.show();
+  d.press(d.cls(d.body, "mc-rowwrap")[0], "Add shipment").fire("click");
+  const sel = d.$("po-courier"); sel.value = "lbc"; sel.fire("change");
+  typed(d.$("po-tracking"), "LBC-1");
+  typed(d.$("po-shipped"), "2999-01-01");
+  d.press(dlgOf(d), "Continue").fire("click");
+  const dt = d.$("po-shipped");
+  assert.equal(dt.getAttribute("aria-invalid"), "true");
+  assert.equal(dt.getAttribute("aria-describedby"), "po-shipped-err");
+  assert.equal(d.$("po-shipped-err").textContent, "Enter a shipped date that is not in the future.");
+  assert.equal(d.$("po-courier").getAttribute("aria-describedby"), null);
+  assert.equal(d.doc.activeElement, dt, "focus is on the date, not Courier");
+  typed(dt, TODAY);
+  assert.equal(dt.getAttribute("aria-describedby"), null);
+  assert.equal(dt.getAttribute("aria-invalid"), null);
+});
+
 test("Add shipment on an order that changed (409): the confirm step says so and the dialog stays; a server 422 returns to the form", async () => {
   const d = boot({ rows: SHIP_ROWS, detail: SHIP_DETAIL, decideStatus: 409 });
   await d.show();

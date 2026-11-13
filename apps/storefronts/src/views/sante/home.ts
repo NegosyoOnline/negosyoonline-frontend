@@ -160,7 +160,8 @@ export function storeDrawer(v: HomeModel): Markup {
 `;
 }
 
-export function homeDocument(v: HomeModel): Markup {
+/* The document up to the certification badges; homeDocument() joins this, trustBadges() and homeBottom(). */
+function homeTop(v: HomeModel): Markup {
   return html`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -263,7 +264,15 @@ ${storeNav(v)}
 
 
   <!-- Row 1: certification badges -->
-  <div class="trust-bar-label">Certified, Tested &amp; Recognized Worldwide</div>
+  `;
+}
+
+/* The one certification band, "Certified, Tested & Recognized Worldwide": label and five badges in TWCinc's order
+   (Trusted Since 2007, BioGro NZ Certified, Global Standard, Halal Certified, FDA Registered). The home page and the
+   product page both render it, so they cannot drift apart again (Coach Ed, 2026-11-14). Show only badges the brand
+   holds: never add one that is not in this set. */
+export function trustBadges(): Markup {
+  return html`<div class="trust-bar-label">Certified, Tested &amp; Recognized Worldwide</div>
   <div class="trust-bar-inner">
 
     <div class="trust-item">
@@ -301,7 +310,11 @@ ${storeNav(v)}
       <span class="trust-item-label">FDA Registered</span>
     </div>
 
-  </div>
+  </div>`;
+}
+
+function homeBottom(v: HomeModel): Markup {
+  return html`
 
 
   <!-- Divider -->
@@ -835,4 +848,8 @@ ${storeDrawer(v)}
 </body>
 </html>
 `;
+}
+
+export function homeDocument(v: HomeModel): Markup {
+  return html`${homeTop(v)}${trustBadges()}${homeBottom(v)}`;
 }

@@ -198,6 +198,17 @@
     });
   }
 
+  var FIND_EMPTY = "Enter a full mobile number to find.";
+  var FIND_BAD = "That is not a mobile number. Enter a full Philippine mobile number, for example 0900 000 0000.";
+  /* The message is in the banner above the search; the field is marked invalid and points at it. */
+  function findError(text) {
+    var input = $("find-number");
+    say("l-msg", text);
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", "l-msg");
+    input.focus();
+  }
+
   function find(number) {
     var run = ++listRun;
     $("rows").textContent = "";
@@ -210,6 +221,7 @@
       $("l-loading").hidden = true;
       if (left(res)) return;
       if (res.status === 404) { show("v-closed"); return; }
+      if (res.code === "invalid_mobile" || res.code === "invalid_request") { findError(FIND_BAD); return; }
       if (!res.ok) { say("l-msg", "The search did not go through. Try again."); return; }
       found = true;
       cursor = null;
@@ -254,9 +266,9 @@
     $("earlier-row").hidden = !conv.next;
   }
 
-  function countOf(textId, countId) {
+  function countOf(textId, countId, withLeft) {
     var n = String($(textId).value || "").length;
-    $(countId).textContent = n + " / " + LIMIT;
+    $(countId).textContent = n + " / " + LIMIT + (withLeft ? " (" + Math.max(LIMIT - n, 0) + " left)" : "");
     $(countId).setAttribute("class", n > LIMIT ? "counter over" : "counter");
     return n;
   }
@@ -264,10 +276,9 @@
     var text = String($("reply-text").value || "");
     $("reply-go").disabled = !(text.trim().length > 0 && text.length <= LIMIT && !busy);
   }
-  function newReady() {
-    var text = String($("text").value || "");
-    $("new-go").disabled = !(text.trim().length > 0 && text.length <= LIMIT && String($("to").value || "").trim().length > 0 && !busy);
-  }
+  /* Send SMS stays enabled so a press with a missing number or text says what is missing; it is off only while
+     a send is in flight. */
+  function newReady() { $("new-go").disabled = busy; }
 
   function paintConversation() {
     var canSend = !!(status && status.send);
@@ -429,7 +440,7 @@
     show("v-new");
     $("n-readonly").hidden = canSend;
     $("n-cols").hidden = !canSend;
-    countOf("text", "text-count");
+    countOf("text", "text-count", true);
     newReady();
   }
   function clearNewErrors() {
@@ -450,13 +461,19 @@
     if ($("to-err").hidden && $("text-err").hidden) $("n-box").hidden = true;
   }
   $("to").addEventListener("input", function () { mend("to", "to-err"); newReady(); });
-  $("text").addEventListener("input", function () { mend("text", "text-err"); countOf("text", "text-count"); newReady(); });
+  $("text").addEventListener("input", function () { mend("text", "text-err"); countOf("text", "text-count", true); newReady(); });
   $("new-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy || $("new-go").disabled) return;
-    var to = String($("to").value || ""), text = String($("text").value || "");
+    var to = String($("to").value || ""), text = String($("text").value || ""), first = null;
     if (!newId) newId = freshId();
     clearNewErrors();
+    /* An empty number, an empty text or a text over the limit is said here and nothing is sent. Whether a number
+       or a text is otherwise valid is the backend's to say. The field's aria-describedby already names its error. */
+    if (!to.trim()) { flag("to", "to-err", "Enter the mobile number to send to."); first = "to"; }
+    if (!text.trim()) { flag("text", "text-err", "Write the message to send."); first = first || "text"; }
+    else if (text.length > LIMIT) { flag("text", "text-err", "The message is over " + LIMIT + " characters. Shorten it to send."); first = first || "text"; }
+    if (first) { box("Fix the field marked below, then send again."); $(first).focus(); return; }
     if (!newId) { box("This browser cannot send a text safely."); return; }
     setBusy(true);
     H.call("POST", "inbox/compose/", { platform: "sms", to: to, text: text, request_id: newId }).then(function (res) {
@@ -466,7 +483,7 @@
         newId = null;
         $("to").value = "";
         $("text").value = "";
-        countOf("text", "text-count");
+        countOf("text", "text-count", true);
         newReady();
         made = res.data && res.data.conversation;
         made = made && typeof made === "object" ? made.id : made;
@@ -480,8 +497,8 @@
       if (res.status === 0) { box(UNSURE); return; }
       if (left(res)) return;
       if (res.status === 404) { show("v-closed"); return; }
-      if (res.code === "invalid_mobile") { flag("to", "to-err", fieldWords(res, "to")); box("Fix the field marked below, then send again."); return; }
-      if (res.code === "invalid_text") { flag("text", "text-err", fieldWords(res, "text")); box("Fix the field marked below, then send again."); return; }
+      if (res.code === "invalid_mobile") { flag("to", "to-err", fieldWords(res, "to")); box("Fix the field marked below, then send again."); $("to").focus(); return; }
+      if (res.code === "invalid_text") { flag("text", "text-err", fieldWords(res, "text")); box("Fix the field marked below, then send again."); $("text").focus(); return; }
       box(refusal(res));
     });
   });
@@ -503,9 +520,22 @@
   $("find-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var input = $("find-number"), number = String(input.value || "").trim();
-    if (!number) return;
+    input.removeAttribute("aria-invalid");
+    input.removeAttribute("aria-describedby");
+    if (!number) { findError(FIND_EMPTY); return; }
+    if (!/\d/.test(number)) { findError(FIND_BAD); return; }
+    say("l-msg", "");
     input.value = "";
     find(number);
+  });
+  /* Typing again clears the message and the marks. */
+  $("find-number").addEventListener("input", function () {
+    var input = $("find-number");
+    if (input.getAttribute("aria-invalid") === "true") {
+      input.removeAttribute("aria-invalid");
+      input.removeAttribute("aria-describedby");
+      say("l-msg", "");
+    }
   });
   window.addEventListener("hashchange", function () { if (view === "v-list" && location.hash === "#find") $("find-number").focus(); });
   $("retry").addEventListener("click", start);

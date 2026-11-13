@@ -158,13 +158,51 @@
   /* ---- Record new details ---- */
 
   var NEW = ["n-legal", "n-trade", "n-tin", "n-branch", "n-addr", "n-cor", "n-cordate", "n-mail"];
+  var NEW_KEY = { "n-legal": "legal_name", "n-trade": "trade_name", "n-tin": "tin", "n-branch": "branch_code", "n-addr": "registered_address",
+    "n-cor": "cor_number", "n-cordate": "cor_date", "n-mail": "contact_email" };
+  var NEW_REQUIRED = ["n-legal", "n-tin", "n-branch", "n-addr", "n-cor", "n-cordate", "n-mail"];
+  var NEW_NAME = { "n-legal": "Legal name", "n-tin": "TIN", "n-branch": "Branch code", "n-addr": "Registered address", "n-cor": "COR number",
+    "n-cordate": "COR date", "n-mail": "Contact email" };
+  var BOOK_NAME = { "b-from": "First serial", "b-to": "Last serial", "b-width": "Serial width", "b-atp": "Authority reference",
+    "b-atpd": "Authority date", "b-printer": "Printer name" };
+
+  /* The error of one field sits under it (a role=alert line the page makes), the field is marked invalid and
+     described by it; typing in the field takes both away. */
+  function fieldError(id, text) {
+    var input = $(id), eid = id + "-e", p = $(eid);
+    if (!p) {
+      p = F.el("p", "field-err");
+      p.setAttribute("id", eid);
+      p.setAttribute("role", "alert");
+      input.parentNode.appendChild(p);
+    }
+    p.textContent = text;
+    p.hidden = false;
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", eid);
+  }
+  function clearField(id) {
+    var p = $(id + "-e");
+    if (p) { p.textContent = ""; p.hidden = true; }
+    $(id).removeAttribute("aria-invalid");
+    $(id).removeAttribute("aria-describedby");
+  }
+  /* Marks every field in bad ([id, text] pairs, in page order) and puts the focus on the first. */
+  function flagFields(ids, bad) {
+    ids.forEach(clearField);
+    bad.forEach(function (b) { fieldError(b[0], b[1]); });
+    if (bad.length) $(bad[0][0]).focus();
+  }
+  NEW.concat(["b-series", "b-from", "b-to", "b-width", "b-atp", "b-atpd", "b-printer"]).forEach(function (id) {
+    $(id).addEventListener("input", function () { clearField(id); });
+  });
   function toggleForm(openId, formId, on, first) {
     $(formId).hidden = !on;
     $(openId).setAttribute("aria-expanded", String(on));
     if (on) $(first).focus(); else $(openId).focus();
   }
   $("new-open").addEventListener("click", function () {
-    NEW.forEach(function (id) { $(id).value = ""; });
+    NEW.forEach(function (id) { $(id).value = ""; clearField(id); });
     F.say("n-err", "");
     toggleForm("new-open", "f-new", $("f-new").hidden, "n-legal");
   });
@@ -172,12 +210,17 @@
   $("f-new").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy) return;
-    var v = {}, wrong = "";
+    var v = {}, wrong = "", bad;
     NEW.forEach(function (id) { v[id] = String($(id).value || "").trim(); });
     if (!v["n-legal"] || !v["n-tin"] || !v["n-branch"] || !v["n-addr"] || !v["n-cor"] || !v["n-cordate"] || !v["n-mail"]) wrong = "Fill in every required field. COR date is YYYY-MM-DD.";
     else if (!isDate(v["n-cordate"])) wrong = "COR date is YYYY-MM-DD.";
     else if (v["n-mail"].indexOf("@") < 1) wrong = "Enter an email address.";
     F.say("n-err", wrong);
+    bad = [];
+    NEW_REQUIRED.forEach(function (id) { if (!v[id]) bad.push([id, NEW_NAME[id] + " is required."]); });
+    if (v["n-cordate"] && !isDate(v["n-cordate"])) bad.push(["n-cordate", "COR date is YYYY-MM-DD."]);
+    if (v["n-mail"] && v["n-mail"].indexOf("@") < 1) bad.push(["n-mail", "Enter an email address."]);
+    flagFields(NEW, bad);
     if (wrong) return;
     busy = true;
     $("n-go").disabled = true;
@@ -194,8 +237,15 @@
       }
       if (res.status === 404) { show("v-closed"); return; }
       F.say("n-err", res.status === 400 && res.code === "invalid_request" ? checkFields(res.fields) : LOST);
+      if (res.status === 400 && res.code === "invalid_request") serverFields(NEW, NEW_KEY, NEW_NAME, res.fields);
     });
   });
+  /* The fields a refusal names get their own line; only fields this page has are marked. */
+  function serverFields(ids, keys, names, fields) {
+    var bad = ids.filter(function (id) { return fields && Object.prototype.hasOwnProperty.call(fields, keys[id]); })
+      .map(function (id) { return [id, "Check the " + (names[id] || "value").toLowerCase() + "."]; });
+    flagFields(ids, bad);
+  }
 
   /* ---- Verify ---- */
 
@@ -240,7 +290,7 @@
 
   var BOOK = ["b-series", "b-from", "b-to", "b-width", "b-atp", "b-atpd", "b-printer"];
   $("book-open").addEventListener("click", function () {
-    BOOK.forEach(function (id) { $(id).value = ""; });
+    BOOK.forEach(function (id) { $(id).value = ""; clearField(id); });
     F.say("b-err", "");
     toggleForm("book-open", "f-book", $("f-book").hidden, "b-series");
   });
@@ -248,7 +298,7 @@
   $("f-book").addEventListener("submit", function (e) {
     e.preventDefault();
     if (busy) return;
-    var v = {}, wrong = "", from, to, width;
+    var v = {}, wrong = "", from, to, width, bad = [];
     BOOK.forEach(function (id) { v[id] = String($(id).value || "").trim(); });
     if (!v["b-from"] || !v["b-to"] || !v["b-width"] || !v["b-atp"] || !v["b-atpd"] || !v["b-printer"]) wrong = "Fill in every required field.";
     else if (!/^\d{1,9}$/.test(v["b-from"]) || !/^\d{1,9}$/.test(v["b-to"]) || !/^\d{1,2}$/.test(v["b-width"])) wrong = "Serials and width are whole numbers.";
@@ -256,6 +306,17 @@
     else if (Number(v["b-to"]) < Number(v["b-from"])) wrong = "The last serial cannot be before the first.";
     else if (Number(v["b-width"]) < 1) wrong = "Serial width is at least 1.";
     F.say("b-err", wrong);
+    ["b-from", "b-to", "b-width", "b-atp", "b-atpd", "b-printer"].forEach(function (id) {
+      if (!v[id]) bad.push([id, BOOK_NAME[id] + " is required."]);
+    });
+    [["b-from", /^\d{1,9}$/], ["b-to", /^\d{1,9}$/], ["b-width", /^\d{1,2}$/]].forEach(function (c) {
+      if (v[c[0]] && !c[1].test(v[c[0]])) bad.push([c[0], BOOK_NAME[c[0]] + " is a whole number."]);
+    });
+    if (v["b-atpd"] && !isDate(v["b-atpd"])) bad.push(["b-atpd", "Authority date is YYYY-MM-DD."]);
+    if (/^\d{1,9}$/.test(v["b-from"]) && /^\d{1,9}$/.test(v["b-to"]) && Number(v["b-to"]) < Number(v["b-from"])) bad.push(["b-to", "The last serial cannot be before the first."]);
+    if (/^\d{1,2}$/.test(v["b-width"]) && Number(v["b-width"]) < 1) bad.push(["b-width", "Serial width is at least 1."]);
+    bad.sort(function (a, b) { return BOOK.indexOf(a[0]) - BOOK.indexOf(b[0]); });
+    flagFields(BOOK, bad);
     if (wrong) return;
     from = Number(v["b-from"]); to = Number(v["b-to"]); width = Number(v["b-width"]);
     busy = true;
@@ -274,6 +335,11 @@
       if (res.status === 404) { loadBooks(); return; }
       if (res.status === 409 && F.words(BOOK_REFUSED, res.code)) { F.say("b-err", BOOK_REFUSED[res.code]); return; }
       F.say("b-err", res.status === 400 && res.code === "invalid_request" ? checkFields(res.fields) : LOST);
+      if (res.status === 400 && res.code === "invalid_request") {
+        serverFields(BOOK, { "b-series": "series", "b-from": "serial_from", "b-to": "serial_to", "b-width": "serial_width",
+          "b-atp": "atp_reference", "b-atpd": "atp_date", "b-printer": "printer_name" }, { "b-series": "Series", "b-from": "First serial",
+          "b-to": "Last serial", "b-width": "Serial width", "b-atp": "Authority reference", "b-atpd": "Authority date", "b-printer": "Printer name" }, res.fields);
+      }
     });
   });
 

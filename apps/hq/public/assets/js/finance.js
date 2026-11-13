@@ -414,7 +414,10 @@
   $("amount").addEventListener("input", formatAmount);
   $("amount-group").addEventListener("click", function () { $("amount").focus(); });
 
-  function badAmount() { say("amount-err", AMOUNT); $("amount").setAttribute("aria-invalid", "true"); }
+  function badAmount() { say("amount-err", AMOUNT); $("amount").setAttribute("aria-invalid", "true"); $("amount").focus(); }
+  $("amount").addEventListener("input", function () {
+    if ($("amount").getAttribute("aria-invalid") === "true") { $("amount").removeAttribute("aria-invalid"); say("amount-err", ""); }
+  });
   var CONFIRM = {
     bar: function (on) { $("confirm-bar").hidden = !on; },
     fail: function (text) { say("confirm-err", text); },
@@ -451,13 +454,16 @@
   var REJECT = {
     bar: function () {},
     fail: function (text) { say("reject-err", text); },
-    field: function () { say("reject-err", "Check the reason and the note."); }
+    field: function () { say("reject-err", "Check the reason and the note."); reasonBox.input.setAttribute("aria-invalid", "true"); reasonBox.input.focus(); }
   };
+  function clearRejectMarks() { reasonBox.input.removeAttribute("aria-invalid"); $("note").removeAttribute("aria-invalid"); }
+  $("note").addEventListener("input", function () { $("note").removeAttribute("aria-invalid"); });
   $("open-reject").addEventListener("click", function () {
     if (busy || !current) return;
     $("reason").value = "";
     reasonBox.sync();
     $("note").value = "";
+    clearRejectMarks();
     say("reject-err", "");
     $("mr-sub").textContent = (current.site || {}).name || "";
     openDialog("m-reject", $("open-reject"), reasonBox.input);
@@ -469,8 +475,15 @@
     var reason = $("reason").value, note = String($("note").value || "").trim();
     var wrong = !words(REASON, reason) ? "Choose a reason." : reason === "other" && !note ? "Write a note for this reason."
       : note.length > 300 ? "Keep the note to 300 characters." : "";
+    clearRejectMarks();
     say("reject-err", wrong);
-    if (wrong) return;
+    if (wrong) {
+      /* The field that is wrong is marked and takes the focus; the message below is its aria-describedby. */
+      var badNote = words(REASON, reason) !== "";
+      (badNote ? $("note") : reasonBox.input).setAttribute("aria-invalid", "true");
+      (badNote ? $("note") : reasonBox.input).focus();
+      return;
+    }
     act("reject/", { payment: current.id, reason: reason, note: note }, 0, REJECT, function () {
       return "Payment rejected. The Subscriber can send another.";
     });

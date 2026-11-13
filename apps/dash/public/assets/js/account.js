@@ -583,8 +583,18 @@
       var value = String(code.input.value || "");
       setErrors(fields, null);
       if (value.length !== 6) { setErrors(fields, { code: "Enter the 6-digit code." }); return; }
-      S.stepCode = value; /* checked by the next call; the code is not stored anywhere else */
-      next(body, "", "");
+      send.disabled = true;
+      D.call("POST", "/account/step-up/verify/", { purpose: purpose, code: value }, true).then(function (res) {
+        send.disabled = false;
+        if (res.ok || res.status === 404) { /* 404: an older backend without the check; the start call still checks the code */
+          S.stepCode = value; /* the start call checks it again; the code is not stored anywhere else */
+          next(body, "", "");
+          return;
+        }
+        S.stepCode = "";
+        var wrong = codeOf(res) === "step_up_code_invalid" || res.status === 400;
+        setErrors(fields, { code: wrong ? "That code is wrong or has expired. Ask for a new one." : messageOf(res, "We could not check the code. Please try again.") });
+      });
     });
     f.classList.add("acct-code-step");
     f.appendChild(lead); f.appendChild(code.box); f.appendChild(parts.status); f.appendChild(parts.hint);

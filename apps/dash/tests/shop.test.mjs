@@ -118,6 +118,20 @@ test("the page: a view of its own with the tab bar copy, the slots and no inline
   assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/.test(HTML), "no inline script");
 });
 
+test("the new view is a sibling of the other views, not nested inside one (a nested view stays hidden with its parent)", () => {
+  const depth = {}; let d = 0;
+  for (const m of HTML.matchAll(/<section\b[^>]*>|<\/section>/g)) {
+    if (m[0] === "</section>") { d--; continue; }
+    const id = /\bid="([^"]+)"/.exec(m[0]);
+    if (id) depth[id[1]] = d;
+    d++;
+  }
+  assert.ok(depth["view-shop-orders"] !== undefined && depth["view-orders"] !== undefined);
+  assert.equal(depth["view-shop-orders"], depth["view-orders"]);
+  assert.equal(depth["view-orders-new"], depth["view-orders"]);
+  assert.equal(depth["view-products"], depth["view-orders"]);
+});
+
 test("dashboard.js: the route /orders/products/ opens the new view, keeps Orders current, and enters and leaves the screen", () => {
   const src = read("dashboard.js");
   assert.ok(/"\/orders\/products\/": \{ view: "shop-orders", nav: "orders"/.test(src));

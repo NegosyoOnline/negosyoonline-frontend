@@ -382,6 +382,8 @@ test("BIR registration badge: the row is Public with Upload; the file rules use 
   assert.ok(row, "the row is on the page");
   assert.deepEqual(tagOf(row), ["Public"]);
   assert.ok(d.$("bs-seal-up") && d.$("bs-seal-file"));
+  assert.equal(d.$("bs-seal-file").attrs["aria-label"], "Business seal image", "the file input has an accessible name");
+  assert.equal(d.$("bs-seal-file").attrs["aria-describedby"], "bs-seal-help bs-seal-msg", "and keeps its description");
   assert.equal(d.$("bs-seal-up").textContent, "Upload");
   assert.equal(d.$("bs-seal-del"), null, "nothing to remove yet");
   const U = d.B.util;

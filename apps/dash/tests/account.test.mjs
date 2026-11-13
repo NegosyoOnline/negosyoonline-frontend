@@ -181,3 +181,15 @@ test("field errors are announced, the email box is capped at 254, and a blank na
   const name = between("function editName(", "/* ---- sign out other devices");
   assert.ok(name.indexOf("NAME_BLANK") > 0 && name.indexOf("NAME_BLANK") < name.indexOf('D.call("PATCH"'), "a blank name is stopped before the PATCH");
 });
+
+/* z8uq9metze: Continue on the code step asks the server; a wrong code never opens the next step. */
+test("the step-up code is verified before the new email or mobile step opens", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/account.js", import.meta.url), "utf8");
+  const step = src.slice(src.indexOf("function stepUp("), src.indexOf("function emailStep1("));
+  const call = step.indexOf('"/account/step-up/verify/"');
+  assert.ok(call > 0 && step.includes("{ purpose: purpose, code: value }"), "the verify route is called with purpose and code");
+  assert.ok(step.indexOf("next(body", call) > call, "next opens only inside the answer");
+  assert.ok(step.includes("if (res.ok || res.status === 404)"), "next only after a good answer");
+  assert.equal(step.split('next(body, "", "")').length, 2, "one call to next, inside the answer");
+  assert.ok(step.includes("That code is wrong or has expired. Ask for a new one."));
+});

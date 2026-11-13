@@ -173,3 +173,18 @@ test("change step 1: an empty submit gets a visible, announced message, with no 
     assert.ok(!f.calls.some((c) => c.path.endsWith("/act")));
   }
 });
+
+test("change step 2 (new value): a refused value is announced and focus goes to the new-value field, for email and mobile", async () => {
+  for (const field of ["email", "mobile"] as const) {
+    const msg = field === "mobile" ? "Enter a valid Philippine mobile number." : "Enter a valid email address.";
+    const S = ok({ field, current_masked: "x***", proof_channel: "sms", proof_masked: "+63 917 *** 4567", step: "replacement" });
+    const f = fake({
+      "member/me": [ME], "member/pack": [NOT_LOCKED], [`member/account/change/${field}`]: [S],
+      [`member/account/change/${field}/act`]: [err(400, "invalid", msg, { new_value: [msg] })],
+    });
+    const b = await (await changePost(dashOf(f), field, { action: "send_replacement", new_value: "12345" })).text();
+    assert.match(b, /<p class="err" id="new-msg" role="alert">Enter a valid [^<]+<\/p>/);
+    assert.match(b, /<input id="new_value"[^>]* required autofocus aria-invalid="true" aria-describedby="new-msg">/);
+    assert.equal((b.match(/role="alert"/g) ?? []).length, 1);
+  }
+});

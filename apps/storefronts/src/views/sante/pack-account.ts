@@ -98,8 +98,8 @@ ${alert(e)}
 <input type="hidden" name="action" value="send_replacement">
 <div class="fld">
 <label for="new_value">${f === "mobile" ? "New mobile number" : "New email"}</label>
-<input id="new_value" class="inp${bad ? " bad" : ""}" name="new_value" ${f === "mobile" ? html`type="tel" inputmode="numeric" placeholder="09XX XXX XXXX"` : html`type="email" inputmode="email" placeholder="you@example.com"`} required${bad ? html` aria-invalid="true" aria-describedby="new-msg"` : ""}>
-${bad ? html`<p class="err" id="new-msg">${e.field_errors.new_value}</p>` : ""}
+<input id="new_value" class="inp${bad ? " bad" : ""}" name="new_value" ${f === "mobile" ? html`type="tel" inputmode="numeric" placeholder="09XX XXX XXXX"` : html`type="email" inputmode="email" placeholder="you@example.com"`} required${bad ? html` autofocus aria-invalid="true" aria-describedby="new-msg"` : ""}>
+${bad ? html`<p class="err" id="new-msg" role="alert">${e.field_errors.new_value}</p>` : ""}
 </div>
 <button class="btn" type="submit">Send code</button>
 </form>

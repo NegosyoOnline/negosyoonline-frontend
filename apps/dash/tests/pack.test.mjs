@@ -525,6 +525,17 @@ test("v2 search: order #, tracking #, customer name; the tiles keep counting all
   d.cls(d.body, "ol-clear")[0].querySelector("button").fire("click");
   assert.equal(nums().length, 6);
   assert.equal(input().value, "");
+  // the field's own x button empties the box and fires "input": that clears the applied search too
+  search("zzz");
+  input().value = ""; input().fire("input");
+  assert.equal(nums().length, 6, "x clears the applied search");
+  assert.equal(d.cls(d.body, "ol-clear").length, 0);
+  d.cls(d.body, "ol-tile")[2].fire("click");
+  assert.ok(nums().length > 0, "a status tile after the x still lists orders");
+  d.cls(d.body, "ol-tile")[2].fire("click");
+  search("zzz");
+  search("");
+  assert.equal(nums().length, 6, "an empty submitted search means no search");
 });
 
 test("v2 table: the six columns, Bank transfer, total, date line; icon buttons with a label and tooltip, Add shipment only on Ready to ship, Mark delivered only on Shipped", async () => {

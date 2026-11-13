@@ -349,7 +349,7 @@
     var box = h("div", "ol-tools"), wrap = h("div", "ol-search"), lab = h("label", "sr-only", "Search orders"), inp = D.el("input", { id: "po-q", type: "search", placeholder: "Search order #, tracking #, or customer name", autocomplete: "off" }), go = btn("Search", "no-btn-primary");
     lab.setAttribute("for", "po-q"); inp.value = S.draft;
     function run() { S.draft = inp.value; S.q = inp.value.trim(); render(); var n = byId("po-q"); if (n && n.focus) n.focus(); }
-    inp.addEventListener("input", function () { S.draft = inp.value; });
+    inp.addEventListener("input", function () { S.draft = inp.value; if (!inp.value && S.q) run(); });
     inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); run(); } });
     go.addEventListener("click", run);
     return add(box, add(wrap, lab, attr(icon("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5"), { "class": "ol-si" }), inp), go);

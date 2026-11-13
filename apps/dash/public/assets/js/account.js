@@ -20,7 +20,7 @@
     ["Statements and receipts", "Each statement and receipt is emailed to you."],
     ["Site status", "When a site is suspended, cancelled or removed."]
   ];
-  var S = { s11: null, data: null, seq: 0, dlg: null, devices: false, ret: null, result: null }; /* memory only, never stored */
+  var S = { stepCode: "", stepChannel: "", s11: null, data: null, seq: 0, dlg: null, devices: false, ret: null, result: null }; /* memory only, never stored */
   var SEC_NOTE = "Changing your email signs you out on every other device, sends a notice to your old address and pauses further email changes for 24 hours. Changing your mobile sends a notice to your email.";
   var LABEL = { facebook: "Facebook", google: "Google" };
   var ACTION_ID = { facebook: "acct-fb-action", google: "acct-google-action" };
@@ -42,6 +42,28 @@
     var body = { email: email };
     if (S.stepCode) body.step_up_code = S.stepCode;
     return body;
+  }
+  /* The body of the mobile start call: with the hardening on, it carries the code sent to the email or the verified mobile. */
+  function mobileStartBody(number) {
+    var body = { mobile: number };
+    if (S.stepCode) body.step_up_code = S.stepCode;
+    return body;
+  }
+  /* Where the first-gate code can go, read from GET /account/ and never assumed: [] with the switch off. An answer
+     that has the switch but not the list (an older backend) is the email alone. */
+  function stepChannels(a) {
+    a = a || S.data || {};
+    if (Array.isArray(a.step_up_channels)) return a.step_up_channels.filter(function (c) { return c === "email" || c === "mobile"; });
+    return a.email_change_step_up === true ? ["email"] : [];
+  }
+  /* ana.reyes@example.com shows as a••••@example.com: enough to recognise the mailbox, not to read it out. */
+  function emailShown(email) {
+    var m = /^([^@]{1,})@(.+)$/.exec(String(email || ""));
+    return m ? m[1].charAt(0) + "\u2022\u2022\u2022\u2022@" + m[2] : "your email";
+  }
+  function channelShown(channel, a) {
+    a = a || S.data || {};
+    return channel === "mobile" ? mobileShown(a.mobile && a.mobile.mobile_masked) : emailShown(a.email);
   }
   var CODE_SHORT = "Enter all 6 digits of the code.", NAME_BLANK = "Enter your first or last name.";
   function codeComplete(v) { return /^\d{6}$/.test(String(v || "").trim()); }
@@ -496,48 +518,72 @@
   /* ---- email change (S3, S4, S5, S7; spec D5, D10) ---- */
   function openEmail(opener) {
     var body = openDialog(opener, "Change your email");
-    S.stepCode = "";
-    if (S.data && S.data.email_change_step_up === true) emailStepUp(body, "", false); else emailStep1(body, "", "");
+    S.stepCode = ""; S.stepChannel = "";
+    if (stepChannels().length) stepUp(body, "email_change", emailStep1, "", false); else emailStep1(body, "", "");
   }
-  /* The hardened change: first prove the current mailbox with a code, then the new address as before. */
-  function emailStepUp(body, error, sent) {
+  /* The first gate (ClickUp z8uq9m8htt): before an email or a mobile change, prove you hold the account's email or its
+     verified mobile with a 6-digit code, then go on to `next` as before. With two ways, the person picks where it goes. */
+  function stepUpCall(purpose, channel) {
+    if (Array.isArray((S.data || {}).step_up_channels)) return D.call("POST", "/account/step-up/", { channel: channel, purpose: purpose }, true);
+    return D.call("POST", "/account/email/step-up/", null, true); /* an older backend: the email route */
+  }
+  function stepUp(body, purpose, next, error, sent) {
     body.textContent = "";
     clearInterval(S.resendTimer);
-    var a = S.data || {}, send = submitBtn(sent ? "Continue" : "Send code");
+    var a = S.data || {}, channels = stepChannels(a), send = submitBtn(sent ? "Continue" : "Send code");
     var lead = D.el("p", { "class": "dash-copy" });
+    var again = function () { stepUp(body, purpose, next, "", false); };
     if (!sent) {
-      lead.appendChild(txt("To keep your account safe, we first send a 6-digit code to your current email, "));
-      lead.appendChild(D.el("strong", {}, a.email || "your email"));
-      lead.appendChild(txt("."));
-      var err = D.el("p", { "class": "err-box", role: "alert", hidden: "" });
+      var chosen = channels[0] || "email", err = D.el("p", { "class": "err-box", role: "alert", hidden: "" });
       var f0 = dlgForm(function () {
         send.disabled = true; err.hidden = true;
-        D.call("POST", "/account/email/step-up/", null, true).then(function (res) {
+        stepUpCall(purpose, chosen).then(function (res) {
           send.disabled = false;
-          if (res.ok) { emailStepUp(body, "", true); return; }
+          if (res.ok) { S.stepChannel = chosen; stepUp(body, purpose, next, "", true); return; }
           if (res.status === 404) { closeDialog(); load("h-account"); return; }
           if (codeOf(res) === "email_change_cooldown") { cooldownRefused(body, "", res); return; }
           err.textContent = messageOf(res, "We could not send the code. Please try again."); err.hidden = false;
         });
       });
-      f0.appendChild(lead); f0.appendChild(err);
+      if (channels.length > 1) {
+        lead.appendChild(txt("To keep your account safe, we first send a 6-digit code. Where should we send it?"));
+        f0.appendChild(lead);
+        var group = D.el("fieldset", { "class": "acct-stepup-choice", id: "acct-stepup-choice" });
+        group.appendChild(D.el("legend", { "class": "sr-only" }, "Send the code to"));
+        channels.forEach(function (c, i) {
+          var id = "acct-stepup-" + c, row = D.el("label", { "class": "dash-copy", "for": id }), r = D.el("input", { type: "radio", name: "channel", id: id, value: c });
+          if (i === 0) r.checked = true;
+          r.addEventListener("change", function () { chosen = c; });
+          row.appendChild(r);
+          row.appendChild(txt(" " + (c === "mobile" ? "Text my mobile " : "Email me at ")));
+          row.appendChild(D.el("strong", {}, channelShown(c, a)));
+          group.appendChild(row);
+        });
+        f0.appendChild(group);
+      } else {
+        lead.appendChild(txt("To keep your account safe, we first send a 6-digit code to your email, "));
+        lead.appendChild(D.el("strong", {}, channelShown("email", a)));
+        lead.appendChild(txt("."));
+        f0.appendChild(lead);
+      }
+      f0.appendChild(err);
       footer(f0, [send]);
       body.appendChild(f0);
       return;
     }
     var code = field({ id: "acct-stepup-code", name: "code", label: "Code", kind: "code" }), fields = { code: code };
-    lead.appendChild(txt("We sent a 6-digit code to "));
-    lead.appendChild(D.el("strong", {}, a.email || "your email"));
+    lead.appendChild(txt(S.stepChannel === "mobile" ? "We texted a 6-digit code to " : "We sent a 6-digit code to "));
+    lead.appendChild(D.el("strong", {}, channelShown(S.stepChannel, a)));
     lead.appendChild(txt(". Enter it to go on."));
     var parts = codeStepParts({ code: code, fields: fields, wait: 60, errKey: "code",
-      send: function () { return D.call("POST", "/account/email/step-up/", null, true); },
-      backText: "Cancel", goBack: function () { closeDialog(); } });
+      send: function () { return stepUpCall(purpose, S.stepChannel); },
+      backText: channels.length > 1 ? "Send it somewhere else" : "Cancel", goBack: channels.length > 1 ? again : function () { closeDialog(); } });
     var f = dlgForm(function () {
       var value = String(code.input.value || "");
       setErrors(fields, null);
       if (value.length !== 6) { setErrors(fields, { code: "Enter the 6-digit code." }); return; }
       S.stepCode = value; /* checked by the next call; the code is not stored anywhere else */
-      emailStep1(body, "", "");
+      next(body, "", "");
     });
     f.classList.add("acct-code-step");
     f.appendChild(lead); f.appendChild(code.box); f.appendChild(parts.status); f.appendChild(parts.hint);
@@ -560,7 +606,7 @@
       D.call("POST", "/account/email/start/", emailStartBody(email), true).then(function (res) {
         send.disabled = false;
         if (res.ok) { emailStep2(body, email); return; }
-        if (codeOf(res) === "step_up_required") { S.stepCode = ""; emailStepUp(body, "That code is wrong or has expired. Ask for a new one.", true); return; }
+        if (codeOf(res) === "step_up_required") { S.stepCode = ""; stepUp(body, "email_change", emailStep1, "That code is wrong or has expired. Ask for a new one.", true); return; }
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         if (codeOf(res) === "email_change_cooldown") { cooldownRefused(body, email, res); return; }
         setErrors(fields, { email: fieldMsg(res, "email") });
@@ -589,7 +635,7 @@
         var c = codeOf(res);
         if (c === "email_change_cooldown") { cooldownRefused(body, email, res); return true; }
         if (c === "email_taken") { emailStep1(body, email, fieldMsg(res, "email")); return true; }
-        if (c === "step_up_required") { S.stepCode = ""; emailStepUp(body, "That code is wrong or has expired. Ask for a new one.", true); return true; }
+        if (c === "step_up_required") { S.stepCode = ""; stepUp(body, "email_change", emailStep1, "That code is wrong or has expired. Ask for a new one.", true); return true; }
         return false;
       } });
     var f = dlgForm(function () {
@@ -695,7 +741,11 @@
   }
 
   /* ---- change mobile over the existing /account/mobile/* routes (spec D3; their messages are shown as sent) ---- */
-  function openMobile(opener) { mobileStep1(openDialog(opener, "Change your mobile")); }
+  function openMobile(opener) {
+    var body = openDialog(opener, "Change your mobile");
+    S.stepCode = ""; S.stepChannel = "";
+    if (stepChannels().length) stepUp(body, "mobile_change", mobileStep1, "", false); else mobileStep1(body);
+  }
   function mobileStep1(body) {
     body.textContent = "";
     clearInterval(S.resendTimer);
@@ -705,9 +755,10 @@
       var number = window.NOContact.phoneValue(mob.input.value);
       setErrors(fields, null);
       send.disabled = true;
-      D.call("POST", "/account/mobile/start/", { mobile: number }, true).then(function (res) {
+      D.call("POST", "/account/mobile/start/", mobileStartBody(number), true).then(function (res) {
         send.disabled = false;
         if (res.ok) { mobileStep2(body, number); return; }
+        if (codeOf(res) === "step_up_required") { S.stepCode = ""; stepUp(body, "mobile_change", mobileStep1, "That code is wrong or has expired. Ask for a new one.", true); return; }
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         setErrors(fields, { mobile: fieldMsg(res, "mobile") });
       });
@@ -723,15 +774,19 @@
     var code = field({ id: "acct-mobile-code", name: "code", label: "Code", kind: "code" });
     var fields = { code: code }, confirm = submitBtn("Confirm mobile");
     var parts = codeStepParts({ code: code, fields: fields, wait: 30, errKey: "mobile",
-      send: function () { return D.call("POST", "/account/mobile/start/", { mobile: number }, true); },
-      backText: "Use a different number", goBack: function () { mobileStep1(body); } });
+      send: function () { return D.call("POST", "/account/mobile/start/", mobileStartBody(number), true); },
+      backText: "Use a different number", goBack: function () { mobileStep1(body); },
+      refused: function (res) {
+        if (codeOf(res) === "step_up_required") { S.stepCode = ""; stepUp(body, "mobile_change", mobileStep1, "That code is wrong or has expired. Ask for a new one.", true); return true; }
+        return false;
+      } });
     var f = dlgForm(function () {
       setErrors(fields, null);
       parts.status.textContent = "";
       confirm.disabled = true;
       D.call("POST", "/account/mobile/verify/", { code: code.input.value }, true).then(function (res) {
         confirm.disabled = false;
-        if (res.ok && res.data) { S.data.mobile = res.data; closeDialog(); draw("acct-mobile-change"); D.toast("Mobile changed", "Your mobile number was changed."); return; }
+        if (res.ok && res.data) { S.stepCode = ""; S.data.mobile = res.data; closeDialog(); draw("acct-mobile-change"); D.toast("Mobile changed", "Your mobile number was changed."); return; }
         if (res.status === 404) { closeDialog(); load("h-account"); return; }
         setErrors(fields, { code: fieldMsg(res, "code") });
       });
@@ -838,5 +893,5 @@
 
   window.addEventListener("popstate", function () { closeDialog(); }); /* leaving the view by history never leaves a dialog open */
   window.NOAccount = { show: function () { S.devices = false; S.ret = takeReturn(); load(); },
-    util: { view: view, nameBody: nameBody, codeComplete: codeComplete, emailConfirmBody: emailConfirmBody, providerUrl: providerUrl, returnLine: returnLine } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
+    util: { view: view, stepChannels: stepChannels, emailShown: emailShown, mobileStartBody: mobileStartBody, nameBody: nameBody, codeComplete: codeComplete, emailConfirmBody: emailConfirmBody, providerUrl: providerUrl, returnLine: returnLine } }; /* every entry starts collapsed; a provider return is read once (spec 5.15) */
 })();

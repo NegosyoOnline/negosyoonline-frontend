@@ -171,6 +171,7 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-registration.css")}">
 <link rel="stylesheet" href="${asset("css/pack-dashboard-shell.css")}">
 <link rel="stylesheet" href="${asset("css/pack-dashboard.css")}">
+<link rel="stylesheet" href="${asset("css/pack-shop-orders.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
 </head>
 <body>

@@ -10,9 +10,9 @@
    hidden fields to the one post that places the order, so nothing a buyer typed is stored anywhere before then. */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
-import type { Quote, ShopAccount } from "../../lib/shop-api.ts";
+import type { Address, Quote, ShopAccount } from "../../lib/shop-api.ts";
 import { MSG_PAYMENT_UNAVAILABLE } from "../../lib/shop-flow-text.ts";
-import { shippingCell } from "./shop-cart.ts";
+import { shippingCell, shippingLabel } from "./shop-cart.ts";
 import { money, php } from "./shop-shell.ts";
 
 export const CHECKOUT_PATH = "/checkout/";
@@ -195,7 +195,7 @@ function summaryTotals(q: Quote): Markup {
   const saving = savingsOf(q);
   return html`
         <div class="sf-totals-row"><span>Subtotal</span><strong>${php(saving > 0 ? q.subtotal_centavos + saving : q.subtotal_centavos)}</strong></div>
-        <div class="sf-totals-row"><span>Shipping</span><strong>${shippingCell(q)}</strong></div>
+        <div class="sf-totals-row"><span>${shippingLabel(q)}</span><strong>${shippingCell(q)}</strong></div>
         ${saving > 0 ? html`<div class="sf-totals-row sf-totals-save"><span>Member savings</span><strong>&minus;${php(saving)}</strong></div>` : ""}
         <div class="sf-totals-row sf-totals-grand"><span>Total</span><strong>${php(q.total_centavos)}</strong></div>
         ${q.shipping.policy === "zero" ? html`<p class="sf-freeship-note">&#128666; ${q.shipping.note || "This store pays your shipping."}</p>` : ""}`;
@@ -221,10 +221,26 @@ function summaryAside(m: CheckoutModel): Markup {
 
 const COIN = html`<svg class="sf-earn-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="#3D2F00"/><circle cx="12" cy="12" r="7.2" fill="none" stroke="#FFD54A" stroke-width="1.6"/><path d="M12 7.5v9M9.6 9.6c0-1 1-1.6 2.4-1.6s2.4.6 2.4 1.6-1 1.5-2.4 1.8-2.4.7-2.4 1.8 1 1.6 2.4 1.6 2.4-.6 2.4-1.6" fill="none" stroke="#FFD54A" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 
+/** The member's saved address from whichever quote carries it (the home quote first), or null from an older backend / none saved. */
+function homeAddressOf(m: CheckoutModel): Address | null {
+  return m.quotes.home?.home_address ?? m.quotes.different?.home_address ?? m.quote?.home_address ?? null;
+}
+
+/** "line, barangay, city, province ZIP" with an empty part left out. */
+export function addressText(a: Address): string {
+  const head = [a.line, a.barangay, a.city, a.province].map((s) => s.trim()).filter(Boolean).join(", ");
+  return a.zip ? `${head} ${a.zip}` : head;
+}
+
+/** Where a signed-in member can change a saved address: the dashboard home, whose registration card takes the delivery address.
+    There is no dashboard address page yet (/dashboard/address/ is not built) and the onboarding address step closes once onboarding is done. */
+export const EDIT_ADDRESS_PATH = "/dashboard/#registration";
+
 function shipModeStep(m: CheckoutModel): Markup {
   const earn = m.quotes.home ? savingsOf(m.quotes.home) : 0;
   const homeOff = m.home_reason !== "";
   const who = m.member ?? { name: "", mobile: "" };
+  const saved = homeAddressOf(m);
   return html`
         <fieldset class="sf-block sf-ship-mode" id="sfShipMode">
           <legend>How should we ship this order?</legend>
@@ -260,9 +276,11 @@ function shipModeStep(m: CheckoutModel): Markup {
                 <div class="sf-own-addr-name">${who.name}</div>
                 <dl class="sf-own-addr-dl">
                   ${who.mobile ? html`<dt>Mobile</dt><dd>${who.mobile}</dd>` : ""}
-                  <dt>Address</dt><dd>The delivery address saved in your member profile.</dd>
+                  ${saved ? html`<dt>Address</dt><dd>${addressText(saved)}</dd>
+                  ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html`<dt>Address</dt><dd>The delivery address saved in your member profile.</dd>`}
                 </dl>
               </div>
+              ${saved ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
           </div>
           <div class="sf-step-actions">
@@ -344,6 +362,7 @@ function paymentStep(m: CheckoutModel): Markup {
   const q = m.quote;
   const accounts = m.accounts ?? [];
   const ready = q !== null && q.ok && accounts.length > 0;
+  const savedHome = m.mode === "home" ? homeAddressOf(m) : null;
   const carried = html`${ADDRESS_FIELDS.map((k) => (p[k] !== undefined && m.mode !== "home" ? KEYS(k, p[k]) : html``))}${KEYS("ship_mode", m.mode)}`;
   const who = m.mode === "home" ? { name: m.member?.name ?? "", mobile: m.member?.mobile ?? "" } : { name: [p.first_name, p.last_name].map((s) => (s ?? "").trim()).filter(Boolean).join(" "), mobile: prettyMobile(p.mobile ?? "") };
   return html`
@@ -370,7 +389,9 @@ function paymentStep(m: CheckoutModel): Markup {
           <div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128100;</span><strong>${who.name}</strong></div>
           ${who.mobile ? html`<div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128241;</span><span>${who.mobile}</span></div>` : ""}
           ${m.mode === "home"
-            ? html`<div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128205;</span><span>The delivery address saved in your member profile</span></div>`
+            ? (savedHome
+              ? html`<div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128205;</span><span>${addressText(savedHome)}${savedHome.landmark ? ` — Landmark: ${savedHome.landmark}` : ""}</span></div>`
+              : html`<div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128205;</span><span>The delivery address saved in your member profile</span></div>`)
             : html`<div class="sf-address-summary-row"><span class="sf-address-summary-icon" aria-hidden="true">&#128205;</span><span>${p.line}, ${p.barangay}, ${p.city}, ${p.province}${p.zip ? ` ${p.zip}` : ""}${p.landmark ? ` — Landmark: ${p.landmark}` : ""}</span></div>`}
         </div>`;
 }

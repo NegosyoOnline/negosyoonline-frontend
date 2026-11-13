@@ -10,6 +10,7 @@ import { addressErrors, cartGet, cartPost, checkoutGet, checkoutPost, doneGet, l
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
+import { shopCard } from "../src/views/sante/pack-orders.ts";
 import { SITE } from "./site.ts";
 
 const secret = randomBytes(24).toString("hex"); // throwaway, made for this run only
@@ -20,7 +21,13 @@ const P1 = { id: "prd_AAAAAAAAAAAA", code: "SPH1", name: "Fusion <Coffee>", cate
 const P2 = { id: "prd_BBBBBBBBBBBB", code: "SPH2", name: "Barley", category: "barley", short_description: "", long_description: "", image_url: "https://abc123.public.blob.vercel-storage.com/p2.jpg", srp_centavos: 74000, unit_members_price_centavos: 44400, revision: 1 };
 const ACCOUNT = { id: "acc_1", kind: "bank", account_type: "savings", provider_name: "BDO", account_name: "Demo Store", account_number: "0012", has_qr: true };
 
-type Opts = { member?: boolean; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[] };
+type Opts = {
+  member?: boolean; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[];
+  /** Extra quote fields (home_address, home_address_source) and a change to the quote's shipping. */
+  quoteExtra?: Record<string, unknown>; estimated?: boolean;
+  /** Extra fields of the buyer's order view (the parity fields), and per-line extras. */
+  viewExtra?: Record<string, unknown>; lineExtra?: Record<string, unknown>;
+};
 
 /** A fake Django: records every call and answers the shop routes. `member` means the token is a member with active benefits. */
 function backend(o: Opts = {}) {
@@ -49,11 +56,11 @@ function backend(o: Opts = {}) {
       });
       const ok = lines.every((l) => l.available);
       const subtotal = lines.reduce((n, l) => n + l.line_total_centavos, 0);
-      return Promise.resolve(Response.json({ ok, member_price: members, ship_mode: mode, lines, subtotal_centavos: subtotal, shipping: { charged_centavos: 0, policy: "zero", estimated: true, available: true, error: "", note: "This store pays your shipping." }, total_centavos: subtotal, fingerprint: ok ? `fp-${mode}-${subtotal}` : "", errors: ok ? [] : ["This product is no longer available. Remove it to continue."], currency: "PHP" }, { status: o.quoteStatus ?? 200 }));
+      return Promise.resolve(Response.json({ ok, member_price: members, ship_mode: mode, lines, subtotal_centavos: subtotal, shipping: { charged_centavos: 0, policy: "zero", estimated: o.estimated ?? true, available: true, error: "", note: "This store pays your shipping." }, total_centavos: subtotal, fingerprint: ok ? `fp-${mode}-${subtotal}` : "", errors: ok ? [] : ["This product is no longer available. Remove it to continue."], currency: "PHP", ...(members ? o.quoteExtra : {}) }, { status: o.quoteStatus ?? 200 }));
     }
     if (path.includes("/shop/orders/") && path.endsWith("/view/")) {
       if (body.view_token !== "T".repeat(43)) return Promise.resolve(Response.json({ error: { code: "not_found", message: "Not found." } }, { status: 404 }));
-      return Promise.resolve(Response.json({ id: "sho_1", order_number: "SO00001", status: "placed", status_label: "Payment under review", tracker: ["Order Placed", "Order Confirmed", "Shipped", "Delivered"], cancelled: false, created_at: "2026-11-13T02:00:00Z", ship_mode: "guest", receiver_name: "Ana Reyes", delivery_address: { line: "1 St", barangay: "B", city: "C", province: "P", zip: "1300", landmark: "Near" }, subtotal_centavos: 45000, shipping_charged_centavos: 0, total_centavos: 45000, currency: "PHP", courier: "", tracking_no: "", shipped_on: null, delivered_on: null, lines: [{ code: "SPH1", name: P1.name, quantity: 1, line_charged_centavos: 45000 }] }));
+      return Promise.resolve(Response.json({ id: "sho_1", order_number: "SO00001", status: "placed", status_label: "Payment under review", tracker: ["Order Placed", "Order Confirmed", "Shipped", "Delivered"], cancelled: false, created_at: "2026-11-13T02:00:00Z", ship_mode: "guest", receiver_name: "Ana Reyes", delivery_address: { line: "1 St", barangay: "B", city: "C", province: "P", zip: "1300", landmark: "Near" }, subtotal_centavos: 45000, shipping_charged_centavos: 0, total_centavos: 45000, currency: "PHP", courier: "", tracking_no: "", shipped_on: null, delivered_on: null, lines: [{ code: "SPH1", name: P1.name, quantity: 1, line_charged_centavos: 45000, ...o.lineExtra }], ...o.viewExtra }));
     }
     return Promise.resolve(Response.json({}, { status: 500 }));
   };
@@ -216,7 +223,7 @@ test("an empty cart says so; a navigation post redirects and sets the cookie; a 
 test("the cart shows Django's figures: subtotal, FREE shipping, total; a gone product blocks checkout", async () => {
   const page = await text(await cartGet(shop(backend(), `no_cart=${P1.id}.2`)));
   assert.match(page, /Subtotal<\/span><strong>&#8369;900\.00/);
-  assert.match(page, /Shipping<\/span><strong>FREE/);
+  assert.match(page, /Estimated shipping \(Metro Manila\)<\/span><strong>FREE/);
   assert.match(page, /Proceed to Checkout/);
   const gone = await text(await cartGet(shop(backend(), "no_cart=prd_GONE.1")));
   assert.match(gone, /No longer available/);
@@ -406,6 +413,124 @@ test("only the placing buyer opens the done page; anyone else goes back to the s
   assert.match(page, /We received your payment proof\. The store will review it\./);
   assert.match(page, /Landmark: Near/);
   assert.match(page, /Track Your Order/);
+});
+
+/* ---- parity with TWCinc (z8uq9mek5v) --------------------------------------------------------------------------------- */
+
+const HOME = { line: "7 Rizal St", barangay: "Poblacion", city: "Makati", province: "Metro Manila", zip: "1210", landmark: "Blue gate" };
+const memberCookie = `no_cart=${P1.id}.2; ${MEMBER}`;
+const readyOrder = (parity: boolean) => backend(parity ? {
+  viewExtra: {
+    receiver_mobile: "+639171234567", receiver_email: "ana@example.test", verified_at: "2026-11-14T03:00:00Z",
+    member_savings_centavos: 36000, srp_subtotal_centavos: 90000, subtotal_centavos: 54000, total_centavos: 54000,
+  },
+  lineExtra: { unit_centavos: 45000, image_url: P2.image_url, quantity: 2, line_charged_centavos: 54000 },
+} : {});
+
+test("'Ship to my address' shows the saved address card with Edit, in the panel and under Payment", async () => {
+  const b = backend({ member: true, quoteExtra: { home_address: HOME, home_address_source: "profile" } });
+  const page = await text(await checkoutGet(shop(b, memberCookie)));
+  assert.match(page, /sf-own-addr-name">Ana Reyes</);
+  assert.match(page, /<dt>Mobile<\/dt><dd>\+639171234567<\/dd>/);
+  assert.match(page, /<dt>Address<\/dt><dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
+  assert.match(page, /<dt>Landmark<\/dt><dd>Blue gate<\/dd>/);
+  assert.match(page, /<a href="\/dashboard\/#registration" class="sf-own-addr-edit"[^>]*>Edit<\/a>/);
+  assert.doesNotMatch(page, /The delivery address saved in your member profile\./);
+  const pay = await text((await checkoutPost(shop(b, memberCookie), { action: "choose", choice: "home" }, null)) as Response);
+  assert.match(pay, /7 Rizal St, Poblacion, Makati, Metro Manila 1210 — Landmark: Blue gate/);
+  assert.doesNotMatch(pay, /The delivery address saved in your member profile/);
+});
+
+test("without home_address (an older backend, or none saved) the sentence stays and there is no Edit link", async () => {
+  for (const quoteExtra of [undefined, { home_address: null, home_address_source: "" }]) {
+    const b = backend({ member: true, quoteExtra });
+    const page = await text(await checkoutGet(shop(b, memberCookie)));
+    assert.match(page, /The delivery address saved in your member profile\./);
+    assert.doesNotMatch(page, /sf-own-addr-edit/);
+    const pay = await text((await checkoutPost(shop(b, memberCookie), { action: "choose", choice: "home" }, null)) as Response);
+    assert.match(pay, /The delivery address saved in your member profile/);
+    assert.doesNotMatch(pay, /undefined|NaN/);
+  }
+});
+
+test("the shipping row says 'Estimated shipping (Metro Manila)' only while the quote's shipping is an estimate", async () => {
+  const cart = `no_cart=${P1.id}.1`;
+  const est = await text(await cartGet(shop(backend(), cart)));
+  assert.match(est, /<span>Estimated shipping \(Metro Manila\)<\/span>/);
+  const exact = await text(await cartGet(shop(backend({ estimated: false }), cart)));
+  assert.match(exact, /<span>Shipping<\/span>/);
+  assert.doesNotMatch(exact, /Estimated shipping/);
+  const checkout = await text(await checkoutGet(shop(backend(), cart)));
+  assert.match(checkout, /<span>Estimated shipping \(Metro Manila\)<\/span>/);
+  const checkoutExact = await text(await checkoutGet(shop(backend({ estimated: false }), cart)));
+  assert.match(checkoutExact, /<span>Shipping<\/span>/);
+});
+
+test("the done page shows the photo, 'xN - unit price', SRP subtotal, Member savings, phone and email", async () => {
+  const page = await text(await doneGet(shop(readyOrder(true), `no_order=sho_1.${"T".repeat(43)}`)));
+  assert.match(page, /<img src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/p2\.jpg" alt="">/);
+  assert.match(page, /&times;2 &middot; &#8369;450\.00/);
+  assert.match(page, /Subtotal<\/span><strong>&#8369;900\.00/);
+  assert.match(page, /Member savings<\/span><strong>&minus;&#8369;360\.00/);
+  assert.match(page, /Total<\/span><strong>&#8369;540\.00/);
+  assert.match(page, /sf-os-total">&#8369;900\.00/);
+  assert.match(page, /\+63 917 123 4567/);
+  assert.match(page, /ana@example\.test/);
+});
+
+test("the done page without the new fields renders as before: no photo, no unit price, no savings, no phone or email", async () => {
+  const page = await text(await doneGet(shop(readyOrder(false), `no_order=sho_1.${"T".repeat(43)}`)));
+  assert.match(page, /<small>&times;1<\/small>/);
+  assert.match(page, /Subtotal<\/span><strong>&#8369;450\.00/);
+  assert.doesNotMatch(page, /Member savings|<img src="https|&#128241;|&#128231;|undefined|NaN/);
+});
+
+test("a member with no savings gets no Member savings row, and an empty email row is left out", async () => {
+  const b = backend({ viewExtra: { receiver_mobile: "09171234567", receiver_email: "", member_savings_centavos: 0, srp_subtotal_centavos: 45000 }, lineExtra: { unit_centavos: 45000, image_url: null } });
+  const page = await text(await doneGet(shop(b, `no_order=sho_1.${"T".repeat(43)}`)));
+  assert.doesNotMatch(page, /Member savings|&#128231;|<img src="https/);
+  assert.match(page, /&#128241;/);
+  assert.match(page, /&times;1 &middot; &#8369;450\.00/);
+});
+
+test("My Orders shop card: verified date on step 2, Waybill, photo and unit price, totals, phone and email", async () => {
+  const view = parseBuyerOrder({
+    id: "sho_1", order_number: "SO00001", status: "confirmed", status_label: "Order confirmed", tracker: ["Order Placed", "Order Confirmed", "Shipped", "Delivered"],
+    created_at: "2026-11-13T02:00:00Z", verified_at: "2026-11-14T03:00:00Z", courier: "J&T", tracking_no: "JT123", shipped_on: null, delivered_on: null,
+    receiver_name: "Ana Reyes", receiver_mobile: "+639171234567", receiver_email: "ana@example.test",
+    delivery_address: HOME, subtotal_centavos: 54000, shipping_charged_centavos: 15000, total_centavos: 69000,
+    member_savings_centavos: 36000, srp_subtotal_centavos: 90000,
+    lines: [{ code: "SPH2", name: "Barley", quantity: 2, line_charged_centavos: 54000, unit_centavos: 45000, image_url: P2.image_url }],
+  });
+  assert.ok(view);
+  const card = shopCard(view).toString();
+  assert.match(card, /Order Confirmed<\/div>\s*<div class="oc-track-date">Nov 14<\/div>/);
+  assert.match(card, /Waybill/);
+  assert.match(card, /<span>Courier<\/span><b>J&amp;T<\/b>/);
+  assert.match(card, /<span>Tracking #<\/span><b>JT123<\/b>/);
+  assert.match(card, /Shipping fee<\/span><b>&#8369;150\.00/);
+  assert.match(card, /<img class="oc-dimg" src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/p2\.jpg"/);
+  assert.match(card, /oc-dunit">&#8369;450\.00/);
+  assert.match(card, /Subtotal<\/span><b>&#8369;900\.00/);
+  assert.match(card, /Member savings<\/span><b>&minus;&#8369;360\.00/);
+  assert.match(card, /Total<\/span><b>&#8369;690\.00/);
+  assert.match(card, /oc-dphone">\+639171234567/);
+  assert.match(card, /ana@example\.test/);
+});
+
+test("My Orders shop card from an older backend: no step-2 date, no photo, no totals block, Waybill still shows", () => {
+  const view = parseBuyerOrder({
+    id: "sho_1", order_number: "SO00001", status: "confirmed", status_label: "Order confirmed", tracker: [], created_at: "2026-11-13T02:00:00Z",
+    receiver_name: "Ana Reyes", delivery_address: HOME, subtotal_centavos: 45000, shipping_charged_centavos: 0, total_centavos: 45000,
+    lines: [{ code: "SPH1", name: "Fusion", quantity: 1, line_charged_centavos: 45000 }],
+  });
+  assert.ok(view);
+  const card = shopCard(view).toString();
+  assert.doesNotMatch(card, /oc-track-date">Nov 14|oc-dimg|oc-dunit|Member savings|oc-dphone|undefined|NaN/);
+  assert.match(card, /Waybill/);
+  assert.match(card, /To be assigned/);
+  assert.match(card, /Not yet assigned/);
+  assert.match(card, /<span>Shipping<\/span><b>FREE<\/b>/);
 });
 
 /* ---- files --------------------------------------------------------------------------------------------------------- */

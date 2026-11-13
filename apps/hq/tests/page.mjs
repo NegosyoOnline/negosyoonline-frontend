@@ -28,8 +28,10 @@ export function open(files, { ids = [], pathname = "/sign-in/", answers, globals
   const history = { pushState(s, t, u) { location.pathname = u; }, replaceState(s, t, u) { location.pathname = u; } };
   const window = { NO_HQ_CONFIG: { staffApi: BASE }, innerHeight: 800, addEventListener(type, fn) { heard[type] = fn; }, removeEventListener(type) { delete heard[type]; } };
   const fetch = (url, opts) => {
+    /* A multipart form (the scan upload) is passed through as the FormData the page built. */
+    const form = typeof FormData !== "undefined" && opts.body instanceof FormData;
     const call = { url, method: opts.method, credentials: opts.credentials, headers: opts.headers,
-      body: opts.body ? JSON.parse(opts.body) : undefined };
+      body: form ? opts.body : opts.body ? JSON.parse(opts.body) : undefined };
     calls.push(call);
     const reply = answers(call);
     if (reply === "offline") return Promise.reject(new Error("offline"));
@@ -38,7 +40,7 @@ export function open(files, { ids = [], pathname = "/sign-in/", answers, globals
       json: () => (body === undefined ? Promise.reject(new Error("no body")) : Promise.resolve(body)),
       blob: () => Promise.resolve(body) });
   };
-  const context = vm.createContext({ window, document: doc, location, history, fetch, Intl, console, setTimeout, clearTimeout, ...globals });
+  const context = vm.createContext({ window, document: doc, location, history, fetch, Intl, console, setTimeout, clearTimeout, FormData, ...globals });
   for (const f of files) vm.runInContext(fs.readFileSync(path.join(JS, f), "utf8"), context, { filename: f });
   return { doc, node, calls, location, heard, window };
 }

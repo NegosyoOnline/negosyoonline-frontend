@@ -48,6 +48,20 @@ test("the Finance usage and issuer pages follow the focus rule: no heading is fo
   assert.match(fs.readFileSync(PUB + "assets/js/finance-issuer.js", "utf8"), /dlg\.open\("m-verify", \$\("open-verify"\), \$\("verify-f"\)\)/);
 });
 
+test("the invoice register and reconciliation pages follow the focus rule: no heading is focusable or given focus", () => {
+  for (const f of ["finance-invoices.html", "finance-reconcile.html"]) assert.ok(pages.includes(f), f);
+  for (const f of ["finance-invoices.js", "finance-reconcile.js"]) {
+    assert.ok(scripts.includes(f), f);
+    const js = fs.readFileSync(PUB + "assets/js/" + f, "utf8");
+    assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|s-site|w-h|rf-h|sc-h)"\)\.focus/, f);
+  }
+  /* The only controls that take focus when a dialog opens are a field, the reason list, or Cancel. */
+  const js = fs.readFileSync(PUB + "assets/js/finance-invoices.js", "utf8");
+  assert.match(js, /dlg\.open\("m-void", \$\("s-void"\), \$\("void-f"\)\)/);
+  assert.match(js, /dlg\.open\("m-reject", \$\("sc-reject"\), rejectBox\.input\)/);
+  assert.match(js, /dlg\.open\("m-verify", \$\("sc-verify"\), \$\("verify-cancel"\)\)/);
+});
+
 test("the Finance sub-navigation, switch and form styles use the HQ colours and no gold", () => {
   const block = css.slice(css.indexOf("Finance, usage review and issuer pages"));
   assert.ok(block.length > 200, "the HQ-F1 block is at the end of hq.css");

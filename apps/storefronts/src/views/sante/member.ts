@@ -281,8 +281,8 @@ ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>
 ${nextField(m.next)}
 <div class="fld">
 <label for="contact">Email or mobile number</label>
-<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><input id="contact" class="sc-phone-input" type="text" name="contact" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required${m.field_errors.contact ? safe(' aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
-${m.field_errors.contact ? html`<p class="err" id="contact-msg">${m.field_errors.contact}</p>` : ""}
+<div class="sc-phone${m.field_errors.contact ? " bad" : ""}"><input id="contact" class="sc-phone-input" type="text" name="contact" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com" required${m.field_errors.contact ? safe(' autofocus aria-invalid="true" aria-describedby="contact-msg"') : ""}></div>
+${m.field_errors.contact ? html`<p class="err" id="contact-msg" role="alert">${m.field_errors.contact}</p>` : ""}
 </div>
 <button class="btn" type="submit" data-pp-busy-label="Sending OTP&hellip;">Send Verification Code</button>
 </form>

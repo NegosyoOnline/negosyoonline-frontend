@@ -67,6 +67,29 @@ test("a verified order shows the shipment line and no dialog", async () => {
   assert.doesNotMatch(body, /Ships after the store verifies/);
 });
 
+const VERIFIED = () => pack({ payment_status: "verified", payment_label: "Verified", tone: "ok", benefits_off: false });
+const STEPS = (done: number, dates: string[] = []) => ["Order Placed", "Payment Verified", "Shipped", "Delivered"].map((label, i) => ({ state: i < done ? "done" : i === done ? "current" : "pending", num: i + 1, label, date: dates[i] ?? "" }));
+const shipped = (over: Record<string, unknown>) => ok({ cards: [{ ...CARD, ...over }] });
+
+test("the Shipment line follows the same member/orders card My Orders shows: not shipped, shipped, delivered", async () => {
+  const cases: [Record<string, unknown>, RegExp, RegExp?][] = [
+    [{ steps: STEPS(2) }, /The store will let you know when it ships/],
+    [{ steps: STEPS(3, ["2026-11-12T02:00:00Z", "", "2026-11-13T02:00:00Z"]), courier: "J&T", tracking: "JT-TEST-0002B" }, /Shipped via <b>J&amp;T<\/b> &middot; Tracking# JT-TEST-0002B/, /will let you know/],
+    [{ steps: STEPS(4, ["", "", "", "2026-11-14T02:00:00Z"]), courier: "J&T", tracking: "JT-TEST-0002B" }, /<div>Shipment<\/div><span>Delivered on Nov 14, 2026<\/span>/, /will let you know|Shipped via/],
+  ];
+  for (const [over, want, not] of cases) {
+    const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: VERIFIED(), registration: null })], "member/orders": [shipped(over)] });
+    const body = await (await homePage(dashOf(f))).text();
+    assert.match(body, want);
+    if (not) assert.doesNotMatch(body, not);
+  }
+});
+
+test("the Shipment line keeps its text when the orders read fails or has no card for the order", async () => {
+  const f = fake({ "member/me": [ME, ME], "member/pack": [ok({ pack: VERIFIED(), registration: null }), ok({ pack: VERIFIED(), registration: null })], "member/orders": [err(500, "x", "x"), ok({ cards: [] })] });
+  for (let i = 0; i < 2; i++) assert.match(await (await homePage(dashOf(f))).text(), /The store will let you know when it ships/);
+});
+
 test("the registration card lists the details form, with the mobile check when it is pending", async () => {
   const f = fake({
     "member/me": [ME, ME],
@@ -255,6 +278,19 @@ test("My Orders lists the cards; with none it says so; a rejected order sends it
   assert.match((await (await ordersPage(dashOf(f))).text()), /No orders on your dashboard yet\./);
   const locked = await ordersPage(dashOf(f));
   assert.equal(locked.headers.get("location"), "/dashboard/");
+});
+
+test("each order's View Details toggle points at its own panel with aria-controls", async () => {
+  const { ordersPage } = await import("../src/lib/dashboard-flow.ts");
+  const f = fake({
+    "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: null })],
+    "member/orders": [ok({ cards: [CARD, { ...CARD, order_number: "SP-1002" }] })],
+  });
+  const body = await (await ordersPage(dashOf(f))).text();
+  for (const id of ["oc-detail-p0", "oc-detail-p1"]) {
+    assert.match(body, new RegExp(`aria-expanded="false" aria-controls="${id}"`));
+    assert.match(body, new RegExp(`<div class="oc-detail" id="${id}" hidden>`));
+  }
 });
 
 test("money falls back to the centavos when the backend sends no text", async () => {

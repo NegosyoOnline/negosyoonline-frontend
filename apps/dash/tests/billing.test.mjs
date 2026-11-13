@@ -16,7 +16,6 @@ const A = "site_aaaaaaaaaaaaaaaaaaaa";
 const B = `/sites/${A}/billing/`;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
-const FUTURE = "2099-01-01T00:00:00+08:00";
 
 const OFFER = {
   promo: { plan: "launch_promo", name: "NegosyoOnline Launch Promo (6 Months)", amount_centavos: 499900, usage_centavos: 0, currency: "PHP", months: 6, version: 1, term_months: 6,

@@ -7,6 +7,8 @@ import { CART, ORDER, cookieName } from "../src/lib/cookies.ts";
 import { applyChange, countOf, parseCart, readCart, serializeCart, MAX_LINES } from "../src/lib/shop-cart.ts";
 import { fetchCatalog, shopQuote, parseBuyerOrder } from "../src/lib/shop-api.ts";
 import { addressErrors, cartGet, cartPost, checkoutGet, checkoutPost, doneGet, localDigits, productGet, productsGet, readOrder, shopOf, splitName } from "../src/lib/shop-flow.ts";
+import { homeDocument } from "../src/views/sante/home.ts";
+import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
 import { SITE } from "./site.ts";
 
@@ -164,6 +166,20 @@ test("one product by code; an unknown code is the neutral 404; related products 
   assert.doesNotMatch(page, /Cash on Delivery|credit or debit card/i);
   assert.match(page, /You Might Also Like/);
   assert.equal((await productGet(shop(backend()), "NOPE")).status, 404);
+});
+
+const BADGES = ["Trusted Since 2007", "BioGro NZ Certified", "Global Standard", "Halal Certified", "FDA Registered"];
+const badgeLabels = (page: string) => [...page.matchAll(/class="trust-item-label">([^<]+)</g)].map((m) => m[1]);
+
+test("the product page and the home page show the same five certification badges, in TWCinc's order, no Superbrands", async () => {
+  const product = await text(await productGet(shop(backend()), "SPH1"));
+  const home = homeDocument(homeModel(SITE, undefined, new Date("2026-11-11T10:00:00+08:00"))).value;
+  for (const page of [product, home]) {
+    assert.deepEqual(badgeLabels(page), BADGES);
+    assert.match(page, /Certified, Tested &amp; Recognized Worldwide/);
+    assert.doesNotMatch(page, /superbrands/i);
+  }
+  assert.equal(product.match(/<div class="trust-item[ "]/g)?.length, 5);
 });
 
 test("pages carry no inline script and load nothing from another origin but the font and the media store", async () => {

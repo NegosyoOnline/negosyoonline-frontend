@@ -3,9 +3,9 @@
    has one photo and one description pair, so the gallery thumbnails and feature sections are not shown (as TWCinc's).
    TWCinc's two support lines named Cash on Delivery and card payment; bank or e-wallet transfer is the only payment here,
    so the one line says so (plan z8uq9mek5v R6). */
-import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
+import { trustBadges } from "./home.ts";
 import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 
 export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean };
@@ -19,13 +19,7 @@ function paragraphs(text: string): Markup {
 function trust(): Markup {
   return html`
 <div class="trust-bar">
-  <div class="trust-bar-label">Certified, Tested &amp; Recognized Worldwide</div>
-  <div class="trust-bar-inner">
-    <div class="trust-item biogro"><img src="${asset("img/certifications/biogro-certified-organic.png")}" alt="BioGro NZ Certified Organic" loading="lazy"><span class="trust-item-label">BioGro NZ Certified</span></div>
-    <div class="trust-item trust-item-halal"><img src="${asset("img/certifications/halal-idcp.png")}" alt="Halal Certified" loading="lazy"><span class="trust-item-label">Halal Certified</span></div>
-    <div class="trust-item"><img src="${asset("img/certifications/superbrands-philippines-choice.png")}" alt="Superbrands Philippines Choice" loading="lazy"><span class="trust-item-label">Superbrands Choice</span></div>
-    <div class="trust-item trust-item-fda"><img src="${asset("img/fda-philippines.png")}" alt="Philippine FDA Registered" loading="lazy"><span class="trust-item-label">FDA Registered</span></div>
-  </div>
+  ${trustBadges()}
 </div>`;
 }
 

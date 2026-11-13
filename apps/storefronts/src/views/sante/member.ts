@@ -128,7 +128,7 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     </ul>
     <div class="pdn-actions">
       <a href="/dashboard/sign-in/?next=orders" class="pdn-track">Track Order</a>
-      <a href="/products/" class="pdn-cart" aria-label="Basket">
+      <a href="/cart/" class="pdn-cart" aria-label="Basket">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="22" height="22" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
       </a>
       <a href="/dashboard/sign-in/" class="pdn-login">Login</a>

@@ -9,7 +9,7 @@ const policy = (frameSrc: string[] = []) => [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
-  "img-src 'self' data:",
+  "img-src 'self' data: https://*.public.blob.vercel-storage.com", // product photos: the public media store (backend PUBLIC_MEDIA_BASE_URL)
   "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",

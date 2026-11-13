@@ -42,7 +42,6 @@ ${v.business.registration_details ? html`<p>Registration Details: ${v.business.r
 <p>We will issue the required sales invoice or other legally appropriate transaction document.</p>
 <h2>6. Payment</h2>
 <p>We accept the payment methods displayed at checkout.</p>
-<p>Online payments may be processed through third-party payment service providers. Manual bank transfers and Cash on Delivery may also be available when enabled.</p>
 <p>All payment transactions are governed by our Payment Policy.</p>
 <p>We will not require customers to disclose online banking passwords, payment PINs, or one-time passwords to our customer support representatives.</p>
 <h2>7. Shipping and Delivery</h2>
@@ -229,7 +228,7 @@ const shipping = (v: V): Markup => html`
 <p>Available delivery options will be displayed during checkout.</p>
 <p>Certain areas may not be serviceable by our available courier partners. Customers will be informed if delivery cannot be arranged.</p>
 <h2>3. Order Processing</h2>
-<p>Orders are processed after successful payment verification or confirmation of an eligible Cash on Delivery transaction.</p>
+<p>Orders are processed after successful payment verification.</p>
 <p><b>Normal Order Processing Time:</b> ${v.shipping.processing_time}</p>
 <p>Orders placed during weekends, holidays, or outside regular processing hours may be processed on the next available business day.</p>
 <p>Processing time refers to the preparation and dispatch of an order and does not include courier delivery time.</p>
@@ -374,7 +373,6 @@ const payment = (v: V): Markup => html`
 <li>Debit or credit card payments, where enabled.</li>
 <li>Electronic wallet and bank-based payments, where enabled.</li>
 <li>Manual bank transfers, where offered.</li>
-<li>Cash on Delivery, for eligible orders and locations.</li>
 </ul>
 <p>The availability of a payment method may vary based on order type, transaction amount, location, and payment provider.</p>
 <p>Only methods enabled and displayed during checkout are available for the relevant transaction.</p>
@@ -383,56 +381,46 @@ const payment = (v: V): Markup => html`
 <p>The customer will be shown the order total, applicable delivery charges, and any additional fees before final confirmation.</p>
 <p>We will not impose undisclosed payment charges.</p>
 <p>Any payment-channel charges lawfully payable by the customer will be disclosed before the transaction is finalized.</p>
-<h2>4. Online Payment Processing</h2>
-<p>Online payments may be facilitated by independent payment service providers, including Xendit when enabled.</p>
-<p>Payment providers may apply their own authentication, anti-fraud, security, and verification procedures.</p>
-<p>A payment attempt is not automatically considered successful merely because a customer has initiated the transaction.</p>
-<p>We will confirm payment status through the relevant authorized payment channel before treating a prepaid order as paid.</p>
-<h2>5. Manual Bank Transfers</h2>
+<h2>4. Manual Bank Transfers</h2>
 <p>When manual bank transfer is available, customers must use only the verified account information displayed in the official checkout process or provided through an authenticated Store communication.</p>
 <p>Customers may be requested to upload proof of payment or provide a transaction reference.</p>
 <p>Submitting a screenshot or proof of payment does not automatically establish successful payment.</p>
 <p>We may independently verify receipt of funds before releasing an order for fulfillment.</p>
 <p>If the submitted payment cannot be verified, we will contact the customer to clarify the transaction.</p>
 <p>Customers should not transfer funds to unverified accounts or account details received from unauthorized third parties.</p>
-<h2>6. Cash on Delivery</h2>
-<p>Cash on Delivery may be offered for eligible transactions, products, and locations.</p>
-<p>Customers must provide accurate delivery information and pay the confirmed amount through the authorized delivery process.</p>
-<p>Reasonable delivery verification measures may be used where permitted by law.</p>
-<p>If Cash on Delivery is unavailable for an order, the customer will be informed before checkout completion.</p>
-<h2>7. Order and Payment Confirmation</h2>
+<h2>5. Order and Payment Confirmation</h2>
 <p>After order submission, customers will receive an order acknowledgment through an available communication channel.</p>
 <p>For prepaid transactions, order fulfillment normally begins after successful payment verification and applicable stock or fraud checks.</p>
 <p>Customers will receive confirmation of payment when verification has been completed.</p>
 <p>Pending, failed, canceled, or unsuccessful payment attempts will not be treated as completed payments.</p>
-<h2>8. Failed Payments</h2>
+<h2>6. Failed Payments</h2>
 <p>If a payment fails, customers may use an available alternative payment method or retry the payment according to the applicable checkout instructions.</p>
 <p>Customers should verify the transaction status before attempting another payment to avoid accidental duplicate charges.</p>
 <p>If money appears to have been debited despite a failed checkout, customers should contact us with the relevant transaction details.</p>
-<h2>9. Duplicate or Incorrect Charges</h2>
+<h2>7. Duplicate or Incorrect Charges</h2>
 <p>Customers who believe they were charged more than once or charged an incorrect amount may contact:</p>
 <p>Email: ${v.business.email}</p>
 <p>Phone: ${v.business.phone}</p>
 <p>We will review transaction records, coordinate with the relevant payment provider, and arrange an appropriate correction or refund where warranted.</p>
-<h2>10. Refunds and Reversals</h2>
+<h2>8. Refunds and Reversals</h2>
 <p>Refund eligibility is governed by applicable Philippine law and our Return &amp; Refund Policy.</p>
 <p>Where a refund is approved or required, we will initiate it through an appropriate available channel without unreasonable delay.</p>
 <p>The time required for funds to become available may depend on the relevant payment provider, bank, card issuer, or payment method.</p>
 <p>We will assist customers with legitimate refund and reversal inquiries and will not deny statutory remedies solely because a third-party payment provider is involved.</p>
-<h2>11. Payment Security</h2>
+<h2>9. Payment Security</h2>
 <p>We use reasonable security controls designed to protect customer transactions and payment information.</p>
 <p>Customers should use only our official website and authorized payment instructions.</p>
 <p>Our support representatives will never ask customers to disclose their bank passwords, payment PINs, or one-time passwords.</p>
 <p>Where payment credentials are entered directly into a third-party payment interface, those credentials are processed under the applicable provider's security and privacy controls.</p>
-<h2>12. Fraud Prevention</h2>
+<h2>10. Fraud Prevention</h2>
 <p>We may review suspicious transactions, request reasonable verification, or temporarily suspend fulfillment where necessary to investigate potential fraud.</p>
 <p>Where an order cannot be lawfully fulfilled, we will communicate the relevant outcome and arrange any refund to which the customer is entitled.</p>
 <p>Fraud-prevention procedures will be implemented consistently with consumer protection and data privacy requirements.</p>
-<h2>13. Payment Disputes</h2>
+<h2>11. Payment Disputes</h2>
 <p>Customers should contact us first regarding payment discrepancies, unrecognized transactions, or payment confirmations that do not match their orders.</p>
 <p>We will review available records and coordinate with the relevant payment provider.</p>
 <p>Customers also retain the right to pursue appropriate remedies through their financial institution, payment provider, or competent regulatory authority.</p>
-<h2>14. Contact Information</h2>
+<h2>12. Contact Information</h2>
 <p>${v.business.name}</p>
 <p>${v.business.address}</p>
 <p>${v.business.email}</p>

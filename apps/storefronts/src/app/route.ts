@@ -3,6 +3,7 @@
    shows the form's thank-you line, as the approved site does. */
 import { htmlResponse } from "../lib/html.ts";
 import { isSignedIn } from "../lib/member.ts";
+import { homeDrawer } from "../lib/shop-flow.ts";
 import { siteFor } from "../lib/site.ts";
 import { neutralNotFound } from "../views/neutral.ts";
 import { homeDocument } from "../views/sante/home.ts";
@@ -14,7 +15,8 @@ export async function GET(request: Request): Promise<Response> {
   const site = await siteFor(request);
   if (!site) return neutralNotFound();
   const sent = new URL(request.url).searchParams.get("contact") === "sent";
-  return htmlResponse(homeDocument(homeModel(site, sent ? sentContactForm() : emptyContactForm(), undefined, await isSignedIn(request))));
+  const model = homeModel(site, sent ? sentContactForm() : emptyContactForm(), undefined, await isSignedIn(request));
+  return htmlResponse(homeDocument({ ...model, drawer: await homeDrawer(request, site) })); // the basket's badge and rows are the visitor's own
 }
 
 export {

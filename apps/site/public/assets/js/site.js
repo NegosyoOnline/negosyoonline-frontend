@@ -74,7 +74,7 @@
     ["What is NegosyoOnline?", "NegosyoOnline is the all-in-one system for selling online. It puts your storefront, orders, bank and e-wallet payments, hosting, and security into one clear subscription.", 0],
     ["What is currently available?", "NegosyoOnline for Santé distributors: your own Santé website with the Membership Package, ready to sell.", 0],
     ["How do I start, and how does the 14-day free trial work?", "Review the subscription details and create your NegosyoOnline account to begin your 14-day free trial. Each website you add later gets its own 14-day trial. No credit card is needed to sign up, so you can try the service first. You will add your payment method later from inside your account, and you will not be charged during the trial.", 0],
-    ["Do I need to be technical to set up my shop?", "No. NegosyoOnline provides guided setup videos and a setup checklist to help you complete your store step by step, from your store profile and products to payment methods and your first test order.", 0],
+    ["Do I need to be technical to set up my shop?", "No. The dashboard's Help Center guides you through each setup screen step by step, and you can reach us at support@negosyoonline.com or +63 917 309 8619.", 0],
     ["Where can I get help after I register?", "After you register, contact us at support@negosyoonline.com or +63 917 309 8619 for setup guidance, account questions, and billing concerns.", 0],
     ["Will NegosyoOnline Bookings and University be available?", "These are planned future solutions. We will announce them only when they are ready to launch.", 0],
 

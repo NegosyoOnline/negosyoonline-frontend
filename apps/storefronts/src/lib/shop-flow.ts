@@ -14,7 +14,7 @@ import { htmlResponse } from "./html.ts";
 import { callFor, redirect, type Call } from "./member.ts";
 import { PROOF_MAX_BYTES, type Calls } from "./pack-api.ts";
 import {
-  fetchCatalog, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote,
+  fetchCatalog, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
   type Address, type CatalogProduct, type Quote,
 } from "./shop-api.ts";
 import { applyChange, readCart, writeCart, type CartChange, type CartLine } from "./shop-cart.ts";
@@ -301,8 +301,11 @@ async function saveHomePost(s: Shop, text: Record<string, string>): Promise<Resp
   const p = await prepared(s);
   if ("response" in p) return p.response;
   if (!p.quote.member_price) return redirect(CHECKOUT_PATH);
-  const posted = postedOf(addressOf(text));
-  const r = await saveHomeAddress({ host: s.host, visitor_ip: s.visitor_ip, member_token: s.member_token, address: addressOf(text) }, s.calls);
+  const typed = addressOf(text);
+  const saved = typed.zip ? null : (await price(s, p.lines, { ship_mode: "home" })).quote?.home_address ?? null;
+  const address = await withZip(typed, saved, s, s.calls);
+  const posted = postedOf(address);
+  const r = await saveHomeAddress({ host: s.host, visitor_ip: s.visitor_ip, member_token: s.member_token, address }, s.calls);
   if (r.state === "ok") return redirect(CHECKOUT_PATH);
   // an older backend has no such route (404), and a failed call may be a passing fault: the form stays, with what was typed
   if (r.state === "unavailable" || r.state === "failed") return editStep(s, p, { error_message: MSG_ADDRESS_NOT_SAVED, posted }, 503);

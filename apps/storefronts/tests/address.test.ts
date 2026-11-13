@@ -26,6 +26,7 @@ function fake(o: Opts = {}) {
     if (route === "member/pack") return json({ pack: o.packLock ? { order_number: "SP-1", payment_status: "rejected", payment_label: "Rejected", method_label: "Bank transfer", price_centavos: 100, tone: "bad", benefits_off: true, lock: { reason_label: "x", other_text: "", resubmitted: false, accounts: [] }, proofs: [] } : null, registration: null });
     if (route === "catalog/products") return json({ products: o.catalog ?? [PRODUCT] });
     if (route === "shop/quote") return json({ ...QUOTE, ...o.quote }, o.quoteStatus ?? 200);
+    if (route === "address/zip") return json({ ok: false, zip_code: "", zip_precision: "" });
     if (route === "member/address") return json(o.save?.body ?? { home_address: NEW, home_address_source: "profile" }, o.save?.status ?? 200);
     throw new Error(`unexpected call: ${route}`);
   };
@@ -103,6 +104,15 @@ test("saving posts the six trimmed keys with the session and no ids, then goes b
   assert.equal(r.headers.get("location"), "/dashboard/address/?saved=1");
   const call = f.calls.find((c) => c.path === "member/address");
   assert.deepEqual(call?.body, { host: "demo.negosyotest.com", visitor_ip: "", member_token: "M".repeat(43), ...NEW });
+});
+
+test("a save with no ZIP keeps the saved ZIP when the area is unchanged; a typed ZIP is posted as typed", async () => {
+  const f = fake({ quote: { home_address: HOME } });
+  await addressPost(dashOf(f), { ...HOME, zip: "" });
+  assert.equal(f.calls.find((c) => c.path === "member/address")?.body?.zip, "1210");
+  const g = fake({ quote: { home_address: HOME } });
+  await addressPost(dashOf(g), { ...HOME, zip: "1299" });
+  assert.equal(g.calls.find((c) => c.path === "member/address")?.body?.zip, "1299");
 });
 
 test("a refusal shows each message under its field with what was typed, escaped", async () => {

@@ -29,6 +29,8 @@ type Opts = {
   viewExtra?: Record<string, unknown>; lineExtra?: Record<string, unknown>;
   /** A fixed answer of the member address save (the fake saves and answers 200 without it). */
   addressReply?: { status: number; body: unknown };
+  /** Django's ZIP lookup answer for the address form (none: the lookup finds nothing). */
+  zip?: { zip_code: string; zip_precision: string };
 };
 
 /** A fake Django: records every call and answers the shop routes. `member` means the token is a member with active benefits. */
@@ -47,6 +49,7 @@ function backend(o: Opts = {}) {
     }
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
     calls.push({ url, body });
+    if (path.endsWith("/address/zip/")) return Promise.resolve(Response.json(o.zip ? { ok: true, ...o.zip } : { ok: false, zip_code: "", zip_precision: "" }));
     if (path.endsWith("/member/address/")) {
       if (o.addressReply) return Promise.resolve(Response.json(o.addressReply.body, { status: o.addressReply.status }));
       const saved = Object.fromEntries(Object.entries(body).filter(([k]) => !["host", "visitor_ip", "member_token"].includes(k)));
@@ -523,6 +526,24 @@ test("saving round-trips: the six keys go to Django with the session and no ids,
   assert.match(page, /sf-own-addr-edit/);
   assert.match(page, /name="action" value="choose"/); // Confirm Address is still the next step
   assert.match(page, />Confirm Address</);
+});
+
+test("the edit form posts the barangay with no ZIP (the row is hidden): the saved ZIP is kept, or the lookup's, never lost", async () => {
+  const noZip = { ...HOME, zip: "", line: "99 Checkout Edit Rd" };
+  const saved = async (b: ReturnType<typeof backend>, fields: Record<string, string>) => {
+    await checkoutPost(shop(b, memberCookie), { action: "save_home", ...fields }, null);
+    return (b.calls.find((c) => c.url.endsWith("/storefront/v1/member/address/"))?.body as Record<string, string>).zip;
+  };
+  // the lookup is exact for the barangay: its ZIP
+  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), noZip), "1210");
+  // no lookup answer, same province, city and barangay: the saved ZIP stays (names compared without case)
+  assert.equal(await saved(backend(own), { ...noZip, city: "MAKATI", barangay: "POBLACION" }), "1210");
+  // another barangay and no lookup answer: no ZIP is invented
+  assert.equal(await saved(backend(own), { ...noZip, barangay: "Bel-Air" }), "");
+  // a typed ZIP is never replaced
+  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), { ...noZip, zip: "1234" }), "1234");
+  // an approximate (city) ZIP is not taken as the barangay's
+  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1200", zip_precision: "city_approx" } }), { ...noZip, barangay: "Bel-Air" }), "");
 });
 
 test("a refusal with field errors shows each beside its field, with what was typed", async () => {

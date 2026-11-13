@@ -5,7 +5,7 @@
    a quote or an order carries product ids, quantities, the ship mode and an address, and Django prices them.
    Nothing a visitor typed, no token and no file is ever logged. */
 import { SECRET_MIN_LENGTH } from "./django.ts";
-import { packPost, type Calls, type PackResult } from "./pack-api.ts";
+import { addressZip, packPost, type Calls, type PackResult } from "./pack-api.ts";
 
 const TIMEOUT_MS = 10000;
 const PLACE_TIMEOUT_MS = 30000;
@@ -137,6 +137,21 @@ export function saveHomeAddress(args: { host: string; visitor_ip: string; member
     },
     c,
   );
+}
+
+/** The ZIP of an address posted without one. The checkout's address form hides the ZIP row while the barangay lookup is the authority
+    (pack-address.js clears it), and orders get the ZIP from Django's lookup; the saved address is stored as posted, so the ZIP is filled
+    here: the lookup's ZIP when it is exact for the barangay or the city, else the saved ZIP when province, city and barangay are
+    unchanged, else left empty. A typed ZIP is never replaced. */
+export async function withZip(
+  a: Address, saved: Address | null, who: { host: string; visitor_ip: string }, c: Calls,
+): Promise<Address> {
+  if (a.zip || !a.province || !a.city || !a.barangay) return a;
+  const r = await addressZip({ host: who.host, visitor_ip: who.visitor_ip, province: a.province, city: a.city, barangay: a.barangay }, c);
+  if (r.state === "ok" && r.ok && /^\d{4}$/.test(r.zip_code) && (r.zip_precision === "barangay" || r.zip_precision === "city_unique")) return { ...a, zip: r.zip_code };
+  const same = (x: string, y: string) => x.trim().toLowerCase() === y.trim().toLowerCase();
+  if (saved && saved.zip && same(saved.province, a.province) && same(saved.city, a.city) && same(saved.barangay, a.barangay)) return { ...a, zip: saved.zip };
+  return a;
 }
 
 /* ---- the store's payment accounts ----------------------------------------------------------------------------- */

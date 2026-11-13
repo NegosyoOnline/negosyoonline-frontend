@@ -8,7 +8,7 @@ import { MEMBER, clearCookie } from "./cookies.ts";
 import { lockedHome, session, type Dash } from "./dashboard-flow.ts";
 import { htmlResponse } from "./html.ts";
 import { redirect } from "./member.ts";
-import { fetchCatalog, saveHomeAddress, shopQuote, type Address } from "./shop-api.ts";
+import { fetchCatalog, saveHomeAddress, shopQuote, withZip, type Address } from "./shop-api.ts";
 import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS } from "./shop-flow-text.ts";
 import { chrome, memberDocument } from "../views/sante/member.ts";
 import { ADDRESS_PAGE_PATH, EMPTY_ADDRESS, addressContent, type AddressPage } from "../views/sante/member-address.ts";
@@ -63,14 +63,16 @@ export async function addressPost(d: Dash, text: Record<string, string>): Promis
   const g = await gate(d);
   if ("response" in g) return g.response;
   const t = (k: string) => (text[k] ?? "").trim();
-  const address: Address = { line: t("line"), barangay: t("barangay"), city: t("city"), province: t("province"), zip: t("zip"), landmark: t("landmark") };
+  const typed: Address = { line: t("line"), barangay: t("barangay"), city: t("city"), province: t("province"), zip: t("zip"), landmark: t("landmark") };
+  const was = typed.zip ? null : await savedAddress(d);
+  const address = await withZip(typed, was === null || was === "unreadable" ? null : was.address, d.call, d.calls);
   const r = await saveHomeAddress({ host: d.call.host, visitor_ip: d.call.visitor_ip, member_token: d.call.member_token, address }, d.calls);
   if (r.state === "ok") return redirect(`${ADDRESS_PAGE_PATH}?saved=1`);
-  const typed = { ...NONE, address: { ...address } };
+  const again = { ...NONE, address: { ...address } };
   // An older backend has no such route (404) and a failed call may be a passing fault: the form stays with what was typed.
-  if (r.state === "unavailable" || r.state === "failed") return page(d, g.name, { ...typed, error_message: MSG_ADDRESS_NOT_SAVED }, 503);
+  if (r.state === "unavailable" || r.state === "failed") return page(d, g.name, { ...again, error_message: MSG_ADDRESS_NOT_SAVED }, 503);
   if (r.status === 401) return signedOut(d);
-  if (r.code === "address_locked") return page(d, g.name, { ...typed, locked: true, error_message: r.message || MSG_ADDRESS_LOCKED }, 423);
-  if (r.code === "invalid_address") return page(d, g.name, { ...typed, field_errors: r.fields, error_message: MSG_CHECK_FIELDS }, 400);
-  return page(d, g.name, { ...typed, field_errors: r.fields, error_message: r.message || MSG_ADDRESS_NOT_SAVED }, r.status === 429 ? 429 : 400);
+  if (r.code === "address_locked") return page(d, g.name, { ...again, locked: true, error_message: r.message || MSG_ADDRESS_LOCKED }, 423);
+  if (r.code === "invalid_address") return page(d, g.name, { ...again, field_errors: r.fields, error_message: MSG_CHECK_FIELDS }, 400);
+  return page(d, g.name, { ...again, field_errors: r.fields, error_message: r.message || MSG_ADDRESS_NOT_SAVED }, r.status === 429 ? 429 : 400);
 }

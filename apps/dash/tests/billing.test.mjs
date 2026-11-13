@@ -397,7 +397,7 @@ test("a 400 puts each field's error under that field; 429 and the 409 codes show
     e.st.routes["POST " + B + "payments/"] = err(status, code, "RAW BACKEND TEXT");
     e.click(e.root, "Send proof");
     await settle();
-    const banner = e.has(e.root, "bl-note").map((n) => n.textContent).join(" ");
+    const banner = e.has(e.root, "bl-note").map((n) => n.textContent).join(" ") + " " + e.toasts.join(" ");
     assert.match(banner, re, code);
     assert.doesNotMatch(e.text(), /RAW BACKEND TEXT/);
   }
@@ -518,4 +518,39 @@ test("not signed in, billing off and a failed read: a plain panel, no thrown err
 
 test("the page keeps nothing in the browser: no storage and no payment detail outlives the form", () => {
   assert.doesNotMatch(SRC, /localStorage|sessionStorage|indexedDB|document\.cookie/);
+});
+
+test("a 400 that names a field with no place on the form is shown in the banner by label; an unknown key is never quoted", async () => {
+  const d = boot();
+  await d.go("?site=" + A + "&pay=send&plan=monthly"); /* Monthly has no consent block */
+  await fillForm(d, { "bl-f-amount": "2,499" });
+  d.st.routes["POST " + B + "payments/"] = err(400, "invalid_request", "RAW", { sender_bank: ["Too long."], renewal_consent: ["Required."], plan: ["Bad plan."], secret_key: ["LEAK"] });
+  d.click(d.root, "Send proof");
+  await settle();
+  assert.equal(d.$("bl-f-bank-err").textContent, "Too long.", "the mapped field keeps its own error");
+  const banner = d.has(d.root, "bl-note").map((n) => n.textContent).join(" ");
+  assert.match(banner, /Check these fields: Launch Promo terms, Plan\./);
+  assert.doesNotMatch(d.text(), /LEAK|secret_key|RAW/);
+  const e = boot();
+  await e.go("?site=" + A + "&pay=send&plan=monthly");
+  await fillForm(e, { "bl-f-amount": "2,499" });
+  e.st.routes["POST " + B + "payments/"] = err(400, "invalid_request", "RAW", { secret_key: ["LEAK"] });
+  e.click(e.root, "Send proof");
+  await settle();
+  assert.match(e.has(e.root, "bl-note").map((n) => n.textContent).join(" "), /Please check the details and try again\./);
+  assert.doesNotMatch(e.text(), /LEAK|secret_key/);
+});
+
+test("a 409 on submit reloads and re-renders the page from the new answer", async () => {
+  const active = billing({ state: "active", current_cycle: { sequence: 1, start_at: "2026-11-20T00:00:00+08:00", end_at: "2026-12-20T00:00:00+08:00", settlement: "paid" } });
+  const d = boot();
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  await fillForm(d, { "bl-f-amount": "2,499" });
+  d.st.routes["POST " + B + "payments/"] = () => { d.st.billing = active; d.st.pay = payInfo({ payable: false, not_payable_reason: "paid_ahead" }); return err(409, "paid_ahead", "RAW"); };
+  d.click(d.root, "Send proof");
+  await settle();
+  assert.equal(d.$("bl-send"), null, "the stale form is gone");
+  assert.match(d.text(), /You have already paid for the next term\./);
+  assert.ok(d.toasts.some((t) => /already paid for the next term/.test(t) && /\[error\]/.test(t)));
+  assert.doesNotMatch(d.text(), /RAW/);
 });

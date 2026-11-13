@@ -133,6 +133,9 @@
   }
   var FIELD_OF = { transferred_at: "time", transferred_on: "time", renewal_consent: "consent", consent_version: "consent", proof: "file",
     sender_bank: "bank", transfer_reference: "ref", sender_first_name: "first", sender_last_name: "last", sender_account_number: "acct", amount_sent: "amount" };
+  var LABEL_OF = { plan: "Plan", transferred_at: "Time of Transfer", transferred_on: "Time of Transfer", proof: "Payment Receipt", transfer_reference: "Reference Number",
+    sender_bank: "Sender Bank", sender_first_name: "Sender First Name", sender_last_name: "Sender Last Name", sender_account_number: "Sender Account Number",
+    amount_sent: "Amount", renewal_consent: "Launch Promo terms", consent_version: "Launch Promo terms" };
   function routeOf(search) {
     var pay = q(search, "pay");
     return { pay: pay === "choose" || pay === "send" ? pay : null, plan: pay === "send" ? q(search, "plan") : null };
@@ -645,16 +648,22 @@
           reload().then(function () { try { history.pushState(null, "", urlFor(S.site, null)); } catch (e) { /* ignore */ } render(); focusTop(); });
           return;
         }
-        var fields = res.data && res.data.fields, shown = false;
+        var fields = res.data && res.data.fields, shown = false, rest = [], unknown = false;
         if (res.status === 400 && fields) {
           Object.keys(fields).forEach(function (k) {
-            var key = FIELD_OF[k]; if (!key || !F[key]) return;
-            errs[key] = String(fields[k]); touched[key] = true; paint(key, true); shown = true;
+            var key = FIELD_OF[k];
+            if (key && F[key]) { errs[key] = String(fields[k]); touched[key] = true; paint(key, true); shown = true; return; }
+            if (LABEL_OF[k]) { if (rest.indexOf(LABEL_OF[k]) < 0) rest.push(LABEL_OF[k]); } else unknown = true;
           });
         }
-        if (!shown) { banner.textContent = refusal(res); banner.hidden = false; }
+        /* A field with no place on this form is named in the banner, by the page's own label; an unknown key is never quoted. */
+        if (rest.length) { banner.textContent = "Check these fields: " + rest.join(", ") + "."; banner.hidden = false; }
+        else if (!shown || unknown) { banner.textContent = refusal(res); banner.hidden = false; }
         setDisabled(send, false);
-        if (res.status === 409) reload();
+        if (res.status === 409) {
+          toast("That did not work", refusal(res), "error");
+          reload().then(function (ok) { if (ok && mine === token) render(); });
+        }
       });
     });
 

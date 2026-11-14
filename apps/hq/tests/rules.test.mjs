@@ -70,6 +70,15 @@ test("the Finance usage and issuer pages are covered, and load their scripts in 
   }
 });
 
+test("the Lifecycle page is covered, and loads its scripts in order", () => {
+  for (const f of ["lifecycle.html", path.join("assets", "js", "lifecycle.js")]) assert.ok(all.some((x) => x.name === f), f);
+  const html = all.find((x) => x.name === "lifecycle.html").text;
+  const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", "lifecycle"]);
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)/i, "no inline script");
+  assert.doesNotMatch(html, /\sstyle=|<style/i, "no inline style");
+});
+
 test("the invoice register and reconciliation pages are covered, and load their scripts in order", () => {
   for (const f of ["finance-invoices.html", "finance-reconcile.html", path.join("assets", "js", "finance-invoices.js"), path.join("assets", "js", "finance-reconcile.js")]) {
     assert.ok(all.some((x) => x.name === f), f);

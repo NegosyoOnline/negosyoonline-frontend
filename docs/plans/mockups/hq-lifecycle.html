@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lifecycle mockup | NegosyoOnline HQ</title>
+<meta name="robots" content="noindex">
+<!-- Static mockup for plan docs/plans/2026-11-13-hq-lifecycle-page-plan.md (ClickUp z8uq9mb22v). Fixture data only: ids are
+     invented, nothing here is real. Open it from the repository checkout: it links the real hq.css so the look is the app's.
+     The small script at the end only toggles the theme and shows the typed-confirmation behaviour; the real page is built later. -->
+<link rel="stylesheet" href="../../../apps/hq/public/assets/css/hq.css">
+<style>
+  .mk-note { margin: 0 0 16px; padding: 10px 14px; border: 1px dashed var(--card-line); border-radius: 8px; color: var(--meta); font-size: 14px; }
+  .mk-frame { margin: 40px 0 0; padding-top: 24px; border-top: 2px solid var(--card-line); }
+  .mk-frame > h2.mk-h { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); margin: 0 0 14px; }
+  .mk-dialog { max-width: 460px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); padding: 18px 20px; }
+  .mk-narrow { max-width: 390px; }
+  .mk-line { display: block; padding: 10px 12px; border: 1px solid var(--field-line); border-radius: 8px; background: var(--field-bg); font-family: ui-monospace, Menlo, monospace; font-size: 15px; user-select: all; }
+  .mk-sticky { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 14px 20px; border-top: 1px solid var(--card-line); }
+  .mk-sel { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .mk-sel input { width: 20px; height: 20px; accent-color: var(--primary); flex: none; }
+  .mk-sel label { font-weight: 600; }
+  .mk-det { padding: 0 20px 14px 52px; }
+  .mk-det dl { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 20px; font-size: 14px; }
+  .mk-det dt { color: var(--meta); } .mk-det dd { margin: 0; font-weight: 600; }
+  .mk-toggle { position: fixed; right: 12px; bottom: 12px; z-index: 9; }
+</style>
+</head>
+<body class="dash-app">
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+  <aside class="side dash-chrome" aria-label="HQ navigation">
+    <a class="wordmark" href="#main" aria-label="NegosyoOnline HQ home"><span>NegosyoOnline HQ</span></a>
+    <div class="side-sep"></div>
+    <nav class="side-nav" aria-label="HQ sections">
+      <a href="#main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 11l8-7 8 7v9H4z"/></svg><span>Admin console</span></a>
+      <a href="#main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18v12H3zM3 10h18M7 15h3"/></svg><span>Finance</span></a>
+      <a href="#main" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16v13H4zM9 11h6M2 3h20v4H2z"/></svg><span>Lifecycle</span></a>
+      <a href="#main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><span>Settings</span></a>
+    </nav>
+  </aside>
+  <div class="col">
+    <main class="view" id="main">
+      <h1 class="sr-only">Lifecycle, site erasure</h1>
+      <p class="mk-note">Mockup, fixture data. Frame 1: overview. Frame 2: one batch, the approve step. Frame 3: hold dialogs. Frame 4: states (off, down, empty, errors). Frame 5: phone width (390 px). Use the Theme button to check light and dark.</p>
+
+      <!-- FRAME 1: overview -->
+      <div class="view" id="v-main">
+        <p class="banner fin-msg" role="status">As of 14 Nov 2026, 9:02 AM. <button type="button" class="no-btn no-btn-ghost" id="refresh">Refresh</button></p>
+        <p class="banner fin-msg" role="status"><span class="chip chip-warn">Account disposal is switched off</span> A site whose account would be disposed of cannot be proposed until it is switched on.</p>
+        <p class="dash-copy">Nothing has been erased in this environment yet. The first batch is one site.</p>
+
+        <section class="dash-card list-card" aria-labelledby="a-h">
+          <div class="list-head"><h2 id="a-h">Due for erasure</h2><span class="small">3 sites</span></div>
+          <ol class="list">
+            <li>
+              <div class="batch">
+                <div class="batch-main">
+                  <div class="mk-sel"><input type="checkbox" id="s1" aria-describedby="s1-d"><label for="s1">site_k3m9x2</label></div>
+                  <span class="item-sub" id="s1-d">Sante · ended 24 Nov 2026 · due 24 Dec 2026 · 12 days overdue</span>
+                  <span class="small">1,284 rows to blank or delete, 3 private files</span>
+                  <div class="batch-title"><span class="chip chip-info">Account will be disposed of</span><span class="chip chip-ok">Service-end email sent</span></div>
+                </div>
+                <div class="batch-end"><button type="button" class="no-btn no-btn-ghost" aria-expanded="false" aria-controls="s1-det">Details</button><button type="button" class="no-btn no-btn-ghost">Hold</button></div>
+              </div>
+            </li>
+            <li>
+              <div class="batch">
+                <div class="batch-main">
+                  <div class="mk-sel"><input type="checkbox" id="s2" aria-describedby="s2-d"><label for="s2">site_p7q4d1</label></div>
+                  <span class="item-sub" id="s2-d">Sante · ended 25 Nov 2026 · due 25 Dec 2026 · due today</span>
+                  <span class="small">902 rows to blank or delete, 1 private file</span>
+                  <div class="batch-title"><span class="chip chip-neutral">Account kept: another site is live</span><span class="chip chip-warn">No service-end email was sent</span></div>
+                </div>
+                <div class="batch-end"><button type="button" class="no-btn no-btn-ghost" aria-expanded="true" aria-controls="s2-det">Details</button><button type="button" class="no-btn no-btn-ghost">Hold</button></div>
+              </div>
+              <div class="mk-det" id="s2-det"><dl>
+                <div><dt>Site settings</dt><dd>1</dd></div><div><dt>Receiving accounts</dt><dd>2</dd></div><div><dt>Members</dt><dd>214</dd></div>
+                <div><dt>Shop orders</dt><dd>388</dd></div><div><dt>Messages</dt><dd>297</dd></div><div><dt>Other records</dt><dd>0</dd></div>
+              </dl></div>
+            </li>
+            <li>
+              <div class="batch">
+                <div class="batch-main">
+                  <div class="mk-sel"><input type="checkbox" id="s3" disabled aria-describedby="s3-d"><label for="s3">site_w2n8c5</label></div>
+                  <span class="item-sub" id="s3-d">Sante · due 24 Dec 2026 · 12 days overdue · cannot be selected: its account would be disposed of and account disposal is switched off</span>
+                  <span class="small">640 rows to blank or delete, 0 private files</span>
+                  <div class="batch-title"><span class="chip chip-neutral">Paused, no notice sent for this state</span><span class="chip chip-neutral">Open usage will be written off first</span></div>
+                </div>
+                <div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Details</button><button type="button" class="no-btn no-btn-ghost">Hold</button></div>
+              </div>
+            </li>
+          </ol>
+          <div class="mk-sticky">
+            <span class="mk-sel"><span class="small" aria-live="polite">0 of 25 selected. The first batch is one site.</span></span>
+            <button type="button" class="no-btn no-btn-primary" disabled>Propose batch</button>
+          </div>
+        </section>
+
+        <section class="dash-card list-card" aria-labelledby="b-h" style="margin-top:20px">
+          <div class="list-head"><h2 id="b-h">Not yet due and stopped</h2><span class="small">1 stopped, 1 coming up</span></div>
+          <ol class="list">
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_h6t0v8</span><span class="chip chip-warn">Held: legal</span></div><span class="item-sub">Due 20 Dec 2026</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Release hold</button></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_r1z5b9</span><span class="chip chip-warn">Payment proof under review</span></div><span class="item-sub">Due 22 Dec 2026</span></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_c8y2j4</span><span class="chip chip-neutral">Due in 6 days</span></div><span class="item-sub">Due 20 Nov 2026</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Hold</button></div></li>
+          </ol>
+        </section>
+
+        <section class="dash-card list-card" aria-labelledby="c-h" style="margin-top:20px">
+          <div class="list-head"><h2 id="c-h">Batches</h2><span class="small">3</span></div>
+          <ol class="list">
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>ebt_x9</span><span class="chip chip-info">Proposed</span></div><span class="item-sub">1 site · proposed 14 Nov 2026, 9:02 AM · expires in 6 days</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Open</button></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>ebt_m4</span><span class="chip chip-ok">Done</span></div><span class="item-sub">7 sites · 7 erased, 0 skipped, 0 failed · approved 7 Nov 2026</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Open</button></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>ebt_b2</span><span class="chip chip-warn">Needs attention</span></div><span class="item-sub">3 sites · 2 erased, 0 skipped, 1 failed (5 of 5 attempts)</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Open</button></div></li>
+          </ol>
+        </section>
+
+        <section class="dash-card fin-pay" aria-labelledby="d-h" style="margin-top:20px">
+          <h2 id="d-h">Holds</h2>
+          <p class="dash-copy">A held site is never erased and keeps its dates. It can be proposed again after the hold is released.</p>
+          <ol class="list">
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_h6t0v8</span><span class="chip chip-warn">Legal</span></div><span class="item-sub">Reference LR-2026-014 · placed 13 Nov 2026</span></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Release</button></div></li>
+          </ol>
+          <div class="fin-row fin-cta"><button type="button" class="no-btn no-btn-ghost">Place a hold</button></div>
+        </section>
+      </div>
+
+      <!-- FRAME 2: the batch and the approve step -->
+      <div class="mk-frame" id="frame-2">
+        <h2 class="mk-h">Frame 2: one proposed batch, the approve step</h2>
+        <p><a class="back" href="#main"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6"/></svg>Back to Lifecycle</a></p>
+        <p class="banner fin-msg" role="status">Batch ebt_x9 proposed. Nothing has been deleted.</p>
+        <section class="dash-card fin-pay" aria-labelledby="bt-h">
+          <div class="batch-title"><h2 id="bt-h">Batch ebt_x9</h2><span class="chip chip-info">Proposed</span></div>
+          <div class="banner q-notice"><h2>Approving erases the personal data of these sites. This cannot be undone.</h2><p class="dash-copy">Read the list, then type the line at the bottom.</p></div>
+          <dl class="fin-facts">
+            <div><dt>Sites</dt><dd id="n-sites">2</dd></div>
+            <div><dt>Rows to blank or delete</dt><dd>2,186</dd></div>
+            <div><dt>Private files to delete</dt><dd>4</dd></div>
+            <div><dt>Accounts to be disposed of</dt><dd>1</dd></div>
+            <div><dt>Sites with no service-end email</dt><dd><span class="chip chip-warn">1</span></dd></div>
+            <div><dt>List fingerprint</dt><dd>9f3a1c07d2be</dd></div>
+            <div><dt>Proposal expires</dt><dd>21 Nov 2026, 9:02 AM</dd></div>
+          </dl>
+          <h3 id="fz">The frozen list</h3>
+          <ol class="list" aria-labelledby="fz">
+            <li class="batch"><div class="batch-main"><div class="mk-sel"><input type="checkbox" id="k1" checked><label for="k1">Keep site_k3m9x2 in this batch</label></div><span class="item-sub">Due 24 Dec 2026 · 1,284 rows, 3 files</span><div class="batch-title"><span class="chip chip-info">Account will be disposed of</span><span class="chip chip-ok">Service-end email sent</span></div></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Details</button></div></li>
+            <li class="batch"><div class="batch-main"><div class="mk-sel"><input type="checkbox" id="k2" checked><label for="k2">Keep site_p7q4d1 in this batch</label></div><span class="item-sub">Due 25 Dec 2026 · 902 rows, 1 file</span><div class="batch-title"><span class="chip chip-neutral">Account kept: another site is live</span><span class="chip chip-warn">No service-end email was sent</span></div></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Details</button></div></li>
+          </ol>
+          <form class="form-card" id="approve-form" novalidate>
+            <div class="field"><label for="ap-reason">Reason for approving</label><textarea class="textarea short" id="ap-reason" maxlength="300" aria-describedby="ap-hint ap-count"></textarea><p class="hint" id="ap-hint">Required. At most 300 characters. A note for the record: no email address, name or number.</p><p class="small char-count" id="ap-count">0 of 300</p></div>
+            <div class="field"><span class="fin-lbl" id="ap-line-l">Type this line exactly to approve</span><code class="mk-line" id="ap-line" aria-labelledby="ap-line-l">erase batch ebt_x9 2 sites</code></div>
+            <div class="field"><label for="ap-confirm">Confirmation</label><input class="input" id="ap-confirm" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="ap-why ap-err"><p class="hint" id="ap-why">The button stays off until the line matches.</p><p class="field-err" id="ap-err" role="alert" hidden>That does not match the batch and the number of sites. Check the line above.</p></div>
+            <button class="no-btn no-btn-ghost stop fin-block" type="submit" id="ap-go" disabled>Approve and erase batch</button>
+            <button class="no-btn no-btn-ghost fin-block" type="button">Cancel batch</button>
+          </form>
+        </section>
+
+        <h2 class="mk-h" style="margin-top:28px">Frame 2b: the same batch after approval and during the run</h2>
+        <section class="dash-card fin-pay" aria-labelledby="bt2-h">
+          <div class="batch-title"><h2 id="bt2-h">Batch ebt_b2</h2><span class="chip chip-warn">Needs attention</span></div>
+          <p class="dash-copy">Approved 8 Nov 2026, 9:20 AM. Reason: Weekly review, three sites past 90 days.</p>
+          <ol class="list">
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_a1</span><span class="chip chip-ok">Erased</span></div><span class="item-sub">1,102 rows, 2 files · 8 Nov 2026, 9:25 AM · account disposed of</span></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_b2</span><span class="chip chip-ok">Erased</span></div><span class="item-sub">511 rows, 0 files · 8 Nov 2026, 9:25 AM</span></div></li>
+            <li class="batch"><div class="batch-main"><div class="batch-title"><span>site_c3</span><span class="chip chip-err">Failed</span></div><span class="item-sub">The private file store could not be reached · 5 of 5 attempts</span></div></li>
+          </ol>
+          <p class="dash-copy">Some sites failed 5 times and need attention. Cancel the batch or ask engineering.</p>
+          <div class="fin-row fin-cta"><button type="button" class="no-btn no-btn-ghost">Refresh</button><button type="button" class="no-btn no-btn-ghost stop">Cancel batch</button></div>
+        </section>
+      </div>
+
+      <!-- FRAME 3: hold dialogs -->
+      <div class="mk-frame" id="frame-3">
+        <h2 class="mk-h">Frame 3: place a hold, release a hold</h2>
+        <div style="display:flex;flex-wrap:wrap;gap:24px">
+          <div class="mk-dialog" role="group" aria-labelledby="h1-h">
+            <div class="modal-head"><h2 id="h1-h">Place a hold</h2><button type="button" class="icon-btn modal-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+            <p class="small">A held site is never erased and keeps its dates. A hold placed after approval stops that site's erasure.</p>
+            <form class="form-card" novalidate>
+              <div class="field"><label for="hs">Site</label><input class="input" id="hs" value="site_k3m9x2" readonly></div>
+              <div class="field"><label for="hr">Reason</label><select class="input" id="hr"><option>Choose</option><option>Legal</option><option>Fraud</option><option>Dispute</option><option>Regulator</option><option>Other</option></select></div>
+              <div class="field"><label for="hf">Reference (optional)</label><input class="input" id="hf" maxlength="100" aria-describedby="hf-h"><p class="hint" id="hf-h">A case or ticket number. No name, email or address.</p></div>
+              <p class="field-err" role="alert">Choose one of the listed reasons.</p>
+              <button class="no-btn no-btn-primary fin-block" type="submit">Place hold</button>
+              <button class="no-btn no-btn-ghost fin-block" type="button">Cancel</button>
+            </form>
+          </div>
+          <div class="mk-dialog" role="group" aria-labelledby="h2-h">
+            <div class="modal-head"><h2 id="h2-h">Release hold</h2><button type="button" class="icon-btn modal-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+            <p class="dash-copy">Release the hold on site_h6t0v8? Reason: Legal. Reference: LR-2026-014. The site can be proposed again once it is due.</p>
+            <button class="no-btn no-btn-primary fin-block" type="button">Release hold</button>
+            <button class="no-btn no-btn-ghost fin-block" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRAME 4: states -->
+      <div class="mk-frame" id="frame-4">
+        <h2 class="mk-h">Frame 4: states</h2>
+        <section class="dash-card" aria-labelledby="st1"><h2 id="st1">Lifecycle is not switched on.</h2></section>
+        <section class="dash-card" aria-labelledby="st2" style="margin-top:16px"><h2 id="st2">Lifecycle could not be reached. Try again.</h2><p><button type="button" class="no-btn no-btn-ghost">Try again</button></p></section>
+        <section class="dash-card list-card" aria-labelledby="st3" style="margin-top:16px"><div class="list-head"><h2 id="st3">Due for erasure</h2><span class="small">0 sites</span></div><p class="dash-copy fin-note">No site is due for erasure.</p></section>
+        <section class="dash-card list-card" aria-labelledby="st4" style="margin-top:16px"><div class="list-head"><h2 id="st4">Batches</h2></div><p class="dash-copy fin-note">No batches yet.</p></section>
+        <section class="dash-card list-card" aria-labelledby="st5" style="margin-top:16px"><div class="list-head"><h2 id="st5">Batches</h2></div><p class="field-err" role="alert">Could not load. Try Refresh.</p></section>
+        <p class="field-err" role="alert" style="margin-top:16px">Some sites cannot be proposed: site_k3m9x2 is already in a batch. site_p7q4d1 is held (legal). Nothing was proposed.</p>
+        <p class="field-err" role="alert">This proposal expired. Make the list again.</p>
+      </div>
+
+      <!-- FRAME 5: phone -->
+      <div class="mk-frame" id="frame-5">
+        <h2 class="mk-h">Frame 5: 390 px wide (the page above reflows the same way; this shows one row and the sticky bar)</h2>
+        <div class="mk-narrow dash-card list-card">
+          <ol class="list"><li><div class="batch"><div class="batch-main"><div class="mk-sel"><input type="checkbox" id="p1" checked><label for="p1">site_k3m9x2</label></div><span class="item-sub">Sante · due 24 Dec 2026 · 12 days overdue</span><span class="small">1,284 rows, 3 files</span><div class="batch-title"><span class="chip chip-info">Account will be disposed of</span><span class="chip chip-ok">Service-end email sent</span></div></div><div class="batch-end"><button type="button" class="no-btn no-btn-ghost">Details</button><button type="button" class="no-btn no-btn-ghost">Hold</button></div></div></li></ol>
+          <div class="mk-sticky"><span class="small" aria-live="polite">1 of 25 selected</span><button type="button" class="no-btn no-btn-primary fin-block">Propose batch</button></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<button type="button" class="no-btn no-btn-ghost mk-toggle" id="mk-theme">Theme</button>
+<script>
+  (function () {
+    var root = document.documentElement; root.dataset.theme = "dark";
+    document.getElementById("mk-theme").addEventListener("click", function () { root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark"; });
+    var line = document.getElementById("ap-line").textContent, input = document.getElementById("ap-confirm"), go = document.getElementById("ap-go"), err = document.getElementById("ap-err");
+    var boxes = [document.getElementById("k1"), document.getElementById("k2")], code = document.getElementById("ap-line"), n = document.getElementById("n-sites");
+    function kept() { return boxes.filter(function (b) { return b.checked; }).length; }
+    function sync() { var k = kept(); n.textContent = k; code.textContent = "erase batch ebt_x9 " + k + (k === 1 ? " site" : " sites"); go.disabled = input.value.trim() !== code.textContent; if (!go.disabled) err.hidden = true; }
+    input.addEventListener("input", sync); boxes.forEach(function (b) { b.addEventListener("change", sync); });
+    document.getElementById("ap-reason").addEventListener("input", function (e) { document.getElementById("ap-count").textContent = e.target.value.length + " of 300"; });
+    document.getElementById("approve-form").addEventListener("submit", function (e) { e.preventDefault(); });
+  })();
+</script>
+</body>
+</html>

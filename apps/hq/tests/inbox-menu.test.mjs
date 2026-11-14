@@ -17,8 +17,8 @@ const inert = (p) => IDS.slice(1).every((id) => p.node[id].getAttribute("aria-di
 test("with a 200 the Inbox entry follows Finance, with the unread number", async () => {
   const p = menu(() => [200, status({ unread: 3 })]);
   await settle();
-  assert.deepEqual(names(p), ["Admin console", "Finance", "Inbox3", "Settings"]);
-  const a = p.node["side-nav"].children[2];
+  assert.deepEqual(names(p), ["Admin console", "Finance", "Lifecycle", "Inbox3", "Settings"]);
+  const a = p.node["side-nav"].children[3];
   assert.equal(a.getAttribute("href"), "/inbox/sms/");
   const pill = a.children.find((n) => n.classList.contains("count"));
   assert.equal(pill.textContent, "3");
@@ -28,13 +28,13 @@ test("with a 200 the Inbox entry follows Finance, with the unread number", async
 test("the count is hidden at 0, and every /inbox/ path marks the entry current", async () => {
   const p = menu(() => [200, status({ unread: 0 })], { pathname: "/inbox/sms/new/" });
   await settle();
-  const a = p.node["side-nav"].children[2];
+  const a = p.node["side-nav"].children[3];
   assert.equal(a.children.find((n) => n.classList.contains("count")).hidden, true);
   assert.equal(a.getAttribute("aria-current"), "page");
   assert.equal(p.node["side-nav"].children[0].hasAttribute("aria-current"), false);
   const q = menu(() => [200, status()], { pathname: "/inbox/messenger/" });
   await settle();
-  assert.equal(q.node["side-nav"].children[2].getAttribute("aria-current"), "page");
+  assert.equal(q.node["side-nav"].children[3].getAttribute("aria-current"), "page");
 });
 
 test("with a 200, search and bell wake up, are labelled, and go to the Find field and the list", async () => {
@@ -68,18 +68,18 @@ test("the bell dot shows only while there are unread conversations, and follows 
   const q = menu(() => [200, status({ unread: 0 })]);
   await settle();
   assert.equal(dot(q, "bell-btn").hidden, true);
-  assert.equal(q.node["side-nav"].children[2].children.find((n) => n.classList.contains("count")).hidden, true);
+  assert.equal(q.node["side-nav"].children[3].children.find((n) => n.classList.contains("count")).hidden, true);
 });
 
 test("on 404, 401, 503, offline, or with no client, no Inbox entry, both buttons inert, and nothing thrown", async () => {
   for (const reply of [() => [404, refusal("not_found")], () => [401, refusal("unauthenticated")], () => [503, {}], () => "offline"]) {
     const p = menu(reply);
     await settle();
-    assert.deepEqual(names(p), ["Admin console", "Finance", "Settings"]);
+    assert.deepEqual(names(p), ["Admin console", "Finance", "Lifecycle", "Settings"]);
     assert.equal(inert(p), true);
   }
   const none = menu(() => { throw new Error("no call expected"); }, { noClient: true });
-  assert.deepEqual(names(none), ["Admin console", "Finance", "Settings"]);
+  assert.deepEqual(names(none), ["Admin console", "Finance", "Lifecycle", "Settings"]);
   assert.equal(inert(none), true);
 });
 

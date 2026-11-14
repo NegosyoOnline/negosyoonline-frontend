@@ -793,5 +793,7 @@ test("Due for erasure has no Overdue column: overdue sits under the Due date, an
   assert.equal(p.node["a-rows"].children[1].children[0].getAttribute("colspan"), "7");
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
   assert.match(css, /\.lc-table \.lc-chips \{[^}]*flex-direction:\s*column/);
+  assert.match(css, /\.lc-table th \{ padding: 12px 10px;/);
+  assert.match(css, /\.lc-table td \{ padding: 12px 10px;/);
   assert.match(css, /\.lc-table td\.lc-wrap \{[^}]*min-width:\s*160px/);
 });

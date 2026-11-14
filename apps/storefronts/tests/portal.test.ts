@@ -187,6 +187,7 @@ test("GET /portal/ signed out: the dashboard's sign-in card on the portal shell,
     assert.match(page, /name="action" value="request"/);
     assert.match(page, /This store is not taking orders\./);
     assert.match(page, /pack-focus\.css/);
+    assert.match(page, /<div class="portal-sign-in"><div class="note info"/);
     assert.doesNotMatch(page, /\/dashboard\//);
     assert.doesNotMatch(page, /<footer|footer-/);
     assert.doesNotMatch(page, /<script>/);

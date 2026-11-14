@@ -10,16 +10,16 @@ type Args = { host: string; token: string };
 export type Ref = { id: string; title: string };
 export type Course = {
   id: string; slug: string; title: string; description: string; image_url: string; coming_soon: boolean;
-  completed_lessons: number; total_lessons: number; percent: number;
+  completed_lessons: number; total_lessons: number; percent: number; module_count: number;
 };
 export type Resume = { course: Ref; id: string; title: string };
 export type LessonRow = { id: string; title: string; duration: string; image_url: string; completed: boolean; locked: boolean };
-export type Module = { id: string; title: string; completed_lessons: number; total_lessons: number; lessons: LessonRow[] };
+export type Module = { id: string; title: string; module_number: number; completed_lessons: number; total_lessons: number; lessons: LessonRow[] };
 export type CourseDetail = Course & { modules: Module[]; next_lesson: Ref | null };
-export type ModuleRef = Ref & { first_lesson_id: string };
+export type ModuleRef = Ref & { first_lesson_id: string; module_number: number };
 export type Lesson = {
   id: string; title: string; duration: string; description: string; video_url: string; completed: boolean;
-  course: Ref; module: Ref; lessons: LessonRow[]; previous_lesson: Ref | null; next_lesson: Ref | null; next_lesson_locked: boolean;
+  course: Ref; module: Ref & { module_number: number }; lessons: LessonRow[]; previous_lesson: Ref | null; next_lesson: Ref | null; next_lesson_locked: boolean;
   previous_module: ModuleRef | null; next_module: ModuleRef | null;
 };
 export type Completed = { lesson_id: string; course_id: string; completed: boolean; next_lesson: Ref | null; percent: number };
@@ -36,14 +36,14 @@ function ref(v: unknown): Ref | null {
 }
 function moduleRef(v: unknown): ModuleRef | null {
   const r = ref(v);
-  return r && record(v) && str(v.first_lesson_id) ? { ...r, first_lesson_id: str(v.first_lesson_id) } : null;
+  return r && record(v) && str(v.first_lesson_id) ? { ...r, first_lesson_id: str(v.first_lesson_id), module_number: num(v.module_number) } : null;
 }
 function course(v: unknown): Course | null {
   if (!record(v) || !str(v.id) || !str(v.title)) return null;
   return {
     id: str(v.id), slug: str(v.slug), title: str(v.title), description: str(v.description), image_url: str(v.image_url),
     coming_soon: v.coming_soon === true, completed_lessons: num(v.completed_lessons), total_lessons: num(v.total_lessons),
-    percent: Math.min(100, num(v.percent)),
+    percent: Math.min(100, num(v.percent)), module_count: num(v.module_count),
   };
 }
 function row(v: unknown): LessonRow[] {
@@ -53,7 +53,7 @@ function row(v: unknown): LessonRow[] {
 function moduleOf(v: unknown): Module[] {
   if (!record(v) || !str(v.id) || !str(v.title)) return [];
   return [{
-    id: str(v.id), title: str(v.title), completed_lessons: num(v.completed_lessons), total_lessons: num(v.total_lessons),
+    id: str(v.id), title: str(v.title), module_number: num(v.module_number), completed_lessons: num(v.completed_lessons), total_lessons: num(v.total_lessons),
     lessons: Array.isArray(v.lessons) ? v.lessons.flatMap(row) : [],
   }];
 }
@@ -97,7 +97,7 @@ export function memberLesson(args: Args & { id: string }, c: Calls): Promise<Pac
     return {
       lesson: {
         id: str(b.id), title: str(b.title), duration: str(b.duration), description: str(b.description), video_url: str(b.video_url),
-        completed: b.completed === true, course: cr, module: mr, lessons: Array.isArray(b.lessons) ? b.lessons.flatMap(row) : [],
+        completed: b.completed === true, course: cr, module: { ...mr, module_number: record(b.module) ? num(b.module.module_number) : 0 }, lessons: Array.isArray(b.lessons) ? b.lessons.flatMap(row) : [],
         previous_lesson: ref(b.previous_lesson), next_lesson: ref(b.next_lesson), next_lesson_locked: b.next_lesson_locked === true,
         previous_module: moduleRef(b.previous_module), next_module: moduleRef(b.next_module),
       },

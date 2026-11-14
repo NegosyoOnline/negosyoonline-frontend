@@ -52,7 +52,7 @@ const FORM = { order_number: "ph-000130", ordered_on: "2026-11-14", customer_fir
 /* ---- the list ---------------------------------------------------------------------------------------------------- */
 
 test("the list keeps the app line and button on top, then the hero figures, the status tiles and the table", async () => {
-  const f = setup({ "member/orders": [ok(LIST())] });
+  const f = setup({ "member/order-log": [ok(LIST())] });
   const r = await ordersPage(dashOf(f));
   assert.equal(r.status, 200);
   assert.equal(r.headers.get("cache-control"), "no-store");
@@ -74,31 +74,31 @@ test("the list keeps the app line and button on top, then the hero figures, the 
   assert.match(body, /data-label="Payment">Prepaid</);
   assert.match(body, /TEST &lt;Ben&gt;/); // escaped
   assert.doesNotMatch(mainOf(body), /Accept|Cancel|Courier|<script/);
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders")!.body, { host: "demo.negosyotest.com", token: TOKEN });
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log")!.body, { host: "demo.negosyotest.com", token: TOKEN });
 });
 
 test("without an app link the button is left out; the app line stays", async () => {
-  const body = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST())] }), "/dashboard/orders/", { appUrl: "" }))).text();
+  const body = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST())] }), "/dashboard/orders/", { appUrl: "" }))).text();
   assert.match(body, /placed and tracked in the Sant/);
   assert.doesNotMatch(body, /Open the Sant/);
 });
 
 test("the empty state says the log is empty and offers Add order; a filter with no match says so and offers to clear", async () => {
   const empty = LIST({ orders: [], count: 0, tiles: { for_approval: 0, for_booking: 0, for_pickup: 0, shipping: 0, delivered: 0, closed: 0 }, header: { orders_this_month: 0, sales_this_month: "0.00", delivered_this_month: 0, needs_action: 0 } });
-  const body = await (await ordersPage(dashOf(setup({ "member/orders": [ok(empty)] })))).text();
+  const body = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(empty)] })))).text();
   assert.match(body, /No orders in your log yet\./);
   assert.match(body, /data-mo="empty"[^]*href="\/dashboard\/orders\/add\/">Add order</);
   assert.doesNotMatch(body, /<table/);
   assert.match(body, /₱0\.00/);
-  const some = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST({ orders: [], count: 0 }))] }), "/dashboard/orders/?q=zzz"))).text();
+  const some = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST({ orders: [], count: 0 }))] }), "/dashboard/orders/?q=zzz"))).text();
   assert.match(some, /No orders match these filters\./);
   assert.match(some, /<a class="lnk" href="\/dashboard\/orders\/">Clear all filters<\/a>/);
 });
 
 test("filters are sent to the backend and carried into the tile links, the paging links and the export link", async () => {
-  const f = setup({ "member/orders": [ok(LIST({ page: 2, pages: 3, count: 60 }))] });
+  const f = setup({ "member/order-log": [ok(LIST({ page: 2, pages: 3, count: 60 }))] });
   const body = await (await ordersPage(dashOf(f, "/dashboard/orders/?q=ana&status=shipping&from=2026-11-01&to=2026-11-15&page=2&junk=1"))).text();
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders")!.body, { host: "demo.negosyotest.com", token: TOKEN, q: "ana", status: "shipping", date_from: "2026-11-01", date_to: "2026-11-15", page: 2 });
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log")!.body, { host: "demo.negosyotest.com", token: TOKEN, q: "ana", status: "shipping", date_from: "2026-11-01", date_to: "2026-11-15", page: 2 });
   // a tile keeps q and the dates, sets its own status, drops the page; the active tile clears the status
   assert.match(body, /data-status="delivered" href="\/dashboard\/orders\/\?q=ana&amp;status=delivered&amp;from=2026-11-01&amp;to=2026-11-15"/);
   assert.match(body, /class="mo-stage active" data-accent="teal" data-status="shipping" href="\/dashboard\/orders\/\?q=ana&amp;from=2026-11-01&amp;to=2026-11-15"/);
@@ -119,7 +119,7 @@ test("malformed filters are left out before the backend is called", () => {
 });
 
 test("at 390px each row is a stacked card: the table turns to blocks and every cell carries its label; the page has no sideways scroll rule", async () => {
-  const body = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST())] })))).text();
+  const body = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST())] })))).text();
   const css = body.slice(body.indexOf(".mo-hero{"), body.indexOf("</style>", body.indexOf(".mo-hero{")));
   assert.match(css, /@media \(max-width:640px\)\{[^]*\.mo-table,\.mo-table tbody,\.mo-table tr,\.mo-table td\{display:block;width:100%\}/);
   assert.match(css, /\.mo-table td::before\{content:attr\(data-label\)/);
@@ -130,7 +130,7 @@ test("at 390px each row is a stacked card: the table turns to blocks and every c
 });
 
 test("the style rules: dark mode is covered, the focus border is the shared light-blue .inp rule, no gold focus, no focusable card titles", async () => {
-  const body = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST())] })))).text();
+  const body = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST())] })))).text();
   assert.match(body, /html\[data-theme="dark"\] \.mo-status/);
   assert.match(body, /class="inp"[^>]*name="q"|class="inp" type="search" name="q"/);
   assert.doesNotMatch(body, /:focus[^}]*(gold|#C9A227|#E4C96A)/);
@@ -139,10 +139,10 @@ test("the style rules: dark mode is covered, the focus border is the shared ligh
 
 test("a saved notice shows after an add, edit or delete; an unknown one shows nothing", async () => {
   for (const [k, text] of [["added", "Order added to your log."], ["updated", "Order updated."], ["deleted", "Order deleted from your log."]]) {
-    const body = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST())] }), `/dashboard/orders/?saved=${k}`))).text();
+    const body = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST())] }), `/dashboard/orders/?saved=${k}`))).text();
     assert.match(body, new RegExp(`role="status">${text.replace(/\./g, "\\.")}<`));
   }
-  const none = await (await ordersPage(dashOf(setup({ "member/orders": [ok(LIST())] }), "/dashboard/orders/?saved=%3Cb%3E"))).text();
+  const none = await (await ordersPage(dashOf(setup({ "member/order-log": [ok(LIST())] }), "/dashboard/orders/?saved=%3Cb%3E"))).text();
   assert.doesNotMatch(none, /role="status"/);
 });
 
@@ -167,8 +167,8 @@ test("a rejected order sends every Orders page to My Purchases", async () => {
 });
 
 test("a switched-off log or an unserved host is the neutral page; a failed read says to try again", async () => {
-  assert.equal((await ordersPage(dashOf(setup({ "member/orders": [err(404, "not_found")] })))).status, 404);
-  const r = await ordersPage(dashOf(setup({ "member/orders": [err(500)] })));
+  assert.equal((await ordersPage(dashOf(setup({ "member/order-log": [err(404, "not_found")] })))).status, 404);
+  const r = await ordersPage(dashOf(setup({ "member/order-log": [err(500)] })));
   assert.equal(r.status, 503);
   assert.match(await r.text(), /try again shortly/);
 });
@@ -192,17 +192,17 @@ test("the add form has the seven fields, today as the date's latest, and default
 });
 
 test("a good add sends exactly the contract's keys and redirects to the list with a notice", async () => {
-  const f = setup({ "member/orders/create": [{ status: 201, body: { order: ORDER() } }] });
+  const f = setup({ "member/order-log/create": [{ status: 201, body: { order: ORDER() } }] });
   const r = await orderAddPost(dashOf(f), FORM);
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("location"), "/dashboard/orders/?saved=added");
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders/create")!.body, {
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log/create")!.body, {
     host: "demo.negosyotest.com", token: TOKEN, order_number: "ph-000130", ordered_on: "2026-11-14", customer_first_name: "TEST Cora", city: "Cebu", payment: "prepaid", total: "1,450.5", status: "for_booking",
   });
 });
 
 test("the error round trip: a field error re-renders the form with the typed values and the message beside its field", async () => {
-  const f = setup({ "member/orders/create": [err(400, "invalid_order", "Check the order.", { ordered_on: ["Choose a date that is not in the future."], total: ["Enter an amount like 1450.00."] })] });
+  const f = setup({ "member/order-log/create": [err(400, "invalid_order", "Check the order.", { ordered_on: ["Choose a date that is not in the future."], total: ["Enter an amount like 1450.00."] })] });
   const r = await orderAddPost(dashOf(f), { ...FORM, ordered_on: "2027-01-01", total: "abc" });
   assert.equal(r.status, 400);
   const body = await r.text();
@@ -219,14 +219,14 @@ test("the error round trip: a field error re-renders the form with the typed val
 });
 
 test("a taken PH number shows beside the PH # field (409 order_number_taken)", async () => {
-  const f = setup({ "member/orders/create": [err(409, "order_number_taken", "taken", { order_number: ["You already have this PH number in your log."] })] });
+  const f = setup({ "member/order-log/create": [err(409, "order_number_taken", "taken", { order_number: ["You already have this PH number in your log."] })] });
   const r = await orderAddPost(dashOf(f), FORM);
   assert.equal(r.status, 400);
   assert.match(await r.text(), /id="mo-order_number-msg">You already have this PH number in your log\.</);
 });
 
 test("a full log (409 order_log_full) says so above the form, keeping the typed values", async () => {
-  const f = setup({ "member/orders/create": [err(409, "order_log_full", "Your log can hold 2,000 orders.")] });
+  const f = setup({ "member/order-log/create": [err(409, "order_log_full", "Your log can hold 2,000 orders.")] });
   const r = await orderAddPost(dashOf(f), FORM);
   assert.equal(r.status, 409);
   const body = await r.text();
@@ -235,16 +235,16 @@ test("a full log (409 order_log_full) says so above the form, keeping the typed 
 });
 
 test("a failed save keeps the form with a try-again note; a dead session on save goes to the store home", async () => {
-  const bad = await orderAddPost(dashOf(setup({ "member/orders/create": [err(500)] })), FORM);
+  const bad = await orderAddPost(dashOf(setup({ "member/order-log/create": [err(500)] })), FORM);
   assert.equal(bad.status, 503);
   assert.match(await bad.text(), /could not be saved[^]*name="order_number" value="ph-000130"/);
-  const gone = await orderAddPost(dashOf(setup({ "member/orders/create": [err(401, "member_session_invalid")] })), FORM);
+  const gone = await orderAddPost(dashOf(setup({ "member/order-log/create": [err(401, "member_session_invalid")] })), FORM);
   assert.equal(gone.status, 303);
   assert.equal(gone.headers.get("location"), "/");
 });
 
 test("the edit form is filled from the order and carries the delete confirm", async () => {
-  const f = setup({ "member/orders/mol_1": [ok({ order: ORDER() })] });
+  const f = setup({ "member/order-log/mol_1": [ok({ order: ORDER() })] });
   const body = await (await orderEditGet(dashOf(f), "mol_1")).text();
   assert.match(body, /<h1>Edit order<\/h1>/);
   assert.match(body, /name="order_number" value="PH-000123"/);
@@ -252,18 +252,18 @@ test("the edit form is filled from the order and carries the delete confirm", as
   assert.match(body, /name="total" value="1450\.00"/);
   assert.match(body, /<form method="post" action="\/dashboard\/orders\/mol_1\/edit\/">/);
   assert.match(body, /<details class="mo-del" data-mo="delete"><summary>Delete this order<\/summary>\n<p>Delete this order from your log\?<\/p>\n<form method="post" action="\/dashboard\/orders\/mol_1\/delete\/">/);
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders/mol_1")!.body, { host: "demo.negosyotest.com", token: TOKEN });
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log/mol_1")!.body, { host: "demo.negosyotest.com", token: TOKEN });
 });
 
 test("a good edit posts the full replace to the order's update route and redirects with a notice", async () => {
-  const f = setup({ "member/orders/mol_1/update": [ok({ order: ORDER() })] });
+  const f = setup({ "member/order-log/mol_1/update": [ok({ order: ORDER() })] });
   const r = await orderEditPost(dashOf(f), "mol_1", FORM);
   assert.equal(r.headers.get("location"), "/dashboard/orders/?saved=updated");
-  assert.equal(Object.keys(f.calls.find((c) => c.path === "member/orders/mol_1/update")!.body).length, 9);
+  assert.equal(Object.keys(f.calls.find((c) => c.path === "member/order-log/mol_1/update")!.body).length, 9);
 });
 
 test("an edit with an error re-renders the edit form (with its delete confirm) and the typed values", async () => {
-  const f = setup({ "member/orders/mol_1/update": [err(400, "invalid_order", "x", { city: ["Enter a city."] })] });
+  const f = setup({ "member/order-log/mol_1/update": [err(400, "invalid_order", "x", { city: ["Enter a city."] })] });
   const r = await orderEditPost(dashOf(f), "mol_1", { ...FORM, city: "" });
   assert.equal(r.status, 400);
   const body = await r.text();
@@ -273,13 +273,13 @@ test("an edit with an error re-renders the edit form (with its delete confirm) a
 });
 
 test("a 404 from the backend for an id (missing, or another member's) is the neutral not-found on edit, update and delete", async () => {
-  const get = await orderEditGet(dashOf(setup({ "member/orders/mol_9": [err(404, "not_found")] })), "mol_9");
+  const get = await orderEditGet(dashOf(setup({ "member/order-log/mol_9": [err(404, "not_found")] })), "mol_9");
   assert.equal(get.status, 404);
   const text = await get.text();
   assert.match(text, /Page not found\./);
   assert.doesNotMatch(text, /mol_9|Orders|Demo Store/);
-  assert.equal((await orderEditPost(dashOf(setup({ "member/orders/mol_9/update": [err(404, "not_found")] })), "mol_9", FORM)).status, 404);
-  assert.equal((await orderDeletePost(dashOf(setup({ "member/orders/mol_9/delete": [err(404, "not_found")] })), "mol_9")).status, 404);
+  assert.equal((await orderEditPost(dashOf(setup({ "member/order-log/mol_9/update": [err(404, "not_found")] })), "mol_9", FORM)).status, 404);
+  assert.equal((await orderDeletePost(dashOf(setup({ "member/order-log/mol_9/delete": [err(404, "not_found")] })), "mol_9")).status, 404);
 });
 
 test("an id that is not an order id is the neutral page with no call at all", async () => {
@@ -295,12 +295,12 @@ test("an id that is not an order id is the neutral page with no call at all", as
 /* ---- delete ------------------------------------------------------------------------------------------------------ */
 
 test("delete calls the order's delete route and redirects to the list with a notice", async () => {
-  const f = setup({ "member/orders/mol_1/delete": [ok({ deleted: true })] });
+  const f = setup({ "member/order-log/mol_1/delete": [ok({ deleted: true })] });
   const r = await orderDeletePost(dashOf(f), "mol_1");
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("location"), "/dashboard/orders/?saved=deleted");
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders/mol_1/delete")!.body, { host: "demo.negosyotest.com", token: TOKEN });
-  assert.equal((await orderDeletePost(dashOf(setup({ "member/orders/mol_1/delete": [err(500)] })), "mol_1")).status, 503);
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log/mol_1/delete")!.body, { host: "demo.negosyotest.com", token: TOKEN });
+  assert.equal((await orderDeletePost(dashOf(setup({ "member/order-log/mol_1/delete": [err(500)] })), "mol_1")).status, 503);
 });
 
 test("the delete route refuses a post from another site before anything is read", async () => {
@@ -313,7 +313,7 @@ test("the delete route refuses a post from another site before anything is read"
 const CSV = "\uFEFFPH #,Date,Customer,City,Payment,Total,Status\r\nPH-000123,2026-11-12,TEST Ana,Quezon City,COD,1450.00,For approval\r\n";
 
 test("the export passes the backend's CSV through with its headers, sending the page's filters", async () => {
-  const f = setup({ "member/orders/export": [{ status: 200, text: CSV, headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="orders-2026-11-15.csv"' } }] });
+  const f = setup({ "member/order-log/export": [{ status: 200, text: CSV, headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="orders-2026-11-15.csv"' } }] });
   const r = await ordersExport(dashOf(f, "/dashboard/orders/export.csv?q=ana&status=delivered&from=2026-11-01&page=4"));
   assert.equal(r.status, 200);
   assert.equal(r.headers.get("content-type"), "text/csv; charset=utf-8");
@@ -321,20 +321,20 @@ test("the export passes the backend's CSV through with its headers, sending the 
   assert.match(r.headers.get("cache-control") ?? "", /no-store/);
   assert.equal(r.headers.get("x-content-type-options"), "nosniff");
   assert.equal(new TextDecoder("utf-8", { ignoreBOM: true }).decode(await r.arrayBuffer()), CSV); // BOM and escaping untouched
-  assert.deepEqual(f.calls.find((c) => c.path === "member/orders/export")!.body, { host: "demo.negosyotest.com", token: TOKEN, q: "ana", status: "delivered", date_from: "2026-11-01" });
+  assert.deepEqual(f.calls.find((c) => c.path === "member/order-log/export")!.body, { host: "demo.negosyotest.com", token: TOKEN, q: "ana", status: "delivered", date_from: "2026-11-01" });
 });
 
 test("the export builds its own file name when the backend's header is not the expected shape, and never passes odd headers on", async () => {
-  const f = setup({ "member/orders/export": [{ status: 200, text: CSV, headers: { "content-disposition": 'attachment; filename="../../x.html"', "set-cookie": "a=b" } }] });
+  const f = setup({ "member/order-log/export": [{ status: 200, text: CSV, headers: { "content-disposition": 'attachment; filename="../../x.html"', "set-cookie": "a=b" } }] });
   const r = await ordersExport(dashOf(f));
   assert.equal(r.headers.get("content-disposition"), 'attachment; filename="orders-2026-11-15.csv"');
   assert.equal(r.headers.get("set-cookie"), null);
 });
 
 test("an export for a dead session goes home; a failed one says to try again; a switched-off log is neutral", async () => {
-  assert.equal((await ordersExport(dashOf(setup({ "member/orders/export": [err(401)] })))).headers.get("location"), "/");
-  assert.equal((await ordersExport(dashOf(setup({ "member/orders/export": [err(500)] })))).status, 503);
-  assert.equal((await ordersExport(dashOf(setup({ "member/orders/export": [err(404)] })))).status, 404);
+  assert.equal((await ordersExport(dashOf(setup({ "member/order-log/export": [err(401)] })))).headers.get("location"), "/");
+  assert.equal((await ordersExport(dashOf(setup({ "member/order-log/export": [err(500)] })))).status, 503);
+  assert.equal((await ordersExport(dashOf(setup({ "member/order-log/export": [err(404)] })))).status, 404);
 });
 
 /* ---- small helpers ----------------------------------------------------------------------------------------------- */
@@ -346,4 +346,15 @@ test("money and dates are written from the digits", () => {
   assert.equal(pesoText("12345"), "₱12,345.00");
   assert.equal(dateText("2026-01-05"), "Jan 5, 2026");
   assert.equal(dateText("bad"), "bad");
+});
+
+test("every Orders log call goes under member/order-log/, never to the pack's member/orders/", async () => {
+  const f = setup({ "member/me": Array.from({ length: 6 }, () => ME), "member/pack": Array.from({ length: 6 }, () => FREE), "member/order-log": [ok(LIST())], "member/order-log/create": [{ status: 201, body: { order: ORDER() } }], "member/order-log/mol_1": [ok({ order: ORDER() })],
+    "member/order-log/mol_1/update": [ok({ order: ORDER() })], "member/order-log/mol_1/delete": [ok({ deleted: true })], "member/order-log/export": [{ status: 200, text: CSV }] });
+  const d = () => dashOf(f);
+  await ordersPage(d()); await orderAddPost(d(), FORM); await orderEditGet(d(), "mol_1"); await orderEditPost(d(), "mol_1", FORM); await orderDeletePost(d(), "mol_1"); await ordersExport(d());
+  const paths = f.calls.map((c) => c.path).filter((p) => !["member/me", "member/pack"].includes(p));
+  assert.equal(paths.length, 6);
+  for (const p of paths) assert.match(p, /^member\/order-log(\/|$)/);
+  assert.ok(!f.calls.some((c) => c.path === "member/orders"));
 });

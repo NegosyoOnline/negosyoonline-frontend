@@ -1,4 +1,4 @@
-/* The member Orders log over the storefront API (backend apps/members, routes under /storefront/v1/member/orders/; contract
+/* The member Orders log over the storefront API (backend apps/members, routes under /storefront/v1/member/order-log/; contract
    z8uq9meze0). The log is the member's own notebook of Santé app orders: display only, nothing here creates a web order.
    Same rules as src/lib/pack-api.ts: the member session travels as data, a 404 is "unavailable" (members are off, the host is not
    served, or the id is not this member's: one neutral answer), a 401 is "refused", anything else is "failed". Every body holds
@@ -65,24 +65,24 @@ function filterBody(f: Filters): Record<string, string> {
 
 export function memberOrderList(args: Who & { filters: Filters; page: number }, c: Calls): Promise<PackResult<OrderList>> {
   const { filters, page, ...who } = args;
-  return packPost("member/orders", { ...who, ...filterBody(filters), ...(page > 1 ? { page } : {}) }, parseList, c);
+  return packPost("member/order-log", { ...who, ...filterBody(filters), ...(page > 1 ? { page } : {}) }, parseList, c);
 }
 
 export function memberOrderGet(args: Who & { id: string }, c: Calls) {
   const { id, ...who } = args;
-  return packPost(`member/orders/${encodeURIComponent(id)}`, who, parseOne, c);
+  return packPost(`member/order-log/${encodeURIComponent(id)}`, who, parseOne, c);
 }
 
 export function memberOrderCreate(args: Who & { fields: OrderFields }, c: Calls) {
-  return packPost("member/orders/create", { host: args.host, token: args.token, ...args.fields }, parseOne, c);
+  return packPost("member/order-log/create", { host: args.host, token: args.token, ...args.fields }, parseOne, c);
 }
 
 export function memberOrderUpdate(args: Who & { id: string; fields: OrderFields }, c: Calls) {
-  return packPost(`member/orders/${encodeURIComponent(args.id)}/update`, { host: args.host, token: args.token, ...args.fields }, parseOne, c);
+  return packPost(`member/order-log/${encodeURIComponent(args.id)}/update`, { host: args.host, token: args.token, ...args.fields }, parseOne, c);
 }
 
 export function memberOrderDelete(args: Who & { id: string }, c: Calls) {
-  return packPost(`member/orders/${encodeURIComponent(args.id)}/delete`, { host: args.host, token: args.token }, (b) => (record(b) && b.deleted === true ? {} : null), c);
+  return packPost(`member/order-log/${encodeURIComponent(args.id)}/delete`, { host: args.host, token: args.token }, (b) => (record(b) && b.deleted === true ? {} : null), c);
 }
 
 export type CsvFile = { state: "ok"; bytes: ArrayBuffer; disposition: string } | { state: "refused"; status: number } | { state: "unavailable" } | { state: "failed" };
@@ -92,7 +92,7 @@ export async function memberOrdersCsv(args: Who & { filters: Filters }, c: Calls
   const log = c.log ?? ((reason: string) => console.error(`storefront: orders export failed: ${reason}`));
   if (!args.host || !args.token || c.env.secret.length < SECRET_MIN_LENGTH) return { state: "failed" };
   try {
-    const response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/member/orders/export/`, {
+    const response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/member/order-log/export/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${c.env.secret}`, "Content-Type": "application/json", Accept: "text/csv" },
       body: JSON.stringify({ host: args.host, token: args.token, ...filterBody(args.filters) }),

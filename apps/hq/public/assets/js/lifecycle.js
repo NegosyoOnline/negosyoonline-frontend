@@ -173,6 +173,19 @@
     if (small) box.appendChild(F.el("small", "", small));
     return box;
   }
+  /* The due date with the time overdue as a small line under it. */
+  function dueStack(due, late) {
+    var box = F.el("div", "");
+    box.appendChild(F.el("span", "", due || "—"));
+    if (late) box.appendChild(F.el("small", "", late === "Today" ? late : late + " overdue"));
+    return box;
+  }
+  function acts() {
+    var td = F.el("td", "lc-act"), box = F.el("div", "lc-btns");
+    Array.prototype.slice.call(arguments).forEach(function (b) { if (b) box.appendChild(b); });
+    td.appendChild(box);
+    return td;
+  }
   function act(btn) { var td = F.el("td", "lc-act"); if (btn) td.appendChild(btn); return td; }
   function holdBtn(site) {
     var hold = button("Hold");
@@ -190,7 +203,7 @@
 
   function eligibleRow(e, i) {
     var tr = F.el("tr", ""), id = "s-" + i, cb = F.el("input", ""), sel = F.el("td", ""), chips = F.el("div", "lc-chips"), st = F.el("td", "lc-wrap");
-    var ended = F.dayOf(e.service_ended_at), due = F.dayOf(e.deletion_due_at), det = details(e.counts, id + "-det", 9), why = F.el("small", "", "");
+    var ended = F.dayOf(e.service_ended_at), due = F.dayOf(e.deletion_due_at), det = details(e.counts, id + "-det", 7), why = F.el("small", "", "");
     var more = disclosure(det);
     cb.setAttribute("type", "checkbox");
     cb.setAttribute("id", id);
@@ -206,8 +219,7 @@
     tr.appendChild(sel);
     tr.appendChild(cell(stack(e.site, own(TEMPLATE, e.template) || ""), ""));
     tr.appendChild(cell(ended));
-    tr.appendChild(cell(due));
-    tr.appendChild(cell(overdue(e)));
+    tr.appendChild(cell(dueStack(due, overdue(e))));
     tr.appendChild(cell(totals(rowsOf(e.counts), typeof e.private_files === "number" ? e.private_files : 0), "lc-wrap"));
     chips.appendChild(accountChip(e.account_action, e.account_reason));
     chips.appendChild(noticeChip(e.notice));
@@ -217,8 +229,7 @@
     if (blocked(e)) why.textContent = "Cannot be selected: its account would be disposed of and account disposal is switched off";
     st.appendChild(why);
     tr.appendChild(st);
-    tr.appendChild(act(more));
-    tr.appendChild(act(holdBtn(e.site)));
+    tr.appendChild(acts(more, holdBtn(e.site)));
     return [tr, det];
   }
 

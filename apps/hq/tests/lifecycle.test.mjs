@@ -80,7 +80,7 @@ test("the page asks who is signed in, then calls list/ and batches/ as POSTs wit
   assert.equal(p.node["l-asof"].textContent, "As of Nov 14, 2026, 9:02 AM");
   assert.equal(p.node["n-a"].textContent, " (1)");
   const cells = dataRows(p, "a-rows")[0].children.map((c) => c.textContent);
-  assert.deepEqual(cells.slice(0, 6), ["", "site_aSante", "Sep 24, 2026", "Dec 24, 2026", "12 days", "608 rows to blank or delete, 3 private files"]);
+  assert.deepEqual(cells.slice(0, 5), ["", "site_aSante", "Sep 24, 2026", "Dec 24, 2026" + "12 days overdue", "608 rows to blank or delete, 3 private files"]);
   const row = cells.join("|");
   assert.match(row, /Account will be disposed of/);
   assert.match(row, /No service-end email was sent/);
@@ -670,7 +670,7 @@ test("the lists are four tabs in one tablist, each tab tied to a tabpanel, and t
     assert.match(HTML, new RegExp(`role="tabpanel" id="pan-${k}" aria-labelledby="tab-${k}"`));
   }
   assert.equal((HTML.match(/<table class="lc-table">/g) || []).length, 4);
-  assert.equal((HTML.match(/<th scope="col"/g) || []).length, 9 + 4 + 6 + 6);
+  assert.equal((HTML.match(/<th scope="col"/g) || []).length, 7 + 4 + 6 + 6);
 });
 
 test("Due for erasure is the tab that opens, each tab label carries its count, and the other panels are hidden", async () => {
@@ -778,4 +778,20 @@ test("Lifecycle tables stay inside their scroll box and never break words letter
   assert.match(rule(".lc-table td"), /white-space:\s*nowrap/);
   assert.doesNotMatch(css, /\.lc-table[^{]*\{[^}]*(word-break:\s*break-all|overflow-wrap:\s*anywhere)/);
   assert.match(rule(".lc-table td.lc-wrap, .lc-table td small"), /white-space:\s*normal/);
+});
+
+test("Due for erasure has no Overdue column: overdue sits under the Due date, and Details and Hold share one Actions cell", async () => {
+  assert.doesNotMatch(HTML, /<th[^>]*>Overdue<\/th>/);
+  assert.match(HTML, /<th scope="col"><span class="sr-only">Actions<\/span><\/th><\/tr><\/thead>/);
+  const p = await page(base());
+  const tr = dataRows(p, "a-rows")[0];
+  assert.equal(tr.children.length, 7);
+  const last = tr.children[6];
+  assert.equal(buttons(last, "Details").length, 1);
+  assert.equal(buttons(last, "Hold").length, 1);
+  assert.equal(tr.children[3].textContent, "Dec 24, 202612 days overdue");
+  assert.equal(p.node["a-rows"].children[1].children[0].getAttribute("colspan"), "7");
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.match(css, /\.lc-table \.lc-chips \{[^}]*flex-direction:\s*column/);
+  assert.match(css, /\.lc-table td\.lc-wrap \{[^}]*min-width:\s*160px/);
 });

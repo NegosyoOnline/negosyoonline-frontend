@@ -64,6 +64,13 @@ export function appOrdersContent(title: string, appUrl: string): Markup {
 </section></div>`;
 }
 
+export const NO_PURCHASE_LINE = "You have no Membership Pack purchase on this account yet.";
+
+/** My Purchases for a member who has no Membership Pack order: one plain card, in the placeholder pages' style. */
+export function noPurchaseCard(): Markup {
+  return html`<section class="md-card" data-md-page="no-purchase"><p>${NO_PURCHASE_LINE}</p></section>`;
+}
+
 export function purchasesHero(): Markup {
   return pageHero("My Purchases", "Your Membership Pack payment and registration.");
 }

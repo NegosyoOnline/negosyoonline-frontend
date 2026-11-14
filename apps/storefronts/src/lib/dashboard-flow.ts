@@ -21,7 +21,7 @@ import { memberNotices } from "./notices-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
-import { HOME_SLOTS, appOrdersContent, noticesPanel, purchasesHero, soonContent } from "../views/sante/member-dash.ts";
+import { HOME_SLOTS, appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero, soonContent } from "../views/sante/member-dash.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
 import type { Markup } from "./html.ts";
@@ -73,7 +73,7 @@ function render(
   const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted, terms, order });
   const locked = !!pack?.lock;
   const scripts = [...(locked ? HOME_SCRIPTS : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
-  const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${panels}</div>`;
+  const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${pack ? panels : noPurchaseCard()}</div>`;
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Purchases", member: member.full_name, current: "purchases", content, scripts }), status);
 }
 

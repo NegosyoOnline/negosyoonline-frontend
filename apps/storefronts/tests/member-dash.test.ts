@@ -142,6 +142,16 @@ test("My Purchases holds the Membership Pack payment card, and the rejected orde
   assert.doesNotMatch(gone, /SP-1001|Membership Pack/);
 });
 
+test("My Purchases: a member with no pack sees the empty-state sentence, a member with a pack does not", async () => {
+  const none = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
+  assert.match(none, /You have no Membership Pack purchase on this account yet\./);
+  assert.match(none, /<section class="md-card"/);
+  const pack = { order_number: "SP-1001", payment_status: "pending_review", payment_label: "Under review", method_label: "Bank transfer", price_centavos: 148800, tone: "rev", benefits_off: true, lock: null, proofs: [] };
+  const has = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [ok({ pack, registration: null })] })))).text();
+  assert.doesNotMatch(has, /no Membership Pack purchase/);
+  assert.match(has, /SP-1001/);
+});
+
 test("My Purchases: signed out goes to the store home, a dead session clears the cookie", async () => {
   assert.equal((await purchasesPage(dashOf(fake({}), {}, ""))).headers.get("location"), "/");
   const dead = await purchasesPage(dashOf(fake({ "member/me": [err(401, "member_session_invalid")] })));

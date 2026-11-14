@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="/assets/css/products.css?v=20261114prod11">
 <link rel="stylesheet" href="/assets/css/inbox.css?v=20261114ib1">
 <link rel="stylesheet" href="/assets/css/meta-pixel.css?v=20261114mp1">
+<link rel="stylesheet" href="/assets/css/notices.css?v=20261114nt1">
 <noscript><style>#boot{display:none!important}</style></noscript>
 </head>
 <body class="dash dash-app">
@@ -81,6 +82,7 @@
         <a href="/settings/payments/" data-route="settings-payments">Payments</a>
         <a href="/settings/inbox/" data-route="settings-inbox" data-inbox-nav hidden>Inbox</a>
         <a href="/settings/meta-pixel/" data-route="settings-meta-pixel" data-meta-nav hidden>Meta Pixel</a>
+        <a href="/settings/notices/" data-route="settings-notices" data-notices-nav hidden>Notices</a>
       </nav>
       <div class="boot" id="boot" role="status"><p>Loading your dashboard...</p><span class="boot-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>
       <div class="ov-sprite" hidden>
@@ -358,6 +360,11 @@
         <div class="pm-root" id="mp-root"></div>
         <div class="bl-sr" id="mp-live" aria-live="polite"></div>
       </section>
+      <section class="view" id="view-settings-notices" aria-labelledby="h-settings-notices" hidden>
+        <h1 class="bl-sr" id="h-settings-notices" tabindex="-1">Notices</h1>
+        <div class="nt-root" id="nt-root"></div>
+        <div class="bl-sr" id="nt-live" aria-live="polite"></div>
+      </section>
       <section class="view" id="view-settings-shipping"aria-labelledby="h-settings-shipping" hidden>
         <header class="view-head"><p class="dash-eyebrow">Settings</p><h1 id="h-settings-shipping" tabindex="-1">Shipping</h1></header>
         <div class="ss-root" id="ss-root"></div>
@@ -413,7 +420,7 @@
 </dialog>
 <script src="/assets/js/config.js?v=20261028zy"></script>
 <script src="/assets/js/app.js?v=20261113ht1"></script>
-<script src="/assets/js/dashboard.js?v=20261113so1"></script>
+<script src="/assets/js/dashboard.js?v=20261114nt1"></script>
 <script src="/assets/js/account.js?v=20261113ht4"></script>
 <script src="/assets/js/billing.js?v=20261113bl4"></script>
 <script src="/assets/vendor/cropperjs/cropper.min.js?v=162"></script>
@@ -430,5 +437,6 @@
 <script src="/assets/js/inbox.js?v=20261114ib1"></script>
 <script src="/assets/js/inbox-settings.js?v=20261114ib1"></script>
 <script src="/assets/js/meta-pixel.js?v=20261114mp1"></script>
+<script src="/assets/js/notices.js?v=20261114nt1"></script>
 </body>
 </html>

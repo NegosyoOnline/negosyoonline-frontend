@@ -46,13 +46,15 @@ test("Settings is in the sidebar and not in the profile menu", () => {
    Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
 test("Settings has three tabs (Business Settings, Billing, Payments) and the Inbox tab that stays hidden until the API opens the inbox, and no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"], ["/settings/meta-pixel/", "Meta Pixel"]]);
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"], ["/settings/meta-pixel/", "Meta Pixel"], ["/settings/notices/", "Notices"]]);
   /* G2 Unified Inbox (z8uq9md3n6): the Inbox links start hidden and inbox.js shows them only when the API says the inbox is open.
      G1 Meta Pixel (z8uq9md3n5): the same for the Meta Pixel tab and meta-pixel.js. */
   const hiddenTabs = [...SET_TABS.replace(/^<nav[^>]*>/, "").matchAll(/<a\b[^>]*\bhidden\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(hiddenTabs.length, 2, "two tabs are hidden: Inbox and Meta Pixel");
+  assert.equal(hiddenTabs.length, 3, "three tabs are hidden: Inbox, Meta Pixel and Notices");
   assert.ok(hiddenTabs[0].includes('href="/settings/inbox/"') && hiddenTabs[0].includes("data-inbox-nav"));
   assert.ok(hiddenTabs[1].includes('href="/settings/meta-pixel/"') && hiddenTabs[1].includes("data-meta-nav"));
+  /* Member notices (z8uq9mezdh): the same for the Notices tab and notices.js. */
+  assert.ok(hiddenTabs[2].includes('href="/settings/notices/"') && hiddenTabs[2].includes("data-notices-nav"));
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
   assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments", "Inbox"]);
   /* The Help Center articles (z8uq9mekvc) are text on /help/ and name Santé; they are not a menu entry, so they are left out here. */

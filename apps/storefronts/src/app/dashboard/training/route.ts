@@ -1,6 +1,6 @@
-/* The member Training page, /dashboard/training/ (a plain page until the training task lands). Signed out it goes to the store home; a rejected order sends it to My Purchases. */
-import { trainingPage } from "../../../lib/dashboard-flow.ts";
+/* The member Training page, /dashboard/training/ (the University home). Signed out it goes to the store home; a rejected order sends it to My Purchases. */
 import { dashGet } from "../../../lib/dashboard-route.ts";
+import { trainingPage } from "../../../lib/training-flow.ts";
 import { neutralNotFound } from "../../../views/neutral.ts";
 
 export const dynamic = "force-dynamic";

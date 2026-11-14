@@ -813,3 +813,10 @@ test("the Lifecycle tab row is the Finance section menu: set-tabs fin-sub, with 
   assert.match(line('body.dash-app .set-tabs [role="tab"][aria-selected="true"]'), /border-bottom-color:\s*var\(--primary/);
   assert.match(line('body.dash-app .set-tabs [role="tab"]:focus-visible'), /outline:\s*2px solid var\(--link\)/);
 });
+
+test("the tab row is the first thing in the main view, as Finance's menu is; As of and the banners sit under it", () => {
+  const at = (id) => HTML.indexOf(`id="${id}"`);
+  const main = HTML.slice(at("v-main"));
+  assert.match(main.slice(0, 400), /^id="v-main" hidden>\s*<div class="set-tabs fin-sub" role="tablist"[^>]*id="lc-tabs"/);
+  assert.ok(at("lc-tabs") < at("l-asof") && at("l-asof") < at("l-msg") && at("l-msg") < at("l-ret") && at("l-ret") < at("pan-a"));
+});

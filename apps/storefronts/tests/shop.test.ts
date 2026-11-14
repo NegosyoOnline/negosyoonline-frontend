@@ -225,7 +225,7 @@ test("the product page shows extra photos as thumbnails and the four sections on
   assert.doesNotMatch(full, /data-faq-toggle/, "the home FAQ's one-open-at-a-time script is not attached to these");
   assert.match(full, /Why It Stands Out/);
   assert.match(full, /What You Get From It/);
-  assert.equal(full.match(/class="sf-fab-img"/g)?.length, 2); // photo 2 beside Feature, photo 4 beside Benefits; slot 3 is empty
+  assert.doesNotMatch(full, /class="sf-fab-img"/, "the sections never borrow a product photo; they take their own image");
   const bare = productContent({ product: { ...P1, image_url: B + "a.jpg", image_urls: [B + "a.jpg", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" }, related: rel, members: false }).value;
   assert.doesNotMatch(bare, /data-sf-thumb|sf-gallery-thumbs|sf-fab|Specifications/);
 });
@@ -1129,4 +1129,64 @@ test("a review post without a rating never reaches Django; refusals map to fixed
   assert.equal((await posted(backend(), { position: "1", rating: "5" }, "")).headers.get("location"), "/products/", "no order cookie, no review");
   assert.equal((await posted(backend(), { position: "x", rating: "5" })).status, 404);
   assert.equal((await posted(backend(), { position: "1000", rating: "5" })).status, 404);
+});
+
+/* ---- round 5c: section images and category FAQs (ClickUp z8uq9mek5w) ---------------------------------------------- */
+
+const sectionOf = (page: string, marker: string, next: string) => page.slice(page.indexOf(marker), page.indexOf(next));
+const R5C = { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? ""), features_image_url: B + "f-own.jpg", advantages_image_url: "", benefits_image_url: B + "b-own.jpg" };
+
+test("a section shows its own image beside the text, with alt text and lazy loading; with none it is text only and never uses a product photo", () => {
+  const page = productContent({ product: R5C, related: [], members: false }).value;
+  const feature = sectionOf(page, "data-sf-feature", "data-sf-advantages");
+  assert.match(feature, /<div class="sf-fab-img"><img src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/f-own\.jpg" alt="Fusion &lt;Coffee&gt; - What Makes It Special" loading="lazy"><\/div>/);
+  const advantages = sectionOf(page, "data-sf-advantages", "data-sf-benefits");
+  assert.doesNotMatch(advantages, /sf-fab-img|<img/, "no image: text only");
+  assert.match(advantages, /Easy\./, "the text is still there");
+  const benefits = sectionOf(page, "data-sf-benefits", "data-sf-faqs");
+  assert.match(benefits, /b-own\.jpg" alt="Fusion &lt;Coffee&gt; - What You Get From It" loading="lazy"/);
+  /* The product's photos 2 and 4 (b.jpg, d.jpg) fill none of the three sections, though the gallery still lists them. */
+  const sections = feature + advantages + benefits;
+  assert.doesNotMatch(sections, /b\.jpg|d\.jpg|a\.jpg/);
+  assert.equal(page.match(/class="sf-fab-img"/g)?.length, 2);
+  const none = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /class="sf-fab-img"/, "four photos, no section image: nothing in the sections");
+  assert.match(none, /data-sf-thumb/, "the gallery keeps the photos");
+  const older = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") } as never, related: [], members: false }).value;
+  assert.match(older, /data-sf-advantages/);
+});
+
+test("a section image must pass safeImage", () => {
+  const page = productContent({ product: { ...R5C, features_image_url: "https://evil.test/x.jpg", benefits_image_url: "javascript:alert(1)" }, related: [], members: false }).value;
+  assert.doesNotMatch(page, /evil\.test|javascript:/);
+  assert.doesNotMatch(page, /class="sf-fab-img"/);
+});
+
+test("the FAQs: the product's own first, then the category's, then How do I pay?, under one heading", () => {
+  const both = productContent({ product: { ...R5, category_faq: [{ q: "Category question <b>?", a: "Category answer." }, { q: "Second category?", a: "Yes." }] }, related: [], members: false }).value;
+  const at = (s: string) => both.indexOf(s);
+  assert.ok(at("Who is it for?") > 0 && at("Who is it for?") < at("Category question") && at("Category question") < at("Second category?") && at("Second category?") < at("How do I pay?"));
+  assert.equal(both.match(/data-sf-faqs/g)?.length, 1, "one block");
+  assert.equal(both.match(/<h2 class="sf-faqs-title">/g)?.length, 1, "one heading");
+  assert.equal(both.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 4);
+  assert.match(both, /Category question &lt;b&gt;\?/);
+  assert.ok(at("data-sf-faqs") > at(`class="sf-detail-trust"`) && at("data-sf-faqs") < at("sf-legal-box"), "where it was");
+  const catOnly = productContent({ product: { ...R5, faq: [], category_faq: [{ q: "C?", a: "C." }] }, related: [], members: false }).value;
+  assert.ok(catOnly.indexOf("C?") < catOnly.indexOf("How do I pay?"));
+  const empty = productContent({ product: { ...R5, faq: [], category_faq: [] }, related: [], members: false }).value;
+  assert.equal(empty.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 1, "today's behaviour: the fixed item alone");
+  const older = productContent({ product: R5, related: [], members: false }).value;
+  assert.equal(older.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 2, "an older API without category_faq");
+});
+
+test("the catalog parser reads category_faq and the three section image URLs, and tolerates an older API", async () => {
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [{ ...R5, category_faq: [{ q: "", a: "x" }, { q: "ok", a: "yes" }, 5], features_image_url: B + "f.jpg", advantages_image_url: null, benefits_image_url: B + "b.jpg" }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(got?.[0].category_faq, [{ q: "ok", a: "yes" }]);
+  assert.equal(got?.[0].features_image_url, B + "f.jpg");
+  assert.equal(got?.[0].advantages_image_url, "");
+  assert.equal(got?.[0].benefits_image_url, B + "b.jpg");
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[0].category_faq, []);
+  assert.equal(old?.[0].features_image_url, "");
 });

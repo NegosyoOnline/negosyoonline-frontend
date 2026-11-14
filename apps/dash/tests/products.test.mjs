@@ -679,8 +679,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod9/);
-  assert.match(html, /products\.js\?v=20261114prod11/);
+  assert.match(html, /products\.css\?v=20261114prod10/);
+  assert.match(html, /products\.js\?v=20261114prod12/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -903,7 +903,7 @@ test("photos (Edit): five slots, a picked photo uploads to its own slot at once,
   const d = boot();
   await d.show();
   d.manage(0, "pr-edit");
-  assert.equal(d.all("pr-islot").length, 5);
+  assert.equal(d.all("pr-islot", d.all("pr-imgrow")[0]).length, 5);
   pickSlot(d, 2, { type: "application/pdf", size: 10 });
   assert.match(d.$("pr-e-image").textContent, /JPEG, PNG or WebP/);
   pickSlot(d, 2, { type: "image/png", size: 10 * 1024 * 1024 + 1 });
@@ -1396,4 +1396,190 @@ test("Reviews: an empty product says so, a failed read offers Try again, and Bac
   assert.equal(e.buttons("Try again").length, 1);
   d.buttons("Back to products")[0].fire("click"); await settle();
   assert.equal(d.rows().length, 2);
+});
+
+/* ---- Section images (Features, Advantages, Benefits) and Category FAQs, ClickUp z8uq9mek5w r5c ---- */
+const secRoutes = (method, p, body, state) => {
+  const m = /^\/sites\/site_\w+\/catalog\/products\/(prod_\w+)\/image\/\?section=(features|advantages|benefits)(?:&revision=\d+)?$/.exec(p);
+  if (!m) return null;
+  const cur = state.products.find((x) => x.id === m[1]);
+  cur[m[2] + "_image_url"] = method === "POST" ? "https://media.test/" + m[2] + ".png" : null;
+  cur.revision += 1;
+  return { status: 200, body: cur };
+};
+
+test("section images: only Features, Advantages and Benefits get one; Specifications does not; the tile is the photo slot's look", async () => {
+  const d = await openDesc({ features_image_url: "https://media.test/f.png" });
+  assert.equal(d.all("pr-secimg").length, 3);
+  assert.deepEqual(d.all("pr-secimg").map((n) => n.all((x) => x.classList.contains("pr-secimg-title"))[0].textContent), ["Features image (optional)", "Advantages image (optional)", "Benefits image (optional)"]);
+  assert.equal(d.$("pr-f-secimg-specifications"), null);
+  assert.ok(d.$("pr-f-secimg-features") && d.$("pr-f-secimg-advantages") && d.$("pr-f-secimg-benefits"));
+  assert.match(d.$("pr-f-secimg-features").getAttribute("accept"), /image\/png/);
+  const filled = d.all("pr-secimg-slot");
+  assert.deepEqual(filled.map((n) => n.classList.contains("filled")), [true, false, false]);
+  assert.ok(filled.every((n) => n.classList.contains("pr-islot")), "same slot styles as the photos");
+  const img = filled[0].all((n) => n.tagName === "IMG")[0];
+  assert.equal(img.getAttribute("src"), "https://media.test/f.png");
+  assert.equal(img.getAttribute("alt"), "Features image of Product 1");
+  assert.match(CSS, /\.pr-secimg-slot \{ width: 120px; \}/);
+});
+
+test("section images: a pick checks type and size, crops, then uploads with ?section= and the revision; Remove deletes with the new revision; never a slot", async () => {
+  const e = boot({ products: [product("1")], routes: secRoutes });
+  await e.show(); e.manage(0, "pr-edit"); tabs(e)[1].fire("click");
+  const pick = (key, f) => { e.$("pr-f-secimg-" + key).files = [f]; e.$("pr-f-secimg-" + key).fire("change"); };
+  pick("features", { type: "application/pdf", size: 10 });
+  assert.match(e.$("pr-e-secimg-features").textContent, /JPEG, PNG or WebP/);
+  pick("features", { type: "image/png", size: 10 * 1024 * 1024 + 1 });
+  assert.match(e.$("pr-e-secimg-features").textContent, /10 MB/);
+  pick("features", { type: "image/png", size: 3 * 1024 * 1024 });
+  assert.match(e.$("pr-e-secimg-features").textContent, /2 MB/);
+  assert.equal(e.writes().length, 0);
+  const png = { type: "image/png", size: 1000, name: "f.png" };
+  pick("features", png); await settle();
+  const up = e.writes()[0];
+  assert.equal(up.method, "POST");
+  assert.equal(up.path, `/sites/${SITE}/catalog/products/prod_1/image/?section=features`);
+  assert.equal(up.form.get("revision"), "1");
+  assert.equal(up.form.get("file"), png);
+  assert.ok(!/slot=/.test(up.path), "slot and section are never sent together");
+  assert.equal(e.$("pr-f-secimg-features").parentNode.classList.contains("filled"), true);
+  assert.equal(e.$("pr-f-secimg-features").parentNode.all((n) => n.tagName === "IMG")[0].getAttribute("alt"), "Features image of Product 1");
+  assert.ok(e.toasts.some((t) => /Saved: Features image is updated\./.test(t)));
+  pick("benefits", { type: "image/jpeg", size: 50, name: "b.jpg" }); await settle();
+  assert.equal(e.writes()[1].path, `/sites/${SITE}/catalog/products/prod_1/image/?section=benefits`);
+  assert.equal(e.writes()[1].form.get("revision"), "2", "each upload follows the new revision");
+  const xs = e.all("pr-islot-x").filter((n) => n.getAttribute("aria-label") === "Remove features image");
+  assert.equal(xs.length, 1);
+  xs[0].fire("click"); await settle();
+  const del = e.writes()[2];
+  assert.equal(del.method, "DELETE");
+  assert.equal(del.path, `/sites/${SITE}/catalog/products/prod_1/image/?section=features&revision=3`);
+  assert.equal(e.all("pr-islot-x").filter((n) => n.getAttribute("aria-label") === "Remove features image").length, 0);
+  assert.equal(e.all("pr-islot-x").filter((n) => n.getAttribute("aria-label") === "Remove benefits image").length, 1);
+  assert.equal(e.writes().length, 3);
+});
+
+test("section images: the crop dialog opens for a pick and Use this crop uploads to the section", async () => {
+  const e = boot({ products: [product("1")], routes: secRoutes, cropper: { sizes: [900, 800] } });
+  await e.show(); e.manage(0, "pr-edit"); tabs(e)[1].fire("click");
+  e.$("pr-f-secimg-advantages").files = [{ type: "image/png", size: 5000, name: "a.png" }];
+  e.$("pr-f-secimg-advantages").fire("change");
+  const dlg = e.all("pr-crop")[0];
+  assert.equal(dlg.getAttribute("aria-label"), "Crop advantages image");
+  e.$("pr-root").all((n) => n.classList.contains("pr-crop-img"))[0].fire("load");
+  e.all("pr-crop-use")[0].fire("click"); await settle();
+  assert.equal(e.writes()[0].path, `/sites/${SITE}/catalog/products/prod_1/image/?section=advantages`);
+});
+
+test("section images: a refused upload shows its message under that section; a stale revision offers Reload", async () => {
+  const e = boot({ products: [product("1")], routes: (m, p) => (/section=/.test(p) ? { status: 503, body: { error: { code: "image_store_not_configured", message: "x" } } } : null) });
+  await e.show(); e.manage(0, "pr-edit"); tabs(e)[1].fire("click");
+  e.$("pr-f-secimg-benefits").files = [{ type: "image/png", size: 100, name: "b.png" }];
+  e.$("pr-f-secimg-benefits").fire("change"); await settle();
+  assert.ok(e.$("pr-e-secimg-benefits").textContent.length > 0 && !e.$("pr-e-secimg-benefits").hidden);
+  assert.equal(e.$("pr-e-secimg-features").hidden, true);
+  const s = boot({ products: [product("1")], routes: (m, p) => (/section=/.test(p) ? { status: 409, body: { error: { code: "stale_revision", message: "x" } } } : null) });
+  await s.show(); s.manage(0, "pr-edit"); tabs(s)[1].fire("click");
+  s.$("pr-f-secimg-features").files = [{ type: "image/png", size: 100, name: "f.png" }];
+  s.$("pr-f-secimg-features").fire("change"); await settle();
+  assert.match(s.all("pr-topmsg")[0].textContent, /changed since you loaded it/);
+  assert.equal(s.buttons("Reload").length, 1);
+});
+
+test("section images (read-only): the image shows with no upload, change or remove control", async () => {
+  let stale = true;
+  const d = boot({ products: [product("1", { benefits_image_url: "https://media.test/b.png" })], routes: (m) => { if (m === "PATCH" && stale) { stale = false; d.state.canEdit = false; return { status: 409, body: { error: { code: "stale_revision", message: "server" } } }; } return null; } });
+  await d.show(); d.manage(0, "pr-edit"); tabs(d)[1].fire("click");
+  d.set("benefits", "x");
+  await descSubmit(d);
+  d.buttons("Reload")[0].fire("click"); await settle();
+  assert.equal(d.all("pr-secimg-slot").length, 1, "only the section that has an image");
+  assert.equal(d.all("pr-secimg-slot")[0].all((n) => n.tagName === "IMG")[0].getAttribute("src"), "https://media.test/b.png");
+  assert.equal(d.all("pr-secimg").map((n) => n.all((x) => x.tagName === "BUTTON" || x.tagName === "INPUT").length).reduce((a, b) => a + b, 0), 0, "no control at all");
+  assert.equal(d.$("pr-f-secimg-benefits"), null);
+});
+
+test("Category FAQs: the toolbar action is the owner's only", async () => {
+  const d = boot({ canEdit: false });
+  await d.show();
+  assert.equal(d.buttons("Category FAQs").length, 0);
+  const o = boot();
+  await o.show();
+  assert.equal(o.buttons("Category FAQs").length, 1);
+  assert.deepEqual(o.all("no-btn").filter((n) => n.tagName === "BUTTON").map((n) => n.textContent.replace(/^[＋⇅]\s/, "")).filter((t) => ["Arrange", "Category FAQs", "Export CSV", "Add product"].includes(t)), ["Arrange", "Category FAQs", "Export CSV", "Add product"]);
+});
+
+const catRoutes = (store) => (method, p, body) => {
+  const m = /^\/sites\/site_\w+\/catalog\/categories\/(\w+)\/faq\/$/.exec(p);
+  if (!m) return null;
+  if (method === "PUT") { store[m[1]] = body.faq; return { status: 200, body: { category: m[1], faq: body.faq } }; }
+  return { status: 200, body: { category: m[1], faq: store[m[1]] || [] } };
+};
+
+test("Category FAQs: a panel with Back, the house dropdown (four names), and the product FAQ editor; GET loads the list, Save PUTs the whole list", async () => {
+  const store = { barley: [{ q: "Is it sweet?", a: "No." }] };
+  const d = boot({ routes: catRoutes(store) });
+  await d.show();
+  d.buttons("Category FAQs")[0].fire("click"); await settle();
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Category FAQs");
+  assert.equal(d.buttons("Back to products").length, 1);
+  assert.deepEqual(Array.from(d.$("pr-cf-category").children).map((o) => o.value + ":" + o.textContent), ["barley:Barley", "drinks:Specialty Drinks", "essentials:Essentials", "beauty:Beauty"]);
+  assert.equal(d.all("pr-combo").length >= 1, true, "the house dropdown");
+  assert.equal(d.calls.filter((c) => c.method === "GET" && /categories/.test(c.path))[0].path, `/sites/${SITE}/catalog/categories/barley/faq/`);
+  assert.equal(d.$("pr-faq-q-0").value, "Is it sweet?");
+  assert.equal(d.$("pr-faq-a-0").getAttribute("maxlength"), "1000");
+  assert.equal(d.$("pr-faq-q-0").getAttribute("maxlength"), "150");
+  faqBtn(d, "pr-faq-add").fire("click"); faqSet(d, "pr-faq-q-1", " Who? "); faqSet(d, "pr-faq-a-1", " Everyone. ");
+  d.form().fire("submit"); await settle();
+  const put = d.writes()[0];
+  assert.equal(put.method, "PUT");
+  assert.equal(put.path, `/sites/${SITE}/catalog/categories/barley/faq/`);
+  assert.deepEqual(put.body, { faq: [{ q: "Is it sweet?", a: "No." }, { q: "Who?", a: "Everyone." }] }, "the whole list, no revision");
+  assert.ok(d.toasts.some((t) => /Saved: Barley FAQs are saved\./.test(t)));
+  assert.equal(d.all("pr-faq-item").length, 2, "the editor stays, drawn from the saved list");
+  faqBtn(d, "pr-faq-rm", 1).fire("click"); faqBtn(d, "pr-faq-rm", 0).fire("click");
+  d.form().fire("submit"); await settle();
+  assert.deepEqual(d.writes()[1].body, { faq: [] }, "an empty list clears the category");
+  d.buttons("Back to products")[0].fire("click"); await settle();
+  assert.equal(d.rows().length, 2, "back on the list");
+});
+
+test("Category FAQs: another category loads its own list; unsaved typing blocks the switch; half-filled pairs and server errors show under the list", async () => {
+  const store = { barley: [{ q: "B?", a: "B." }], drinks: [{ q: "D?", a: "D." }] };
+  const d = boot({ routes: catRoutes(store) });
+  await d.show();
+  d.buttons("Category FAQs")[0].fire("click"); await settle();
+  const sel = d.$("pr-cf-category");
+  sel.value = "drinks"; sel.fire("change"); await settle();
+  assert.equal(d.calls.filter((c) => c.method === "GET" && /categories/.test(c.path)).pop().path, `/sites/${SITE}/catalog/categories/drinks/faq/`);
+  assert.equal(d.$("pr-faq-q-0").value, "D?");
+  assert.match(d.$("pr-root").textContent, /Specialty Drinks FAQs/);
+  faqSet(d, "pr-faq-q-0", "Changed?");
+  sel.value = "beauty"; sel.fire("change"); await settle();
+  assert.equal(sel.value, "drinks", "the category stays");
+  assert.match(d.all("pr-topmsg")[0].textContent, /unsaved changes/);
+  assert.equal(d.calls.filter((c) => c.method === "GET" && /beauty/.test(c.path)).length, 0);
+  faqSet(d, "pr-faq-q-0", "D?");
+  faqBtn(d, "pr-faq-add").fire("click"); faqSet(d, "pr-faq-q-1", "Only a question");
+  d.form().fire("submit"); await settle();
+  assert.match(d.error("faq"), /answer/);
+  const e = boot({ routes: (m, p, b) => (m === "PUT" ? { status: 400, body: { error: { code: "invalid_request", message: "Check.", fields: { faq: "Too long." } } } } : catRoutes({})(m, p, b)) });
+  await e.show(); e.buttons("Category FAQs")[0].fire("click"); await settle();
+  faqBtn(e, "pr-faq-add").fire("click"); faqSet(e, "pr-faq-q-0", "Q"); faqSet(e, "pr-faq-a-0", "A");
+  e.form().fire("submit"); await settle();
+  assert.equal(e.error("faq"), "Too long.");
+});
+
+test("Category FAQs: a failed read offers Try again; a read-only refusal on save uses its own sentence", async () => {
+  let fail = true;
+  const d = boot({ routes: (m, p, b) => (m === "GET" && /categories/.test(p) && fail ? { status: 500, body: {} } : m === "PUT" ? { status: 403, body: { error: { code: "catalog_read_only", message: "x" } } } : catRoutes({})(m, p, b)) });
+  await d.show(); d.buttons("Category FAQs")[0].fire("click"); await settle();
+  assert.match(d.$("pr-root").textContent, /couldn’t load the FAQs for Barley/);
+  assert.equal(d.$("pr-root").all((n) => n.tagName === "BUTTON" && n.textContent === "Save category FAQs")[0].disabled, true);
+  fail = false;
+  d.buttons("Try again")[0].fire("click"); await settle();
+  faqBtn(d, "pr-faq-add").fire("click"); faqSet(d, "pr-faq-q-0", "Q"); faqSet(d, "pr-faq-a-0", "A");
+  d.form().fire("submit"); await settle();
+  assert.match(d.all("pr-topmsg")[0].textContent, /Only the catalog owner site can change the shared catalog\./);
 });

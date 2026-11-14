@@ -333,3 +333,12 @@ body.dash-app #view-products .pr-revmeta { margin: 0 0 6px; font-size: 13px; col
 body.dash-app #view-products .pr-revbody { margin: 0 0 10px; font-size: 15px; line-height: 1.5; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 body.dash-app #view-products .pr-revact { display: flex; justify-content: flex-end; }
 body.dash-app #view-products .pr-revact .no-btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Section images on the Description tab (Features, Advantages, Benefits): one optional square tile under the text, the photo slot's look. */
+body.dash-app #view-products .pr-secimg { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 14px; }
+body.dash-app #view-products .pr-secimg:empty { display: none; }
+body.dash-app #view-products .pr-secimg-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+body.dash-app #view-products .pr-secimg-slot { width: 120px; }
+/* Category FAQs panel: the same column as the editor. */
+body.dash-app #view-products .pr-cf { max-width: 720px; }
+body.dash-app #view-products .pr-cf-pick { max-width: 320px; }

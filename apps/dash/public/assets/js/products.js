@@ -556,6 +556,7 @@
     form.appendChild(ct.wrap);
     bar.appendChild(form);
     if (S.canEdit) bar.appendChild(button("⇅ Arrange", "no-btn-ghost pr-arrange", function () { arrangeView(); }));
+    if (S.canEdit) bar.appendChild(button("Category FAQs", "no-btn-ghost pr-catfaq", function () { categoryFaqView(); }));
     bar.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
       var rows = filterProducts(S.products, view, S.canEdit);
       if (!rows.length) { D.toast("Nothing to export", "No products match the filters.", "error"); return; }
@@ -772,7 +773,193 @@
     });
   }
 
+  /* ---------- category FAQs (owner only) ---------- */
+
+  /* Each category has its own general FAQs, GET and PUT .../catalog/categories/{category}/faq/ ({faq: [{q, a}]}, the whole list each time,
+     [] clears it). The product page shows a product's own FAQs first, then its category's. The panel opens from the toolbar, picks the
+     category in the house dropdown and uses the product FAQ editor. The server decides who may write; a store that cannot edit never
+     sees the button. */
+  function categoryFaqPath(cat) { return "/sites/" + S.site + "/catalog/categories/" + cat + "/faq/"; }
+  /* The typed pairs as the API takes them: both boxes filled, empty pairs dropped. bad is true when one box of a pair is empty. */
+  function faqFromItems(items) {
+    var faq = [], bad = false;
+    items.forEach(function (it) {
+      var q = it.q.trim(), a = it.a.trim();
+      if (!q && !a) return;
+      if (!q || !a) bad = true; else faq.push({ q: q, a: a });
+    });
+    return { faq: faq, bad: bad };
+  }
+  function categoryFaqView(startCat) {
+    if (!S.canEdit) return;
+    S.mode = "catfaq";
+    var mine = ++token, seq = 0;
+    var r = clear(pane());
+    r.removeAttribute("aria-busy");
+    var cat = startCat || CATEGORIES[0][0], saved = null, ed = null, busyOn = false, errs = {}, fields = {};
+    var head = h("div", "pr-formhead");
+    head.appendChild(button("Back to products", "no-btn-ghost pr-cf-back", function () { token++; loadList(); }));
+    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, "Category FAQs");
+    head.appendChild(title);
+    r.appendChild(head);
+    var wrap = h("div", "pr-form pr-cf");
+    var top = D.el("div", { "class": "pr-topmsg", role: "alert" });
+    top.hidden = true;
+    wrap.appendChild(top);
+    wrap.appendChild(h("p", "pr-hint pr-cf-lead", "General questions for every product in a category. A product page shows the product’s own FAQs first, then its category’s, under one FAQs heading."));
+    var pick = h("div", "pr-field pr-cf-pick");
+    pick.appendChild(D.el("label", { "for": "pr-cf-category" }, "Category"));
+    var sel = D.el("select", { id: "pr-cf-category", "class": "pr-input" });
+    CATEGORIES.forEach(function (c) { sel.appendChild(D.el("option", { value: c[0] }, c[1])); });
+    sel.value = cat;
+    pick.appendChild(sel);
+    combo(sel, "Category");
+    wrap.appendChild(pick);
+    var form = D.el("form", { "class": "pr-tabform", novalidate: "" });
+    var body = h("div", "pr-cf-body");
+    var save = D.el("button", { type: "submit", "class": "no-btn no-btn-primary pr-cf-save" }, "Save category FAQs");
+    save.disabled = true;
+    var bar = h("div", "pr-abar");
+    bar.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
+    bar.appendChild(h("span", "pr-abar-sp"));
+    bar.appendChild(save);
+    form.appendChild(body); form.appendChild(bar);
+    wrap.appendChild(form);
+    r.appendChild(wrap);
+
+    function topMessage(text) {
+      clear(top); top.hidden = !text;
+      if (!text) return;
+      top.appendChild(h("p", "pr-error", text));
+      say(text);
+    }
+    function faqError(text) {
+      var e = errs.faq, c = fields.faq;
+      if (!e) return;
+      e.textContent = text || ""; e.hidden = !text;
+      if (c) { if (text) c.setAttribute("aria-invalid", "true"); else c.removeAttribute("aria-invalid"); }
+    }
+    function dirty() {
+      if (!ed || !saved) return false;
+      return JSON.stringify(faqFromItems(ed.items).faq) !== JSON.stringify(saved);
+    }
+    function draw(list) {
+      saved = list.map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
+      errs = {}; fields = {};
+      var name = categoryLabel(cat);
+      ed = makeFaqEditor(saved, fields, errs, { title: name + " FAQs", hint: "Shown on every " + name + " product page, after the product’s own FAQs. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end." });
+      clear(body).appendChild(ed.wrap);
+      save.disabled = false;
+    }
+    function load(c) {
+      var mySeq = ++seq;
+      cat = c; ed = null; saved = null; save.disabled = true;
+      topMessage("");
+      clear(body).appendChild(h("p", "pr-meta", "Loading…"));
+      D.call("GET", categoryFaqPath(c), null, true).then(function (res) {
+        if (mine !== token || mySeq !== seq || res.status === 401) return;
+        var d = res.data;
+        if (!res.ok || !d || !Array.isArray(d.faq)) {
+          clear(body).appendChild(failBox("We couldn’t load the FAQs for " + categoryLabel(c) + ". Try again.", function () { load(c); }));
+          return;
+        }
+        draw(d.faq);
+      });
+    }
+    sel.addEventListener("change", function () {
+      if (sel.value === cat) return;
+      if (dirty()) {
+        sel.value = cat; syncCombo(sel);
+        topMessage("You have unsaved changes. Save them first, or press Back to products to discard them.");
+        return;
+      }
+      load(sel.value);
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (busyOn || !ed) return;
+      topMessage(""); faqError("");
+      var g = faqFromItems(ed.items);
+      if (g.bad) { faqError("Give each question an answer, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      busyOn = true; save.disabled = true; save.textContent = "Saving…"; wrap.setAttribute("aria-busy", "true");
+      var c = cat;
+      D.call("PUT", categoryFaqPath(c), { faq: g.faq }, true).then(function (res) {
+        if (mine !== token || res.status === 401) return;
+        busyOn = false; save.disabled = false; save.textContent = "Save category FAQs"; wrap.removeAttribute("aria-busy");
+        if (res.ok && res.data && Array.isArray(res.data.faq)) {
+          draw(res.data.faq);
+          D.toast("Saved", categoryLabel(c) + " FAQs are saved.");
+          say("Saved.");
+          return;
+        }
+        var er = describeError(res);
+        if (er.fields.faq || Object.keys(er.fields).some(function (k) { return k.indexOf("faq") === 0; })) {
+          var k0 = Object.keys(er.fields).filter(function (k) { return k.indexOf("faq") === 0; })[0];
+          faqError(er.fields[k0]); topMessage(MSG.invalid);
+          return;
+        }
+        topMessage(er.message);
+      });
+    });
+    title.focus();
+    load(cat);
+  }
+
   /* ---------- form ---------- */
+
+  /* The FAQ list: up to 10 question and answer pairs. Add, Remove and Move up or down redraw the list from the items, so what was typed stays.
+     The product editor and the Category FAQs panel both use it; fields and errs are the caller’s maps (the list and its error line go in as faq). */
+  function makeFaqEditor(saved, fields, errs, o) {
+    var faqItems = (Array.isArray(saved) ? saved : []).slice(0, FAQ_MAX).map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
+    var wrap = h("div", "pr-field pr-faq");
+    wrap.appendChild(h("p", "pr-faq-title", o.title));
+    wrap.appendChild(h("p", "pr-hint", o.hint));
+    var list = h("div", "pr-faq-list");
+    list.setAttribute("id", "pr-f-faq");
+    fields.faq = list;
+    wrap.appendChild(list);
+    var add = button("Add a question", "no-btn-ghost pr-faq-add", function () {
+      if (faqItems.length >= FAQ_MAX) return;
+      faqItems.push({ q: "", a: "" }); draw(faqItems.length - 1);
+    });
+    wrap.appendChild(add);
+    var err = D.el("p", { "class": "pr-ferr", id: "pr-e-faq" });
+    err.hidden = true; errs.faq = err; wrap.appendChild(err);
+    list.setAttribute("aria-describedby", "pr-e-faq");
+    function counter(el, max) {
+      var c = h("span", "pr-faq-count", el.value.length + "/" + max);
+      el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
+      return c;
+    }
+    function draw(focusIdx) {
+      clear(list);
+      faqItems.forEach(function (it, i) {
+        var box = h("div", "pr-faq-item");
+        var q = D.el("input", { type: "text", "class": "pr-input pr-faq-q", id: "pr-faq-q-" + i, maxlength: String(FAQ_Q_MAX), autocomplete: "off", placeholder: "Question", "aria-label": "Question " + (i + 1) });
+        q.value = it.q;
+        q.addEventListener("input", function () { it.q = q.value; });
+        var a = D.el("textarea", { "class": "pr-input pr-area pr-faq-a", id: "pr-faq-a-" + i, rows: "3", maxlength: String(FAQ_A_MAX), placeholder: "Answer", "aria-label": "Answer " + (i + 1) });
+        a.value = it.a;
+        a.addEventListener("input", function () { it.a = a.value; });
+        box.appendChild(q); box.appendChild(counter(q, FAQ_Q_MAX));
+        box.appendChild(a); box.appendChild(counter(a, FAQ_A_MAX));
+        var tools = h("div", "pr-faq-tools");
+        var up = button("Move up", "no-btn-ghost pr-faq-up", function () { if (i > 0) { faqItems.splice(i - 1, 0, faqItems.splice(i, 1)[0]); draw(i - 1); } });
+        var down = button("Move down", "no-btn-ghost pr-faq-down", function () { if (i < faqItems.length - 1) { faqItems.splice(i + 1, 0, faqItems.splice(i, 1)[0]); draw(i + 1); } });
+        var rm = button("Remove", "no-btn-ghost pr-faq-rm", function () { faqItems.splice(i, 1); draw(Math.min(i, faqItems.length - 1)); });
+        up.disabled = i === 0; down.disabled = i === faqItems.length - 1;
+        up.setAttribute("aria-label", "Move question " + (i + 1) + " up"); down.setAttribute("aria-label", "Move question " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove question " + (i + 1));
+        tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
+        box.appendChild(tools);
+        list.appendChild(box);
+      });
+      add.disabled = faqItems.length >= FAQ_MAX;
+      add.textContent = faqItems.length >= FAQ_MAX ? "Limit reached (" + FAQ_MAX + ")" : "Add a question";
+      if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-faq-q-" + focusIdx); if (t && t.focus) t.focus(); }
+    }
+    draw();
+    return { wrap: wrap, items: faqItems };
+  }
 
   var SLOTS = 5;
   /* The shipping inputs, in the order the Shipping card shows them. Volume slot is not on the form: the API derives and stores it. */
@@ -857,7 +1044,7 @@
     r.removeAttribute("aria-busy");
     var fields = {}, errs = {}, pending = [null, null, null, null, null]; /* pending: the cropped photos an Add form uploads after the product exists */
     var tab = tabName === "description" && !adding ? "description" : "details";
-    var previewTimer = null, previewSeq = 0, imgBusyOn = false, slotTiles = [];
+    var previewTimer = null, previewSeq = 0, imgBusyOn = false, slotTiles = [], secBoxes = {}, secErrs = {}, secTiles = {};
     var f = h("div", "pr-form pr-tabbed");
 
     function leave() { dropPhotos(); clearTimeout(previewTimer); token++; loadList(); }
@@ -1109,58 +1296,11 @@
     panels.description = h("section", "pr-tabpanel");
     panels.description.setAttribute("role", "tabpanel"); panels.description.setAttribute("id", "pr-panel-description"); panels.description.setAttribute("aria-labelledby", "pr-tab-description");
     var saveDesc = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Description");
-    var descForm = null, faqItems = [], ingItems = [], ingDraw = null;
-    /* The FAQ list: up to 10 question and answer pairs. Add, Remove and Move up or down redraw the list from faqItems, so what was typed stays. */
+    var descForm = null, ingItems = [], ingDraw = null;
+    var faqEd = null;
     function faqEditor(saved) {
-      faqItems = (Array.isArray(saved) ? saved : []).slice(0, FAQ_MAX).map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
-      var wrap = h("div", "pr-field pr-faq");
-      wrap.appendChild(h("p", "pr-faq-title", "FAQ"));
-      wrap.appendChild(h("p", "pr-hint", "Questions shoppers often ask, shown under the product details. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end."));
-      var list = h("div", "pr-faq-list");
-      list.setAttribute("id", "pr-f-faq");
-      fields.faq = list;
-      wrap.appendChild(list);
-      var add = button("Add a question", "no-btn-ghost pr-faq-add", function () {
-        if (faqItems.length >= FAQ_MAX) return;
-        faqItems.push({ q: "", a: "" }); draw(faqItems.length - 1);
-      });
-      wrap.appendChild(add);
-      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-faq" });
-      err.hidden = true; errs.faq = err; wrap.appendChild(err);
-      list.setAttribute("aria-describedby", "pr-e-faq");
-      function counter(el, max) {
-        var c = h("span", "pr-faq-count", el.value.length + "/" + max);
-        el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
-        return c;
-      }
-      function draw(focusIdx) {
-        clear(list);
-        faqItems.forEach(function (it, i) {
-          var box = h("div", "pr-faq-item");
-          var q = D.el("input", { type: "text", "class": "pr-input pr-faq-q", id: "pr-faq-q-" + i, maxlength: String(FAQ_Q_MAX), autocomplete: "off", placeholder: "Question", "aria-label": "Question " + (i + 1) });
-          q.value = it.q;
-          q.addEventListener("input", function () { it.q = q.value; });
-          var a = D.el("textarea", { "class": "pr-input pr-area pr-faq-a", id: "pr-faq-a-" + i, rows: "3", maxlength: String(FAQ_A_MAX), placeholder: "Answer", "aria-label": "Answer " + (i + 1) });
-          a.value = it.a;
-          a.addEventListener("input", function () { it.a = a.value; });
-          box.appendChild(q); box.appendChild(counter(q, FAQ_Q_MAX));
-          box.appendChild(a); box.appendChild(counter(a, FAQ_A_MAX));
-          var tools = h("div", "pr-faq-tools");
-          var up = button("Move up", "no-btn-ghost pr-faq-up", function () { if (i > 0) { faqItems.splice(i - 1, 0, faqItems.splice(i, 1)[0]); draw(i - 1); } });
-          var down = button("Move down", "no-btn-ghost pr-faq-down", function () { if (i < faqItems.length - 1) { faqItems.splice(i + 1, 0, faqItems.splice(i, 1)[0]); draw(i + 1); } });
-          var rm = button("Remove", "no-btn-ghost pr-faq-rm", function () { faqItems.splice(i, 1); draw(Math.min(i, faqItems.length - 1)); });
-          up.disabled = i === 0; down.disabled = i === faqItems.length - 1;
-          up.setAttribute("aria-label", "Move question " + (i + 1) + " up"); down.setAttribute("aria-label", "Move question " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove question " + (i + 1));
-          tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
-          box.appendChild(tools);
-          list.appendChild(box);
-        });
-        add.disabled = faqItems.length >= FAQ_MAX;
-        add.textContent = faqItems.length >= FAQ_MAX ? "Limit reached (" + FAQ_MAX + ")" : "Add a question";
-        if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-faq-q-" + focusIdx); if (t && t.focus) t.focus(); }
-      }
-      draw();
-      return wrap;
+      faqEd = makeFaqEditor(saved, fields, errs, { title: "FAQ", hint: "Questions shoppers often ask, shown under the product details, then the category’s general FAQs. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end." });
+      return faqEd.wrap;
     }
     /* The ingredient list: up to 8 cards, each a name, one line and one of the product's own photos (or none). Add, Remove and Move
        redraw from ingItems, so what was typed stays. The photo choices are read again each time the tab opens, because photos are
@@ -1248,6 +1388,9 @@
       c6.body.appendChild(textRows.short_description); c6.body.appendChild(textRows.long_description);
       var d1 = pairOf("pr-pair"); d1.appendChild(textRows.features); d1.appendChild(textRows.specifications);
       var d2 = pairOf("pr-pair"); d2.appendChild(textRows.advantages); d2.appendChild(textRows.benefits);
+      textRows.features.appendChild(sectionImage("features", "Features"));
+      textRows.advantages.appendChild(sectionImage("advantages", "Advantages"));
+      textRows.benefits.appendChild(sectionImage("benefits", "Benefits"));
       c6.body.appendChild(d1); c6.body.appendChild(d2);
       c6.body.appendChild(faqEditor(v.faq));
       c6.body.appendChild(ingredientEditor(v.ingredients));
@@ -1271,6 +1414,7 @@
       Object.keys(errs).forEach(function (k) { fieldError(k, ""); });
       top.hidden = true; clear(top);
       imgErr.hidden = true; imgErr.textContent = "";
+      Object.keys(secErrs).forEach(function (k) { secErrs[k].hidden = true; secErrs[k].textContent = ""; });
     }
     function topMessage(text, reload) {
       clear(top); top.hidden = !text;
@@ -1296,18 +1440,94 @@
         if (fresh) openForm(fresh, null, tab); else loadList();
       });
     }
-    function applyFailure(res) {
-      var e = describeError(res);
-      if (e.kind === "image") { imgErr.textContent = e.message; imgErr.hidden = false; say(e.message); return; }
+    function applyFailure(res, target) {
+      var e = describeError(res), box = target || imgErr;
+      if (e.kind === "image") { box.textContent = e.message; box.hidden = false; say(e.message); return; }
       var shown = false;
       Object.keys(e.fields).forEach(function (k) {
         if (errs[k]) { fieldError(k, e.fields[k]); shown = true; }
         else if (k.indexOf("faq") === 0 && errs.faq) { fieldError("faq", e.fields[k]); shown = true; }
         else if (k.indexOf("ingredients") === 0 && errs.ingredients) { fieldError("ingredients", e.fields[k]); shown = true; }
-        else if (k === "file" || k === "revision" || k === "slot") { imgErr.textContent = e.fields[k]; imgErr.hidden = false; shown = true; }
+        else if (k === "file" || k === "revision" || k === "slot" || k === "section") { box.textContent = e.fields[k]; box.hidden = false; shown = true; }
       });
       if (e.kind === "fields" && shown) { topMessage(MSG.invalid); var first = f.querySelector("[aria-invalid='true']"); if (first && first.focus) first.focus(); return; }
       topMessage(e.message, e.kind === "stale");
+    }
+
+    /* ----- section images (Edit, Description tab): Features, Advantages and Benefits each take one optional image, stored like a
+       product photo (POST and DELETE .../image/?section=features|advantages|benefits). It uploads at once and is never copied from a
+       product photo. A store that cannot edit sees the image and no control. ----- */
+    function focusSection(key) { var t = secTiles[key]; if (t && t.focus) t.focus(); }
+    function drawSection(key, label) {
+      var box = secBoxes[key], err = secErrs[key];
+      var url = safeImage(S.editing && S.editing[key + "_image_url"]), edit = S.canEdit === true, low = label.toLowerCase();
+      clear(box); secTiles[key] = null;
+      if (!url && !edit) return;
+      box.appendChild(h("p", "pr-secimg-title", label + " image (optional)"));
+      var slot = h("div", "pr-islot pr-secimg-slot" + (url ? " filled" : ""));
+      slot.setAttribute("data-section", key);
+      var tile = null;
+      if (edit) {
+        var file = D.el("input", { type: "file", id: "pr-f-secimg-" + key, accept: IMAGE_TYPES.join(","), "class": "pr-file", tabindex: "-1", "aria-hidden": "true" });
+        tile = D.el("button", { type: "button", "class": "pr-islot-btn", "aria-label": (url ? "Change " : "Add ") + low + " image" });
+        tile.addEventListener("click", function () { if (!imgBusyOn) file.click(); });
+        file.addEventListener("change", function () {
+          var one = file.files && file.files[0];
+          if (!one) return;
+          err.hidden = true; err.textContent = "";
+          function refuse(text) { err.textContent = text; err.hidden = false; file.value = ""; say(text); }
+          if (IMAGE_TYPES.indexOf(one.type) < 0) { refuse("Upload a JPEG, PNG or WebP image."); return; }
+          if (one.size > IMAGE_ORIGINAL_MAX) { refuse("The photo is too large. The limit is 10 MB."); return; }
+          cropPhoto({ label: "Crop " + low + " image", focus: function () { focusSection(key); }, keep: function (blob, name) {
+            var form = new FormData();
+            form.append("file", blob, name);
+            form.append("revision", String(S.editing.revision));
+            sectionCall(key, label, "POST", productPath(S.editing) + "image/?section=" + key, form);
+          } }, one, refuse, function () { file.value = ""; });
+        });
+        slot.appendChild(tile); slot.appendChild(file);
+      }
+      var holder = tile || slot;
+      if (url) holder.appendChild(D.el("img", { "class": "pr-islot-img", src: url, alt: label + " image of " + (S.editing ? S.editing.name : "the product") }));
+      else { holder.appendChild(h("span", "pr-islot-plus", "+")); holder.appendChild(h("span", "pr-islot-text", "Add image")); }
+      if (edit && url) {
+        var x = D.el("button", { type: "button", "class": "pr-islot-x", "aria-label": "Remove " + low + " image" }, "×");
+        x.addEventListener("click", function () {
+          if (imgBusyOn) return;
+          sectionCall(key, label, "DELETE", productPath(S.editing) + "image/?section=" + key + "&revision=" + encodeURIComponent(S.editing.revision), null);
+        });
+        slot.appendChild(x);
+      }
+      secTiles[key] = tile;
+      box.appendChild(slot);
+      if (edit) box.appendChild(h("p", "pr-hint", "Shown beside the " + low + " on the product page. Without an image the text uses the full width. JPG, PNG or WebP, up to 2 MB after cropping."));
+      box.appendChild(err);
+    }
+    function sectionImage(key, label) {
+      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-secimg-" + key, role: "alert" });
+      err.hidden = true;
+      secErrs[key] = err; secBoxes[key] = h("div", "pr-secimg");
+      drawSection(key, label);
+      return secBoxes[key];
+    }
+    function sectionCall(key, label, method, path, form) {
+      clearErrors();
+      imgBusyOn = true;
+      secBoxes[key].setAttribute("aria-busy", "true");
+      var req = form ? D.send(method, path, form) : D.call(method, path, null, true);
+      req.then(function (res) {
+        if (mine !== token || res.status === 401) return;
+        imgBusyOn = false;
+        secBoxes[key].removeAttribute("aria-busy");
+        if (res.ok && res.data && res.data.id) {
+          S.editing = res.data; replaceProduct(res.data);
+          drawSection(key, label); focusSection(key);
+          say(label + (method === "POST" ? " image saved." : " image removed."));
+          D.toast("Saved", label + (method === "POST" ? " image is updated." : " image is removed."));
+          return;
+        }
+        applyFailure(res, secErrs[key]); drawSection(key, label);
+      });
     }
 
     /* ----- photos: five slots. Edit uploads at once; Add keeps the cropped photos and uploads them after the product is created ----- */
@@ -1353,7 +1573,7 @@
           function refuse(text) { imgErr.textContent = text; imgErr.hidden = false; file.value = ""; say(text); }
           if (IMAGE_TYPES.indexOf(one.type) < 0) { refuse("Upload a JPEG, PNG or WebP image."); return; }
           if (one.size > IMAGE_ORIGINAL_MAX) { refuse("The photo is too large. The limit is 10 MB."); return; }
-          cropPhoto(i, one, refuse, function () { file.value = ""; });
+          cropPhoto({ label: "Crop photo " + (i + 1), focus: function () { focusSlot(i); }, keep: function (b, n) { keepPhoto(i, b, n); } }, one, refuse, function () { file.value = ""; });
         });
         slotTiles.push(tile);
         slotsBox.appendChild(slot);
@@ -1395,13 +1615,13 @@
     }
     /* The square crop (Cropper.js, aspect ratio 1, view mode 2, as on Payments settings). The 2 MB limit is checked on the cropped
        output: PNG first, then a JPEG when the PNG is over. A browser without the cropper keeps the original if it is within 2 MB. */
-    function cropPhoto(i, file, refuse, reset) {
+    function cropPhoto(ctx, file, refuse, reset) {
       if (!(window.Cropper && window.URL && URL.createObjectURL)) {
         if (file.size > IMAGE_MAX) { refuse("The photo is too large to store without cropping. The limit is 2 MB."); return; }
-        keepPhoto(i, file, file.name || "product"); reset(); return;
+        ctx.keep(file, file.name || "product"); reset(); return;
       }
       var url = URL.createObjectURL(file), cropper = null;
-      var ov = D.el("div", { "class": "pr-crop", role: "dialog", "aria-modal": "true", "aria-label": "Crop photo " + (i + 1) });
+      var ov = D.el("div", { "class": "pr-crop", role: "dialog", "aria-modal": "true", "aria-label": ctx.label });
       var boxEl = h("div", "pr-crop-box");
       var img = D.el("img", { "class": "pr-crop-img", alt: "The photo to crop" });
       var stage = h("div", "pr-crop-stage"); stage.appendChild(img);
@@ -1414,13 +1634,13 @@
       function close() {
         if (cropper) { cropper.destroy(); cropper = null; }
         URL.revokeObjectURL(url); ov.remove(); reset();
-        focusSlot(i);
+        ctx.focus();
       }
       function apply() {
         if (!cropper) return;
         use.disabled = true;
         var canvas = cropper.getCroppedCanvas({ maxWidth: 1000, maxHeight: 1000, fillColor: "#fff" });
-        function done(blob, name) { close(); if (blob) keepPhoto(i, blob, name); else refuse("That photo could not be cropped. Choose a different one."); }
+        function done(blob, name) { close(); if (blob) ctx.keep(blob, name); else refuse("That photo could not be cropped. Choose a different one."); }
         canvas.toBlob(function (png) {
           if (png && png.size <= IMAGE_MAX) { done(png, "product.png"); return; }
           canvas.toBlob(function (jpg) {
@@ -1492,7 +1712,7 @@
       var out = {};
       TEXTS.forEach(function (t) { out[t[0]] = fields[t[0]].value.trim(); });
       var faq = [], faqBad = false;
-      faqItems.forEach(function (it) {
+      faqEd.items.forEach(function (it) {
         var q = it.q.trim(), a = it.a.trim();
         if (!q && !a) return;
         if (!q || !a) faqBad = true; else faq.push({ q: q, a: a });

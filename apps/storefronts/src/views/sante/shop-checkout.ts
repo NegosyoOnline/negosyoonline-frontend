@@ -1,7 +1,6 @@
 /* The checkout page: TWCinc's store_checkout.html, _store_address_form.html, _store_transfer_proof.html, _store_summary_lines.html
-   and _store_summary_totals.html. Step trail Cart / Shipping Address / Payment / Order Complete; a member with active benefits first
-   chooses "How should we ship this order?" ("Ship to my address" at the member price, "Ship to another address" at SRP with
-   the same address form as a guest). Payment is a bank or e-wallet transfer to the store's own account with a proof file, posted
+   and _store_summary_totals.html. Step trail Cart / Shipping Address / Payment / Order Complete; a member with active benefits sees only
+   their own saved address, read-only, at the member price (no ship-to choice: member-price orders ship to the member's own address). Payment is a bank or e-wallet transfer to the store's own account with a proof file, posted
    in the same request as the order ("Complete Order"). Not carried over from TWCinc: Cash on Delivery with its code popup, the card
    method, the referral-code box (Coach Ed's Q3) and the disabled coupon box. The two checkout scripts TWCinc wrote inline are
    moved to js/pack-shop.js (the policy allows none). Every figure is Django's.
@@ -11,7 +10,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { Address, Quote, ShopAccount } from "../../lib/shop-api.ts";
-import { MSG_PAYMENT_UNAVAILABLE } from "../../lib/shop-flow-text.ts";
+import { MSG_NO_HOME_ADDRESS, MSG_PAYMENT_UNAVAILABLE } from "../../lib/shop-flow-text.ts";
 import { shippingCell, shippingLabel } from "./shop-cart.ts";
 import { money, php } from "./shop-shell.ts";
 
@@ -22,7 +21,7 @@ export const QR_PATH = "/checkout/qr/";
 export const EDIT_ADDRESS_PATH = "/checkout/?edit=home";
 
 export type Step = "address" | "payment";
-export type Mode = "guest" | "home" | "different";
+export type Mode = "guest" | "home";
 
 /** The fields of the address step, in the order the buyer sees them. */
 export const ADDRESS_FIELDS = ["first_name", "last_name", "mobile", "email", "line", "province", "city", "barangay", "zip", "landmark"] as const;
@@ -32,18 +31,16 @@ export type CheckoutModel = {
   step: Step;
   /** The address form in edit mode: the member changes their saved home address (the page shows only that form). */
   edit: boolean;
-  /** A member with active benefits: the ship-mode cards show. Anyone else is shipped to the typed address at SRP. */
+  /** A member with active benefits: their own saved address shows, read-only. Anyone else is shipped to the typed address at SRP. */
   benefits: boolean;
   member: { name: string; mobile: string } | null;
   mode: Mode;
-  /** The card first shown on the ship-mode step. */
-  radio: "home" | "different";
   quote: Quote | null;
-  quotes: { home: Quote | null; different: Quote | null };
+  /** The member's own-address quote (the member's saved address comes from it). */
+  quotes: { home: Quote | null };
   posted: Record<string, string>;
   field_errors: Record<string, string>;
   error_message: string;
-  home_reason: string;
   accounts: ShopAccount[] | null;
   submit_key: string;
 };
@@ -122,7 +119,7 @@ function receiverRows(m: CheckoutModel, edit: boolean, autofill: (value: string)
             </div>`;
 }
 
-function addressForm(m: CheckoutModel, mode: "guest" | "different" | "edit"): Markup {
+function addressForm(m: CheckoutModel, mode: "guest" | "edit"): Markup {
   const p = m.posted;
   const edit = mode === "edit";
   const autofill = (value: string) => (m.benefits ? "off" : value);
@@ -223,28 +220,19 @@ function summaryTotals(q: Quote): Markup {
 }
 
 function summaryAside(m: CheckoutModel): Markup {
-  const swapped = m.benefits && m.step === "address";
-  const pane = (which: "home" | "different", q: Quote | null, inner: (q: Quote) => Markup, wrap: string): Markup =>
-    q ? html`<div${wrap ? html` class="${wrap}"` : ""} data-sf-for="${which}"${m.radio !== which ? html` hidden` : ""}>${inner(q)}</div>` : html``;
   return html`
       <aside class="sf-checkout-summary">
         <h3>Order Summary</h3>
-        ${swapped ? html`
-        ${pane("home", m.quotes.home, summaryLines, "")}
-        ${pane("different", m.quotes.different, summaryLines, "")}` : html`<div>${m.quote ? summaryLines(m.quote) : ""}</div>`}
-        ${swapped ? html`
-        ${pane("home", m.quotes.home, summaryTotals, "sf-totals")}
-        ${pane("different", m.quotes.different, summaryTotals, "sf-totals")}` : html`<div class="sf-totals">${m.quote ? summaryTotals(m.quote) : ""}</div>`}
+        <div>${m.quote ? summaryLines(m.quote) : ""}</div>
+        <div class="sf-totals">${m.quote ? summaryTotals(m.quote) : ""}</div>
       </aside>`;
 }
 
-/* ---- the ship-mode step for a member with benefits ------------------------------------------------------------- */
-
-const COIN = html`<svg class="sf-earn-coin" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10" fill="#3D2F00"/><circle cx="12" cy="12" r="7.2" fill="none" stroke="#FFD54A" stroke-width="1.6"/><path d="M12 7.5v9M9.6 9.6c0-1 1-1.6 2.4-1.6s2.4.6 2.4 1.6-1 1.5-2.4 1.8-2.4.7-2.4 1.8 1 1.6 2.4 1.6 2.4-.6 2.4-1.6" fill="none" stroke="#FFD54A" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+/* ---- the own-address step for a member with benefits ------------------------------------------------------------- */
 
 /** The member's saved address from whichever quote carries it (the home quote first), or null from an older backend / none saved. */
 function homeAddressOf(m: CheckoutModel): Address | null {
-  return m.quotes.home?.home_address ?? m.quotes.different?.home_address ?? m.quote?.home_address ?? null;
+  return m.quotes.home?.home_address ?? m.quote?.home_address ?? null;
 }
 
 /** "line, barangay, city, province ZIP" with an empty part left out. */
@@ -255,46 +243,21 @@ export function addressText(a: Address): string {
 
 /** True while the member's home address cannot be changed (a recovery hold). An older backend sends no flag: not locked. */
 function homeLockedOf(m: CheckoutModel): boolean {
-  return [m.quotes.home, m.quotes.different, m.quote].some((q) => q?.home_address_locked === true);
+  return [m.quotes.home, m.quote].some((q) => q?.home_address_locked === true);
 }
 
 const LOCK_ICON = html`<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 1 1 6 0v3H9z" fill="currentColor"/></svg>`;
 
-function shipModeStep(m: CheckoutModel): Markup {
-  const earn = m.quotes.home ? savingsOf(m.quotes.home) : 0;
-  const homeOff = m.home_reason !== "";
+function memberAddressStep(m: CheckoutModel): Markup {
   const who = m.member ?? { name: "", mobile: "" };
   const saved = homeAddressOf(m);
   const locked = homeLockedOf(m);
   return html`
-        <fieldset class="sf-block sf-ship-mode" id="sfShipMode">
-          <legend>How should we ship this order?</legend>
-          <div class="sf-ship-choice">
-            <label class="sf-ship-card${homeOff ? " is-disabled" : ""}">
-              <input type="radio" name="ship_radio" value="home"${m.radio === "home" && !homeOff ? html` checked` : ""}${homeOff ? html` disabled` : ""}>
-              <span class="sf-ship-card-box">
-                <span class="sf-ship-dot" aria-hidden="true"></span>
-                <span class="sf-ship-card-title">Ship to my address</span>
-                ${homeOff ? html`<span class="sf-ship-why">${m.home_reason} <a href="/dashboard/">Update address</a></span>` : html`<span class="sf-ship-card-sub">For your own use. You pay the member price.</span>
-                <span class="sf-ship-tag sf-ship-tag--save">Member price</span>`}
-              </span>
-            </label>
-            <label class="sf-ship-card">
-              <input type="radio" name="ship_radio" value="different"${m.radio === "different" || homeOff ? html` checked` : ""}>
-              <span class="sf-ship-card-box">
-                <span class="sf-ship-dot" aria-hidden="true"></span>
-                <span class="sf-ship-card-title">Ship to another address</span>
-                <span class="sf-ship-card-sub">Dropshipping. You're selling it. We ship to your customer, who pays the SRP.</span>
-                <span class="sf-ship-tag sf-ship-tag--earn">${COIN}You earn${earn > 0 ? html` <b>${php(earn)}</b>` : ""}</span>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-        ${homeOff ? "" : html`
-        <form method="post" action="${CHECKOUT_PATH}" id="sfOwnPanel" data-sf-panel="home"${m.radio !== "home" ? html` hidden` : ""}>
+        <form method="post" action="${CHECKOUT_PATH}" id="sfOwnPanel">
           <input type="hidden" name="action" value="choose"><input type="hidden" name="choice" value="home">
           <div class="sf-block sf-own-addr">
             <h2 class="sf-block-title">Shipping Address</h2>
+            <p class="sf-locked-note">Member-price orders ship to your own saved address.</p>
             <div class="sf-own-addr-card">
               <span class="sf-own-addr-pin" aria-hidden="true">&#128205;</span>
               <div>
@@ -302,21 +265,19 @@ function shipModeStep(m: CheckoutModel): Markup {
                 <dl class="sf-own-addr-dl">
                   ${who.mobile ? html`<dt>Mobile</dt><dd>${who.mobile}</dd>` : ""}
                   ${saved ? html`<dt>Address</dt><dd>${addressText(saved)}</dd>
-                  ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html`<dt>Address</dt><dd>The delivery address saved in your member profile.</dd>`}
+                  ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html``}
                 </dl>
               </div>
               ${saved && !locked ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
+            ${saved ? html`<p class="sf-own-addr-manage">To change it for good, <a href="/dashboard/">open your member dashboard</a>.</p>` : html`<p class="sf-form-error" id="sfNoHomeAddress" role="alert">${MSG_NO_HOME_ADDRESS} <a href="/dashboard/">Open your member dashboard</a></p>`}
             ${locked ? html`<div class="sf-own-addr-note" id="sfHomeLockedNote" role="note">${LOCK_ICON}<span>Your home address cannot be changed right now.</span></div>` : ""}
           </div>
           <div class="sf-step-actions">
             <a href="/cart/" class="sf-step-back-link">Back</a>
-            <button type="submit" class="btn-cart sf-step-next">Confirm Address</button>
+            <button type="submit" class="btn-cart sf-step-next"${saved ? "" : html` disabled`}>Confirm Address</button>
           </div>
-        </form>`}
-        <div id="sfOtherPanel" data-sf-panel="different"${m.radio !== "different" && !homeOff ? html` hidden` : ""}>
-        ${addressForm(m, "different")}
-        </div>`;
+        </form>`;
 }
 
 /* ---- the payment step (TWCinc _store_transfer_proof.html) ------------------------------------------------------- */
@@ -408,7 +369,7 @@ function paymentStep(m: CheckoutModel): Markup {
         </form>`}
         <form method="post" action="${CHECKOUT_PATH}" class="sf-edit-address">
           <input type="hidden" name="action" value="edit">${carried}
-          <button type="submit" class="sf-cancel-order-link">${m.mode === "guest" || m.mode === "different" ? "Cancel Order" : "Change address"}</button>
+          <button type="submit" class="sf-cancel-order-link">${m.mode === "guest" ? "Cancel Order" : "Change address"}</button>
         </form>
         <div class="sf-block sf-address-summary">
           <div class="sf-address-summary-title">Shipping Address</div>
@@ -431,7 +392,7 @@ export function checkoutContent(m: CheckoutModel): Markup {
 
     <div class="sf-checkout-grid">
       <div class="sf-checkout-main">
-        ${m.step === "payment" ? paymentStep(m) : m.edit ? addressForm(m, "edit") : m.benefits ? shipModeStep(m) : addressForm(m, "guest")}
+        ${m.step === "payment" ? paymentStep(m) : m.edit ? addressForm(m, "edit") : m.benefits ? memberAddressStep(m) : addressForm(m, "guest")}
       </div>
       ${summaryAside(m)}
     </div>

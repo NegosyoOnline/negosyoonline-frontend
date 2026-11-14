@@ -417,22 +417,20 @@ test("a proof over 4 MB is refused here, with the same words as the Package chec
 
 /* ---- the checkout: scenario 2, a signed-in member ---------------------------------------------------------------- */
 
-test("a member with benefits chooses how to ship: own address at the member price, another address at SRP, with what they earn", async () => {
-  const page = await text(await checkoutGet(shop(backend({ member: true }), `no_cart=${P1.id}.2; ${MEMBER}`)));
-  assert.match(page, /How should we ship this order\?/);
-  assert.match(page, /Ship to my address/);
-  assert.match(page, /For your own use\. You pay the member price\./);
-  assert.match(page, /Ship to another address/);
-  assert.match(page, /You earn <b>&#8369;360\.00<\/b>/);
-  assert.match(page, /data-sf-for="home"/);
-  assert.match(page, /data-sf-for="different"/);
+test("a member with benefits sees only their own address at the member price: no ship-to choice, no dropshipping words", async () => {
+  const page = await text(await checkoutGet(shop(backend({ member: true, quoteExtra: { home_address: { line: "7 Rizal St", barangay: "Poblacion", city: "Makati", province: "Metro Manila", zip: "1210", landmark: "" } } }), `no_cart=${P1.id}.2; ${MEMBER}`)));
+  assert.doesNotMatch(page, /How should we ship this order\?|ship_radio|sfShipMode|Ship to another address|Dropshipping|You earn|selling it|your customer/i);
+  assert.doesNotMatch(page, /id="delivery"|name="ship_mode" value="different"/);
+  assert.match(page, /Member-price orders ship to your own saved address\./);
+  assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
+  assert.match(page, /open your member dashboard/);
   assert.match(page, /Member savings<\/span><strong>&minus;&#8369;360\.00/);
   assert.match(page, /name="choice" value="home"/);
-  assert.match(page, /name="ship_mode" value="different"/);
+  assert.doesNotMatch(page, /sf-step-next"[^>]* disabled/);
 });
 
 test("'ship to my address' goes to payment at the member price with no typed address, and places with ship mode home", async () => {
-  const b = backend({ member: true });
+  const b = backend({ member: true, quoteExtra: { home_address: { line: "7 Rizal St", barangay: "Poblacion", city: "Makati", province: "Metro Manila", zip: "1210", landmark: "" } } });
   const cookie = `no_cart=${P1.id}.2; ${MEMBER}`;
   const pay = await text((await checkoutPost(shop(b, cookie), { action: "choose", choice: "home" }, null)) as Response);
   assert.match(pay, /&#8369;540\.00/);
@@ -449,13 +447,25 @@ test("'ship to my address' goes to payment at the member price with no typed add
   assert.equal("receiver_name" in body, false);
 });
 
-test("'ship to another address' pays SRP and posts the typed address", async () => {
+test("a member with benefits who posts a typed address is refused with the own-address message and nothing is priced or sent", async () => {
   const b = backend({ member: true });
   const cookie = `no_cart=${P1.id}.2; ${MEMBER}`;
-  const pay = await text((await checkoutPost(shop(b, cookie), { ...ADDR, action: "address", ship_mode: "different" }, null)) as Response);
-  assert.match(pay, /&#8369;900\.00/);
-  assert.match(pay, /name="fingerprint" value="fp-different-90000"/);
-  assert.match(pay, /name="ship_mode" value="different"/);
+  const refused = await text((await checkoutPost(shop(b, cookie), { ...ADDR, action: "address", ship_mode: "different" }, null)) as Response);
+  assert.match(refused, /Member-price orders ship only to your own saved address\./);
+  assert.doesNotMatch(refused, /name="fingerprint"/);
+  const proof = new File([new Uint8Array([1])], "p.png", { type: "image/png" });
+  for (const mode of ["different", "guest", ""]) {
+    const placed = await text((await checkoutPost(shop(b, cookie), { ...ADDR, action: "place", ship_mode: mode, fingerprint: "fp", submit_key: "k", account_id: "acc_1", reference_number: "R", amount_sent: "1" }, proof)) as Response);
+    assert.match(placed, /Member-price orders ship only to your own saved address\./, mode);
+  }
+  assert.equal(b.calls.some((c) => c.url.endsWith("/shop/orders/")), false, "tampered posts never reach Django");
+});
+
+test("Django's member_own_address_only refusal is shown with its clear message", async () => {
+  const cookie = `no_cart=${P1.id}.1; ${MEMBER}`;
+  const r = (await checkoutPost(shop(backend({ member: true, placeStatus: 422, placeBody: { error: { code: "member_own_address_only", message: "x", fields: { ship_mode: ["x"] } } } }), cookie),
+    { action: "place", ship_mode: "home", fingerprint: "fp-home-27000", submit_key: "k", account_id: "acc_1", reference_number: "R", amount_sent: "1" }, null)) as Response;
+  assert.match(await text(r), /Member-price orders ship only to your own saved address\./);
 });
 
 test("a member without benefits is a guest at SRP: no cards, 'home' refused, name and contact prefilled", async () => {
@@ -470,13 +480,19 @@ test("a member without benefits is a guest at SRP: no cards, 'home' refused, nam
   assert.match(home, /id="delivery"/);
 });
 
-test("a member whose profile has no address is told so and sent to the other card", async () => {
+test("a member whose profile has no address is told so, with the dashboard link, and Continue is blocked", async () => {
   const cookie = `no_cart=${P1.id}.1; ${MEMBER}`;
+  const page = await text(await checkoutGet(shop(backend({ member: true }), cookie)));
+  assert.match(page, /Add your delivery address in your member dashboard first\./);
+  assert.match(page, /<a href="\/dashboard\/">Open your member dashboard<\/a>/);
+  assert.match(page, /btn-cart sf-step-next" disabled/);
+  assert.doesNotMatch(page, /id="delivery"|Ship to another address/);
+  const choose = await text((await checkoutPost(shop(backend({ member: true }), cookie), { action: "choose", choice: "home" }, null)) as Response);
+  assert.match(choose, /Add your delivery address in your member dashboard first\./);
+  assert.doesNotMatch(choose, /name="fingerprint"/);
   const r = (await checkoutPost(shop(backend({ member: true, placeStatus: 422, placeBody: { error: { code: "no_home_address", message: "x", fields: {} } } }), cookie),
     { action: "place", ship_mode: "home", fingerprint: "fp-home-27000", submit_key: "k", account_id: "acc_1", reference_number: "R", amount_sent: "1" }, null)) as Response;
-  const page = await text(r);
-  assert.match(page, /Add your delivery address to your member profile first\./);
-  assert.match(page, /Update address/);
+  assert.match(await text(r), /Add your delivery address in your member dashboard first\./);
 });
 
 test("a dead member session is dropped: the visitor is a guest and the cookie is cleared", async () => {
@@ -596,7 +612,6 @@ test("saving round-trips: the six keys go to Django with the session and no ids,
   const page = await text(await checkoutGet(shop(b, memberCookie)));
   assert.match(page, /<dd>9 Mabini St, Bel-Air, Makati, Metro Manila 1209<\/dd>/);
   assert.match(page, /<dt>Landmark<\/dt><dd>Red roof<\/dd>/);
-  assert.match(page, /name="ship_radio" value="home" checked/); // "Ship to my address" selected
   assert.match(page, /sf-own-addr-edit/);
   assert.match(page, /name="action" value="choose"/); // Confirm Address is still the next step
   assert.match(page, />Confirm Address</);
@@ -664,15 +679,15 @@ test("an older backend without the save route (404) leaves the form with a messa
   assert.match(await text(r), /We could not save your address\./);
 });
 
-test("without home_address (an older backend, or none saved) the sentence stays and there is no Edit link", async () => {
+test("without home_address (an older backend, or none saved) the member is told to add one, there is no Edit link and Continue is blocked", async () => {
   for (const quoteExtra of [undefined, { home_address: null, home_address_source: "" }]) {
     const b = backend({ member: true, quoteExtra });
     const page = await text(await checkoutGet(shop(b, memberCookie)));
-    assert.match(page, /The delivery address saved in your member profile\./);
+    assert.match(page, /Add your delivery address in your member dashboard first\./);
     assert.doesNotMatch(page, /sf-own-addr-edit/);
     const pay = await text((await checkoutPost(shop(b, memberCookie), { action: "choose", choice: "home" }, null)) as Response);
-    assert.match(pay, /The delivery address saved in your member profile/);
-    assert.doesNotMatch(pay, /undefined|NaN/);
+    assert.match(pay, /Add your delivery address in your member dashboard first\./);
+    assert.doesNotMatch(pay, /undefined|NaN|name="fingerprint"/);
   }
 });
 

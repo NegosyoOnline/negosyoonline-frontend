@@ -19,7 +19,7 @@ import {
 } from "./shop-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { applyChange, readCart, writeCart, type CartChange, type CartLine } from "./shop-cart.ts";
-import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS, MSG_NO_HOME_ADDRESS, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
+import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS, MSG_MEMBER_OWN_ADDRESS_ONLY, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
 import { neutralNotFound } from "../views/neutral.ts";
 import { homeModel, emptyContactForm, type HomeModel } from "../views/sante/model.ts";
 import { cartContent } from "../views/sante/shop-cart.ts";
@@ -263,8 +263,8 @@ async function prepared(s: Shop): Promise<Prepared> {
 
 function blank(over: Partial<CheckoutModel> = {}): CheckoutModel {
   return {
-    step: "address", edit: false, benefits: false, member: null, mode: "guest", radio: "home", quote: null, quotes: { home: null, different: null },
-    posted: {}, field_errors: {}, error_message: "", home_reason: "", accounts: null, submit_key: "", ...over,
+    step: "address", edit: false, benefits: false, member: null, mode: "guest", quote: null, quotes: { home: null },
+    posted: {}, field_errors: {}, error_message: "", accounts: null, submit_key: "", ...over,
   };
 }
 
@@ -276,7 +276,7 @@ function checkoutPage(s: Shop, p: { lines: CartLine[]; quote: Quote; products: C
   }, status);
 }
 
-/** The shipping-address step: for a member with benefits the two ship-mode cards come first, each with its own quote. */
+/** The shipping-address step: a member with benefits sees only their own saved address (no ship-to choice); a guest types one. */
 async function addressStep(s: Shop, p: Extract<Prepared, { lines: CartLine[] }>, over: Partial<CheckoutModel> = {}): Promise<Response> {
   const benefits = p.quote.member_price;
   const member = await memberInfo(s);
@@ -286,14 +286,10 @@ async function addressStep(s: Shop, p: Extract<Prepared, { lines: CartLine[] }>,
     posted = { first_name: n.first, last_name: n.last, mobile: localDigits(member.mobile), email: member.email };
   }
   let home: Quote | null = null;
-  let different: Quote | null = null;
-  if (benefits) {
-    home = (await price(s, p.lines, { ship_mode: "home" })).quote;
-    different = (await price(s, p.lines, { ship_mode: "different", address: null })).quote;
-  }
+  if (benefits) home = (await price(s, p.lines, { ship_mode: "home" })).quote;
   const m = blank({
     step: "address", benefits, member: member ? { name: member.full_name, mobile: member.mobile } : null, mode: "guest",
-    quote: benefits ? home ?? p.quote : p.quote, quotes: { home, different }, posted, ...over,
+    quote: benefits ? home ?? p.quote : p.quote, quotes: { home }, posted, ...over,
   });
   return checkoutPage(s, p, m);
 }
@@ -322,7 +318,7 @@ async function editStep(
   const member = await memberInfo(s);
   const m = blank({
     step: "address", edit: true, benefits: true, member: member ? { name: member.full_name, mobile: member.mobile } : null, mode: "home",
-    quote: home, quotes: { home, different: null }, posted: postedOf(saved), ...over,
+    quote: home, quotes: { home }, posted: postedOf(saved), ...over,
   });
   return checkoutPage(s, p, m, status);
 }
@@ -391,20 +387,23 @@ export async function checkoutPost(s: Shop, text: Record<string, string>, proof:
 
   if (action === "choose") {
     if (!p.quote.member_price || text.choice !== "home") return addressStep(s, p, { error_message: MSG_SHIP_MODE });
+    const home = (await price(s, p.lines, { ship_mode: "home" })).quote;
+    if (!home?.home_address) return addressStep(s, p);
     return paymentStep(s, p, "home", {});
   }
   if (action === "address") {
-    const chosen: "guest" | "different" = p.quote.member_price ? "different" : "guest";
-    if (mode !== chosen) return addressStep(s, p, { error_message: MSG_SHIP_MODE, posted: cleanedPosted(text) });
+    // A member with benefits has no typed address: member-price orders ship to the saved one only.
+    if (p.quote.member_price) return addressStep(s, p, { error_message: MSG_MEMBER_OWN_ADDRESS_ONLY });
+    if (mode !== "guest") return addressStep(s, p, { error_message: MSG_SHIP_MODE, posted: cleanedPosted(text) });
     const field_errors = addressErrors(text);
     if (Object.keys(field_errors).length > 0) {
-      return addressStep(s, p, { error_message: MSG_CHECK_FIELDS, field_errors, posted: cleanedPosted(text), radio: "different" });
+      return addressStep(s, p, { error_message: MSG_CHECK_FIELDS, field_errors, posted: cleanedPosted(text) });
     }
-    return paymentStep(s, p, chosen, text);
+    return paymentStep(s, p, "guest", text);
   }
   if (action === "edit") {
     // "Cancel Order" / "Change address": back to the address step with what was typed (a home order has nothing typed)
-    return addressStep(s, p, { posted: cleanedPosted(text), radio: mode === "home" ? "home" : "different" });
+    return addressStep(s, p, { posted: cleanedPosted(text) });
   }
   return null;
 }
@@ -414,7 +413,10 @@ async function placePost(s: Shop, text: Record<string, string>, proof: File | nu
   const p = await prepared(s);
   if ("response" in p) return p.response;
   const posted = text.ship_mode ?? "";
-  const mode: Mode = posted === "home" || posted === "different" ? posted : "guest";
+  const mode: Mode = posted === "home" ? "home" : "guest";
+  if (posted === "different" || (p.quote.member_price && mode !== "home")) {
+    return addressStep(s, p, { error_message: MSG_MEMBER_OWN_ADDRESS_ONLY }); // never sent to Django: member-price orders ship to the saved address only
+  }
   if (mode !== "guest" && !p.quote.member_price) return addressStep(s, p, { error_message: SESSION_ENDED });
   if (proof && proof.size > PROOF_MAX_BYTES) {
     return paymentStep(s, p, mode, text, { error_message: MSG_CHECK_FIELDS, field_errors: { proof: PROOF_TOO_LARGE } });
@@ -460,14 +462,16 @@ async function placePost(s: Shop, text: Record<string, string>, proof: File | nu
       return response;
     }
     case "no_home_address":
-      return addressStep(s, p, { error_message: MSG_NO_HOME_ADDRESS, home_reason: MSG_NO_HOME_ADDRESS, radio: "different" });
+      return addressStep(s, p); // the page itself says so, with the dashboard link
+    case "member_own_address_only":
+      return addressStep(s, p, { error_message: MSG_MEMBER_OWN_ADDRESS_ONLY });
     case "ship_mode_not_allowed":
     case "ship_mode_required":
       return addressStep(s, p, { error_message: r.message || MSG_SHIP_MODE, posted: cleanedPosted(text) });
     default:
   }
   if (keys.some((k) => ADDRESS_FIELD_KEYS.has(k))) {
-    return addressStep(s, p, { error_message: MSG_CHECK_FIELDS, field_errors: r.fields, posted: cleanedPosted(text), radio: "different" });
+    return addressStep(s, p, { error_message: MSG_CHECK_FIELDS, field_errors: r.fields, posted: cleanedPosted(text) });
   }
   const onSheet = keys.some((k) => PAY_FIELD_KEYS.has(k));
   const status = r.status === 429 ? 429 : 200;

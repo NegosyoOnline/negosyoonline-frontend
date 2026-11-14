@@ -8,7 +8,7 @@
 
 const VERSIONS: Record<string, string> = {
   "css/pack-home.css": "7bf002d3",
-  "css/pack-storefront.css": "523adbda",
+  "css/pack-storefront.css": "4f038285",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -30,7 +30,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-forms.css": "80d50155",
   "css/pack-select.css": "096379bc",
   "css/pack-shop.css": "bc0c601f", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
-  "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
+  "js/pack-shop.js": "7c6fec9d", // this storefront's own file: the checkout's field checks, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
   "img/bundle-1.webp": "79f1b43a",
   "img/bundle-2.webp": "7e5a838a",

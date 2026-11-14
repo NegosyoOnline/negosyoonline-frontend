@@ -1151,7 +1151,7 @@ body.sf-noscroll { overflow: hidden; }
   --sf-muted-fill: #F4F6F8;
 }
 
-/* My Earnings (C9) and dropship tag (C10) */
+/* My Earnings (C9) */
 .sf-earnings {
   display: block; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 22px 26px; box-shadow: var(--shadow); margin-bottom: 28px;

@@ -189,19 +189,6 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   })();
 
-  /* ---- Member ship-mode cards: the two panels and the two summaries follow the chosen card ---- */
-  (function () {
-    var radios = document.querySelectorAll('#sfShipMode input[name="ship_radio"]');
-    if (!radios.length) return;
-    function show(v) {
-      document.querySelectorAll('[data-sf-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-sf-panel') !== v; });
-      document.querySelectorAll('[data-sf-for]').forEach(function (p) { p.hidden = p.getAttribute('data-sf-for') !== v; });
-    }
-    radios.forEach(function (r) { r.addEventListener('change', function () { if (r.checked) show(r.value); }); });
-    var back = document.getElementById('sfBackToChoice'), mine = document.querySelector('#sfShipMode input[value="home"]');
-    if (back && mine && !mine.disabled) back.addEventListener('click', function () { mine.checked = true; show('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); });
-  })();
-
   /* ---- Transfer panel: Copy puts the account number on the clipboard ---- */
   (function () {
     var panel = document.getElementById('sfDirectPanel');

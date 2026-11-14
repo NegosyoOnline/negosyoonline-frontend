@@ -684,8 +684,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod6/);
-  assert.match(html, /products\.js\?v=20261114prod8/);
+  assert.match(html, /products\.css\?v=20261114prod7/);
+  assert.match(html, /products\.js\?v=20261114prod9/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -1235,4 +1235,72 @@ test("History names Servings per pack and FAQ", () => {
   assert.deepEqual(Array.from(u.changes({ ...base, servings_per_pack: 30 }, base)), ["Servings per pack changed"]);
   assert.deepEqual(Array.from(u.changes({ ...base, faq: [{ q: "a", a: "b" }] }, base)), ["FAQ changed"]);
   assert.deepEqual(Array.from(u.changes({ ...base, faq: [] }, { ...base, faq: undefined })), ["Saved with no changes"]);
+});
+
+/* ---- round 5b: ingredients -------------------------------------------------------------------------------------- */
+
+const ingSet = (d, id, v) => { const n = d.$(id); n.value = v; n.fire("input"); };
+const ingPhoto = (d, i, v) => { const n = d.$("pr-ing-photo-" + i); n.value = v; n.fire("change"); };
+const ingOptions = (d, i) => d.$("pr-ing-photo-" + i).children.map((o) => o.textContent);
+const PHOTOS = ["https://media.test/a.jpg", "https://media.test/b.jpg", "", "", ""];
+
+test("Ingredients editor: add, type, pick a photo, reorder, remove; the limit is 8; Save Description sends the list", async () => {
+  const d = await openDesc({ image_urls: PHOTOS });
+  assert.equal(d.all("pr-ing-item").length, 0);
+  assert.match(d.$("pr-root").textContent, /Show what goes into it/);
+  d.all("pr-ing-add")[0].fire("click"); d.all("pr-ing-add")[0].fire("click");
+  assert.equal(d.all("pr-ing-item").length, 2);
+  assert.equal(d.$("pr-ing-name-0").getAttribute("maxlength"), "60");
+  assert.equal(d.$("pr-ing-line-0").getAttribute("maxlength"), "200");
+  assert.deepEqual(ingOptions(d, 0), ["No photo", "Photo 1", "Photo 2"], "only the product's own photos are offered");
+  ingSet(d, "pr-ing-name-0", "Barley grass"); ingSet(d, "pr-ing-line-0", "  Young, green and gentle. "); ingPhoto(d, 0, "2");
+  ingSet(d, "pr-ing-name-1", "Lemon");
+  d.all("pr-ing-down")[0].fire("click");
+  assert.equal(d.$("pr-ing-name-0").value, "Lemon", "the second moved up and typed text stayed");
+  assert.equal(d.$("pr-ing-photo-1").value, "2", "the photo choice travels with its card");
+  await descSubmit(d);
+  assert.deepEqual(d.writes()[0].body, { revision: 1, ingredients: [
+    { name: "Lemon", line: "", photo_slot: null }, { name: "Barley grass", line: "Young, green and gentle.", photo_slot: 2 }] });
+  d.all("pr-ing-rm")[0].fire("click");
+  assert.equal(d.all("pr-ing-item").length, 1);
+  await descSubmit(d);
+  assert.deepEqual(d.writes()[1].body, { revision: 2, ingredients: [{ name: "Barley grass", line: "Young, green and gentle.", photo_slot: 2 }] });
+  for (let i = 0; i < 12; i++) d.all("pr-ing-add")[0].fire("click");
+  assert.equal(d.all("pr-ing-item").length, 8, "never more than 8");
+  assert.ok(d.all("pr-ing-add")[0].disabled);
+});
+
+test("Ingredients editor: saved cards load; unchanged sends nothing; a nameless card is refused and blank ones are dropped; server errors show", async () => {
+  const saved = [{ name: "Oats", line: "Whole grain.", photo_slot: 1, photo_url: PHOTOS[0] }];
+  const d = await openDesc({ image_urls: PHOTOS, ingredients: saved });
+  assert.equal(d.$("pr-ing-name-0").value, "Oats");
+  assert.equal(d.$("pr-ing-photo-0").value, "1");
+  await descSubmit(d);
+  assert.equal(d.writes().length, 0, "unchanged sends nothing");
+  d.all("pr-ing-add")[0].fire("click"); ingSet(d, "pr-ing-line-1", "A line with no name");
+  await descSubmit(d);
+  assert.equal(d.writes().length, 0);
+  assert.match(d.error("ingredients"), /name/);
+  ingSet(d, "pr-ing-line-1", "");
+  await descSubmit(d);
+  assert.equal(d.writes().length, 0, "a blank card is dropped, so nothing changed");
+  const e = boot({ products: [product("1")], routes: (m) => (m === "PATCH" ? { status: 400, body: { error: { code: "invalid_request", message: "Check the highlighted fields.", fields: { ingredients: "Too many." } } } } : null) });
+  await e.show(); e.manage(0, "pr-edit"); tabs(e)[1].fire("click");
+  e.all("pr-ing-add")[0].fire("click"); ingSet(e, "pr-ing-name-0", "X");
+  await descSubmit(e);
+  assert.equal(e.error("ingredients"), "Too many.");
+});
+
+test("Ingredients editor: a saved slot whose photo was removed stays visible as empty; an older API without the field starts empty", async () => {
+  const d = await openDesc({ image_urls: ["https://media.test/a.jpg", "", "", "", ""], ingredients: [{ name: "Oats", line: "", photo_slot: 3 }] });
+  assert.deepEqual(ingOptions(d, 0), ["No photo", "Photo 1", "Photo 3 (empty)"]);
+  const older = await openDesc();
+  assert.equal(older.all("pr-ing-item").length, 0);
+});
+
+test("History names Ingredients", () => {
+  const u = boot().P.util;
+  const base = product("1", { ingredients: [] });
+  assert.deepEqual(Array.from(u.changes({ ...base, ingredients: [{ name: "a", line: "", photo_slot: null }] }, base)), ["Ingredients changed"]);
+  assert.deepEqual(Array.from(u.changes({ ...base, ingredients: [] }, { ...base, ingredients: undefined })), ["Saved with no changes"]);
 });

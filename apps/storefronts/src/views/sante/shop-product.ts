@@ -57,6 +57,28 @@ function faqBlock(p: CatalogProduct): Markup {
           </div>`;
 }
 
+/** The "What's Inside" card grid: shown only when the owner added ingredients. A card's photo shows only when its photo_url passes safeImage. */
+function ingredientsBlock(p: CatalogProduct): Markup {
+  const items = p.ingredients ?? [];
+  if (items.length === 0) return html``;
+  return html`
+<section class="section sf-ingredients" data-sf-ingredients>
+  <div class="section-inner">
+    <h2 class="section-title">What&rsquo;s Inside</h2>
+    <div class="sf-ing-grid">
+      ${items.map((i) => {
+        const img = safeImage(i.photo_url ?? "");
+        return html`<div class="sf-ing-card">
+        ${img ? html`<img class="sf-ing-img" src="${img}" alt="" loading="lazy">` : ""}
+        <h3 class="sf-ing-name">${i.name}</h3>
+        ${i.line ? html`<p class="sf-ing-line">${i.line}</p>` : ""}
+      </div>`;
+      })}
+    </div>
+  </div>
+</section>`;
+}
+
 function trust(): Markup {
   return html`
 <div class="trust-bar">
@@ -136,7 +158,8 @@ export function productContent(m: ProductModel): Markup {
   ${trust()}
 </div>
 
-${fab("feature", "Product Feature", "What's Inside", p.features, photos[1] ?? "", "")}
+${ingredientsBlock(p)}
+${fab("feature", "Product Feature", "What Makes It Special", p.features, photos[1] ?? "", "")}
 ${fab("advantages", "Advantages", "Why It Stands Out", p.advantages, photos[2] ?? "", "sf-fab-tinted")}
 ${fab("benefits", "Benefits", "What You Get From It", p.benefits, photos[3] ?? "", "")}
 

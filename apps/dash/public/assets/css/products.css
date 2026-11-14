@@ -360,3 +360,10 @@ body.dash-app #view-products .pr-faq-item { display: grid; gap: 6px; padding: 12
 body.dash-app #view-products .pr-faq-count { justify-self: end; font-size: 12px; color: var(--meta); }
 body.dash-app #view-products .pr-faq-tools { display: flex; flex-wrap: wrap; gap: 8px; }
 body.dash-app #view-products .pr-faq-tools .no-btn[disabled], body.dash-app #view-products .pr-faq-add[disabled] { opacity: .5; cursor: not-allowed; }
+
+/* Round 5b: the Ingredients editor shares the FAQ list's look; the photo picker sits on one line with its thumbnail. */
+body.dash-app #view-products .pr-ing-pick { display: flex; align-items: center; gap: 10px; }
+body.dash-app #view-products .pr-ing-pick .pr-input { flex: 1 1 auto; min-width: 0; }
+body.dash-app #view-products .pr-ing-thumb { width: 44px; height: 44px; flex: 0 0 auto; object-fit: cover; border-radius: 8px; border: 1px solid var(--bl-select-line); background: var(--tile); }
+body.dash-app #view-products .pr-ing-thumb[hidden] { display: none; }
+body.dash-app #view-products .pr-ing { margin-top: 18px; }

@@ -1599,3 +1599,13 @@ body.sf-noscroll { overflow: hidden; }
 .sf-faqs { margin-top: 34px; }
 .sf-faqs-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0 0 8px; }
 .sf-faqs .sf-accordion:first-of-type { border-top: 1px solid var(--border); }
+
+/* Product page, round 5b: the "What's Inside" ingredient cards. */
+.sf-ingredients { background: #fff; }
+.sf-ing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.sf-ing-card { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+.sf-ing-img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.sf-ing-name { font-size: 16px; font-weight: 700; color: var(--text); margin: 14px 14px 4px; }
+.sf-ing-line { font-size: 14px; line-height: 1.5; color: var(--text-secondary); margin: 0 14px 16px; }
+.sf-ing-card .sf-ing-name:last-child { margin-bottom: 16px; }
+@media (min-width: 768px) { .sf-ing-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; } }

@@ -207,7 +207,7 @@ test("the product page shows extra photos as thumbnails and the four sections on
   const full = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") }, related: rel, members: false }).value;
   assert.equal(full.match(/data-sf-thumb/g)?.length, 3);
   assert.match(full, /data-sf-thumb class="active"/);
-  assert.match(full, /Product Feature[\s\S]*What(?:'|&#x27;)s Inside/);
+  assert.match(full, /Product Feature[\s\S]*What Makes It Special/);
   assert.match(full, /Rich &lt;b&gt;in&lt;\/b&gt; fibre\./);
   assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccSpecs">Specifications <span class="faq-icon" aria-hidden="true">\+<\/span><\/button>/);
   assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccDetails">More Details /);
@@ -828,4 +828,45 @@ test("the catalog parser reads the r5a fields and tolerates an older API", async
   const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
   assert.equal(old?.[0].price_per_serving_centavos, null);
   assert.deepEqual(old?.[0].faq, []);
+});
+
+/* ---- round 5b: ingredient cards ---------------------------------------------------------------------------------------- */
+
+const BLOB = "https://abc123.public.blob.vercel-storage.com/";
+const R5B = { ...R5, ingredients: [{ name: "Barley <grass>", line: "Young & green.", photo_url: BLOB + "g.jpg" }, { name: "Lemon", line: "", photo_url: null }] };
+
+test("What's Inside shows a card per ingredient, only when there are some, and the Feature subtitle no longer clashes", () => {
+  const on = productContent({ product: R5B, related: [], members: false }).value;
+  assert.match(on, /data-sf-ingredients/);
+  assert.match(on, /<h2 class="section-title">What&rsquo;s Inside<\/h2>/);
+  assert.equal(on.match(/class="sf-ing-card"/g)?.length, 2);
+  assert.match(on, /<img class="sf-ing-img" src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/g\.jpg" alt="" loading="lazy">/);
+  assert.equal(on.match(/class="sf-ing-img"/g)?.length, 1, "no photo for the card without one");
+  assert.match(on, /<h3 class="sf-ing-name">Lemon<\/h3>\s*<\/div>/, "an empty line shows no paragraph");
+  const none = productContent({ product: { ...R5, ingredients: [] }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /data-sf-ingredients|sf-ing-/);
+  const older = productContent({ product: R5, related: [], members: false }).value;
+  assert.doesNotMatch(older, /data-sf-ingredients/);
+  const feature = productContent({ product: { ...R5B, features: "Made with care." }, related: [], members: false }).value;
+  assert.equal(feature.match(/What&rsquo;s Inside|What's Inside/g)?.length, 1, "the r3 Feature section has its own title now");
+  assert.match(feature, /<h2 class="sf-fab-title">What Makes It Special<\/h2>/);
+});
+
+test("ingredient text is escaped and a photo must pass safeImage", () => {
+  const hostile = productContent({ product: { ...R5, ingredients: [
+    { name: "<script>x</script>", line: "<img src=x onerror=y>", photo_url: "javascript:alert(1)" },
+    { name: "B", line: "", photo_url: "https://evil.test/p.jpg" }] }, related: [], members: false }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x|javascript:|evil\.test/);
+  assert.match(hostile, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.doesNotMatch(hostile, /sf-ing-img/);
+});
+
+test("the catalog parser reads ingredients, drops nameless ones, caps at 8 and tolerates an older API", async () => {
+  const many = Array.from({ length: 10 }, (_, i) => ({ name: "I" + i, line: "", photo_url: null }));
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [R5B, { ...P2, ingredients: [{ name: " ", line: "x", photo_url: null }, 5, ...many] }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(got?.[0].ingredients, [{ name: "Barley <grass>", line: "Young & green.", photo_url: BLOB + "g.jpg" }, { name: "Lemon", line: "", photo_url: null }]);
+  assert.equal(got?.[1].ingredients?.length, 8);
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[0].ingredients, []);
 });

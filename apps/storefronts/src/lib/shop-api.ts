@@ -28,7 +28,15 @@ export type CatalogProduct = {
   /** Servings per pack and the per-serving prices (centavos, computed by Django), null when unset; the product's FAQ pairs. An older API gives null and []. */
   servings_per_pack?: number | null; price_per_serving_centavos?: number | null; members_price_per_serving_centavos?: number | null;
   faq?: { q: string; a: string }[];
+  /** Up to 8 ingredient cards; photo_url is the product's own photo for the chosen slot, null when none (the page still runs it through safeImage). An older API gives []. */
+  ingredients?: Ingredient[];
 };
+
+export type Ingredient = { name: string; line: string; photo_url: string | null };
+
+function parseIngredients(v: unknown): Ingredient[] {
+  return arr(v).flatMap((x) => (record(x) && str(x.name).trim() ? [{ name: str(x.name), line: str(x.line), photo_url: typeof x.photo_url === "string" && x.photo_url ? x.photo_url : null }] : [])).slice(0, 8);
+}
 
 const nullInt = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.trunc(v) : null);
 
@@ -44,7 +52,7 @@ function parseProduct(v: unknown): CatalogProduct | null {
     unit_members_price_centavos: int(v.unit_members_price_centavos), revision: int(v.revision),
     features: str(v.features), specifications: str(v.specifications), advantages: str(v.advantages), benefits: str(v.benefits),
     servings_per_pack: nullInt(v.servings_per_pack), price_per_serving_centavos: nullInt(v.price_per_serving_centavos),
-    members_price_per_serving_centavos: nullInt(v.members_price_per_serving_centavos), faq: parseFaq(v.faq),
+    members_price_per_serving_centavos: nullInt(v.members_price_per_serving_centavos), faq: parseFaq(v.faq), ingredients: parseIngredients(v.ingredients),
     image_urls: Array.from({ length: 5 }, (_, i) => str(arr(v.image_urls)[i]) || (i === 0 ? str(v.image_url) : "")),
   };
 }

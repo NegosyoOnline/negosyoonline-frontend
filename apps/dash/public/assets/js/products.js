@@ -95,15 +95,24 @@
   var LABELS = { name: "Name", short_description: "Short description", long_description: "Long description", category: "Category",
     features: "Features", specifications: "Specifications", advantages: "Advantages", benefits: "Benefits",
     image_url: "Photo 1", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
-    servings_per_pack: "Servings per pack", faq: "FAQ", shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
-  var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "servings_per_pack", "faq", "is_active",
+    servings_per_pack: "Servings per pack", faq: "FAQ", ingredients: "Ingredients", shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
+  var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "servings_per_pack", "faq", "ingredients", "is_active",
     "weight_kg", "volume_slot", "shipping_qty", "length_cm", "width_cm", "height_cm"];
+  /* Two FAQ or ingredient lists compared by what is saved: an ingredient’s photo_url is output only, so it is left out. */
+  function sameList(k, a, b) {
+    function norm(list) {
+      return JSON.stringify((Array.isArray(list) ? list : []).map(function (x) {
+        return k === "ingredients" ? { name: x.name, line: x.line, photo_slot: x.photo_slot } : x;
+      }));
+    }
+    return norm(a) === norm(b);
+  }
   /* What a revision changed against the one before it, as short phrases. No writer is named. */
   function changes(row, before) {
     if (!before) return ["Product added"];
     var out = [];
     ORDER.forEach(function (k) {
-      if (row[k] === before[k] || (k === "faq" && JSON.stringify(row[k] || []) === JSON.stringify(before[k] || [])) || (k === "servings_per_pack" && (row[k] == null) === (before[k] == null) && row[k] == null)) return;
+      if (row[k] === before[k] || ((k === "faq" || k === "ingredients") && sameList(k, row[k], before[k])) || (k === "servings_per_pack" && (row[k] == null) === (before[k] == null) && row[k] == null)) return;
       var label = LABELS[k];
       if (k === "srp_centavos") out.push(label + " " + formatPeso(before[k]) + " to " + formatPeso(row[k]));
       else if (k === "earnings_rate") out.push(label + " " + rateToPercent(before[k]) + "% to " + rateToPercent(row[k]) + "%");
@@ -840,6 +849,7 @@
   var TEXTS = [["short_description", "Short description", 500, 3], ["long_description", "Long description", 20000, 8], ["features", "Features", 5000, 6],
     ["specifications", "Specifications", 5000, 6], ["advantages", "Advantages", 5000, 6], ["benefits", "Benefits", 5000, 6]];
   var FAQ_MAX = 10, FAQ_Q_MAX = 150, FAQ_A_MAX = 1000;
+  var ING_MAX = 8, ING_NAME_MAX = 60, ING_LINE_MAX = 200;
   var FEE_NOTE = "Estimated courier charge for one unit. The amount charged at checkout can differ, because it uses the buyer’s exact address and the order total, so treat this as a floor.";
 
   /* The five photo addresses, slot 1 first, "" where empty. An older API without image_urls gives the one image_url as slot 1. */
@@ -996,6 +1006,7 @@
         tabBtns[k].setAttribute("tabindex", on ? "0" : "-1");
         panels[k].hidden = !on;
       });
+      if (key === "description" && ingDraw) ingDraw();
       if (focus && tabBtns[key].focus) tabBtns[key].focus();
     }
 
@@ -1144,7 +1155,7 @@
     panels.description = h("section", "pr-tabpanel");
     panels.description.setAttribute("role", "tabpanel"); panels.description.setAttribute("id", "pr-panel-description"); panels.description.setAttribute("aria-labelledby", "pr-tab-description");
     var saveDesc = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Description");
-    var descForm = null, faqItems = [];
+    var descForm = null, faqItems = [], ingItems = [], ingDraw = null;
     /* The FAQ list: up to 10 question and answer pairs. Add, Remove and Move up or down redraw the list from faqItems, so what was typed stays. */
     function faqEditor(saved) {
       faqItems = (Array.isArray(saved) ? saved : []).slice(0, FAQ_MAX).map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
@@ -1197,6 +1208,80 @@
       draw();
       return wrap;
     }
+    /* The ingredient list: up to 8 cards, each a name, one line and one of the product's own photos (or none). Add, Remove and Move
+       redraw from ingItems, so what was typed stays. The photo choices are read again each time the tab opens, because photos are
+       managed on the Details tab. */
+    function ingredientEditor(saved) {
+      ingItems = (Array.isArray(saved) ? saved : []).slice(0, ING_MAX).map(function (x) {
+        var slot = x && typeof x.photo_slot === "number" && x.photo_slot >= 1 && x.photo_slot <= SLOTS ? x.photo_slot : null;
+        return { name: String(x && x.name || ""), line: String(x && x.line || ""), photo_slot: slot };
+      });
+      var wrap = h("div", "pr-field pr-faq pr-ing");
+      wrap.appendChild(h("p", "pr-faq-title", "Ingredients"));
+      wrap.appendChild(h("p", "pr-hint", "Show what goes into it, as cards under the product details. Up to " + ING_MAX + ". Each card can use one of this product’s photos."));
+      var list = h("div", "pr-faq-list pr-ing-list");
+      list.setAttribute("id", "pr-f-ingredients");
+      fields.ingredients = list;
+      wrap.appendChild(list);
+      var add = button("Add an ingredient", "no-btn-ghost pr-faq-add pr-ing-add", function () {
+        if (ingItems.length >= ING_MAX) return;
+        ingItems.push({ name: "", line: "", photo_slot: null }); draw(ingItems.length - 1);
+      });
+      wrap.appendChild(add);
+      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-ingredients" });
+      err.hidden = true; errs.ingredients = err; wrap.appendChild(err);
+      list.setAttribute("aria-describedby", "pr-e-ingredients");
+      function counter(el, max) {
+        var c = h("span", "pr-faq-count", el.value.length + "/" + max);
+        el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
+        return c;
+      }
+      function draw(focusIdx) {
+        clear(list);
+        var urls = adding ? [] : imageUrls(S.editing);
+        ingItems.forEach(function (it, i) {
+          var box = h("div", "pr-faq-item pr-ing-item");
+          var n = D.el("input", { type: "text", "class": "pr-input pr-ing-name", id: "pr-ing-name-" + i, maxlength: String(ING_NAME_MAX), autocomplete: "off", placeholder: "Ingredient name", "aria-label": "Ingredient " + (i + 1) + " name" });
+          n.value = it.name;
+          n.addEventListener("input", function () { it.name = n.value; });
+          var l = D.el("input", { type: "text", "class": "pr-input pr-ing-line", id: "pr-ing-line-" + i, maxlength: String(ING_LINE_MAX), autocomplete: "off", placeholder: "One line about it (optional)", "aria-label": "Ingredient " + (i + 1) + " line" });
+          l.value = it.line;
+          l.addEventListener("input", function () { it.line = l.value; });
+          box.appendChild(n); box.appendChild(counter(n, ING_NAME_MAX));
+          box.appendChild(l); box.appendChild(counter(l, ING_LINE_MAX));
+          var pick = h("div", "pr-ing-pick");
+          var sel = D.el("select", { "class": "pr-input pr-ing-photo", id: "pr-ing-photo-" + i, "aria-label": "Ingredient " + (i + 1) + " photo" });
+          sel.appendChild(D.el("option", { value: "" }, "No photo"));
+          for (var k = 1; k <= SLOTS; k++) if (urls[k - 1] || it.photo_slot === k) {
+            var o = D.el("option", { value: String(k) }, "Photo " + k + (urls[k - 1] ? "" : " (empty)"));
+            if (it.photo_slot === k) o.selected = true;
+            sel.appendChild(o);
+          }
+          sel.value = it.photo_slot ? String(it.photo_slot) : "";
+          var thumb = D.el("img", { "class": "pr-ing-thumb", alt: "" });
+          function showThumb() { var u = it.photo_slot ? urls[it.photo_slot - 1] : ""; if (u) { thumb.setAttribute("src", u); thumb.hidden = false; } else { thumb.removeAttribute("src"); thumb.hidden = true; } }
+          sel.addEventListener("change", function () { it.photo_slot = sel.value ? parseInt(sel.value, 10) : null; showThumb(); });
+          showThumb();
+          pick.appendChild(sel); pick.appendChild(thumb);
+          box.appendChild(pick);
+          var tools = h("div", "pr-faq-tools");
+          var up = button("Move up", "no-btn-ghost pr-ing-up", function () { if (i > 0) { ingItems.splice(i - 1, 0, ingItems.splice(i, 1)[0]); draw(i - 1); } });
+          var down = button("Move down", "no-btn-ghost pr-ing-down", function () { if (i < ingItems.length - 1) { ingItems.splice(i + 1, 0, ingItems.splice(i, 1)[0]); draw(i + 1); } });
+          var rm = button("Remove", "no-btn-ghost pr-ing-rm", function () { ingItems.splice(i, 1); draw(Math.min(i, ingItems.length - 1)); });
+          up.disabled = i === 0; down.disabled = i === ingItems.length - 1;
+          up.setAttribute("aria-label", "Move ingredient " + (i + 1) + " up"); down.setAttribute("aria-label", "Move ingredient " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove ingredient " + (i + 1));
+          tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
+          box.appendChild(tools);
+          list.appendChild(box);
+        });
+        add.disabled = ingItems.length >= ING_MAX;
+        add.textContent = ingItems.length >= ING_MAX ? "Limit reached (" + ING_MAX + ")" : "Add an ingredient";
+        if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-ing-name-" + focusIdx); if (t && t.focus) t.focus(); }
+      }
+      ingDraw = function () { draw(); };
+      draw();
+      return wrap;
+    }
     if (!adding) {
       descForm = D.el("form", { "class": "pr-tabform", novalidate: "" });
       var c6 = card("Description", "What shoppers read on the product page. Leave a box empty to show nothing for it.", ICON.text, "pr-s-description");
@@ -1211,6 +1296,7 @@
       var d2 = pairOf("pr-pair"); d2.appendChild(textRows.advantages); d2.appendChild(textRows.benefits);
       c6.body.appendChild(d1); c6.body.appendChild(d2);
       c6.body.appendChild(faqEditor(v.faq));
+      c6.body.appendChild(ingredientEditor(v.ingredients));
       var bar2 = h("div", "pr-abar");
       bar2.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
       bar2.appendChild(h("span", "pr-abar-sp"));
@@ -1263,6 +1349,7 @@
       Object.keys(e.fields).forEach(function (k) {
         if (errs[k]) { fieldError(k, e.fields[k]); shown = true; }
         else if (k.indexOf("faq") === 0 && errs.faq) { fieldError("faq", e.fields[k]); shown = true; }
+        else if (k.indexOf("ingredients") === 0 && errs.ingredients) { fieldError("ingredients", e.fields[k]); shown = true; }
         else if (k === "file" || k === "revision" || k === "slot") { imgErr.textContent = e.fields[k]; imgErr.hidden = false; shown = true; }
       });
       if (e.kind === "fields" && shown) { topMessage(MSG.invalid); var first = f.querySelector("[aria-invalid='true']"); if (first && first.focus) first.focus(); return; }
@@ -1458,6 +1545,14 @@
       });
       if (faqBad) { fieldError("faq", "Give each question an answer, or remove the empty ones."); topMessage(MSG.invalid); return; }
       out.faq = faq;
+      var ings = [], ingBad = false;
+      ingItems.forEach(function (it) {
+        var nm = it.name.trim(), ln = it.line.trim();
+        if (!nm && !ln && !it.photo_slot) return;
+        if (!nm) ingBad = true; else ings.push({ name: nm, line: ln, photo_slot: it.photo_slot });
+      });
+      if (ingBad) { fieldError("ingredients", "Give each ingredient a name, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      out.ingredients = ings;
       busy(true, "description");
       updateProduct(out, "description");
     });
@@ -1510,7 +1605,7 @@
       Object.keys(out).forEach(function (k) {
         var was = cur[k];
         if (k === "shipping_qty" || k === "servings_per_pack") { if ((was == null ? null : was) === out[k]) return; }
-        else if (k === "faq") { if (JSON.stringify(Array.isArray(was) ? was : []) === JSON.stringify(out[k])) return; }
+        else if (k === "faq" || k === "ingredients") { if (sameList(k, was, out[k])) return; }
         else if (k === "is_active" || k === "srp_centavos") { if (was === out[k]) return; }
         else if (String(was == null ? "" : was) === String(out[k])) return;
         body[k] = out[k]; n++;

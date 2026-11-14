@@ -659,10 +659,17 @@ test("dropdowns: the form Category is the house dropdown too, and No category ca
   const input = sel.parentNode.all((n) => n.classList.contains("pr-combo-input"))[0];
   assert.equal(input.getAttribute("aria-describedby"), "pr-e-category");
   assert.equal(input.value, "Barley");
+  /* opening with nothing picked lists every option and needs no deleting */
+  pickRow(d, "pr-f-category", "No category");
+  assert.equal(input.value, "");
+  sel.parentNode.all((n) => n.classList.contains("pr-combo-box"))[0].fire("click");
+  assert.deepEqual(sel.parentNode.all((n) => n.classList.contains("pr-combo-opt")).map((n) => n.textContent), ["No category", "Barley", "Specialty Drinks", "Essentials", "Beauty"]);
+  pickRow(d, "pr-f-category", "Barley");
   assert.deepEqual(optionTexts(sel), ["No category", "Barley", "Specialty Drinks", "Essentials", "Beauty"]);
   pickRow(d, "pr-f-category", "No category");
   assert.equal(sel.value, "");
-  assert.equal(input.value, "No category");
+  assert.equal(input.value, "", "the box is empty, not typed with No category");
+  assert.equal(input.getAttribute("placeholder"), "No category");
   await d.submit();
   assert.equal(d.writes()[0].body.category, "", "the cleared category is what is sent");
   assert.ok(!("name" in d.writes()[0].body), "edit still sends only what changed");
@@ -675,8 +682,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod4/);
-  assert.match(html, /products\.js\?v=20261114prod5/);
+  assert.match(html, /products\.css\?v=20261114prod5/);
+  assert.match(html, /products\.js\?v=20261114prod6/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -728,12 +735,43 @@ test("editor (Add): back link, tab bar, Description and Media Library off, four 
   assert.deepEqual(bar.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save Details"]);
   assert.equal(bar.all((n) => n.tagName === "BUTTON")[0].getAttribute("type"), "submit");
   const text = d.$("pr-root").textContent;
-  assert.ok(!/TWC|SKU|Merchant|commission|platform fee|payment fee|you receive|Opening stock|Units on hand|Save draft|Submit for review/i.test(text), "no TWC-only wording, no commission lines, no stock");
+  assert.ok(!/TWC|Merchant|commission|platform fee|payment fee|you receive|Opening stock|Units on hand|Save draft|Submit for review/i.test(text), "no TWC-only wording, no commission lines, no stock");
   assert.equal(d.$("pr-panel-description"), null, "no Description panel before the product exists");
   assert.ok(!/Save the Details tab first/.test(text));
   assert.ok(!/position: sticky/.test(CSS.slice(CSS.indexOf(".pr-abar {"), CSS.indexOf(".pr-abar {") + 400)), "the save bar is not sticky");
   assert.ok(!/\.pr-abar \{[^}]*(sticky|fixed)/.test(CSS), "the save bar is in normal flow");
   assert.ok(!/pr-s-packs|pr-card-off|pr-soon-head|pr-card-note/.test(CSS + SRC), "nothing left of the Promo packs card");
+});
+
+test("Identity: label Product code (SKU), no help line, name | code then category | Show in shops; the cards use the full column", async () => {
+  const d = await openAdd();
+  const lab = d.$("pr-f-code").parentNode.all((n) => n.tagName === "LABEL")[0];
+  assert.equal(lab.textContent, "Product code (SKU)");
+  assert.ok(!/Letters, digits|upper-case|can.t be changed later/.test(d.$("pr-root").textContent), "the code help line is gone");
+  assert.equal(d.$("pr-e-code").hidden, true);
+  const grid = d.all("pr-identity")[0];
+  const ids = (n) => n.attrs && n.attrs.id;
+  const order = grid.children.map((c) => c.classList.contains("pr-check") ? "pr-f-is_active" : c.all((x) => /^pr-f-/.test(ids(x) || ""))[0].attrs.id);
+  assert.deepEqual(order, ["pr-f-name", "pr-f-code", "pr-f-category", "pr-f-is_active"], "phone order, and the rows read name | code, category | show");
+  assert.match(CSS, /\.pr-form\.pr-tabbed \{ max-width: none; margin-inline: 0; \}/, "full width, no centered column");
+  assert.ok(!/max-width: 1000px/.test(CSS));
+  /* the code rules stay, with their messages */
+  fill(d, { code: "" }); await d.submit();
+  assert.match(d.$("pr-e-code").textContent, /Enter a product code\./);
+});
+
+test("the focus ring wraps the whole ₱ / % group: light blue, on the group, none on its input", () => {
+  assert.match(CSS, /\.pr-ig:focus-within \{ box-shadow: 0 0 0 1px var\(--link\); \}/);
+  assert.match(CSS, /\.pr-ig:focus-within \.pr-ig-pre, [^{]*\.pr-ig:focus-within \.pr-input \{ border-color: var\(--link\); \}/);
+  assert.match(CSS, /\.pr-ig \.pr-input:focus \{ box-shadow: none; \}/);
+});
+
+test("Shipping: Length, Width, Height, Actual weight and Units per shipping box are one row", async () => {
+  const d = await openAdd();
+  const row = d.all("pr-five")[0];
+  assert.deepEqual(row.all((n) => n.tagName === "LABEL").map((n) => n.textContent), ["Length (cm)", "Width (cm)", "Height (cm)", "Actual weight (kg)", "Units per shipping box"]);
+  assert.match(CSS, /\.pr-five \{ display: grid; grid-template-columns: repeat\(5,/);
+  assert.match(CSS, /max-width: 640px\) \{[^@]*\.pr-five \{ grid-template-columns: repeat\(2,/);
 });
 
 test("pricing inputs are prefix groups with placeholders only: ₱ 0.00 and % 40; Edit shows the saved values", async () => {

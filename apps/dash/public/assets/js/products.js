@@ -469,10 +469,13 @@
     select.classList.add("pr-combo-native"); select.setAttribute("tabindex", "-1"); select.setAttribute("aria-hidden", "true");
     wrap.appendChild(select); box.appendChild(input); box.appendChild(h("span", "pr-combo-caret")); wrap.appendChild(box); wrap.appendChild(panel);
     function opts() { return Array.prototype.slice.call(select.children); }
+    /* With o.blankEmpty the empty option is not typed into the box: the box stays empty and shows that option's text as its
+       placeholder, so there is nothing to delete before choosing; the full list still opens (draw("") lists every option). */
     function chosen() {
-      var all = opts();
-      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) return all[i].textContent;
-      return all.length ? all[0].textContent : "";
+      var all = opts(), t = all.length ? all[0].textContent : "";
+      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) { t = all[i].textContent; if (o.blankEmpty && all[i].value === "") t = ""; break; }
+      if (o.blankEmpty && all.length && all[0].value === "" && !all.some(function (x) { return x.value === select.value; })) t = "";
+      return t;
     }
     function isOpen() { return wrap.classList.contains("is-open"); }
     function mark(i) {
@@ -533,6 +536,7 @@
       var d = e.key === "ArrowDown" ? 1 : -1, n = rows.length;
       if (n) mark(active < 0 ? (d > 0 ? 0 : n - 1) : (active + d + n) % n);
     });
+    if (o.blankEmpty && select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent);
     input.value = chosen();
   }
   /* Redraw a combo's box after the code set its select's value (a tile click, Clear filters). */
@@ -999,14 +1003,14 @@
     var v = p || {};
     var code = input("text", v.code || "", { maxlength: "64" });
     if (p) { code.readOnly = true; code.setAttribute("aria-readonly", "true"); }
-    var codeRow = row("code", "Product code", code, p ? "Fixed after the product is created." : "Letters, digits, dots, hyphens or underscores. It is made upper-case and can’t be changed later.");
+    var codeRow = row("code", "Product code (SKU)", code, p ? "Fixed after the product is created." : "");
     var nameRow = row("name", "Product name", input("text", v.name || "", { maxlength: "120" }));
     var cat = D.el("select", { "class": "pr-input" });
     cat.appendChild(D.el("option", { value: "" }, "No category"));
     CATEGORIES.forEach(function (c) { cat.appendChild(D.el("option", { value: c[0] }, c[1])); });
     cat.value = v.category || "";
     var catRow = row("category", "Category", cat);
-    combo(cat, "Category", { describedby: "pr-e-category" });
+    combo(cat, "Category", { describedby: "pr-e-category", blankEmpty: true });
     var show = D.el("input", { type: "checkbox", id: "pr-f-is_active" });
     show.checked = p ? p.is_active === true : true;
     fields.is_active = show;
@@ -1018,9 +1022,11 @@
     showRow.appendChild(h("p", "pr-hint", "Turn this off to keep the product out of the shops. You can change it later from the Products list."));
 
     var c1 = card("Identity", "How your product is catalogued. The product code must be unique in the catalog.", ICON.id, "pr-s-identity");
-    var r1 = pairOf("pr-pair"); r1.appendChild(nameRow); r1.appendChild(codeRow);
-    var r1b = pairOf("pr-pair"); r1b.appendChild(catRow);
-    c1.body.appendChild(r1); c1.body.appendChild(r1b); c1.body.appendChild(showRow);
+    /* A two-column grid, filled row by row: name | code, then category | Show in shops (level with Category). On a phone the one column
+       keeps that order: name, code, category, show in shops. */
+    var r1 = pairOf("pr-pair pr-identity");
+    r1.appendChild(nameRow); r1.appendChild(codeRow); r1.appendChild(catRow); r1.appendChild(showRow);
+    c1.body.appendChild(r1);
 
     /* Photos */
     var c2 = card("Photos", "Up to 5 photos · JPG, PNG or WebP · up to 2 MB each after cropping. Slot 1 is the main photo shoppers see first. Every photo is cropped to a square (1:1) when you pick it.", ICON.photo, "pr-s-photos");
@@ -1071,8 +1077,9 @@
       var val = v[s[0]];
       shipRows[s[0]] = row(s[0], s[1], input("text", val == null ? (s[0] === "weight_kg" && !p ? "0.00" : "") : String(val), { inputmode: "decimal" }));
     });
-    var r5 = pairOf("pr-trio"); ["length_cm", "width_cm", "height_cm"].forEach(function (k) { r5.appendChild(shipRows[k]); });
-    var r6 = pairOf("pr-trio"); ["weight_kg", "shipping_qty", "volume_slot"].forEach(function (k) { r6.appendChild(shipRows[k]); });
+    /* Length, Width, Height, Actual weight and Units per shipping box in one row on a wide screen; the row wraps on a phone. */
+    var r5 = pairOf("pr-five"); ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { r5.appendChild(shipRows[k]); });
+    var r6 = pairOf("pr-trio"); ["volume_slot"].forEach(function (k) { r6.appendChild(shipRows[k]); });
     var pv = D.el("div", { "class": "pr-pv", id: "pr-pkg-preview", "aria-live": "polite" });
     pv.appendChild(h("div", "pr-pv-cap", "Packaging & fee"));
     var pvBody = h("div", "pr-pv-body");

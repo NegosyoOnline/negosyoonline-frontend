@@ -8,7 +8,7 @@
 
 const VERSIONS: Record<string, string> = {
   "css/pack-home.css": "7bf002d3",
-  "css/pack-storefront.css": "4f038285",
+  "css/pack-storefront.css": "2517ccb4",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files

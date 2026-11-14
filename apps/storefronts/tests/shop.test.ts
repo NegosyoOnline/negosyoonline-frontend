@@ -484,8 +484,11 @@ test("a member whose profile has no address is told so, with the dashboard link,
   const cookie = `no_cart=${P1.id}.1; ${MEMBER}`;
   const page = await text(await checkoutGet(shop(backend({ member: true }), cookie)));
   assert.match(page, /Add your delivery address in your member dashboard first\./);
-  assert.match(page, /<a href="\/dashboard\/">Open your member dashboard<\/a>/);
+  assert.match(page, /<a href="\/dashboard\/address\/">Add your home address<\/a>/);
   assert.match(page, /btn-cart sf-step-next" disabled/);
+  assert.match(page, /<span>Shipping<\/span>/);
+  assert.doesNotMatch(page, /Estimated shipping/);
+  assert.match(readFileSync(new URL("../public/assets/sante/css/pack-storefront.css", import.meta.url), "utf8"), /\.sf-step-next\[disabled\]\s*\{[^}]*not-allowed/);
   assert.doesNotMatch(page, /id="delivery"|Ship to another address/);
   const choose = await text((await checkoutPost(shop(backend({ member: true }), cookie), { action: "choose", choice: "home" }, null)) as Response);
   assert.match(choose, /Add your delivery address in your member dashboard first\./);

@@ -208,12 +208,12 @@ function summaryLines(q: Quote): Markup {
         <div class="sf-summary-line"><span>${l.quantity} × ${l.name || "Product"}</span><strong>${l.available ? php(saving ? l.unit_srp_centavos * l.quantity : l.line_total_centavos) : html`Unavailable`}</strong></div>`)}`;
 }
 
-function summaryTotals(q: Quote): Markup {
+function summaryTotals(q: Quote, plainShipping = false): Markup {
   if (!q.ok) return q.errors.length > 0 ? html`<p class="sf-quote-error" role="alert">${q.errors[0]}</p>` : html``;
   const saving = savingsOf(q);
   return html`
         <div class="sf-totals-row"><span>Subtotal</span><strong>${php(saving > 0 ? q.subtotal_centavos + saving : q.subtotal_centavos)}</strong></div>
-        <div class="sf-totals-row"><span>${shippingLabel(q)}</span><strong>${shippingCell(q)}</strong></div>
+        <div class="sf-totals-row"><span>${plainShipping ? "Shipping" : shippingLabel(q)}</span><strong>${shippingCell(q)}</strong></div>
         ${saving > 0 ? html`<div class="sf-totals-row sf-totals-save"><span>Member savings</span><strong>&minus;${php(saving)}</strong></div>` : ""}
         <div class="sf-totals-row sf-totals-grand"><span>Total</span><strong>${php(q.total_centavos)}</strong></div>
         ${q.shipping.policy === "zero" ? html`<p class="sf-freeship-note">&#128666; ${q.shipping.note || "This store pays your shipping."}</p>` : ""}`;
@@ -224,7 +224,7 @@ function summaryAside(m: CheckoutModel): Markup {
       <aside class="sf-checkout-summary">
         <h3>Order Summary</h3>
         <div>${m.quote ? summaryLines(m.quote) : ""}</div>
-        <div class="sf-totals">${m.quote ? summaryTotals(m.quote) : ""}</div>
+        <div class="sf-totals">${m.quote ? summaryTotals(m.quote, m.benefits && !homeAddressOf(m)) : ""}</div>
       </aside>`;
 }
 
@@ -270,7 +270,7 @@ function memberAddressStep(m: CheckoutModel): Markup {
               </div>
               ${saved && !locked ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
-            ${saved ? html`<p class="sf-own-addr-manage">To change it for good, <a href="/dashboard/">open your member dashboard</a>.</p>` : html`<p class="sf-form-error" id="sfNoHomeAddress" role="alert">${MSG_NO_HOME_ADDRESS} <a href="/dashboard/">Open your member dashboard</a></p>`}
+            ${saved ? html`<p class="sf-own-addr-manage">To change it for good, <a href="/dashboard/">open your member dashboard</a>.</p>` : html`<p class="sf-form-error" id="sfNoHomeAddress" role="alert">${MSG_NO_HOME_ADDRESS} <a href="/dashboard/address/">Add your home address</a></p>`}
             ${locked ? html`<div class="sf-own-addr-note" id="sfHomeLockedNote" role="note">${LOCK_ICON}<span>Your home address cannot be changed right now.</span></div>` : ""}
           </div>
           <div class="sf-step-actions">

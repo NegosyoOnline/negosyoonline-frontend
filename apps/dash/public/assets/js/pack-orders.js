@@ -17,8 +17,9 @@
   var REASONS = [["amount_mismatch", null], ["payment_not_found", "Payment not found in the receiving account."], ["proof_unreadable", "Proof is unreadable or incomplete."],
     ["reference_mismatch", "Reference number is missing or does not match."], ["wrong_account", "Payment was sent to the wrong account."], ["other", "Other, with a mandatory written explanation."]];
   var STALE = "This order changed. Reload it and try again.";
-  var S, token = 0, urls = {}, closeDlg = null;
+  var S, token = 0, urls = {}, closeDlg = null, regShown = false;
   function MR() { return window.NOMemberRecovery || null; } /* member-recovery.js loads after this file (ClickUp z8uq9mek5y) */
+  function REG() { return window.NORegistrations || null; } /* registrations.js (ClickUp z8uq9meyqj) */
 
   function fresh() { return { site: null, tab: "pack", filter: null, q: "", draft: "", rows: [], listState: "loading", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
   S = fresh();
@@ -90,7 +91,7 @@
 
   /* ---- load ---- */
   function show() { token++; S = fresh(); revokeAll(); tabsInit(); load(); }
-  function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); if (MR()) MR().reset(); }
+  function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); if (MR()) MR().reset(); if (REG()) REG().close(); }
   function revokeAll() { Object.keys(urls).forEach(function (k) { try { URL.revokeObjectURL(urls[k]); } catch (e) { /* ignore */ } }); urls = {}; }
   function load() {
     var mine = ++token; S.listState = "loading"; render();
@@ -410,7 +411,11 @@
   function render() {
     var root = byId("po-body"); if (!root) return;
     clear(root); root.removeAttribute("aria-busy");
-    if (S.tab !== "pack") placeholder(root); else listView(root);
+    var pv = byId("view-pack-orders"), regOn = S.tab === "registrations" && !!REG();
+    if (pv && regOn) { pv.hidden = true; regShown = true; } /* the Registrations tab has its own panel (#reg-root) */
+    else if (pv && regShown) { pv.hidden = false; regShown = false; } /* only undo what this tab did: the sign-in flow hides the panel too */
+    if (regOn) { if (S.site) REG().open(S.site); }
+    else { if (REG()) REG().close(); if (S.tab !== "pack") placeholder(root); else listView(root); }
     Array.prototype.forEach.call(byId("orders-tabs").querySelectorAll("a"), function (a) {
       if (a.getAttribute("data-tab") === S.tab) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });

@@ -29,6 +29,14 @@ export function stars(n: number): Markup {
   return html`<span class="sf-stars" role="img" aria-label="${String(on)} out of 5 stars">${[1, 2, 3, 4, 5].map((i) => html`<span class="sf-star${i <= on ? " is-on" : ""}" aria-hidden="true">&#9733;</span>`)}</span>`;
 }
 
+/** The summary stars for an average: rounded to the nearest half star, a half star drawn as a half, so the stars never show more
+    than the real average. The label states the real average to one decimal. Individual reviews use `stars` (whole stars). */
+export function summaryStars(average: number): Markup {
+  const avg = Number.isFinite(average) ? Math.max(0, Math.min(5, average)) : 0;
+  const half = Math.round(avg * 2) / 2;
+  return html`<span class="sf-stars" role="img" aria-label="${avg.toFixed(1)} out of 5 stars">${[1, 2, 3, 4, 5].map((i) => html`<span class="sf-star${i <= half ? " is-on" : i - 0.5 === half ? " is-half" : ""}" aria-hidden="true">&#9733;</span>`)}</span>`;
+}
+
 /* ---- the product page ---------------------------------------------------------------------------------------------- */
 
 const plural = (n: number): string => `${String(n)} review${n === 1 ? "" : "s"}`;
@@ -36,7 +44,7 @@ const plural = (n: number): string => `${String(n)} review${n === 1 ? "" : "s"}`
 /** The summary under the product name: stars, the average and the count, linking to the list. Nothing before the first review. */
 export function ratingSummary(r: ReviewPage | null | undefined): Markup {
   if (!r || r.rating_count < 1 || !r.rating_average) return html``;
-  return html`<a class="sf-rating-line" href="#reviews" data-sf-rating>${stars(Number(r.rating_average))} <strong>${r.rating_average}</strong> <span>(${plural(r.rating_count)})</span></a>`;
+  return html`<a class="sf-rating-line" href="#reviews" data-sf-rating>${summaryStars(Number(r.rating_average))} <strong>${r.rating_average}</strong> <span>(${plural(r.rating_count)})</span></a>`;
 }
 
 function reviewItem(r: StoreReview): Markup {
@@ -56,7 +64,7 @@ export function reviewsSection(r: ReviewPage | null | undefined, moreHref: strin
     <h2 class="section-title">What Our Customers Say</h2>
     <div class="sf-reviews-sum">
       <span class="sf-reviews-avg">${r.rating_average ?? ""}</span>
-      <div>${stars(Number(r.rating_average ?? 0))}<div class="sf-reviews-count">Based on ${plural(r.rating_count)}</div></div>
+      <div>${summaryStars(Number(r.rating_average ?? 0))}<div class="sf-reviews-count">Based on ${plural(r.rating_count)}</div></div>
     </div>
     <ul class="sf-review-list">
       ${r.reviews.map(reviewItem)}

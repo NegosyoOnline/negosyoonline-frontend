@@ -12,6 +12,7 @@ import { productContent } from "../src/views/sante/shop-product.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
+import { localMediaOrigin } from "../src/lib/local-media.ts";
 import { shopCard } from "../src/views/sante/pack-orders.ts";
 import { SITE } from "./site.ts";
 
@@ -259,6 +260,28 @@ test("a photo from any other host is not shown", () => {
   assert.equal(safeImage("https://evil.test/x.jpg"), "");
   assert.equal(safeImage("http://abc.public.blob.vercel-storage.com/x.jpg"), "");
   assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg"), "https://abc.public.blob.vercel-storage.com/x.jpg");
+});
+
+test("local media (dev only): unset changes nothing; a loopback http origin is accepted; anything else is ignored", () => {
+  const local = "http://127.0.0.1:8141/files/products/a.jpg";
+  assert.equal(safeImage(local, {}), "", "unset: not shown");
+  assert.equal(safeImage(local), "", "the real environment has it unset");
+  assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" }), local);
+  assert.equal(safeImage("http://localhost:8141/files/a.jpg", { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:8141" }), "http://localhost:8141/files/a.jpg");
+  const on = { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" };
+  assert.equal(safeImage("http://127.0.0.1:8142/files/a.jpg", on), "", "another port");
+  assert.equal(safeImage("http://127.0.0.1:81410/a.jpg", on), "", "a longer port is not a prefix match");
+  assert.equal(safeImage("http://127.0.0.1:8141", on), "", "no file");
+  assert.equal(safeImage("http://127.0.0.1:8141/", on), "", "no file name");
+  assert.equal(safeImage("http://127.0.0.1:8141/a b.jpg", on), "");
+  assert.equal(safeImage("https://evil.test/x.jpg", on), "");
+  assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg", on), "https://abc.public.blob.vercel-storage.com/x.jpg", "the Blob rule is unchanged");
+  for (const bad of ["https://127.0.0.1:8141", "http://127.0.0.1", "http://127.0.0.1:8141/", "http://127.0.0.1:8141/files", "http://example.com:8141",
+    "http://127.0.0.1.evil.test:8141", "http://127.0.0.1:99999", "http://127.0.0.1:08141", "http://user@127.0.0.1:8141", "http://[::1]:8141", " http://127.0.0.1:8141", "*", ""]) {
+    assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", JSON.stringify(bad));
+    assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", "ignored: " + JSON.stringify(bad));
+  }
+  assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:3" }), "http://localhost:3");
 });
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */
@@ -803,6 +826,27 @@ test("the trust strip sits under Add to Cart with four lines; the members line n
   assert.match(none, /trusted since 2007/);
 });
 
+test("the trust strip's Members line links to the membership pack funnel; the other lines are unchanged", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /<li data-sf-trust-members>.*<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/);
+  assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
+  assert.match(on, /<span>100% genuine Sant&eacute;, trusted since 2007<\/span>/);
+});
+
+test("the FAQs sit right after Benefits and before You Might Also Like; not in the info column", () => {
+  const full = { ...R5, features: "Inside", advantages: "Stands out", benefits: "You get" };
+  const r = { ...R5, code: "SPH2", id: "prd_BBBBBBBBBBBB" };
+  const on = productContent({ product: full, related: [r], members: false }).value;
+  const at = (s: string) => on.indexOf(s);
+  assert.ok(at("What You Get From It") > 0 && at("data-sf-faqs") > at("What You Get From It"), "after Benefits");
+  assert.ok(at("data-sf-faqs") < at("You Might Also Like"), "before Related");
+  assert.ok(at("What&#39;s Inside") < 0 || at("What's Inside") < at("data-sf-faqs"), "Inside and Why it stands out stay above");
+  assert.ok(at("Why It Stands Out") < at("data-sf-faqs"));
+  assert.ok(at("data-sf-faqs") > at('class="sf-detail-trust"'), "no longer in the info column");
+  const noBen = productContent({ product: { ...full, benefits: "" }, related: [r], members: false }).value;
+  assert.ok(noBen.indexOf("data-sf-faqs") > noBen.indexOf("Why It Stands Out") && noBen.indexOf("data-sf-faqs") < noBen.indexOf("You Might Also Like"));
+});
+
 test("the FAQs block lists the product's pairs then the fixed How do I pay? item, escaped, even with none", () => {
   const on = productContent({ product: R5, related: [], members: false }).value;
   assert.match(on, /data-sf-faqs/);
@@ -879,7 +923,7 @@ test("the catalog parser reads ingredients, drops nameless ones, caps at 8 and t
 
 import { fetchReviewPage } from "../src/lib/shop-api.ts";
 import { reviewPost } from "../src/lib/shop-flow.ts";
-import { noticeFrom, ratingSummary, reviewsSection, stars } from "../src/views/sante/shop-review.ts";
+import { noticeFrom, ratingSummary, reviewsSection, stars, summaryStars } from "../src/views/sante/shop-review.ts";
 import { doneContent } from "../src/views/sante/shop-done.ts";
 
 const RV = (over: Record<string, unknown> = {}) => ({ id: "rev_1", rating: 5, body: "Love it.\n\nWill buy again.", display_name: "Maria S.", created_at: "2026-11-14T02:00:00Z", edited: false, verified_buyer: true, ...over });
@@ -921,12 +965,28 @@ test("with reviews the page shows stars, average, count, each review as a verifi
   assert.match(page, /<p>Love it\.<\/p><p>Will buy again\.<\/p>/);
   assert.equal(page.match(/class="sf-review-body"/g)?.length, 1, "a review without words shows no empty text");
   assert.match(page, /href="\/products\/SPH1\/\?reviews=2#reviews" data-sf-more-reviews>More reviews</);
-  assert.match(page, /aria-label="5 out of 5 stars"/);
+  assert.match(page, /aria-label="4\.5 out of 5 stars"/, "the summary label states the real average");
+  assert.equal(page.match(/aria-label="4\.5 out of 5 stars"/g)?.length, 2, "under the name and in What Our Customers Say");
+  assert.equal(page.match(/is-half/g)?.length, 2, "each summary draws one half star");
+  assert.equal(page.match(/aria-label="5 out of 5 stars"/g)?.length, 1, "only the 5-star review says 5; individual reviews keep whole stars");
+  assert.match(page, /aria-label="4 out of 5 stars"/);
   const last = productContent({ product: R5, related: [], members: false, reviews: { ...PAGE2, rating_count: 1 } }).value;
   assert.doesNotMatch(last, /More reviews/);
   assert.match(last, /\(1 review\)/);
   assert.equal(stars(4.4).value.match(/is-on/g)?.length, 4);
   assert.equal(stars(4.5).value.match(/is-on/g)?.length, 5);
+  const sum = (n: number) => { const v = summaryStars(n).value; return { on: v.match(/is-on/g)?.length ?? 0, half: v.match(/is-half/g)?.length ?? 0, label: v.match(/aria-label="([^"]+)"/)?.[1] }; };
+  assert.deepEqual(sum(4.5), { on: 4, half: 1, label: "4.5 out of 5 stars" });
+  assert.deepEqual(sum(4.2), { on: 4, half: 0, label: "4.2 out of 5 stars" });
+  assert.deepEqual(sum(4.3), { on: 4, half: 1, label: "4.3 out of 5 stars" });
+  assert.deepEqual(sum(4.7), { on: 4, half: 1, label: "4.7 out of 5 stars" });
+  assert.deepEqual(sum(4), { on: 4, half: 0, label: "4.0 out of 5 stars" });
+  assert.deepEqual(sum(5), { on: 5, half: 0, label: "5.0 out of 5 stars" });
+  assert.deepEqual(sum(1.2), { on: 1, half: 0, label: "1.2 out of 5 stars" });
+  assert.deepEqual(sum(0.4), { on: 0, half: 1, label: "0.4 out of 5 stars" });
+  assert.deepEqual(sum(NaN), { on: 0, half: 0, label: "0.0 out of 5 stars" });
+  const css = readFileSync(path.join(PUBLIC, "assets/sante/css/pack-reviews.css"), "utf8");
+  assert.match(css, /\.sf-star\.is-half \{[^}]*linear-gradient\(90deg, #e8a317 50%, #d0d6d0 50%\)/);
 });
 
 test("review text is escaped, never trusted", () => {

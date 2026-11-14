@@ -8,7 +8,7 @@
 
 const VERSIONS: Record<string, string> = {
   "css/pack-home.css": "7bf002d3",
-  "css/pack-storefront.css": "1f1bb5f8",
+  "css/pack-storefront.css": "523adbda",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -17,7 +17,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
-  "css/pack-reviews.css": "08640d9e", // this storefront's own file: the stars, the order review form and the product page reviews
+  "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "2a7b1304", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "js/pack-phone.js": "8f9f894d",

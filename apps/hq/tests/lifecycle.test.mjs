@@ -90,7 +90,7 @@ test("the page asks who is signed in, then calls list/ and batches/ as POSTs wit
   assert.equal(p.node["b-body"].hidden, false, "the stopped list is open when something is stopped");
   assert.equal(p.node["c-count"].textContent, "1");
   assert.match(p.node["c-rows"].children[0].textContent, /ebt_m4Done1 site · 1 erased, 0 skipped, 0 failed · proposed Nov 14, 2026, 9:02 AMOpen/);
-  assert.equal(p.node["l-first"].hidden, true);
+  assert.equal(p.node["l-asof"].hidden, false);
   assert.equal(p.node["l-ret"].hidden, true);
 });
 
@@ -111,7 +111,7 @@ test("the per-table counts open under a row in words, with a table the page has 
 
 test("nothing erased yet: the first batch is one site, and a second ticked site turns Propose off with the reason", async () => {
   const p = await page(base({ [BATCHES]: overview([]) }));
-  assert.equal(p.node["l-first"].hidden, false);
+  assert.equal(p.node["l-asof"].textContent, "As of Nov 14, 2026, 9:02 AM");
   const [a, b] = boxes(p.node["a-rows"]);
   assert.equal(p.node["propose"].disabled, true);
   assert.equal(p.node["a-why"].textContent, "Select at least one site.");
@@ -178,11 +178,11 @@ test("when batches/ fails the due list still paints and the batch and hold secti
   assert.deepEqual(p.shown(), ["v-main"]);
   assert.equal(p.node["a-rows"].children.length, 2);
   assert.equal(p.node["c-err"].hidden, false);
-  assert.equal(p.node["c-err"].textContent, "Could not load. Try Refresh.");
+  assert.equal(p.node["c-err"].textContent, "Could not load. Reload the page.");
   assert.equal(p.node["d-err"].hidden, false);
   assert.equal(p.node["c-empty"].hidden, true);
   const q = await page(base({ [LIST]: [500, {}] }));
-  assert.equal(q.node["a-err"].textContent, "Could not load. Try Refresh.");
+  assert.equal(q.node["a-err"].textContent, "Could not load. Reload the page.");
   assert.equal(q.node["a-bar"].hidden, true);
   assert.equal(q.node["c-rows"].children.length, 1);
 });
@@ -196,11 +196,18 @@ test("empty lists say so", async () => {
   assert.equal(p.node["a-bar"].hidden, true);
 });
 
-test("Refresh reads list/ and batches/ again and nothing else", async () => {
+test("the overview has no top Refresh button and no first-batch sentence; the As of line is plain page copy", async () => {
   const p = await page(base());
-  p.node["refresh"].click();
-  await settle();
-  assert.deepEqual(p.keys(), ["GET me/", LIST, BATCHES, LIST, BATCHES]);
+  assert.equal(p.node["refresh"], undefined);
+  assert.equal(p.node["l-first"], undefined);
+  assert.doesNotMatch(HTML, /id="refresh"|Nothing has been erased/);
+  assert.match(HTML, /<p class="dash-copy" id="l-asof" hidden><\/p>/);
+});
+
+test("the As of line stays hidden when the list did not load", async () => {
+  const p = await page(base({ [LIST]: [500, {}] }));
+  assert.equal(p.node["l-asof"].hidden, true);
+  assert.equal(p.node["l-asof"].textContent, "");
 });
 
 test("Propose sends exactly the ticked sites in list order, opens the frozen batch and puts focus in the Reason field", async () => {
@@ -520,7 +527,6 @@ test("Place a hold sends {site, reason_code, reference}, repaints the holds from
   assert.equal(p.node["l-msg"].textContent, "Hold placed on site_a.");
   assert.equal(p.node["d-rows"].children[0].textContent, "site_hLegalReference LR-1 <i>x</i> · placed Nov 14, 2026Release");
   assert.equal(p.sent(LIST).length, 2);
-  assert.equal(p.doc.activeElement, p.node["refresh"]);
 });
 
 test("Place a hold from the Holds section lets the site be typed, and a reference with an @ or over 100 characters is refused here", async () => {

@@ -14,7 +14,7 @@
   var NOWORDS = "a reason this page has no words for";
   var MAX_REASON = 300, MAX_REF = 100, MAX_SITES = 25, MAX_ATTEMPTS = 5, FINGERPRINT = 12;
   var LOST = "That did not go through. Check the batch before trying again.";
-  var LOAD_ERR = "Could not load. Try Refresh.";
+  var LOAD_ERR = "Could not load. Reload the page.";
 
   var TEMPLATE = { sante: "Sante" };
   var BATCH_STATUS = { proposed: ["chip-info", "Proposed"], approved: ["chip-info", "Approved"], running: ["chip-info", "Running"],
@@ -323,9 +323,10 @@
 
   function paintTop(asOf) {
     var at = F.stamp(asOf);
-    $("l-asof").textContent = listOk && at ? "As of " + at : "";
+    var asof = listOk && at ? "As of " + at : "";
+    $("l-asof").textContent = asof;
+    $("l-asof").hidden = !asof;
     $("l-ret").hidden = !(listOk && retentionOn === false);
-    $("l-first").hidden = !(batchesOk && firstBatch);
   }
 
   function paintMain(asOf) {
@@ -780,7 +781,7 @@
     F.say("l-msg", message);
     paintCD();
     if (current) { var fresh = findBatch(current.id); if (fresh) current = fresh; }
-    reloadList().then(function () { $("refresh").focus(); });
+    reloadList();
   }
   /* A 404 from a write: the switch went off, or the target is gone. batches/ decides which. */
   function recheck() {
@@ -839,7 +840,6 @@
   ["release-x", "release-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!busy) dlg.close(true); }); });
   $("d-place").addEventListener("click", function () { openHold("", false, $("d-place")); });
   $("propose").addEventListener("click", propose);
-  $("refresh").addEventListener("click", function () { if (!busy) { F.say("l-msg", ""); load(false); } });
   $("st-refresh").addEventListener("click", function () { if (!busy && current) refreshOpen("", "That batch no longer exists."); });
   $("b-toggle").addEventListener("click", function () {
     var open = $("b-body").hidden;

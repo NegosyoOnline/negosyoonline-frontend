@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -23,7 +23,10 @@
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
-    "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */
+    "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */,
+    "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
+    "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
+    "/training/live/": { view: "training-live", nav: "training", title: "Live trainings | Training | NegosyoOnline" }
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
@@ -86,6 +89,9 @@
     var NT = window.NONotices; /* notices.js loads after this file; same enter/leave hooks as Payments */
     if (NT && shownView === "settings-notices" && r.view !== "settings-notices") NT.hide();
     if (NT && r.view === "settings-notices" && shownView !== "settings-notices") NT.show();
+    var TR = window.NOTraining; /* training.js loads after this file; its three views share one script, so the view name is passed */
+    if (TR && shownView && shownView.indexOf("training") === 0 && r.view !== shownView) TR.hide(shownView);
+    if (TR && r.view.indexOf("training") === 0 && r.view !== shownView) TR.show(r.view);
     var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
     if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
     if (PO && r.view === "orders" && shownView !== "orders") PO.show();
@@ -117,7 +123,9 @@
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     var href = a ? a.getAttribute("href") : null;
-    if (!href || !has(ROUTES, href) || (a.target && a.target !== "_self")) return;
+    /* A /training/ link may carry a query (?id= names the course, ?tab=archive the Archive list); the path alone is the key into ROUTES. */
+    var path = href && href.indexOf("/training/") === 0 ? href.split("?")[0].split("#")[0] : href;
+    if (!href || !has(ROUTES, path) || (a.target && a.target !== "_self")) return;
     e.preventDefault();
     go(href, a);
   }
@@ -128,6 +136,8 @@
     if (href !== currentPath() && typeof history !== "undefined" && history.pushState) history.pushState(null, "", keep ? href + "?" + store[0].slice(1) : href);
     route(false);
   }
+
+  D.go = go; /* the Training editor opens the new course's page with it */
 
   function chip(kind, text) { return D.el("span", { "class": "chip chip-" + kind }, text); }
 
@@ -1356,6 +1366,7 @@
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
+      if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   });

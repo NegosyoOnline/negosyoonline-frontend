@@ -1,5 +1,5 @@
-/* The member dashboard's own pages: the Announcements & promos panel and the two slots on the Home, the placeholder pages
-   (Training, Media Library, Affiliate Hub, Orders) and the My Purchases heading. Plain markup, no script. */
+/* The member dashboard's own pages: the Announcements & promos panel and the placeholder pages
+   (Media Library, Affiliate Hub, Orders) and the My Purchases heading. Plain markup, no script. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { Notice } from "../../lib/notices-api.ts";
 import { safeImage } from "./shop-shell.ts";
@@ -40,9 +40,6 @@ export function noticesPanel(notices: Notice[]): Markup {
 </section>`;
 }
 
-/** Where "next live training" and "pick up where you left off" go once M3 fills them: empty markers, nothing visible now. */
-export const HOME_SLOTS: Markup = html`<div data-slot="next-live-training"></div><div data-slot="pick-up-where-you-left-off"></div>`;
-
 /** A page heading in the Santé hero style. */
 export function pageHero(title: string, sub: string): Markup {
   return html`<div class="acct-hero"><div class="acct-hero-id"><div class="acct-hero-idtext"><h1>${title}</h1>${sub ? html`<div class="acct-hero-sub"><span>${sub}</span></div>` : ""}</div></div></div>`;
@@ -51,7 +48,7 @@ export function pageHero(title: string, sub: string): Markup {
 export const SOON = "This page is coming soon.";
 export const APP_ORDERS_LINE = "Your orders are placed and tracked in the Santé Mobile App.";
 
-/** Training and Media Library until their tasks land. */
+/** Media Library until its task lands. */
 export function soonContent(title: string): Markup {
   return html`<div class="pd md-plain" data-md-page="soon">${pageHero(title, "")}<section class="md-card"><p>${SOON}</p></section></div>`;
 }

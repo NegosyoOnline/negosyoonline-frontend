@@ -555,15 +555,17 @@
     var ct = select("pr-category", "Category", [["all", "All categories"]].concat(CATEGORIES), view.cat, function (v) { view.cat = v; view.page = 1; view.menu = null; refreshList(); });
     form.appendChild(ct.wrap);
     bar.appendChild(form);
-    if (S.canEdit) bar.appendChild(button("⇅ Arrange", "no-btn-ghost pr-arrange", function () { arrangeView(); }));
-    if (S.canEdit) bar.appendChild(button("Category FAQs", "no-btn-ghost pr-catfaq", function () { categoryFaqView(); }));
-    bar.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
+    var acts = h("div", "pr-toolbtns");
+    if (S.canEdit) acts.appendChild(button("⇅ Arrange", "no-btn-ghost pr-arrange", function () { arrangeView(); }));
+    if (S.canEdit) acts.appendChild(button("Category FAQs", "no-btn-ghost pr-catfaq", function () { categoryFaqView(); }));
+    acts.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
       var rows = filterProducts(S.products, view, S.canEdit);
       if (!rows.length) { D.toast("Nothing to export", "No products match the filters.", "error"); return; }
       if (downloadCsv(csvText(rows, S.canEdit))) D.toast("CSV downloaded", rows.length === 1 ? "1 product" : rows.length + " products");
       else D.toast("Could not export", "Try again.", "error");
     }));
-    if (S.canEdit) bar.appendChild(button("＋ Add product", "no-btn-primary pr-add", function () { openForm(null); }));
+    if (S.canEdit) acts.appendChild(button("＋ Add product", "no-btn-primary pr-add", function () { openForm(null); }));
+    bar.appendChild(acts);
     r.appendChild(bar);
 
     S.listBox = r; S.searchIn = q; S.statusSel = st.sel; S.catSel = ct.sel;

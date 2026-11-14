@@ -73,23 +73,31 @@ test("the home lists the courses with progress, the Coming Soon course without a
   assert.equal(r.status, 200);
   const body = await text(r);
   assert.match(body, /<h1>Training<\/h1>/);
-  assert.match(body, /<h2 id="tr-all-h" class="tr-h2">All Courses<\/h2>/);
-  assert.match(body, /<a class="tr-card" href="\/dashboard\/training\/crs_1\/" data-course="crs_1">/);
+  assert.match(body, /<h2 id="tr-all-h" class="tr-h2">All Courses<\/h2><span>2 courses<\/span>/);
+  assert.match(body, /<a class="tr-card tr-cc" href="\/dashboard\/training\/crs_1\/" data-course="crs_1">/);
   assert.ok(body.includes(`src="${BLOB}"`));
   assert.match(body, /How to use the &lt;App&gt;/);
   assert.match(body, /aria-valuenow="25"/);
-  assert.match(body, /25% &middot; 1\/4 lessons|25% · 1\/4 lessons/);
-  const soon = body.slice(body.indexOf('data-course="crs_2"') - 40, body.indexOf("</div>", body.indexOf('data-course="crs_2"')));
-  assert.match(soon, /<div class="tr-card tr-card-off"/);
+  assert.match(body, /<b>25%<\/b>/);
+  assert.match(body, /1\/4 lessons/);
+  assert.match(body, /<span class="tr-chip">4 lessons<\/span>/);
+  assert.match(body, /tr-btn-full">Continue<\/span>/);
+  const soon = body.slice(body.indexOf('data-course="crs_2"') - 40, body.indexOf("</section>", body.indexOf('data-course="crs_2"')));
+  assert.match(soon, /<div class="tr-card tr-cc tr-card-off"/);
   assert.match(soon, /Coming Soon/);
-  assert.doesNotMatch(soon, /href=/);
+  assert.match(soon, /tr-thumb-title">Ways to Earn/);
+  assert.doesNotMatch(soon, /href=|tr-btn/);
+  // The resume card: the course's progress and a Continue button on the next lesson.
   assert.match(body, /Pick up where you left off/);
-  assert.match(body, /href="\/dashboard\/training\/lesson\/lsn_2\/\?c=crs_1"/);
+  assert.match(body, /<b>25% complete<\/b> &middot; 1 of 4 lessons/);
+  assert.match(body, /<a class="tr-btn tr-btn-go" href="\/dashboard\/training\/lesson\/lsn_2\/\?c=crs_1">[\s\S]*Continue<\/a>/);
   assert.match(body, /Next live training/);
+  assert.match(body, /<div class="tr-cal" aria-hidden="true"><b>20<\/b><span>Nov<\/span><\/div>/);
+  assert.doesNotMatch(body, /Live now/);
   assert.match(body, /Weekly &lt;Q&amp;A&gt;/);
   assert.match(body, /Fri, Nov 20, 2026, 7:00 PM \(Philippine time\)/);
   assert.match(body, /1 hr 30 min/);
-  assert.match(body, /<a class="md-app-btn" href="https:\/\/meet\.example\.test\/room" rel="noopener noreferrer" target="_blank">Join<\/a>/);
+  assert.match(body, /<a class="tr-btn tr-btn-gold" href="https:\/\/meet\.example\.test\/room" rel="noopener noreferrer" target="_blank">Join<\/a>/);
   assert.deepEqual(f.calls.find((c) => c.path === "member/training/courses")!.body, { host: "demo.negosyotest.com", token: TOKEN });
 });
 
@@ -115,13 +123,30 @@ test("a failed live read leaves the page up; a failed courses read says try agai
   assert.equal((await trainingPage(dashOf(fake({}), ""))).headers.get("location"), "/");
 });
 
+test("a live training that is on right now says Live now, with no date block; a finished course gets Review Course and the Completed chip", async () => {
+  const f = fake({ ...mkBase(), "member/training/courses": [ok({ courses: [COURSE({ percent: 100, completed_lessons: 4 }), COURSE({ id: "crs_3", title: "Fresh", percent: 0, completed_lessons: 0, total_lessons: 1 })], resume: null })], "member/training/live": [ok({ live: { ...LIVE, starts_at: "2026-11-13T23:30:00Z" } })] });
+  const body = await text(await trainingPage(dashOf(f))); // the fake clock reads 2026-11-14T00:00Z: 30 minutes into a 90 minute session
+  assert.match(body, /<span class="tr-badge-live"><span class="tr-live-dot"><\/span>Live now<\/span>/);
+  assert.match(body, /Streaming now/);
+  assert.match(body, />Join the live</);
+  assert.doesNotMatch(body, /tr-cal/);
+  assert.match(body, /&#10003; Completed/);
+  assert.match(body, /tr-btn-full">Review Course<\/span>/);
+  assert.match(body, /<span class="tr-chip">1 lesson<\/span>/);
+  assert.match(body, /tr-btn-full">Start Course<\/span>/);
+});
+
 /* ---- the course page --------------------------------------------------------------------------------------------- */
 
 test("the course page shows each module with n/m, ticks the done lesson, and links only unlocked lessons", async () => {
   const body = await text(await coursePage(dashOf(fake({ ...mkBase(), "member/training/courses/crs_1": [ok(DETAIL)] })), "crs_1"));
   assert.match(body, /<h1>How to use the &lt;App&gt;<\/h1>/);
-  assert.match(body, /Module 1: Basics<\/h2><span class="tr-count">1\/2<\/span>/);
-  assert.match(body, /Module 2: Orders<\/h2><span class="tr-count">0\/2<\/span>/);
+  assert.match(body, /Module 1: Basics<\/h2><span class="tr-mod-s">2 lessons<\/span><\/span>\s*<span class="tr-count">1 \/ 2<\/span>/);
+  assert.match(body, /Module 2: Orders<\/h2><span class="tr-mod-s">2 lessons<\/span><\/span>\s*<span class="tr-count">0 \/ 2<\/span>/);
+  // The accordion is a details element: the module with the next lesson is open, the other is not.
+  assert.match(body, /<details class="tr-mod" data-module="mdl_1" open>/);
+  assert.match(body, /<details class="tr-mod" data-module="mdl_2">/);
+  assert.match(body, /<span class="tr-now">Up next<\/span>/);
   assert.match(body, /<a class="tr-ls tr-ls-done" href="\/dashboard\/training\/lesson\/lsn_1\/\?c=crs_1" data-lesson="lsn_1">/);
   assert.match(body, /<a class="tr-ls tr-ls-open" href="\/dashboard\/training\/lesson\/lsn_2\/\?c=crs_1"/);
   for (const id of ["lsn_3", "lsn_4"]) {
@@ -153,7 +178,10 @@ test("the lesson player frames only the allowlisted embed, sandboxed and fullscr
   assert.match(body, /href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Module/);
   assert.match(body, /<span class="tr-dis">&larr; Prev Module<\/span>/);
   assert.match(body, /Previous Lesson/);
-  assert.match(body, /1 of 2 lessons complete|1 of 2 lessons/);
+  assert.match(body, /1 of 2 lessons complete/);
+  assert.match(body, /Lesson 2 of 2 &middot; 1 lesson completed in this module/);
+  assert.match(body, /class="tr-ring" style="--p:50"/);
+  assert.match(body, /<span class="tr-now">Now<\/span>/);
   // Next Lesson is off until this lesson is complete.
   assert.match(body, /<span class="tr-btn tr-btn-off" aria-disabled="true">Next Lesson/);
   assert.doesNotMatch(body, /class="tr-btn tr-btn-go"/);
@@ -214,8 +242,8 @@ test("Mark complete on a locked lesson says so; a dead session goes to the store
 
 test("the Home fills both slots from the same data, and hides them when there is nothing or the reads fail", async () => {
   const filled = await text(await homePage(dashOf(fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [ok({ live: LIVE })], "member/training/courses": [ok({ courses: [COURSE()], resume: RESUME })] }))));
-  assert.match(filled, /<div data-slot="next-live-training"><section class="md-card tr-live"/);
-  assert.match(filled, /<div data-slot="pick-up-where-you-left-off"><section class="md-card tr-resume"/);
+  assert.match(filled, /<div data-slot="next-live-training"><section class="tr-bcb"/);
+  assert.match(filled, /<div data-slot="pick-up-where-you-left-off"><section class="tr-card tr-resume"/);
   for (const [live, courses] of [[ok({ live: null }), ok({ courses: [], resume: null })], [err(500), err(500)], [err(404), err(404)]]) {
     const empty = await text(await homePage(dashOf(fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [live], "member/training/courses": [courses] }))));
     assert.match(empty, /<div data-slot="next-live-training"><\/div><div data-slot="pick-up-where-you-left-off"><\/div>/);

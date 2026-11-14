@@ -47,92 +47,125 @@ export function durationText(minutes: number): string {
 const progressBar = (percent: number, label: string): Markup =>
   html`<div class="tr-bar" role="progressbar" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></div>`;
 
-/** The next live training card; nothing at all when there is none. */
-export function liveCard(live: Live | null): Markup {
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** The picture-less thumbnail: one of four Santé gradients, by position. */
+const gradient = (i: number): string => `tr-g${(i % 4) + 1}`;
+const dayFormat = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", day: "numeric" });
+const monthFormat = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", month: "short" });
+
+/** The next live training banner (TWCinc's .uni-bcb); nothing at all when there is none. "Live now" while it is on. */
+export function liveCard(live: Live | null, now: Date = new Date()): Markup {
   if (!live) return html``;
+  const start = Date.parse(live.starts_at);
   const image = safeImage(live.thumbnail_url);
   const when = liveWhen(live.starts_at);
   const length = durationText(live.duration_minutes);
   const join = /^https:\/\/[^\s"'<>]+$/.test(live.join_url) ? live.join_url : "";
-  return html`<section class="md-card tr-live" data-tr="live" aria-labelledby="tr-live-h">
-  ${image ? html`<img class="tr-live-img" src="${image}" alt="" loading="lazy">` : ""}
-  <div class="tr-live-body">
-    <span class="md-kind tr-kind">Next live training</span>
+  const isLive = !Number.isNaN(start) && start <= now.getTime() && now.getTime() < start + Math.max(live.duration_minutes, 1) * 60000;
+  const button = join ? html`<a class="tr-btn tr-btn-gold" href="${join}" rel="noopener noreferrer" target="_blank">${isLive ? "Join the live" : "Join"}</a>` : "";
+  const date = !Number.isNaN(start) && !isLive
+    ? html`<div class="tr-cal" aria-hidden="true"><b>${dayFormat.format(new Date(start))}</b><span>${monthFormat.format(new Date(start))}</span></div>` : "";
+  return html`<section class="tr-bcb" data-tr="live" aria-labelledby="tr-live-h">
+  ${date}
+  <div class="tr-bcb-tx">
+    ${isLive ? html`<span class="tr-badge-live"><span class="tr-live-dot"></span>Live now</span>` : html`<div class="tr-eyebrow">Next live training</div>`}
     <h2 id="tr-live-h">${live.title}</h2>
-    ${when ? html`<p class="tr-meta">${when}${length ? html` &middot; ${length}` : ""}</p>` : ""}
-    ${live.description ? html`<p class="tr-desc">${live.description}</p>` : ""}
-    ${join ? html`<p><a class="md-app-btn" href="${join}" rel="noopener noreferrer" target="_blank">Join</a></p>` : ""}
+    ${isLive ? html`<p class="tr-when">Streaming now &mdash; join the session</p>` : when ? html`<p class="tr-when">${when}${length ? html` &middot; ${length}` : ""}</p>` : ""}
+    ${live.description ? html`<p class="tr-bcb-desc">${live.description}</p>` : ""}
   </div>
+  ${image ? html`<img class="tr-bcb-img" src="${image}" alt="" loading="lazy">` : ""}
+  ${button}
 </section>`;
 }
 
-/** "Pick up where you left off": the next lesson to take; nothing when the member has none. */
-export function resumeCard(resume: Resume | null): Markup {
+/** "Pick up where you left off": the next lesson to take, with the course's progress when the list has it; nothing when none. */
+export function resumeCard(resume: Resume | null, courses: Course[] = []): Markup {
   if (!resume) return html``;
-  return html`<section class="md-card tr-resume" data-tr="resume" aria-labelledby="tr-resume-h">
-  <h2 id="tr-resume-h">Pick up where you left off</h2>
-  <p class="tr-meta">${resume.course.title}</p>
-  <p class="tr-resume-line"><a class="md-app-btn" href="${lessonHref(resume.id, resume.course.id)}">${PLAY} ${resume.title}</a></p>
+  const course = courses.find((c) => c.id === resume.course.id);
+  const image = course ? safeImage(course.image_url) : "";
+  const index = Math.max(0, courses.findIndex((c) => c.id === resume.course.id));
+  return html`<section class="tr-card tr-resume" data-tr="resume" aria-labelledby="tr-resume-h">
+  <div class="tr-thumb tr-resume-thumb ${gradient(index)}">${image ? html`<img src="${image}" alt="" loading="lazy">` : ""}</div>
+  <div class="tr-resume-tx">
+    <div class="tr-eyebrow tr-eyebrow-gold">Pick up where you left off</div>
+    <h2 id="tr-resume-h">${resume.course.title}</h2>
+    <p class="tr-meta">Next: ${resume.title}</p>
+    ${course ? html`${progressBar(course.percent, "Course progress")}<p class="tr-meta"><b>${course.percent}% complete</b> &middot; ${course.completed_lessons} of ${plural(course.total_lessons, "lesson")}</p>` : ""}
+  </div>
+  <a class="tr-btn tr-btn-go" href="${lessonHref(resume.id, resume.course.id)}">${PLAY} Continue</a>
 </section>`;
 }
 
 /** The two slots of the Home. Each keeps its marker; each is empty when there is nothing to show. */
-export function homeSlots(live: Live | null, resume: Resume | null): Markup {
-  return html`<div data-slot="next-live-training">${liveCard(live)}</div><div data-slot="pick-up-where-you-left-off">${resumeCard(resume)}</div>`;
+export function homeSlots(live: Live | null, resume: Resume | null, courses: Course[] = [], now: Date = new Date()): Markup {
+  return html`<div data-slot="next-live-training">${liveCard(live, now)}</div><div data-slot="pick-up-where-you-left-off">${resumeCard(resume, courses)}</div>`;
 }
 
-function courseCard(c: Course): Markup {
+function courseCard(c: Course, i: number): Markup {
   const image = safeImage(c.image_url);
-  const picture = image ? html`<img class="tr-card-img" src="${image}" alt="" loading="lazy">` : html`<span class="tr-card-img tr-card-blank" aria-hidden="true"></span>`;
-  const body = html`${picture}<span class="tr-card-body">
-    <span class="tr-card-title">${c.title}</span>
-    ${c.description ? html`<span class="tr-card-desc">${c.description}</span>` : ""}
-    ${c.coming_soon ? html`<span class="tr-soon">${COMING_SOON}</span>`
-      : html`${progressBar(c.percent, `${c.title} progress`)}<span class="tr-card-pct">${c.percent}% &middot; ${c.completed_lessons}/${c.total_lessons} lessons</span>`}
-  </span>`;
-  return c.coming_soon
-    ? html`<div class="tr-card tr-card-off" data-course="${c.id}">${body}</div>`
-    : html`<a class="tr-card" href="${courseHref(c.id)}" data-course="${c.id}">${body}</a>`;
+  const done = c.total_lessons > 0 && c.percent >= 100;
+  const thumb = html`<div class="tr-thumb ${gradient(i)}">${image ? html`<img src="${image}" alt="" loading="lazy">` : html`<span class="tr-thumb-title">${c.title}</span>`}
+    ${c.coming_soon ? html`<span class="tr-chip tr-chip-soon">${COMING_SOON}</span>` : done ? html`<span class="tr-chip tr-chip-done">&#10003; Completed</span>` : html`<span class="tr-chip">${plural(c.total_lessons, "lesson")}</span>`}</div>`;
+  if (c.coming_soon) {
+    return html`<div class="tr-card tr-cc tr-card-off" data-course="${c.id}">${thumb}<div class="tr-cc-bd"><h3 class="tr-card-title">${c.title}</h3>${c.description ? html`<p class="tr-card-desc">${c.description}</p>` : ""}</div></div>`;
+  }
+  const label = done ? "Review Course" : c.percent > 0 ? "Continue" : "Start Course";
+  return html`<a class="tr-card tr-cc" href="${courseHref(c.id)}" data-course="${c.id}">${thumb}<div class="tr-cc-bd">
+    <h3 class="tr-card-title">${c.title}</h3>
+    ${c.description ? html`<p class="tr-card-desc">${c.description}</p>` : ""}
+    <div class="tr-prog">${progressBar(c.percent, `${c.title} progress`)}<b>${c.percent}%</b></div>
+    <p class="tr-meta">${c.completed_lessons}/${plural(c.total_lessons, "lesson")}</p>
+    <span class="tr-btn tr-btn-go tr-btn-full">${label}</span></div></a>`;
 }
 
 /** /dashboard/training/: the University home. */
-export function universityContent(live: Live | null, resume: Resume | null, courses: Course[]): Markup {
-  return html`<div class="pd md-plain tr-page" data-md-page="training">${pageHero("Training", "")}
-  ${liveCard(live)}${resumeCard(resume)}
-  <section aria-labelledby="tr-all-h"><h2 id="tr-all-h" class="tr-h2">All Courses</h2>
+export function universityContent(live: Live | null, resume: Resume | null, courses: Course[], now: Date = new Date()): Markup {
+  return html`<div class="pd md-plain tr-page" data-md-page="training">
+  <header class="tr-ph"><h1>Training</h1><p>Courses and live trainings to help you learn and grow.</p></header>
+  ${liveCard(live, now)}${resumeCard(resume, courses)}
+  <section aria-labelledby="tr-all-h"><div class="tr-sect"><h2 id="tr-all-h" class="tr-h2">All Courses</h2><span>${plural(courses.length, "course")}</span></div>
   ${courses.length ? html`<div class="tr-grid">${courses.map(courseCard)}</div>` : html`<section class="md-card" data-tr="no-courses"><p>${NO_COURSES}</p></section>`}
   </section>
 </div>`;
 }
 
-function lessonRowMarkup(l: LessonRow, courseId: string, current = ""): Markup {
+function lessonRowMarkup(l: LessonRow, courseId: string, current = "", next = ""): Markup {
   const icon = l.completed ? CHECK : l.locked ? LOCK : PLAY;
   const state = l.completed ? "done" : l.locked ? "lock" : "open";
-  const inner = html`<span class="tr-ic" aria-hidden="true">${icon}</span><span class="tr-lt">${l.title}</span>${l.id === current ? html`<span class="tr-now">Now</span>` : ""}${l.duration ? html`<span class="tr-ld">${l.duration}</span>` : ""}`;
+  const tag = l.id === current ? html`<span class="tr-now">Now</span>` : l.id === next && !l.completed ? html`<span class="tr-now">Up next</span>` : "";
+  const inner = html`<span class="tr-ic" aria-hidden="true">${icon}</span><span class="tr-lt">${l.title}</span>${tag}${l.duration ? html`<span class="tr-ld">${l.duration}</span>` : ""}`;
   const cls = `tr-ls tr-ls-${state}${l.id === current ? " tr-ls-cur" : ""}`;
   if (l.locked) return html`<div class="${cls}" data-lesson="${l.id}"><span class="sr-only">Locked: </span>${inner}</div>`;
   return html`<a class="${cls}" href="${lessonHref(l.id, courseId)}" data-lesson="${l.id}"${l.id === current ? html` aria-current="page"` : ""}>${l.completed ? html`<span class="sr-only">Completed: </span>` : ""}${inner}</a>`;
 }
 
-/** /dashboard/training/<course>/: the modules, each with n/m and its lessons. Locked lessons have no link. */
+/** /dashboard/training/<course>/: the hero, then the modules as accordions (a details element, no script). Locked lessons have no link. */
 export function courseContent(c: CourseDetail): Markup {
   const image = safeImage(c.image_url);
+  const nextId = c.next_lesson?.id ?? "";
+  // The module to read first stays open: the one holding the next lesson, else the first.
+  const openAt = Math.max(0, c.modules.findIndex((m) => m.lessons.some((l) => l.id === nextId)));
   return html`<div class="pd md-plain tr-page" data-md-page="course">
   <a class="tr-crumb" href="${TRAINING_PATH}">&larr; Back to Training</a>
-  <section class="md-card tr-course-head">
-    ${image ? html`<img class="tr-course-img" src="${image}" alt="" loading="lazy">` : ""}
-    <div class="tr-course-info">
+  <section class="tr-hero">
+    <div class="tr-hero-tx">
+      <div class="tr-eyebrow">Course</div>
       <h1>${c.title}</h1>
-      ${c.description ? html`<p class="tr-desc">${c.description}</p>` : ""}
-      ${progressBar(c.percent, "Course progress")}
-      <p class="tr-card-pct">${c.percent}% &middot; ${c.completed_lessons}/${c.total_lessons} lessons</p>
-      ${c.next_lesson ? html`<p><a class="md-app-btn" href="${lessonHref(c.next_lesson.id, c.id)}">${c.completed_lessons > 0 ? "Continue" : "Start"}: ${c.next_lesson.title}</a></p>` : ""}
+      ${c.description ? html`<p class="tr-hero-desc">${c.description}</p>` : ""}
+      <div class="tr-hero-prog">${progressBar(c.percent, "Course progress")}<p class="tr-hero-meta"><b>${c.percent}% complete</b> &middot; ${c.completed_lessons} of ${plural(c.total_lessons, "lesson")}</p></div>
+      ${c.next_lesson ? html`<p><a class="tr-btn tr-btn-gold" href="${lessonHref(c.next_lesson.id, c.id)}">${c.completed_lessons > 0 ? "Continue" : "Start"}: ${c.next_lesson.title}</a></p>` : ""}
     </div>
+    ${image ? html`<div class="tr-hero-side"><div class="tr-thumb tr-g1"><img src="${image}" alt="" loading="lazy"></div></div>` : ""}
   </section>
-  ${c.modules.length ? c.modules.map((m, i) => html`<section class="md-card tr-module" data-module="${m.id}" aria-labelledby="tr-m-${m.id}">
-    <div class="tr-module-head"><h2 id="tr-m-${m.id}">Module ${i + 1}: ${m.title}</h2><span class="tr-count">${m.completed_lessons}/${m.total_lessons}</span></div>
-    ${m.lessons.map((l) => lessonRowMarkup(l, c.id))}
-  </section>`) : html`<section class="md-card"><p>No lessons here yet.</p></section>`}
+  ${c.modules.length ? c.modules.map((m, i) => {
+    const full = m.total_lessons > 0 && m.completed_lessons >= m.total_lessons;
+    return html`<details class="tr-mod${full ? " tr-mod-done" : ""}" data-module="${m.id}"${i === openAt ? html` open` : ""}>
+    <summary class="tr-mod-h"><span class="tr-mod-n">${full ? CHECK : String(i + 1)}</span>
+      <span class="tr-mod-tx"><h2 id="tr-m-${m.id}">Module ${i + 1}: ${m.title}</h2><span class="tr-mod-s">${plural(m.total_lessons, "lesson")}</span></span>
+      <span class="tr-count${full ? " tr-count-full" : ""}">${m.completed_lessons} / ${m.total_lessons}${full ? " \u2713" : ""}</span><span class="tr-chev" aria-hidden="true"></span></summary>
+    <div class="tr-mod-b">${m.lessons.map((l) => lessonRowMarkup(l, c.id, "", nextId))}</div>
+  </details>`;
+  }) : html`<section class="md-card"><p>No lessons here yet.</p></section>`}
 </div>`;
 }
 
@@ -167,10 +200,12 @@ function player(l: Lesson): Markup {
     referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
 }
 
-/** /dashboard/training/lesson/<id>/: the player, the module's lesson list, previous/next module and Next Lesson. */
+/** /dashboard/training/lesson/<id>/: the hero, the player, the lesson list (sticky), previous/next module and Next Lesson. */
 export function lessonContent(l: Lesson): Markup {
+  const total = l.lessons.length;
   const done = l.lessons.filter((x) => x.completed).length;
-  const percent = l.lessons.length ? Math.round((done / l.lessons.length) * 100) : 0;
+  const percent = total ? Math.round((done / total) * 100) : 0;
+  const position = Math.max(1, l.lessons.findIndex((x) => x.id === l.id) + 1);
   const nextLesson = l.next_lesson
     ? (l.next_lesson_locked
       ? html`<span class="tr-btn tr-btn-off" aria-disabled="true">Next Lesson &rarr; <small>Mark this lesson complete first</small></span>`
@@ -178,10 +213,18 @@ export function lessonContent(l: Lesson): Markup {
     : "";
   return html`<div class="pd md-plain tr-page" data-md-page="lesson">
   <a class="tr-crumb" href="${courseHref(l.course.id)}">&larr; Back to ${l.course.title}</a>
+  <section class="tr-hero tr-lhero">
+    <div class="tr-hero-tx">
+      <div class="tr-eyebrow">${l.course.title}</div>
+      <p class="tr-lhero-title">${l.module.title}</p>
+      <p class="tr-hero-meta">Lesson ${position} of ${total} &middot; ${plural(done, "lesson")} completed in this module</p>
+    </div>
+    <div class="tr-ring" style="--p:${percent}" role="img" aria-label="${done} of ${total} lessons complete"><b>${done}/${total}</b></div>
+  </section>
   <div class="tr-lgrid">
     <div>
       ${player(l)}
-      <section class="md-card tr-lmeta">
+      <section class="tr-lmeta">
         <h1>${l.title}</h1>
         <p class="tr-meta">${l.module.title}${l.duration ? html` &middot; ${l.duration}` : ""}</p>
         ${l.description ? html`<p class="tr-desc">${l.description}</p>` : ""}
@@ -194,8 +237,8 @@ export function lessonContent(l: Lesson): Markup {
         </div>
       </section>
     </div>
-    <aside class="md-card tr-plist" aria-label="Lessons in this module">
-      <div class="tr-plist-head"><h2>${l.module.title}</h2>${progressBar(percent, "Module progress")}<p class="tr-card-pct">${done} of ${l.lessons.length} lessons complete</p></div>
+    <aside class="tr-plist" aria-label="Lessons in this module">
+      <div class="tr-plist-head"><div class="tr-eyebrow">${l.course.title}</div><h2>${l.module.title}</h2>${progressBar(percent, "Module progress")}<p class="tr-hero-meta">${done} of ${total} lessons complete</p></div>
       ${l.lessons.map((x) => lessonRowMarkup(x, l.course.id, l.id))}
       <div class="tr-plist-foot">
         ${l.previous_module ? html`<a href="${lessonHref(l.previous_module.first_lesson_id, l.course.id)}">&larr; Prev Module</a>` : html`<span class="tr-dis">&larr; Prev Module</span>`}

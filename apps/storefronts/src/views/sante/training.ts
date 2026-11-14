@@ -114,7 +114,7 @@ function courseCard(c: Course, i: number): Markup {
     <h3 class="tr-card-title">${c.title}</h3>
     ${c.description ? html`<p class="tr-card-desc">${c.description}</p>` : ""}
     <div class="tr-prog">${progressBar(c.percent, `${c.title} progress`)}<b>${c.percent}%</b></div>
-    <p class="tr-meta">${c.completed_lessons}/${plural(c.total_lessons, "lesson")}</p>
+    <p class="tr-meta">${c.module_count > 0 ? html`<span data-modules>${plural(c.module_count, "module")}</span> &middot; ` : ""}${c.completed_lessons}/${plural(c.total_lessons, "lesson")}</p>
     <span class="tr-btn tr-btn-go tr-btn-full">${label}</span></div></a>`;
 }
 
@@ -160,8 +160,8 @@ export function courseContent(c: CourseDetail): Markup {
   ${c.modules.length ? c.modules.map((m, i) => {
     const full = m.total_lessons > 0 && m.completed_lessons >= m.total_lessons;
     return html`<details class="tr-mod${full ? " tr-mod-done" : ""}" data-module="${m.id}"${i === openAt ? html` open` : ""}>
-    <summary class="tr-mod-h"><span class="tr-mod-n">${full ? CHECK : String(i + 1)}</span>
-      <span class="tr-mod-tx"><h2 id="tr-m-${m.id}">Module ${i + 1}: ${m.title}</h2><span class="tr-mod-s">${plural(m.total_lessons, "lesson")}</span></span>
+    <summary class="tr-mod-h"><span class="tr-mod-n">${full ? CHECK : String(m.module_number || i + 1)}</span>
+      <span class="tr-mod-tx"><h2 id="tr-m-${m.id}">Module ${m.module_number || i + 1}: ${m.title}</h2><span class="tr-mod-s">${plural(m.total_lessons, "lesson")}</span></span>
       <span class="tr-count${full ? " tr-count-full" : ""}">${m.completed_lessons} / ${m.total_lessons}${full ? " \u2713" : ""}</span><span class="tr-chev" aria-hidden="true"></span></summary>
     <div class="tr-mod-b">${m.lessons.map((l) => lessonRowMarkup(l, c.id, "", nextId))}</div>
   </details>`;
@@ -215,7 +215,7 @@ export function lessonContent(l: Lesson): Markup {
   <a class="tr-crumb" href="${courseHref(l.course.id)}">&larr; Back to ${l.course.title}</a>
   <section class="tr-hero tr-lhero">
     <div class="tr-hero-tx">
-      <div class="tr-eyebrow">${l.course.title}</div>
+      <div class="tr-eyebrow">${l.course.title}${l.module.module_number > 0 ? html` &middot; Module ${l.module.module_number}` : ""}</div>
       <p class="tr-lhero-title">${l.module.title}</p>
       <p class="tr-hero-meta">Lesson ${position} of ${total} &middot; ${plural(done, "lesson")} completed in this module</p>
     </div>
@@ -241,8 +241,8 @@ export function lessonContent(l: Lesson): Markup {
       <div class="tr-plist-head"><div class="tr-eyebrow">${l.course.title}</div><h2>${l.module.title}</h2>${progressBar(percent, "Module progress")}<p class="tr-hero-meta">${done} of ${total} lessons complete</p></div>
       ${l.lessons.map((x) => lessonRowMarkup(x, l.course.id, l.id))}
       <div class="tr-plist-foot">
-        ${l.previous_module ? html`<a href="${lessonHref(l.previous_module.first_lesson_id, l.course.id)}">&larr; Prev Module</a>` : html`<span class="tr-dis">&larr; Prev Module</span>`}
-        ${l.next_module ? html`<a href="${lessonHref(l.next_module.first_lesson_id, l.course.id)}">Next Module &rarr;</a>` : html`<span class="tr-dis">Next Module &rarr;</span>`}
+        ${l.previous_module ? html`<a href="${lessonHref(l.previous_module.first_lesson_id, l.course.id)}">&larr; Prev Module${l.previous_module.module_number > 0 ? html` ${l.previous_module.module_number}` : ""}</a>` : html`<span class="tr-dis">&larr; Prev Module</span>`}
+        ${l.next_module ? html`<a href="${lessonHref(l.next_module.first_lesson_id, l.course.id)}">Next Module${l.next_module.module_number > 0 ? html` ${l.next_module.module_number}` : ""} &rarr;</a>` : html`<span class="tr-dis">Next Module &rarr;</span>`}
       </div>
     </aside>
   </div>

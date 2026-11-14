@@ -42,25 +42,25 @@ const LOCKED = ok({ pack: { order_number: "SP-1", payment_status: "rejected", pa
   lock: { reason_label: "Amount does not match", other_text: "", resubmitted: false, accounts: [] } }, registration: null });
 const BLOB = "https://abc123.public.blob.vercel-storage.com/training/a.png";
 
-const COURSE = (over: Record<string, unknown> = {}) => ({ id: "crs_1", slug: "app", title: "How to use the <App>", description: "Start here.", image_url: BLOB, order: 1, coming_soon: false, completed_lessons: 1, total_lessons: 4, percent: 25, ...over });
-const SOON = COURSE({ id: "crs_2", slug: "earn", title: "Ways to Earn", description: "", image_url: null, coming_soon: true, completed_lessons: 0, total_lessons: 0, percent: 0 });
+const COURSE = (over: Record<string, unknown> = {}) => ({ id: "crs_1", slug: "app", title: "How to use the <App>", description: "Start here.", image_url: BLOB, order: 1, coming_soon: false, completed_lessons: 1, total_lessons: 4, percent: 25, module_count: 2, ...over });
+const SOON = COURSE({ id: "crs_2", slug: "earn", title: "Ways to Earn", description: "", image_url: null, coming_soon: true, completed_lessons: 0, total_lessons: 0, percent: 0, module_count: 0 });
 const RESUME = { course: { id: "crs_1", title: "How to use the <App>" }, id: "lsn_2", title: "Place an order" };
 const LIVE = { id: "liv_1", title: "Weekly <Q&A>", starts_at: "2026-11-20T11:00:00Z", duration_minutes: 90, description: "Bring questions.", join_url: "https://meet.example.test/room", thumbnail_url: BLOB };
 const YT = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 const ROW = (id: string, over: Record<string, unknown> = {}) => ({ id, title: `Lesson ${id}`, duration: "5:00", image_url: null, completed: false, locked: false, ...over });
 const DETAIL = COURSE({
   modules: [
-    { id: "mdl_1", title: "Basics", order: 1, completed_lessons: 1, total_lessons: 2, lessons: [ROW("lsn_1", { completed: true }), ROW("lsn_2")] },
-    { id: "mdl_2", title: "Orders", order: 2, completed_lessons: 0, total_lessons: 2, lessons: [ROW("lsn_3", { locked: true }), ROW("lsn_4", { locked: true })] },
+    { id: "mdl_1", title: "Basics", order: 1, module_number: 1, completed_lessons: 1, total_lessons: 2, lessons: [ROW("lsn_1", { completed: true }), ROW("lsn_2")] },
+    { id: "mdl_2", title: "Orders", order: 2, module_number: 2, completed_lessons: 0, total_lessons: 2, lessons: [ROW("lsn_3", { locked: true }), ROW("lsn_4", { locked: true })] },
   ],
   next_lesson: { id: "lsn_2", title: "Lesson lsn_2" },
 });
 const LESSON = (over: Record<string, unknown> = {}) => ({
   id: "lsn_2", title: "Place <an> order", duration: "6:30", description: "Watch how.", video_url: YT, image_url: null, completed: false,
-  course: { id: "crs_1", title: "How to use the <App>" }, module: { id: "mdl_1", title: "Basics" },
+  course: { id: "crs_1", title: "How to use the <App>" }, module: { id: "mdl_1", title: "Basics", module_number: 1 },
   lessons: [ROW("lsn_1", { completed: true }), ROW("lsn_2")], previous_lesson: { id: "lsn_1", title: "Lesson lsn_1" },
   next_lesson: { id: "lsn_3", title: "Lesson lsn_3" }, next_lesson_locked: true,
-  previous_module: null, next_module: { id: "mdl_2", title: "Orders", first_lesson_id: "lsn_3" }, ...over,
+  previous_module: null, next_module: { id: "mdl_2", title: "Orders", first_lesson_id: "lsn_3", module_number: 2 }, ...over,
 });
 const text = async (r: Response) => r.text();
 const mkBase = () => ({ "member/me": [ME], "member/pack": [FREE] });
@@ -81,6 +81,7 @@ test("the home lists the courses with progress, the Coming Soon course without a
   assert.match(body, /<b>25%<\/b>/);
   assert.match(body, /1\/4 lessons/);
   assert.match(body, /<span class="tr-chip">4 lessons<\/span>/);
+  assert.match(body, /<span data-modules>2 modules<\/span> &middot; 1\/4 lessons/);
   assert.match(body, /tr-btn-full">Continue<\/span>/);
   const soon = body.slice(body.indexOf('data-course="crs_2"') - 40, body.indexOf("</section>", body.indexOf('data-course="crs_2"')));
   assert.match(soon, /<div class="tr-card tr-cc tr-card-off"/);
@@ -175,7 +176,8 @@ test("the lesson player frames only the allowlisted embed, sandboxed and fullscr
   assert.match(body, /Watch how\./);
   assert.match(body, /<form method="post" action="\/dashboard\/training\/lesson\/lsn_2\/complete\/"><button type="submit" class="md-app-btn tr-complete">Mark complete<\/button><\/form>/);
   assert.match(body, /aria-current="page"/);
-  assert.match(body, /href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Module/);
+  assert.match(body, /href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Module 2 &rarr;<\/a>/);
+  assert.match(body, /<div class="tr-eyebrow">How to use the &lt;App&gt; &middot; Module 1<\/div>/);
   assert.match(body, /<span class="tr-dis">&larr; Prev Module<\/span>/);
   assert.match(body, /Previous Lesson/);
   assert.match(body, /1 of 2 lessons complete/);
@@ -277,4 +279,19 @@ test("only the lesson player may frame the video hosts; every other path, the tr
     assert.equal(hit.length, 1, path);
     if (!path.includes("/lesson/")) assert.doesNotMatch(hit[0], /frame-src/, path);
   }
+});
+
+test("module numbers come from the API's module_number, not the array position; one module is '1 module'", async () => {
+  const detail = { ...DETAIL, modules: [{ ...DETAIL.modules[0], module_number: 4 }, { ...DETAIL.modules[1], module_number: 5 }] };
+  const course = await text(await coursePage(dashOf(fake({ ...mkBase(), "member/training/courses/crs_1": [ok(detail)] })), "crs_1"));
+  const one = await text(await trainingPage(dashOf(fake({ ...mkBase(), "member/training/courses": [ok({ courses: [COURSE({ module_count: 1 })], resume: null })], "member/training/live": [ok({ live: null })] }))));
+  assert.match(one, /<span data-modules>1 module<\/span>/);
+  assert.match(course, /<span class="tr-mod-n">4<\/span>/);
+  assert.match(course, /Module 4: Basics<\/h2>/);
+  assert.match(course, /Module 5: Orders<\/h2>/);
+  assert.doesNotMatch(course, /Module 1: Basics/);
+  const lesson = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ module: { id: "mdl_1", title: "Basics", module_number: 4 }, previous_module: { id: "mdl_0", title: "Intro", first_lesson_id: "lsn_0", module_number: 3 }, next_module: { id: "mdl_2", title: "Orders", first_lesson_id: "lsn_3", module_number: 5 } }))] })), "lsn_2", "crs_1"));
+  assert.match(lesson, /&middot; Module 4<\/div>/);
+  assert.match(lesson, /&larr; Prev Module 3<\/a>/);
+  assert.match(lesson, /Next Module 5 &rarr;<\/a>/);
 });

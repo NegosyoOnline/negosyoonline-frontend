@@ -282,7 +282,8 @@ test("only the lesson player may frame the video hosts; every other path, the tr
 });
 
 test("module numbers come from the API's module_number, not the array position; one module is '1 module'", async () => {
-  const detail = { ...DETAIL, modules: [{ ...DETAIL.modules[0], module_number: 4 }, { ...DETAIL.modules[1], module_number: 5 }] };
+  const mods = (DETAIL as unknown as { modules: Record<string, unknown>[] }).modules;
+  const detail = { ...DETAIL, modules: [{ ...mods[0], module_number: 4 }, { ...mods[1], module_number: 5 }] };
   const course = await text(await coursePage(dashOf(fake({ ...mkBase(), "member/training/courses/crs_1": [ok(detail)] })), "crs_1"));
   const one = await text(await trainingPage(dashOf(fake({ ...mkBase(), "member/training/courses": [ok({ courses: [COURSE({ module_count: 1 })], resume: null })], "member/training/live": [ok({ live: null })] }))));
   assert.match(one, /<span data-modules>1 module<\/span>/);

@@ -766,7 +766,7 @@ test("Servings per pack is a # prefix group in the same class, so it gets the wh
   const d = await openAdd();
   const g = d.$("pr-f-servings_per_pack").parentNode;
   assert.ok(g.classList.contains("pr-ig"));
-  assert.deepEqual(g.all("pr-ig-pre").map((n) => n.textContent), ["#"]);
+  assert.deepEqual(g.all((n) => n.classList.contains("pr-ig-pre")).map((n) => n.textContent), ["#"]);
 });
 
 test("the focus ring wraps the whole ₱ / % group: light blue, on the group, none on its input", () => {

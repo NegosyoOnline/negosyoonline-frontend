@@ -151,7 +151,7 @@ test("history phrases: what changed, no writer", () => {
   assert.deepEqual(Array.from(changes(a, a)), ["Saved with no changes"]);
 });
 
-const FULL = { image_url: "https://media.test/x.jpg", short_description: "s", long_description: "l", volume_slot: 1, shipping_qty: 2, length_cm: "1", width_cm: "1", height_cm: "1" };
+const FULL = { image_url: "https://media.test/x.jpg", short_description: "s", long_description: "l", weight_kg: "0.18", shipping_qty: 2, length_cm: "1", width_cm: "1", height_cm: "1" };
 const tileText = (d) => d.all("pr-tile").map((t) => t.textContent);
 const stat = (d, label) => d.all("pr-stat").find((b) => b.all((n) => n.classList.contains("pr-stat-label"))[0].textContent === label);
 const names = (d) => d.rows().map((r) => r.all((n) => n.classList.contains("pr-name"))[0].textContent);
@@ -238,6 +238,8 @@ test("pure helpers: gaps, counts, filters", () => {
   assert.deepEqual(Array.from(u.gaps(product("1", FULL))), []);
   assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, image_url: "", category: "", short_description: "", width_cm: null, shipping_qty: null }))),
     ["Photo", "Category", "Description", "Packed size", "Shipping details"]);
+  assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, volume_slot: null }))), [], "a missing volume slot is not a gap: the API derives it");
+  assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, weight_kg: null }))), ["Shipping details"]);
   const ps = [product("1", FULL), product("2", { is_active: false })];
   assert.deepEqual({ ...u.counts(ps, true) }, { all: 2, live: 1, hidden: 1, incomplete: 1 });
   assert.equal(u.counts(ps, false).incomplete, 0, "incomplete is the owner's only");
@@ -683,7 +685,7 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
   assert.match(html, /products\.css\?v=20261114prod5/);
-  assert.match(html, /products\.js\?v=20261114prod6/);
+  assert.match(html, /products\.js\?v=20261114prod7/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -768,6 +770,7 @@ test("the focus ring wraps the whole ₱ / % group: light blue, on the group, no
 
 test("Shipping: Length, Width, Height, Actual weight and Units per shipping box are one row", async () => {
   const d = await openAdd();
+  assert.ok(!/Volume slot/.test(d.$("pr-root").textContent), "no Volume slot field");
   const row = d.all("pr-five")[0];
   assert.deepEqual(row.all((n) => n.tagName === "LABEL").map((n) => n.textContent), ["Length (cm)", "Width (cm)", "Height (cm)", "Actual weight (kg)", "Units per shipping box"]);
   assert.match(CSS, /\.pr-five \{ display: grid; grid-template-columns: repeat\(5,/);
@@ -1043,10 +1046,9 @@ test("add: when the hide step fails the product is kept, active, and the edit fo
 test("pure helpers: the shipping preview body needs all three sizes, then the weight; the fee tiles or the reason", () => {
   const u = boot().P.util;
   const ok = { length_cm: "20", width_cm: "10", height_cm: "5.5", weight_kg: "0.18", shipping_qty: "3" };
-  assert.deepEqual({ ...u.previewBody(ok).body }, { volume_slot: null, weight_kg: "0.18", length_cm: "20", width_cm: "10", height_cm: "5.5", shipping_qty: 3 });
+  assert.deepEqual({ ...u.previewBody(ok).body }, { weight_kg: "0.18", length_cm: "20", width_cm: "10", height_cm: "5.5", shipping_qty: 3 });
   assert.equal(u.previewBody({ ...ok, shipping_qty: "" }).body.shipping_qty, null);
-  assert.equal(u.previewBody({ ...ok, volume_slot: "2.5" }).body.volume_slot, "2.5");
-  assert.equal(u.previewBody({ ...ok, volume_slot: "x" }).body.volume_slot, null);
+  assert.ok(!("volume_slot" in u.previewBody({ ...ok, volume_slot: "2.5" }).body), "the form never sends a volume slot");
   assert.equal(u.previewBody({ ...ok, height_cm: "" }).why, "sizes");
   assert.equal(u.previewBody({ ...ok, width_cm: "0" }).why, "sizes");
   assert.equal(u.previewBody({ ...ok, weight_kg: "" }).why, "weight");
@@ -1077,7 +1079,7 @@ test("Packaging & fee: asks the preview a moment after the last keystroke, shows
   assert.equal(asked().length, 1, "one call for the burst");
   assert.equal(asked()[0].method, "POST");
   assert.equal(asked()[0].path, `/sites/${SITE}/catalog/shipping-preview/`);
-  assert.deepEqual(asked()[0].body, { volume_slot: null, weight_kg: "0.5", length_cm: "20", width_cm: "10", height_cm: "6", shipping_qty: null });
+  assert.deepEqual(asked()[0].body, { weight_kg: "0.5", length_cm: "20", width_cm: "10", height_cm: "6", shipping_qty: null });
   assert.match(pv(), /₱120\.00To NCR/);
   assert.match(pv(), /₱180\.00To Mindanao/);
   assert.match(pv(), /0\.50 kgBilled at/);
@@ -1105,19 +1107,18 @@ test("source rules: API strings never reach innerHTML, no storage key, focus is 
   for (const m of CSS.matchAll(/:focus-visible[^{]*\{([^}]*)\}/g)) assert.match(m[1], /var\(--link\)/);
 });
 
-test("Packaging & fee: volume slot goes in the body; a reason beside figures shows under them; a 400 invalid_request shows its field message", async () => {
+test("Packaging & fee: no volume slot in the body; a reason beside figures shows under them; a 400 invalid_request shows its field message", async () => {
   const d = boot({ products: [product("1", { length_cm: "20", width_cm: "10", height_cm: "5", weight_kg: "0.5", volume_slot: "3.00" })] });
   d.state.preview = { ncr_centavos: 0, mindanao_centavos: 0, billable_kg: "0.50", reason: "Shipping is free for now." };
   await d.show();
   d.manage(0, "pr-edit");
   await wait(420);
   const asked = () => d.calls.filter((c) => /shipping-preview/.test(c.path));
-  assert.equal(asked()[0].body.volume_slot, "3.00");
+  assert.ok(!("volume_slot" in asked()[0].body), "an old product's stored volume slot is not sent");
+  assert.equal(d.$("pr-f-volume_slot"), null, "no Volume slot field on the form");
   const pv = () => d.$("pr-pkg-preview").textContent;
   assert.match(pv(), /To NCR/);
   assert.match(pv(), /Shipping is free for now\./);
-  d.set("volume_slot", ""); await wait(420);
-  assert.equal(asked().pop().body.volume_slot, null);
   const bad = boot({ products: [product("1", { length_cm: "20", width_cm: "10", height_cm: "5", weight_kg: "0.5" })],
     routes: (m, p) => /shipping-preview/.test(p) ? { status: 400, body: { error: { code: "invalid_request", message: "Invalid.", fields: { weight_kg: "Enter a weight above 0." } } } } : null });
   await bad.show();

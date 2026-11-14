@@ -167,7 +167,7 @@
     if (!p.category) add("Category");
     if (!p.short_description || !p.long_description) add("Description");
     if (p.length_cm == null || p.width_cm == null || p.height_cm == null) add("Packed size");
-    if (p.volume_slot == null || p.shipping_qty == null) add("Shipping details");
+    if (p.weight_kg == null || p.shipping_qty == null) add("Shipping details");
     return out;
   }
   /* Tile counts. They never sum: a live product can also be incomplete. Incomplete is the owner's only (ownerView). */
@@ -833,9 +833,9 @@
   /* ---------- form ---------- */
 
   var SLOTS = 5;
-  /* The shipping inputs, in the order the Shipping card shows them. Volume slot stays an owner-entered number (the API does not derive it). */
+  /* The shipping inputs, in the order the Shipping card shows them. Volume slot is not on the form: the API derives and stores it. */
   var SHIPPING = [["length_cm", "Length (cm)"], ["width_cm", "Width (cm)"], ["height_cm", "Height (cm)"], ["weight_kg", "Actual weight (kg)"],
-    ["shipping_qty", "Units per shipping box"], ["volume_slot", "Volume slot"]];
+    ["shipping_qty", "Units per shipping box"]];
   /* The Description tab: key, label, hint and the longest text the API takes. */
   var TEXTS = [["short_description", "Short description", 500, 3], ["long_description", "Long description", 20000, 8], ["features", "Features", 5000, 6],
     ["specifications", "Specifications", 5000, 6], ["advantages", "Advantages", 5000, 6], ["benefits", "Benefits", 5000, 6]];
@@ -854,8 +854,8 @@
     var sizes = ["length_cm", "width_cm", "height_cm"].filter(function (k) { return pos(String(v[k] || "").trim()); });
     if (sizes.length < 3) return { body: null, why: "sizes" };
     if (!pos(String(v.weight_kg || "").trim())) return { body: null, why: "weight" };
-    var q = String(v.shipping_qty || "").trim(), vs = String(v.volume_slot || "").trim();
-    return { body: { volume_slot: pos(vs) ? vs : null, weight_kg: String(v.weight_kg).trim(), length_cm: String(v.length_cm).trim(), width_cm: String(v.width_cm).trim(),
+    var q = String(v.shipping_qty || "").trim();
+    return { body: { weight_kg: String(v.weight_kg).trim(), length_cm: String(v.length_cm).trim(), width_cm: String(v.width_cm).trim(),
       height_cm: String(v.height_cm).trim(), shipping_qty: /^[1-9]\d{0,8}$/.test(q) ? parseInt(q, 10) : null }, why: "" };
   }
   /* The preview's answer as tiles ([figure, label]) and a footnote. Without a peso figure the reason is the note. */
@@ -1079,12 +1079,11 @@
     });
     /* Length, Width, Height, Actual weight and Units per shipping box in one row on a wide screen; the row wraps on a phone. */
     var r5 = pairOf("pr-five"); ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { r5.appendChild(shipRows[k]); });
-    var r6 = pairOf("pr-trio"); ["volume_slot"].forEach(function (k) { r6.appendChild(shipRows[k]); });
     var pv = D.el("div", { "class": "pr-pv", id: "pr-pkg-preview", "aria-live": "polite" });
     pv.appendChild(h("div", "pr-pv-cap", "Packaging & fee"));
     var pvBody = h("div", "pr-pv-body");
     pv.appendChild(pvBody);
-    c5.body.appendChild(r5); c5.body.appendChild(r6); c5.body.appendChild(pv);
+    c5.body.appendChild(r5); c5.body.appendChild(pv);
 
     function drawPreview(m) {
       clear(pvBody);
@@ -1108,7 +1107,7 @@
     function schedulePreview(now) {
       clearTimeout(previewTimer);
       var seq = ++previewSeq, vals = {};
-      ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty", "volume_slot"].forEach(function (k) { vals[k] = fields[k].value; });
+      ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { vals[k] = fields[k].value; });
       var st = previewBody(vals);
       if (!st.body) { drawPreview({ why: st.why }); return; }
       drawPreview({ wait: true });
@@ -1121,7 +1120,7 @@
         });
       }, now ? 0 : 300);
     }
-    ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty", "volume_slot"].forEach(function (k) {
+    ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) {
       fields[k].addEventListener("input", function () { schedulePreview(false); });
     });
 

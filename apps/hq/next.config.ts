@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
         { source: "/finance/issuer/", destination: "/finance-issuer.html" },
         { source: "/finance/accounts/", destination: "/finance-accounts.html" },
         { source: "/settings/", destination: "/settings.html" },
+        /* Training (ClickUp z8uq9mezdj): the course list, the course editor (the course is named in the query) and the live trainings. */
+        { source: "/training/", destination: "/training.html" },
+        { source: "/training/course/", destination: "/training-course.html" },
+        { source: "/training/live/", destination: "/training-live.html" },
         { source: "/finance/invoices/", destination: "/finance-invoices.html" },
         { source: "/finance/invoices/reconcile/", destination: "/finance-reconcile.html" },
         { source: "/finance/statements/", destination: "/finance-statements.html" },
@@ -58,6 +62,9 @@ const nextConfig: NextConfig = {
       { source: "/bulk.html", destination: "/inbox/sms/bulk/", permanent: false },
       { source: "/inbox-platform.html", destination: "/inbox/sms/", permanent: false },
       { source: "/contacts.html", destination: "/contacts/", permanent: false },
+      { source: "/training.html", destination: "/training/", permanent: false },
+      { source: "/training-course.html", destination: "/training/", permanent: false },
+      { source: "/training-live.html", destination: "/training/live/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];
   },

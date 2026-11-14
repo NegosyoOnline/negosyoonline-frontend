@@ -11,7 +11,7 @@ export const BASE = "http://hq-api.test/staff/v1";
 
 /* answers(call) gives [status, body], or "offline" for a call that never gets an answer. */
 /* globals: what a page needs that a bare context lacks, for example URL. */
-export function open(files, { ids = [], pathname = "/sign-in/", answers, globals = {} } = {}) {
+export function open(files, { ids = [], pathname = "/sign-in/", search = "", answers, globals = {} } = {}) {
   const doc = makeDocument();
   const node = {};
   for (const id of ids) {
@@ -23,7 +23,7 @@ export function open(files, { ids = [], pathname = "/sign-in/", answers, globals
   }
   const calls = [];
   const heard = {};
-  const location = { pathname, assigned: null, replaced: null,
+  const location = { pathname, search, assigned: null, replaced: null,
     assign(u) { this.assigned = u; }, replace(u) { this.replaced = u; } };
   const history = { pushState(s, t, u) { location.pathname = u; }, replaceState(s, t, u) { location.pathname = u; } };
   const window = { NO_HQ_CONFIG: { staffApi: BASE }, innerHeight: 800, addEventListener(type, fn) { heard[type] = fn; }, removeEventListener(type) { delete heard[type]; } };

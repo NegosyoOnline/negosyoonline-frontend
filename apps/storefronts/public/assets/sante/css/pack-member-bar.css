@@ -262,6 +262,7 @@ a.tr-ls:hover { background: #F2F7F4; }
   .tr-grid { grid-template-columns: minmax(0, 1fr); }
   .tr-bcb, .tr-hero, .tr-resume { padding: 16px; }
   .tr-bcb-img, .tr-resume-thumb { width: 100%; }
+  .tr-resume-thumb { max-height: 140px; }
   .tr-bcb .tr-btn, .tr-resume .tr-btn { width: 100%; }
   .tr-hero h1 { font-size: 22px; }
   .tr-lnav .tr-btn, .tr-lnav .tr-complete, .tr-done { width: 100%; justify-content: center; }

@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { homePage, type Dash } from "../src/lib/dashboard-flow.ts";
 import { coursePage, lessonCompletePost, lessonPage, trainingPage } from "../src/lib/training-flow.ts";
-import { durationText, embedUrl, liveWhen } from "../src/views/sante/training.ts";
+import { durationText, embedUrl, liveWhen, resumeCard } from "../src/views/sante/training.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
 
@@ -295,4 +295,13 @@ test("module numbers come from the API's module_number, not the array position; 
   assert.match(lesson, /&middot; Module 4<\/div>/);
   assert.match(lesson, /&larr; Prev Module 3<\/a>/);
   assert.match(lesson, /Next Module 5 &rarr;<\/a>/);
+});
+
+test("the resume card shows the course title on the gradient when the course has no cover, and the cover when it has one", () => {
+  const bare = String(resumeCard(RESUME, [COURSE({ image_url: "" })]));
+  assert.match(bare, /tr-resume-thumb[^"]*"><span class="tr-thumb-title">How to use the &lt;App&gt;<\/span>/);
+  assert.doesNotMatch(bare, /<img/);
+  const covered = String(resumeCard(RESUME, [COURSE()]));
+  assert.match(covered, /<img src=/);
+  assert.doesNotMatch(covered, /tr-thumb-title/);
 });

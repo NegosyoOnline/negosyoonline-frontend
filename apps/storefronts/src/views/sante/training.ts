@@ -96,10 +96,7 @@ export function waysToEarnPage(memberName: string, termsUrl: string = REFERRAL_T
   <h2>Taking part in Santé</h2>
   <p>As a Santé member you can share Santé with people you know. What is open to you depends on your membership and on the terms of each program.</p>
   <p>Nothing on this page is a promise of income. Results differ from person to person, and no earnings are guaranteed.</p>
-  <h2>Read the terms first</h2>
-  ${termsUrl
-    ? html`<p>Before you take part, read the Referral Program Terms.</p><p><a class="tr-btn" href="${termsUrl}">Referral Program Terms</a></p>`
-    : html`<p>The Referral Program Terms are not published here yet. They will be linked on this page.</p>`}
+  ${termsUrl ? html`<h2>Read the terms first</h2><p>Before you take part, read the Referral Program Terms.</p><p><a class="tr-btn" href="${termsUrl}">Referral Program Terms</a></p>` : ""}
 </div>`);
 }
 

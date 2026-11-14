@@ -106,7 +106,7 @@ test("the Mobile App page links a video only when the address is https; Ways to 
   assert.equal(videoUrl("http://x.test/v"), "");
   assert.equal(videoUrl("javascript:alert(1)"), "");
   assert.match(mobileAppPage("Juan", videoUrl("https://video.example.test/v")).toString(), /href="https:\/\/video\.example\.test\/v"/);
-  assert.doesNotMatch(waysToEarnPage("Juan", "").toString(), /<a class="tr-btn"/);
+  assert.doesNotMatch(waysToEarnPage("Juan", "").toString(), /<a class="tr-btn"|terms/i);
   assert.match(waysToEarnPage("Juan", "https://x.example.test/terms").toString(), /Referral Program Terms<\/a>/);
   assert.doesNotMatch(waysToEarnPage("Juan").toString().replace(/<style>[^]*?<\/style>/, ""), /₱|\d+%/);
 });

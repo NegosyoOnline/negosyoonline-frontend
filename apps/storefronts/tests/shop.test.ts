@@ -12,6 +12,7 @@ import { productContent } from "../src/views/sante/shop-product.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
+import { localMediaOrigin } from "../src/lib/local-media.ts";
 import { shopCard } from "../src/views/sante/pack-orders.ts";
 import { SITE } from "./site.ts";
 
@@ -255,6 +256,28 @@ test("a photo from any other host is not shown", () => {
   assert.equal(safeImage("https://evil.test/x.jpg"), "");
   assert.equal(safeImage("http://abc.public.blob.vercel-storage.com/x.jpg"), "");
   assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg"), "https://abc.public.blob.vercel-storage.com/x.jpg");
+});
+
+test("local media (dev only): unset changes nothing; a loopback http origin is accepted; anything else is ignored", () => {
+  const local = "http://127.0.0.1:8141/files/products/a.jpg";
+  assert.equal(safeImage(local, {}), "", "unset: not shown");
+  assert.equal(safeImage(local), "", "the real environment has it unset");
+  assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" }), local);
+  assert.equal(safeImage("http://localhost:8141/files/a.jpg", { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:8141" }), "http://localhost:8141/files/a.jpg");
+  const on = { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" };
+  assert.equal(safeImage("http://127.0.0.1:8142/files/a.jpg", on), "", "another port");
+  assert.equal(safeImage("http://127.0.0.1:81410/a.jpg", on), "", "a longer port is not a prefix match");
+  assert.equal(safeImage("http://127.0.0.1:8141", on), "", "no file");
+  assert.equal(safeImage("http://127.0.0.1:8141/", on), "", "no file name");
+  assert.equal(safeImage("http://127.0.0.1:8141/a b.jpg", on), "");
+  assert.equal(safeImage("https://evil.test/x.jpg", on), "");
+  assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg", on), "https://abc.public.blob.vercel-storage.com/x.jpg", "the Blob rule is unchanged");
+  for (const bad of ["https://127.0.0.1:8141", "http://127.0.0.1", "http://127.0.0.1:8141/", "http://127.0.0.1:8141/files", "http://example.com:8141",
+    "http://127.0.0.1.evil.test:8141", "http://127.0.0.1:99999", "http://127.0.0.1:08141", "http://user@127.0.0.1:8141", "http://[::1]:8141", " http://127.0.0.1:8141", "*", ""]) {
+    assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", JSON.stringify(bad));
+    assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", "ignored: " + JSON.stringify(bad));
+  }
+  assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:3" }), "http://localhost:3");
 });
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */

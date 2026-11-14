@@ -3,6 +3,7 @@
    Every amount arrives from Django in centavos and is only written out here; no price is worked out in this file. */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
+import { localMediaOrigin } from "../../lib/local-media.ts";
 import type { CartLine } from "../../lib/shop-cart.ts";
 import { countOf } from "../../lib/shop-cart.ts";
 import type { Quote } from "../../lib/shop-api.ts";
@@ -21,9 +22,12 @@ export function php(centavos: number): Markup {
   return html`&#8369;${money(centavos)}`;
 }
 
-/** A product photo is shown only from the public media store's own https host (the CSP allows no other). */
-export function safeImage(url: string): string {
-  return /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'<>]+$/.test(url) ? url : "";
+/** A product photo is shown only from the public media store's own https host (the CSP allows no other). Local development
+    only: when STOREFRONT_LOCAL_MEDIA_ORIGIN is exactly a loopback http origin, photos under that origin are shown too. */
+export function safeImage(url: string, source: Record<string, string | undefined> = process.env): string {
+  if (/^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\/[^\s"'<>]+$/.test(url)) return url;
+  const local = localMediaOrigin(source);
+  return local && url.startsWith(`${local}/`) && /^[^\s"'<>]+$/.test(url.slice(local.length + 1)) ? url : "";
 }
 
 /** What a product card shows when the product has no photo: a neutral bottle mark centred on the card's own light

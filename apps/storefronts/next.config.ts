@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { localMediaOrigin } from "./src/lib/local-media.ts";
 
 /* Storefront pages are finished HTML from route handlers (src/app), with the approved CSS,
    JS and images served from /public. No page carries an inline script, so script-src stays
@@ -11,12 +12,16 @@ const META_SCRIPT = "https://connect.facebook.net";
 const META_IMG = "https://www.facebook.com";
 const META_CONNECT = ["https://www.facebook.com", "https://connect.facebook.net"];
 
+/* Local development only: STOREFRONT_LOCAL_MEDIA_ORIGIN (a loopback http origin, validated strictly) adds that one origin to img-src so a
+   local preview can show photos from the local media stand-in. Unset, or any other value, adds nothing. */
+const LOCAL_MEDIA = localMediaOrigin();
+
 const policy = (frameSrc: string[] = [], meta = false) => [
   "default-src 'self'",
   `script-src 'self'${meta ? ` ${META_SCRIPT}` : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
-  `img-src 'self' data:${meta ? ` ${META_IMG}` : ""} https://*.public.blob.vercel-storage.com`, // product photos: the public media store (backend PUBLIC_MEDIA_BASE_URL)
+  `img-src 'self' data:${meta ? ` ${META_IMG}` : ""} https://*.public.blob.vercel-storage.com${LOCAL_MEDIA ? ` ${LOCAL_MEDIA}` : ""}`, // product photos: the public media store (backend PUBLIC_MEDIA_BASE_URL)
   `connect-src 'self'${meta ? ` ${META_CONNECT.join(" ")}` : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",

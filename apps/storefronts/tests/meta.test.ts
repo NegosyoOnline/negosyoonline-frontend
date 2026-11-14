@@ -475,3 +475,26 @@ test("the data block and the notice add no inline script: the page policy for sc
   assert.equal(scripts.length, 2);
   for (const attrs of scripts) assert.ok(/type="application\/json"/.test(attrs) || /\ssrc="\/assets\/sante\/js\/meta-pixel\.js\?v=/.test(` ${attrs}`));
 });
+
+test("local media (dev only): the CSP gains the one loopback origin only when it is set and valid", async () => {
+  const keep = process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN;
+  const imgSrc = async (tag: string) => {
+    const cfg = (await import(`../next.config.ts?${tag}`)).default as typeof nextConfig;
+    const rules = (await cfg.headers!()) as Rule[];
+    return rules.flatMap((r) => r.headers).filter((h) => h.key === "Content-Security-Policy").map((h) => h.value.split("; ").find((d) => d.startsWith("img-src"))!);
+  };
+  try {
+    delete process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN;
+    for (const d of await imgSrc("unset")) assert.ok(!/127\.0\.0\.1|localhost/.test(d), d);
+    process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN = "http://127.0.0.1:8141";
+    const on = await imgSrc("on");
+    assert.ok(on.length >= 4);
+    for (const d of on) assert.ok(d.endsWith("https://*.public.blob.vercel-storage.com http://127.0.0.1:8141"), d);
+    for (const [i, bad] of ["https://127.0.0.1:8141", "http://evil.test:8141", "http://127.0.0.1:8141/files", "*"].entries()) {
+      process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN = bad;
+      for (const d of await imgSrc("bad" + i)) assert.ok(!d.includes(bad.replace(/^\*$/, "@@")) && !/127\.0\.0\.1|evil|\*(?!\.public)/.test(d.replace("https://*.public.blob.vercel-storage.com", "")), d);
+    }
+  } finally {
+    if (keep === undefined) delete process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN; else process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN = keep;
+  }
+});

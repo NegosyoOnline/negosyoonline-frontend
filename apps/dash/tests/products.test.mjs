@@ -152,8 +152,6 @@ test("history phrases: what changed, no writer", () => {
 });
 
 const FULL = { image_url: "https://media.test/x.jpg", short_description: "s", long_description: "l", weight_kg: "0.18", shipping_qty: 2, length_cm: "1", width_cm: "1", height_cm: "1" };
-const tileText = (d) => d.all("pr-tile").map((t) => t.textContent);
-const stat = (d, label) => d.all("pr-stat").find((b) => b.all((n) => n.classList.contains("pr-stat-label"))[0].textContent === label);
 const names = (d) => d.rows().map((r) => r.all((n) => n.classList.contains("pr-name"))[0].textContent);
 
 test("owner list: a table row for each product with thumbnail or code placeholder, SRP, members price, Live or Hidden; no card, no focusable cell", async () => {
@@ -171,8 +169,13 @@ test("owner list: a table row for each product with thumbnail or code placeholde
   assert.equal(d.all("pr-qs").length, 1, "the quick-links style search box");
   assert.equal(d.all("pr-qs")[0].all((n) => n.tagName === "SVG").length, 1, "the magnifier sits inside the box");
   assert.deepEqual(d.$("pr-root").all((n) => n.tagName === "TH").map((th) => th.textContent), ["Product", "Price", "Storefront", "Action"]);
-  assert.equal(d.all("pr-hero").length, 1, "the masthead");
-  assert.match(d.all("pr-hero-eyebrow")[0].textContent, /Nena's Shop/);
+  assert.equal(d.all("pr-hero").length, 0, "no masthead");
+  assert.equal(d.all("pr-tile").length + d.all("pr-stat").length + d.all("pr-strip").length, 0, "no stat tiles, no status strip");
+  const tb = d.all("pr-toolbar")[0];
+  assert.equal(tb.parentNode.children[0], tb, "the page opens on the toolbar");
+  assert.equal(d.all("pr-cat").length, 0, "no category chip");
+  const lines = rows[0].all((n) => n.classList.contains("pr-prod-text"))[0].children;
+  assert.deepEqual(Array.from(lines).map((n) => n.textContent), ["Product 1", "SPH1 (Barley)"], "two lines: name, then CODE (Category)");
   assert.equal(d.all("pr-manage").length, 2);
   assert.match(rows[0].textContent, /SPH1/);
   assert.match(rows[0].textContent, /₱450\.00/);
@@ -186,20 +189,23 @@ test("owner list: a table row for each product with thumbnail or code placeholde
   assert.deepEqual(d.stored, [], "no storage key");
 });
 
-test("owner header tiles: products, live, hidden, needs a fix; status strip counts", async () => {
-  const d = boot({ products: [product("1", FULL), product("2", { ...FULL, is_active: false }), product("3")] });
+test("owner status dropdown carries every filter the old tiles gave; incomplete rows flag their gaps", async () => {
+  const d = boot({ products: [product("1", FULL), product("2", { ...FULL, is_active: false }), product("3", { category: "" })] });
   await d.show();
-  assert.deepEqual(tileText(d), ["Products in catalog3in the shared catalog", "Live on storefront2shown in shops", "Hidden1not in shops", "Needs a fix1missing details"]);
-  assert.ok(d.all("pr-hero-kpi").some((t) => t.classList.contains("has-work")), "the Needs a fix tile shows it has work");
-  assert.deepEqual(d.all("pr-stat").map((b) => b.textContent), ["3Allreset filters", "2Liveon storefront", "1Hiddennot in shops", "1Incompletemissing details"]);
   assert.deepEqual(Array.from(d.$("pr-status").children).map((o) => o.textContent), ["All status", "Live", "Hidden", "Incomplete"]);
-  assert.equal(d.all("pr-stat")[0].getAttribute("aria-pressed"), "true");
+  const sel = d.$("pr-status");
+  sel.value = "incomplete"; sel.fire("change");
+  assert.deepEqual(names(d), ["Product 3"]);
+  sel.value = "hidden"; sel.fire("change");
+  assert.deepEqual(names(d), ["Product 2"]);
+  sel.value = "all"; sel.fire("change");
   assert.match(d.rows()[2].textContent, /Incomplete/);
-  assert.match(d.rows()[2].textContent, /Missing: Photo, Description, Packed size, Shipping details/);
+  assert.match(d.rows()[2].textContent, /Missing: Photo, Category, Description, Packed size, Shipping details/);
   assert.ok(!/Incomplete/.test(d.rows()[0].textContent));
+  assert.equal(d.rows()[2].all((n) => n.classList.contains("pr-code"))[0].textContent, "SPH3", "no category shows just the code");
 });
 
-test("status tiles filter, search matches name or code, category narrows, paging at 20, clear filters", async () => {
+test("status filter, search matches name or code, category narrows, paging at 20, clear filters", async () => {
   const many = [];
   for (let i = 1; i <= 25; i++) many.push(product(String(i), { ...FULL, name: i === 3 ? "Barley Mix" : "Item " + i, category: i === 3 ? "drinks" : "barley", is_active: i % 5 !== 0 }));
   const d = boot({ products: many });
@@ -208,11 +214,10 @@ test("status tiles filter, search matches name or code, category narrows, paging
   assert.match(d.$("pr-root").textContent, /Page 1 of 2/);
   d.all("pr-next")[0].fire("click");
   assert.equal(d.rows().length, 5);
-  stat(d, "Hidden").fire("click");
+  const stSel = d.$("pr-status");
+  stSel.value = "hidden"; stSel.fire("change");
   assert.equal(d.rows().length, 5, "five hidden, back on page 1");
-  assert.equal(d.$("pr-status").value, "hidden", "the select follows the tile");
-  assert.equal(stat(d, "Hidden").getAttribute("aria-pressed"), "true");
-  stat(d, "All").fire("click");
+  stSel.value = "all"; stSel.fire("change");
   const q = d.$("pr-search");
   q.value = "BARLEY"; q.fire("input");
   assert.equal(d.rows().length, 20, "not yet: the table waits for a pause in typing");
@@ -233,7 +238,7 @@ test("status tiles filter, search matches name or code, category narrows, paging
   assert.deepEqual(d.calls.filter((x) => x.method === "GET").length, 2, "filtering never calls the server");
 });
 
-test("pure helpers: gaps, counts, filters", () => {
+test("pure helpers: gaps, filters", () => {
   const u = boot().P.util;
   assert.deepEqual(Array.from(u.gaps(product("1", FULL))), []);
   assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, image_url: "", category: "", short_description: "", width_cm: null, shipping_qty: null }))),
@@ -241,8 +246,6 @@ test("pure helpers: gaps, counts, filters", () => {
   assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, volume_slot: null }))), [], "a missing volume slot is not a gap: the API derives it");
   assert.deepEqual(Array.from(u.gaps(product("1", { ...FULL, weight_kg: null }))), ["Shipping details"]);
   const ps = [product("1", FULL), product("2", { is_active: false })];
-  assert.deepEqual({ ...u.counts(ps, true) }, { all: 2, live: 1, hidden: 1, incomplete: 1 });
-  assert.equal(u.counts(ps, false).incomplete, 0, "incomplete is the owner's only");
   assert.equal(u.filterProducts(ps, { status: "incomplete" }, false).length, 0);
   assert.equal(u.filterProducts(ps, { status: "incomplete" }, true).length, 1);
 });
@@ -292,8 +295,6 @@ test("a store that cannot edit sees the same table read-only, with no owner cont
   assert.equal(d.all("pr-manage").length, 0);
   assert.equal(d.all("pr-edit").length + d.all("pr-hist").length, 0);
   assert.deepEqual(d.$("pr-root").all((n) => n.tagName === "TH").map((th) => th.textContent), ["Product", "Price", "Storefront"]);
-  assert.deepEqual(tileText(d), ["Products in catalog2in the shared catalog", "Live on storefront1shown in shops"]);
-  assert.deepEqual(d.all("pr-stat").map((b) => b.textContent), ["2Allreset filters", "1Liveon storefront"]);
   assert.deepEqual(Array.from(d.$("pr-status").children).map((o) => o.value), ["all", "live"]);
   assert.ok(!/Incomplete|Missing|Needs a fix/.test(d.$("pr-root").textContent));
   assert.equal(d.all("pr-note").length, 1);
@@ -467,20 +468,14 @@ test("several Santé stores: a chooser, and a change loads that store's list", a
   assert.ok(d.$("pr-site"), "the chooser stays");
 });
 
-test("hiding and showing a product updates the masthead tiles and the strip together", async () => {
-  const many = [];
-  for (let i = 1; i <= 18; i++) many.push(product(String(i), FULL));
-  const d = boot({ products: many });
+test("hiding and showing a product keeps the row and flips its badge", async () => {
+  const d = boot({ products: [product("1", FULL)] });
   await d.show();
-  const tiles = () => d.all("pr-tile").map((t) => t.all((n) => n.classList.contains("pr-tile-num"))[0].textContent);
-  const strip = () => d.all("pr-stat").map((b) => b.all((n) => n.classList.contains("pr-stat-num"))[0].textContent);
-  assert.deepEqual(tiles(), ["18", "18", "0", "0"]);
+  assert.match(d.rows()[0].textContent, /Live/);
   d.manage(0, "pr-toggle"); await settle();
-  assert.deepEqual(tiles(), ["18", "17", "1", "0"]);
-  assert.deepEqual(strip(), ["18", "17", "1", "0"]);
+  assert.match(d.rows()[0].textContent, /Hidden/);
   d.manage(0, "pr-toggle"); await settle();
-  assert.deepEqual(tiles(), ["18", "18", "0", "0"]);
-  assert.deepEqual(strip(), ["18", "18", "0", "0"]);
+  assert.match(d.rows()[0].textContent, /Live/);
 });
 
 test("pure helper: moveId moves one id a place and stops at the ends", () => {
@@ -620,8 +615,8 @@ test("dropdowns: the list filters and the Category field use the house dropdown,
   assert.equal(names(d).length, 2);
   pickRow(d, "pr-category", "Specialty Drinks");
   assert.deepEqual(names(d), ["Product 2"]);
-  /* a status tile and Clear filters redraw the box */
-  stat(d, "Live").fire("click");
+  /* Clear filters redraws the box */
+  pickRow(d, "pr-status", "Live");
   assert.equal(input("pr-status").value, "Live");
   d.$("pr-search").value = "zzz"; d.$("pr-search").fire("input");
   d.all("pr-clear")[0].fire("click");
@@ -684,8 +679,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod5/);
-  assert.match(html, /products\.js\?v=20261114prod7/);
+  assert.match(html, /products\.css\?v=20261114prod6/);
+  assert.match(html, /products\.js\?v=20261114prod8/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -764,7 +759,7 @@ test("Identity: label Product code (SKU), no help line, name | code then categor
 
 test("the focus ring wraps the whole ₱ / % group: light blue, on the group, none on its input", () => {
   assert.match(CSS, /\.pr-ig:focus-within \{ box-shadow: 0 0 0 1px var\(--link\); \}/);
-  assert.match(CSS, /\.pr-ig:focus-within \.pr-ig-pre, [^{]*\.pr-ig:focus-within \.pr-input \{ border-color: var\(--link\); \}/);
+  assert.match(CSS, /\.pr-ig:focus-within \.pr-ig-pre, [^{]*\.pr-ig:focus-within \.pr-ig-suf, [^{]*\.pr-ig:focus-within \.pr-input \{ border-color: var\(--link\); \}/);
   assert.match(CSS, /\.pr-ig \.pr-input:focus \{ box-shadow: none; \}/);
 });
 
@@ -772,7 +767,13 @@ test("Shipping: Length, Width, Height, Actual weight and Units per shipping box 
   const d = await openAdd();
   assert.ok(!/Volume slot/.test(d.$("pr-root").textContent), "no Volume slot field");
   const row = d.all("pr-five")[0];
-  assert.deepEqual(row.all((n) => n.tagName === "LABEL").map((n) => n.textContent), ["Length (cm)", "Width (cm)", "Height (cm)", "Actual weight (kg)", "Units per shipping box"]);
+  assert.deepEqual(row.all((n) => n.tagName === "LABEL").map((n) => n.textContent), ["Length", "Width", "Height", "Actual weight", "Units per shipping box"]);
+  assert.deepEqual(d.all("pr-ig-suf").map((n) => n.textContent), ["cm", "cm", "cm", "kg", "pc(s)"], "units are suffix boxes, not in the labels");
+  assert.deepEqual(["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].map((k) => d.$("pr-f-" + k).getAttribute("placeholder")), ["0.00", "0.00", "0.00", "0.00", "1"]);
+  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"]) {
+    assert.equal(d.$("pr-f-" + k).value, "", k + " is empty: placeholders only");
+    assert.ok(d.$("pr-f-" + k).parentNode.classList.contains("pr-ig"), k + " sits in the input group");
+  }
   assert.match(CSS, /\.pr-five \{ display: grid; grid-template-columns: repeat\(5,/);
   assert.match(CSS, /max-width: 640px\) \{[^@]*\.pr-five \{ grid-template-columns: repeat\(2,/);
 });

@@ -1290,10 +1290,10 @@ body.sf-noscroll { overflow: hidden; }
 }
 .sf-own-addr-dl dt { color: var(--text-light); }
 .sf-own-addr-dl dd { margin: 0; overflow-wrap: anywhere; }
-.sf-own-addr-edit {
-  font-size: 13px; font-weight: 700; color: var(--green-dark); text-decoration: underline; text-underline-offset: 2px;
-}
-.sf-own-addr-edit:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
+.sf-own-addr-manage { margin: 10px 0 0; font-size: 13px; color: #6b7280; }
+.sf-own-addr-manage a { font-weight: 700; color: var(--green-dark); text-decoration: underline; text-underline-offset: 2px; }
+.sf-own-addr-manage a:hover { color: var(--green); }
+.sf-own-addr-manage a:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
 .sf-own-addr-foot {
   grid-column: 1 / -1; font-size: 13px; color: var(--text-secondary);
   border-top: 1px dashed var(--border); padding-top: 10px;
@@ -1340,17 +1340,9 @@ body.sf-noscroll { overflow: hidden; }
 
 /* ── Santé member saved address (spec/design 2026-10-09 rev 8: C1 why-line, C2 Edit, C11 popup) ──
    Light-only storefront: no dark-mode rules. Values from approved mockup v3 (R24). */
-.sf-own-addr-edit {
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font: inherit;
-  font-size: 14px; font-weight: 700; color: var(--green); background: var(--surface);
-  border: 1.5px solid var(--green); border-radius: 999px; padding: 6px 14px; cursor: pointer;
-}
 /* Locked member (L-19): a soft-red note card under the address card, never a loud alert. #7A1710 on #FCE9E7 is about 8:1. */
 .sf-own-addr-note { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0 0; padding: 10px 14px; border: 1px solid #E7A39C; border-radius: 12px; background: #FCE9E7; color: #7A1710; font-size: 14px; line-height: 1.45; }
 .sf-own-addr-note svg { flex: none; margin-top: 1px; }
-.sf-own-addr-edit svg { width: 14px; height: 14px; fill: currentColor; }
-.sf-own-addr-edit:hover { background: var(--sf-green-tint); }
-.sf-own-addr-edit:focus-visible { outline: 3px solid var(--green-light); outline-offset: 2px; }
 .sf-own-addr-saved {
   display: flex; gap: 10px; align-items: flex-start; background: var(--sf-green-tint);
   border: 1px solid #BFE3CD; color: var(--green-dark); border-radius: 10px;
@@ -1413,7 +1405,6 @@ body.sf-noscroll { overflow: hidden; }
   .sf-addr-spinner { animation-duration: 2.4s; }
 }
 @media (max-width: 600px) {
-  .sf-own-addr-edit { padding: 5px 11px; font-size: 13px; }
   .sf-addr-modal { align-items: flex-end; padding: 0; }
   .sf-addr-card { max-width: none; max-height: 92%; border-radius: 16px 16px 0 0; }
   .sf-addr-handle { display: block; justify-self: center; width: 40px; height: 4px; border-radius: 999px; background: var(--border); }
@@ -1423,7 +1414,7 @@ body.sf-noscroll { overflow: hidden; }
   .sf-addr-modal .sf-modal-close { top: 12px; right: 8px; }
 }
 /* The [hidden] footgun (merchant_site.md §8) for the rev 8 classes that set a display. */
-.sf-own-addr-saved[hidden], .sf-own-addr-edit[hidden], .sf-addr-form-error[hidden] { display: none; }
+.sf-own-addr-saved[hidden], .sf-addr-form-error[hidden] { display: none; }
 /* rev 8.2 member pages (spec 2026-10-09 M-29; DS §9.4): the Dashboard's "Recent
    orders" label (the .sf-earnings-group type), its "View all orders" link (the
    .sf-dash-foot link look) and the earnings summary's "View Commission" link. */

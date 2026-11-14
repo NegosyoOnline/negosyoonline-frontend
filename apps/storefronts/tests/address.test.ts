@@ -10,10 +10,8 @@ const env = { apiBase: "http://api.test", secret, hostAliases: {} } as unknown a
 
 const HOME = { line: "7 Rizal St", barangay: "Poblacion", city: "Makati", province: "Metro Manila", zip: "1210", landmark: "Blue gate" };
 const NEW = { line: "9 Mabini St <b>", barangay: "Bel-Air", city: "Makati", province: "Metro Manila", zip: "1209", landmark: "Red roof" };
-const PRODUCT = { id: "prd_AAAAAAAAAAAA", code: "SPH1", name: "Coffee", category: "drinks", short_description: "", long_description: "", image_url: "", srp_centavos: 45000, unit_members_price_centavos: 27000, revision: 1 };
-const QUOTE = { ok: true, member_price: true, ship_mode: "home", lines: [], subtotal_centavos: 0, total_centavos: 0, fingerprint: "fp", errors: [], shipping: { charged_centavos: 0, policy: "zero", estimated: true, available: true, error: "", note: "" } };
 
-type Opts = { quote?: Record<string, unknown>; quoteStatus?: number; save?: { status: number; body: unknown }; packLock?: boolean; catalog?: unknown[]; me?: number };
+type Opts = { read?: Record<string, unknown>; readStatus?: number; save?: { status: number; body: unknown }; packLock?: boolean; me?: number };
 
 function fake(o: Opts = {}) {
   const calls: { path: string; body: Record<string, unknown> | null }[] = [];
@@ -24,8 +22,7 @@ function fake(o: Opts = {}) {
     const json = (b: unknown, status = 200) => Promise.resolve(Response.json(b, { status }));
     if (route === "member/me") return o.me ? json({ error: { code: "member_session_invalid", message: "x" } }, o.me) : json({ member: { id: "m1", full_name: "Ana Reyes", email: "a@example.test", mobile: "+639171234567", email_verified: true, mobile_verified: true } });
     if (route === "member/pack") return json({ pack: o.packLock ? { order_number: "SP-1", payment_status: "rejected", payment_label: "Rejected", method_label: "Bank transfer", price_centavos: 100, tone: "bad", benefits_off: true, lock: { reason_label: "x", other_text: "", resubmitted: false, accounts: [] }, proofs: [] } : null, registration: null });
-    if (route === "catalog/products") return json({ products: o.catalog ?? [PRODUCT] });
-    if (route === "shop/quote") return json({ ...QUOTE, ...o.quote }, o.quoteStatus ?? 200);
+    if (route === "member/address/read") return json({ home_address: {}, home_address_locked: false, ...o.read }, o.readStatus ?? 200);
     if (route === "address/zip") return json({ ok: false, zip_code: "", zip_precision: "" });
     if (route === "member/address") return json(o.save?.body ?? { home_address: NEW, home_address_source: "profile" }, o.save?.status ?? 200);
     throw new Error(`unexpected call: ${route}`);
@@ -41,8 +38,8 @@ function dashOf(f: ReturnType<typeof fake>, query = ""): Dash {
   };
 }
 
-test("the page shows the saved address in the member shell with Account current, and asks the quote for it as the home ship mode", async () => {
-  const f = fake({ quote: { home_address: HOME, home_address_source: "pack_order", home_address_locked: false } });
+test("the page shows the saved address in the member shell with Account current, and reads it from the member address route", async () => {
+  const f = fake({ read: { home_address: HOME, home_address_locked: false } });
   const r = await addressGet(dashOf(f));
   assert.equal(r.status, 200);
   const b = await r.text();
@@ -57,30 +54,28 @@ test("the page shows the saved address in the member shell with Account current,
   assert.match(b, /<button class="btn" type="submit">Save address<\/button>/);
   assert.match(b, /href="\/dashboard\/account\/">Back to account/);
   assert.doesNotMatch(b, /Saved\./);
-  const quote = f.calls.find((c) => c.path === "shop/quote")?.body;
-  assert.deepEqual(quote?.lines, [{ id: PRODUCT.id, qty: 1 }]);
-  assert.equal(quote?.ship_mode, "home");
+  assert.deepEqual(f.calls.find((c) => c.path === "member/address/read")?.body, { host: "demo.negosyotest.com", visitor_ip: "", member_token: "M".repeat(43) });
+  assert.equal(f.calls.some((c) => c.path === "shop/quote" || c.path === "catalog/products"), false);
 });
 
-test("?saved=1 shows 'Saved.'; a member with no saved address (quote ok, home_address absent or null) gets a blank form", async () => {
-  const ok = await (await addressGet(dashOf(fake({ quote: { home_address: HOME } }), "?saved=1"))).text();
+test("?saved=1 shows 'Saved.'; a member with no saved address (home_address absent, null or empty) gets a blank form", async () => {
+  const ok = await (await addressGet(dashOf(fake({ read: { home_address: HOME } }), "?saved=1"))).text();
   assert.match(ok, /<div class="note info" role="status">Saved\.<\/div>/);
-  for (const quote of [{}, { home_address: null }]) {
-    const b = await (await addressGet(dashOf(fake({ quote })))).text();
+  for (const read of [{}, { home_address: null }, { home_address: {} }]) {
+    const b = await (await addressGet(dashOf(fake({ read })))).text();
     assert.match(b, /name="line" maxlength="200" value="" required/);
     assert.doesNotMatch(b, /cannot be loaded/);
   }
 });
 
-test("when the address cannot be read (no catalog, quote error or 404, timeout) or the member has no benefits, there is no form, only the sentence", async () => {
+test("when the address cannot be read (500, 404 older backend, 401, timeout, bad body), there is no form, only the sentence", async () => {
   const timeout = fake();
-  const failing = { calls: timeout.calls, fetchImpl: (url: string, init: RequestInit) => (url.includes("shop/quote") ? Promise.reject(new DOMException("t", "TimeoutError")) : timeout.fetchImpl(url, init)) };
+  const failing = { calls: timeout.calls, fetchImpl: (url: string, init: RequestInit) => (url.includes("member/address/read") ? Promise.reject(new DOMException("t", "TimeoutError")) : timeout.fetchImpl(url, init)) };
   const cases: [string, Dash][] = [
-    ["no catalog", dashOf(fake({ catalog: [] }))],
-    ["quote 500", dashOf(fake({ quoteStatus: 500 }))],
-    ["quote 404", dashOf(fake({ quoteStatus: 404 }))],
+    ["read 500", dashOf(fake({ readStatus: 500 }))],
+    ["read 404", dashOf(fake({ readStatus: 404 }))],
+    ["read 401", dashOf(fake({ readStatus: 401 }))],
     ["timeout", dashOf(failing as ReturnType<typeof fake>)],
-    ["no benefits", dashOf(fake({ quote: { member_price: false, home_address: HOME } }))],
   ];
   for (const [name, d] of cases) {
     const b = await (await addressGet(d)).text();
@@ -90,10 +85,10 @@ test("when the address cannot be read (no catalog, quote error or 404, timeout) 
 });
 
 test("a locked address draws no form, only the sentence; an older backend without the flag draws the form", async () => {
-  const locked = await (await addressGet(dashOf(fake({ quote: { home_address: HOME, home_address_locked: true } }), "?saved=1"))).text();
+  const locked = await (await addressGet(dashOf(fake({ read: { home_address: HOME, home_address_locked: true } }), "?saved=1"))).text();
   assert.match(locked, /Your home address cannot be changed right now\./);
   assert.doesNotMatch(locked, /action="\/dashboard\/address\/"|name="line"|Saved\./);
-  const older = await (await addressGet(dashOf(fake({ quote: { home_address: HOME } })))).text();
+  const older = await (await addressGet(dashOf(fake({ read: { home_address: HOME } })))).text();
   assert.match(older, /name="line"/);
 });
 
@@ -107,10 +102,10 @@ test("saving posts the six trimmed keys with the session and no ids, then goes b
 });
 
 test("a save with no ZIP keeps the saved ZIP when the area is unchanged; a typed ZIP is posted as typed", async () => {
-  const f = fake({ quote: { home_address: HOME } });
+  const f = fake({ read: { home_address: HOME } });
   await addressPost(dashOf(f), { ...HOME, zip: "" });
   assert.equal(f.calls.find((c) => c.path === "member/address")?.body?.zip, "1210");
-  const g = fake({ quote: { home_address: HOME } });
+  const g = fake({ read: { home_address: HOME } });
   await addressPost(dashOf(g), { ...HOME, zip: "1299" });
   assert.equal(g.calls.find((c) => c.path === "member/address")?.body?.zip, "1299");
 });

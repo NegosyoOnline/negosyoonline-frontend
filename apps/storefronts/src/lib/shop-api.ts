@@ -166,6 +166,18 @@ export function saveHomeAddress(args: { host: string; visitor_ip: string; member
   );
 }
 
+/** POST /storefront/v1/member/address/read/: the signed-in member's own saved address and whether a recovery hold locks it. Needs no
+    catalog and no member price. The address is null when none is saved. "unavailable"/"failed" (older backend, passing fault) are the
+    caller's to treat as unreadable. */
+export function readHomeAddress(args: { host: string; visitor_ip: string; member_token: string }, c: Calls) {
+  return packPost(
+    "member/address/read",
+    { host: args.host, visitor_ip: args.visitor_ip, member_token: args.member_token },
+    (b) => (record(b) ? { address: parseAddress(b.home_address), locked: b.home_address_locked === true } : null),
+    c,
+  );
+}
+
 /** The ZIP of an address posted without one. The checkout's address form hides the ZIP row while the barangay lookup is the authority
     (pack-address.js clears it), and orders get the ZIP from Django's lookup; the saved address is stored as posted, so the ZIP is filled
     here: the lookup's ZIP when it is exact for the barangay or the city, else the saved ZIP when province, city and barangay are

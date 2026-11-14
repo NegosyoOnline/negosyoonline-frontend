@@ -679,8 +679,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod8/);
-  assert.match(html, /products\.js\?v=20261114prod10/);
+  assert.match(html, /products\.css\?v=20261114prod9/);
+  assert.match(html, /products\.js\?v=20261114prod11/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -757,11 +757,35 @@ test("Identity: label Product code (SKU), no help line, name | code then categor
   assert.match(d.$("pr-e-code").textContent, /Enter a product code\./);
 });
 
-test("Servings per pack is a # prefix group in the same class, so it gets the whole-group focus ring", async () => {
+test("Servings per pack is a suffix group (\"servings\" after the field) in the same class, so it gets the whole-group focus ring", async () => {
   const d = await openAdd();
   const g = d.$("pr-f-servings_per_pack").parentNode;
-  assert.ok(g.classList.contains("pr-ig"));
-  assert.deepEqual(g.all((n) => n.classList.contains("pr-ig-pre")).map((n) => n.textContent), ["#"]);
+  assert.ok(g.classList.contains("pr-ig") && g.classList.contains("pr-ig-suffixed"));
+  assert.deepEqual(g.all((n) => n.classList.contains("pr-ig-suf")).map((n) => n.textContent), ["servings"]);
+  assert.equal(g.all((n) => n.classList.contains("pr-ig-pre")).length, 0, "no # prefix");
+});
+
+test("SRP, Members discount and Servings sit in one row (stacked at phone width)", async () => {
+  const d = await openAdd();
+  const row = d.$("pr-f-srp_centavos").parentNode.parentNode.parentNode;
+  assert.ok(row.classList.contains("pr-three"));
+  assert.match(CSS, /\.pr-three \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(CSS, /@media \(max-width: 640px\) \{[^@]*\.pr-three \{ grid-template-columns: 1fr; \}/);
+});
+
+test("Price per serving is live: SRP over servings, rounded half-up to a centavo, hidden when either is empty", async () => {
+  const d = await openAdd();
+  const note = d.$("pr-perserv");
+  assert.ok(note.hidden, "hidden while empty");
+  d.set("srp_centavos", "320"); d.set("servings_per_pack", "30");
+  assert.ok(!note.hidden);
+  assert.equal(note.textContent, "Price per serving ₱10.67");
+  d.set("servings_per_pack", "0");
+  assert.ok(note.hidden);
+  d.set("servings_per_pack", "7"); d.set("srp_centavos", "1");
+  assert.equal(note.textContent, "Price per serving ₱0.14");
+  d.set("srp_centavos", "");
+  assert.ok(note.hidden);
 });
 
 test("the focus ring wraps the whole ₱ / % group: light blue, on the group, none on its input", () => {
@@ -775,7 +799,7 @@ test("Shipping: Length, Width, Height, Actual weight and Units per shipping box 
   assert.ok(!/Volume slot/.test(d.$("pr-root").textContent), "no Volume slot field");
   const row = d.all("pr-five")[0];
   assert.deepEqual(row.all((n) => n.tagName === "LABEL").map((n) => n.textContent), ["Length", "Width", "Height", "Actual weight", "Units per shipping box"]);
-  assert.deepEqual(d.all("pr-ig-suf").map((n) => n.textContent), ["cm", "cm", "cm", "kg", "pc(s)"], "units are suffix boxes, not in the labels");
+  assert.deepEqual(d.all("pr-ig-suf").map((n) => n.textContent), ["servings", "cm", "cm", "cm", "kg", "pc(s)"], "units are suffix boxes, not in the labels");
   assert.deepEqual(["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].map((k) => d.$("pr-f-" + k).getAttribute("placeholder")), ["0.00", "0.00", "0.00", "0.00", "1"]);
   for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"]) {
     assert.equal(d.$("pr-f-" + k).value, "", k + " is empty: placeholders only");
@@ -788,7 +812,7 @@ test("Shipping: Length, Width, Height, Actual weight and Units per shipping box 
 test("pricing inputs are prefix groups with placeholders only: ₱ 0.00 and % 40; Edit shows the saved values", async () => {
   const d = await openAdd();
   const pre = d.all("pr-ig-pre");
-  assert.deepEqual(pre.map((n) => n.textContent), ["₱", "%", "#"]);
+  assert.deepEqual(pre.map((n) => n.textContent), ["₱", "%"]);
   assert.equal(d.$("pr-f-srp_centavos").getAttribute("placeholder"), "0.00");
   assert.equal(d.$("pr-f-earnings_rate").getAttribute("placeholder"), "40");
   assert.equal(d.$("pr-f-srp_centavos").value, "");
@@ -1150,10 +1174,9 @@ const descSubmit = async (d) => { d.$("pr-root").all((n) => n.tagName === "FORM"
 const faqBtn = (d, cls, i = 0) => d.all(cls)[i];
 const faqSet = (d, id, v) => { const n = d.$(id); n.value = v; n.fire("input"); };
 
-test("servings per pack: a # group beside a 30 placeholder with its hint; Add sends the number, empty sends nothing; bad values are named", async () => {
+test("servings per pack: a suffix group beside a 30 placeholder; Add sends the number, empty sends nothing; bad values are named", async () => {
   const d = await openAdd();
   assert.equal(d.$("pr-f-servings_per_pack").getAttribute("placeholder"), "30");
-  assert.match(d.$("pr-root").textContent, /Shoppers see the price per serving\./);
   fill(d, { servings_per_pack: "0" });
   await d.submit();
   assert.equal(d.writes().length, 0);

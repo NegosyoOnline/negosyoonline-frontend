@@ -995,10 +995,12 @@
     var srpRow = row("srp_centavos", "Selling price (SRP, ₱)", srpIn, "", group("₱", srpIn));
     var rateIn = input("text", p ? rateToPercent(p.earnings_rate) : "", { inputmode: "decimal", placeholder: "40" });
     var rateRow = row("earnings_rate", "Members discount (%)", rateIn, "Between 10 and 50.", group("%", rateIn));
-    var r3 = pairOf("pr-pair"); r3.appendChild(srpRow); r3.appendChild(rateRow);
     var servIn = input("text", p && p.servings_per_pack != null ? String(p.servings_per_pack) : "", { inputmode: "numeric", placeholder: "30", maxlength: "3" });
-    var servRow = row("servings_per_pack", "Servings per pack", servIn, "Shoppers see the price per serving.", group("#", servIn));
-    var r3b = pairOf("pr-pair"); r3b.appendChild(servRow);
+    var servRow = row("servings_per_pack", "Servings per pack", servIn, "", suffixGroup(servIn, "servings"));
+    var perServ = D.el("p", { "class": "pr-hint pr-perserv", id: "pr-perserv", "aria-live": "polite" });
+    perServ.hidden = true;
+    servRow.appendChild(perServ);
+    var r3 = pairOf("pr-three"); r3.appendChild(srpRow); r3.appendChild(rateRow); r3.appendChild(servRow);
     var calc = D.el("div", { "class": "pr-pcalc", "aria-live": "polite" });
     calc.appendChild(h("div", "pr-pcalc-t", "Members price per sale"));
     function calcLine(id, label, cls) {
@@ -1022,8 +1024,19 @@
     }
     fields.srp_centavos.addEventListener("input", refresh);
     fields.earnings_rate.addEventListener("input", refresh);
+    /* Price per serving: SRP over servings, rounded half-up to a whole centavo, as the storefront reads it from the API. */
+    function refreshPerServing() {
+      var c = pesosToCentavos(fields.srp_centavos.value), sv = fields.servings_per_pack.value.trim();
+      var n = /^[1-9]\d{0,2}$/.test(sv) ? parseInt(sv, 10) : 0;
+      if (c == null || !c || !n) { perServ.hidden = true; perServ.textContent = ""; return; }
+      perServ.textContent = "Price per serving " + formatPeso(Math.floor((2 * c + n) / (2 * n)));
+      perServ.hidden = false;
+    }
+    fields.srp_centavos.addEventListener("input", refreshPerServing);
+    fields.servings_per_pack.addEventListener("input", refreshPerServing);
     refresh();
-    c3.body.appendChild(r3); c3.body.appendChild(r3b); c3.body.appendChild(calc);
+    refreshPerServing();
+    c3.body.appendChild(r3); c3.body.appendChild(calc);
 
     /* Shipping + Packaging & fee */
     var c5 = card("Shipping", "Measure the product boxed, exactly as it leaves your hands. These numbers set the courier fee. Optional for launch; length, width and height go together.", ICON.ship, "pr-s-shipping");

@@ -1,0 +1,73 @@
+/* Subscriber Training (ClickUp z8uq9mezdj, training.js): the course list, the course editor and the live trainings. The look repeats the
+   Notices cards (one card per section, chips for status), with the University editor's layout: tab row, module blocks holding their lessons.
+   Scoped to .tr-root so dash.css is not touched. Colours come from the dash tokens; focus is the light blue, never gold. */
+.tr-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.tr-root > .tr-card { margin-bottom: 16px; }
+.tr-root .tr-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
+.tr-root .tr-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+.tr-root .tr-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+.tr-root .tr-head .tr-h2 { margin: 0; }
+.tr-root .tr-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+.tr-root .tr-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+.tr-root .tr-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
+.tr-root .chip { min-height: 26px; }
+.tr-root .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+.tr-root .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+.tr-root .tr-field { margin: 0 0 14px; }
+.tr-root .tr-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.tr-root .tr-input { display: block; width: 100%; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+.tr-root .tr-textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+.tr-root .tr-input:focus, .tr-root .tr-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+.tr-root .tr-input.tr-invalid { border-color: var(--err-line); }
+.tr-root .tr-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
+.tr-root .tr-error[hidden] { display: none; }
+.tr-root .tr-check { display: flex; align-items: center; gap: 10px; }
+.tr-root .tr-check .tr-label { margin: 0; }
+.tr-root .tr-check input { width: 20px; height: 20px; }
+.tr-root .tr-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 14px; }
+.tr-root .tr-actions .no-btn { min-height: 44px; }
+.tr-root .tr-danger { color: var(--err-h); }
+/* the notices: a plain list, one row each, the picture first */
+.tr-root .tr-list { margin: 0; padding: 0; list-style: none; }
+.tr-root .tr-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px; padding: 14px 0; border-top: 1px solid var(--card-line); }
+.tr-root .tr-row:first-child { border-top: 0; }
+.tr-root .tr-thumb { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--card-line); flex: none; }
+.tr-root .tr-row-main { flex: 1 1 260px; min-width: 0; }
+.tr-root .tr-row-head { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.tr-root .tr-row-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.tr-root .tr-row-body { margin: 0 0 6px; font-size: 15px; line-height: 1.5; color: var(--text-2); overflow-wrap: anywhere; white-space: pre-line; max-height: 4.5em; overflow: hidden; }
+.tr-root .tr-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-root .tr-row-actions .no-btn { min-height: 38px; }
+@media (max-width: 640px) {
+  .tr-root .tr-card { padding: 18px 16px; }
+  .tr-root .tr-actions .no-btn { width: 100%; }
+  .tr-root .tr-row-actions { width: 100%; }
+}
+
+.tr-root .tr-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.tr-root .tr-tab, .tr-root .tr-back { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--card-line); border-radius: 999px; color: var(--text-2); font-size: 15px; font-weight: 600; text-decoration: none; }
+.tr-root .tr-tab[aria-current="page"] { background: var(--card); border-color: var(--link, #6C8CFF); color: var(--text); }
+.tr-root .tr-back { margin: 0 0 14px; border-color: transparent; padding-left: 0; color: var(--link, #6C8CFF); }
+.tr-root .tr-tab:focus-visible, .tr-root .tr-back:focus-visible, .tr-root .tr-link:focus-visible, .tr-root .no-btn:focus-visible { outline: 2px solid var(--link, #6C8CFF); outline-offset: 2px; }
+.tr-root a.no-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.tr-root .tr-check .tr-label { margin: 0; }
+.tr-root .tr-warn { color: var(--err-h); }
+.tr-root .tr-off { margin-left: 8px; }
+.tr-root .tr-pic { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.tr-root .tr-pic-side { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.tr-root .tr-module { margin: 0 0 16px; padding: 16px; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); }
+.tr-root .tr-mod-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; margin-bottom: 8px; }
+.tr-root .tr-mod-title { flex: 1 1 260px; min-width: 0; margin: 0; }
+.tr-root .tr-lessons { margin: 8px 0 4px; padding: 0 0 0 12px; list-style: none; border-left: 2px solid var(--card-line); }
+.tr-root .tr-lesson { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 16px; padding: 10px 0; border-top: 1px solid var(--card-line); }
+.tr-root .tr-lesson:first-child { border-top: 0; }
+.tr-root .tr-lesson-edit { display: block; }
+.tr-root .tr-lesson-title { margin: 0 0 2px; font-size: 16px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.tr-root .tr-form { margin: 8px 0; padding: 14px; border: 1px solid var(--card-line); border-radius: 12px; }
+.tr-root .tr-add { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--card-line); }
+@media (max-width: 640px) {
+  .tr-root .tr-module { padding: 12px; }
+  .tr-root .tr-tab { flex: 1 1 auto; justify-content: center; }
+}
+/* the More sheet group that stays hidden until the Training probe answers */
+.sheet-label[hidden], .sheet-grid[hidden] { display: none; }

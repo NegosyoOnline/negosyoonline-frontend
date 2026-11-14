@@ -36,6 +36,8 @@ type Opts = {
   zip?: { zip_code: string; zip_precision: string };
   /** The product reviews pages Django answers (page 1 first), and a fixed answer of the buyer review save. */
   reviewPages?: unknown[]; reviewReply?: { status: number; body: unknown };
+  /** The Membership Pack read: "on" answers a pack, "throw" fails the call, anything else is off (404). */
+  pack?: "on" | "throw";
 };
 
 /** A fake Django: records every call and answers the shop routes. `member` means the token is a member with active benefits. */
@@ -46,6 +48,10 @@ function backend(o: Opts = {}) {
     const u = new URL(url);
     const path = u.pathname;
     if (path.endsWith("/catalog/products/")) return Promise.resolve(Response.json({ products: [P1, P2] }));
+    if (path.endsWith("/storefront/v1/pack/")) {
+      if (o.pack === "throw") return Promise.reject(new Error("down"));
+      return Promise.resolve(o.pack === "on" ? Response.json({ price_centavos: 150000, currency: "PHP", available: true, agreement: null, payment_accounts: [] }) : Response.json({}, { status: 404 }));
+    }
     if (path.endsWith("/shop/payment-accounts/")) return Promise.resolve(Response.json({ available: true, accounts: o.accounts ?? [ACCOUNT] }));
     if (path.endsWith("/member/me/")) return Promise.resolve(Response.json({ member: { id: "m1", full_name: "Ana Reyes", email: "ana@example.test", mobile: "+639171234567", email_verified: true, mobile_verified: true } }));
     if (init.body instanceof FormData) {
@@ -827,10 +833,27 @@ test("the trust strip sits under Add to Cart with four lines; the members line n
 });
 
 test("the trust strip's Members line links to the membership pack funnel; the other lines are unchanged", () => {
-  const on = productContent({ product: R5, related: [], members: false }).value;
+  const on = productContent({ product: R5, related: [], members: false, packOn: true }).value;
   assert.match(on, /<li data-sf-trust-members>.*<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/);
+  const off = productContent({ product: R5, related: [], members: false, packOn: false }).value;
+  assert.match(off, /<li data-sf-trust-members>.*<span>Members save up to 40%<\/span>/);
+  assert.doesNotMatch(off, /membership-pack/);
   assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
   assert.match(on, /<span>100% genuine Sant&eacute;, trusted since 2007<\/span>/);
+});
+
+test("the product page links the Members line only while the pack is on; a failed pack read is plain text, not an error", async () => {
+  const link = /<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/;
+  const on = await productGet(shop(backend({ pack: "on" })), "SPH1");
+  assert.equal(on.status, 200);
+  assert.match(await text(on), link);
+  for (const pack of [undefined, "throw"] as const) {
+    const r = await productGet(shop(backend({ pack })), "SPH1");
+    assert.equal(r.status, 200);
+    const page = await text(r);
+    assert.match(page, /Members save up to 40%/);
+    assert.doesNotMatch(page, /membership-pack/);
+  }
 });
 
 test("the FAQs sit right after Benefits and before You Might Also Like; not in the info column", () => {

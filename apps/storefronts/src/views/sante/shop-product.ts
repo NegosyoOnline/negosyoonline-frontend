@@ -13,7 +13,7 @@ import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 import { ratingSummary, reviewsSection } from "./shop-review.ts";
 
 /** `reviews` is the first page(s) of this store's reviews of the product and `moreHref` the link to the next page; null or absent shows nothing. */
-export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string };
+export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string; packOn?: boolean };
 
 /** Paragraphs as Django's linebreaks: a blank line starts a new paragraph, a single newline is a <br>. */
 function paragraphs(text: string): Markup {
@@ -34,7 +34,7 @@ function priceRows(p: CatalogProduct): Markup {
         ${members ? html`<p class="sf-members-row">Members ${php(p.unit_members_price_centavos)}${typeof p.members_price_per_serving_centavos === "number" ? html` <span class="sf-per-serving">(${php(p.members_price_per_serving_centavos)} / serving)</span>` : ""}</p>` : ""}`;
 }
 
-function trustStrip(p: CatalogProduct): Markup {
+function trustStrip(p: CatalogProduct, packOn: boolean): Markup {
   const icon = (d: string): Markup => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${safe(d)}</svg>`;
   // N comes from the product's own two prices; it is a percentage for display, never a money amount.
   const pct = p.srp_centavos > 0 && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos
@@ -44,7 +44,7 @@ function trustStrip(p: CatalogProduct): Markup {
           <li>${icon('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>')}<span>Easy payment by bank or e-wallet transfer</span></li>
           <li>${icon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>')}<span><a href="/#contact">Talk to your Sant&eacute; store</a> anytime</span></li>
           <li>${icon('<path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/>')}<span>100% genuine Sant&eacute;, trusted since 2007</span></li>
-          ${pct >= 1 ? html`<li data-sf-trust-members>${icon('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>')}<span><a href="${LANDING_PATH}">Members save up to ${String(pct)}%</a></span></li>` : ""}
+          ${pct >= 1 ? html`<li data-sf-trust-members>${icon('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>')}<span>${packOn ? html`<a href="${LANDING_PATH}">Members save up to ${String(pct)}%</a>` : html`Members save up to ${String(pct)}%`}</span></li>` : ""}
         </ul>`;
 }
 
@@ -139,7 +139,7 @@ export function productContent(m: ProductModel): Markup {
           <button type="submit" class="btn-cart sf-add-to-cart" id="sfAddToCart">Add to Cart</button>
         </form>
 
-        ${trustStrip(p)}
+        ${trustStrip(p, m.packOn === true)}
 
         ${p.long_description || p.specifications.trim() ? html`<div class="sf-accordions">
           ${p.long_description ? html`<div class="sf-accordion">

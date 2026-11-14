@@ -216,6 +216,15 @@ test("the product page shows extra photos as thumbnails and the four sections on
   assert.doesNotMatch(bare, /data-sf-thumb|sf-gallery-thumbs|sf-fab|Specifications/);
 });
 
+test("product page accordions and detail sections have their own light-page and gutter rules", () => {
+  const css = readFileSync(path.join(process.cwd(), "public/assets/sante/css/pack-storefront.css"), "utf8");
+  assert.match(css, /\.sf-accordion \.faq-q \{[^}]*color: var\(--text\)/);
+  assert.match(css, /\.sf-accordion \.faq-icon \{[^}]*color: var\(--green-dark\)/);
+  assert.match(css, /\.sf-accordion\.open \.faq-a \{ display: block; \}/);
+  assert.match(css, /\.sf-fab \{ padding: 48px 20px; \}/);
+  assert.match(css, /\.sf-fab \{ padding: 64px 40px; \}/);
+});
+
 const BADGES = ["Trusted Since 2007", "BioGro NZ Certified", "Global Standard", "Halal Certified", "FDA Registered"];
 const badgeLabels = (page: string) => [...page.matchAll(/class="trust-item-label">([^<]+)</g)].map((m) => m[1]);
 

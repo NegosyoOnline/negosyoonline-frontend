@@ -94,7 +94,7 @@
   }
   var LABELS = { name: "Name", short_description: "Short description", long_description: "Long description", category: "Category",
     features: "Features", specifications: "Specifications", advantages: "Advantages", benefits: "Benefits",
-    image_url: "Image", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
+    image_url: "Photo 1", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
     shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
   var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "is_active",
     "weight_kg", "volume_slot", "shipping_qty", "length_cm", "width_cm", "height_cm"];

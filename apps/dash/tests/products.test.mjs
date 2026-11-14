@@ -147,7 +147,7 @@ test("history phrases: what changed, no writer", () => {
   const { changes } = boot().P.util;
   const a = product("1"), b = { ...a, revision: 2, srp_centavos: 50000, name: "Renamed", is_active: false, image_url: "https://x/y.png" };
   assert.deepEqual(Array.from(changes(a, null)), ["Product added"]);
-  assert.deepEqual(Array.from(changes(b, a)), ["Name changed", "Image changed", "Price (SRP) ₱450.00 to ₱500.00", "Hidden from shops"]);
+  assert.deepEqual(Array.from(changes(b, a)), ["Name changed", "Photo 1 changed", "Price (SRP) ₱450.00 to ₱500.00", "Hidden from shops"]);
   assert.deepEqual(Array.from(changes(a, a)), ["Saved with no changes"]);
 });
 

@@ -70,6 +70,14 @@
 
 .sf-accordions { margin-top: 34px; border-top: 1px solid var(--border); }
 .sf-accordion { border-bottom: 1px solid var(--border); }
+/* The question rows reuse the home FAQ's .faq-q (white text for its dark-green panel); on this light page they read dark. */
+.sf-accordion .faq-q { color: var(--text); padding: 18px 4px; }
+.sf-accordion .faq-q:hover { background: rgba(0,90,40,0.06); }
+.sf-accordion .faq-icon { color: var(--green-dark); }
+.sf-accordion.open .faq-q { color: var(--green-dark); }
+.sf-accordion.open .faq-icon { color: var(--green-dark); transform: rotate(45deg); }
+.sf-accordion .faq-a { background: none; color: var(--text-secondary); border-top: 1px solid var(--border); padding: 16px 4px 22px; }
+.sf-accordion.open .faq-a { display: block; }
 .sf-related { margin-top: 24px; }
 .sf-related .section-title { font-size: 24px; margin-bottom: 28px; text-align: center; }
 
@@ -1003,7 +1011,7 @@ body.sf-noscroll { overflow: hidden; }
 .sf-detail-trust { background: var(--green); padding: 28px 20px; }
 
 /* Feature / Advantages / Benefits sections. */
-.sf-fab { padding: 48px 0; }
+.sf-fab { padding: 48px 20px; }  /* same side gutters as the other .section blocks: 20px phone, 40px from 768px */
 .sf-fab-tinted { background: #F1F5F1; }
 .sf-fab-block { display: flex; flex-direction: column; gap: 28px; }
 .sf-fab-img { flex: 1 1 0; min-width: 0; }
@@ -1033,7 +1041,7 @@ body.sf-noscroll { overflow: hidden; }
 }
 
 @media (min-width: 768px) {
-  .sf-fab { padding: 64px 0; }
+  .sf-fab { padding: 64px 40px; }
   .sf-fab-block { flex-direction: row; align-items: center; gap: 48px; }
   /* Alternating sides — the reference's rhythm. Only applies once the block
      is a row; on mobile the image stays above the text either way. */

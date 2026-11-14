@@ -17,8 +17,6 @@ import { money, php } from "./shop-shell.ts";
 export const CHECKOUT_PATH = "/checkout/";
 export const ZIP_PATH = "/checkout/zip/";
 export const QR_PATH = "/checkout/qr/";
-/** The checkout's edit mode for the member's saved address (TWCinc /checkout/?edit=home). */
-export const EDIT_ADDRESS_PATH = "/checkout/?edit=home";
 
 export type Step = "address" | "payment";
 export type Mode = "guest" | "home";
@@ -29,8 +27,6 @@ export const PAY_FIELDS = ["account_id", "reference_number", "amount_sent"] as c
 
 export type CheckoutModel = {
   step: Step;
-  /** The address form in edit mode: the member changes their saved home address (the page shows only that form). */
-  edit: boolean;
   /** A member with active benefits: their own saved address shows, read-only. Anyone else is shipped to the typed address at SRP. */
   benefits: boolean;
   member: { name: string; mobile: string } | null;
@@ -76,17 +72,8 @@ const invalid = (m: CheckoutModel, name: string): string => (m.field_errors[name
 
 /* ---- the address form (TWCinc _store_address_form.html) ------------------------------------------------------- */
 
-function receiverRows(m: CheckoutModel, edit: boolean, autofill: (value: string) => string): Markup {
+function receiverRows(m: CheckoutModel, autofill: (value: string) => string): Markup {
   const p = m.posted;
-  if (edit) {
-    // Edit mode changes the address only: the member's own name and mobile are shown as text (no new stored field, plan z8uq9mek5v).
-    const who = m.member ?? { name: "", mobile: "" };
-    return html`
-            <dl class="sf-own-addr-dl">
-              <dt>Name</dt><dd>${who.name}</dd>
-              ${who.mobile ? html`<dt>Mobile</dt><dd>${who.mobile}</dd>` : ""}
-            </dl>`;
-  }
   return html`
             <div class="sf-field-row">
               <div class="sf-field">
@@ -119,13 +106,12 @@ function receiverRows(m: CheckoutModel, edit: boolean, autofill: (value: string)
             </div>`;
 }
 
-function addressForm(m: CheckoutModel, mode: "guest" | "edit"): Markup {
+function addressForm(m: CheckoutModel, mode: "guest"): Markup {
   const p = m.posted;
-  const edit = mode === "edit";
   const autofill = (value: string) => (m.benefits ? "off" : value);
   return html`
         <form method="post" action="${CHECKOUT_PATH}" id="delivery" novalidate>
-          <input type="hidden" name="action" value="${edit ? "save_home" : "address"}">${edit ? "" : KEYS("ship_mode", mode)}
+          <input type="hidden" name="action" value="address">${KEYS("ship_mode", mode)}
           <div class="sf-modal" id="sfConfirmAddressModal" hidden>
             <div class="sf-modal-card sf-confirm-modal-card">
               <button type="button" class="sf-modal-close" id="sfConfirmAddressClose">&#x2715;</button>
@@ -140,8 +126,7 @@ function addressForm(m: CheckoutModel, mode: "guest" | "edit"): Markup {
           </div>
           <fieldset class="sf-block">
             <legend>Shipping Address</legend>
-            ${edit ? html`<p class="sf-locked-note">Who receives your parcel and where it goes. Your account details stay as they are.</p>` : ""}
-            ${receiverRows(m, edit, autofill)}
+            ${receiverRows(m, autofill)}
             <div class="sf-field">
               <label for="cf_line">Address *</label>
               <input type="text" id="cf_line" name="line" maxlength="120" value="${p.line ?? ""}" required autocomplete="${autofill("street-address")}"${m.field_errors.line ? html` class="sf-field-invalid"` : ""}>
@@ -188,8 +173,8 @@ function addressForm(m: CheckoutModel, mode: "guest" | "edit"): Markup {
             ${fieldError(m, "delivery_address")}
           </fieldset>
           <div class="sf-step-actions">
-            ${edit ? html`<a href="${CHECKOUT_PATH}" class="sf-step-back-link">Cancel</a>` : m.benefits ? html`<button type="button" class="sf-step-back-link" id="sfBackToChoice">Back</button>` : html`<a href="/cart/" class="sf-step-back-link">Back</a>`}
-            <button type="submit" class="btn-cart sf-step-next">${edit ? "Save Address" : "Confirm Address"}</button>
+            ${m.benefits ? html`<button type="button" class="sf-step-back-link" id="sfBackToChoice">Back</button>` : html`<a href="/cart/" class="sf-step-back-link">Back</a>`}
+            <button type="submit" class="btn-cart sf-step-next">Confirm Address</button>
           </div>
         </form>`;
 }
@@ -268,9 +253,8 @@ function memberAddressStep(m: CheckoutModel): Markup {
                   ${saved.landmark ? html`<dt>Landmark</dt><dd>${saved.landmark}</dd>` : ""}` : html``}
                 </dl>
               </div>
-              ${saved && !locked ? html`<a href="${EDIT_ADDRESS_PATH}" class="sf-own-addr-edit" aria-label="Edit my shipping address">Edit</a>` : ""}
             </div>
-            ${saved ? html`<p class="sf-own-addr-manage">To change it for good, <a href="/dashboard/">open your member dashboard</a>.</p>` : html`<p class="sf-form-error" id="sfNoHomeAddress" role="alert">${MSG_NO_HOME_ADDRESS} <a href="/dashboard/address/">Add your home address</a></p>`}
+            ${saved ? html`<p class="sf-own-addr-manage">To change it, <a href="/dashboard/address/">update your address in your dashboard</a>.</p>` : html`<p class="sf-form-error" id="sfNoHomeAddress" role="alert">${MSG_NO_HOME_ADDRESS} <a href="/dashboard/address/">Add your home address</a></p>`}
             ${locked ? html`<div class="sf-own-addr-note" id="sfHomeLockedNote" role="note">${LOCK_ICON}<span>Your home address cannot be changed right now.</span></div>` : ""}
           </div>
           <div class="sf-step-actions">
@@ -392,7 +376,7 @@ export function checkoutContent(m: CheckoutModel): Markup {
 
     <div class="sf-checkout-grid">
       <div class="sf-checkout-main">
-        ${m.step === "payment" ? paymentStep(m) : m.edit ? addressForm(m, "edit") : m.benefits ? memberAddressStep(m) : addressForm(m, "guest")}
+        ${m.step === "payment" ? paymentStep(m) : m.benefits ? memberAddressStep(m) : addressForm(m, "guest")}
       </div>
       ${summaryAside(m)}
     </div>

@@ -14,16 +14,16 @@ import { htmlResponse } from "./html.ts";
 import { callFor, redirect, type Call } from "./member.ts";
 import { PROOF_MAX_BYTES, type Calls } from "./pack-api.ts";
 import {
-  fetchCatalog, fetchReviewPage, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
+  fetchCatalog, fetchReviewPage, fetchShopAccounts, shopOrderView, shopPlace, shopQuote,
   type Address, type CatalogProduct, type Quote, type ReviewPage,
 } from "./shop-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { applyChange, readCart, writeCart, type CartChange, type CartLine } from "./shop-cart.ts";
-import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS, MSG_MEMBER_OWN_ADDRESS_ONLY, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
+import { MSG_CHECK_FIELDS, MSG_MEMBER_OWN_ADDRESS_ONLY, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
 import { neutralNotFound } from "../views/neutral.ts";
 import { homeModel, emptyContactForm, type HomeModel } from "../views/sante/model.ts";
 import { cartContent } from "../views/sante/shop-cart.ts";
-import { checkoutContent, ADDRESS_FIELDS, CHECKOUT_PATH, type CheckoutModel, type Mode } from "../views/sante/shop-checkout.ts";
+import { checkoutContent, ADDRESS_FIELDS, type CheckoutModel, type Mode } from "../views/sante/shop-checkout.ts";
 import { doneContent } from "../views/sante/shop-done.ts";
 import { noticeFrom } from "../views/sante/shop-review.ts";
 import { productContent } from "../views/sante/shop-product.ts";
@@ -263,7 +263,7 @@ async function prepared(s: Shop): Promise<Prepared> {
 
 function blank(over: Partial<CheckoutModel> = {}): CheckoutModel {
   return {
-    step: "address", edit: false, benefits: false, member: null, mode: "guest", quote: null, quotes: { home: null },
+    step: "address", benefits: false, member: null, mode: "guest", quote: null, quotes: { home: null },
     posted: {}, field_errors: {}, error_message: "", accounts: null, submit_key: "", ...over,
   };
 }
@@ -297,59 +297,7 @@ async function addressStep(s: Shop, p: Extract<Prepared, { lines: CartLine[] }>,
 export async function checkoutGet(s: Shop): Promise<Response> {
   const p = await prepared(s);
   if ("response" in p) return p.response;
-  if (new URL(s.request.url).searchParams.get("edit") === "home") return editStep(s, p);
   return addressStep(s, p);
-}
-
-/** The member's saved address, or the empty address, as the form's posted fields. */
-function postedOf(a: Address | null | undefined): Record<string, string> {
-  return a ? { line: a.line, barangay: a.barangay, city: a.city, province: a.province, zip: a.zip, landmark: a.landmark } : {};
-}
-
-/** TWCinc's /checkout/?edit=home: the address form on its own, prefilled with the saved address. Only a member with benefits whose
-    address is not locked and who has one saved gets it; anyone else goes back to the checkout. */
-async function editStep(
-  s: Shop, p: Extract<Prepared, { lines: CartLine[] }>, over: Partial<CheckoutModel> = {}, status = 200,
-): Promise<Response> {
-  if (!p.quote.member_price) return redirect(CHECKOUT_PATH);
-  const home = (await price(s, p.lines, { ship_mode: "home" })).quote;
-  const saved = home?.home_address ?? null;
-  if (!home || !saved || home.home_address_locked === true) return redirect(CHECKOUT_PATH);
-  const member = await memberInfo(s);
-  const m = blank({
-    step: "address", edit: true, benefits: true, member: member ? { name: member.full_name, mobile: member.mobile } : null, mode: "home",
-    quote: home, quotes: { home }, posted: postedOf(saved), ...over,
-  });
-  return checkoutPage(s, p, m, status);
-}
-
-/** The member saves the address of the edit form (TWCinc action save_home). Success returns to the checkout, where the address is
-    confirmed again before paying; a refusal is shown on the edit form. */
-async function saveHomePost(s: Shop, text: Record<string, string>): Promise<Response> {
-  const p = await prepared(s);
-  if ("response" in p) return p.response;
-  if (!p.quote.member_price) return redirect(CHECKOUT_PATH);
-  const typed = addressOf(text);
-  const saved = typed.zip ? null : (await price(s, p.lines, { ship_mode: "home" })).quote?.home_address ?? null;
-  const address = await withZip(typed, saved, s, s.calls);
-  const posted = postedOf(address);
-  const r = await saveHomeAddress({ host: s.host, visitor_ip: s.visitor_ip, member_token: s.member_token, address }, s.calls);
-  if (r.state === "ok") return redirect(CHECKOUT_PATH);
-  // an older backend has no such route (404), and a failed call may be a passing fault: the form stays, with what was typed
-  if (r.state === "unavailable" || r.state === "failed") return editStep(s, p, { error_message: MSG_ADDRESS_NOT_SAVED, posted }, 503);
-  switch (r.status === 401 ? "session" : r.code) {
-    case "session": {
-      const response = await addressStep({ ...s, member_token: "" }, p, { error_message: SESSION_ENDED });
-      clearCookie(response, s.request, MEMBER);
-      return response;
-    }
-    case "address_locked":
-      return addressStep(s, p, { error_message: r.message || MSG_ADDRESS_LOCKED });
-    case "invalid_address":
-      return editStep(s, p, { error_message: MSG_CHECK_FIELDS, field_errors: r.fields, posted });
-    default:
-      return editStep(s, p, { error_message: r.message || MSG_ADDRESS_NOT_SAVED, field_errors: r.fields, posted }, r.status === 429 ? 429 : 200);
-  }
 }
 
 /** The payment step for a chosen ship mode and address: a fresh quote (its fingerprint rides in the order), the store's accounts. */
@@ -380,7 +328,6 @@ function cleanedPosted(text: Record<string, string>): Record<string, string> {
 export async function checkoutPost(s: Shop, text: Record<string, string>, proof: File | null): Promise<Response | null> {
   const action = text.action ?? "";
   if (action === "place") return placePost(s, text, proof);
-  if (action === "save_home") return saveHomePost(s, text);
   const p = await prepared(s);
   if ("response" in p) return p.response;
   const mode = text.ship_mode ?? "";

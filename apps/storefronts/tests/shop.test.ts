@@ -423,7 +423,7 @@ test("a member with benefits sees only their own address at the member price: no
   assert.doesNotMatch(page, /id="delivery"|name="ship_mode" value="different"/);
   assert.match(page, /Member-price orders ship to your own saved address\./);
   assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
-  assert.match(page, /open your member dashboard/);
+  assert.match(page, /update your address in your dashboard/);
   assert.match(page, /Member savings<\/span><strong>&minus;&#8369;360\.00/);
   assert.match(page, /name="choice" value="home"/);
   assert.doesNotMatch(page, /sf-step-next"[^>]* disabled/);
@@ -532,22 +532,23 @@ const readyOrder = (parity: boolean) => backend(parity ? {
   lineExtra: { unit_centavos: 45000, image_url: P2.image_url, quantity: 2, line_charged_centavos: 54000 },
 } : {});
 
-test("'Ship to my address' shows the saved address card with Edit, in the panel and under Payment", async () => {
+test("'Ship to my address' shows the saved address card read-only (no Edit), in the panel and under Payment", async () => {
   const b = backend({ member: true, quoteExtra: { home_address: HOME, home_address_source: "profile" } });
   const page = await text(await checkoutGet(shop(b, memberCookie)));
   assert.match(page, /sf-own-addr-name">Ana Reyes</);
   assert.match(page, /<dt>Mobile<\/dt><dd>\+639171234567<\/dd>/);
   assert.match(page, /<dt>Address<\/dt><dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
   assert.match(page, /<dt>Landmark<\/dt><dd>Blue gate<\/dd>/);
-  assert.match(page, /<a href="\/checkout\/\?edit=home" class="sf-own-addr-edit"[^>]*>Edit<\/a>/);
+  assert.doesNotMatch(page, /sf-own-addr-edit|edit=home/);
+  assert.match(page, /<p class="sf-own-addr-manage">To change it, <a href="\/dashboard\/address\/">update your address in your dashboard<\/a>\.<\/p>/);
+  assert.doesNotMatch(page, /To change it for good/);
   assert.doesNotMatch(page, /The delivery address saved in your member profile\./);
   const pay = await text((await checkoutPost(shop(b, memberCookie), { action: "choose", choice: "home" }, null)) as Response);
   assert.match(pay, /7 Rizal St, Poblacion, Makati, Metro Manila 1210 — Landmark: Blue gate/);
   assert.doesNotMatch(pay, /The delivery address saved in your member profile/);
 });
 
-test("Edit shows for both sources and for an older response with no source; the lock replaces it with the note", async () => {
-  const edit = /<a href="\/checkout\/\?edit=home" class="sf-own-addr-edit"[^>]*>Edit<\/a>/;
+test("no Edit for any source or an older response; the lock adds the note", async () => {
   const note = /id="sfHomeLockedNote" role="note">[\s\S]*<span>Your home address cannot be changed right now\.<\/span>/;
   const cases: [Record<string, unknown>, boolean][] = [
     [{ home_address: HOME, home_address_source: "pack_order" }, false],
@@ -560,13 +561,13 @@ test("Edit shows for both sources and for an older response with no source; the 
   for (const [quoteExtra, locked] of cases) {
     const page = await text(await checkoutGet(shop(backend({ member: true, quoteExtra }), memberCookie)));
     assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
-    assert.equal(edit.test(page), !locked, JSON.stringify(quoteExtra));
+    assert.doesNotMatch(page, /sf-own-addr-edit|edit=home/);
     assert.equal(note.test(page), locked, JSON.stringify(quoteExtra));
     assert.doesNotMatch(page, /dashboard\/#registration/);
   }
 });
 
-/* ---- the member edits the saved address (z8uq9mewrw) ----------------------------------------------------------------- */
+/* ---- a member's address is read-only at checkout (fix 2 of z8uq9meyqm): no edit, no save_home ------------------------------ */
 
 const editGet = (b: ReturnType<typeof backend>, cookie = memberCookie) => {
   const s = shop(b, cookie);
@@ -576,110 +577,24 @@ const editGet = (b: ReturnType<typeof backend>, cookie = memberCookie) => {
 const NEW = { line: "9 Mabini St", barangay: "Bel-Air", city: "Makati", province: "Metro Manila", zip: "1209", landmark: "Red roof" };
 const own = { member: true, quoteExtra: { home_address: HOME, home_address_source: "pack_order" } } as const;
 
-test("the edit mode shows only the address form, prefilled, with name and mobile as text, the note, Cancel and Save Address", async () => {
+test("?edit=home shows no address form: a member with benefits gets the normal read-only checkout", async () => {
   const r = await editGet(backend(own));
   assert.equal(r.status, 200);
   const page = await text(r);
-  assert.match(page, /<input type="hidden" name="action" value="save_home">/);
-  assert.doesNotMatch(page, /name="ship_mode"|sfShipMode|name="first_name"|name="mobile"|name="email"|sfOwnPanel/);
-  assert.match(page, /<dt>Name<\/dt><dd>Ana Reyes<\/dd>/);
-  assert.match(page, /<dt>Mobile<\/dt><dd>\+639171234567<\/dd>/);
-  assert.match(page, /<p class="sf-locked-note">Who receives your parcel and where it goes\. Your account details stay as they are\.<\/p>/);
-  assert.doesNotMatch(page, /someone else will receive/);
-  assert.match(page, /name="line"[^>]*value="7 Rizal St"/);
-  assert.match(page, /data-value="Metro Manila"/);
-  assert.match(page, /data-value="Makati"/);
-  assert.match(page, /data-value="Poblacion"/);
-  assert.match(page, /name="zip" value="1210"/);
-  assert.match(page, /name="landmark" value="Blue gate"/);
-  assert.match(page, /<a href="\/checkout\/" class="sf-step-back-link">Cancel<\/a>/);
-  assert.match(page, /btn-cart sf-step-next">Save Address</);
-  assert.doesNotMatch(page, /Confirm Address/);
-});
-
-test("the edit mode sends nobody but a member with a saved, unlocked address; a guest goes back to the checkout", async () => {
-  assert.equal((await editGet(backend({ member: false }), `no_cart=${P1.id}.1`)).headers.get("location"), "/checkout/");
-  assert.equal((await editGet(backend({ member: true }))).headers.get("location"), "/checkout/"); // none saved
-  assert.equal((await editGet(backend({ member: true, quoteExtra: { ...own.quoteExtra, home_address_locked: true } }))).headers.get("location"), "/checkout/");
-  assert.equal((await editGet(backend(own), `no_cart=${P1.id}.1`)).headers.get("location"), "/checkout/"); // no member session
-  assert.equal((await editGet(backend(own), "")).headers.get("location"), "/cart/"); // no basket
-});
-
-test("saving round-trips: the six keys go to Django with the session and no ids, then the checkout shows the new address, Edit and Confirm Address", async () => {
-  const b = backend(own);
-  const r = (await checkoutPost(shop(b, memberCookie), { action: "save_home", ...NEW, first_name: "Evil", mobile: "0999", receiver_name: "X", member_id: "m9", site_id: "s9" }, null)) as Response;
-  assert.equal(r.status, 303);
-  assert.equal(r.headers.get("location"), "/checkout/");
-  const call = b.calls.find((c) => c.url.endsWith("/storefront/v1/member/address/"));
-  assert.deepEqual(call?.body, { host: "demo.test", visitor_ip: "", member_token: "M".repeat(43), ...NEW });
-  const page = await text(await checkoutGet(shop(b, memberCookie)));
-  assert.match(page, /<dd>9 Mabini St, Bel-Air, Makati, Metro Manila 1209<\/dd>/);
-  assert.match(page, /<dt>Landmark<\/dt><dd>Red roof<\/dd>/);
-  assert.match(page, /sf-own-addr-edit/);
-  assert.match(page, /name="action" value="choose"/); // Confirm Address is still the next step
+  assert.match(page, /sfOwnPanel/);
+  assert.doesNotMatch(page, /save_home|name="line"|Save Address|Cancel|sf-own-addr-edit|edit=home/);
+  assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
   assert.match(page, />Confirm Address</);
 });
 
-test("the edit form posts the barangay with no ZIP (the row is hidden): the saved ZIP is kept, or the lookup's, never lost", async () => {
-  const noZip = { ...HOME, zip: "", line: "99 Checkout Edit Rd" };
-  const saved = async (b: ReturnType<typeof backend>, fields: Record<string, string>) => {
-    await checkoutPost(shop(b, memberCookie), { action: "save_home", ...fields }, null);
-    return (b.calls.find((c) => c.url.endsWith("/storefront/v1/member/address/"))?.body as Record<string, string>).zip;
-  };
-  // the lookup is exact for the barangay: its ZIP
-  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), noZip), "1210");
-  // no lookup answer, same province, city and barangay: the saved ZIP stays (names compared without case)
-  assert.equal(await saved(backend(own), { ...noZip, city: "MAKATI", barangay: "POBLACION" }), "1210");
-  // another barangay and no lookup answer: no ZIP is invented
-  assert.equal(await saved(backend(own), { ...noZip, barangay: "Bel-Air" }), "");
-  // a typed ZIP is never replaced
-  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), { ...noZip, zip: "1234" }), "1234");
-  // an approximate (city) ZIP is not taken as the barangay's
-  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1200", zip_precision: "city_approx" } }), { ...noZip, barangay: "Bel-Air" }), "");
-});
-
-test("a refusal with field errors shows each beside its field, with what was typed", async () => {
-  const fields = { line: ["Enter the street address."], city: ["Enter the city or municipality."], zip: ["Enter a 4-digit ZIP code."] };
-  const b = backend({ ...own, addressReply: { status: 422, body: { error: { code: "invalid_address", message: "Some values are missing or invalid.", fields } } } });
-  const r = (await checkoutPost(shop(b, memberCookie), { action: "save_home", ...NEW, line: "", city: "", zip: "12" }, null)) as Response;
-  assert.equal(r.status, 200);
-  const page = await text(r);
-  assert.match(page, /<p class="sf-form-error" role="alert">Check the highlighted fields\.<\/p>/);
-  assert.match(page, /name="line"[^>]*class="sf-field-invalid"[\s\S]*?<p class="sf-field-error">Enter the street address\.<\/p>/);
-  assert.match(page, /<p class="sf-field-error">Enter the city or municipality\.<\/p>/);
-  assert.match(page, /<p class="sf-field-error">Enter a 4-digit ZIP code\.<\/p>/);
-  assert.match(page, /name="landmark" value="Red roof"/);
-  assert.match(page, /Save Address/);
-});
-
-test("a hold (423), the throttle (429), a dead session (401) and a failing Django are each answered in words", async () => {
-  const reply = (status: number, code: string, message: string) => backend({ ...own, addressReply: { status, body: { error: { code, message } } } });
-  const post = async (b: ReturnType<typeof backend>) => (await checkoutPost(shop(b, memberCookie), { action: "save_home", ...NEW }, null)) as Response;
-  const locked = await post(reply(423, "address_locked", "Your home address cannot be changed right now."));
-  assert.equal(locked.status, 200);
-  assert.match(await text(locked), /sf-form-error" role="alert">Your home address cannot be changed right now\./);
-  const throttled = await post(reply(429, "rate_limited", "Too many tries. Please wait a while."));
-  assert.equal(throttled.status, 429);
-  const tp = await text(throttled);
-  assert.match(tp, /Too many tries\. Please wait a while\./);
-  assert.match(tp, /Save Address/);
-  const dead = await post(reply(401, "member_session_invalid", "Not signed in."));
-  assert.match(dead.headers.get("set-cookie") ?? "", /no_member=; .*Max-Age=0/);
-  assert.match(await text(dead), /Your sign-in has ended/);
-  const down = await post(backend({ ...own, addressReply: { status: 500, body: {} } }));
-  assert.equal(down.status, 503);
-  const dp = await text(down);
-  assert.match(dp, /We could not save your address\. Please try again shortly\./);
-  assert.match(dp, /name="line"[^>]*value="9 Mabini St"/); // what was typed stays
-});
-
-test("an older backend without the save route (404) leaves the form with a message, and Edit still shows without home_address_locked", async () => {
-  const b = backend({ ...own, addressReply: { status: 404, body: { detail: "Not Found" } } });
+test("a save_home post saves nothing and never calls the address route", async () => {
+  const b = backend(own);
+  const r = await checkoutPost(shop(b, memberCookie), { action: "save_home", ...NEW }, null);
+  assert.equal(r, null); // refused: the action no longer exists, so the route answers not found
+  assert.equal(b.calls.some((c) => c.url.endsWith("/storefront/v1/member/address/")), false);
   const page = await text(await checkoutGet(shop(b, memberCookie)));
-  assert.match(page, /sf-own-addr-edit/);
-  const r = (await checkoutPost(shop(b, memberCookie), { action: "save_home", ...NEW }, null)) as Response;
-  assert.equal(r.status, 503);
-  assert.match(await text(r), /We could not save your address\./);
+  assert.match(page, /<dd>7 Rizal St, Poblacion, Makati, Metro Manila 1210<\/dd>/);
+  assert.doesNotMatch(page, /9 Mabini/);
 });
 
 test("without home_address (an older backend, or none saved) the member is told to add one, there is no Edit link and Continue is blocked", async () => {

@@ -20,7 +20,7 @@ export type HomeModel = {
   free_shipping_banner: boolean;
   year: number;
   /* The basket: `lines` says whether it has rows, `rows` is their markup (the shop fills it; the home passes none). */
-  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup };
+  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: string } };
   dist: { name: string; initials: string; tel: string; phone: string; photo: boolean };
   socials: { instagram: string; tiktok: string; facebook: string; facebook_label: string };
   contact_path: string;

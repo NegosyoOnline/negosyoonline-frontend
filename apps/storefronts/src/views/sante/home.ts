@@ -22,6 +22,7 @@ import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import { cookieSettingsItem } from "../../lib/meta.ts";
 import type { HomeModel } from "./model.ts";
+import { appNotice } from "./shop-app-notice.ts";
 
 export function storeNav(v: HomeModel): Markup {
   return html`
@@ -150,11 +151,13 @@ export function storeDrawer(v: HomeModel): Markup {
       <strong data-sf-drawer-subtotal>&#8369;${v.drawer.subtotal}</strong>
     </div>
   </div>
-  <footer class="sf-drawer-foot">
+  ${v.drawer.app ? html`<footer class="sf-drawer-foot">
+    ${appNotice(v.drawer.app.href)}
+  </footer>` : html`<footer class="sf-drawer-foot">
     <div class="sf-drawer-total"><span>Total</span><strong data-sf-drawer-total>&#8369;${v.drawer.subtotal}</strong></div>
     <p class="sf-drawer-note">Shipping is calculated at checkout.</p>
     <a href="/checkout/" class="btn-cart sf-drawer-checkout${!v.drawer.lines ? html` disabled` : ""}" id="sfDrawerCheckout">Proceed To Checkout</a>
-  </footer>
+  </footer>`}
 </aside>
 `;
 }

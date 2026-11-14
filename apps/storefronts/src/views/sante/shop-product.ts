@@ -11,11 +11,13 @@ import { html, safe, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct, ReviewPage } from "../../lib/shop-api.ts";
 import { trustBadges } from "./home.ts";
 import { LANDING_PATH } from "./pack-page.ts";
-import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
+import { PRODUCT_PLACEHOLDER, appNotice, php, safeImage } from "./shop-shell.ts";
 import { ratingSummary, reviewsSection } from "./shop-review.ts";
 
 /** `reviews` is the first page(s) of this store's reviews of the product and `moreHref` the link to the next page; null or absent shows nothing. */
-export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string; packOn?: boolean };
+export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string; packOn?: boolean;
+  /** A signed-in member: the app notice replaces Add to Cart, and no member price or saving is written (`href` is the app link, may be empty). */
+  app?: { href: string } | null };
 
 /** Paragraphs as Django's linebreaks: a blank line starts a new paragraph, a single newline is a <br>. */
 function paragraphs(text: string): Markup {
@@ -29,17 +31,17 @@ export const PAY_FAQ = {
   a: "Paying is simple: place your order, then send your payment by bank or e-wallet transfer using the details shown at checkout. Upload or send us your proof of payment and we will confirm it, then get your order moving. Questions along the way? Just message your Santé store.",
 };
 
-function priceRows(p: CatalogProduct): Markup {
-  const members = p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos;
+function priceRows(p: CatalogProduct, app: boolean): Markup {
+  const members = !app && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos;
   return html`
         <div class="sf-detail-price">${php(p.srp_centavos)}${typeof p.price_per_serving_centavos === "number" ? html` <span class="sf-per-serving">${php(p.price_per_serving_centavos)} / serving</span>` : ""}</div>
         ${members ? html`<p class="sf-members-row">Members ${php(p.unit_members_price_centavos)}${typeof p.members_price_per_serving_centavos === "number" ? html` <span class="sf-per-serving">(${php(p.members_price_per_serving_centavos)} / serving)</span>` : ""}</p>` : ""}`;
 }
 
-function trustStrip(p: CatalogProduct, packOn: boolean): Markup {
+function trustStrip(p: CatalogProduct, packOn: boolean, app: boolean): Markup {
   const icon = (d: string): Markup => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${safe(d)}</svg>`;
   // N comes from the product's own two prices; it is a percentage for display, never a money amount.
-  const pct = p.srp_centavos > 0 && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos
+  const pct = !app && p.srp_centavos > 0 && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos
     ? Math.floor(((p.srp_centavos - p.unit_members_price_centavos) * 100) / p.srp_centavos) : 0;
   return html`
         <ul class="sf-trust-strip" data-sf-trust>
@@ -127,10 +129,10 @@ export function productContent(m: ProductModel): Markup {
       <div class="sf-detail-info">
         <h1 class="sf-detail-name">${p.name}</h1>
         ${ratingSummary(m.reviews)}
-        ${priceRows(p)}
+        ${priceRows(p, !!m.app)}
         ${p.short_description ? html`<div class="sf-detail-lead">${paragraphs(p.short_description)}</div>` : ""}
 
-        <form method="post" action="/cart/">
+        ${m.app ? appNotice(m.app.href) : html`        <form method="post" action="/cart/">
           <input type="hidden" name="action" value="add">
           <input type="hidden" name="product_id" value="${p.id}">
           <div class="sf-qty-row">
@@ -142,9 +144,9 @@ export function productContent(m: ProductModel): Markup {
             </div>
           </div>
           <button type="submit" class="btn-cart sf-add-to-cart" id="sfAddToCart">Add to Cart</button>
-        </form>
+        </form>`}
 
-        ${trustStrip(p, m.packOn === true)}
+        ${trustStrip(p, m.packOn === true, !!m.app)}
 
         ${p.long_description || p.specifications.trim() ? html`<div class="sf-accordions">
           ${p.long_description ? html`<div class="sf-accordion">

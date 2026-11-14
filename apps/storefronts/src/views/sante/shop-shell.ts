@@ -9,6 +9,7 @@ import { countOf } from "../../lib/shop-cart.ts";
 import type { Quote } from "../../lib/shop-api.ts";
 import { storeDrawer, storeFooter, storeNav } from "./home.ts";
 import type { HomeModel } from "./model.ts";
+export { APP_NOTICE, APP_NOTICE_TEXT, appNotice } from "./shop-app-notice.ts";
 
 /** Centavos as TWCinc's pages write them after the peso sign: "1,488.00". */
 export function money(centavos: number): string {
@@ -33,6 +34,11 @@ export function safeImage(url: string, source: Record<string, string | undefined
 /** What a product card shows when the product has no photo: a neutral bottle mark centred on the card's own light
     background (the green and gradient pack-home.css already uses). Decorative, so hidden from readers. */
 export const PRODUCT_PLACEHOLDER: Markup = html`<span class="product-img-placeholder" aria-hidden="true"><svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M19 5h10v6l3 4v26a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V15l3-4z"/><path d="M16 22h16M16 33h16"/></svg></span>`;
+
+/** The basket drawer of a signed-in member: no rows, no checkout; the notice stands in the footer (storeDrawer). */
+export function appDrawer(href: string): HomeModel["drawer"] {
+  return { count: 0, count_label: itemsLabel(0), subtotal: "0.00", lines: false, error: "", rows: html``, app: { href } };
+}
 
 export type DrawerLine = { id: string; name: string; unit_centavos: number; quantity: number; available: boolean; image: string };
 

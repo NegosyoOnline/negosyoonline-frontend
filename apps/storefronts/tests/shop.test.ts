@@ -12,6 +12,7 @@ import { productContent } from "../src/views/sante/shop-product.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
+import { mobileAppUrl } from "../src/lib/env.ts";
 import { localMediaOrigin } from "../src/lib/local-media.ts";
 import { shopCard } from "../src/views/sante/pack-orders.ts";
 import { SITE } from "./site.ts";
@@ -25,7 +26,7 @@ const P2 = { id: "prd_BBBBBBBBBBBB", code: "SPH2", name: "Barley", category: "ba
 const ACCOUNT = { id: "acc_1", kind: "bank", account_type: "savings", provider_name: "BDO", account_name: "Demo Store", account_number: "0012", has_qr: true };
 
 type Opts = {
-  member?: boolean; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[];
+  member?: boolean; memberOrders?: boolean /* legacy fake: the pre-M1 backend that let a member without benefits order as a guest */; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[];
   /** Extra quote fields (home_address, home_address_source) and a change to the quote's shipping. */
   quoteExtra?: Record<string, unknown>; estimated?: boolean;
   /** Extra fields of the buyer's order view (the parity fields), and per-line extras. */
@@ -72,6 +73,8 @@ function backend(o: Opts = {}) {
     if (path.endsWith("/shop/quote/")) {
       const token = body.member_token as string;
       if (token === "stale") return Promise.resolve(Response.json({ error: { code: "member_session_invalid", message: "Not signed in." } }, { status: 401 }));
+      // The real backend refuses every signed-in member (409 member_use_app, M1): members order in the Santé Mobile App.
+      if (token !== "" && !o.member && !o.memberOrders) return Promise.resolve(Response.json({ error: { code: "member_use_app", message: "Members order through the Santé Mobile App." } }, { status: 409 }));
       const members = !!o.member && token !== "";
       const mode = members ? (body.ship_mode === "different" ? "different" : "home") : "guest";
       const lines = (body.lines as { id: string; qty: number }[]).map((l) => {
@@ -458,16 +461,86 @@ test("'ship to another address' pays SRP and posts the typed address", async () 
   assert.match(pay, /name="ship_mode" value="different"/);
 });
 
-test("a member without benefits is a guest at SRP: no cards, 'home' refused, name and contact prefilled", async () => {
+/* ---- M1: a signed-in member orders only in the Santé Mobile App (ruling 1100430000523941) ---- */
+
+const APP_URL = "https://apps.example.test/sante";
+const asMember = (b: ReturnType<typeof backend>, cookie = `no_cart=${P1.id}.1; ${MEMBER}`) => {
+  const s = shop(b, cookie);
+  s.appUrl = APP_URL;
+  return s;
+};
+const NO_ORDERING = /Add to Cart|Proceed to Checkout|Proceed To Checkout|name="action" value="(add|set|remove|place|address|choose)"|Ship to my address|Ship to another address|Dropshipping|Members price|Members \u20B1|Members save up to/;
+
+test("a signed-in member sees the app notice, with the app link, on the product, the product list, the cart and the checkout, and no ordering action", async () => {
   const b = backend({ member: false });
-  const cookie = `no_cart=${P1.id}.1; ${MEMBER}`;
-  const page = await text(await checkoutGet(shop(b, cookie)));
-  assert.doesNotMatch(page, /How should we ship this order\?/);
-  assert.match(page, /value="Ana"/);
-  assert.match(page, /value="Reyes"/);
-  const home = await text((await checkoutPost(shop(b, cookie), { action: "choose", choice: "home" }, null)) as Response);
-  assert.match(home, /Choose how to ship this order\./);
-  assert.match(home, /id="delivery"/);
+  const pages = [
+    await text(await productsGet(asMember(b, MEMBER))),
+    await text(await productGet(asMember(b, MEMBER), P1.code)),
+    await text(await cartGet(asMember(b))),
+    await text(await checkoutGet(asMember(b))),
+  ];
+  for (const page of pages) {
+    assert.match(page, /Order in the Sant\u00E9 Mobile App/);
+    assert.match(page, /Members order through the Sant\u00E9 Mobile App\./);
+    assert.ok(page.includes(`href="${APP_URL}"`));
+    assert.doesNotMatch(page, NO_ORDERING);
+  }
+  // the checkout asks Django for no ship mode and posts no order
+  assert.ok(b.calls.every((c) => !c.url.includes("/shop/orders/") || c.url.includes("/view/")));
+});
+
+test("the notice has no link when no app link is configured", async () => {
+  const b = backend({ member: false });
+  const s = shop(b, `no_cart=${P1.id}.1; ${MEMBER}`);
+  const page = await text(await cartGet(s));
+  assert.match(page, /Order in the Sant\u00E9 Mobile App/);
+  assert.doesNotMatch(page, /Open the Sant/);
+});
+
+test("a member's basket drawer carries the notice instead of Proceed To Checkout", async () => {
+  const b = backend({ member: false });
+  const page = await text(await productsGet(asMember(b, MEMBER)));
+  const drawer = page.slice(page.indexOf('id="sfDrawer"'));
+  assert.match(drawer, /Order in the Sant\u00E9 Mobile App/);
+  assert.doesNotMatch(drawer, /sfDrawerCheckout/);
+});
+
+test("a member's post to the cart changes nothing, and a post to the checkout places nothing", async () => {
+  const b = backend({ member: false });
+  const add = await cartPost(asMember(b, MEMBER), { action: "add", product_id: P1.id, quantity: "2" });
+  assert.doesNotMatch(add.headers.get("set-cookie") ?? "", new RegExp(P1.id));
+  assert.match(await text(add), /Order in the Sant\u00E9 Mobile App/);
+  for (const action of ["place", "address", "choose", "save_home"]) {
+    const r = (await checkoutPost(asMember(b), { action, ship_mode: "home" }, null)) as Response;
+    assert.match(await text(r), /Order in the Sant\u00E9 Mobile App/);
+  }
+  assert.ok(b.calls.every((c) => !c.url.endsWith("/shop/orders/") && !c.url.endsWith("/member/address/")));
+});
+
+test("a guest still sees Add to Cart, the cart's checkout button and the address form, and no app notice", async () => {
+  const b = backend();
+  const cookie = `no_cart=${P1.id}.1`;
+  const product = await text(await productGet(shop(b), P1.code));
+  assert.match(product, /Add to Cart/);
+  assert.doesNotMatch(product, /Order in the Sant\u00E9 Mobile App/);
+  const cart = await text(await cartGet(shop(b, cookie)));
+  assert.match(cart, /Proceed to Checkout/);
+  assert.doesNotMatch(cart, /Order in the Sant\u00E9 Mobile App/);
+  const checkout = await text(await checkoutGet(shop(b, cookie)));
+  assert.match(checkout, /name="line"/);
+  assert.doesNotMatch(checkout, /Order in the Sant\u00E9 Mobile App/);
+});
+
+test("a dead member session is dropped: the visitor is a guest and sees the shop, not the notice", async () => {
+  const b = backend({ member: false });
+  const page = await text(await cartGet(shop(b, `no_cart=${P1.id}.1; no_member=stale`)));
+  assert.doesNotMatch(page, /Order in the Sant\u00E9 Mobile App/);
+});
+
+test("the app link is read from STOREFRONT_MOBILE_APP_URL and only an https URL counts", () => {
+  assert.equal(mobileAppUrl({ STOREFRONT_MOBILE_APP_URL: " https://apps.example.test/sante " }), "https://apps.example.test/sante");
+  for (const bad of ["", "http://apps.example.test", "javascript:alert(1)", "not a url", 'https://x.test/"onmouseover="y']) assert.equal(mobileAppUrl({ STOREFRONT_MOBILE_APP_URL: bad }), "", bad);
+  assert.equal(mobileAppUrl({}), "");
 });
 
 test("a member whose profile has no address is told so and sent to the other card", async () => {

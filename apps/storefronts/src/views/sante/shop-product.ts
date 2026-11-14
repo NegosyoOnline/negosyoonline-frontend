@@ -8,6 +8,7 @@
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
 import { trustBadges } from "./home.ts";
+import { LANDING_PATH } from "./pack-page.ts";
 import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 
 export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean };
@@ -41,7 +42,7 @@ function trustStrip(p: CatalogProduct): Markup {
           <li>${icon('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>')}<span>Easy payment by bank or e-wallet transfer</span></li>
           <li>${icon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>')}<span><a href="/#contact">Talk to your Sant&eacute; store</a> anytime</span></li>
           <li>${icon('<path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/>')}<span>100% genuine Sant&eacute;, trusted since 2007</span></li>
-          ${pct >= 1 ? html`<li data-sf-trust-members>${icon('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>')}<span>Members save up to ${String(pct)}%</span></li>` : ""}
+          ${pct >= 1 ? html`<li data-sf-trust-members>${icon('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>')}<span><a href="${LANDING_PATH}">Members save up to ${String(pct)}%</a></span></li>` : ""}
         </ul>`;
 }
 
@@ -125,7 +126,6 @@ export function productContent(m: ProductModel): Markup {
             <div class="faq-a" id="sfAccSpecs">${paragraphs(p.specifications)}</div>
           </div>` : ""}
         </div>` : ""}
-        ${faqBlock(p)}
       </div>
 
     </div>
@@ -139,6 +139,11 @@ export function productContent(m: ProductModel): Markup {
 ${fab("feature", "Product Feature", "What's Inside", p.features, photos[1] ?? "", "")}
 ${fab("advantages", "Advantages", "Why It Stands Out", p.advantages, photos[2] ?? "", "sf-fab-tinted")}
 ${fab("benefits", "Benefits", "What You Get From It", p.benefits, photos[3] ?? "", "")}
+
+<section class="sf-faqs-section">
+  <div class="section-inner">${faqBlock(p)}
+  </div>
+</section>
 
 <section class="section">
   <div class="section-inner">

@@ -822,6 +822,27 @@ test("the trust strip sits under Add to Cart with four lines; the members line n
   assert.match(none, /trusted since 2007/);
 });
 
+test("the trust strip's Members line links to the membership pack funnel; the other lines are unchanged", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /<li data-sf-trust-members>.*<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/);
+  assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
+  assert.match(on, /<span>100% genuine Sant&eacute;, trusted since 2007<\/span>/);
+});
+
+test("the FAQs sit right after Benefits and before You Might Also Like; not in the info column", () => {
+  const full = { ...R5, features: "Inside", advantages: "Stands out", benefits: "You get" };
+  const r = { ...R5, code: "SPH2", id: "prd_BBBBBBBBBBBB" };
+  const on = productContent({ product: full, related: [r], members: false }).value;
+  const at = (s: string) => on.indexOf(s);
+  assert.ok(at("What You Get From It") > 0 && at("data-sf-faqs") > at("What You Get From It"), "after Benefits");
+  assert.ok(at("data-sf-faqs") < at("You Might Also Like"), "before Related");
+  assert.ok(at("What&#39;s Inside") < 0 || at("What's Inside") < at("data-sf-faqs"), "Inside and Why it stands out stay above");
+  assert.ok(at("Why It Stands Out") < at("data-sf-faqs"));
+  assert.ok(at("data-sf-faqs") > at('class="sf-detail-trust"'), "no longer in the info column");
+  const noBen = productContent({ product: { ...full, benefits: "" }, related: [r], members: false }).value;
+  assert.ok(noBen.indexOf("data-sf-faqs") > noBen.indexOf("Why It Stands Out") && noBen.indexOf("data-sf-faqs") < noBen.indexOf("You Might Also Like"));
+});
+
 test("the FAQs block lists the product's pairs then the fixed How do I pay? item, escaped, even with none", () => {
   const on = productContent({ product: R5, related: [], members: false }).value;
   assert.match(on, /data-sf-faqs/);

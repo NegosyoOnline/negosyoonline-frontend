@@ -14,6 +14,7 @@ const SRC = read("products.js");
 const CSS = fs.readFileSync(path.join(JS, "..", "css", "products.css"), "utf8");
 const SITE = "site_aaaaaaaaaaaaaaaaaaaa", SITE2 = "site_bbbbbbbbbbbbbbbbbbbb";
 const tick = () => new Promise((r) => setTimeout(r, 0));
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
 
 const product = (n, over = {}) => ({ id: "prod_" + n, code: "SPH" + n, name: "Product " + n, short_description: "", long_description: "", category: "barley",
@@ -33,6 +34,7 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
   const siteList = sites || [{ id: SITE, template: "sante", display_name: "Nena's Shop" }];
   const fallback = (method, p, body) => {
     if (method === "GET" && p === "/sites/") return { status: 200, body: { items: siteList, next_cursor: null } };
+    if (method === "POST" && /^\/sites\/site_[0-9a-z]{20}\/catalog\/shipping-preview\/$/.test(p)) return { status: 200, body: state.preview || { ncr_centavos: 12000, mindanao_centavos: 18000, billable_kg: "0.50", reason: "" } };
     const m = /^\/sites\/(site_[0-9a-z]{20})\/catalog\/products\/(?:(prod_\w+)\/)?(image\/|revisions\/)?(\?.*)?$/.exec(p);
     if (!m) return { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
     if (method === "GET" && !m[2]) return { status: 200, body: { can_edit: state.canEdit, products: state.products } };
@@ -44,7 +46,12 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
     const cur = state.products.find((x) => x.id === m[2]);
     if (!cur) return { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
     if (method === "PATCH") { const rest = { ...body }; delete rest.revision; Object.assign(cur, rest, { revision: cur.revision + 1 }); return { status: 200, body: cur }; }
-    if (m[3] === "image/") { cur.image_url = method === "POST" ? "https://media.test/new.png" : null; cur.revision += 1; return { status: 200, body: cur }; }
+    if (m[3] === "image/") {
+      const slot = Number((/slot=(\d)/.exec(m[4] || "") || [0, 1])[1]);
+      if (!cur.image_urls) cur.image_urls = [cur.image_url || null, null, null, null, null];
+      cur.image_urls[slot - 1] = method === "POST" ? "https://media.test/new" + slot + ".png" : null;
+      cur.image_url = cur.image_urls[0]; cur.revision += 1; return { status: 200, body: cur };
+    }
     return { status: 404, body: {} };
   };
   const fetch = (url, opts) => {
@@ -74,7 +81,7 @@ function boot({ products = [product("1"), product("2", { is_active: false, image
   const buttons = (text, root = $("pr-root")) => root.all((n) => n.tagName === "BUTTON" && n.textContent.replace(/^[＋⇅]\s/, "") === text);
   const form = () => $("pr-root").all((n) => n.tagName === "FORM")[0];
   return { doc, window, calls, toasts, stored, state, made, revoked, $, all, buttons, form, P: window.NOProducts,
-    writes: () => calls.filter((c) => c.method !== "GET"),
+    writes: () => calls.filter((c) => c.method !== "GET" && !/shipping-preview/.test(c.path)),
     async show() { window.NOProducts.show(); await settle(); },
     manage(i, cls) { all("pr-manage")[i].fire("click"); all(cls)[0].fire("click"); },
     async pick(i, cls) { this.manage(i, cls); await settle(); },
@@ -160,7 +167,9 @@ test("owner list: a table row for each product with thumbnail or code placeholde
   assert.equal(d.buttons("Add product").length, 1);
   assert.equal(d.buttons("Export CSV").length, 1);
   assert.equal(d.buttons("Arrange").length, 1);
-  assert.equal(d.buttons("Search").length, 1);
+  assert.equal(d.buttons("Search").length, 0, "no Search button: the table filters as you type");
+  assert.equal(d.all("pr-qs").length, 1, "the quick-links style search box");
+  assert.equal(d.all("pr-qs")[0].all((n) => n.tagName === "SVG").length, 1, "the magnifier sits inside the box");
   assert.deepEqual(d.$("pr-root").all((n) => n.tagName === "TH").map((th) => th.textContent), ["Product", "Price", "Storefront", "Action"]);
   assert.equal(d.all("pr-hero").length, 1, "the masthead");
   assert.match(d.all("pr-hero-eyebrow")[0].textContent, /Nena's Shop/);
@@ -204,12 +213,18 @@ test("status tiles filter, search matches name or code, category narrows, paging
   assert.equal(d.$("pr-status").value, "hidden", "the select follows the tile");
   assert.equal(stat(d, "Hidden").getAttribute("aria-pressed"), "true");
   stat(d, "All").fire("click");
-  const q = d.$("pr-search"); q.value = "BARLEY"; q.fire("input");
+  const q = d.$("pr-search");
+  q.value = "BARLEY"; q.fire("input");
+  assert.equal(d.rows().length, 20, "not yet: the table waits for a pause in typing");
+  await wait(320);
   assert.deepEqual(names(d), ["Barley Mix"]);
-  q.value = "sph7"; q.fire("input");
+  q.value = "sph7"; q.fire("input"); await wait(320);
   assert.deepEqual(names(d), ["Item 7"], "by code");
-  q.value = "zzz"; q.fire("input");
-  assert.equal(d.rows().length, 0);
+  q.value = "Item 1"; q.fire("input"); q.value = "zzz"; q.fire("input"); await wait(320);
+  assert.equal(d.rows().length, 0, "only the last keystrokes count");
+  q.value = "Item 4"; q.fire("input"); q.fire("keydown", { key: "Enter" });
+  assert.deepEqual(names(d), ["Item 4"], "Enter filters at once");
+  q.value = "zzz"; q.fire("input"); await wait(320);
   assert.match(d.$("pr-root").textContent, /No products match/);
   d.all("pr-clear")[0].fire("click");
   assert.equal(d.rows().length, 20);
@@ -303,9 +318,11 @@ test("add: pesos become centavos, the 40% rate goes as \"0.4000\", the code is u
   d.buttons("Add product")[0].fire("click");
   d.set("code", "sph9001"); d.set("name", "  New Coffee "); d.set("category", "drinks"); d.set("srp_centavos", "1,400");
   assert.equal(d.$("pr-f-earnings_rate").value, "40");
-  assert.match(d.all("pr-preview")[0].textContent, /₱840\.00/, "the live members price");
+  assert.equal(d.$("pr-c-mem").textContent, "₱840.00", "the live members price");
+  assert.equal(d.$("pr-c-srp").textContent, "₱1,400.00");
+  assert.equal(d.$("pr-c-disc").textContent, "−₱560.00");
   d.set("earnings_rate", "20");
-  assert.match(d.all("pr-preview")[0].textContent, /₱1,120\.00/);
+  assert.equal(d.$("pr-c-mem").textContent, "₱1,120.00");
   d.set("earnings_rate", "40");
   await d.submit();
   const w = d.writes();
@@ -319,7 +336,7 @@ test("add: pesos become centavos, the 40% rate goes as \"0.4000\", the code is u
   assert.equal(w[0].body.earnings_rate, "0.4000");
   assert.equal(w[0].body.weight_kg, "0.00");
   assert.ok(!("is_active" in w[0].body) && !("revision" in w[0].body));
-  assert.equal(d.rows().length, 1, "back on the list");
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product", "Add became Edit");
   assert.ok(d.toasts.some((t) => /Saved/.test(t)));
 });
 
@@ -363,7 +380,7 @@ test("edit: only the changed fields go, with the loaded revision; the code is re
   assert.equal(d.$("pr-f-earnings_rate").value, "40");
   await d.submit();
   assert.equal(d.writes().length, 0);
-  assert.match(d.form().textContent, /no changes to save/i);
+  assert.match(d.all("pr-topmsg")[0].textContent, /no changes to save/i);
   d.set("srp_centavos", "500"); d.set("name", "Renamed");
   await d.submit();
   assert.equal(d.writes().length, 1);
@@ -389,7 +406,7 @@ test("stale revision: its own sentence and a Reload that brings the fresh values
   d.state.products[0].name = "Changed elsewhere"; d.state.products[0].revision = 4;
   d.set("srp_centavos", "999");
   await d.submit();
-  assert.match(d.form().textContent, /This product was changed since you loaded it\./);
+  assert.match(d.all("pr-topmsg")[0].textContent, /This product was changed since you loaded it\./);
   const reload = d.buttons("Reload");
   assert.equal(reload.length, 1);
   reload[0].fire("click"); await settle();
@@ -406,36 +423,8 @@ test("read-only and billing refusals use their own sentences", async () => {
     d.manage(0, "pr-edit");
     d.set("name", "x");
     await d.submit();
-    assert.match(d.form().textContent, re);
+    assert.match(d.all("pr-topmsg")[0].textContent, re);
   }
-});
-
-test("image: upload sends file and revision as multipart, replace and remove follow the new revision; the 2 MB and type limits are checked first", async () => {
-  const d = boot();
-  await d.show();
-  d.manage(0, "pr-edit");
-  const file = d.$("pr-f-image");
-  file.files = [{ type: "application/pdf", size: 10 }];
-  file.fire("change");
-  assert.match(d.$("pr-e-image").textContent, /JPEG, PNG or WebP/);
-  file.files = [{ type: "image/png", size: 3 * 1024 * 1024 }];
-  file.fire("change");
-  assert.match(d.$("pr-e-image").textContent, /2 MB/);
-  assert.equal(d.writes().length, 0);
-  const png = { type: "image/png", size: 1000, name: "a.png" };
-  d.$("pr-f-image").files = [png];
-  d.$("pr-f-image").fire("change"); await settle();
-  const up = d.writes()[0];
-  assert.equal(up.method, "POST");
-  assert.equal(up.path, `/sites/${SITE}/catalog/products/prod_1/image/`);
-  assert.equal(up.form.get("revision"), "1");
-  assert.equal(up.form.get("file"), png);
-  assert.equal(d.all("pr-image-row")[0].all((n) => n.tagName === "IMG").length, 1);
-  d.buttons("Remove image")[0].fire("click"); await settle();
-  const del = d.writes()[1];
-  assert.equal(del.method, "DELETE");
-  assert.equal(del.path, `/sites/${SITE}/catalog/products/prod_1/image/?revision=2`);
-  assert.equal(d.buttons("Upload image").length, 1);
 });
 
 test("image store failures show their own sentences", async () => {
@@ -443,8 +432,7 @@ test("image store failures show their own sentences", async () => {
     const d = boot({ routes: (m, p) => m === "POST" && /image/.test(p) ? { status, body: { error: { code, message: "server" } } } : null });
     await d.show();
     d.manage(0, "pr-edit");
-    d.$("pr-f-image").files = [{ type: "image/jpeg", size: 100 }];
-    d.$("pr-f-image").fire("change"); await settle();
+    pickSlot(d, 1, { type: "image/jpeg", size: 100 }); await settle();
     assert.match(d.$("pr-e-image").textContent, re);
   }
 });
@@ -679,117 +667,218 @@ test("dropdowns: the form Category is the house dropdown too, and No category ca
   assert.ok(!("name" in d.writes()[0].body), "edit still sends only what changed");
 });
 
-test("the Products page has no eyebrow above its title, and the cache-bust strings moved", () => {
+test("the Products page has no visible title above the list, and the cache-bust strings moved", () => {
   const html = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
   const sect = /<section class="view" id="view-products"[^>]*>\s*<header[^>]*>([^]*?)<\/header>/.exec(html)[1];
   assert.ok(!/dash-eyebrow/.test(sect), "no eyebrow");
-  assert.match(sect, /<h1 id="h-products"/);
+  assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
+  assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod2/);
-  assert.match(html, /products\.js\?v=20261114prod2/);
+  assert.match(html, /products\.css\?v=20261114prod3/);
+  assert.match(html, /products\.js\?v=20261114prod3/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
 const fill = (d, over = {}) => { d.set("code", "x1"); d.set("name", "Mug"); d.set("srp_centavos", "100"); for (const k of Object.keys(over)) d.set(k, over[k]); };
+const pickSlot = (d, n, f) => { d.$("pr-f-image-" + n).files = [f]; d.$("pr-f-image-" + n).fire("change"); };
+const slot = (d, n) => d.all("pr-islot")[n - 1];
+const topmsg = (d) => d.all("pr-topmsg")[0].textContent;
+const tabs = (d) => d.all("pr-tab");
 
-test("add screen: crumb, title, form sections spine, five numbered cards, sticky footer; no TWC wording and no stock", async () => {
+test("editor (Add): crumb, title, three tabs with Media Library disabled, five cards in TWCinc's order, a save bar; no TWC-only wording, no stock", async () => {
   const d = await openAdd();
   assert.deepEqual(d.buttons("Back to products").length, 1);
   assert.equal(d.all("pr-formtitle")[0].textContent, "Add a product");
   assert.equal(d.all("pr-formtitle")[0].getAttribute("tabindex"), "-1");
-  const spine = d.all("pr-spine")[0];
-  assert.equal(spine.getAttribute("aria-label"), "Form sections");
-  assert.deepEqual(spine.children.map((b) => b.tagName + ":" + b.textContent), ["BUTTON:1 · Identity", "BUTTON:2 · Content", "BUTTON:3 · Photo", "BUTTON:4 · Pricing", "BUTTON:5 · Shipping"]);
-  const cards = d.all("pr-card");
-  assert.deepEqual(cards.map((c) => c.getAttribute("id")), ["pr-s1", "pr-s2", "pr-s3", "pr-s4", "pr-s5"]);
-  assert.deepEqual(cards.map((c) => c.all((n) => n.tagName === "H3")[0].textContent), ["1 · Identity", "2 · Content", "3 · Photo", "4 · Pricing", "5 · Shipping"]);
+  assert.equal(d.all("pr-tabs")[0].getAttribute("role"), "tablist");
+  assert.deepEqual(tabs(d).map((t) => t.textContent), ["Details", "Description", "Media Library Coming soon"]);
+  assert.equal(tabs(d)[0].getAttribute("aria-selected"), "true");
+  assert.equal(tabs(d)[1].getAttribute("aria-selected"), "false");
+  const media = tabs(d)[2];
+  assert.equal(media.getAttribute("aria-disabled"), "true");
+  assert.equal(media.disabled, true);
+  assert.equal(media.listeners.click, undefined, "the Media Library tab does nothing");
+  const cards = d.all("pr-card").filter((c) => c.attrs.id && c.attrs.id.indexOf("pr-s-") === 0);
+  assert.deepEqual(cards.map((c) => c.all((n) => n.tagName === "H3")[0].textContent), ["Identity", "Photos", "Pricing", "Promo packs", "Shipping"]);
   for (const c of cards) {
     assert.equal(c.all((n) => n.tagName === "H3")[0].getAttribute("tabindex"), null, "card titles are not focusable");
     assert.equal(c.all((n) => n.tagName === "SVG").length, 1, "an icon");
     assert.equal(c.all((n) => n.classList.contains("pr-card-hint")).length, 1, "a hint");
   }
   const inCard = (n, f) => cards[n].all((x) => x.attrs.id === f).length === 1;
-  assert.ok(inCard(0, "pr-f-code") && inCard(0, "pr-f-name") && inCard(0, "pr-f-category"));
-  assert.ok(inCard(1, "pr-f-short_description") && inCard(1, "pr-f-long_description"));
-  assert.ok(inCard(2, "pr-f-image"));
-  assert.ok(inCard(3, "pr-f-srp_centavos") && inCard(3, "pr-f-earnings_rate"));
-  assert.ok(cards[3].all((n) => n.classList.contains("pr-preview")).length === 1, "today's live members price sits in Pricing");
-  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "volume_slot", "shipping_qty"]) assert.ok(inCard(4, "pr-f-" + k), k);
-  assert.equal(cards[2].all((n) => n.classList.contains("pr-main"))[0].textContent, "MAIN");
-  assert.equal(cards[2].all((n) => n.classList.contains("pr-islot")).length, 1, "one photo slot");
-  const foot = d.all("pr-abar")[0];
-  assert.equal(foot.all((n) => n.attrs.id === "pr-f-is_active").length, 1, "Show in shops is in the footer");
-  assert.deepEqual(foot.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Cancel", "Add product"]);
-  assert.equal(foot.all((n) => n.tagName === "BUTTON")[1].getAttribute("type"), "submit");
+  assert.ok(inCard(0, "pr-f-code") && inCard(0, "pr-f-name") && inCard(0, "pr-f-category") && inCard(0, "pr-f-is_active"));
+  assert.equal(slot(d, 1).all((n) => n.classList.contains("pr-main"))[0].textContent, "MAIN");
+  assert.equal(d.all("pr-islot").length, 5, "five photo slots");
+  assert.equal(d.all("pr-main").length, 1, "only slot 1 is MAIN");
+  assert.ok(inCard(2, "pr-f-srp_centavos") && inCard(2, "pr-f-earnings_rate") && inCard(2, "pr-c-mem"), "SRP, Members discount and the live Members price");
+  assert.equal(cards[3].getAttribute("aria-disabled"), "true");
+  assert.match(cards[3].textContent, /Coming soon/);
+  assert.equal(cards[3].all((n) => n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "SELECT").length, 0, "Promo packs has nothing to save");
+  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"]) assert.ok(inCard(4, "pr-f-" + k), k);
+  assert.match(cards[4].all((n) => n.classList.contains("pr-pv"))[0].textContent, /Packaging & fee/);
+  const bar = d.all("pr-abar")[0];
+  assert.equal(bar.all((n) => n.classList.contains("pr-abar-note"))[0].textContent, "Changes are saved and applied immediately.");
+  assert.deepEqual(bar.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save Details"]);
+  assert.equal(bar.all((n) => n.tagName === "BUTTON")[0].getAttribute("type"), "submit");
   const text = d.$("pr-root").textContent;
-  assert.ok(!/TWC|approve|Features|Specifications|Advantages|Benefits|commission|Opening stock|Units on hand/i.test(text), "no TWC-only wording, no sections we have no field for");
+  assert.ok(!/TWC|SKU|Merchant|commission|platform fee|payment fee|you receive|Opening stock|Units on hand|Save draft|Submit for review/i.test(text), "no TWC-only wording, no commission lines, no stock");
+  assert.match(d.$("pr-panel-description").textContent, /Save the Details tab first to create the product, then add its description here\./);
+  assert.equal(d.$("pr-panel-description").all((n) => n.tagName === "FORM").length, 0, "no description form before the product exists");
+  assert.equal(d.$("pr-panel-description").hidden, true);
 });
 
-test("add screen: a spine button scrolls its card into view; the edit screen keeps its single column", async () => {
-  const d = await openAdd();
-  const hits = [];
-  d.all("pr-card").forEach((c, i) => { c.scrollIntoView = (o) => hits.push([i, o.block]); });
-  d.all("pr-sp")[3].fire("click");
-  assert.deepEqual(hits, [[3, "start"]]);
-  d.buttons("Cancel")[0].fire("click"); await settle();
-  const e = boot({ products: [product("1")] });
-  await e.show();
-  e.manage(0, "pr-edit");
-  assert.equal(e.all("pr-card").length + e.all("pr-spine").length + e.all("pr-abar").length, 0);
-  assert.equal(e.all("pr-formtitle")[0].textContent, "Edit product");
-  assert.equal(e.all("pr-details").length, 1, "Shipping details stay in the collapsible block");
-  assert.equal(e.all("pr-image").length, 1);
+test("editor: the search box and Search button are gone from the form screens; the dash search style is light blue, never gold", () => {
+  assert.match(CSS, /\.pr-qs:focus-within \{ border-color: var\(--link\)/);
+  assert.ok(!/pr-search-btn/.test(CSS) && !/pr-search-btn/.test(SRC));
 });
 
-test("add with a photo (no cropper available): product, then the photo with the new revision; kept within 2 MB", async () => {
+test("tabs: Details and Description switch; the arrow keys move between them; the disabled Media Library never selects", async () => {
+  const d = boot({ products: [product("1", { short_description: "S", features: "F" })] });
+  await d.show();
+  d.manage(0, "pr-edit");
+  assert.equal(d.$("pr-panel-description").hidden, true);
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product");
+  tabs(d)[1].fire("click");
+  assert.equal(d.$("pr-panel-description").hidden, false);
+  assert.equal(d.$("pr-panel-details").hidden, true);
+  assert.equal(tabs(d)[1].getAttribute("aria-selected"), "true");
+  assert.equal(tabs(d)[0].getAttribute("tabindex"), "-1");
+  tabs(d)[2].fire("click");
+  assert.equal(tabs(d)[1].getAttribute("aria-selected"), "true", "Media Library is not a tab you can open");
+  tabs(d)[1].fire("keydown", { key: "ArrowLeft" });
+  assert.equal(d.$("pr-panel-details").hidden, false);
+  assert.equal(d.$("pr-f-features") != null, true);
+});
+
+test("Description tab: six texts with their limits; Save Description sends only what changed, with the revision, and the editor stays", async () => {
+  const d = boot({ products: [product("1", { short_description: "S", features: "F" })] });
+  await d.show();
+  d.manage(0, "pr-edit");
+  tabs(d)[1].fire("click");
+  const limits = {}; for (const k of ["short_description", "long_description", "features", "specifications", "advantages", "benefits"]) limits[k] = d.$("pr-f-" + k).getAttribute("maxlength");
+  assert.deepEqual(limits, { short_description: "500", long_description: "20000", features: "5000", specifications: "5000", advantages: "5000", benefits: "5000" });
+  assert.equal(d.$("pr-f-features").value, "F");
+  const descForm = d.$("pr-root").all((n) => n.tagName === "FORM")[1];
+  assert.deepEqual(descForm.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save Description"]);
+  descForm.fire("submit"); await settle();
+  assert.equal(d.writes().length, 0);
+  assert.match(topmsg(d), /no changes to save/i);
+  d.set("benefits", "  Energy for the day "); d.set("features", "F");
+  descForm.fire("submit"); await settle();
+  assert.deepEqual(d.writes().map((c) => c.method + " " + c.body.revision), ["PATCH 1"]);
+  assert.deepEqual(d.writes()[0].body, { revision: 1, benefits: "Energy for the day" });
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product", "still in the editor");
+  assert.ok(d.toasts.some((t) => /Saved: The description is saved\./.test(t)));
+  d.set("specifications", "100 g");
+  descForm.fire("submit"); await settle();
+  assert.deepEqual(d.writes()[1].body, { revision: 2, specifications: "100 g" }, "the next save carries the new revision");
+});
+
+test("Add becomes Edit after the first Details save: the code is fixed and Description has its form", async () => {
   const d = await openAdd();
   fill(d);
-  const png = { type: "image/png", size: 1000, name: "mug.png" };
-  d.$("pr-f-image").files = [png]; d.$("pr-f-image").fire("change");
-  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
-  assert.equal(d.buttons("Remove photo").length, 1);
   await d.submit();
-  assert.deepEqual(d.writes().map((c) => c.method + " " + c.path), [`POST /sites/${SITE}/catalog/products/`, `POST /sites/${SITE}/catalog/products/prod_1/image/`]);
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product");
+  assert.equal(d.$("pr-f-code").readOnly, true);
+  assert.equal(d.$("pr-root").all((n) => n.tagName === "FORM").length, 2, "Details and Description forms");
+  assert.equal(d.$("pr-panel-details").hidden, false);
+  assert.ok(d.toasts.some((t) => /Saved: The product is added\./.test(t)));
+  assert.equal(d.rows().length, 0, "the list is not shown");
+});
+
+test("photos (Edit): five slots, a picked photo uploads to its own slot at once, Remove deletes that slot with the new revision; type and size are checked first", async () => {
+  const d = boot();
+  await d.show();
+  d.manage(0, "pr-edit");
+  assert.equal(d.all("pr-islot").length, 5);
+  pickSlot(d, 2, { type: "application/pdf", size: 10 });
+  assert.match(d.$("pr-e-image").textContent, /JPEG, PNG or WebP/);
+  pickSlot(d, 2, { type: "image/png", size: 10 * 1024 * 1024 + 1 });
+  assert.match(d.$("pr-e-image").textContent, /10 MB/);
+  pickSlot(d, 2, { type: "image/png", size: 3 * 1024 * 1024 });
+  assert.match(d.$("pr-e-image").textContent, /2 MB/);
+  assert.equal(d.writes().length, 0);
+  const png = { type: "image/png", size: 1000, name: "a.png" };
+  pickSlot(d, 2, png); await settle();
+  const up = d.writes()[0];
+  assert.equal(up.method, "POST");
+  assert.equal(up.path, `/sites/${SITE}/catalog/products/prod_1/image/?slot=2`);
+  assert.equal(up.form.get("revision"), "1");
+  assert.equal(up.form.get("file"), png);
+  assert.equal(slot(d, 2).classList.contains("filled"), true);
+  assert.equal(slot(d, 1).classList.contains("filled"), false);
+  assert.equal(slot(d, 2).all((n) => n.tagName === "IMG").length, 1);
+  pickSlot(d, 1, { type: "image/jpeg", size: 50, name: "m.jpg" }); await settle();
+  assert.equal(d.writes()[1].path, `/sites/${SITE}/catalog/products/prod_1/image/?slot=1`);
+  assert.equal(d.writes()[1].form.get("revision"), "2", "each upload follows the new revision");
+  slot(d, 2).all((n) => n.tagName === "BUTTON" && n.classList.contains("pr-islot-x"))[0].fire("click"); await settle();
+  const del = d.writes()[2];
+  assert.equal(del.method, "DELETE");
+  assert.equal(del.path, `/sites/${SITE}/catalog/products/prod_1/image/?slot=2&revision=3`);
+  assert.equal(slot(d, 2).classList.contains("filled"), false);
+  assert.equal(slot(d, 1).classList.contains("filled"), true);
+});
+
+test("photos: a product from an older API (image_url only) shows its photo in slot 1; image_urls fill their own slots", async () => {
+  const u = boot().P.util;
+  assert.deepEqual(Array.from(u.imageUrls({ image_url: "https://media.test/a.jpg" })), ["https://media.test/a.jpg", "", "", "", ""]);
+  assert.deepEqual(Array.from(u.imageUrls({ image_url: "https://media.test/a.jpg", image_urls: ["https://media.test/a.jpg", null, "https://media.test/c.jpg", null, null] })), ["https://media.test/a.jpg", "", "https://media.test/c.jpg", "", ""]);
+  assert.deepEqual(Array.from(u.imageUrls({ image_urls: [null, null, null, null, null] })), ["", "", "", "", ""]);
+  const d = boot({ products: [product("1", { image_url: "https://media.test/a.jpg", image_urls: ["https://media.test/a.jpg", null, "https://media.test/c.jpg", null, null] })] });
+  await d.show();
+  d.manage(0, "pr-edit");
+  assert.deepEqual([1, 2, 3, 4, 5].map((n) => slot(d, n).classList.contains("filled")), [true, false, true, false, false]);
+});
+
+test("photos (Add): picks are kept per slot and uploaded after the product is created, each with the new revision; then Add becomes Edit", async () => {
+  const d = await openAdd();
+  fill(d);
+  const a = { type: "image/png", size: 1000, name: "mug.png" }, b = { type: "image/jpeg", size: 900, name: "side.jpg" };
+  pickSlot(d, 1, a); pickSlot(d, 3, b);
+  assert.deepEqual([1, 2, 3, 4, 5].map((n) => slot(d, n).classList.contains("filled")), [true, false, true, false, false]);
+  await d.submit();
+  assert.deepEqual(d.writes().map((c) => c.method + " " + c.path), [`POST /sites/${SITE}/catalog/products/`, `POST /sites/${SITE}/catalog/products/prod_1/image/?slot=1`, `POST /sites/${SITE}/catalog/products/prod_1/image/?slot=3`]);
   assert.equal(d.writes()[1].form.get("revision"), "1");
-  assert.equal(d.writes()[1].form.get("file"), png);
-  assert.equal(d.rows().length, 1, "back on the list");
+  assert.equal(d.writes()[1].form.get("file"), a);
+  assert.equal(d.writes()[2].form.get("revision"), "2");
+  assert.equal(d.writes()[2].form.get("file"), b);
+  assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product");
+  assert.deepEqual([1, 2, 3, 4, 5].map((n) => slot(d, n).classList.contains("filled")), [true, false, true, false, false], "the saved photos are in the Edit slots");
   assert.ok(d.toasts.some((t) => /Saved: The product is added\./.test(t)));
 });
 
-test("add with a photo and Show in shops off: product, photo, then the hide call carries the photo's new revision", async () => {
+test("photos (Add) with Show in shops off: product, photo, then the hide call carries the photo's new revision", async () => {
   const d = await openAdd();
   fill(d);
   d.$("pr-f-is_active").checked = false;
-  d.$("pr-f-image").files = [{ type: "image/jpeg", size: 5, name: "a.jpg" }]; d.$("pr-f-image").fire("change");
+  pickSlot(d, 1, { type: "image/jpeg", size: 5, name: "a.jpg" });
   await d.submit();
   assert.deepEqual(d.writes().map((c) => c.method), ["POST", "POST", "PATCH"]);
   assert.deepEqual(d.writes()[2].body, { revision: 2, is_active: false });
   assert.ok(d.toasts.some((t) => /added and hidden/.test(t)));
 });
 
-test("add: the photo is refused over 10 MB, over 2 MB without a cropper, and for a wrong type; Remove photo clears it", async () => {
+test("photos (Add): refused over 10 MB, over 2 MB without a cropper, and for a wrong type; Remove photo clears the slot", async () => {
   const d = await openAdd();
-  const pick = (f) => { d.$("pr-f-image").files = [f]; d.$("pr-f-image").fire("change"); };
-  pick({ type: "application/pdf", size: 5 });
+  pickSlot(d, 1, { type: "application/pdf", size: 5 });
   assert.match(d.$("pr-e-image").textContent, /JPEG, PNG or WebP/);
-  pick({ type: "image/png", size: 10 * 1024 * 1024 + 1 });
+  pickSlot(d, 1, { type: "image/png", size: 10 * 1024 * 1024 + 1 });
   assert.match(d.$("pr-e-image").textContent, /10 MB/);
-  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), false);
-  pick({ type: "image/png", size: 3 * 1024 * 1024 });
+  assert.equal(slot(d, 1).classList.contains("filled"), false);
+  pickSlot(d, 1, { type: "image/png", size: 3 * 1024 * 1024 });
   assert.match(d.$("pr-e-image").textContent, /2 MB/);
-  pick({ type: "image/png", size: 2 * 1024 * 1024, name: "ok.png" });
+  pickSlot(d, 1, { type: "image/png", size: 2 * 1024 * 1024, name: "ok.png" });
   assert.equal(d.$("pr-e-image").hidden, true);
-  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
-  d.buttons("Remove photo")[0].fire("click");
-  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), false);
+  assert.equal(slot(d, 1).classList.contains("filled"), true);
+  slot(d, 1).all((n) => n.classList.contains("pr-islot-x"))[0].fire("click");
+  assert.equal(slot(d, 1).classList.contains("filled"), false);
   fill(d); await d.submit();
   assert.equal(d.writes().length, 1, "no photo, so no image call");
 });
 
-test("add: the photo opens the square crop; the cropped output is checked against 2 MB, PNG first then JPEG", async () => {
+test("photos: a pick opens the square crop; the cropped output is checked against 2 MB, PNG first then JPEG", async () => {
   const d = await openAdd({ cropper: { sizes: [500, 400] } });
-  const pick = (size = 3 * 1024 * 1024) => { d.$("pr-f-image").files = [{ type: "image/png", size, name: "big.png" }]; d.$("pr-f-image").fire("change"); };
-  pick();
+  pickSlot(d, 2, { type: "image/png", size: 3 * 1024 * 1024, name: "big.png" });
   const ov = d.all("pr-crop")[0];
   assert.ok(ov, "the crop dialog opens");
   assert.equal(ov.getAttribute("role"), "dialog");
@@ -801,40 +890,53 @@ test("add: the photo opens the square crop; the cropped output is checked agains
   assert.equal(d.all("pr-crop").length, 0, "the dialog closes");
   assert.equal(d.window.cropperDestroyed, true);
   assert.deepEqual(d.revoked, ["blob:test/1"]);
-  assert.equal(d.all("pr-islot")[0].classList.contains("filled"), true);
-  assert.equal(d.all("pr-islot-img").length, 1, "the cropped photo is the preview");
+  assert.equal(slot(d, 2).classList.contains("filled"), true);
+  assert.equal(slot(d, 2).all((n) => n.classList.contains("pr-islot-img")).length, 1, "the cropped photo is the preview");
   fill(d); await d.submit();
   const sent = d.writes()[1].form.get("file");
+  assert.equal(d.writes()[1].path, `/sites/${SITE}/catalog/products/prod_1/image/?slot=2`);
   assert.equal(sent.type, "image/png");
   assert.equal(sent.size, 500);
   assert.deepEqual(d.revoked, ["blob:test/1", "blob:test/2"], "the preview URL is released once the product is added");
 });
 
-test("add: a PNG over 2 MB falls back to a JPEG; both over 2 MB refuses; Cancel keeps nothing", async () => {
+test("photos (Edit): the pick is cropped first, then uploaded", async () => {
+  const d = boot({ cropper: { sizes: [500, 400] } });
+  await d.show();
+  d.manage(0, "pr-edit");
+  pickSlot(d, 4, { type: "image/jpeg", size: 8 * 1024 * 1024, name: "big.jpg" });
+  assert.equal(d.writes().length, 0, "nothing is sent before the crop");
+  d.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load");
+  d.buttons("Use this crop")[0].fire("click"); await settle();
+  assert.equal(d.writes()[0].path, `/sites/${SITE}/catalog/products/prod_1/image/?slot=4`);
+  assert.equal(d.writes()[0].form.get("file").size, 500);
+});
+
+test("photos: a PNG over 2 MB falls back to a JPEG; both over 2 MB refuses; Cancel keeps nothing", async () => {
   const MB = 1024 * 1024;
   const d = await openAdd({ cropper: { sizes: [3 * MB, MB] } });
-  const pick = () => { d.$("pr-f-image").files = [{ type: "image/jpeg", size: 9 * MB, name: "a.jpg" }]; d.$("pr-f-image").fire("change"); d.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load"); };
+  const pick = () => { pickSlot(d, 1, { type: "image/jpeg", size: 9 * MB, name: "a.jpg" }); d.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load"); };
   pick(); d.buttons("Use this crop")[0].fire("click");
   fill(d); await d.submit();
   assert.equal(d.writes()[1].form.get("file").type, "image/jpeg");
   const big = await openAdd({ cropper: { sizes: [3 * MB, 3 * MB] } });
-  big.$("pr-f-image").files = [{ type: "image/png", size: MB, name: "a.png" }]; big.$("pr-f-image").fire("change");
+  pickSlot(big, 1, { type: "image/png", size: MB, name: "a.png" });
   big.all("pr-crop")[0].all((n) => n.tagName === "IMG")[0].fire("load");
   big.buttons("Use this crop")[0].fire("click");
   assert.match(big.$("pr-e-image").textContent, /still over 2 MB/);
-  assert.equal(big.all("pr-islot")[0].classList.contains("filled"), false);
+  assert.equal(slot(big, 1).classList.contains("filled"), false);
   const c = await openAdd({ cropper: { sizes: [1, 1] } });
-  c.$("pr-f-image").files = [{ type: "image/png", size: 1, name: "a.png" }]; c.$("pr-f-image").fire("change");
+  pickSlot(c, 1, { type: "image/png", size: 1, name: "a.png" });
   c.buttons("Cancel").find((b) => b.classList.contains("pr-crop-cancel")).fire("click");
   assert.equal(c.all("pr-crop").length, 0);
-  assert.equal(c.all("pr-islot")[0].classList.contains("filled"), false);
+  assert.equal(slot(c, 1).classList.contains("filled"), false);
 });
 
-test("add: when the photo step fails the product is kept and its edit form opens with the message; nothing is created twice", async () => {
-  const d = await openAdd({ routes: (method, p) => (method === "POST" && /image\/$/.test(p) ? { status: 503, body: { error: { code: "image_store_not_configured", message: "x" } } } : null) });
+test("photos (Add): when a photo step fails the product is kept and its Edit form opens with the message; nothing is created twice", async () => {
+  const d = await openAdd({ routes: (method, p) => (method === "POST" && /image\/\?slot/.test(p) ? { status: 503, body: { error: { code: "image_store_not_configured", message: "x" } } } : null) });
   fill(d);
   d.$("pr-f-is_active").checked = false;
-  d.$("pr-f-image").files = [{ type: "image/png", size: 9, name: "a.png" }]; d.$("pr-f-image").fire("change");
+  pickSlot(d, 1, { type: "image/png", size: 9, name: "a.png" });
   await d.submit();
   assert.deepEqual(d.writes().map((c) => c.method), ["POST", "POST", "PATCH"], "the hide step is still tried");
   assert.equal(d.all("pr-formtitle")[0].textContent, "Edit product", "the edit form of the created product");
@@ -843,10 +945,10 @@ test("add: when the photo step fails the product is kept and its edit form opens
   const msg = d.all("pr-topmsg")[0];
   assert.equal(msg.hidden, false);
   assert.match(msg.textContent, /product was added/);
+  assert.match(msg.textContent, /Photo 1 couldn’t be saved/);
   assert.match(msg.textContent, /image store is not set up/);
   assert.equal(d.state.products.length, 1, "one product");
   assert.equal(d.state.products[0].is_active, false, "hidden anyway");
-  assert.equal(d.all("pr-card").length, 0);
 });
 
 test("add: when the hide step fails the product is kept, active, and the edit form opens with Show in shops off", async () => {
@@ -860,6 +962,59 @@ test("add: when the hide step fails the product is kept, active, and the edit fo
   assert.equal(d.$("pr-f-is_active").checked, false);
 });
 
+test("pure helpers: the shipping preview body needs all three sizes, then the weight; the fee tiles or the reason", () => {
+  const u = boot().P.util;
+  const ok = { length_cm: "20", width_cm: "10", height_cm: "5.5", weight_kg: "0.18", shipping_qty: "3" };
+  assert.deepEqual({ ...u.previewBody(ok).body }, { weight_kg: "0.18", length_cm: "20", width_cm: "10", height_cm: "5.5", shipping_qty: 3 });
+  assert.equal(u.previewBody({ ...ok, shipping_qty: "" }).body.shipping_qty, null);
+  assert.equal(u.previewBody({ ...ok, height_cm: "" }).why, "sizes");
+  assert.equal(u.previewBody({ ...ok, width_cm: "0" }).why, "sizes");
+  assert.equal(u.previewBody({ ...ok, weight_kg: "" }).why, "weight");
+  assert.equal(u.previewBody({ ...ok, weight_kg: "abc" }).body, null);
+  const fm = u.feeModel({ ncr_centavos: 12000, mindanao_centavos: 18050, billable_kg: "0.50", reason: "" });
+  assert.deepEqual(Array.from(fm.tiles).map((t) => t.join("|")), ["₱120.00|To NCR", "₱180.50|To Mindanao", "0.50 kg|Billed at"]);
+  assert.match(fm.note, /treat this as a floor/);
+  const none = u.feeModel({ ncr_centavos: null, mindanao_centavos: null, billable_kg: null, reason: "No courier rate covers this size." });
+  assert.equal(none.tiles.length, 0);
+  assert.equal(none.note, "No courier rate covers this size.");
+});
+
+test("Packaging & fee: asks the preview a moment after the last keystroke, shows To NCR, To Mindanao and Billed at; sizes missing says so and asks nothing", async () => {
+  const d = boot({ products: [product("1")] });
+  await d.show();
+  d.manage(0, "pr-edit");
+  const pv = () => d.$("pr-pkg-preview").textContent;
+  const asked = () => d.calls.filter((c) => /shipping-preview/.test(c.path));
+  assert.match(pv(), /Enter all three measurements/);
+  assert.equal(asked().length, 0);
+  d.set("length_cm", "20"); d.set("width_cm", "10");
+  assert.match(pv(), /Enter all three measurements/);
+  d.set("weight_kg", "0.5"); d.set("height_cm", "5"); d.set("height_cm", "6");
+  assert.equal(asked().length, 0, "not on every keystroke");
+  await wait(420);
+  assert.equal(asked().length, 1, "one call for the burst");
+  assert.equal(asked()[0].method, "POST");
+  assert.equal(asked()[0].path, `/sites/${SITE}/catalog/shipping-preview/`);
+  assert.deepEqual(asked()[0].body, { weight_kg: "0.5", length_cm: "20", width_cm: "10", height_cm: "6", shipping_qty: null });
+  assert.match(pv(), /₱120\.00To NCR/);
+  assert.match(pv(), /₱180\.00To Mindanao/);
+  assert.match(pv(), /0\.50 kgBilled at/);
+  assert.match(pv(), /treat this as a floor/);
+  d.state.preview = { ncr_centavos: null, mindanao_centavos: null, billable_kg: null, reason: "No courier rate covers this size." };
+  d.set("shipping_qty", "2"); await wait(420);
+  assert.match(pv(), /No courier rate covers this size\./);
+  assert.ok(!/To NCR/.test(pv()));
+  d.set("height_cm", "");
+  assert.match(pv(), /Enter all three measurements/);
+  assert.equal(d.writes().length, 0, "the preview writes nothing");
+});
+
+test("history: photo slots 2 to 5 and the four new texts are named", () => {
+  const u = boot().P.util;
+  const base = product("1", { image_urls: [null, null, null, null, null] });
+  const next = { ...base, features: "x", benefits: "y", image_urls: [null, "https://media.test/b.jpg", null, null, "https://media.test/e.jpg"] };
+  assert.deepEqual(Array.from(u.changes(next, base)), ["Features changed", "Benefits changed", "Photo 2 changed", "Photo 5 changed"]);
+});
 
 test("source rules: API strings never reach innerHTML, no storage key, focus is light blue and never gold", () => {
   assert.ok(!/innerHTML|insertAdjacentHTML|document\.write|localStorage|sessionStorage|eval\(/.test(SRC));

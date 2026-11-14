@@ -20,18 +20,26 @@ import { MEMBER_BASE_CSS } from "./member-base-css.ts";
 
 export const SIGN_IN_PATH = "/dashboard/sign-in/";
 export const HOME_PATH = "/dashboard/";
+export const PURCHASES_PATH = "/dashboard/purchases/";
+/* The Help Center is the store's own contact section (Subscribers are separate businesses); /contact/ only takes the form post. */
+export const HELP_CENTER_PATH = "/#contact";
 
 /* The one switch for the "Text me the code" button and its handler. Flip it when the member SMS route exists. */
 export const TEXT_ME_ENABLED = false;
 
 /* The dashboard menu. `built: false` hides a section until its page exists (no dead link): the later slice
    flips it. The order is TWCinc's (dashboard.py SECTIONS). */
-export type Section = { key: string; label: string; path: string; built: boolean };
+export type Section = { key: string; label: string; path: string; built: boolean; menu: boolean };
 export const SECTIONS: readonly Section[] = [
-  { key: "home", label: "Dashboard", path: "/dashboard/", built: true },
-  { key: "orders", label: "My Orders", path: "/dashboard/orders/", built: true },
-  { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false },
-  { key: "account", label: "Account", path: "/dashboard/account/", built: true },
+  { key: "home", label: "Dashboard", path: "/dashboard/", built: true, menu: true },
+  { key: "training", label: "Training", path: "/dashboard/training/", built: true, menu: true },
+  { key: "media", label: "Media Library", path: "/dashboard/media/", built: true, menu: true },
+  { key: "affiliate", label: "Affiliate Hub", path: "/dashboard/affiliate/", built: true, menu: true },
+  { key: "orders", label: "Orders", path: "/dashboard/orders/", built: true, menu: true },
+  /* In the name dropdown, not in the bar: */
+  { key: "purchases", label: "My Purchases", path: PURCHASES_PATH, built: true, menu: false },
+  { key: "account", label: "Account Settings", path: "/dashboard/account/", built: true, menu: false },
+  { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false, menu: false },
 ];
 
 /* The ?next= keys of TWCinc (site_views.NEXT_TARGETS). A key whose page is not built yet lands on the home. */
@@ -116,6 +124,55 @@ function footer(v: Chrome): Markup {
 </footer></div>`;
 }
 
+/** Two initials for the avatar (members have no picture data): the first letters of the first two words of the name. */
+export function initials(name: string): string {
+  const letters = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => [...w][0].toUpperCase());
+  return letters.join("") || "?";
+}
+
+const STROKE = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+const CHEV = safe(`<svg class="pdn-chev" ${STROKE}><path d="m9 6 6 6-6 6"/></svg>`);
+
+/* The notification bell: pack-member-bar.js fills the count and the list from /dashboard/notifications/ (the markup holds no data). */
+function bell(): Markup {
+  return html`<div class="pdn-bell" data-pdn-bell>
+      <button type="button" class="pdn-bell-btn" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-pdn-bell-btn>
+        <svg ${safe(STROKE)} width="22" height="22"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>
+        <span class="pdn-badge" data-pdn-badge hidden>0</span>
+      </button>
+      <div class="pdn-pop pdn-bell-pop" data-pdn-bell-pop hidden>
+        <div class="pdn-pop-head"><strong>Notifications</strong><button type="button" class="pdn-link" data-pdn-readall>Mark all read</button></div>
+        <ul class="pdn-bell-list" data-pdn-bell-list></ul>
+        <p class="pdn-bell-empty" data-pdn-bell-empty>No notifications yet.</p>
+      </div>
+    </div>`;
+}
+
+/* The name and its dropdown, after TWCinc's topbar profile menu: the account links, Display Options (Theme), Logout. */
+function userMenu(name: string): Markup {
+  const link = (href: string, label: string, icon: string) => html`<a href="${href}">${safe(`<svg ${STROKE}>${icon}</svg>`)}<span>${label}</span>${CHEV}</a>`;
+  return html`<div class="pdn-user" data-pdn-user>
+      <button type="button" class="pdn-user-btn" aria-haspopup="true" aria-expanded="false" data-pdn-user-btn>
+        <span class="pdn-avatar" aria-hidden="true">${initials(name)}</span><span class="pdn-who">${name}</span>
+        <svg class="pdn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="pdn-pop pdn-user-pop" data-pdn-user-pop hidden>
+        <div class="pdn-pop-profile"><span class="pdn-avatar pdn-avatar-lg" aria-hidden="true">${initials(name)}</span><strong>${name}</strong></div>
+        <div class="pdn-dd-list">
+          ${link(PURCHASES_PATH, "My Purchases", '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>')}
+          ${link("/dashboard/account/", "Account Settings", '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')}
+          ${link(HELP_CENTER_PATH, "Help Center", '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5"/><path d="M12 17.5h.01"/>')}
+        </div>
+        <div class="pdn-dd-display">
+          <div class="pdn-dd-title">Display Options</div>
+          <div class="pdn-dd-row"><span class="pdn-dd-label">${safe(`<svg ${STROKE}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`)}Theme</span>
+            <button type="button" class="pdn-seg" data-pdn-theme aria-label="Toggle dark mode"><span class="pdn-seg-opt pdn-seg-light">Light</span><span class="pdn-seg-opt pdn-seg-dark">Dark</span></button></div>
+        </div>
+        <form method="post" action="/dashboard/sign-out/" class="pdn-dd-out"><button type="submit" class="pdn-dd-logout">${safe(`<svg ${STROKE}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>`)}Logout</button></form>
+      </div>
+    </div>`;
+}
+
 function bar(v: Chrome, member: string | null, current: string): Markup {
   const signedIn = member !== null;
   return html`${!signedIn && v.free_shipping_banner ? html`<div class="pdn-announce">&#128666; <strong>FREE SHIPPING</strong> on all orders — for a limited time!</div>` : ""}<nav class="pdn" id="pdn"${signedIn ? safe(' aria-label="Dashboard"') : ""}>
@@ -140,12 +197,12 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     </div>
     ` : ""}
     ${signedIn ? html`
-    <ul class="pdn-links" id="pdnLinks">${SECTIONS.filter((s) => s.built).map((s) => html`
+    <ul class="pdn-links" id="pdnLinks">${SECTIONS.filter((s) => s.built && s.menu).map((s) => html`
       <li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}
     </ul>
     <div class="pdn-actions">
-      ${member ? html`<span class="pdn-who">${member}</span>` : ""}
-      <form method="post" action="/dashboard/sign-out/" class="pdn-out"><button type="submit">Logout</button></form>
+      ${bell()}
+      ${userMenu(member ?? "")}
       <button type="button" class="pdn-toggle" aria-label="Menu" aria-controls="pdnLinks" aria-expanded="false" id="pdnToggle"><span></span><span></span><span></span></button>
     </div>
     ` : ""}
@@ -178,6 +235,8 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-shop-orders.css")}">
 <link rel="stylesheet" href="${asset("css/pack-reviews.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
+<link rel="stylesheet" href="${asset("css/pack-member-bar.css")}">
+${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
 <body>
 <div class="e4"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
@@ -309,7 +368,8 @@ export function signInDocument(v: Chrome, m: SignInModel): Markup {
 
 /* ---- the dashboard home ------------------------------------------------------------------------ */
 
-export function homeDocument(v: Chrome, memberName: string, panels: Markup = html``, scripts: string[] = [], tiles: Markup = html``, after: Markup = html``): Markup {
+/** The Home: the hero, then `body` (the notices panel and the slots M3 fills). The member's order figures are gone: members order in the app. */
+export function homeDocument(v: Chrome, memberName: string, body: Markup = html``, scripts: string[] = []): Markup {
   const content = html`<div class="pd" id="pp-dash-home">
 <div class="acct-hero">
   <div class="acct-hero-id">
@@ -319,10 +379,8 @@ export function homeDocument(v: Chrome, memberName: string, panels: Markup = htm
       <div class="acct-hero-sub"><span>Signed in as <strong>${memberName}</strong></span></div>
     </div>
   </div>
-  ${tiles}
 </div>
-${panels}
-${after}
+${body}
 </div>`;
   return memberDocument(v, { title: "Dashboard", member: memberName, current: "home", content, scripts });
 }

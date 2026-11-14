@@ -64,7 +64,7 @@ export function storeFooter(v: HomeModel): Markup {
     <div class="footer-top">
       <div>
         <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
-        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted for over two decades, present in 20+ countries.</p>
+        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted since 2007, present in 20+ countries.</p>
         <div class="payment-row">
           <span class="pay-badge">Bank Transfer</span>
           <span class="pay-badge">E-wallet</span>
@@ -539,7 +539,7 @@ function homeBottom(v: HomeModel): Markup {
       <div class="about-panel-body">
         <h3><span>Global</span> Standard, Local Impact</h3>
         <p>From New Zealand farms to homes around the world, Sant&eacute; follows strict global quality benchmarks so every serving of barley meets the same high standard — no matter where you enjoy it.</p>
-        <p>We are present in more than 20 countries, and every market we serve receives the same internationally-certified, premium-quality product that Filipino families have trusted for over two decades.</p>
+        <p>We are present in more than 20 countries, and every market we serve receives the same internationally-certified, premium-quality product that Filipino families have trusted since 2007.</p>
       </div>
     </div>
 

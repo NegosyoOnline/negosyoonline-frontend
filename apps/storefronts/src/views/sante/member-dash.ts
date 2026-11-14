@@ -45,13 +45,7 @@ export function pageHero(title: string, sub: string): Markup {
   return html`<div class="acct-hero"><div class="acct-hero-id"><div class="acct-hero-idtext"><h1>${title}</h1>${sub ? html`<div class="acct-hero-sub"><span>${sub}</span></div>` : ""}</div></div></div>`;
 }
 
-export const SOON = "This page is coming soon.";
 export const APP_ORDERS_LINE = "Your orders are placed and tracked in the Santé Mobile App.";
-
-/** Media Library until its task lands. */
-export function soonContent(title: string): Markup {
-  return html`<div class="pd md-plain" data-md-page="soon">${pageHero(title, "")}<section class="md-card"><p>${SOON}</p></section></div>`;
-}
 
 /** Orders and Affiliate Hub: the app line, with the app button when the link is set. No earnings, no referral link. */
 export function appOrdersContent(title: string, appUrl: string): Markup {

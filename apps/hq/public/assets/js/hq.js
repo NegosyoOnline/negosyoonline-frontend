@@ -39,6 +39,22 @@
       .catch(function () { return { ok: false, status: 0, code: "", message: "", fields: {}, data: {} }; });
   }
 
+  /* A file straight to a store address the backend named (a video to the media store), with exactly the headers it gave and
+     no cookie. progress(percent) as it goes. Resolves {ok, status}; status 0 means it was not sent or no answer was read. */
+  function put(method, url, headers, body, progress) {
+    return new Promise(function (resolve) {
+      var x = new XMLHttpRequest();
+      try {
+        x.open(method || "PUT", url);
+        Object.keys(headers || {}).forEach(function (k) { x.setRequestHeader(k, headers[k]); });
+      } catch (e) { resolve({ ok: false, status: 0 }); return; }
+      x.upload.onprogress = function (e) { if (e && e.lengthComputable && e.total > 0) progress(Math.min(100, Math.round(e.loaded * 100 / e.total))); };
+      x.onload = function () { resolve({ ok: x.status >= 200 && x.status < 300, status: x.status }); };
+      x.onerror = x.onabort = x.ontimeout = function () { resolve({ ok: false, status: 0 }); };
+      x.send(body);
+    });
+  }
+
   /* A private file from the staff routes, as {ok, status, code, blob}. The file is held in this tab's
      memory only; the caller shows it from an object address and releases it. */
   function file(path, body) {
@@ -87,5 +103,5 @@
     b.addEventListener("click", function () { api.set(api.current() === "dark" ? "light" : "dark"); });
   });
 
-  window.NOHq = { cfg: cfg, call: call, upload: upload, file: file, placeFor: placeFor, when: when, who: who };
+  window.NOHq = { cfg: cfg, call: call, upload: upload, put: put, file: file, placeFor: placeFor, when: when, who: who };
 })();

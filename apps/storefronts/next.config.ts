@@ -16,12 +16,13 @@ const META_CONNECT = ["https://www.facebook.com", "https://connect.facebook.net"
    local preview can show photos from the local media stand-in. Unset, or any other value, adds nothing. */
 const LOCAL_MEDIA = localMediaOrigin();
 
-const policy = (frameSrc: string[] = [], meta = false) => [
+const policy = (frameSrc: string[] = [], meta = false, media = false) => [
   "default-src 'self'",
   `script-src 'self'${meta ? ` ${META_SCRIPT}` : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   `img-src 'self' data:${meta ? ` ${META_IMG}` : ""} https://*.public.blob.vercel-storage.com${LOCAL_MEDIA ? ` ${LOCAL_MEDIA}` : ""}`, // product photos: the public media store (backend PUBLIC_MEDIA_BASE_URL)
+  ...(media ? [`media-src https://*.public.blob.vercel-storage.com${LOCAL_MEDIA ? ` ${LOCAL_MEDIA}` : ""}`] : []), // the Media Library's video preview, from the public media store only
   `connect-src 'self'${meta ? ` ${META_CONNECT.join(" ")}` : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -44,6 +45,10 @@ const lessonCsp = policy([
   "https://www.youtube.com", "https://youtube.com", "https://www.youtube-nocookie.com", "https://youtube-nocookie.com",
   "https://player.vimeo.com", "https://iframe.mediadelivery.net",
 ]);
+
+/* The member Media Library (/dashboard/media/) plays a video preview from the public media store, so only that path adds media-src. */
+const MEDIA = "dashboard/media";
+const mediaCsp = policy([], false, true);
 
 /* The other two Pixel pages: the home page and the checkout page (not its /check, /qr/ or post-placement paths). */
 const CHECKOUT = "funnel/membership-pack/checkout";
@@ -72,8 +77,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        /* Every path but the three Pixel pages (the empty path, the landing page and the checkout page) and the lesson player. */
-        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT})/?)?$)(?!${LESSON}).*)`,
+        /* Every path but the three Pixel pages (the empty path, the landing page and the checkout page), the lesson player and the Media Library. */
+        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT})/?)?$)(?!${LESSON})(?!${MEDIA}/?$).*)`,
         headers: securityHeaders(csp),
       },
       {
@@ -91,6 +96,10 @@ const nextConfig: NextConfig = {
       {
         source: `/${LESSON}:path*`,
         headers: securityHeaders(lessonCsp),
+      },
+      {
+        source: `/${MEDIA}{/}?`,
+        headers: securityHeaders(mediaCsp),
       },
       {
         source: "/assets/(.*)",

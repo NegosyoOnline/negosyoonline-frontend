@@ -22,7 +22,7 @@ import { memberCourses, memberLive } from "./training-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
-import { appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero, soonContent } from "../views/sante/member-dash.ts";
+import { appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero } from "../views/sante/member-dash.ts";
 import { homeSlots } from "../views/sante/training.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
@@ -123,7 +123,7 @@ export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Pro
   return render(d, s.member, p.pack, p.registration, mobile, over, status, terms, order);
 }
 
-/** A page with no data of its own (Media Library, Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
+/** A page with no data of its own (Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
 async function plainPage(d: Dash, key: string, title: string, content: (appUrl: string) => Markup): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
@@ -133,7 +133,6 @@ async function plainPage(d: Dash, key: string, title: string, content: (appUrl: 
   return htmlResponse(doc);
 }
 
-export const mediaPage = (d: Dash) => plainPage(d, "media", "Media Library", () => soonContent("Media Library"));
 /** Members order in the app; there is no earnings figure and no referral link here (held). */
 export const affiliatePage = (d: Dash) => plainPage(d, "affiliate", "Affiliate Hub", (url) => appOrdersContent("Affiliate Hub", url));
 export const ordersPage = (d: Dash) => plainPage(d, "orders", "Orders", (url) => appOrdersContent("Orders", url));

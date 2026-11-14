@@ -31,6 +31,8 @@ const nextConfig: NextConfig = {
         { source: "/training/", destination: "/training.html" },
         { source: "/training/course/", destination: "/training-course.html" },
         { source: "/training/live/", destination: "/training-live.html" },
+        /* Media library (ClickUp z8uq9mezdk): the list, the add form and the editor on one page. */
+        { source: "/media/", destination: "/media.html" },
         { source: "/finance/invoices/", destination: "/finance-invoices.html" },
         { source: "/finance/invoices/reconcile/", destination: "/finance-reconcile.html" },
         { source: "/finance/statements/", destination: "/finance-statements.html" },
@@ -65,6 +67,7 @@ const nextConfig: NextConfig = {
       { source: "/training.html", destination: "/training/", permanent: false },
       { source: "/training-course.html", destination: "/training/", permanent: false },
       { source: "/training-live.html", destination: "/training/live/", permanent: false },
+      { source: "/media.html", destination: "/media/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];
   },

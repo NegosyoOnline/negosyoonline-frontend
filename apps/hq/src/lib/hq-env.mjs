@@ -13,6 +13,11 @@ export function readEnv(env) {
   return { staffApi, staffApiOrigin: new URL(staffApi).origin };
 }
 
+/* The Media library sends a video straight to the media store (ClickUp z8uq9mezdk): the backend's upload address is
+   https://vercel.com/api/blob (apps/media_library/client_upload.py UPLOAD_API), so connect-src names that one origin. The page
+   shows no media from the public store, so img-src and media-src stay as they were. */
+export const BLOB_UPLOAD_ORIGIN = "https://vercel.com";
+
 /* Script, styles and the font from this app only; calls to the one staff address only; no frame.
    blob: in img-src lets the Finance page show a proof image it holds in the tab's memory, which has no
    address of its own (Coach Ed's approval, 2026-11-11, ClickUp z8uq9me581). */
@@ -23,7 +28,7 @@ export function buildCsp(staffApiOrigin) {
     "style-src 'self'",
     "font-src 'self'",
     "img-src 'self' blob:",
-    `connect-src ${staffApiOrigin}`,
+    `connect-src ${staffApiOrigin} ${BLOB_UPLOAD_ORIGIN}`,
     "frame-ancestors 'none'",
     "base-uri 'none'",
     "form-action 'none'",

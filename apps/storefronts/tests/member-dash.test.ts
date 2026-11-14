@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { affiliatePage, homePage, mediaPage, ordersPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { affiliatePage, homePage, ordersPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
 import { trainingPage } from "../src/lib/training-flow.ts";
 import { bellGet, bellRead, bellReadAll } from "../src/lib/bell-flow.ts";
 import { initials } from "../src/views/sante/member.ts";
@@ -159,16 +159,7 @@ test("My Purchases: signed out goes to the store home, a dead session clears the
   assert.equal(dead.headers.get("location"), "/");
 });
 
-/* ---- the placeholder pages --------------------------------------------------------------------------------------- */
-
-test("Media Library is a plain placeholder", async () => {
-  for (const [page, title] of [[mediaPage, "Media Library"]] as const) {
-    const body = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
-    assert.match(body, new RegExp(`<h1>${title}</h1>`));
-    assert.match(body, /data-md-page="soon"/);
-    assert.match(body, /This page is coming soon\./);
-  }
-});
+/* ---- the app-line pages --------------------------------------------------------------------------------------- */
 
 test("Orders and Affiliate Hub say the orders are in the app, with the app link only when it is set, and show no earnings or referral link", async () => {
   for (const [page, title] of [[ordersPage, "Orders"], [affiliatePage, "Affiliate Hub"]] as const) {
@@ -184,7 +175,7 @@ test("Orders and Affiliate Hub say the orders are in the app, with the app link 
 });
 
 test("a placeholder page goes to My Purchases while the order is rejected, and to the store home signed out", async () => {
-  for (const page of [trainingPage, mediaPage, affiliatePage, ordersPage]) {
+  for (const page of [trainingPage, affiliatePage, ordersPage]) {
     assert.equal((await page(dashOf(fake({ "member/me": [ME], "member/pack": [LOCKED] })))).headers.get("location"), "/dashboard/purchases/");
     assert.equal((await page(dashOf(fake({}), {}, ""))).headers.get("location"), "/");
   }

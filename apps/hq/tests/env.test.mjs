@@ -26,7 +26,7 @@ test("a production build with no variable stops; with one set it uses it", () =>
 
 test("the CSP connect-src follows the default address", () => {
   const csp = buildCsp(readEnv({}).staffApiOrigin);
-  assert.ok(csp.includes("connect-src https://hq-api-staging.negosyonline.com;"));
+  assert.ok(csp.includes("connect-src https://hq-api-staging.negosyonline.com https://vercel.com;"));
 });
 
 test("a value that is not an address stops the build", () => {
@@ -41,7 +41,7 @@ test("the CSP names the staff address and nothing from a third host", () => {
     "style-src 'self'",
     "font-src 'self'",
     "img-src 'self' blob:",
-    "connect-src https://hq-api-staging.negosyonline.com",
+    "connect-src https://hq-api-staging.negosyonline.com https://vercel.com",
     "frame-ancestors 'none'",
     "base-uri 'none'",
     "form-action 'none'",

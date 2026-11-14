@@ -9,7 +9,7 @@
 import { randomBytes } from "node:crypto";
 import { MEMBER, ORDER, ORDER_MAX_AGE, clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import type { Member, Site } from "./django.ts";
-import { memberMe } from "./django.ts";
+import { fetchPack, memberMe } from "./django.ts";
 import { htmlResponse } from "./html.ts";
 import { callFor, redirect, type Call } from "./member.ts";
 import { PROOF_MAX_BYTES, type Calls } from "./pack-api.ts";
@@ -123,14 +123,19 @@ export async function productsGet(s: Shop): Promise<Response> {
 
 /** One product by its code (the list is 18 rows, so there is no second route: plan R2). */
 export async function productGet(s: Shop, code: string): Promise<Response> {
-  const products = await fetchCatalog(s.host, s.calls);
+  /* The pack read runs beside the catalog; "Members save up to N%" links to the pack landing page only while the pack is on
+     for this host. fetchPack never throws and answers null when it is off or failed, so the page never breaks on it. */
+  const [products, pack] = await Promise.all([
+    fetchCatalog(s.host, s.calls),
+    fetchPack(s.host, s.calls.env, s.calls.fetchImpl, s.calls.log).catch(() => null),
+  ]);
   if (!products) return neutralNotFound();
   const product = products.find((p) => p.code === code);
   if (!product) return neutralNotFound();
   const b = await basketOf(s, readCart(s.request), product);
   const others = products.filter((p) => p.id !== product.id);
   const related = [...others.filter((p) => p.category === product.category), ...others.filter((p) => p.category !== product.category)].slice(0, 4);
-  return page(s, b, products, { title: product.name, content: productContent({ product, related, members: b.members }) });
+  return page(s, b, products, { title: product.name, content: productContent({ product, related, members: b.members, packOn: pack !== null }) });
 }
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */

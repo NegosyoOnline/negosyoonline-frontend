@@ -546,14 +546,16 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
 .lc-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 .lc-tabs button:hover { color: var(--text); }
 .lc-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--primary); }
-.lc-scroll { max-width: 100%; overflow-x: auto; }
-.lc-table { width: 100%; min-width: 700px; border-collapse: collapse; font-size: 15px; }
+.lc-scroll { position: relative; max-width: 100%; overflow-x: auto; }
+.lc-table { width: 100%; min-width: 820px; border-collapse: collapse; font-size: 15px; }
 .lc-table th { padding: 12px 14px; text-align: left; font-size: 13px; font-weight: 700; color: var(--meta); border-bottom: 1px solid var(--card-line); white-space: nowrap; }
-.lc-table td { padding: 12px 14px; border-top: 1px solid var(--card-line); vertical-align: top; }
+.lc-table td { padding: 12px 14px; border-top: 1px solid var(--card-line); vertical-align: top; white-space: nowrap; }
+.lc-table td.lc-wrap, .lc-table td small { white-space: normal; }
+.lc-table td.lc-wrap { min-width: 220px; }
 .lc-table tbody tr:first-child td { border-top: 0; }
 .lc-table td small { display: block; color: var(--meta); font-size: 13px; }
 .lc-table .lc-detrow td { border-top: 0; padding: 0 14px 14px 52px; }
-.lc-table .lc-id { font-weight: 600; overflow-wrap: anywhere; }
+.lc-table .lc-id { font-weight: 600; white-space: nowrap; }
 .lc-table .lc-act { white-space: nowrap; text-align: right; }
 .lc-table .lc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .lc-det { padding: 0; }

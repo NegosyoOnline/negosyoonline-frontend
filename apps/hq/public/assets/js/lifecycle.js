@@ -189,7 +189,7 @@
   }
 
   function eligibleRow(e, i) {
-    var tr = F.el("tr", ""), id = "s-" + i, cb = F.el("input", ""), sel = F.el("td", ""), chips = F.el("div", "lc-chips"), st = F.el("td", "");
+    var tr = F.el("tr", ""), id = "s-" + i, cb = F.el("input", ""), sel = F.el("td", ""), chips = F.el("div", "lc-chips"), st = F.el("td", "lc-wrap");
     var ended = F.dayOf(e.service_ended_at), due = F.dayOf(e.deletion_due_at), det = details(e.counts, id + "-det", 9), why = F.el("small", "", "");
     var more = disclosure(det);
     cb.setAttribute("type", "checkbox");
@@ -208,7 +208,7 @@
     tr.appendChild(cell(ended));
     tr.appendChild(cell(due));
     tr.appendChild(cell(overdue(e)));
-    tr.appendChild(cell(totals(rowsOf(e.counts), typeof e.private_files === "number" ? e.private_files : 0)));
+    tr.appendChild(cell(totals(rowsOf(e.counts), typeof e.private_files === "number" ? e.private_files : 0), "lc-wrap"));
     chips.appendChild(accountChip(e.account_action, e.account_reason));
     chips.appendChild(noticeChip(e.notice));
     if (e.usage_to_write_off === true) chips.appendChild(chip("chip-neutral", "Open usage will be written off first"));

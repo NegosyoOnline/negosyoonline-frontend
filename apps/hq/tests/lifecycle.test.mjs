@@ -769,3 +769,13 @@ test("Holds shows site, reason, reference, since and due, keeps Place a hold on 
   assert.match(panel("a"), /id="a-bar"[\s\S]*id="propose"/);
   assert.doesNotMatch(panel("a"), /d-place/);
 });
+
+test("Lifecycle tables stay inside their scroll box and never break words letter by letter", () => {
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  const rule = (sel) => (css.match(new RegExp("^" + sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " \\{([^}]*)\\}", "m")) || [])[1] || "";
+  assert.match(rule(".lc-scroll"), /position:\s*relative/);
+  assert.match(rule(".lc-scroll"), /overflow-x:\s*auto/);
+  assert.match(rule(".lc-table td"), /white-space:\s*nowrap/);
+  assert.doesNotMatch(css, /\.lc-table[^{]*\{[^}]*(word-break:\s*break-all|overflow-wrap:\s*anywhere)/);
+  assert.match(rule(".lc-table td.lc-wrap, .lc-table td small"), /white-space:\s*normal/);
+});

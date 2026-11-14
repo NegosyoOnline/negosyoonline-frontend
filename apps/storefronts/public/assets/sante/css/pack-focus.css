@@ -23,3 +23,8 @@
 .oc-date, .oc-total span { color: #657389; }
 .sf-status-chip:not(.sf-status-approved):not(.sf-status-expired) { color: #966800; }
 .footer-copyright, .footer-disclaimer { color: rgba(255,255,255,0.48); }
+
+/* Task z8uq9menxk: the buyer portal wraps the banner and the sign-in card in .portal-sign-in, a flex child of .wrap, which
+   stretched to the full width and left the card at the left. Capping it at the card's own width lets .wrap centre the pair,
+   so the card sits centred as on /dashboard/sign-in/ and the banner above it has the card's width. */
+.portal-sign-in { width: 100%; max-width: 560px; }

@@ -2,13 +2,13 @@
    _address_post). Same rules as account-flow.ts: the member session is this server's cookie passed as data; a 401 clears it and goes
    to the store home; a rejected order locks the dashboard to Home; a 404 is the neutral page.
 
-   The page's address is read from a shop quote (the only place the backend sends the saved address): one unit of the first active
-   product at the home ship mode, nothing is placed. Without a catalog the form is blank. The save is the checkout editor's call. */
+   The page's address is read from the member's own address route (POST member/address/read/): the saved address and whether a recovery
+   hold locks it. It needs no catalog and no member price. The save is the checkout editor's call. */
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { lockedHome, session, type Dash } from "./dashboard-flow.ts";
 import { htmlResponse } from "./html.ts";
 import { redirect } from "./member.ts";
-import { fetchCatalog, saveHomeAddress, shopQuote, withZip, type Address } from "./shop-api.ts";
+import { readHomeAddress, saveHomeAddress, withZip, type Address } from "./shop-api.ts";
 import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS } from "./shop-flow-text.ts";
 import { chrome, memberDocument } from "../views/sante/member.ts";
 import { ADDRESS_PAGE_PATH, EMPTY_ADDRESS, addressContent, type AddressPage } from "../views/sante/member-address.ts";
@@ -27,17 +27,11 @@ function page(d: Dash, name: string, p: AddressPage, status = 200): Response {
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "Home address", member: name, current: "account", content: addressContent(p), scripts: SCRIPTS }), status);
 }
 
-/** The saved address and whether it is locked, from a quote. "unreadable" when the catalog or quote cannot be had, or the quote is not a
-    member-price one (a member without benefits): the page then offers no form, so nobody overwrites an address they cannot see. */
+/** The saved address and whether it is locked. "unreadable" when the read fails (older backend, passing fault, dead session): the page then
+    offers no form, so nobody overwrites an address they cannot see. */
 async function savedAddress(d: Dash): Promise<{ address: Address | null; locked: boolean } | "unreadable"> {
-  const products = await fetchCatalog(d.call.host, d.calls);
-  const probe = products?.[0];
-  if (!probe) return "unreadable";
-  const r = await shopQuote({
-    host: d.call.host, visitor_ip: d.call.visitor_ip, lines: [{ id: probe.id, qty: 1 }], member_token: d.call.member_token, ship_mode: "home", address: null,
-  }, d.calls);
-  if (r.state !== "ok" || !r.quote.member_price) return "unreadable";
-  return { address: r.quote.home_address ?? null, locked: r.quote.home_address_locked === true };
+  const r = await readHomeAddress({ host: d.call.host, visitor_ip: d.call.visitor_ip, member_token: d.call.member_token }, d.calls);
+  return r.state === "ok" ? { address: r.address, locked: r.locked } : "unreadable";
 }
 
 type Gate = { name: string } | { response: Response };

@@ -6,10 +6,10 @@ import { open } from "./page.mjs";
 
 const menu = (pathname) => open(["menu.js"], { ids: ["side-nav"], pathname }).node["side-nav"];
 
-test("the menu holds Admin console, Finance, then Settings, with the current page marked", () => {
+test("the menu holds Admin console, Finance, Lifecycle, then Settings, with the current page marked", () => {
   const nav = menu("/");
   assert.equal(nav.hidden, false);
-  assert.deepEqual(nav.children.map((a) => [a.tagName, a.getAttribute("href"), a.textContent]), [["A", "/", "Admin console"], ["A", "/finance/", "Finance"], ["A", "/settings/", "Settings"]]);
+  assert.deepEqual(nav.children.map((a) => [a.tagName, a.getAttribute("href"), a.textContent]), [["A", "/", "Admin console"], ["A", "/finance/", "Finance"], ["A", "/lifecycle/", "Lifecycle"], ["A", "/settings/", "Settings"]]);
   assert.equal(nav.children[0].getAttribute("aria-current"), "page");
   assert.equal(nav.children[1].hasAttribute("aria-current"), false);
   const finance = menu("/finance/");
@@ -19,7 +19,7 @@ test("the menu holds Admin console, Finance, then Settings, with the current pag
 
 test("on another page no entry is marked current", () => {
   const nav = menu("/somewhere-else/");
-  assert.equal(nav.children.length, 3);
+  assert.equal(nav.children.length, 4);
   for (const a of nav.children) assert.equal(a.hasAttribute("aria-current"), false);
 });
 
@@ -41,8 +41,17 @@ test("Finance is the current entry for every /finance/ address, and only for tho
 
 test("Settings is the last entry, current only on /settings/", () => {
   const nav = menu("/settings/");
-  assert.equal(nav.children[2].getAttribute("href"), "/settings/");
+  assert.equal(nav.children[3].getAttribute("href"), "/settings/");
+  assert.equal(nav.children[3].getAttribute("aria-current"), "page");
+  assert.equal(nav.children[2].hasAttribute("aria-current"), false);
+  assert.equal(menu("/").children[3].hasAttribute("aria-current"), false);
+});
+
+test("Lifecycle is the third entry, between Finance and Settings, current only on /lifecycle/", () => {
+  const nav = menu("/lifecycle/");
+  assert.equal(nav.children[2].getAttribute("href"), "/lifecycle/");
+  assert.equal(nav.children[2].textContent, "Lifecycle");
   assert.equal(nav.children[2].getAttribute("aria-current"), "page");
-  assert.equal(nav.children[1].hasAttribute("aria-current"), false);
-  assert.equal(menu("/").children[2].hasAttribute("aria-current"), false);
+  for (const i of [0, 1, 3]) assert.equal(nav.children[i].hasAttribute("aria-current"), false);
+  for (const at of ["/", "/finance/", "/lifecycle/x/", "/lifecycles/"]) assert.equal(menu(at).children[2].hasAttribute("aria-current"), false, at);
 });

@@ -536,18 +536,3 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
 .range-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
 .range-row .field { flex: 1 1 180px; max-width: 220px; }
 @media (max-width: 599.98px) { .range-row .field { max-width: none; } .range-row .no-btn { width: 100%; } }
-/* Training (ClickUp z8uq9mezdj): a list row with its actions, and a module card with its lessons. */
-.trn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 20px; }
-.trn-main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.trn-main a, .trn-main strong { font-weight: 700; overflow-wrap: anywhere; }
-.trn-main p { margin: 0; }
-.trn-acts { display: flex; flex-wrap: wrap; gap: 8px; }
-.trn-mod { display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--card-line); }
-.trn-modform { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
-.trn-modform .input { flex: 1 1 240px; width: auto; }
-.checks-inline { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 16px; }
-.checks-inline input { width: 20px; height: 20px; accent-color: var(--primary); }
-.trn-mod .list { border: 1px solid var(--card-line); border-radius: 8px; }
-.trn-mod .list:empty { display: none; }
-.trn-mod .trn-row { padding: 10px 14px; }
-@media (max-width: 600px) { .trn-acts .no-btn { flex: 1 1 auto; } }

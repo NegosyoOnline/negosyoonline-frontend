@@ -6,7 +6,6 @@
    with the platform in its body, nothing in the address, no audit entry on the backend, no text held) also
    wakes the search and bell buttons. On any other answer, offline, or with no client, nothing is drawn and
    the buttons stay as the page ships them.
-   Training (ClickUp z8uq9mezdj) is a plain entry too, current for every /training/ path.
    Settings (ClickUp z8uq9mek62) is the one plain entry after the list: always drawn, last, with Inbox and Contacts in front of it.
    Contacts is the second gated entry (ClickUp z8uq9me128): not drawn until contacts/status/ answers 200, always
    after Inbox when there is one, current for every /contacts/ path. That call carries nothing at all. */
@@ -15,7 +14,6 @@
   var MENU = [
     { href: "/", label: "Admin console", icon: "M4 11l8-7 8 7v9H4z" },
     { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3", within: true },
-    { href: "/training/", label: "Training", icon: "M3 9l9-5 9 5-9 5zM7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5M21 9v5", within: true },
   ];
   /* Settings is always drawn, and always last: the gated entries below go in front of it. */
   var SETTINGS = { href: "/settings/", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2" };

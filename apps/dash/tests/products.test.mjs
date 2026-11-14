@@ -684,8 +684,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod5/);
-  assert.match(html, /products\.js\?v=20261114prod7/);
+  assert.match(html, /products\.css\?v=20261114prod6/);
+  assert.match(html, /products\.js\?v=20261114prod8/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -762,6 +762,13 @@ test("Identity: label Product code (SKU), no help line, name | code then categor
   assert.match(d.$("pr-e-code").textContent, /Enter a product code\./);
 });
 
+test("Servings per pack is a # prefix group in the same class, so it gets the whole-group focus ring", async () => {
+  const d = await openAdd();
+  const g = d.$("pr-f-servings_per_pack").parentNode;
+  assert.ok(g.classList.contains("pr-ig"));
+  assert.deepEqual(g.all("pr-ig-pre").map((n) => n.textContent), ["#"]);
+});
+
 test("the focus ring wraps the whole ₱ / % group: light blue, on the group, none on its input", () => {
   assert.match(CSS, /\.pr-ig:focus-within \{ box-shadow: 0 0 0 1px var\(--link\); \}/);
   assert.match(CSS, /\.pr-ig:focus-within \.pr-ig-pre, [^{]*\.pr-ig:focus-within \.pr-input \{ border-color: var\(--link\); \}/);
@@ -780,7 +787,7 @@ test("Shipping: Length, Width, Height, Actual weight and Units per shipping box 
 test("pricing inputs are prefix groups with placeholders only: ₱ 0.00 and % 40; Edit shows the saved values", async () => {
   const d = await openAdd();
   const pre = d.all("pr-ig-pre");
-  assert.deepEqual(pre.map((n) => n.textContent), ["₱", "%"]);
+  assert.deepEqual(pre.map((n) => n.textContent), ["₱", "%", "#"]);
   assert.equal(d.$("pr-f-srp_centavos").getAttribute("placeholder"), "0.00");
   assert.equal(d.$("pr-f-earnings_rate").getAttribute("placeholder"), "40");
   assert.equal(d.$("pr-f-srp_centavos").value, "");
@@ -840,7 +847,7 @@ test("Description tab: six texts with their limits; Save Description sends only 
   assert.deepEqual(limits, { short_description: "500", long_description: "20000", features: "5000", specifications: "5000", advantages: "5000", benefits: "5000" });
   assert.equal(d.$("pr-f-features").value, "F");
   const descForm = d.$("pr-root").all((n) => n.tagName === "FORM")[1];
-  assert.deepEqual(descForm.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save Description"]);
+  assert.deepEqual(descForm.all((n) => n.tagName === "BUTTON" && n.getAttribute("type") === "submit").map((b) => b.textContent), ["Save Description"]);
   descForm.fire("submit"); await settle();
   assert.equal(d.writes().length, 0);
   assert.match(topmsg(d), /no changes to save/i);
@@ -1133,4 +1140,99 @@ test("a photo upload refused with 400 invalid_request and a slot field shows it 
   pickSlot(d, 2, { type: "image/png", size: 100, name: "a.png" }); await settle();
   assert.equal(d.$("pr-e-image").hidden, false);
   assert.match(d.$("pr-e-image").textContent, /Choose a photo slot from 1 to 5\./);
+});
+
+/* ---- round 5a: servings per pack, FAQ ---------------------------------------------------------------------------- */
+
+const openDesc = async (over) => { const d = boot({ products: [product("1", over)] }); await d.show(); d.manage(0, "pr-edit"); tabs(d)[1].fire("click"); return d; };
+const descSubmit = async (d) => { d.$("pr-root").all((n) => n.tagName === "FORM")[1].fire("submit"); await settle(); };
+const faqBtn = (d, cls, i = 0) => d.all(cls)[i];
+const faqSet = (d, id, v) => { const n = d.$(id); n.value = v; n.fire("input"); };
+
+test("servings per pack: a # group beside a 30 placeholder with its hint; Add sends the number, empty sends nothing; bad values are named", async () => {
+  const d = await openAdd();
+  assert.equal(d.$("pr-f-servings_per_pack").getAttribute("placeholder"), "30");
+  assert.match(d.$("pr-root").textContent, /Shoppers see the price per serving\./);
+  fill(d, { servings_per_pack: "0" });
+  await d.submit();
+  assert.equal(d.writes().length, 0);
+  assert.match(d.error("servings_per_pack"), /1 to 999/);
+  d.set("servings_per_pack", "30");
+  await d.submit();
+  assert.equal(d.writes()[0].body.servings_per_pack, 30);
+  assert.strictEqual(typeof d.writes()[0].body.servings_per_pack, "number");
+  const e = await openAdd();
+  fill(e);
+  await e.submit();
+  assert.ok(!("servings_per_pack" in e.writes()[0].body), "empty on Add is left out");
+});
+
+test("servings per pack (Edit): shows the saved value, sends only a change, and clearing sends null", async () => {
+  const d = boot({ products: [product("1", { servings_per_pack: 30 })] });
+  await d.show(); d.manage(0, "pr-edit");
+  assert.equal(d.$("pr-f-servings_per_pack").value, "30");
+  await d.submit();
+  assert.equal(d.writes().length, 0, "unchanged sends nothing");
+  d.set("servings_per_pack", "60");
+  await d.submit();
+  assert.deepEqual(d.writes()[0].body, { revision: 1, servings_per_pack: 60 });
+  d.set("servings_per_pack", "");
+  await d.submit();
+  assert.deepEqual(d.writes()[1].body, { revision: 2, servings_per_pack: null });
+  const older = boot({ products: [product("1")] });
+  await older.show(); older.manage(0, "pr-edit");
+  assert.equal(older.$("pr-f-servings_per_pack").value, "");
+  await older.submit();
+  assert.equal(older.writes().length, 0, "an older API without the field: nothing to save");
+});
+
+test("FAQ editor: add, type, remove and reorder; the limit is 10; Save Description sends the list", async () => {
+  const d = await openDesc();
+  assert.equal(d.all("pr-faq-item").length, 0);
+  assert.match(d.$("pr-root").textContent, /“How do I pay\?” is always added at the end\./);
+  faqBtn(d, "pr-faq-add").fire("click"); faqBtn(d, "pr-faq-add").fire("click");
+  assert.equal(d.all("pr-faq-item").length, 2);
+  assert.equal(d.$("pr-faq-q-0").getAttribute("maxlength"), "150");
+  assert.equal(d.$("pr-faq-a-0").getAttribute("maxlength"), "1000");
+  assert.deepEqual(d.all("pr-faq-count").map((n) => n.textContent), ["0/150", "0/1000", "0/150", "0/1000"]);
+  faqSet(d, "pr-faq-q-0", "Who is it for?"); faqSet(d, "pr-faq-a-0", "Anyone.");
+  assert.equal(d.all("pr-faq-count")[0].textContent, "14/150");
+  faqSet(d, "pr-faq-q-1", "How to take it?"); faqSet(d, "pr-faq-a-1", "  One a day. ");
+  faqBtn(d, "pr-faq-down", 0).fire("click");
+  assert.equal(d.$("pr-faq-q-0").value, "How to take it?", "the second moved up and typed text stayed");
+  await descSubmit(d);
+  assert.deepEqual(d.writes()[0].body, { revision: 1, faq: [{ q: "How to take it?", a: "One a day." }, { q: "Who is it for?", a: "Anyone." }] });
+  faqBtn(d, "pr-faq-rm", 0).fire("click");
+  assert.equal(d.all("pr-faq-item").length, 1);
+  await descSubmit(d);
+  assert.deepEqual(d.writes()[1].body, { revision: 2, faq: [{ q: "Who is it for?", a: "Anyone." }] });
+  for (let i = 0; i < 12; i++) faqBtn(d, "pr-faq-add").fire("click");
+  assert.equal(d.all("pr-faq-item").length, 10, "never more than 10");
+  assert.ok(faqBtn(d, "pr-faq-add").disabled);
+});
+
+test("FAQ editor: saved pairs load; a half-filled pair is refused and empty ones are dropped; server faq errors show under the list", async () => {
+  const d = await openDesc({ faq: [{ q: "Q1", a: "A1" }] });
+  assert.equal(d.$("pr-faq-q-0").value, "Q1");
+  assert.equal(d.$("pr-faq-a-0").value, "A1");
+  await descSubmit(d);
+  assert.equal(d.writes().length, 0, "unchanged sends nothing");
+  faqBtn(d, "pr-faq-add").fire("click"); faqSet(d, "pr-faq-q-1", "Only a question");
+  await descSubmit(d);
+  assert.equal(d.writes().length, 0);
+  assert.match(d.error("faq"), /answer/);
+  faqSet(d, "pr-faq-q-1", "");
+  const e = boot({ products: [product("1")], routes: (m) => (m === "PATCH" ? { status: 400, body: { error: { code: "invalid_request", message: "Check the highlighted fields.", fields: { faq: "Too long." } } } } : null) });
+  await e.show(); e.manage(0, "pr-edit"); tabs(e)[1].fire("click");
+  faqBtn(e, "pr-faq-add").fire("click"); faqSet(e, "pr-faq-q-0", "Q"); faqSet(e, "pr-faq-a-0", "A");
+  await descSubmit(e);
+  assert.equal(e.error("faq"), "Too long.");
+});
+
+test("History names Servings per pack and FAQ", () => {
+  const u = boot().P.util;
+  const base = product("1", { servings_per_pack: null, faq: [] });
+  assert.deepEqual(Array.from(u.changes({ ...base, servings_per_pack: 30 }, base)), ["Servings per pack changed"]);
+  assert.deepEqual(Array.from(u.changes({ ...base, faq: [{ q: "a", a: "b" }] }, base)), ["FAQ changed"]);
+  assert.deepEqual(Array.from(u.changes({ ...base, faq: [] }, { ...base, faq: undefined })), ["Saved with no changes"]);
 });

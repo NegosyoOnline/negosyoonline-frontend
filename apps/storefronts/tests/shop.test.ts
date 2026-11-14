@@ -183,7 +183,7 @@ test("one product by code; an unknown code is the neutral 404; related products 
   const ok = await productGet(shop(backend()), "SPH1");
   assert.equal(ok.status, 200);
   const page = await text(ok);
-  assert.match(page, /Pay by bank or e-wallet transfer/);
+  assert.match(page, /Easy payment by bank or e-wallet transfer/);
   assert.doesNotMatch(page, /Cash on Delivery|credit or debit card/i);
   assert.match(page, /You Might Also Like/);
   assert.equal((await productGet(shop(backend()), "NOPE")).status, 404);
@@ -765,4 +765,67 @@ test("product page accordions open and close on their own; aria-expanded follows
   const home = readFileSync(path.join(process.cwd(), "public/assets/sante/js/pack-home.js"), "utf8");
   assert.match(home, /querySelectorAll\('\.faq-item\.open'\)/);
   assert.equal(assetVersions()["js/pack-home.js"], "db367a6b", "pack-home.js is untouched");
+});
+
+/* ---- round 5a: per serving, trust strip, FAQs ------------------------------------------------------------------------ */
+
+const R5 = { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "", servings_per_pack: 30, price_per_serving_centavos: 1500, members_price_per_serving_centavos: 900, faq: [{ q: "Who is it for?", a: "Anyone <b>busy</b>.\n\nReally." }] };
+
+test("the product page shows the price per serving and a plain-text Members row, hidden when unset", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /&#8369;450\.00 <span class="sf-per-serving">&#8369;15\.00 \/ serving<\/span>/);
+  assert.match(on, /<p class="sf-members-row">Members &#8369;270\.00 <span class="sf-per-serving">\(&#8369;9\.00 \/ serving\)<\/span><\/p>/);
+  assert.doesNotMatch(on.match(/<p class="sf-members-row">[\s\S]*?<\/p>/)?.[0] ?? "", /<a /, "the Members row is plain text");
+  const noServings = productContent({ product: { ...R5, price_per_serving_centavos: null, members_price_per_serving_centavos: null }, related: [], members: false }).value;
+  assert.doesNotMatch(noServings, /serving/);
+  assert.match(noServings, /Members &#8369;270\.00<\/p>/);
+  const older = productContent({ product: { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" } as never, related: [], members: false }).value;
+  assert.doesNotMatch(older, /serving|undefined/);
+  const noMembers = productContent({ product: { ...R5, unit_members_price_centavos: 0 }, related: [], members: false }).value;
+  assert.doesNotMatch(noMembers, /sf-members-row|Members save/);
+});
+
+test("the trust strip sits under Add to Cart with four lines; the members line needs a members rate", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  const cart = on.indexOf('id="sfAddToCart"');
+  const strip = on.indexOf("data-sf-trust");
+  assert.ok(cart > 0 && strip > cart, "the strip follows the Add to Cart button");
+  assert.match(on, /Easy payment by bank or e-wallet transfer/);
+  assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
+  assert.match(on, /100% genuine Sant&eacute;, trusted since 2007/);
+  assert.match(on, /Members save up to 40%/);
+  const none = productContent({ product: { ...R5, unit_members_price_centavos: 0 }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /Members save up to/);
+  assert.match(none, /trusted since 2007/);
+});
+
+test("the FAQs block lists the product's pairs then the fixed How do I pay? item, escaped, even with none", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /data-sf-faqs/);
+  assert.equal(on.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 2);
+  assert.ok(on.indexOf("Who is it for?") < on.indexOf("How do I pay?"), "the fixed item is last");
+  assert.match(on, /Anyone &lt;b&gt;busy&lt;\/b&gt;\./);
+  assert.doesNotMatch(on, /<b>busy/);
+  const hostile = productContent({ product: { ...R5, faq: [{ q: "<script>x</script>", a: "<img src=x onerror=y>" }] }, related: [], members: false }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x/);
+  const none = productContent({ product: { ...R5, faq: [] }, related: [], members: false }).value;
+  assert.match(none, /data-sf-faqs/);
+  assert.match(none, /How do I pay\?/);
+  assert.match(none, /proof of payment/);
+  const older = productContent({ product: { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" } as never, related: [], members: false }).value;
+  assert.match(older, /How do I pay\?/);
+});
+
+test("the catalog parser reads the r5a fields and tolerates an older API", async () => {
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [R5, { ...P2, faq: [{ q: "", a: "x" }, { q: "ok", a: "yes" }, 5] }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.equal(got?.[0].servings_per_pack, 30);
+  assert.equal(got?.[0].price_per_serving_centavos, 1500);
+  assert.equal(got?.[0].members_price_per_serving_centavos, 900);
+  assert.deepEqual(got?.[0].faq, [{ q: "Who is it for?", a: "Anyone <b>busy</b>.\n\nReally." }]);
+  assert.equal(got?.[1].servings_per_pack, null);
+  assert.deepEqual(got?.[1].faq, [{ q: "ok", a: "yes" }]);
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.equal(old?.[0].price_per_serving_centavos, null);
+  assert.deepEqual(old?.[0].faq, []);
 });

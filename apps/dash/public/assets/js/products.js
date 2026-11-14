@@ -95,15 +95,15 @@
   var LABELS = { name: "Name", short_description: "Short description", long_description: "Long description", category: "Category",
     features: "Features", specifications: "Specifications", advantages: "Advantages", benefits: "Benefits",
     image_url: "Photo 1", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
-    shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
-  var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "is_active",
+    servings_per_pack: "Servings per pack", faq: "FAQ", shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
+  var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "servings_per_pack", "faq", "is_active",
     "weight_kg", "volume_slot", "shipping_qty", "length_cm", "width_cm", "height_cm"];
   /* What a revision changed against the one before it, as short phrases. No writer is named. */
   function changes(row, before) {
     if (!before) return ["Product added"];
     var out = [];
     ORDER.forEach(function (k) {
-      if (row[k] === before[k]) return;
+      if (row[k] === before[k] || (k === "faq" && JSON.stringify(row[k] || []) === JSON.stringify(before[k] || [])) || (k === "servings_per_pack" && (row[k] == null) === (before[k] == null) && row[k] == null)) return;
       var label = LABELS[k];
       if (k === "srp_centavos") out.push(label + " " + formatPeso(before[k]) + " to " + formatPeso(row[k]));
       else if (k === "earnings_rate") out.push(label + " " + rateToPercent(before[k]) + "% to " + rateToPercent(row[k]) + "%");
@@ -839,6 +839,7 @@
   /* The Description tab: key, label, hint and the longest text the API takes. */
   var TEXTS = [["short_description", "Short description", 500, 3], ["long_description", "Long description", 20000, 8], ["features", "Features", 5000, 6],
     ["specifications", "Specifications", 5000, 6], ["advantages", "Advantages", 5000, 6], ["benefits", "Benefits", 5000, 6]];
+  var FAQ_MAX = 10, FAQ_Q_MAX = 150, FAQ_A_MAX = 1000;
   var FEE_NOTE = "Estimated courier charge for one unit. The amount charged at checkout can differ, because it uses the buyer’s exact address and the order total, so treat this as a floor.";
 
   /* The five photo addresses, slot 1 first, "" where empty. An older API without image_urls gives the one image_url as slot 1. */
@@ -1044,6 +1045,9 @@
     var rateIn = input("text", p ? rateToPercent(p.earnings_rate) : "", { inputmode: "decimal", placeholder: "40" });
     var rateRow = row("earnings_rate", "Members discount (%)", rateIn, "Between 10 and 50.", group("%", rateIn));
     var r3 = pairOf("pr-pair"); r3.appendChild(srpRow); r3.appendChild(rateRow);
+    var servIn = input("text", p && p.servings_per_pack != null ? String(p.servings_per_pack) : "", { inputmode: "numeric", placeholder: "30", maxlength: "3" });
+    var servRow = row("servings_per_pack", "Servings per pack", servIn, "Shoppers see the price per serving.", group("#", servIn));
+    var r3b = pairOf("pr-pair"); r3b.appendChild(servRow);
     var calc = D.el("div", { "class": "pr-pcalc", "aria-live": "polite" });
     calc.appendChild(h("div", "pr-pcalc-t", "Members price per sale"));
     function calcLine(id, label, cls) {
@@ -1068,7 +1072,7 @@
     fields.srp_centavos.addEventListener("input", refresh);
     fields.earnings_rate.addEventListener("input", refresh);
     refresh();
-    c3.body.appendChild(r3); c3.body.appendChild(calc);
+    c3.body.appendChild(r3); c3.body.appendChild(r3b); c3.body.appendChild(calc);
 
     /* Shipping + Packaging & fee */
     var c5 = card("Shipping", "Measure the product boxed, exactly as it leaves your hands. These numbers set the courier fee. Optional for launch; length, width and height go together.", ICON.ship, "pr-s-shipping");
@@ -1140,7 +1144,59 @@
     panels.description = h("section", "pr-tabpanel");
     panels.description.setAttribute("role", "tabpanel"); panels.description.setAttribute("id", "pr-panel-description"); panels.description.setAttribute("aria-labelledby", "pr-tab-description");
     var saveDesc = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Description");
-    var descForm = null;
+    var descForm = null, faqItems = [];
+    /* The FAQ list: up to 10 question and answer pairs. Add, Remove and Move up or down redraw the list from faqItems, so what was typed stays. */
+    function faqEditor(saved) {
+      faqItems = (Array.isArray(saved) ? saved : []).slice(0, FAQ_MAX).map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
+      var wrap = h("div", "pr-field pr-faq");
+      wrap.appendChild(h("p", "pr-faq-title", "FAQ"));
+      wrap.appendChild(h("p", "pr-hint", "Questions shoppers often ask, shown under the product details. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end."));
+      var list = h("div", "pr-faq-list");
+      list.setAttribute("id", "pr-f-faq");
+      fields.faq = list;
+      wrap.appendChild(list);
+      var add = button("Add a question", "no-btn-ghost pr-faq-add", function () {
+        if (faqItems.length >= FAQ_MAX) return;
+        faqItems.push({ q: "", a: "" }); draw(faqItems.length - 1);
+      });
+      wrap.appendChild(add);
+      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-faq" });
+      err.hidden = true; errs.faq = err; wrap.appendChild(err);
+      list.setAttribute("aria-describedby", "pr-e-faq");
+      function counter(el, max) {
+        var c = h("span", "pr-faq-count", el.value.length + "/" + max);
+        el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
+        return c;
+      }
+      function draw(focusIdx) {
+        clear(list);
+        faqItems.forEach(function (it, i) {
+          var box = h("div", "pr-faq-item");
+          var q = D.el("input", { type: "text", "class": "pr-input pr-faq-q", id: "pr-faq-q-" + i, maxlength: String(FAQ_Q_MAX), autocomplete: "off", placeholder: "Question", "aria-label": "Question " + (i + 1) });
+          q.value = it.q;
+          q.addEventListener("input", function () { it.q = q.value; });
+          var a = D.el("textarea", { "class": "pr-input pr-area pr-faq-a", id: "pr-faq-a-" + i, rows: "3", maxlength: String(FAQ_A_MAX), placeholder: "Answer", "aria-label": "Answer " + (i + 1) });
+          a.value = it.a;
+          a.addEventListener("input", function () { it.a = a.value; });
+          box.appendChild(q); box.appendChild(counter(q, FAQ_Q_MAX));
+          box.appendChild(a); box.appendChild(counter(a, FAQ_A_MAX));
+          var tools = h("div", "pr-faq-tools");
+          var up = button("Move up", "no-btn-ghost pr-faq-up", function () { if (i > 0) { faqItems.splice(i - 1, 0, faqItems.splice(i, 1)[0]); draw(i - 1); } });
+          var down = button("Move down", "no-btn-ghost pr-faq-down", function () { if (i < faqItems.length - 1) { faqItems.splice(i + 1, 0, faqItems.splice(i, 1)[0]); draw(i + 1); } });
+          var rm = button("Remove", "no-btn-ghost pr-faq-rm", function () { faqItems.splice(i, 1); draw(Math.min(i, faqItems.length - 1)); });
+          up.disabled = i === 0; down.disabled = i === faqItems.length - 1;
+          up.setAttribute("aria-label", "Move question " + (i + 1) + " up"); down.setAttribute("aria-label", "Move question " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove question " + (i + 1));
+          tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
+          box.appendChild(tools);
+          list.appendChild(box);
+        });
+        add.disabled = faqItems.length >= FAQ_MAX;
+        add.textContent = faqItems.length >= FAQ_MAX ? "Limit reached (" + FAQ_MAX + ")" : "Add a question";
+        if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-faq-q-" + focusIdx); if (t && t.focus) t.focus(); }
+      }
+      draw();
+      return wrap;
+    }
     if (!adding) {
       descForm = D.el("form", { "class": "pr-tabform", novalidate: "" });
       var c6 = card("Description", "What shoppers read on the product page. Leave a box empty to show nothing for it.", ICON.text, "pr-s-description");
@@ -1154,6 +1210,7 @@
       var d1 = pairOf("pr-pair"); d1.appendChild(textRows.features); d1.appendChild(textRows.specifications);
       var d2 = pairOf("pr-pair"); d2.appendChild(textRows.advantages); d2.appendChild(textRows.benefits);
       c6.body.appendChild(d1); c6.body.appendChild(d2);
+      c6.body.appendChild(faqEditor(v.faq));
       var bar2 = h("div", "pr-abar");
       bar2.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
       bar2.appendChild(h("span", "pr-abar-sp"));
@@ -1205,6 +1262,7 @@
       var shown = false;
       Object.keys(e.fields).forEach(function (k) {
         if (errs[k]) { fieldError(k, e.fields[k]); shown = true; }
+        else if (k.indexOf("faq") === 0 && errs.faq) { fieldError("faq", e.fields[k]); shown = true; }
         else if (k === "file" || k === "revision" || k === "slot") { imgErr.textContent = e.fields[k]; imgErr.hidden = false; shown = true; }
       });
       if (e.kind === "fields" && shown) { topMessage(MSG.invalid); var first = f.querySelector("[aria-invalid='true']"); if (first && first.focus) first.focus(); return; }
@@ -1349,6 +1407,10 @@
       if (c == null) bad.srp_centavos = "Enter an SRP above ₱0, with up to two decimals."; else out.srp_centavos = c;
       var rate = percentToRate(read("earnings_rate"));
       if (!rate) bad.earnings_rate = "Enter a discount from 10 to 50."; else out.earnings_rate = rate;
+      var sv = read("servings_per_pack");
+      if (sv === "") { if (cur && cur.servings_per_pack != null) out.servings_per_pack = null; }
+      else if (!/^[1-9]\d{0,2}$/.test(sv)) bad.servings_per_pack = "Enter a whole number from 1 to 999, or leave it empty.";
+      else out.servings_per_pack = parseInt(sv, 10);
       out.category = fields.category.value;
       out.is_active = fields.is_active.checked;
       SHIPPING.forEach(function (s) {
@@ -1388,6 +1450,14 @@
       clearErrors();
       var out = {};
       TEXTS.forEach(function (t) { out[t[0]] = fields[t[0]].value.trim(); });
+      var faq = [], faqBad = false;
+      faqItems.forEach(function (it) {
+        var q = it.q.trim(), a = it.a.trim();
+        if (!q && !a) return;
+        if (!q || !a) faqBad = true; else faq.push({ q: q, a: a });
+      });
+      if (faqBad) { fieldError("faq", "Give each question an answer, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      out.faq = faq;
       busy(true, "description");
       updateProduct(out, "description");
     });
@@ -1439,7 +1509,8 @@
       var cur = S.editing, body = { revision: cur.revision }, n = 0;
       Object.keys(out).forEach(function (k) {
         var was = cur[k];
-        if (k === "shipping_qty") { if (was === out[k]) return; }
+        if (k === "shipping_qty" || k === "servings_per_pack") { if ((was == null ? null : was) === out[k]) return; }
+        else if (k === "faq") { if (JSON.stringify(Array.isArray(was) ? was : []) === JSON.stringify(out[k])) return; }
         else if (k === "is_active" || k === "srp_centavos") { if (was === out[k]) return; }
         else if (String(was == null ? "" : was) === String(out[k])) return;
         body[k] = out[k]; n++;

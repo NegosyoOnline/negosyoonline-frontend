@@ -1587,3 +1587,15 @@ body.sf-noscroll { overflow: hidden; }
 /* Skip to content: off-screen until it takes keyboard focus. */
 .sf-skip { position: absolute; left: 8px; top: -100px; z-index: 10000; background: #fff; color: #111; padding: 10px 16px; border-radius: 6px; font-weight: 600; text-decoration: none; }
 .sf-skip:focus, .sf-skip:focus-visible { top: 8px; }
+
+/* Product page, round 5: price per serving, Members row, trust strip under Add to Cart, product FAQs. */
+.sf-per-serving { font-size: 14px; font-weight: 600; color: var(--text-light); margin-left: 6px; }
+.sf-members-row { font-size: 15px; font-weight: 600; color: var(--green-dark); margin: -10px 0 18px; }
+.sf-members-row .sf-per-serving { margin-left: 2px; }
+.sf-trust-strip { list-style: none; margin: 20px 0 0; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; background: rgba(0,90,40,0.05); border: 1px solid var(--border); border-radius: 12px; }
+.sf-trust-strip li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+.sf-trust-strip svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; color: var(--green); }
+.sf-trust-strip a { color: var(--green-dark); font-weight: 600; text-decoration: underline; }
+.sf-faqs { margin-top: 34px; }
+.sf-faqs-title { font-size: 20px; font-weight: 700; color: var(--text); margin: 0 0 8px; }
+.sf-faqs .sf-accordion:first-of-type { border-top: 1px solid var(--border); }

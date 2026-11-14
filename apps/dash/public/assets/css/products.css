@@ -352,3 +352,11 @@ body.dash-app #view-products .pr-ig:focus-within .pr-ig-pre, body.dash-app #view
 body.dash-app #view-products .pr-ig .pr-input:focus { box-shadow: none; }
 /* The save bar sits at the bottom of the form, in the normal flow. */
 body.dash-app #view-products .pr-abar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); }
+
+/* Round 5: the FAQ editor on the Description tab. */
+body.dash-app #view-products .pr-faq-title { margin: 0 0 2px; font-size: 14px; font-weight: 600; color: var(--text); }
+body.dash-app #view-products .pr-faq-list { display: grid; gap: 12px; margin: 10px 0; }
+body.dash-app #view-products .pr-faq-item { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--bl-select-line); border-radius: 10px; background: var(--tile); }
+body.dash-app #view-products .pr-faq-count { justify-self: end; font-size: 12px; color: var(--meta); }
+body.dash-app #view-products .pr-faq-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+body.dash-app #view-products .pr-faq-tools .no-btn[disabled], body.dash-app #view-products .pr-faq-add[disabled] { opacity: .5; cursor: not-allowed; }

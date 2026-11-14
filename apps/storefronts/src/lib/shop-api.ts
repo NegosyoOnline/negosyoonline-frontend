@@ -25,7 +25,16 @@ export type CatalogProduct = {
   image_url: string; srp_centavos: number; unit_members_price_centavos: number; revision: number;
   /** The four detail texts and the five photo slots (slot 1 first, "" where empty). An older API without them gives empty ones. */
   features: string; specifications: string; advantages: string; benefits: string; image_urls: string[];
+  /** Servings per pack and the per-serving prices (centavos, computed by Django), null when unset; the product's FAQ pairs. An older API gives null and []. */
+  servings_per_pack?: number | null; price_per_serving_centavos?: number | null; members_price_per_serving_centavos?: number | null;
+  faq?: { q: string; a: string }[];
 };
+
+const nullInt = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.trunc(v) : null);
+
+function parseFaq(v: unknown): { q: string; a: string }[] {
+  return arr(v).flatMap((x) => (record(x) && str(x.q).trim() && str(x.a).trim() ? [{ q: str(x.q), a: str(x.a) }] : [])).slice(0, 10);
+}
 
 function parseProduct(v: unknown): CatalogProduct | null {
   if (!record(v) || typeof v.id !== "string" || typeof v.code !== "string" || typeof v.name !== "string" || typeof v.srp_centavos !== "number") return null;
@@ -34,6 +43,8 @@ function parseProduct(v: unknown): CatalogProduct | null {
     long_description: str(v.long_description), image_url: str(v.image_url), srp_centavos: int(v.srp_centavos),
     unit_members_price_centavos: int(v.unit_members_price_centavos), revision: int(v.revision),
     features: str(v.features), specifications: str(v.specifications), advantages: str(v.advantages), benefits: str(v.benefits),
+    servings_per_pack: nullInt(v.servings_per_pack), price_per_serving_centavos: nullInt(v.price_per_serving_centavos),
+    members_price_per_serving_centavos: nullInt(v.members_price_per_serving_centavos), faq: parseFaq(v.faq),
     image_urls: Array.from({ length: 5 }, (_, i) => str(arr(v.image_urls)[i]) || (i === 0 ? str(v.image_url) : "")),
   };
 }

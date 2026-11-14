@@ -67,7 +67,7 @@ function trust(): Markup {
 export function productContent(m: ProductModel): Markup {
   const p = m.product;
   const image = safeImage(p.image_url);
-  const photos = p.image_urls.map(safeImage);
+  const photos = p.image_urls.map((u) => safeImage(u));
   if (image && !photos[0]) photos[0] = image;
   const thumbs = photos.filter(Boolean);
   const fab = (kind: string, eyebrow: string, title: string, text: string, photo: string, cls: string): Markup =>

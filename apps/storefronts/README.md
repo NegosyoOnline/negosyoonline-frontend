@@ -50,6 +50,7 @@ Read on each request by `src/lib/env.ts`, on the server only. None is prefixed `
 | `STOREFRONT_SERVER_SECRET` | none | The one credential for the Django storefront surface; the same value as on the API. At least 32 characters. Unset or shorter: every page is the neutral 404 and Django is not called. |
 | `STOREFRONT_API_BASE` | `https://api-staging.negosyonline.com` | The API origin, so a deploy with no variables set never talks to production. |
 | `STOREFRONT_HOST_ALIASES` | unset | Local use only. `from=to` pairs, comma-separated: a request for host `from` is looked up as `to`. Leave unset on Vercel. |
+| `STOREFRONT_LOCAL_MEDIA_ORIGIN` | unset | **Local development only; never set on Vercel.** Exactly a loopback http origin with a port, `http://127.0.0.1:<port>` or `http://localhost:<port>`, no path (for example the local API's media stand-in, `http://127.0.0.1:8141`). When set and valid, product photos under that origin are shown and the origin is added to the CSP `img-src`. Unset, or any other value (https, another host, a path), is ignored and photos come only from `https://*.public.blob.vercel-storage.com`. Read when the server starts (the CSP is built then), so restart the dev server after changing it. |
 
 The secret is set by Coach Ed. It never goes in code, a test, a log line or a pull request. Local values live in `.env.local`, which is ignored.
 

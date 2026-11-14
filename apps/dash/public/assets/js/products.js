@@ -170,15 +170,6 @@
     if (p.weight_kg == null || p.shipping_qty == null) add("Shipping details");
     return out;
   }
-  /* Tile counts. They never sum: a live product can also be incomplete. Incomplete is the owner's only (ownerView). */
-  function counts(products, ownerView) {
-    var c = { all: products.length, live: 0, hidden: 0, incomplete: 0 };
-    products.forEach(function (p) {
-      if (p.is_active) c.live++; else c.hidden++;
-      if (ownerView && gaps(p).length) c.incomplete++;
-    });
-    return c;
-  }
   /* The rows the toolbar selects: search on name or code (case-insensitive), the status, the category. */
   function filterProducts(products, f, ownerView) {
     var q = String((f && f.q) || "").trim().toLowerCase(), st = (f && f.status) || "all", cat = (f && f.cat) || "all";
@@ -223,19 +214,11 @@
   }
 
   var PAGE = 20;
-  /* value, label, hint under the count, accent kind. The select shows "All status" for the first. */
-  var STATUS_OWNER = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"], ["hidden", "Hidden", "not in shops", "dr"], ["incomplete", "Incomplete", "missing details", "inc"]];
-  var STATUS_VIEW = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"]];
+  /* value, label. The select shows "All status" for the first. Incomplete is the owner's only. */
+  var STATUS_OWNER = [["all", "All"], ["live", "Live"], ["hidden", "Hidden"], ["incomplete", "Incomplete"]];
+  var STATUS_VIEW = [["all", "All"], ["live", "Live"]];
   function statuses() { return S.canEdit ? STATUS_OWNER : STATUS_VIEW; }
 
-  /* A header tile: label, big value, note (the Inventory page's order). */
-  function tile(count, label, note, cls) {
-    var t = h("div", "pr-tile " + (cls || ""));
-    t.appendChild(h("p", "pr-tile-label", label));
-    t.appendChild(h("p", "pr-tile-num", String(count)));
-    if (note) t.appendChild(h("p", "pr-tile-sub", note));
-    return t;
-  }
   function badge(text, kind, title) {
     var b = h("span", "pr-badge pr-b-" + kind, text);
     if (title) b.setAttribute("title", title);
@@ -313,8 +296,8 @@
     box.appendChild(thumb(p));
     var txt = h("div", "pr-prod-text");
     txt.appendChild(h("p", "pr-name", p.name));
-    txt.appendChild(h("p", "pr-code", p.code));
-    if (categoryLabel(p.category)) txt.appendChild(h("span", "pr-cat", categoryLabel(p.category)));
+    var catName = categoryLabel(p.category);
+    txt.appendChild(h("p", "pr-code", catName ? p.code + " (" + catName + ")" : p.code));
     box.appendChild(txt);
     c1.appendChild(box);
     tr.appendChild(c1);
@@ -349,39 +332,10 @@
     return { pages: pages, slice: rows.slice((S.view.page - 1) * PAGE, S.view.page * PAGE) };
   }
 
-  /* Redraw only the status strip and the results, so the search box keeps its focus while typing. */
+  /* Redraw only the results, so the search box keeps its focus while typing. */
   function refreshList() {
     var box = S.listBox, view = S.view;
     if (!box) return;
-    var c = counts(S.products, S.canEdit);
-    /* The masthead tiles read the same counts as the strip, so they are redrawn with it on every change. */
-    if (S.kpisBox) {
-      clear(S.kpisBox);
-      S.kpisBox.appendChild(tile(c.all, "Products in catalog", "in the shared catalog", "pr-hero-headline"));
-      var small = h("div", "pr-hero-tiles");
-      small.appendChild(tile(c.live, "Live on storefront", "shown in shops", "pr-hero-kpi"));
-      if (S.canEdit) {
-        small.appendChild(tile(c.hidden, "Hidden", "not in shops", "pr-hero-kpi"));
-        var fix = tile(c.incomplete, "Needs a fix", "missing details", "pr-hero-kpi is-action" + (c.incomplete ? " has-work" : ""));
-        if (c.incomplete) fix.firstChild.appendChild(h("span", "pr-hero-dot"));
-        small.appendChild(fix);
-      }
-      S.kpisBox.appendChild(small);
-    }
-    clear(S.stripBox);
-    statuses().forEach(function (s) {
-      var b = D.el("button", { type: "button", "class": "pr-stat pr-cell-" + s[3] + (view.status === s[0] ? " pr-stat-on" : "") });
-      b.addEventListener("click", function () {
-        view.status = s[0]; view.page = 1; view.menu = null;
-        if (S.statusSel) { S.statusSel.value = s[0]; syncCombo(S.statusSel); }
-        refreshList();
-      });
-      b.appendChild(h("span", "pr-stat-num", String(c[s[0]])));
-      b.appendChild(h("span", "pr-stat-label", s[1]));
-      b.appendChild(h("span", "pr-stat-hint", s[2]));
-      b.setAttribute("aria-pressed", view.status === s[0] ? "true" : "false");
-      S.stripBox.appendChild(b);
-    });
     clear(S.resultBox);
     var rows = filterProducts(S.products, view, S.canEdit);
     var pg = pageOf(rows);
@@ -539,7 +493,7 @@
     if (o.blankEmpty && select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent);
     input.value = chosen();
   }
-  /* Redraw a combo's box after the code set its select's value (a tile click, Clear filters). */
+  /* Redraw a combo's box after the code set its select's value (Clear filters). */
   function syncCombo(sel) { if (sel && sel.prSync) sel.prSync(); }
 
   function select(id, label, opts, value, onChange) {
@@ -564,30 +518,7 @@
     var view = S.view;
     var r = clear(pane());
     r.removeAttribute("aria-busy");
-    var c = counts(S.products, S.canEdit);
-
-    /* Masthead: the store, the page, and the catalog numbers (the Inventory page's blue hero). */
-    var name = S.siteName || "Santé store";
-    var hero = h("section", "pr-hero");
-    hero.setAttribute("aria-label", "Catalog summary");
-    var hid = h("div", "pr-hero-id");
-    hid.appendChild(h("div", "pr-hero-logo", name.charAt(0).toUpperCase()));
-    var main = h("div", "pr-hero-id-main");
-    main.appendChild(h("p", "pr-hero-eyebrow", "Santé store · " + name));
-    main.appendChild(h("p", "pr-hero-title", "The shared Santé catalog"));
-    main.appendChild(h("p", "pr-hero-sub", "One product list for every Santé store, with prices and storefront status"));
-    hid.appendChild(main);
-    hero.appendChild(hid);
-    S.kpisBox = h("div", "pr-hero-kpis");
-    hero.appendChild(S.kpisBox);
-    r.appendChild(hero);
-
     if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));
-
-    S.stripBox = h("div", "pr-strip");
-    S.stripBox.setAttribute("role", "group");
-    S.stripBox.setAttribute("aria-label", "Filter by status");
-    r.appendChild(S.stripBox);
 
     var bar = h("div", "pr-toolbar");
     var form = h("div", "pr-search-form");
@@ -834,8 +765,8 @@
 
   var SLOTS = 5;
   /* The shipping inputs, in the order the Shipping card shows them. Volume slot is not on the form: the API derives and stores it. */
-  var SHIPPING = [["length_cm", "Length (cm)"], ["width_cm", "Width (cm)"], ["height_cm", "Height (cm)"], ["weight_kg", "Actual weight (kg)"],
-    ["shipping_qty", "Units per shipping box"]];
+  var SHIPPING = [["length_cm", "Length", "cm", "0.00"], ["width_cm", "Width", "cm", "0.00"], ["height_cm", "Height", "cm", "0.00"],
+    ["weight_kg", "Actual weight", "kg", "0.00"], ["shipping_qty", "Units per shipping box", "pc(s)", "1"]];
   /* The Description tab: key, label, hint and the longest text the API takes. */
   var TEXTS = [["short_description", "Short description", 500, 3], ["long_description", "Long description", 20000, 8], ["features", "Features", 5000, 6],
     ["specifications", "Specifications", 5000, 6], ["advantages", "Advantages", 5000, 6], ["benefits", "Benefits", 5000, 6]];
@@ -950,6 +881,13 @@
       var g = h("div", "pr-ig");
       g.appendChild(h("span", "pr-ig-pre", prefix));
       g.appendChild(ctl);
+      return g;
+    }
+    /* The same joined box with the unit after the input ("cm", "kg", "pc(s)"). */
+    function suffixGroup(ctl, suffix) {
+      var g = h("div", "pr-ig pr-ig-suffixed");
+      g.appendChild(ctl);
+      g.appendChild(h("span", "pr-ig-suf", suffix));
       return g;
     }
     function read(name) { return fields[name].value.trim(); }
@@ -1079,7 +1017,8 @@
     var shipRows = {};
     SHIPPING.forEach(function (s) {
       var val = v[s[0]];
-      shipRows[s[0]] = row(s[0], s[1], input("text", val == null ? (s[0] === "weight_kg" && !p ? "0.00" : "") : String(val), { inputmode: "decimal" }));
+      var shipIn = input("text", val == null ? "" : String(val), { inputmode: s[0] === "shipping_qty" ? "numeric" : "decimal", placeholder: s[3] });
+      shipRows[s[0]] = row(s[0], s[1], shipIn, "", suffixGroup(shipIn, s[2]));
     });
     /* Length, Width, Height, Actual weight and Units per shipping box in one row on a wide screen; the row wraps on a phone. */
     var r5 = pairOf("pr-five"); ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { r5.appendChild(shipRows[k]); });
@@ -1594,11 +1533,6 @@
       }
       var ids = sites.map(function (s) { return s.id; });
       S.site = D.siteFromQuery(ids);
-      function nameOf(id) {
-        for (var i = 0; i < sites.length; i++) if (sites[i].id === id) return sites[i].display_name || sites[i].subdomain || "Santé store";
-        return "Santé store";
-      }
-      S.siteName = nameOf(S.site);
       clear(r);
       if (sites.length > 1) {
         var wrap = h("div", "pr-pick"), lab = D.el("label", { "for": "pr-site", "class": "pr-pick-label" }, "Store");
@@ -1611,7 +1545,6 @@
         sel.addEventListener("change", function () {
           if (ids.indexOf(sel.value) < 0) return;
           S.site = sel.value;
-          S.siteName = nameOf(S.site);
           S.view = newView();
           loadInto(inner);
         });
@@ -1642,7 +1575,7 @@
   window.NOProducts = {
     util: { pesosToCentavos: pesosToCentavos, formatPeso: formatPeso, centavosToField: centavosToField, percentToRate: percentToRate,
       rateToPercent: rateToPercent, membersPrice: membersPrice, describeError: describeError, changes: changes, categoryLabel: categoryLabel,
-      gaps: gaps, counts: counts, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText, moveId: moveId,
+      gaps: gaps, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText, moveId: moveId,
       imageUrls: imageUrls, previewBody: previewBody, feeModel: feeModel },
     show: function () {
       document.addEventListener("click", outside);

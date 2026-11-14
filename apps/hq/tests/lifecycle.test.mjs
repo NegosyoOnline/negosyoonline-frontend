@@ -798,23 +798,18 @@ test("Due for erasure has no Overdue column: overdue sits under the Due date, an
   assert.match(css, /\.lc-table td\.lc-wrap \{[^}]*min-width:\s*160px/);
 });
 
-test("the Lifecycle tab row matches the dash Settings tabs: scrolls instead of wrapping, one line, plain text tabs", () => {
+test("the Lifecycle tab row is the Finance section menu: set-tabs fin-sub, with the tab buttons styled like its links", () => {
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
-  const rule = (sel) => (css.match(new RegExp("^" + sel.replace(/[.*+?^${}()|[\]\\"=]/g, "\\$&") + " \\{([^}]*)\\}", "m")) || [])[1] || "";
-  const row = rule(".lc-tabs");
-  assert.match(row, /display:\s*flex/);
-  assert.match(row, /width:\s*fit-content/);
-  assert.match(row, /overflow-x:\s*auto/);
-  assert.match(row, /overflow-y:\s*hidden/);
-  assert.match(row, /scrollbar-width:\s*none/);
-  assert.match(row, /margin:\s*0 0 24px/);
-  assert.match(row, /border-bottom:\s*1px solid/);
-  assert.doesNotMatch(row, /flex-wrap/);
-  const tab = rule(".lc-tabs button");
+  assert.match(HTML, /<div class="set-tabs fin-sub" role="tablist"/);
+  assert.doesNotMatch(css, /\.lc-tabs/);
+  const line = (sel) => (css.split("\n").find((l) => l.startsWith(sel + " {")) || "");
+  const tab = line('body.dash-app .set-tabs [role="tab"]');
   assert.match(tab, /padding:\s*12px 16px/);
-  assert.match(tab, /border-bottom:\s*2px solid transparent/);
+  assert.match(tab, /border:\s*0;\s*border-bottom:\s*2px solid transparent/);
   assert.match(tab, /background:\s*none/);
+  assert.match(tab, /font:\s*inherit;\s*font-size:\s*15px;\s*font-weight:\s*600/);
   assert.match(tab, /white-space:\s*nowrap/);
-  assert.match(rule('.lc-tabs button[aria-selected="true"]'), /border-bottom-color:\s*var\(--primary/);
-  assert.match(rule(".lc-tabs button:focus-visible"), /outline:\s*2px solid/);
+  assert.match(tab, /cursor:\s*pointer/);
+  assert.match(line('body.dash-app .set-tabs [role="tab"][aria-selected="true"]'), /border-bottom-color:\s*var\(--primary/);
+  assert.match(line('body.dash-app .set-tabs [role="tab"]:focus-visible'), /outline:\s*2px solid var\(--link\)/);
 });

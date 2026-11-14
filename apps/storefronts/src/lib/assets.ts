@@ -7,18 +7,21 @@
    Only files a page links by name are listed. Images the stylesheets load (../img/...) are not. */
 
 const VERSIONS: Record<string, string> = {
-  "css/pack-home.css": "b95b223c",
-  "css/pack-storefront.css": "db148253",
+  "css/pack-home.css": "7bf002d3",
+  "css/pack-storefront.css": "e1b2e295",
   "js/pack-home.js": "db367a6b",
-  "js/pack-store.js": "6cc4f761",
+  "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
   "css/pack-landing.min.css": "e84ee767",
   "css/pack-footer.min.css": "717c64da",
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
+  "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "2a7b1304", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-member-bar.css": "6fb03fe0", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
   "js/pack-busy.js": "cd6351f6",

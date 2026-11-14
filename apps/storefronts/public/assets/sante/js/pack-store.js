@@ -71,6 +71,27 @@
     });
   }
 
+  // Gallery thumbnails: a click puts that photo in the main image (the merchant storefront.js thumb swap).
+  var main = document.getElementById('sfGalleryMain');
+  var thumbs = document.querySelectorAll('[data-sf-thumb]');
+  Array.prototype.forEach.call(thumbs, function (t) {
+    t.addEventListener('click', function () {
+      if (main) main.src = t.src;
+      Array.prototype.forEach.call(thumbs, function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+    });
+  });
+
+  // Product-page accordions (More Details, Specifications): each one opens and closes on its own; the header is a button and
+  // carries aria-expanded. The home page FAQ keeps its own one-open-at-a-time script (pack-home.js, [data-faq-toggle]).
+  document.addEventListener('click', function (e) {
+    var head = e.target.closest && e.target.closest('[data-sf-acc]');
+    if (!head) return;
+    var item = head.parentElement, on = !item.classList.contains('open');
+    item.classList.toggle('open', on);
+    head.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+
   var input = document.getElementById('sfQty');
   if (!input) return;
   function qty() { var q = parseInt(input.value, 10); if (isNaN(q) || q < 1) q = 1; return Math.min(99, q); }

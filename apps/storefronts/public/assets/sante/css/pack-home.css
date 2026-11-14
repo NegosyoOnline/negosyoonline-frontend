@@ -1720,7 +1720,7 @@
 
     .footer-top {
       display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
       gap: 40px;
       padding-bottom: 48px;
       border-bottom: 1px solid rgba(255,255,255,0.09);
@@ -1761,6 +1761,12 @@
     }
 
     .footer-links a:hover { color: #8CC63F; }
+
+    /* Company column: the store owner's own email, mobile and Facebook page, an icon beside each (as on the NegosyoOnline site footer). */
+    .footer-links.footer-contact { margin-top: 14px; }
+    .footer-contact a { display: flex; align-items: center; gap: 10px; }
+    .footer-contact svg { flex: none; width: 18px; height: 18px; color: rgba(255,255,255,0.75); }
+    .footer-contact span { min-width: 0; overflow-wrap: anywhere; }
 
     /* TWC-footer format: Legal is now its own nav column above (with
        Shop/Company/Support), so footer-bottom is just the centered
@@ -1804,6 +1810,7 @@
       .benefits-grid { grid-template-columns: repeat(3, 1fr); }
       .lookbook-grid { grid-template-columns: repeat(3, 1fr); }
       .footer-top { grid-template-columns: 1fr 1fr 1fr; }
+      .footer-top > :first-child { grid-column: 1 / -1; }
 
     }
 
@@ -1894,6 +1901,7 @@
       .lookbook-grid { grid-template-columns: repeat(2, 1fr); }
       .testimonials-grid { grid-template-columns: 1fr; }
       .footer-top { grid-template-columns: 1fr 1fr; }
+      .footer-top > :nth-child(2) { grid-column: 1 / -1; }
       /* let the disclaimer wrap on narrow screens rather than overflow —
          the "one line" ask was about the desktop layout in the mockup */
       .footer-disclaimer { white-space: normal; }
@@ -1964,6 +1972,7 @@
       .benefits-grid { grid-template-columns: 1fr; }
       .lookbook-grid { grid-template-columns: 1fr; }
       .footer-top { grid-template-columns: 1fr; }
+      .footer-top > :nth-child(2) { grid-column: auto; }
     }
 
     /* ── iPhone SE / short phones ── */

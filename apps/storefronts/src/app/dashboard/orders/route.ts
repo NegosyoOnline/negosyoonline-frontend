@@ -1,4 +1,4 @@
-/* My Orders, /dashboard/orders/. Signed out it goes to the store home; a rejected order locks the dashboard to Home. */
+/* Orders, /dashboard/orders/: the Santé Mobile App line. Signed out it goes to the store home; a rejected order sends it to My Purchases. */
 import { ordersPage } from "../../../lib/dashboard-flow.ts";
 import { dashGet } from "../../../lib/dashboard-route.ts";
 import { neutralNotFound } from "../../../views/neutral.ts";

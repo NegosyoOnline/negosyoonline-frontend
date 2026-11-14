@@ -92,7 +92,7 @@ function boot({ rows = ROWS, listStatus = 200, detail = DETAIL, proofStatus = 20
 test("the page: Orders has the three tabs, the review slot and no inline script; the old placeholder is gone", () => {
   const view = /<section class="view" id="view-orders"[\s\S]*?<\/section>\s*<section class="view" id="view-orders-new"/.exec(HTML)[0];
   assert.ok(view.includes('id="orders-tabs"'));
-  assert.deepEqual([...view.matchAll(/<a href="#" data-tab="(\w+)"[^>]*>([^<]+)<\/a>/g)].map((m) => [m[1], m[2]]), [["overview", "Overview"], ["product", "Product Orders"], ["pack", "Package Order"]]);
+  assert.deepEqual([...view.matchAll(/<a href="#" data-tab="(\w+)"[^>]*>([^<]+)<\/a>/g)].map((m) => [m[1], m[2]]), [["overview", "Overview"], ["product", "Product Orders"], ["pack", "Package Order"], ["registrations", "Registrations"]]);
   assert.ok(view.includes('id="h-orders"') && view.includes('id="po-body"') && view.includes('id="po-dlg-slot"'));
   assert.ok(!/not available yet/i.test(view), "the placeholder card is replaced");
   assert.ok(HTML.includes('/assets/css/pack-orders.css?v=') && HTML.includes('/assets/js/pack-orders.js?v='));

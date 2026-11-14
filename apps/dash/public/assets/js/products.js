@@ -1,7 +1,8 @@
 /* Products (/products/, ClickUp z8uq9mek5w, CAT-1): the shared Santé catalog.
-   The catalog owner's store lists, adds and edits products, uploads one image each and reads a product's history; every other
-   Santé store sees the same list read-only. Reads and writes GET and POST /sites/{id}/catalog/products/, PATCH .../{product}/,
-   POST and DELETE .../{product}/image/ and GET .../{product}/revisions/. The server decides who may write (can_edit), prices
+   The catalog owner's store lists, adds and edits products in a tabbed editor (Details, Description; TWCinc's product editor),
+   uploads up to five photos each and reads a product's history; every other Santé store sees the same list read-only. Reads and
+   writes GET and POST /sites/{id}/catalog/products/, PATCH .../{product}/, POST and DELETE .../{product}/image/?slot=N,
+   GET .../{product}/revisions/ and POST .../catalog/shipping-preview/ (the fee box, read-only). The server decides who may write (can_edit), prices
    and conflicts; the browser only shows them. Money is whole centavos; the earnings rate (the members discount) is sent as
    fixed text such as "0.4000". Plain ES5; API strings reach the page through textContent or D.el only; no storage key.
    NOProducts.util holds the pure helpers (tests/products.test.mjs). */
@@ -11,7 +12,9 @@
   var CATEGORIES = [["barley", "Barley"], ["drinks", "Specialty Drinks"], ["essentials", "Essentials"], ["beauty", "Beauty"]];
   var PRODUCT_RE = /^prod_[0-9A-Za-z]+$/;
   var IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-  var IMAGE_MAX = 2 * 1024 * 1024;
+  var IMAGE_MAX = 2 * 1024 * 1024; /* what the API stores: the cropped photo is checked against it */
+  var IMAGE_ORIGINAL_MAX = 10 * 1024 * 1024; /* every photo is cropped first, so the original may be larger than the stored photo */
+  var SEARCH_DELAY = 250; /* ms after the last keystroke before the table filters */
   var S = null; /* the screen's state: site, can_edit, products, mode, editing, history */
 
   var MSG = {
@@ -90,16 +93,26 @@
     return { kind: "other", message: typeof d.message === "string" && d.message ? d.message : MSG.generic, fields: {} };
   }
   var LABELS = { name: "Name", short_description: "Short description", long_description: "Long description", category: "Category",
-    image_url: "Image", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
-    shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
-  var ORDER = ["name", "short_description", "long_description", "category", "image_url", "srp_centavos", "earnings_rate", "is_active",
+    features: "Features", specifications: "Specifications", advantages: "Advantages", benefits: "Benefits",
+    image_url: "Photo 1", weight_kg: "Weight", srp_centavos: "Price (SRP)", earnings_rate: "Members rate", volume_slot: "Volume slot",
+    servings_per_pack: "Servings per pack", faq: "FAQ", ingredients: "Ingredients", shipping_qty: "Shipping quantity", length_cm: "Length", width_cm: "Width", height_cm: "Height", is_active: "Visibility" };
+  var ORDER = ["name", "short_description", "long_description", "features", "specifications", "advantages", "benefits", "category", "image_url", "srp_centavos", "earnings_rate", "servings_per_pack", "faq", "ingredients", "is_active",
     "weight_kg", "volume_slot", "shipping_qty", "length_cm", "width_cm", "height_cm"];
+  /* Two FAQ or ingredient lists compared by what is saved: an ingredient’s photo_url is output only, so it is left out. */
+  function sameList(k, a, b) {
+    function norm(list) {
+      return JSON.stringify((Array.isArray(list) ? list : []).map(function (x) {
+        return k === "ingredients" ? { name: x.name, line: x.line, photo_slot: x.photo_slot } : x;
+      }));
+    }
+    return norm(a) === norm(b);
+  }
   /* What a revision changed against the one before it, as short phrases. No writer is named. */
   function changes(row, before) {
     if (!before) return ["Product added"];
     var out = [];
     ORDER.forEach(function (k) {
-      if (row[k] === before[k]) return;
+      if (row[k] === before[k] || ((k === "faq" || k === "ingredients") && sameList(k, row[k], before[k])) || (k === "servings_per_pack" && (row[k] == null) === (before[k] == null) && row[k] == null)) return;
       var label = LABELS[k];
       if (k === "srp_centavos") out.push(label + " " + formatPeso(before[k]) + " to " + formatPeso(row[k]));
       else if (k === "earnings_rate") out.push(label + " " + rateToPercent(before[k]) + "% to " + rateToPercent(row[k]) + "%");
@@ -107,6 +120,10 @@
       else if (k === "category") out.push(label + " " + (categoryLabel(row[k]) || "none"));
       else out.push(label + " changed");
     });
+    for (var i = 1; i < 5; i++) {
+      var now = Array.isArray(row.image_urls) ? row.image_urls[i] : null, was = Array.isArray(before.image_urls) ? before.image_urls[i] : null;
+      if ((now || null) !== (was || null)) out.push("Photo " + (i + 1) + " changed");
+    }
     return out.length ? out : ["Saved with no changes"];
   }
   function stamp(iso) {
@@ -159,17 +176,8 @@
     if (!p.category) add("Category");
     if (!p.short_description || !p.long_description) add("Description");
     if (p.length_cm == null || p.width_cm == null || p.height_cm == null) add("Packed size");
-    if (p.volume_slot == null || p.shipping_qty == null) add("Shipping details");
+    if (p.weight_kg == null || p.shipping_qty == null) add("Shipping details");
     return out;
-  }
-  /* Tile counts. They never sum: a live product can also be incomplete. Incomplete is the owner's only (ownerView). */
-  function counts(products, ownerView) {
-    var c = { all: products.length, live: 0, hidden: 0, incomplete: 0 };
-    products.forEach(function (p) {
-      if (p.is_active) c.live++; else c.hidden++;
-      if (ownerView && gaps(p).length) c.incomplete++;
-    });
-    return c;
   }
   /* The rows the toolbar selects: search on name or code (case-insensitive), the status, the category. */
   function filterProducts(products, f, ownerView) {
@@ -215,19 +223,11 @@
   }
 
   var PAGE = 20;
-  /* value, label, hint under the count, accent kind. The select shows "All status" for the first. */
-  var STATUS_OWNER = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"], ["hidden", "Hidden", "not in shops", "dr"], ["incomplete", "Incomplete", "missing details", "inc"]];
-  var STATUS_VIEW = [["all", "All", "reset filters", "all"], ["live", "Live", "on storefront", "ok"]];
+  /* value, label. The select shows "All status" for the first. Incomplete is the owner's only. */
+  var STATUS_OWNER = [["all", "All"], ["live", "Live"], ["hidden", "Hidden"], ["incomplete", "Incomplete"]];
+  var STATUS_VIEW = [["all", "All"], ["live", "Live"]];
   function statuses() { return S.canEdit ? STATUS_OWNER : STATUS_VIEW; }
 
-  /* A header tile: label, big value, note (the Inventory page's order). */
-  function tile(count, label, note, cls) {
-    var t = h("div", "pr-tile " + (cls || ""));
-    t.appendChild(h("p", "pr-tile-label", label));
-    t.appendChild(h("p", "pr-tile-num", String(count)));
-    if (note) t.appendChild(h("p", "pr-tile-sub", note));
-    return t;
-  }
   function badge(text, kind, title) {
     var b = h("span", "pr-badge pr-b-" + kind, text);
     if (title) b.setAttribute("title", title);
@@ -291,6 +291,8 @@
       m.appendChild(h("div", "pr-menu-sep"));
       m.appendChild(item("History", "pr-hist", function () { S.view.menu = null; openHistory(p); }));
       m.appendChild(h("div", "pr-menu-sep"));
+      m.appendChild(item("Reviews", "pr-reviews", function () { S.view.menu = null; openReviews(p); }));
+      m.appendChild(h("div", "pr-menu-sep"));
       m.appendChild(item(p.is_active ? "Hide from shops" : "Show in shops", "pr-toggle", function () { S.view.menu = null; toggleActive(p); }));
       m.addEventListener("keydown", function (ev) { if (ev && ev.key === "Escape") { S.view.menu = null; refreshList(); var mb = S.listBox && S.listBox.querySelector(".pr-manage"); if (mb && mb.focus) mb.focus(); } });
       wrap.appendChild(m);
@@ -305,8 +307,8 @@
     box.appendChild(thumb(p));
     var txt = h("div", "pr-prod-text");
     txt.appendChild(h("p", "pr-name", p.name));
-    txt.appendChild(h("p", "pr-code", p.code));
-    if (categoryLabel(p.category)) txt.appendChild(h("span", "pr-cat", categoryLabel(p.category)));
+    var catName = categoryLabel(p.category);
+    txt.appendChild(h("p", "pr-code", catName ? p.code + " (" + catName + ")" : p.code));
     box.appendChild(txt);
     c1.appendChild(box);
     tr.appendChild(c1);
@@ -341,39 +343,10 @@
     return { pages: pages, slice: rows.slice((S.view.page - 1) * PAGE, S.view.page * PAGE) };
   }
 
-  /* Redraw only the status strip and the results, so the search box keeps its focus while typing. */
+  /* Redraw only the results, so the search box keeps its focus while typing. */
   function refreshList() {
     var box = S.listBox, view = S.view;
     if (!box) return;
-    var c = counts(S.products, S.canEdit);
-    /* The masthead tiles read the same counts as the strip, so they are redrawn with it on every change. */
-    if (S.kpisBox) {
-      clear(S.kpisBox);
-      S.kpisBox.appendChild(tile(c.all, "Products in catalog", "in the shared catalog", "pr-hero-headline"));
-      var small = h("div", "pr-hero-tiles");
-      small.appendChild(tile(c.live, "Live on storefront", "shown in shops", "pr-hero-kpi"));
-      if (S.canEdit) {
-        small.appendChild(tile(c.hidden, "Hidden", "not in shops", "pr-hero-kpi"));
-        var fix = tile(c.incomplete, "Needs a fix", "missing details", "pr-hero-kpi is-action" + (c.incomplete ? " has-work" : ""));
-        if (c.incomplete) fix.firstChild.appendChild(h("span", "pr-hero-dot"));
-        small.appendChild(fix);
-      }
-      S.kpisBox.appendChild(small);
-    }
-    clear(S.stripBox);
-    statuses().forEach(function (s) {
-      var b = D.el("button", { type: "button", "class": "pr-stat pr-cell-" + s[3] + (view.status === s[0] ? " pr-stat-on" : "") });
-      b.addEventListener("click", function () {
-        view.status = s[0]; view.page = 1; view.menu = null;
-        if (S.statusSel) S.statusSel.value = s[0];
-        refreshList();
-      });
-      b.appendChild(h("span", "pr-stat-num", String(c[s[0]])));
-      b.appendChild(h("span", "pr-stat-label", s[1]));
-      b.appendChild(h("span", "pr-stat-hint", s[2]));
-      b.setAttribute("aria-pressed", view.status === s[0] ? "true" : "false");
-      S.stripBox.appendChild(b);
-    });
     clear(S.resultBox);
     var rows = filterProducts(S.products, view, S.canEdit);
     var pg = pageOf(rows);
@@ -395,8 +368,11 @@
       } else {
         ec.appendChild(h("span", "pr-empty-title", "No products match these filters."));
         ec.appendChild(button("Clear filters", "no-btn-ghost pr-clear", function () {
+          clearTimeout(S.searchTimer);
           view.q = ""; view.status = "all"; view.cat = "all"; view.page = 1;
-          if (S.searchIn) S.searchIn.value = ""; if (S.statusSel) S.statusSel.value = "all"; if (S.catSel) S.catSel.value = "all";
+          if (S.searchIn) S.searchIn.value = "";
+          if (S.statusSel) { S.statusSel.value = "all"; syncCombo(S.statusSel); }
+          if (S.catSel) { S.catSel.value = "all"; syncCombo(S.catSel); }
           refreshList();
         }));
       }
@@ -443,6 +419,94 @@
     refreshList();
   }
 
+  /* The house dropdown, mirrored from payments.js combo() (the pm-combo on Payments settings): the same box, panel below it
+     and typing filter, in the dash colours and with textContent only. The native select stays in the page, hidden, with its
+     id and as the source of truth, so the form code and the tests read and set it unchanged. Differences from payments.js:
+     every option is listed, the empty one too ("No category", "All status"), so a chosen value can be un-picked; the box shows
+     the chosen option's text; and select.prSync() redraws the box after the code sets select.value. */
+  function combo(select, label, o) {
+    o = o || {};
+    var wrap = h("div", "pr-combo"), box = h("div", "pr-combo-box"), panel = h("div", "pr-combo-panel"), rows = [], active = -1;
+    var input = D.el("input", { "class": "pr-combo-input", type: "text", role: "combobox", autocomplete: "off", spellcheck: "false", "aria-label": label, "aria-autocomplete": "list", "aria-expanded": "false", "aria-controls": select.id + "-list" });
+    if (o.describedby) input.setAttribute("aria-describedby", o.describedby);
+    panel.setAttribute("id", select.id + "-list"); panel.setAttribute("role", "listbox");
+    select.parentNode.insertBefore(wrap, select);
+    select.classList.add("pr-combo-native"); select.setAttribute("tabindex", "-1"); select.setAttribute("aria-hidden", "true");
+    wrap.appendChild(select); box.appendChild(input); box.appendChild(h("span", "pr-combo-caret")); wrap.appendChild(box); wrap.appendChild(panel);
+    function opts() { return Array.prototype.slice.call(select.children); }
+    /* With o.blankEmpty the empty option is not typed into the box: the box stays empty and shows that option's text as its
+       placeholder, so there is nothing to delete before choosing; the full list still opens (draw("") lists every option). */
+    function chosen() {
+      var all = opts(), t = all.length ? all[0].textContent : "";
+      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) { t = all[i].textContent; if (o.blankEmpty && all[i].value === "") t = ""; break; }
+      if (o.blankEmpty && all.length && all[0].value === "" && !all.some(function (x) { return x.value === select.value; })) t = "";
+      return t;
+    }
+    function isOpen() { return wrap.classList.contains("is-open"); }
+    function mark(i) {
+      active = i;
+      rows.forEach(function (r, n) { r.classList.toggle("is-active", n === i); });
+      if (i >= 0) input.setAttribute("aria-activedescendant", rows[i].id); else input.removeAttribute("aria-activedescendant");
+    }
+    function announce() {
+      if (typeof Event === "function" && select.dispatchEvent) select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    function draw(q) {
+      clear(panel); rows = [];
+      opts().forEach(function (op) {
+        if (q && op.textContent.toLowerCase().indexOf(q) < 0) return;
+        var on = op.value === select.value;
+        var row = h("div", "pr-combo-opt" + (on ? " is-selected" : ""), op.textContent);
+        row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(on));
+        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); });
+        rows.push(row); panel.appendChild(row);
+      });
+      if (!rows.length) panel.appendChild(h("div", "pr-combo-opt is-disabled", "No matches"));
+      mark(-1);
+    }
+    /* Fixed, so the page's scrolling cannot clip it; opens upward only when there is no room below. */
+    function place() {
+      if (!box.getBoundingClientRect) return;
+      var r = box.getBoundingClientRect(), below = window.innerHeight - r.bottom, up = below < 160 && r.top > below;
+      panel.style.left = r.left + "px"; panel.style.width = r.width + "px";
+      panel.style.maxHeight = Math.max(120, Math.min(320, (up ? r.top : below) - 16)) + "px";
+      panel.style.top = up ? "auto" : (r.bottom + 6) + "px";
+      panel.style.bottom = up ? (window.innerHeight - r.top + 6) + "px" : "auto";
+    }
+    function onScroll(e) { if (!panel.contains || !panel.contains(e.target)) shut(); }
+    function onDoc(e) { if (!wrap.contains || !wrap.contains(e.target)) shut(); }
+    function show() {
+      if (isOpen()) return;
+      wrap.classList.add("is-open"); input.setAttribute("aria-expanded", "true");
+      draw(""); place();
+      window.addEventListener("resize", place); document.addEventListener("scroll", onScroll, true); document.addEventListener("click", onDoc);
+    }
+    function shut() {
+      wrap.classList.remove("is-open"); input.setAttribute("aria-expanded", "false"); input.value = chosen(); mark(-1);
+      window.removeEventListener("resize", place); document.removeEventListener("scroll", onScroll, true); document.removeEventListener("click", onDoc);
+    }
+    box.addEventListener("click", function () { show(); input.focus(); });
+    select.addEventListener("focus", function () { input.focus(); }); /* a label click or a server error lands on the native select */
+    select.addEventListener("change", function () { input.value = chosen(); });
+    select.prSync = function () { input.value = chosen(); };
+    input.addEventListener("focus", function () { if (input.select) input.select(); });
+    input.addEventListener("input", function () { show(); draw(input.value.trim().toLowerCase()); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Tab") { shut(); return; }
+      if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); shut(); return; } /* the popup stays open */
+      if (e.key === "Enter") { e.preventDefault(); if (active >= 0) rows[active].fire ? rows[active].fire("click") : rows[active].click(); else show(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      if (!isOpen()) { show(); return; }
+      var d = e.key === "ArrowDown" ? 1 : -1, n = rows.length;
+      if (n) mark(active < 0 ? (d > 0 ? 0 : n - 1) : (active + d + n) % n);
+    });
+    if (o.blankEmpty && select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent);
+    input.value = chosen();
+  }
+  /* Redraw a combo's box after the code set its select's value (Clear filters). */
+  function syncCombo(sel) { if (sel && sel.prSync) sel.prSync(); }
+
   function select(id, label, opts, value, onChange) {
     var wrap = h("div", "pr-tool");
     wrap.appendChild(D.el("label", { "for": id, "class": "pr-sr" }, label));
@@ -451,11 +515,13 @@
     sel.value = value;
     sel.addEventListener("change", function () { onChange(sel.value); });
     wrap.appendChild(sel);
+    combo(sel, label);
     return { wrap: wrap, sel: sel };
   }
 
   function listView() {
     stopDrag();
+    if (S.searchTimer) clearTimeout(S.searchTimer);
     S.arrange = null;
     S.mode = "list";
     if (!S.view) S.view = newView();
@@ -463,49 +529,34 @@
     var view = S.view;
     var r = clear(pane());
     r.removeAttribute("aria-busy");
-    var c = counts(S.products, S.canEdit);
-
-    /* Masthead: the store, the page, and the catalog numbers (the Inventory page's blue hero). */
-    var name = S.siteName || "Santé store";
-    var hero = h("section", "pr-hero");
-    hero.setAttribute("aria-label", "Catalog summary");
-    var hid = h("div", "pr-hero-id");
-    hid.appendChild(h("div", "pr-hero-logo", name.charAt(0).toUpperCase()));
-    var main = h("div", "pr-hero-id-main");
-    main.appendChild(h("p", "pr-hero-eyebrow", "Santé store · " + name));
-    main.appendChild(h("p", "pr-hero-title", "The shared Santé catalog"));
-    main.appendChild(h("p", "pr-hero-sub", "One product list for every Santé store, with prices and storefront status"));
-    hid.appendChild(main);
-    hero.appendChild(hid);
-    S.kpisBox = h("div", "pr-hero-kpis");
-    hero.appendChild(S.kpisBox);
-    r.appendChild(hero);
-
     if (!S.canEdit) r.appendChild(h("p", "pr-note", "Santé products are managed centrally, so this list is read-only for your store."));
-
-    S.stripBox = h("div", "pr-strip");
-    S.stripBox.setAttribute("role", "group");
-    S.stripBox.setAttribute("aria-label", "Filter by status");
-    r.appendChild(S.stripBox);
 
     var bar = h("div", "pr-toolbar");
     var form = h("div", "pr-search-form");
     form.setAttribute("role", "search");
     var sw = h("div", "pr-tool pr-tool-search");
     sw.appendChild(D.el("label", { "for": "pr-search", "class": "pr-sr" }, "Search product name or code"));
-    var q = D.el("input", { id: "pr-search", type: "search", "class": "pr-input pr-search-input", placeholder: "Search product name or code", autocomplete: "off" });
+    /* The dash quick-links search box: the magnifier inside, a light-blue border on focus. No button: the table filters a moment
+       after the last keystroke, and at once on Enter. */
+    var qbox = h("div", "pr-qs");
+    var mag = icon("M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-3.5-3.5");
+    qbox.appendChild(mag);
+    var q = D.el("input", { id: "pr-search", type: "text", "class": "pr-qs-input pr-search-input", placeholder: "Search product name or code", autocomplete: "off", spellcheck: "false", enterkeyhint: "search" });
     q.value = view.q;
-    q.addEventListener("input", function () { view.q = q.value; view.page = 1; view.menu = null; refreshList(); });
-    sw.appendChild(q);
+    function applySearch() { clearTimeout(S.searchTimer); view.q = q.value; view.page = 1; view.menu = null; refreshList(); }
+    q.addEventListener("input", function () { clearTimeout(S.searchTimer); S.searchTimer = setTimeout(applySearch, SEARCH_DELAY); });
+    q.addEventListener("keydown", function (e) { if (e && e.key === "Enter") { if (e.preventDefault) e.preventDefault(); applySearch(); } });
+    qbox.appendChild(q);
+    sw.appendChild(qbox);
     form.appendChild(sw);
     var statusOpts = statuses().map(function (s, i) { return [s[0], i ? s[1] : "All status"]; });
     var st = select("pr-status", "Status", statusOpts, view.status, function (v) { view.status = v; view.page = 1; view.menu = null; refreshList(); });
     form.appendChild(st.wrap);
     var ct = select("pr-category", "Category", [["all", "All categories"]].concat(CATEGORIES), view.cat, function (v) { view.cat = v; view.page = 1; view.menu = null; refreshList(); });
     form.appendChild(ct.wrap);
-    form.appendChild(button("Search", "no-btn-ghost pr-search-btn", function () { view.q = q.value; view.page = 1; view.menu = null; refreshList(); }));
     bar.appendChild(form);
     if (S.canEdit) bar.appendChild(button("⇅ Arrange", "no-btn-ghost pr-arrange", function () { arrangeView(); }));
+    if (S.canEdit) bar.appendChild(button("Category FAQs", "no-btn-ghost pr-catfaq", function () { categoryFaqView(); }));
     bar.appendChild(button("Export CSV", "no-btn-ghost pr-export", function () {
       var rows = filterProducts(S.products, view, S.canEdit);
       if (!rows.length) { D.toast("Nothing to export", "No products match the filters.", "error"); return; }
@@ -722,38 +773,295 @@
     });
   }
 
+  /* ---------- category FAQs (owner only) ---------- */
+
+  /* Each category has its own general FAQs, GET and PUT .../catalog/categories/{category}/faq/ ({faq: [{q, a}]}, the whole list each time,
+     [] clears it). The product page shows a product's own FAQs first, then its category's. The panel opens from the toolbar, picks the
+     category in the house dropdown and uses the product FAQ editor. The server decides who may write; a store that cannot edit never
+     sees the button. */
+  function categoryFaqPath(cat) { return "/sites/" + S.site + "/catalog/categories/" + cat + "/faq/"; }
+  /* The typed pairs as the API takes them: both boxes filled, empty pairs dropped. bad is true when one box of a pair is empty. */
+  function faqFromItems(items) {
+    var faq = [], bad = false;
+    items.forEach(function (it) {
+      var q = it.q.trim(), a = it.a.trim();
+      if (!q && !a) return;
+      if (!q || !a) bad = true; else faq.push({ q: q, a: a });
+    });
+    return { faq: faq, bad: bad };
+  }
+  function categoryFaqView(startCat) {
+    if (!S.canEdit) return;
+    S.mode = "catfaq";
+    var mine = ++token, seq = 0;
+    var r = clear(pane());
+    r.removeAttribute("aria-busy");
+    var cat = startCat || CATEGORIES[0][0], saved = null, ed = null, busyOn = false, errs = {}, fields = {};
+    var head = h("div", "pr-formhead");
+    head.appendChild(button("Back to products", "no-btn-ghost pr-cf-back", function () { token++; loadList(); }));
+    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, "Category FAQs");
+    head.appendChild(title);
+    r.appendChild(head);
+    var wrap = h("div", "pr-form pr-cf");
+    var top = D.el("div", { "class": "pr-topmsg", role: "alert" });
+    top.hidden = true;
+    wrap.appendChild(top);
+    wrap.appendChild(h("p", "pr-hint pr-cf-lead", "General questions for every product in a category. A product page shows the product’s own FAQs first, then its category’s, under one FAQs heading."));
+    var pick = h("div", "pr-field pr-cf-pick");
+    pick.appendChild(D.el("label", { "for": "pr-cf-category" }, "Category"));
+    var sel = D.el("select", { id: "pr-cf-category", "class": "pr-input" });
+    CATEGORIES.forEach(function (c) { sel.appendChild(D.el("option", { value: c[0] }, c[1])); });
+    sel.value = cat;
+    pick.appendChild(sel);
+    combo(sel, "Category");
+    wrap.appendChild(pick);
+    var form = D.el("form", { "class": "pr-tabform", novalidate: "" });
+    var body = h("div", "pr-cf-body");
+    var save = D.el("button", { type: "submit", "class": "no-btn no-btn-primary pr-cf-save" }, "Save category FAQs");
+    save.disabled = true;
+    var bar = h("div", "pr-abar");
+    bar.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
+    bar.appendChild(h("span", "pr-abar-sp"));
+    bar.appendChild(save);
+    form.appendChild(body); form.appendChild(bar);
+    wrap.appendChild(form);
+    r.appendChild(wrap);
+
+    function topMessage(text) {
+      clear(top); top.hidden = !text;
+      if (!text) return;
+      top.appendChild(h("p", "pr-error", text));
+      say(text);
+    }
+    function faqError(text) {
+      var e = errs.faq, c = fields.faq;
+      if (!e) return;
+      e.textContent = text || ""; e.hidden = !text;
+      if (c) { if (text) c.setAttribute("aria-invalid", "true"); else c.removeAttribute("aria-invalid"); }
+    }
+    function dirty() {
+      if (!ed || !saved) return false;
+      return JSON.stringify(faqFromItems(ed.items).faq) !== JSON.stringify(saved);
+    }
+    function draw(list) {
+      saved = list.map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
+      errs = {}; fields = {};
+      var name = categoryLabel(cat);
+      ed = makeFaqEditor(saved, fields, errs, { title: name + " FAQs", hint: "Shown on every " + name + " product page, after the product’s own FAQs. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end." });
+      clear(body).appendChild(ed.wrap);
+      save.disabled = false;
+    }
+    function load(c) {
+      var mySeq = ++seq;
+      cat = c; ed = null; saved = null; save.disabled = true;
+      topMessage("");
+      clear(body).appendChild(h("p", "pr-meta", "Loading…"));
+      D.call("GET", categoryFaqPath(c), null, true).then(function (res) {
+        if (mine !== token || mySeq !== seq || res.status === 401) return;
+        var d = res.data;
+        if (!res.ok || !d || !Array.isArray(d.faq)) {
+          clear(body).appendChild(failBox("We couldn’t load the FAQs for " + categoryLabel(c) + ". Try again.", function () { load(c); }));
+          return;
+        }
+        draw(d.faq);
+      });
+    }
+    sel.addEventListener("change", function () {
+      if (sel.value === cat) return;
+      if (dirty()) {
+        sel.value = cat; syncCombo(sel);
+        topMessage("You have unsaved changes. Save them first, or press Back to products to discard them.");
+        return;
+      }
+      load(sel.value);
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (busyOn || !ed) return;
+      topMessage(""); faqError("");
+      var g = faqFromItems(ed.items);
+      if (g.bad) { faqError("Give each question an answer, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      busyOn = true; save.disabled = true; save.textContent = "Saving…"; wrap.setAttribute("aria-busy", "true");
+      var c = cat;
+      D.call("PUT", categoryFaqPath(c), { faq: g.faq }, true).then(function (res) {
+        if (mine !== token || res.status === 401) return;
+        busyOn = false; save.disabled = false; save.textContent = "Save category FAQs"; wrap.removeAttribute("aria-busy");
+        if (res.ok && res.data && Array.isArray(res.data.faq)) {
+          draw(res.data.faq);
+          D.toast("Saved", categoryLabel(c) + " FAQs are saved.");
+          say("Saved.");
+          return;
+        }
+        var er = describeError(res);
+        if (er.fields.faq || Object.keys(er.fields).some(function (k) { return k.indexOf("faq") === 0; })) {
+          var k0 = Object.keys(er.fields).filter(function (k) { return k.indexOf("faq") === 0; })[0];
+          faqError(er.fields[k0]); topMessage(MSG.invalid);
+          return;
+        }
+        topMessage(er.message);
+      });
+    });
+    title.focus();
+    load(cat);
+  }
+
   /* ---------- form ---------- */
 
-  var SHIPPING = [["weight_kg", "Weight (kg)", "0.00"], ["volume_slot", "Volume slot", ""], ["shipping_qty", "Shipping quantity", ""],
-    ["length_cm", "Length (cm)", ""], ["width_cm", "Width (cm)", ""], ["height_cm", "Height (cm)", ""]];
+  /* The FAQ list: up to 10 question and answer pairs. Add, Remove and Move up or down redraw the list from the items, so what was typed stays.
+     The product editor and the Category FAQs panel both use it; fields and errs are the caller’s maps (the list and its error line go in as faq). */
+  function makeFaqEditor(saved, fields, errs, o) {
+    var faqItems = (Array.isArray(saved) ? saved : []).slice(0, FAQ_MAX).map(function (x) { return { q: String(x && x.q || ""), a: String(x && x.a || "") }; });
+    var wrap = h("div", "pr-field pr-faq");
+    wrap.appendChild(h("p", "pr-faq-title", o.title));
+    wrap.appendChild(h("p", "pr-hint", o.hint));
+    var list = h("div", "pr-faq-list");
+    list.setAttribute("id", "pr-f-faq");
+    fields.faq = list;
+    wrap.appendChild(list);
+    var add = button("Add a question", "no-btn-ghost pr-faq-add", function () {
+      if (faqItems.length >= FAQ_MAX) return;
+      faqItems.push({ q: "", a: "" }); draw(faqItems.length - 1);
+    });
+    wrap.appendChild(add);
+    var err = D.el("p", { "class": "pr-ferr", id: "pr-e-faq" });
+    err.hidden = true; errs.faq = err; wrap.appendChild(err);
+    list.setAttribute("aria-describedby", "pr-e-faq");
+    function counter(el, max) {
+      var c = h("span", "pr-faq-count", el.value.length + "/" + max);
+      el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
+      return c;
+    }
+    function draw(focusIdx) {
+      clear(list);
+      faqItems.forEach(function (it, i) {
+        var box = h("div", "pr-faq-item");
+        var q = D.el("input", { type: "text", "class": "pr-input pr-faq-q", id: "pr-faq-q-" + i, maxlength: String(FAQ_Q_MAX), autocomplete: "off", placeholder: "Question", "aria-label": "Question " + (i + 1) });
+        q.value = it.q;
+        q.addEventListener("input", function () { it.q = q.value; });
+        var a = D.el("textarea", { "class": "pr-input pr-area pr-faq-a", id: "pr-faq-a-" + i, rows: "3", maxlength: String(FAQ_A_MAX), placeholder: "Answer", "aria-label": "Answer " + (i + 1) });
+        a.value = it.a;
+        a.addEventListener("input", function () { it.a = a.value; });
+        box.appendChild(q); box.appendChild(counter(q, FAQ_Q_MAX));
+        box.appendChild(a); box.appendChild(counter(a, FAQ_A_MAX));
+        var tools = h("div", "pr-faq-tools");
+        var up = button("Move up", "no-btn-ghost pr-faq-up", function () { if (i > 0) { faqItems.splice(i - 1, 0, faqItems.splice(i, 1)[0]); draw(i - 1); } });
+        var down = button("Move down", "no-btn-ghost pr-faq-down", function () { if (i < faqItems.length - 1) { faqItems.splice(i + 1, 0, faqItems.splice(i, 1)[0]); draw(i + 1); } });
+        var rm = button("Remove", "no-btn-ghost pr-faq-rm", function () { faqItems.splice(i, 1); draw(Math.min(i, faqItems.length - 1)); });
+        up.disabled = i === 0; down.disabled = i === faqItems.length - 1;
+        up.setAttribute("aria-label", "Move question " + (i + 1) + " up"); down.setAttribute("aria-label", "Move question " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove question " + (i + 1));
+        tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
+        box.appendChild(tools);
+        list.appendChild(box);
+      });
+      add.disabled = faqItems.length >= FAQ_MAX;
+      add.textContent = faqItems.length >= FAQ_MAX ? "Limit reached (" + FAQ_MAX + ")" : "Add a question";
+      if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-faq-q-" + focusIdx); if (t && t.focus) t.focus(); }
+    }
+    draw();
+    return { wrap: wrap, items: faqItems };
+  }
 
-  function openForm(p) {
+  var SLOTS = 5;
+  /* The shipping inputs, in the order the Shipping card shows them. Volume slot is not on the form: the API derives and stores it. */
+  var SHIPPING = [["length_cm", "Length", "cm", "0.00"], ["width_cm", "Width", "cm", "0.00"], ["height_cm", "Height", "cm", "0.00"],
+    ["weight_kg", "Actual weight", "kg", "0.00"], ["shipping_qty", "Units per shipping box", "pc(s)", "1"]];
+  /* The Description tab: key, label, hint and the longest text the API takes. */
+  var TEXTS = [["short_description", "Short description", 500, 3], ["long_description", "Long description", 20000, 8], ["features", "Features", 5000, 6],
+    ["specifications", "Specifications", 5000, 6], ["advantages", "Advantages", 5000, 6], ["benefits", "Benefits", 5000, 6]];
+  var FAQ_MAX = 10, FAQ_Q_MAX = 150, FAQ_A_MAX = 1000;
+  var ING_MAX = 8, ING_NAME_MAX = 60, ING_LINE_MAX = 200;
+  var FEE_NOTE = "Estimated courier charge for one unit. The amount charged at checkout can differ, because it uses the buyer’s exact address and the order total, so treat this as a floor.";
+
+  /* The five photo addresses, slot 1 first, "" where empty. An older API without image_urls gives the one image_url as slot 1. */
+  function imageUrls(p) {
+    var list = p && Array.isArray(p.image_urls) ? p.image_urls : [], out = [];
+    for (var i = 0; i < SLOTS; i++) out.push(safeImage(list[i]) || (i === 0 && !list.length ? safeImage(p && p.image_url) : ""));
+    return out;
+  }
+  /* The shipping preview's body from the typed values, or why it cannot be asked yet: the three sizes go together, then the weight. */
+  function previewBody(v) {
+    var dec = /^\d{1,4}(?:\.\d{1,2})?$/;
+    function pos(t) { return dec.test(t) && parseFloat(t) > 0; }
+    var sizes = ["length_cm", "width_cm", "height_cm"].filter(function (k) { return pos(String(v[k] || "").trim()); });
+    if (sizes.length < 3) return { body: null, why: "sizes" };
+    if (!pos(String(v.weight_kg || "").trim())) return { body: null, why: "weight" };
+    var q = String(v.shipping_qty || "").trim();
+    return { body: { weight_kg: String(v.weight_kg).trim(), length_cm: String(v.length_cm).trim(), width_cm: String(v.width_cm).trim(),
+      height_cm: String(v.height_cm).trim(), shipping_qty: /^[1-9]\d{0,8}$/.test(q) ? parseInt(q, 10) : null }, why: "" };
+  }
+  /* The preview's answer as tiles ([figure, label]) and a footnote. Without a peso figure the reason is the note. */
+  function feeModel(d) {
+    d = d || {};
+    var tiles = [];
+    if (typeof d.ncr_centavos === "number") {
+      tiles.push([formatPeso(d.ncr_centavos), "To NCR"]);
+      if (typeof d.mindanao_centavos === "number") tiles.push([formatPeso(d.mindanao_centavos), "To Mindanao"]);
+      if (typeof d.billable_kg === "string" && d.billable_kg) tiles.push([d.billable_kg + " kg", "Billed at"]);
+      return { tiles: tiles, reason: typeof d.reason === "string" ? d.reason : "", note: FEE_NOTE };
+    }
+    return { tiles: tiles, reason: "", note: typeof d.reason === "string" && d.reason ? d.reason : "The estimate is not available for this package." };
+  }
+
+  /* The tabbed editor, for Add and for Edit: TWCinc's merchants/product_form.html (the review-off tabbed editor) and its mpf- styles.
+     Tabs (a bar at the top of the column, like the Settings menu): Details, Description (off on Add), Media Library (disabled). Details has
+     the Identity, Photos, Pricing and Shipping cards and a save bar at the bottom of the form; Description has its own form. Each tab saves on its own and the editor stays open; Add becomes Edit
+     after its first Details save. Only our catalog's fields are in it. */
+  var ICON = {
+    id: "M4 6h16v12H4zM8 10h4M8 14h8M15 10h2",
+    text: "M4 6h16M4 10h16M4 14h10M4 18h12",
+    photo: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
+    price: "M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V4h9l8.6 8.6a2 2 0 010 2.8zM8 8h.01",
+    back: "M19 12H5M12 5l-7 7 7 7",
+    ship: "M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
+  };
+  function icon(d) {
+    var NS = "http://www.w3.org/2000/svg", svg = document.createElementNS(NS, "svg"), path = document.createElementNS(NS, "path");
+    svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("width", "18"); svg.setAttribute("height", "18"); svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "2"); svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round"); svg.setAttribute("aria-hidden", "true"); svg.setAttribute("focusable", "false");
+    path.setAttribute("d", d); svg.appendChild(path);
+    return svg;
+  }
+  /* A card: icon chip, h3 and hint in the head (the title is not focusable), the fields in the body. */
+  function card(title, hint, ico, id) {
+    var sec = D.el("section", { "class": "pr-card", id: id });
+    var head = h("div", "pr-card-head"), chip = h("span", "pr-card-ico"), txt = h("div", "pr-card-head-text");
+    chip.appendChild(icon(ico));
+    txt.appendChild(h("h3", "", title)); txt.appendChild(h("p", "pr-card-hint", hint));
+    head.appendChild(chip); head.appendChild(txt);
+    var body = h("div", "pr-card-body");
+    sec.appendChild(head); sec.appendChild(body);
+    return { sec: sec, body: body, head: head };
+  }
+  function pairOf(cls) { return h("div", cls); }
+
+  function openForm(p, notice, tabName) {
     S.mode = "form";
-    S.editing = p;
+    S.editing = p || null;
+    var adding = !p;
     var mine = ++token;
     var r = clear(pane());
     r.removeAttribute("aria-busy");
-    var fields = {}, errs = {};
-    var f = D.el("form", { "class": "pr-form", novalidate: "" });
+    var fields = {}, errs = {}, pending = [null, null, null, null, null]; /* pending: the cropped photos an Add form uploads after the product exists */
+    var tab = tabName === "description" && !adding ? "description" : "details";
+    var previewTimer = null, previewSeq = 0, imgBusyOn = false, slotTiles = [], secBoxes = {}, secErrs = {}, secTiles = {};
+    var f = h("div", "pr-form pr-tabbed");
 
-    var head = h("div", "pr-formhead");
-    var back = button("Back to products", "no-btn-ghost", function () { token++; loadList(); });
-    head.appendChild(back);
-    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, p ? "Edit product" : "Add product");
-    head.appendChild(title);
-    f.appendChild(head);
+    function leave() { dropPhotos(); clearTimeout(previewTimer); token++; loadList(); }
+    /* No visible title: a screen-reader heading takes the focus when the editor opens. */
+    var title = D.el("h2", { "class": "pr-formtitle pr-sr", tabindex: "-1" }, adding ? "Add a product" : "Edit product");
+    f.appendChild(title);
 
     var top = D.el("div", { "class": "pr-topmsg", role: "alert" });
     top.hidden = true;
-    f.appendChild(top);
 
-    function row(name, label, control, hint) {
+    function row(name, label, control, hint, node) {
       var wrap = h("div", "pr-field");
       var lab = D.el("label", { "for": "pr-f-" + name }, label);
       wrap.appendChild(lab);
       control.setAttribute("id", "pr-f-" + name);
       fields[name] = control;
-      wrap.appendChild(control);
+      wrap.appendChild(node || control);
       if (hint) { wrap.appendChild(h("p", "pr-hint", hint)); }
       var err = D.el("p", { "class": "pr-ferr", id: "pr-e-" + name });
       err.hidden = true;
@@ -767,73 +1075,333 @@
       i.value = value == null ? "" : value;
       return i;
     }
+    /* A prefix box ("₱", "%") joined to the input; the label still points at the input. */
+    function group(prefix, ctl) {
+      var g = h("div", "pr-ig");
+      g.appendChild(h("span", "pr-ig-pre", prefix));
+      g.appendChild(ctl);
+      return g;
+    }
+    /* The same joined box with the unit after the input ("cm", "kg", "pc(s)"). */
+    function suffixGroup(ctl, suffix) {
+      var g = h("div", "pr-ig pr-ig-suffixed");
+      g.appendChild(ctl);
+      g.appendChild(h("span", "pr-ig-suf", suffix));
+      return g;
+    }
+    function read(name) { return fields[name].value.trim(); }
 
+    /* ----- tabs ----- */
+    var tabs = D.el("div", { "class": "set-tabs pr-tabs", role: "tablist", "aria-label": "Product sections" });
+    var tabBtns = {}, panels = {};
+    var keys = adding ? ["details"] : ["details", "description"];
+    function tabButton(key, label) {
+      var b = D.el("button", { type: "button", "class": "pr-tab", role: "tab", id: "pr-tab-" + key, "aria-controls": "pr-panel-" + key }, label);
+      b.addEventListener("click", function () { selectTab(key, false); });
+      b.addEventListener("keydown", function (e) {
+        var d = e && e.key === "ArrowRight" ? 1 : e && e.key === "ArrowLeft" ? -1 : 0;
+        if (!d || adding) return;
+        if (e.preventDefault) e.preventDefault();
+        selectTab(key === "details" ? "description" : "details", true);
+      });
+      tabBtns[key] = b; tabs.appendChild(b);
+    }
+    tabButton("details", "Details");
+    if (adding) {
+      /* Off until the first Details save creates the product. */
+      var descOff = D.el("button", { type: "button", "class": "pr-tab pr-tab-off", role: "tab", id: "pr-tab-description", "aria-disabled": "true", tabindex: "-1", title: "Save the Details first" }, "Description");
+      descOff.disabled = true;
+      tabs.appendChild(descOff);
+    } else tabButton("description", "Description");
+    var media = D.el("button", { type: "button", "class": "pr-tab pr-tab-off", role: "tab", id: "pr-tab-media", "aria-disabled": "true", tabindex: "-1" }, "Media Library ");
+    media.disabled = true;
+    media.appendChild(h("span", "pr-soon", "Coming soon"));
+    tabs.appendChild(media);
+    r.appendChild(tabs);
+    var back = D.el("a", { "class": "pr-backlink", href: "/products/" });
+    back.appendChild(icon(ICON.back));
+    back.appendChild(h("span", "", "Back to products"));
+    back.addEventListener("click", function (e) { if (e && e.preventDefault) e.preventDefault(); leave(); });
+    f.appendChild(back);
+    f.appendChild(top);
+    function selectTab(key, focus) {
+      tab = key;
+      keys.forEach(function (k) {
+        var on = k === key;
+        tabBtns[k].classList.toggle("is-active", on);
+        tabBtns[k].setAttribute("aria-selected", on ? "true" : "false");
+        tabBtns[k].setAttribute("tabindex", on ? "0" : "-1");
+        panels[k].hidden = !on;
+      });
+      if (key === "description" && ingDraw) ingDraw();
+      if (focus && tabBtns[key].focus) tabBtns[key].focus();
+    }
+
+    /* ----- Details tab ----- */
+    var df = D.el("form", { "class": "pr-tabform", novalidate: "" });
     var v = p || {};
     var code = input("text", v.code || "", { maxlength: "64" });
     if (p) { code.readOnly = true; code.setAttribute("aria-readonly", "true"); }
-    f.appendChild(row("code", "Product code", code, p ? "The code can't be changed." : "Letters, digits, dots, hyphens or underscores. It is made upper-case."));
-    f.appendChild(row("name", "Name", input("text", v.name || "", { maxlength: "120" })));
+    var codeRow = row("code", "Product code (SKU)", code, p ? "Fixed after the product is created." : "");
+    var nameRow = row("name", "Product name", input("text", v.name || "", { maxlength: "120" }));
     var cat = D.el("select", { "class": "pr-input" });
     cat.appendChild(D.el("option", { value: "" }, "No category"));
     CATEGORIES.forEach(function (c) { cat.appendChild(D.el("option", { value: c[0] }, c[1])); });
     cat.value = v.category || "";
-    f.appendChild(row("category", "Category", cat));
-    var sd = D.el("textarea", { "class": "pr-input pr-area", rows: "3", maxlength: "500" }); sd.value = v.short_description || "";
-    f.appendChild(row("short_description", "Short description", sd));
-    var ld = D.el("textarea", { "class": "pr-input pr-area pr-area-long", rows: "8", maxlength: "20000" }); ld.value = v.long_description || "";
-    f.appendChild(row("long_description", "Long description", ld));
-
-    var price = h("div", "pr-pair");
-    price.appendChild(row("srp_centavos", "SRP (₱)", input("text", p ? centavosToField(p.srp_centavos) : "", { inputmode: "decimal" })));
-    price.appendChild(row("earnings_rate", "Members discount (%)", input("text", p ? rateToPercent(p.earnings_rate) : "40", { inputmode: "decimal" }), "Between 10 and 50."));
-    f.appendChild(price);
-    var preview = D.el("p", { "class": "pr-preview", "aria-live": "polite" });
-    f.appendChild(preview);
-    function refresh() {
-      var c = pesosToCentavos(fields.srp_centavos.value), rate = percentToRate(fields.earnings_rate.value);
-      var m = c != null && rate ? membersPrice(c, rate) : null;
-      preview.textContent = m != null ? "Members price " + formatPeso(m) : "Members price shows once the SRP and discount are valid.";
-    }
-    fields.srp_centavos.addEventListener("input", refresh);
-    fields.earnings_rate.addEventListener("input", refresh);
-    refresh();
-
+    var catRow = row("category", "Category", cat);
+    combo(cat, "Category", { describedby: "pr-e-category", blankEmpty: true });
     var show = D.el("input", { type: "checkbox", id: "pr-f-is_active" });
     show.checked = p ? p.is_active === true : true;
     fields.is_active = show;
-    var showRow = h("div", "pr-check");
     var showLab = D.el("label", { "for": "pr-f-is_active" });
     showLab.appendChild(show);
     showLab.appendChild(h("span", "", "Show in shops"));
+    var showRow = h("div", "pr-check");
     showRow.appendChild(showLab);
-    showRow.appendChild(h("p", "pr-hint", "Turn this off for a product that is out of stock. A hidden product is neither listed nor orderable."));
-    f.appendChild(showRow);
+    showRow.appendChild(h("p", "pr-hint", "Turn this off to keep the product out of the shops. You can change it later from the Products list."));
 
-    var det = D.el("details", { "class": "pr-details" });
-    det.appendChild(h("summary", "", "Shipping details"));
-    var grid = h("div", "pr-dgrid");
-    SHIPPING.forEach(function (s) {
-      var val = v[s[0]];
-      grid.appendChild(row(s[0], s[1], input("text", val == null ? (s[0] === "weight_kg" && !p ? "0.00" : "") : String(val), { inputmode: "decimal" })));
-    });
-    det.appendChild(grid);
-    det.appendChild(h("p", "pr-hint", "Optional for launch. Length, width and height go together."));
-    f.appendChild(det);
+    var c1 = card("Identity", "How your product is catalogued. The product code must be unique in the catalog.", ICON.id, "pr-s-identity");
+    /* A two-column grid, filled row by row: name | code, then category | Show in shops (level with Category). On a phone the one column
+       keeps that order: name, code, category, show in shops. */
+    var r1 = pairOf("pr-pair pr-identity");
+    r1.appendChild(nameRow); r1.appendChild(codeRow); r1.appendChild(catRow); r1.appendChild(showRow);
+    c1.body.appendChild(r1);
 
-    var imgBlock = h("fieldset", "pr-image");
-    imgBlock.appendChild(h("legend", "", "Image"));
-    var imgBody = h("div", "pr-image-body");
-    imgBlock.appendChild(imgBody);
+    /* Photos */
+    var c2 = card("Photos", "Up to 5 photos · JPG, PNG or WebP · up to 2 MB each after cropping. Slot 1 is the main photo shoppers see first. Every photo is cropped to a square (1:1) when you pick it.", ICON.photo, "pr-s-photos");
+    var slotsBox = h("div", "pr-imgrow");
     var imgErr = D.el("p", { "class": "pr-ferr", id: "pr-e-image", role: "alert" });
     imgErr.hidden = true;
-    imgBlock.appendChild(imgErr);
-    f.appendChild(imgBlock);
+    c2.body.appendChild(slotsBox);
+    if (adding) c2.body.appendChild(h("p", "pr-hint pr-photo-note", "Photos you pick are uploaded when you save the Details."));
+    c2.body.appendChild(imgErr);
 
-    var actions = h("div", "pr-actions pr-formactions");
-    var save = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, p ? "Save changes" : "Add product");
-    actions.appendChild(save);
-    actions.appendChild(button("Cancel", "no-btn-ghost", function () { token++; loadList(); }));
-    f.appendChild(actions);
+    /* Pricing */
+    var c3 = card("Pricing", "You set the selling price (SRP) and the members discount. Members see their price below.", ICON.price, "pr-s-pricing");
+    var srpIn = input("text", p ? centavosToField(p.srp_centavos) : "", { inputmode: "decimal", placeholder: "0.00" });
+    var srpRow = row("srp_centavos", "Selling price (SRP, ₱)", srpIn, "", group("₱", srpIn));
+    var rateIn = input("text", p ? rateToPercent(p.earnings_rate) : "", { inputmode: "decimal", placeholder: "40" });
+    var rateRow = row("earnings_rate", "Members discount (%)", rateIn, "Between 10 and 50.", group("%", rateIn));
+    var servIn = input("text", p && p.servings_per_pack != null ? String(p.servings_per_pack) : "", { inputmode: "numeric", placeholder: "30", maxlength: "3" });
+    var servRow = row("servings_per_pack", "Servings per pack", servIn, "", suffixGroup(servIn, "servings"));
+    var perServ = D.el("p", { "class": "pr-hint pr-perserv", id: "pr-perserv", "aria-live": "polite" });
+    perServ.hidden = true;
+    servRow.appendChild(perServ);
+    var r3 = pairOf("pr-three"); r3.appendChild(srpRow); r3.appendChild(rateRow); r3.appendChild(servRow);
+    var calc = D.el("div", { "class": "pr-pcalc", "aria-live": "polite" });
+    calc.appendChild(h("div", "pr-pcalc-t", "Members price per sale"));
+    function calcLine(id, label, cls) {
+      var ln = h("div", "pr-pline" + (cls ? " " + cls : ""));
+      ln.appendChild(h("span", "pr-pline-k", label));
+      var val = D.el("b", { id: id }, "—");
+      ln.appendChild(val); calc.appendChild(ln);
+      return { label: ln.firstChild, val: val };
+    }
+    var lSrp = calcLine("pr-c-srp", "Selling price (SRP)");
+    var lDisc = calcLine("pr-c-disc", "Members discount");
+    var lMem = calcLine("pr-c-mem", "Members price", "total");
+    var preview = lMem.val; /* the members price line is the live preview */
+    function refresh() {
+      var c = pesosToCentavos(fields.srp_centavos.value), rate = percentToRate(fields.earnings_rate.value);
+      var m = c != null && rate ? membersPrice(c, rate) : null;
+      lSrp.val.textContent = c != null ? formatPeso(c) : "—";
+      lDisc.label.textContent = "Members discount" + (rate ? " · " + rateToPercent(rate) + "%" : "");
+      lDisc.val.textContent = m != null ? "−" + formatPeso(c - m) : "—";
+      lMem.val.textContent = m != null ? formatPeso(m) : "—";
+    }
+    fields.srp_centavos.addEventListener("input", refresh);
+    fields.earnings_rate.addEventListener("input", refresh);
+    /* Price per serving: SRP over servings, rounded half-up to a whole centavo, as the storefront reads it from the API. */
+    function refreshPerServing() {
+      var c = pesosToCentavos(fields.srp_centavos.value), sv = fields.servings_per_pack.value.trim();
+      var n = /^[1-9]\d{0,2}$/.test(sv) ? parseInt(sv, 10) : 0;
+      if (c == null || !c || !n) { perServ.hidden = true; perServ.textContent = ""; return; }
+      perServ.textContent = "Price per serving " + formatPeso(Math.floor((2 * c + n) / (2 * n)));
+      perServ.hidden = false;
+    }
+    fields.srp_centavos.addEventListener("input", refreshPerServing);
+    fields.servings_per_pack.addEventListener("input", refreshPerServing);
+    refresh();
+    refreshPerServing();
+    c3.body.appendChild(r3); c3.body.appendChild(calc);
+
+    /* Shipping + Packaging & fee */
+    var c5 = card("Shipping", "Measure the product boxed, exactly as it leaves your hands. These numbers set the courier fee. Optional for launch; length, width and height go together.", ICON.ship, "pr-s-shipping");
+    var shipRows = {};
+    SHIPPING.forEach(function (s) {
+      var val = v[s[0]];
+      var shipIn = input("text", val == null ? "" : String(val), { inputmode: s[0] === "shipping_qty" ? "numeric" : "decimal", placeholder: s[3] });
+      shipRows[s[0]] = row(s[0], s[1], shipIn, "", suffixGroup(shipIn, s[2]));
+    });
+    /* Length, Width, Height, Actual weight and Units per shipping box in one row on a wide screen; the row wraps on a phone. */
+    var r5 = pairOf("pr-five"); ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { r5.appendChild(shipRows[k]); });
+    var pv = D.el("div", { "class": "pr-pv", id: "pr-pkg-preview", "aria-live": "polite" });
+    pv.appendChild(h("div", "pr-pv-cap", "Packaging & fee"));
+    var pvBody = h("div", "pr-pv-body");
+    pv.appendChild(pvBody);
+    c5.body.appendChild(r5); c5.body.appendChild(pv);
+
+    function drawPreview(m) {
+      clear(pvBody);
+      if (m.why) {
+        pvBody.appendChild(h("span", "pr-pv-chip", "Awaiting measurements"));
+        pvBody.appendChild(h("p", "pr-pv-line", m.why === "sizes" ? "Enter all three measurements" : "Enter the weight (kg)"));
+        return;
+      }
+      if (m.wait) { pvBody.appendChild(h("p", "pr-pv-note", "Working out the fee…")); return; }
+      if (m.error) { pvBody.appendChild(h("p", "pr-pv-note", m.error === true ? "The fee estimate is not available right now." : m.error)); return; }
+      var fm = feeModel(m.data);
+      if (fm.tiles.length) {
+        var fees = h("div", "pr-pv-fees");
+        fm.tiles.forEach(function (t) { var tl = h("div", "pr-fee"); tl.appendChild(h("b", "", t[0])); tl.appendChild(h("span", "", t[1])); fees.appendChild(tl); });
+        pvBody.appendChild(fees);
+      }
+      if (fm.reason) pvBody.appendChild(h("p", "pr-pv-line pr-pv-reason", fm.reason));
+      pvBody.appendChild(h("div", "pr-pv-foot", fm.note));
+    }
+    /* Asked a moment after the last keystroke; an answer that is no longer the latest is dropped. */
+    function schedulePreview(now) {
+      clearTimeout(previewTimer);
+      var seq = ++previewSeq, vals = {};
+      ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { vals[k] = fields[k].value; });
+      var st = previewBody(vals);
+      if (!st.body) { drawPreview({ why: st.why }); return; }
+      drawPreview({ wait: true });
+      previewTimer = setTimeout(function () {
+        D.call("POST", "/sites/" + S.site + "/catalog/shipping-preview/", st.body, true).then(function (res) {
+          if (mine !== token || seq !== previewSeq || res.status === 401) return;
+          var fe = res.ok ? null : describeError(res);
+          var first = fe && fe.kind === "fields" ? Object.keys(fe.fields)[0] : "";
+          drawPreview(res.ok && res.data ? { data: res.data } : { error: first ? String(fe.fields[first]) : true });
+        });
+      }, now ? 0 : 300);
+    }
+    ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) {
+      fields[k].addEventListener("input", function () { schedulePreview(false); });
+    });
+
+    var saveDetails = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Details");
+    var bar = h("div", "pr-abar");
+    bar.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
+    bar.appendChild(h("span", "pr-abar-sp"));
+    bar.appendChild(saveDetails);
+    [c1, c2, c3, c5].forEach(function (c) { df.appendChild(c.sec); });
+    df.appendChild(bar);
+    panels.details = h("section", "pr-tabpanel");
+    panels.details.setAttribute("role", "tabpanel"); panels.details.setAttribute("id", "pr-panel-details"); panels.details.setAttribute("aria-labelledby", "pr-tab-details");
+    panels.details.appendChild(df);
+    f.appendChild(panels.details);
+
+    /* ----- Description tab ----- */
+    panels.description = h("section", "pr-tabpanel");
+    panels.description.setAttribute("role", "tabpanel"); panels.description.setAttribute("id", "pr-panel-description"); panels.description.setAttribute("aria-labelledby", "pr-tab-description");
+    var saveDesc = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Description");
+    var descForm = null, ingItems = [], ingDraw = null;
+    var faqEd = null;
+    function faqEditor(saved) {
+      faqEd = makeFaqEditor(saved, fields, errs, { title: "FAQ", hint: "Questions shoppers often ask, shown under the product details, then the category’s general FAQs. Up to " + FAQ_MAX + ". “How do I pay?” is always added at the end." });
+      return faqEd.wrap;
+    }
+    /* The ingredient list: up to 8 cards, each a name, one line and one of the product's own photos (or none). Add, Remove and Move
+       redraw from ingItems, so what was typed stays. The photo choices are read again each time the tab opens, because photos are
+       managed on the Details tab. */
+    function ingredientEditor(saved) {
+      ingItems = (Array.isArray(saved) ? saved : []).slice(0, ING_MAX).map(function (x) {
+        var slot = x && typeof x.photo_slot === "number" && x.photo_slot >= 1 && x.photo_slot <= SLOTS ? x.photo_slot : null;
+        return { name: String(x && x.name || ""), line: String(x && x.line || ""), photo_slot: slot };
+      });
+      var wrap = h("div", "pr-field pr-faq pr-ing");
+      wrap.appendChild(h("p", "pr-faq-title", "Ingredients"));
+      wrap.appendChild(h("p", "pr-hint", "Show what goes into it, as cards under the product details. Up to " + ING_MAX + ". Each card can use one of this product’s photos."));
+      var list = h("div", "pr-faq-list pr-ing-list");
+      list.setAttribute("id", "pr-f-ingredients");
+      fields.ingredients = list;
+      wrap.appendChild(list);
+      var add = button("Add an ingredient", "no-btn-ghost pr-faq-add pr-ing-add", function () {
+        if (ingItems.length >= ING_MAX) return;
+        ingItems.push({ name: "", line: "", photo_slot: null }); draw(ingItems.length - 1);
+      });
+      wrap.appendChild(add);
+      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-ingredients" });
+      err.hidden = true; errs.ingredients = err; wrap.appendChild(err);
+      list.setAttribute("aria-describedby", "pr-e-ingredients");
+      function counter(el, max) {
+        var c = h("span", "pr-faq-count", el.value.length + "/" + max);
+        el.addEventListener("input", function () { c.textContent = el.value.length + "/" + max; });
+        return c;
+      }
+      function draw(focusIdx) {
+        clear(list);
+        var urls = adding ? [] : imageUrls(S.editing);
+        ingItems.forEach(function (it, i) {
+          var box = h("div", "pr-faq-item pr-ing-item");
+          var n = D.el("input", { type: "text", "class": "pr-input pr-ing-name", id: "pr-ing-name-" + i, maxlength: String(ING_NAME_MAX), autocomplete: "off", placeholder: "Ingredient name", "aria-label": "Ingredient " + (i + 1) + " name" });
+          n.value = it.name;
+          n.addEventListener("input", function () { it.name = n.value; });
+          var l = D.el("input", { type: "text", "class": "pr-input pr-ing-line", id: "pr-ing-line-" + i, maxlength: String(ING_LINE_MAX), autocomplete: "off", placeholder: "One line about it (optional)", "aria-label": "Ingredient " + (i + 1) + " line" });
+          l.value = it.line;
+          l.addEventListener("input", function () { it.line = l.value; });
+          box.appendChild(n); box.appendChild(counter(n, ING_NAME_MAX));
+          box.appendChild(l); box.appendChild(counter(l, ING_LINE_MAX));
+          var pick = h("div", "pr-ing-pick");
+          var sel = D.el("select", { "class": "pr-input pr-ing-photo", id: "pr-ing-photo-" + i, "aria-label": "Ingredient " + (i + 1) + " photo" });
+          sel.appendChild(D.el("option", { value: "" }, "No photo"));
+          for (var k = 1; k <= SLOTS; k++) if (urls[k - 1] || it.photo_slot === k) {
+            var o = D.el("option", { value: String(k) }, "Photo " + k + (urls[k - 1] ? "" : " (empty)"));
+            if (it.photo_slot === k) o.selected = true;
+            sel.appendChild(o);
+          }
+          sel.value = it.photo_slot ? String(it.photo_slot) : "";
+          var thumb = D.el("img", { "class": "pr-ing-thumb", alt: "" });
+          function showThumb() { var u = it.photo_slot ? urls[it.photo_slot - 1] : ""; if (u) { thumb.setAttribute("src", u); thumb.hidden = false; } else { thumb.removeAttribute("src"); thumb.hidden = true; } }
+          sel.addEventListener("change", function () { it.photo_slot = sel.value ? parseInt(sel.value, 10) : null; showThumb(); });
+          showThumb();
+          pick.appendChild(sel); pick.appendChild(thumb);
+          box.appendChild(pick);
+          var tools = h("div", "pr-faq-tools");
+          var up = button("Move up", "no-btn-ghost pr-ing-up", function () { if (i > 0) { ingItems.splice(i - 1, 0, ingItems.splice(i, 1)[0]); draw(i - 1); } });
+          var down = button("Move down", "no-btn-ghost pr-ing-down", function () { if (i < ingItems.length - 1) { ingItems.splice(i + 1, 0, ingItems.splice(i, 1)[0]); draw(i + 1); } });
+          var rm = button("Remove", "no-btn-ghost pr-ing-rm", function () { ingItems.splice(i, 1); draw(Math.min(i, ingItems.length - 1)); });
+          up.disabled = i === 0; down.disabled = i === ingItems.length - 1;
+          up.setAttribute("aria-label", "Move ingredient " + (i + 1) + " up"); down.setAttribute("aria-label", "Move ingredient " + (i + 1) + " down"); rm.setAttribute("aria-label", "Remove ingredient " + (i + 1));
+          tools.appendChild(up); tools.appendChild(down); tools.appendChild(rm);
+          box.appendChild(tools);
+          list.appendChild(box);
+        });
+        add.disabled = ingItems.length >= ING_MAX;
+        add.textContent = ingItems.length >= ING_MAX ? "Limit reached (" + ING_MAX + ")" : "Add an ingredient";
+        if (focusIdx != null && focusIdx >= 0) { var t = document.getElementById("pr-ing-name-" + focusIdx); if (t && t.focus) t.focus(); }
+      }
+      ingDraw = function () { draw(); };
+      draw();
+      return wrap;
+    }
+    if (!adding) {
+      descForm = D.el("form", { "class": "pr-tabform", novalidate: "" });
+      var c6 = card("Description", "What shoppers read on the product page. Leave a box empty to show nothing for it.", ICON.text, "pr-s-description");
+      var textRows = {};
+      TEXTS.forEach(function (t) {
+        var ta = D.el("textarea", { "class": "pr-input pr-area" + (t[0] === "long_description" ? " pr-area-long" : ""), rows: String(t[3]), maxlength: String(t[2]) });
+        ta.value = v[t[0]] || "";
+        textRows[t[0]] = row(t[0], t[1], ta);
+      });
+      c6.body.appendChild(textRows.short_description); c6.body.appendChild(textRows.long_description);
+      var d1 = pairOf("pr-pair"); d1.appendChild(textRows.features); d1.appendChild(textRows.specifications);
+      var d2 = pairOf("pr-pair"); d2.appendChild(textRows.advantages); d2.appendChild(textRows.benefits);
+      textRows.features.appendChild(sectionImage("features", "Features"));
+      textRows.advantages.appendChild(sectionImage("advantages", "Advantages"));
+      textRows.benefits.appendChild(sectionImage("benefits", "Benefits"));
+      c6.body.appendChild(d1); c6.body.appendChild(d2);
+      c6.body.appendChild(faqEditor(v.faq));
+      c6.body.appendChild(ingredientEditor(v.ingredients));
+      var bar2 = h("div", "pr-abar");
+      bar2.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
+      bar2.appendChild(h("span", "pr-abar-sp"));
+      bar2.appendChild(saveDesc);
+      descForm.appendChild(c6.sec); descForm.appendChild(bar2);
+      panels.description.appendChild(descForm);
+    }
+    if (!adding) f.appendChild(panels.description);
     r.appendChild(f);
 
     function fieldError(name, text) {
@@ -846,6 +1414,7 @@
       Object.keys(errs).forEach(function (k) { fieldError(k, ""); });
       top.hidden = true; clear(top);
       imgErr.hidden = true; imgErr.textContent = "";
+      Object.keys(secErrs).forEach(function (k) { secErrs[k].hidden = true; secErrs[k].textContent = ""; });
     }
     function topMessage(text, reload) {
       clear(top); top.hidden = !text;
@@ -854,9 +1423,10 @@
       if (reload) top.appendChild(button("Reload", "no-btn-ghost", reloadProduct));
       say(text);
     }
-    function busy(on) {
-      save.disabled = on;
-      save.textContent = on ? "Saving…" : (S.editing ? "Save changes" : "Add product");
+    function busy(on, which) {
+      saveDetails.disabled = on; saveDesc.disabled = on;
+      saveDetails.textContent = on && which === "details" ? "Saving…" : "Save Details";
+      saveDesc.textContent = on && which === "description" ? "Saving…" : "Save Description";
       if (on) f.setAttribute("aria-busy", "true"); else f.removeAttribute("aria-busy");
     }
     /* Fresh values for this product from the server: the one reaction to a stale revision. */
@@ -867,87 +1437,248 @@
         if (!res.ok || !res.data || !Array.isArray(res.data.products)) { topMessage("We couldn’t reload the product. Try again.", true); return; }
         S.canEdit = res.data.can_edit === true; S.products = res.data.products;
         var fresh = findProduct(id);
-        if (fresh) openForm(fresh); else loadList();
+        if (fresh) openForm(fresh, null, tab); else loadList();
       });
     }
-    function applyFailure(res) {
-      var e = describeError(res);
-      if (e.kind === "image") { imgErr.textContent = e.message; imgErr.hidden = false; say(e.message); return; }
+    function applyFailure(res, target) {
+      var e = describeError(res), box = target || imgErr;
+      if (e.kind === "image") { box.textContent = e.message; box.hidden = false; say(e.message); return; }
       var shown = false;
       Object.keys(e.fields).forEach(function (k) {
         if (errs[k]) { fieldError(k, e.fields[k]); shown = true; }
-        else if (k === "file" || k === "revision") { imgErr.textContent = e.fields[k]; imgErr.hidden = false; shown = true; }
+        else if (k.indexOf("faq") === 0 && errs.faq) { fieldError("faq", e.fields[k]); shown = true; }
+        else if (k.indexOf("ingredients") === 0 && errs.ingredients) { fieldError("ingredients", e.fields[k]); shown = true; }
+        else if (k === "file" || k === "revision" || k === "slot" || k === "section") { box.textContent = e.fields[k]; box.hidden = false; shown = true; }
       });
       if (e.kind === "fields" && shown) { topMessage(MSG.invalid); var first = f.querySelector("[aria-invalid='true']"); if (first && first.focus) first.focus(); return; }
       topMessage(e.message, e.kind === "stale");
     }
 
-    /* ----- image ----- */
-    function drawImage() {
-      clear(imgBody);
-      var cur = S.editing;
-      if (!cur) { imgBody.appendChild(h("p", "pr-hint", "Save the product first, then add its image.")); return; }
-      var wrap = h("div", "pr-image-row"), pic = h("div", "pr-pic pr-pic-sm"), src = safeImage(cur.image_url);
-      if (src) pic.appendChild(D.el("img", { src: src, alt: "Current image of " + cur.name }));
-      else pic.appendChild(h("span", "pr-pic-none", "No image"));
-      wrap.appendChild(pic);
-      var side = h("div", "pr-image-side");
-      var file = D.el("input", { type: "file", id: "pr-f-image", accept: IMAGE_TYPES.join(","), "class": "pr-file" });
-      var pickBtn = button(src ? "Replace image" : "Upload image", "no-btn-ghost", function () { file.click(); });
-      side.appendChild(pickBtn); side.appendChild(file);
-      if (src) side.appendChild(button("Remove image", "no-btn-ghost", removeImage));
-      side.appendChild(h("p", "pr-hint", "JPEG, PNG or WebP, up to 2 MB."));
-      wrap.appendChild(side);
-      imgBody.appendChild(wrap);
-      file.addEventListener("change", function () {
-        var one = file.files && file.files[0];
-        if (!one) return;
-        imgErr.hidden = true;
-        if (IMAGE_TYPES.indexOf(one.type) < 0) { imgErr.textContent = "Upload a JPEG, PNG or WebP image."; imgErr.hidden = false; file.value = ""; return; }
-        if (one.size > IMAGE_MAX) { imgErr.textContent = "The image is too large. The limit is 2 MB."; imgErr.hidden = false; file.value = ""; return; }
-        var form = new FormData();
-        form.append("file", one);
-        form.append("revision", String(S.editing.revision));
-        imageCall("POST", productPath(S.editing) + "image/", form);
-      });
+    /* ----- section images (Edit, Description tab): Features, Advantages and Benefits each take one optional image, stored like a
+       product photo (POST and DELETE .../image/?section=features|advantages|benefits). It uploads at once and is never copied from a
+       product photo. A store that cannot edit sees the image and no control. ----- */
+    function focusSection(key) { var t = secTiles[key]; if (t && t.focus) t.focus(); }
+    function drawSection(key, label) {
+      var box = secBoxes[key], err = secErrs[key];
+      var url = safeImage(S.editing && S.editing[key + "_image_url"]), edit = S.canEdit === true, low = label.toLowerCase();
+      clear(box); secTiles[key] = null;
+      if (!url && !edit) return;
+      box.appendChild(h("p", "pr-secimg-title", label + " image (optional)"));
+      var slot = h("div", "pr-islot pr-secimg-slot" + (url ? " filled" : ""));
+      slot.setAttribute("data-section", key);
+      var tile = null;
+      if (edit) {
+        var file = D.el("input", { type: "file", id: "pr-f-secimg-" + key, accept: IMAGE_TYPES.join(","), "class": "pr-file", tabindex: "-1", "aria-hidden": "true" });
+        tile = D.el("button", { type: "button", "class": "pr-islot-btn", "aria-label": (url ? "Change " : "Add ") + low + " image" });
+        tile.addEventListener("click", function () { if (!imgBusyOn) file.click(); });
+        file.addEventListener("change", function () {
+          var one = file.files && file.files[0];
+          if (!one) return;
+          err.hidden = true; err.textContent = "";
+          function refuse(text) { err.textContent = text; err.hidden = false; file.value = ""; say(text); }
+          if (IMAGE_TYPES.indexOf(one.type) < 0) { refuse("Upload a JPEG, PNG or WebP image."); return; }
+          if (one.size > IMAGE_ORIGINAL_MAX) { refuse("The photo is too large. The limit is 10 MB."); return; }
+          cropPhoto({ label: "Crop " + low + " image", focus: function () { focusSection(key); }, keep: function (blob, name) {
+            var form = new FormData();
+            form.append("file", blob, name);
+            form.append("revision", String(S.editing.revision));
+            sectionCall(key, label, "POST", productPath(S.editing) + "image/?section=" + key, form);
+          } }, one, refuse, function () { file.value = ""; });
+        });
+        slot.appendChild(tile); slot.appendChild(file);
+      }
+      var holder = tile || slot;
+      if (url) holder.appendChild(D.el("img", { "class": "pr-islot-img", src: url, alt: label + " image of " + (S.editing ? S.editing.name : "the product") }));
+      else { holder.appendChild(h("span", "pr-islot-plus", "+")); holder.appendChild(h("span", "pr-islot-text", "Add image")); }
+      if (edit && url) {
+        var x = D.el("button", { type: "button", "class": "pr-islot-x", "aria-label": "Remove " + low + " image" }, "×");
+        x.addEventListener("click", function () {
+          if (imgBusyOn) return;
+          sectionCall(key, label, "DELETE", productPath(S.editing) + "image/?section=" + key + "&revision=" + encodeURIComponent(S.editing.revision), null);
+        });
+        slot.appendChild(x);
+      }
+      secTiles[key] = tile;
+      box.appendChild(slot);
+      if (edit) box.appendChild(h("p", "pr-hint", "Shown beside the " + low + " on the product page. Without an image the text uses the full width. JPG, PNG or WebP, up to 2 MB after cropping."));
+      box.appendChild(err);
     }
-    function removeImage() { imageCall("DELETE", productPath(S.editing) + "image/?revision=" + encodeURIComponent(S.editing.revision), null); }
-    function imageCall(method, path, form) {
+    function sectionImage(key, label) {
+      var err = D.el("p", { "class": "pr-ferr", id: "pr-e-secimg-" + key, role: "alert" });
+      err.hidden = true;
+      secErrs[key] = err; secBoxes[key] = h("div", "pr-secimg");
+      drawSection(key, label);
+      return secBoxes[key];
+    }
+    function sectionCall(key, label, method, path, form) {
       clearErrors();
-      imgBody.setAttribute("aria-busy", "true");
+      imgBusyOn = true;
+      secBoxes[key].setAttribute("aria-busy", "true");
       var req = form ? D.send(method, path, form) : D.call(method, path, null, true);
       req.then(function (res) {
         if (mine !== token || res.status === 401) return;
-        imgBody.removeAttribute("aria-busy");
+        imgBusyOn = false;
+        secBoxes[key].removeAttribute("aria-busy");
         if (res.ok && res.data && res.data.id) {
           S.editing = res.data; replaceProduct(res.data);
-          drawImage(); say("Image saved."); D.toast("Saved", "The product image is updated.");
+          drawSection(key, label); focusSection(key);
+          say(label + (method === "POST" ? " image saved." : " image removed."));
+          D.toast("Saved", label + (method === "POST" ? " image is updated." : " image is removed."));
           return;
         }
-        applyFailure(res); drawImage();
+        applyFailure(res, secErrs[key]); drawSection(key, label);
       });
     }
-    drawImage();
 
-    /* ----- submit ----- */
-    function read(name) { return fields[name].value.trim(); }
-    function gather() {
-      var out = {}, bad = {};
+    /* ----- photos: five slots. Edit uploads at once; Add keeps the cropped photos and uploads them after the product is created ----- */
+    function dropPhotos() {
+      pending.forEach(function (x) { if (x && x.url && window.URL && URL.revokeObjectURL) URL.revokeObjectURL(x.url); });
+      pending = [null, null, null, null, null];
+    }
+    function dropPhoto(i) {
+      var x = pending[i];
+      if (x && x.url && window.URL && URL.revokeObjectURL) URL.revokeObjectURL(x.url);
+      pending[i] = null;
+    }
+    function focusSlot(i) { var t = slotTiles[i]; if (t && t.focus) t.focus(); }
+    function drawSlots() {
+      clear(slotsBox); slotTiles = [];
+      var urls = adding ? [] : imageUrls(S.editing);
+      for (var i = 0; i < SLOTS; i++) (function (i) {
+        var has = adding ? !!pending[i] : !!urls[i];
+        var slot = h("div", "pr-islot" + (has ? " filled" : ""));
+        slot.setAttribute("data-slot", String(i + 1));
+        if (i === 0) slot.appendChild(h("span", "pr-main", "MAIN"));
+        var file = D.el("input", { type: "file", id: "pr-f-image-" + (i + 1), accept: IMAGE_TYPES.join(","), "class": "pr-file", tabindex: "-1", "aria-hidden": "true" });
+        var tile = D.el("button", { type: "button", "class": "pr-islot-btn", "aria-label": (has ? "Change photo " : "Add photo ") + (i + 1) });
+        if (adding && pending[i] && pending[i].url) tile.appendChild(D.el("img", { "class": "pr-islot-img", src: pending[i].url, alt: "Photo " + (i + 1) + " to add" }));
+        else if (adding && pending[i]) tile.appendChild(h("span", "pr-islot-text", "Photo ready"));
+        else if (urls[i]) tile.appendChild(D.el("img", { "class": "pr-islot-img", src: urls[i], alt: "Photo " + (i + 1) + (S.editing ? " of " + S.editing.name : "") }));
+        else { tile.appendChild(h("span", "pr-islot-plus", "+")); tile.appendChild(h("span", "pr-islot-text", "Add photo")); }
+        tile.addEventListener("click", function () { if (!imgBusyOn) file.click(); });
+        slot.appendChild(tile); slot.appendChild(file);
+        if (has) {
+          var x = D.el("button", { type: "button", "class": "pr-islot-x", "aria-label": "Remove photo " + (i + 1) }, "×");
+          x.addEventListener("click", function () {
+            if (imgBusyOn) return;
+            if (adding) { dropPhoto(i); drawSlots(); focusSlot(i); say("Photo " + (i + 1) + " removed."); }
+            else removeImage(i);
+          });
+          slot.appendChild(x);
+        }
+        file.addEventListener("change", function () {
+          var one = file.files && file.files[0];
+          if (!one) return;
+          imgErr.hidden = true; imgErr.textContent = "";
+          function refuse(text) { imgErr.textContent = text; imgErr.hidden = false; file.value = ""; say(text); }
+          if (IMAGE_TYPES.indexOf(one.type) < 0) { refuse("Upload a JPEG, PNG or WebP image."); return; }
+          if (one.size > IMAGE_ORIGINAL_MAX) { refuse("The photo is too large. The limit is 10 MB."); return; }
+          cropPhoto({ label: "Crop photo " + (i + 1), focus: function () { focusSlot(i); }, keep: function (b, n) { keepPhoto(i, b, n); } }, one, refuse, function () { file.value = ""; });
+        });
+        slotTiles.push(tile);
+        slotsBox.appendChild(slot);
+      })(i);
+    }
+    /* A cropped photo is ready for slot i: Add keeps it; Edit uploads it now. */
+    function keepPhoto(i, blob, name) {
+      if (adding) {
+        dropPhoto(i);
+        pending[i] = { blob: blob, name: name, url: window.URL && URL.createObjectURL ? URL.createObjectURL(blob) : "" };
+        drawSlots(); focusSlot(i);
+        say("Photo " + (i + 1) + " ready.");
+        return;
+      }
+      var form = new FormData();
+      form.append("file", blob, name);
+      form.append("revision", String(S.editing.revision));
+      imageCall(i, "POST", productPath(S.editing) + "image/?slot=" + (i + 1), form);
+    }
+    function removeImage(i) { imageCall(i, "DELETE", productPath(S.editing) + "image/?slot=" + (i + 1) + "&revision=" + encodeURIComponent(S.editing.revision), null); }
+    function imageCall(i, method, path, form) {
+      clearErrors();
+      imgBusyOn = true;
+      slotsBox.setAttribute("aria-busy", "true");
+      var req = form ? D.send(method, path, form) : D.call(method, path, null, true);
+      req.then(function (res) {
+        if (mine !== token || res.status === 401) return;
+        imgBusyOn = false;
+        slotsBox.removeAttribute("aria-busy");
+        if (res.ok && res.data && res.data.id) {
+          S.editing = res.data; replaceProduct(res.data);
+          drawSlots(); focusSlot(i);
+          say(method === "POST" ? "Photo " + (i + 1) + " saved." : "Photo " + (i + 1) + " removed.");
+          D.toast("Saved", method === "POST" ? "Photo " + (i + 1) + " is updated." : "Photo " + (i + 1) + " is removed.");
+          return;
+        }
+        applyFailure(res); drawSlots();
+      });
+    }
+    /* The square crop (Cropper.js, aspect ratio 1, view mode 2, as on Payments settings). The 2 MB limit is checked on the cropped
+       output: PNG first, then a JPEG when the PNG is over. A browser without the cropper keeps the original if it is within 2 MB. */
+    function cropPhoto(ctx, file, refuse, reset) {
+      if (!(window.Cropper && window.URL && URL.createObjectURL)) {
+        if (file.size > IMAGE_MAX) { refuse("The photo is too large to store without cropping. The limit is 2 MB."); return; }
+        ctx.keep(file, file.name || "product"); reset(); return;
+      }
+      var url = URL.createObjectURL(file), cropper = null;
+      var ov = D.el("div", { "class": "pr-crop", role: "dialog", "aria-modal": "true", "aria-label": ctx.label });
+      var boxEl = h("div", "pr-crop-box");
+      var img = D.el("img", { "class": "pr-crop-img", alt: "The photo to crop" });
+      var stage = h("div", "pr-crop-stage"); stage.appendChild(img);
+      var use = button("Use this crop", "no-btn-primary pr-crop-use", function () { apply(); });
+      var cancel = button("Cancel", "no-btn-ghost pr-crop-cancel", function () { close(); });
+      var acts = h("div", "pr-actions pr-crop-actions"); acts.appendChild(cancel); acts.appendChild(use);
+      boxEl.appendChild(h("p", "pr-crop-lead", "Drag the square over the part of the photo you want to keep."));
+      boxEl.appendChild(stage); boxEl.appendChild(acts);
+      ov.appendChild(boxEl);
+      function close() {
+        if (cropper) { cropper.destroy(); cropper = null; }
+        URL.revokeObjectURL(url); ov.remove(); reset();
+        ctx.focus();
+      }
+      function apply() {
+        if (!cropper) return;
+        use.disabled = true;
+        var canvas = cropper.getCroppedCanvas({ maxWidth: 1000, maxHeight: 1000, fillColor: "#fff" });
+        function done(blob, name) { close(); if (blob) ctx.keep(blob, name); else refuse("That photo could not be cropped. Choose a different one."); }
+        canvas.toBlob(function (png) {
+          if (png && png.size <= IMAGE_MAX) { done(png, "product.png"); return; }
+          canvas.toBlob(function (jpg) {
+            if (jpg && jpg.size <= IMAGE_MAX) { done(jpg, "product.jpg"); return; }
+            close(); refuse("The cropped photo is still over 2 MB. Choose a smaller photo.");
+          }, "image/jpeg", 0.85);
+        }, "image/png");
+      }
+      ov.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+      img.addEventListener("load", function () { cropper = new window.Cropper(img, { aspectRatio: 1, viewMode: 2, autoCropArea: 0.9, background: false, responsive: true }); });
+      img.addEventListener("error", function () { close(); refuse("That image could not be read. Choose a different JPEG, PNG or WebP image."); });
+      img.setAttribute("src", url);
+      r.appendChild(ov);
+      use.focus();
+    }
+    drawSlots();
+    schedulePreview(true);
+
+    /* ----- Details submit ----- */
+    function gatherDetails() {
+      var out = {}, bad = {}, cur = S.editing;
       var name = read("name");
       if (!name) bad.name = "Enter a name."; else out.name = name;
       var c = pesosToCentavos(read("srp_centavos"));
       if (c == null) bad.srp_centavos = "Enter an SRP above ₱0, with up to two decimals."; else out.srp_centavos = c;
       var rate = percentToRate(read("earnings_rate"));
       if (!rate) bad.earnings_rate = "Enter a discount from 10 to 50."; else out.earnings_rate = rate;
+      var sv = read("servings_per_pack");
+      if (sv === "") { if (cur && cur.servings_per_pack != null) out.servings_per_pack = null; }
+      else if (!/^[1-9]\d{0,2}$/.test(sv)) bad.servings_per_pack = "Enter a whole number from 1 to 999, or leave it empty.";
+      else out.servings_per_pack = parseInt(sv, 10);
       out.category = fields.category.value;
-      out.short_description = fields.short_description.value.trim();
-      out.long_description = fields.long_description.value.trim();
       out.is_active = fields.is_active.checked;
       SHIPPING.forEach(function (s) {
         var k = s[0], t = read(k);
         if (t === "") {
-          if (p && p[k] != null) bad[k] = "Enter a value. A saved value can't be left blank.";
-          else if (k === "weight_kg" && !p) out[k] = "0.00";
+          if (cur && cur[k] != null) bad[k] = "Enter a value. A saved value can't be left blank.";
+          else if (k === "weight_kg" && !cur) out[k] = "0.00";
           return;
         }
         if (k === "shipping_qty") {
@@ -957,11 +1688,11 @@
       });
       return { out: out, bad: bad };
     }
-    f.addEventListener("submit", function (e) {
+    df.addEventListener("submit", function (e) {
       e.preventDefault();
       clearErrors();
-      var g = gather();
-      if (!p) {
+      var g = gatherDetails();
+      if (adding) {
         var cd = read("code").toUpperCase();
         if (!cd) g.bad.code = "Enter a product code."; else g.out.code = cd;
       }
@@ -972,54 +1703,106 @@
         var el = fields[keys[0]]; if (el && el.focus) el.focus();
         return;
       }
-      busy(true);
-      if (!p) createProduct(g.out); else updateProduct(g.out);
+      busy(true, "details");
+      if (adding) createProduct(g.out); else updateProduct(g.out, "details");
     });
-    function done(product, msg) {
-      busy(false);
-      replaceProduct(product);
-      D.toast("Saved", msg);
-      token++;
-      loadList(product.id);
-    }
+    if (descForm) descForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      clearErrors();
+      var out = {};
+      TEXTS.forEach(function (t) { out[t[0]] = fields[t[0]].value.trim(); });
+      var faq = [], faqBad = false;
+      faqEd.items.forEach(function (it) {
+        var q = it.q.trim(), a = it.a.trim();
+        if (!q && !a) return;
+        if (!q || !a) faqBad = true; else faq.push({ q: q, a: a });
+      });
+      if (faqBad) { fieldError("faq", "Give each question an answer, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      out.faq = faq;
+      var ings = [], ingBad = false;
+      ingItems.forEach(function (it) {
+        var nm = it.name.trim(), ln = it.line.trim();
+        if (!nm && !ln && !it.photo_slot) return;
+        if (!nm) ingBad = true; else ings.push({ name: nm, line: ln, photo_slot: it.photo_slot });
+      });
+      if (ingBad) { fieldError("ingredients", "Give each ingredient a name, or remove the empty ones."); topMessage(MSG.invalid); return; }
+      out.ingredients = ings;
+      busy(true, "description");
+      updateProduct(out, "description");
+    });
+
+    /* Create, then the photos (each with the new revision), then hide when Show in shops is off. The create call takes neither, so
+       each is its own call. A step that fails does not undo the product: it is kept and its edit form opens with what happened, so
+       nothing is created twice. Add then becomes Edit. */
     function createProduct(out) {
       var wantActive = out.is_active;
-      delete out.is_active; /* a new product is created active; hiding is a second step */
+      delete out.is_active;
       D.call("POST", productPath(), out, true).then(function (res) {
         if (mine !== token || res.status === 401) return;
         if (!(res.ok && res.data && res.data.id)) { busy(false); applyFailure(res); return; }
-        var created = res.data;
-        if (wantActive) { done(created, "The product is added."); return; }
-        D.call("PATCH", productPath(created), { revision: created.revision, is_active: false }, true).then(function (r2) {
-          if (mine !== token || r2.status === 401) return;
-          if (r2.ok && r2.data && r2.data.id) { done(r2.data, "The product is added and hidden."); return; }
+        var cur = res.data, problems = [], hideFailed = false;
+        function stepPhoto(i) {
+          if (i >= SLOTS) return Promise.resolve();
+          if (!pending[i]) return stepPhoto(i + 1);
+          var form = new FormData();
+          form.append("file", pending[i].blob, pending[i].name);
+          form.append("revision", String(cur.revision));
+          return D.send("POST", productPath(cur) + "image/?slot=" + (i + 1), form).then(function (r1) {
+            if (r1.status !== 401) {
+              if (r1.ok && r1.data && r1.data.id) cur = r1.data;
+              else problems.push("Photo " + (i + 1) + " couldn’t be saved. " + describeError(r1).message + " Add it again here.");
+            }
+            return stepPhoto(i + 1);
+          });
+        }
+        function stepHide() {
+          if (wantActive) return Promise.resolve();
+          return D.call("PATCH", productPath(cur), { revision: cur.revision, is_active: false }, true).then(function (r2) {
+            if (r2.status === 401) return;
+            if (r2.ok && r2.data && r2.data.id) cur = r2.data;
+            else { hideFailed = true; problems.push("It couldn’t be hidden. " + describeError(r2).message + " Turn off Show in shops and save."); }
+          });
+        }
+        stepPhoto(0).then(stepHide).then(function () {
+          if (mine !== token) return;
           busy(false);
-          S.products.push(created);
-          S.editing = created; /* the product exists: carry on editing it instead of creating it twice */
-          openForm(created);
-          var again = document.getElementById("pr-f-is_active"); if (again) again.checked = false;
-          var msg = describeError(r2).message;
-          var t = pane().querySelector(".pr-topmsg");
-          if (t) { t.hidden = false; clear(t); t.appendChild(h("p", "pr-error", "The product was added, but we couldn’t hide it. " + msg)); }
+          dropPhotos();
+          replaceProduct(cur);
+          if (!problems.length) openForm(cur, { ok: wantActive ? "The product is added." : "The product is added and hidden." });
+          else openForm(cur, { text: "The product was added, but not everything was saved. " + problems.join(" "), showOff: hideFailed });
         });
       });
     }
-    function updateProduct(out) {
-      var body = { revision: p.revision }, n = 0;
+    /* Edit: only the fields that changed go, with the latest revision. The editor stays open. */
+    function updateProduct(out, which) {
+      var cur = S.editing, body = { revision: cur.revision }, n = 0;
       Object.keys(out).forEach(function (k) {
-        var was = p[k];
-        if (k === "shipping_qty") { if (was === out[k]) return; }
+        var was = cur[k];
+        if (k === "shipping_qty" || k === "servings_per_pack") { if ((was == null ? null : was) === out[k]) return; }
+        else if (k === "faq" || k === "ingredients") { if (sameList(k, was, out[k])) return; }
         else if (k === "is_active" || k === "srp_centavos") { if (was === out[k]) return; }
         else if (String(was == null ? "" : was) === String(out[k])) return;
         body[k] = out[k]; n++;
       });
       if (!n) { busy(false); topMessage("There are no changes to save."); return; }
-      body.revision = S.editing.revision;
-      D.call("PATCH", productPath(p), body, true).then(function (res) {
+      D.call("PATCH", productPath(cur), body, true).then(function (res) {
         if (mine !== token || res.status === 401) return;
-        if (res.ok && res.data && res.data.id) { done(res.data, "Your changes are saved."); return; }
-        busy(false); applyFailure(res);
+        busy(false);
+        if (res.ok && res.data && res.data.id) {
+          S.editing = res.data; replaceProduct(res.data);
+          D.toast("Saved", which === "description" ? "The description is saved." : "Your changes are saved.");
+          say("Saved.");
+          return;
+        }
+        applyFailure(res);
       });
+    }
+
+    selectTab(tab, false);
+    if (notice) {
+      if (notice.text) topMessage(notice.text);
+      if (notice.ok) { D.toast("Saved", notice.ok); say(notice.ok); }
+      if (notice.showOff) show.checked = false;
     }
     title.focus();
   }
@@ -1061,6 +1844,84 @@
     });
   }
 
+  /* ---------- reviews ---------- */
+
+  /* A product's reviews from verified buyers, newest first. The owner can hide one from the shop and show it again, and that is all:
+     the buyer's words, name and rating are read-only, and set as text. */
+  var REVIEW_RE = /^[0-9A-Za-z_-]{1,64}$/;
+  function starsText(n) { var k = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return "★★★★★".slice(0, k) + "☆☆☆☆☆".slice(0, 5 - k); }
+  function openReviews(p) {
+    S.mode = "reviews";
+    var mine = ++token;
+    var r = clear(pane());
+    r.setAttribute("aria-busy", "true");
+    var head = h("div", "pr-formhead");
+    head.appendChild(button("Back to products", "no-btn-ghost", function () { token++; loadList(); }));
+    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, "Reviews of " + p.name);
+    head.appendChild(title);
+    r.appendChild(head);
+    var body = h("div", "pr-revs");
+    body.appendChild(h("p", "pr-meta", "Loading reviews…"));
+    r.appendChild(body);
+    title.focus();
+    if (!PRODUCT_RE.test(p.id)) { clear(body).appendChild(failBox("We couldn’t load the reviews.")); r.removeAttribute("aria-busy"); return; }
+    D.call("GET", "/sites/" + S.site + "/shop/reviews/?product=" + encodeURIComponent(p.id), null, true).then(function (res) {
+      if (mine !== token || res.status === 401) return;
+      r.removeAttribute("aria-busy");
+      var rows = res.data && res.data.reviews;
+      clear(body);
+      if (!res.ok || !Array.isArray(rows)) { body.appendChild(failBox("We couldn’t load the reviews. Try again.", function () { openReviews(p); })); return; }
+      function draw() {
+        clear(body);
+        var shown = rows.filter(function (x) { return !x.is_hidden; }).length;
+        if (!rows.length) {
+          body.appendChild(h("p", "pr-meta", "No reviews yet. Reviews come from shoppers whose order was delivered, and they appear here as soon as they are posted."));
+          return;
+        }
+        body.appendChild(h("p", "pr-meta pr-revs-sum", rows.length + (rows.length === 1 ? " review" : " reviews") + " · " + shown + " shown in your shop" + (rows.length - shown ? ", " + (rows.length - shown) + " hidden" : "")));
+        var list = D.el("ul", { "class": "pr-revlist" });
+        rows.forEach(function (rv) {
+          var li = h("li", "pr-rev" + (rv.is_hidden ? " is-hidden" : ""));
+          var top = h("p", "pr-revtop");
+          var st = h("span", "pr-revstars", starsText(rv.rating));
+          st.setAttribute("role", "img"); st.setAttribute("aria-label", rv.rating + " out of 5 stars");
+          top.appendChild(st);
+          top.appendChild(h("strong", "pr-revname", rv.display_name || "Verified buyer"));
+          top.appendChild(chip("Verified buyer", "chip-ok"));
+          if (rv.is_hidden) top.appendChild(chip("Hidden", "chip-neutral"));
+          li.appendChild(top);
+          var when = stamp(rv.created_at);
+          li.appendChild(h("p", "pr-revmeta", (when ? when : "") + (rv.order_number ? (when ? " · " : "") + "Order " + rv.order_number : "") + (rv.edited ? " · edited" : "")));
+          if (rv.body) li.appendChild(h("p", "pr-revbody", rv.body));
+          var act = h("div", "pr-revact");
+          var btn = button(rv.is_hidden ? "Show in shop" : "Hide from shop", "no-btn-ghost pr-rev-toggle", function () {
+            if (!REVIEW_RE.test(String(rv.id))) return;
+            btn.disabled = true;
+            var hide = !rv.is_hidden;
+            D.call("POST", "/sites/" + S.site + "/shop/reviews/" + rv.id + "/" + (hide ? "hide" : "show") + "/", null, true).then(function (r2) {
+              if (mine !== token || res.status === 401) return;
+              if (r2.ok && r2.data && r2.data.id === rv.id) {
+                rv.is_hidden = r2.data.is_hidden === true;
+                D.toast(rv.is_hidden ? "Review hidden" : "Review shown", rv.is_hidden ? "It no longer appears in your shop." : "It appears in your shop again.");
+                say(rv.is_hidden ? "Review hidden." : "Review shown.");
+                draw();
+                return;
+              }
+              btn.disabled = false;
+              D.toast("Not saved", (r2.data && r2.data.message) || MSG.generic, "error");
+            });
+          });
+          btn.setAttribute("aria-label", (rv.is_hidden ? "Show the review by " : "Hide the review by ") + (rv.display_name || "a verified buyer"));
+          act.appendChild(btn);
+          li.appendChild(act);
+          list.appendChild(li);
+        });
+        body.appendChild(list);
+      }
+      draw();
+    });
+  }
+
   /* ---------- site choice ---------- */
 
   function start() {
@@ -1080,11 +1941,6 @@
       }
       var ids = sites.map(function (s) { return s.id; });
       S.site = D.siteFromQuery(ids);
-      function nameOf(id) {
-        for (var i = 0; i < sites.length; i++) if (sites[i].id === id) return sites[i].display_name || sites[i].subdomain || "Santé store";
-        return "Santé store";
-      }
-      S.siteName = nameOf(S.site);
       clear(r);
       if (sites.length > 1) {
         var wrap = h("div", "pr-pick"), lab = D.el("label", { "for": "pr-site", "class": "pr-pick-label" }, "Store");
@@ -1097,7 +1953,6 @@
         sel.addEventListener("change", function () {
           if (ids.indexOf(sel.value) < 0) return;
           S.site = sel.value;
-          S.siteName = nameOf(S.site);
           S.view = newView();
           loadInto(inner);
         });
@@ -1128,7 +1983,8 @@
   window.NOProducts = {
     util: { pesosToCentavos: pesosToCentavos, formatPeso: formatPeso, centavosToField: centavosToField, percentToRate: percentToRate,
       rateToPercent: rateToPercent, membersPrice: membersPrice, describeError: describeError, changes: changes, categoryLabel: categoryLabel,
-      gaps: gaps, counts: counts, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText, moveId: moveId },
+      gaps: gaps, filterProducts: filterProducts, csvCell: csvCell, csvText: csvText, moveId: moveId,
+      imageUrls: imageUrls, previewBody: previewBody, feeModel: feeModel },
     show: function () {
       document.addEventListener("click", outside);
       window.addEventListener("scroll", closeMenuOnMove, true);
@@ -1137,6 +1993,7 @@
     },
     hide: function () {
       token++; say(""); stopDrag();
+      if (S && S.searchTimer) clearTimeout(S.searchTimer);
       document.removeEventListener("click", outside);
       window.removeEventListener("scroll", closeMenuOnMove, true);
       window.removeEventListener("resize", closeMenuOnMove);

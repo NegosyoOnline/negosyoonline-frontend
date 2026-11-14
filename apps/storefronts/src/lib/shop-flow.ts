@@ -7,16 +7,18 @@
    never a price. Nothing a buyer typed is stored here before the order is placed; the placing buyer's key to the done page is
    the `no_order` cookie. Every refusal re-draws the page it came from with TWCinc's own words, never a status page. */
 import { randomBytes } from "node:crypto";
+import { mobileAppUrl } from "./env.ts";
 import { MEMBER, ORDER, ORDER_MAX_AGE, clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import type { Member, Site } from "./django.ts";
-import { memberMe } from "./django.ts";
-import { htmlResponse } from "./html.ts";
+import { fetchPack, memberMe } from "./django.ts";
+import { html, htmlResponse } from "./html.ts";
 import { callFor, redirect, type Call } from "./member.ts";
 import { PROOF_MAX_BYTES, type Calls } from "./pack-api.ts";
 import {
-  fetchCatalog, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
-  type Address, type CatalogProduct, type Quote,
+  fetchCatalog, fetchReviewPage, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
+  type Address, type CatalogProduct, type Quote, type ReviewPage,
 } from "./shop-api.ts";
+import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { applyChange, readCart, writeCart, type CartChange, type CartLine } from "./shop-cart.ts";
 import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS, MSG_NO_HOME_ADDRESS, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
 import { neutralNotFound } from "../views/neutral.ts";
@@ -24,19 +26,20 @@ import { homeModel, emptyContactForm, type HomeModel } from "../views/sante/mode
 import { cartContent } from "../views/sante/shop-cart.ts";
 import { checkoutContent, ADDRESS_FIELDS, CHECKOUT_PATH, type CheckoutModel, type Mode } from "../views/sante/shop-checkout.ts";
 import { doneContent } from "../views/sante/shop-done.ts";
+import { noticeFrom } from "../views/sante/shop-review.ts";
 import { productContent } from "../views/sante/shop-product.ts";
 import { CATEGORIES, productsContent } from "../views/sante/shop-products.ts";
-import { drawerOf, safeImage, shopDocument } from "../views/sante/shop-shell.ts";
+import { appDrawer, appNotice, drawerOf, safeImage, shopDocument } from "../views/sante/shop-shell.ts";
 
 export const PROOF_TOO_LARGE = `The file is too large. The limit is ${PROOF_MAX_BYTES / (1024 * 1024)} MB.`;
 const SESSION_ENDED = "Your sign-in has ended. Please sign in again to ship at the member price.";
 const ADDRESS_FIELD_KEYS = new Set(["receiver_name", "receiver_mobile", "contact_email", "line", "barangay", "city", "province", "zip", "landmark", "delivery_address", "ship_mode"]);
 const PAY_FIELD_KEYS = new Set(["account_id", "reference_number", "amount_sent", "proof"]);
 
-export type Shop = { request: Request; site: Site; host: string; visitor_ip: string; member_token: string; calls: Calls; now?: Date };
+export type Shop = { request: Request; site: Site; host: string; visitor_ip: string; member_token: string; calls: Calls; now?: Date; appUrl?: string };
 
 export function shopOf(request: Request, site: Site, call: Call = callFor(request)): Shop {
-  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env } };
+  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env }, appUrl: mobileAppUrl() };
 }
 
 /* ---- the basket, priced -------------------------------------------------------------------------------------------- */
@@ -51,12 +54,17 @@ export type Basket = {
   stale: boolean;
   /** Django said the shop is off (404). */
   off: boolean;
+  /** Django refused the signed-in member (409 member_use_app): members order only in the Santé Mobile App, so no basket, no checkout. */
+  app: boolean;
 };
+
+/** What the pages pass the views while the visitor is a signed-in member: the app link (empty when none is configured). */
+const appOf = (s: Shop, b: { app: boolean }): { href: string } | null => (b.app ? { href: s.appUrl ?? "" } : null);
 
 type Pricing = { ship_mode?: string; address?: Address | null };
 
 /** One quote, with a dead member session retried as a guest. */
-async function price(s: Shop, lines: CartLine[], opts: Pricing = {}): Promise<{ quote: Quote | null; stale: boolean; off: boolean }> {
+async function price(s: Shop, lines: CartLine[], opts: Pricing = {}): Promise<{ quote: Quote | null; stale: boolean; off: boolean; app: boolean }> {
   const ask = (token: string) =>
     shopQuote({ host: s.host, visitor_ip: s.visitor_ip, lines, member_token: token, ship_mode: opts.ship_mode ?? "", address: opts.address ?? null }, s.calls);
   let r = await ask(s.member_token);
@@ -65,8 +73,8 @@ async function price(s: Shop, lines: CartLine[], opts: Pricing = {}): Promise<{ 
     stale = true;
     r = await ask("");
   }
-  if (r.state === "ok") return { quote: r.quote, stale, off: false };
-  return { quote: null, stale, off: r.state === "unavailable" };
+  if (r.state === "ok") return { quote: r.quote, stale, off: false, app: false };
+  return { quote: null, stale, off: r.state === "unavailable", app: r.state === "refused" && r.status === 409 && r.code === "member_use_app" };
 }
 
 /** The visitor's basket priced, and whether they buy as a member. An empty basket of a signed-in member asks about the first product,
@@ -74,13 +82,13 @@ async function price(s: Shop, lines: CartLine[], opts: Pricing = {}): Promise<{ 
 export async function basketOf(s: Shop, lines: CartLine[], probe: CatalogProduct | null): Promise<Basket> {
   if (lines.length > 0) {
     const r = await price(s, lines);
-    return { lines, quote: r.quote, members: r.quote?.member_price === true, stale: r.stale, off: r.off };
+    return { lines, quote: r.quote, members: r.quote?.member_price === true, stale: r.stale, off: r.off, app: r.app };
   }
   if (s.member_token && probe) {
     const r = await price(s, [{ id: probe.id, qty: 1 }]);
-    return { lines, quote: null, members: r.quote?.member_price === true, stale: r.stale, off: r.off };
+    return { lines, quote: null, members: r.quote?.member_price === true, stale: r.stale, off: r.off, app: r.app };
   }
-  return { lines, quote: null, members: false, stale: false, off: false };
+  return { lines, quote: null, members: false, stale: false, off: false, app: false };
 }
 
 function imagesOf(products: CatalogProduct[] | null): Map<string, string> {
@@ -89,7 +97,7 @@ function imagesOf(products: CatalogProduct[] | null): Map<string, string> {
 
 function chromeOf(s: Shop, b: Basket, products: CatalogProduct[] | null, extraError = ""): HomeModel {
   const base = homeModel(s.site, emptyContactForm(), s.now, s.member_token !== "" && !b.stale);
-  const drawer = drawerOf(b.lines, b.quote, imagesOf(products));
+  const drawer = b.app ? appDrawer(s.appUrl ?? "") : drawerOf(b.lines, b.quote, imagesOf(products));
   return { ...base, drawer: extraError ? { ...drawer, error: extraError } : drawer };
 }
 
@@ -99,6 +107,7 @@ export async function homeDrawer(request: Request, site: Site): Promise<HomeMode
   const lines = readCart(request);
   if (lines.length === 0) return drawerOf([], null, new Map());
   const b = await basketOf(s, lines, null);
+  if (b.app) return appDrawer(s.appUrl ?? "");
   const products = b.quote ? await fetchCatalog(s.host, s.calls) : null;
   return drawerOf(lines, b.quote, imagesOf(products));
 }
@@ -118,19 +127,49 @@ export async function productsGet(s: Shop): Promise<Response> {
   const category = CATEGORIES.some((c) => c.value === asked) ? asked : "";
   const b = await basketOf(s, readCart(s.request), products[0] ?? null);
   const shown = category ? products.filter((p) => p.category === category) : products;
-  return page(s, b, products, { title: "Products", content: productsContent({ products: shown, category, members: b.members, message: "" }) });
+  return page(s, b, products, { title: "Products", content: productsContent({ products: shown, category, members: b.members, message: "", app: appOf(s, b) }) });
 }
 
 /** One product by its code (the list is 18 rows, so there is no second route: plan R2). */
 export async function productGet(s: Shop, code: string): Promise<Response> {
-  const products = await fetchCatalog(s.host, s.calls);
+  /* The pack read runs beside the catalog; "Members save up to N%" links to the pack landing page only while the pack is on
+     for this host. fetchPack never throws and answers null when it is off or failed, so the page never breaks on it. */
+  const [products, pack] = await Promise.all([
+    fetchCatalog(s.host, s.calls),
+    fetchPack(s.host, s.calls.env, s.calls.fetchImpl, s.calls.log).catch(() => null),
+  ]);
   if (!products) return neutralNotFound();
   const product = products.find((p) => p.code === code);
   if (!product) return neutralNotFound();
   const b = await basketOf(s, readCart(s.request), product);
   const others = products.filter((p) => p.id !== product.id);
   const related = [...others.filter((p) => p.category === product.category), ...others.filter((p) => p.category !== product.category)].slice(0, 4);
-  return page(s, b, products, { title: product.name, content: productContent({ product, related, members: b.members }) });
+  const asked = Number(new URL(s.request.url).searchParams.get("reviews") ?? "1");
+  const pages = Number.isInteger(asked) ? Math.min(MAX_REVIEW_PAGES, Math.max(1, asked)) : 1;
+  const reviews = await reviewsOf(s, product.id, pages);
+  return page(s, b, products, {
+    title: product.name, css: [REVIEWS_CSS],
+    content: productContent({ product, related, members: b.members, packOn: pack !== null, app: appOf(s, b), reviews: reviews?.page ?? null, moreHref: `/products/${encodeURIComponent(product.code)}/?reviews=${(reviews?.loaded ?? 1) + 1}#reviews` }),
+  });
+}
+
+const MAX_REVIEW_PAGES = 10;
+export const REVIEWS_CSS = "css/pack-reviews.css";
+
+/** The product's reviews, the first `pages` pages (10 each, newest first) in one list; null when Django cannot answer (the page then simply has no reviews). */
+async function reviewsOf(s: Shop, productId: string, pages: number): Promise<{ page: ReviewPage; loaded: number } | null> {
+  const first = await fetchReviewPage(s.host, productId, 1, s.calls);
+  if (!first) return null;
+  const merged: ReviewPage = { ...first, reviews: [...first.reviews] };
+  let loaded = 1;
+  while (loaded < pages && merged.has_more) {
+    const next = await fetchReviewPage(s.host, productId, loaded + 1, s.calls);
+    if (!next) break;
+    merged.reviews.push(...next.reviews);
+    merged.has_more = next.has_more;
+    loaded += 1;
+  }
+  return { page: merged, loaded };
 }
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */
@@ -140,10 +179,10 @@ async function cartPage(s: Shop, lines: CartLine[], error = "", write = false): 
   if (!products) return neutralNotFound();
   const b = await basketOf(s, lines, products[0] ?? null);
   if (b.off) return neutralNotFound();
-  const failed = lines.length > 0 && b.quote === null;
+  const failed = lines.length > 0 && b.quote === null && !b.app;
   const response = page(s, b, products, {
     title: "Your Cart",
-    content: cartContent({ quote: b.quote, images: imagesOf(products), error: error || (failed ? "We could not price your cart. Please try again." : ""), empty: lines.length === 0 }),
+    content: cartContent({ quote: b.quote, images: imagesOf(products), error: error || (failed ? "We could not price your cart. Please try again." : ""), empty: lines.length === 0, app: appOf(s, b) }),
   }, 200, error);
   if (write || lines.length > 0) writeCart(response, s.request, lines); // the basket's seven days slide with each visit
   return response;
@@ -158,7 +197,9 @@ export async function cartPost(s: Shop, text: Record<string, string>): Promise<R
   if (action !== "add" && action !== "set" && action !== "remove") return neutralNotFound();
   const change: CartChange = { action, id: (text.product_id ?? "").trim(), qty: Number((text.quantity ?? "1").trim()) };
   const before = readCart(s.request);
-  const { lines, error } = applyChange(before, change);
+  // a signed-in member has no basket (members order in the app): the post changes nothing and the page shows the notice
+  const member = s.member_token ? await memberInfo(s) : null;
+  const { lines, error } = member ? { lines: before, error: "" } : applyChange(before, change);
   const navigating = s.request.headers.get("sec-fetch-mode") === "navigate";
   if (navigating) {
     const response = redirect("/cart/");
@@ -225,8 +266,25 @@ async function prepared(s: Shop): Promise<Prepared> {
   if (!products) return { response: neutralNotFound() };
   const r = await price(s, lines);
   if (r.off) return { response: neutralNotFound() };
+  if (r.app) return { response: appCheckout(s, lines, products) };
   if (!r.quote || !r.quote.ok) return { response: redirect("/cart/") };
   return { lines, quote: r.quote, products, stale: r.stale };
+}
+
+/** The checkout of a signed-in member: no address step, no payment, no order; the notice and the way back (every post to /checkout/ lands here too). */
+function appCheckout(s: Shop, lines: CartLine[], products: CatalogProduct[]): Response {
+  const b: Basket = { lines, quote: null, members: false, stale: false, off: false, app: true };
+  const content = html`
+<section class="section sf-cart-page">
+  <div class="section-inner">
+    <div class="section-header"><span class="section-label">Checkout</span></div>
+    <div class="sf-empty">
+      ${appNotice(s.appUrl ?? "")}
+      <p><a href="/products/" class="sf-continue-link">&#8249; Back to products</a></p>
+    </div>
+  </div>
+</section>`;
+  return page(s, b, products, { title: "Checkout", content });
 }
 
 function blank(over: Partial<CheckoutModel> = {}): CheckoutModel {
@@ -237,7 +295,7 @@ function blank(over: Partial<CheckoutModel> = {}): CheckoutModel {
 }
 
 function checkoutPage(s: Shop, p: { lines: CartLine[]; quote: Quote; products: CatalogProduct[]; stale: boolean }, m: CheckoutModel, status = 200): Response {
-  const b: Basket = { lines: p.lines, quote: p.quote, members: p.quote.member_price, stale: p.stale, off: false };
+  const b: Basket = { lines: p.lines, quote: p.quote, members: p.quote.member_price, stale: p.stale, off: false, app: false };
   return page(s, b, p.products, {
     title: "Checkout", content: checkoutContent(m), css: ["css/pack-select.css", "css/pack-shop.css"],
     scripts: ["js/pack-select.js", "js/pack-address.js", "js/pack-shop.js"],
@@ -478,10 +536,19 @@ export async function doneGet(s: Shop): Promise<Response> {
     clearCookie(gone, s.request, ORDER);
     return gone;
   }
-  if (r.state !== "ok") return htmlResponse(shopDocument(chromeOf(s, { lines: [], quote: null, members: false, stale: false, off: false }, null), {
+  if (r.state !== "ok") return htmlResponse(shopDocument(chromeOf(s, { lines: [], quote: null, members: false, stale: false, off: false, app: false }, null), {
     title: "Order", content: cartContent({ quote: null, images: new Map(), error: MSG_TRY_AGAIN, empty: true }),
   }), 503);
-  const b: Basket = { lines: [], quote: null, members: false, stale: false, off: false };
-  return page(s, b, null, { title: `Order ${r.order.order_number}`, content: doneContent(r.order) });
+  const b: Basket = { lines: [], quote: null, members: false, stale: false, off: false, app: false };
+  return page(s, b, null, { title: `Order ${r.order.order_number}`, css: [REVIEWS_CSS], content: doneContent(r.order, noticeFrom(new URL(s.request.url).searchParams)) });
+}
+
+/** POST /checkout/done/review/: the placing buyer reviews a line of their own order (the `no_order` cookie is their proof). */
+export async function reviewPost(s: Shop, text: Record<string, string>): Promise<Response> {
+  const key = readOrder(s.request);
+  if (!key) return redirect("/products/");
+  const form = readReviewForm(text);
+  if (!form || !ORDER_ID.test(key.id)) return neutralNotFound();
+  return submitReview({ host: s.host, visitor_ip: s.visitor_ip, order_id: key.id, view_token: key.token, member_token: "", calls: s.calls }, form, "/checkout/done/");
 }
 

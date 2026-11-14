@@ -1,0 +1,44 @@
+/* Member notices (ClickUp z8uq9mezdh, /settings/notices/, notices.js). The card repeats the Meta Pixel and Payments card look, scoped to
+   its own view id, so dash.css is not touched. Colours come from the dash tokens. */
+#view-settings-notices .nt-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+#view-settings-notices .nt-root > .nt-card { margin-bottom: 16px; }
+#view-settings-notices .nt-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
+#view-settings-notices .nt-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#view-settings-notices .nt-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+#view-settings-notices .nt-head .nt-h2 { margin: 0; }
+#view-settings-notices .nt-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#view-settings-notices .nt-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+#view-settings-notices .nt-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
+#view-settings-notices .chip { min-height: 26px; }
+#view-settings-notices .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-settings-notices .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#view-settings-notices .nt-field { margin: 0 0 14px; }
+#view-settings-notices .nt-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+#view-settings-notices .nt-input { display: block; width: 100%; min-height: 44px; padding: 8px 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+#view-settings-notices .nt-textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+#view-settings-notices .nt-input:focus, #view-settings-notices .nt-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-settings-notices .nt-input.nt-invalid { border-color: var(--err-line); }
+#view-settings-notices .nt-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
+#view-settings-notices .nt-error[hidden] { display: none; }
+#view-settings-notices .nt-check { display: flex; align-items: center; gap: 10px; }
+#view-settings-notices .nt-check .nt-label { margin: 0; }
+#view-settings-notices .nt-check input { width: 20px; height: 20px; }
+#view-settings-notices .nt-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 14px; }
+#view-settings-notices .nt-actions .no-btn { min-height: 44px; }
+#view-settings-notices .nt-danger { color: var(--err-h); }
+/* the notices: a plain list, one row each, the picture first */
+#view-settings-notices .nt-list { margin: 0; padding: 0; list-style: none; }
+#view-settings-notices .nt-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 16px; padding: 14px 0; border-top: 1px solid var(--card-line); }
+#view-settings-notices .nt-row:first-child { border-top: 0; }
+#view-settings-notices .nt-thumb { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid var(--card-line); flex: none; }
+#view-settings-notices .nt-row-main { flex: 1 1 260px; min-width: 0; }
+#view-settings-notices .nt-row-head { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+#view-settings-notices .nt-row-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+#view-settings-notices .nt-row-body { margin: 0 0 6px; font-size: 15px; line-height: 1.5; color: var(--text-2); overflow-wrap: anywhere; white-space: pre-line; max-height: 4.5em; overflow: hidden; }
+#view-settings-notices .nt-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#view-settings-notices .nt-row-actions .no-btn { min-height: 38px; }
+@media (max-width: 640px) {
+  #view-settings-notices .nt-card { padding: 18px 16px; }
+  #view-settings-notices .nt-actions .no-btn { width: 100%; }
+  #view-settings-notices .nt-row-actions { width: 100%; }
+}

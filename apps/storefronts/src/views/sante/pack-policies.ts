@@ -154,6 +154,7 @@ const privacy = (v: V): Markup => html`
 <li>Santé International, only for purchases that include Santé membership enrollment. For those purchases we transfer your name, date of birth, desired username, mobile number, email address, and delivery address so that your membership can be registered and administered. Ordinary product purchases do not require this sharing.</li>
 </ul>
 <p>Service providers are given access only as appropriate for their assigned functions, subject to relevant contractual and security safeguards.</p>
+<p>If you post a product review, your display name, rating and review are shown on the store.</p>
 <p>We do not sell customer personal information.</p>
 <p>Where third-party providers act as independent personal information controllers, their own privacy notices may also apply.</p>
 <h2>5. Cookies and Similar Technologies</h2>

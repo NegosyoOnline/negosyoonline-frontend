@@ -1,0 +1,34 @@
+/* Orders > Registrations (ClickUp z8uq9meyqj). Scoped to #reg-root and .rg-*; every colour is a dash token.
+   Focus is the dash's light blue border, never gold. Card titles are not focusable. */
+#reg-root{display:flex;flex-direction:column;gap:16px;min-width:0}
+#reg-root[hidden],#view-pack-orders[hidden]{display:none}
+.rg-wrap{display:flex;flex-direction:column;gap:16px;min-width:0;max-width:880px;width:100%}
+.rg-wrap>*{min-width:0}
+.rg-top h2{margin:0 0 4px;font-size:22px;font-weight:700;color:var(--text)}
+.rg-lead{margin:0;color:var(--meta);font-size:14px}
+.rg-seg{display:flex;flex-wrap:wrap;gap:8px}
+.rg-seg button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--card-line);background:var(--card);color:var(--text);font:inherit;cursor:pointer}
+.rg-seg button[aria-pressed="true"]{border-color:var(--link);color:var(--link);font-weight:700}
+.rg-seg button:focus-visible{outline:none;border-color:var(--link);box-shadow:0 0 0 2px var(--link)}
+.rg-card{min-width:0;padding:18px 20px;border:1px solid var(--card-line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow)}
+.rg-card h3{margin:0;font-size:17px;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.rg-bad{border-color:var(--err-line)}
+.rg-head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-start;justify-content:space-between}
+.rg-sub{margin:2px 0 0;color:var(--meta);font-size:14px}
+.rg-card .chip{min-height:26px;white-space:normal}
+#reg-root .chip-warn{background:var(--bl-chip-warn-bg);color:var(--bl-chip-warn)}
+#reg-root .chip-danger{background:var(--bl-chip-danger-bg);color:var(--bl-chip-danger)}
+.rg-facts{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:8px 16px;margin:14px 0 0}
+.rg-facts dt{color:var(--text-2)}.rg-facts dd{margin:0;text-align:right;font-weight:600;color:var(--text);overflow-wrap:anywhere}
+.rg-facts dd.rg-none{color:var(--meta);font-weight:400}
+.rg-email{margin:14px 0 0;color:var(--text-2);font-size:14px}
+.rg-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px}
+.rg-form{display:grid;gap:6px;margin-top:14px}
+.rg-form label{font-size:14px;font-weight:600;color:var(--text-2)}
+.rg-input{display:block;box-sizing:border-box;width:100%;min-height:44px;padding:8px 12px;border:1px solid var(--bl-select-line);border-radius:10px;background:var(--bl-select-bg);color:var(--bl-select-text);font:inherit;font-size:16px}
+.rg-input:focus,.rg-input:focus-visible{outline:none;border-color:var(--link);box-shadow:0 0 0 1px var(--link)}
+.rg-input.is-bad{border-color:var(--err-line)}
+.rg-err{margin:0;color:var(--err-h);font-size:14px;padding-left:8px;border-left:3px solid var(--err-line)}
+.rg-hint{margin:0;color:var(--meta);font-size:13px}
+.rg-skel{display:grid;gap:12px}.rg-skel i{display:block;height:96px;border-radius:10px;background:var(--card-line);opacity:.5}
+@media (max-width:559.98px){.rg-facts{grid-template-columns:1fr}.rg-facts dd{text-align:left;margin-bottom:6px}.rg-actions .no-btn{flex:1 1 100%}}

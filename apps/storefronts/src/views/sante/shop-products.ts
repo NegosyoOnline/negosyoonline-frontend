@@ -3,7 +3,7 @@
    when Django says this buyer is a member with active benefits (quote.member_price); a guest never gets it. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
-import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
+import { PRODUCT_PLACEHOLDER, appNotice, php, safeImage } from "./shop-shell.ts";
 
 /** The four categories as the store's own footer names them (backend apps/catalog/services.py CATEGORIES). */
 export const CATEGORIES: readonly { value: string; label: string }[] = [
@@ -13,7 +13,7 @@ export const CATEGORIES: readonly { value: string; label: string }[] = [
   { value: "beauty", label: "Santé Beauty" },
 ];
 
-export type ProductsModel = { products: CatalogProduct[]; category: string; members: boolean; message: string };
+export type ProductsModel = { products: CatalogProduct[]; category: string; members: boolean; message: string; app?: { href: string } | null };
 
 /** A word-boundary cut with an ellipsis, as Django's truncatechars. */
 export function truncate(text: string, max: number): string {
@@ -23,7 +23,7 @@ export function truncate(text: string, max: number): string {
 
 /* The image link only repeats the title link beside it, so keyboard and screen-reader users skip it (aria-hidden,
    tabindex -1); the title link names the product. A photo keeps its alt text. */
-export function productCard(p: CatalogProduct, members: boolean): Markup {
+export function productCard(p: CatalogProduct, members: boolean, app: { href: string } | null = null): Markup {
   const image = safeImage(p.image_url);
   return html`
       <div class="product-card">
@@ -37,11 +37,11 @@ export function productCard(p: CatalogProduct, members: boolean): Markup {
             <div class="product-price">${php(p.srp_centavos)}</div>
             ${members ? html`<div class="product-desc">Members price ${php(p.unit_members_price_centavos)} each</div>` : ""}
           </div>
-          <form method="post" action="/cart/">
+          ${app ? "" : html`<form method="post" action="/cart/">
             <input type="hidden" name="action" value="add">
             <input type="hidden" name="product_id" value="${p.id}"><input type="hidden" name="quantity" value="1">
             <button type="submit" class="btn-cart">Add to Cart</button>
-          </form>
+          </form>`}
         </div>
       </div>`;
 }
@@ -56,6 +56,8 @@ export function productsContent(m: ProductsModel): Markup {
       <p class="section-subtitle">100% authentic, shipped straight from the Sant&eacute; warehouse.</p>
     </div>
 
+    ${m.app ? html`<div class="sf-app-notice-wrap">${appNotice(m.app.href)}</div>` : ""}
+
     <div class="sf-facets">
       <a href="/products/" class="sf-facet-pill${m.category ? "" : " active"}">All</a>
       ${CATEGORIES.map((c) => html`<a href="/products/?category=${c.value}" class="sf-facet-pill${m.category === c.value ? " active" : ""}">${c.label}</a>`)}
@@ -63,7 +65,7 @@ export function productsContent(m: ProductsModel): Markup {
 
     ${m.products.length > 0 ? html`
     <div class="products-grid">
-      ${m.products.map((p) => productCard(p, m.members))}
+      ${m.products.map((p) => productCard(p, m.members, m.app ?? null))}
     </div>` : html`
     <div class="sf-empty">
       <p>${m.message || "No products available in this category right now. Please check back soon."}</p>

@@ -1,0 +1,60 @@
+/* Product reviews (CAT-1 r5b): the stars, the product page's review list and the buyer's "Rate this product" form on an order.
+   This storefront's own file, loaded by the shop pages and by My Orders. Mobile first; the focus ring is the light blue of
+   pack-focus.css, never gold. The colours carry fallbacks because the shop and the member pages name their greens differently. */
+.sf-stars { display: inline-flex; gap: 1px; vertical-align: middle; line-height: 1; }
+.sf-star { font-size: 18px; color: #d0d6d0; }
+.sf-star.is-on { color: #e8a317; }
+/* A half star (the rating summary): the left half filled, the right half grey. */
+.sf-star.is-half { background: linear-gradient(90deg, #e8a317 50%, #d0d6d0 50%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+
+/* Product page: the line under the name, and the section. */
+.sf-rating-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -4px 0 14px; font-size: 14px; color: var(--text-secondary, #4a5a50); text-decoration: none; }
+.sf-rating-line strong { color: var(--text, #111); }
+.sf-rating-line:hover span:last-child { text-decoration: underline; }
+.sf-reviews { background: #fff; }
+.sf-reviews-sum { display: flex; align-items: center; gap: 14px; margin: 14px 0 20px; }
+.sf-reviews-avg { font-size: 40px; font-weight: 800; line-height: 1; color: var(--text, #111); }
+.sf-reviews .sf-star { font-size: 22px; }
+.sf-reviews-count { font-size: 14px; color: var(--text-secondary, #4a5a50); margin-top: 4px; }
+.sf-review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.sf-review { padding: 16px 0; border-top: 1px solid var(--border, #dfe6df); }
+.sf-review:first-child { border-top: 0; }
+.sf-review-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.sf-review-name { font-size: 15px; color: var(--text, #111); }
+.sf-verified { font-size: 12px; font-weight: 700; color: var(--green-dark, #0a6b3a); background: rgba(0, 90, 40, 0.08); border-radius: 999px; padding: 2px 10px; }
+.sf-review-date { font-size: 13px; color: var(--text-light, #6b7a70); margin-top: 4px; }
+.sf-review-body { font-size: 15px; line-height: 1.6; color: var(--text-secondary, #4a5a50); margin-top: 8px; overflow-wrap: anywhere; }
+.sf-review-body p { margin: 0 0 8px; }
+.sf-reviews-more { margin: 18px 0 0; text-align: center; }
+.sf-reviews-more .btn-cart { display: inline-block; width: auto; padding-left: 28px; padding-right: 28px; text-decoration: none; }
+
+/* The buyer's form on an order (order-done page and My Orders). */
+.sf-rv-buyer { margin-top: 22px; padding: 18px; background: #fff; border: 1px solid var(--border, #dfe6df); border-radius: 14px; text-align: left; }
+.sf-rv-h { font-size: 17px; font-weight: 700; margin: 0 0 4px; color: var(--text, #111); }
+.sf-rv-line { padding: 14px 0; border-top: 1px solid var(--border, #dfe6df); }
+.sf-rv-line:first-of-type { border-top: 0; }
+.sf-rv-pname { font-weight: 700; font-size: 15px; color: var(--text, #111); margin-bottom: 6px; }
+.sf-rv-ask { font-size: 14px; color: var(--text-secondary, #4a5a50); margin: 0 0 10px; }
+.sf-rv-notice { font-size: 14px; font-weight: 600; margin: 6px 0 10px; padding: 10px 12px; border-radius: 8px; }
+.sf-rv-notice.is-ok { background: rgba(0, 90, 40, 0.08); color: var(--green-dark, #0a6b3a); }
+.sf-rv-notice.is-err { background: #fdecec; color: #8a1c1c; }
+.sf-rv-mine { font-size: 14px; color: var(--text-secondary, #4a5a50); }
+.sf-rv-mybody { margin: 6px 0 8px; overflow-wrap: anywhere; }
+.sf-rv-mybody p { margin: 0 0 6px; }
+.sf-rv-edited { color: var(--text-light, #6b7a70); font-size: 13px; }
+.sf-rv-edit summary { cursor: pointer; font-weight: 600; color: var(--green-dark, #0a6b3a); min-height: 44px; display: flex; align-items: center; }
+.sf-rv-form { display: grid; gap: 8px; }
+.sf-rv-label { font-size: 14px; font-weight: 600; color: var(--text, #111); }
+.sf-rv-label span { font-weight: 400; color: var(--text-light, #6b7a70); }
+.sf-rv-input { width: 100%; box-sizing: border-box; font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--border, #cfd8cf); border-radius: 10px; background: #fff; color: var(--text, #111); }
+.sf-rv-note { font-size: 13px; color: var(--text-light, #6b7a70); margin: 0; }
+.sf-rv-submit { justify-self: start; width: auto; padding-left: 28px; padding-right: 28px; }
+.sf-rv-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* The star picker: radios in the order 5 to 1, shown 1 to 5 by the reversed row; a star and every star before it light up. */
+.sf-rate { display: flex; flex-direction: row-reverse; justify-content: flex-end; border: 0; padding: 0; margin: 0 0 4px; min-width: 0; }
+.sf-rate-in { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sf-rate-star { font-size: 34px; line-height: 1; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #d0d6d0; }
+.sf-rate-in:checked ~ .sf-rate-star, .sf-rate-star:hover, .sf-rate-star:hover ~ .sf-rate-star { color: #e8a317; }
+.sf-rate-in:focus-visible + .sf-rate-star { outline: 2px solid #6A89FA; outline-offset: 2px; border-radius: 8px; }
+@media (min-width: 768px) { .sf-rv-buyer { padding: 22px 26px; } .sf-reviews-avg { font-size: 48px; } }

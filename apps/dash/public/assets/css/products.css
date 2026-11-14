@@ -342,3 +342,4 @@ body.dash-app #view-products .pr-secimg-slot { width: 120px; }
 /* Category FAQs panel: the same column as the editor. */
 body.dash-app #view-products .pr-cf { max-width: 720px; }
 body.dash-app #view-products .pr-cf-pick { max-width: 320px; }
+body.dash-app #view-products .pr-cf-lead { margin: 0 0 16px; }

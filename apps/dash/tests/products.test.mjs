@@ -675,7 +675,7 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
   assert.match(html, /products\.css\?v=20261114prod3/);
-  assert.match(html, /products\.js\?v=20261114prod3/);
+  assert.match(html, /products\.js\?v=20261114prod4/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };

@@ -49,6 +49,19 @@ test("the Finance usage and issuer pages follow the focus rule: no heading is fo
   assert.match(fs.readFileSync(PUB + "assets/js/finance-accounts.js", "utf8"), /dlg\.open\("m-edit", from, \$\("e-provider"\)\)/);
 });
 
+test("the Lifecycle page follows the focus rule: no heading is focusable or given focus, and a dialog opens on a field or Cancel", () => {
+  assert.ok(pages.includes("lifecycle.html"));
+  assert.ok(scripts.includes("lifecycle.js"));
+  const js = fs.readFileSync(PUB + "assets/js/lifecycle.js", "utf8");
+  assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|bt-msg|l-msg|bt-h)"\)\.focus/);
+  assert.match(js, /dlg\.open\("m-hold", from, \$\("hold-reason"\)\)/);
+  assert.match(js, /dlg\.open\("m-hold", from, \$\("hold-site"\)\)/);
+  assert.match(js, /dlg\.open\("m-cancel", from, \$\("cancel-f"\)\)/);
+  assert.match(js, /dlg\.open\("m-release", from, \$\("release-cancel"\)\)/);
+  /* The status message is never given focus: the Reason field and the Refresh button take it instead. */
+  assert.doesNotMatch(fs.readFileSync(PUB + "lifecycle.html", "utf8"), /id="bt-msg"[^>]*tabindex/i);
+});
+
 test("the invoice register and reconciliation pages follow the focus rule: no heading is focusable or given focus", () => {
   for (const f of ["finance-invoices.html", "finance-reconcile.html"]) assert.ok(pages.includes(f), f);
   for (const f of ["finance-invoices.js", "finance-reconcile.js"]) {

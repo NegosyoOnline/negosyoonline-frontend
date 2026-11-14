@@ -8,7 +8,7 @@
 
 const VERSIONS: Record<string, string> = {
   "css/pack-home.css": "b95b223c",
-  "css/pack-storefront.css": "9fb8fdd2",
+  "css/pack-storefront.css": "db148253",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "6cc4f761",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -17,6 +17,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-registration.css": "488877e1",
   "css/pack-dashboard-shell.css": "189c31cc",
   "css/pack-dashboard.css": "877a70b1",
+  "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "2a7b1304", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
@@ -78,6 +79,7 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.webp": "99d5623c",
   "img/blog_2.webp": "6870f46a",
   "img/blog_3.webp": "cc22ea9b",
+  "js/meta-pixel.js": "6385c256", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };
 
 export const ASSET_BASE = "/assets/sante/";

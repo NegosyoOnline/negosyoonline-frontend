@@ -4,7 +4,7 @@
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { HomeSummary, OrderCard, OrderMonitor } from "../../lib/pack-api.ts";
 import type { BuyerOrder } from "../../lib/shop-api.ts";
-import { money } from "./shop-shell.ts";
+import { money, safeImage } from "./shop-shell.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "M j, Y" (Nov 12, 2026), or "M j" without the year, in Manila time; "" for an unreadable date. */
@@ -134,10 +134,11 @@ const SHOP_TRACK = ["placed", "confirmed", "shipped", "delivered"] as const;
 export function shopCard(o: BuyerOrder, i = 0): Markup {
   const at = SHOP_TRACK.indexOf(o.status as (typeof SHOP_TRACK)[number]);
   const names = o.tracker.length === 4 ? o.tracker : ["Order Placed", "Order Confirmed", "Shipped", "Delivered"];
-  const dates = [o.created_at, "", o.shipped_on, o.delivered_on];
+  const dates = [o.created_at, o.verified_at ?? "", o.shipped_on, o.delivered_on];
   const headline = o.lines.map((l) => `${l.quantity} × ${l.name || "Product"}`).join(", ");
   const chip = o.cancelled ? "sf-status-expired" : o.status === "placed" ? "" : "sf-status-approved";
   const a = o.delivery_address;
+  const shipping = o.shipping_charged_centavos === 0 ? html`FREE` : html`&#8369;${money(o.shipping_charged_centavos)}`;
   const tail = o.cancelled
     ? html`<div class="oc-problem-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>${o.status_label} Contact the store with this order number if you have questions.</p></div>`
     : html`<div class="oc-track">
@@ -165,13 +166,29 @@ export function shopCard(o: BuyerOrder, i = 0): Markup {
   <div class="oc-detail" id="oc-detail-s${i}" hidden>
     <div class="oc-dgrid">
       <div class="oc-dcard">
+        <div class="oc-dcard-head"><span class="oc-dcard-ic ic-gold" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7.5" cy="18.5" r="1.5"/><circle cx="17.5" cy="18.5" r="1.5"/></svg></span><span class="oc-dcard-htxt">Waybill</span></div>
+        <div class="oc-drow"><span>Courier</span><b>${o.courier || "To be assigned"}</b></div>
+        <div class="oc-drow"><span>Tracking #</span>${o.tracking_no ? html`<b>${o.tracking_no}</b>` : html`<b class="oc-dmuted">Not yet assigned</b>`}</div>
+        <div class="oc-drow oc-drow-total"><span>Shipping fee</span><b>${shipping}</b></div>
+      </div>
+      <div class="oc-dcard">
         <div class="oc-dcard-head"><span class="oc-dcard-htxt">Items &middot; ${o.lines.reduce((n, l) => n + l.quantity, 0)}</span></div>
-        ${o.lines.map((l) => html`<div class="oc-ditem"><span class="oc-dqty">&times;${l.quantity}</span><span class="oc-diname">${l.name || "Product"}</span></div>`)}
-        <div class="oc-drow"><span>Shipping</span><b>${o.shipping_charged_centavos === 0 ? "FREE" : html`&#8369;${money(o.shipping_charged_centavos)}`}</b></div>
+        ${o.lines.map((l) => {
+          const image = safeImage(l.image_url ?? "");
+          return html`<div class="oc-ditem">${image ? html`<img class="oc-dimg" src="${image}" alt="">` : ""}<span class="oc-dqty">&times;${l.quantity}</span><span class="oc-diname">${l.name || "Product"}</span>${l.unit_centavos !== undefined ? html`<span class="oc-dunit">&#8369;${money(l.unit_centavos)}</span>` : ""}</div>`;
+        })}
+        ${o.srp_subtotal_centavos !== undefined ? html`
+        <div class="oc-drow oc-drow-total"><span>Subtotal</span><b>&#8369;${money(o.srp_subtotal_centavos)}</b></div>
+        ${(o.member_savings_centavos ?? 0) > 0 ? html`<div class="oc-drow oc-dsave"><span>Member savings</span><b>&minus;&#8369;${money(o.member_savings_centavos ?? 0)}</b></div>` : ""}
+        <div class="oc-drow"><span>Shipping</span><b>${shipping}</b></div>
+        <div class="oc-drow"><span>Total</span><b>&#8369;${money(o.total_centavos)}</b></div>` : html`
+        <div class="oc-drow"><span>Shipping</span><b>${shipping}</b></div>`}
       </div>
       ${a.line ? html`<div class="oc-dcard">
         <div class="oc-dcard-head"><span class="oc-dcard-htxt">Deliver to</span></div>
         <div class="oc-dname">${o.receiver_name}</div>
+        ${o.receiver_mobile ? html`<div class="oc-dphone">${o.receiver_mobile}</div>` : ""}
+        ${o.receiver_email ? html`<div class="oc-daddr">${o.receiver_email}</div>` : ""}
         <div class="oc-daddr">${[a.line, a.barangay, a.city, a.province].filter(Boolean).join(", ")}${a.zip ? ` ${a.zip}` : ""}</div>
       </div>` : ""}
     </div>

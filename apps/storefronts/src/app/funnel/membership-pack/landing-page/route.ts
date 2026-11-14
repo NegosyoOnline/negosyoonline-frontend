@@ -3,6 +3,7 @@
 import { fetchPack } from "../../../../lib/django.ts";
 import { storefrontEnv } from "../../../../lib/env.ts";
 import { htmlResponse } from "../../../../lib/html.ts";
+import { afterResponse, metaPage } from "../../../../lib/meta.ts";
 import { requestHost, siteFor } from "../../../../lib/site.ts";
 import { neutralNotFound } from "../../../../views/neutral.ts";
 import { landingDocument } from "../../../../views/sante/pack-landing.ts";
@@ -15,7 +16,12 @@ export async function GET(request: Request): Promise<Response> {
   if (!site) return neutralNotFound();
   const pack = await fetchPack(requestHost(request), storefrontEnv());
   if (!pack) return neutralNotFound();
-  return htmlResponse(landingDocument(packContext(site, pack)));
+  /* The Meta Pixel: the notice, or after Accept the data block, with the server events sent after the response. */
+  const meta = metaPage({
+    request, site, host: requestHost(request), env: storefrontEnv(), events: ["PageView", "ViewContent"], pack,
+  });
+  if (meta.send) await afterResponse(meta.send);
+  return htmlResponse(landingDocument({ ...packContext(site, pack), tracking: meta.markup }));
 }
 
 export {

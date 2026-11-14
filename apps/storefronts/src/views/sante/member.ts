@@ -14,6 +14,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { Site } from "../../lib/django.ts";
+import { cookieSettingsItem, hasPixel } from "../../lib/meta.ts";
 import { formatMobile } from "./model.ts";
 import { MEMBER_BASE_CSS } from "./member-base-css.ts";
 
@@ -58,6 +59,8 @@ export type Chrome = {
   free_shipping_banner: boolean;
   year: number;
   policy_links: { label: string; path: string }[];
+  /* The footer's "Cookie settings" link: only on a site with a Meta Pixel (src/lib/meta.ts). */
+  cookie_settings?: boolean;
   biz: { registered_name: string; dti_business_number: string; contact_email: string; contact_mobile: string; contact_mobile_raw: string; has_seal: boolean };
 };
 
@@ -70,6 +73,7 @@ export function chrome(site: Site, now: Date = new Date()): Chrome {
     free_shipping_banner: site.free_shipping_banner,
     year,
     policy_links: site.policy_links.filter((link) => /^\/[^/\\]/.test(link.path)),
+    cookie_settings: hasPixel(site),
     biz: {
       registered_name: site.business.registered_name,
       dti_business_number: site.business.dti_business_number,
@@ -103,7 +107,7 @@ function footer(v: Chrome): Markup {
     ` : ""}
     <div class="footer-bottom">
       <div class="footer-meta">
-        ${v.policy_links.length ? html`<ul class="footer-legal-row">${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}</ul>` : ""}
+        ${v.policy_links.length || v.cookie_settings ? html`<ul class="footer-legal-row">${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}${cookieSettingsItem(v.cookie_settings)}</ul>` : ""}
         <div class="footer-copyright">&#169; ${v.year} ${v.store_name}. All rights reserved.</div>
         <div class="footer-disclaimer">Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.</div>
       </div>
@@ -171,6 +175,7 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-registration.css")}">
 <link rel="stylesheet" href="${asset("css/pack-dashboard-shell.css")}">
 <link rel="stylesheet" href="${asset("css/pack-dashboard.css")}">
+<link rel="stylesheet" href="${asset("css/pack-shop-orders.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
 </head>
 <body>

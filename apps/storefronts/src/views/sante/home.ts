@@ -20,6 +20,7 @@
      checkout popup of pack-storefront.css while it does (Coach Ed, 2026-11-11). */
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
+import { cookieSettingsItem } from "../../lib/meta.ts";
 import type { HomeModel } from "./model.ts";
 
 export function storeNav(v: HomeModel): Markup {
@@ -97,6 +98,7 @@ export function storeFooter(v: HomeModel): Markup {
         <div class="footer-col-title">Legal</div>
         <ul class="footer-links">
           ${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}
+          ${cookieSettingsItem(v.cookie_settings)}
         </ul>
       </div>
     </div>
@@ -845,6 +847,7 @@ ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>
 <script src="${asset("js/contact-form.js")}"></script>
+${v.tracking ?? ""}
 </body>
 </html>
 `;

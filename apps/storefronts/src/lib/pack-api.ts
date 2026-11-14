@@ -42,7 +42,7 @@ function refusal(status: number, body: unknown): PackRefusal {
   };
 }
 
-const REFUSED = new Set([400, 401, 403, 409, 413, 422, 429, 503]);
+const REFUSED = new Set([400, 401, 403, 409, 413, 422, 423, 429, 503]);
 
 export async function packPost<T>(
   path: string,

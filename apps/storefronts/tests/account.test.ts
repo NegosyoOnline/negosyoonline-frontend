@@ -43,7 +43,7 @@ test("the Account page: states, the links, the hold banner, and the nav with Acc
   assert.match(b, /Email<small>j\*\*\*@example\.test<\/small><\/div><span class="badge pend">Not verified<\/span>/);
   assert.match(b, /Sign-in codes go to<small>Your mobile<\/small>/);
   assert.match(b, /href="\/dashboard\/account\/verify-email\/">Verify email<\/a> &middot; <a class="lnk" href="\/dashboard\/account\/change-mobile\/">Change mobile/);
-  assert.doesNotMatch(b, /\/dashboard\/address\//);
+  assert.match(b, /Change email<\/a> &middot; <a class="lnk" href="\/dashboard\/address\/">Home address<\/a><\/p>/);
   assert.doesNotMatch(b, /<script>/);
 });
 

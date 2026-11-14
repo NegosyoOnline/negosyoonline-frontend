@@ -7,6 +7,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { Pack, Site } from "../../lib/django.ts";
+import { cookieSettingsItem } from "../../lib/meta.ts";
 import { chrome, type Chrome } from "./member.ts";
 
 /** What every pack page reads: the site chrome plus the page's own values (TWCinc's template context). */
@@ -17,6 +18,9 @@ export type PackCtx = Chrome & {
   total: string;
   message: string;
   video_url: string;
+  /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Set only for the
+     landing and checkout pages. */
+  tracking?: Markup;
 };
 
 export const LANDING_PATH = "/funnel/membership-pack/landing-page/";
@@ -84,7 +88,7 @@ export function footer(c: PackCtx): Markup {
     ` : ""}
     <div class="footer-bottom">
       <div class="footer-meta">
-        ${(c.policy_links.length > 0) ? html`<ul class="footer-legal-row">${c.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}</ul>` : ""}
+        ${(c.policy_links.length > 0 || c.cookie_settings) ? html`<ul class="footer-legal-row">${c.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}${cookieSettingsItem(c.cookie_settings)}</ul>` : ""}
         <div class="footer-copyright">&#169; ${c.year} ${c.store_name}. All rights reserved.</div>
         <div class="footer-disclaimer">Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.</div>
       </div>
@@ -141,6 +145,7 @@ ${footer(c)}
 ${args.afterShell ?? ""}
 ${args.noPolicyPopup ? "" : policyDialog(c)}
 ${(args.scripts ?? []).map((s) => html`<script src="${asset(s)}"></script>`)}
+${c.tracking ?? ""}
 </body>
 </html>
 `;

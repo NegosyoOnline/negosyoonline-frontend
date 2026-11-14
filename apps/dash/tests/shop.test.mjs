@@ -112,7 +112,7 @@ test("the page: a view of its own with the tab bar copy, the slots and no inline
     [["#", "overview", "Overview"], ["/orders/products/", "products", "Product Orders"], ["/orders/", "package", "Package Order"]]);
   assert.ok(view.includes('data-tab="products" aria-current="page"'));
   const pack = /<section class="view" id="view-orders"[\s\S]*?<\/section>/.exec(HTML)[0];
-  assert.deepEqual([...pack.matchAll(/<a href="#" data-tab="(\w+)"/g)].map((m) => m[1]), ["overview", "product", "pack"], "the Package Order view keeps its three tabs");
+  assert.deepEqual([...pack.matchAll(/<a href="#" data-tab="(\w+)"/g)].map((m) => m[1]), ["overview", "product", "pack", "registrations"], "the Package Order view keeps its tabs and adds Registrations");
   assert.ok(HTML.includes('/assets/css/shop-orders.css?v=') && HTML.includes('/assets/js/shop-orders.js?v='));
   assert.ok(HTML.indexOf("pack-orders.css") < HTML.indexOf("shop-orders.css"), "the Package Order styles load first");
   assert.ok(!/<script(?![^>]*\bsrc=)[^>]*>/.test(HTML), "no inline script");

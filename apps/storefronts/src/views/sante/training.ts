@@ -85,7 +85,7 @@ export function resumeCard(resume: Resume | null, courses: Course[] = []): Marku
   const image = course ? safeImage(course.image_url) : "";
   const index = Math.max(0, courses.findIndex((c) => c.id === resume.course.id));
   return html`<section class="tr-card tr-resume" data-tr="resume" aria-labelledby="tr-resume-h">
-  <div class="tr-thumb tr-resume-thumb ${gradient(index)}">${image ? html`<img src="${image}" alt="" loading="lazy">` : ""}</div>
+  <div class="tr-thumb tr-resume-thumb ${gradient(index)}">${image ? html`<img src="${image}" alt="" loading="lazy">` : html`<span class="tr-thumb-title">${resume.course.title}</span>`}</div>
   <div class="tr-resume-tx">
     <div class="tr-eyebrow tr-eyebrow-gold">Pick up where you left off</div>
     <h2 id="tr-resume-h">${resume.course.title}</h2>

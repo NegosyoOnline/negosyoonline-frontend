@@ -37,6 +37,14 @@ const csp = policy();
 const LANDING = "funnel/membership-pack/landing-page";
 const landingCsp = policy(["https://player.mediadelivery.net"], true); // the landing page also carries the Pixel
 
+/* The member lesson player (/dashboard/training/lesson/<id>/) frames the allowlisted embed hosts of YouTube, Vimeo and Bunny
+   Stream, the same list the backend accepts for a lesson's video_url (apps/training/services.py). Only that path may frame them. */
+const LESSON = "dashboard/training/lesson/";
+const lessonCsp = policy([
+  "https://www.youtube.com", "https://youtube.com", "https://www.youtube-nocookie.com", "https://youtube-nocookie.com",
+  "https://player.vimeo.com", "https://iframe.mediadelivery.net",
+]);
+
 /* The other two Pixel pages: the home page and the checkout page (not its /check, /qr/ or post-placement paths). */
 const CHECKOUT = "funnel/membership-pack/checkout";
 const metaCsp = policy([], true);
@@ -64,8 +72,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        /* Every path but the three Pixel pages: the empty path (the home page), the landing page and the checkout page. */
-        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT})/?)?$).*)`,
+        /* Every path but the three Pixel pages (the empty path, the landing page and the checkout page) and the lesson player. */
+        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT})/?)?$)(?!${LESSON}).*)`,
         headers: securityHeaders(csp),
       },
       {
@@ -79,6 +87,10 @@ const nextConfig: NextConfig = {
       {
         source: `/${LANDING}{/}?`,
         headers: securityHeaders(landingCsp),
+      },
+      {
+        source: `/${LESSON}:path*`,
+        headers: securityHeaders(lessonCsp),
       },
       {
         source: "/assets/(.*)",

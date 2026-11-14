@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { affiliatePage, homePage, mediaPage, ordersPage, purchasesPage, trainingPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { affiliatePage, homePage, mediaPage, ordersPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { trainingPage } from "../src/lib/training-flow.ts";
 import { bellGet, bellRead, bellReadAll } from "../src/lib/bell-flow.ts";
 import { initials } from "../src/views/sante/member.ts";
 import { assetVersions } from "../src/lib/assets.ts";
@@ -160,8 +161,8 @@ test("My Purchases: signed out goes to the store home, a dead session clears the
 
 /* ---- the placeholder pages --------------------------------------------------------------------------------------- */
 
-test("Training and Media Library are plain placeholders", async () => {
-  for (const [page, title] of [[trainingPage, "Training"], [mediaPage, "Media Library"]] as const) {
+test("Media Library is a plain placeholder", async () => {
+  for (const [page, title] of [[mediaPage, "Media Library"]] as const) {
     const body = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
     assert.match(body, new RegExp(`<h1>${title}</h1>`));
     assert.match(body, /data-md-page="soon"/);

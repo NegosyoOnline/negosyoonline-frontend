@@ -679,8 +679,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod11/);
-  assert.match(html, /products\.js\?v=20261114prod12/);
+  assert.match(html, /products\.css\?v=20261114prod14/);
+  assert.match(html, /products\.js\?v=20261114prod14/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };

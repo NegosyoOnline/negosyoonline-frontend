@@ -84,7 +84,7 @@ export async function packPost<T>(
     log(`the API answered ${response.status} without JSON`);
     return failed;
   }
-  if (response.status === 200) {
+  if (response.status === 200 || response.status === 201) { // 201: a created member order (src/lib/orders-api.ts)
     const parsed = parse(body);
     if (parsed === null) {
       log("the API answer had the wrong shape");

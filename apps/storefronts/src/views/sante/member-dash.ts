@@ -53,11 +53,16 @@ export function soonContent(title: string): Markup {
   return html`<div class="pd md-plain" data-md-page="soon">${pageHero(title, "")}<section class="md-card"><p>${SOON}</p></section></div>`;
 }
 
-/** Orders and Affiliate Hub: the app line, with the app button when the link is set. No earnings, no referral link. */
+/** The Santé Mobile App button, only when the link is set. */
+export function appButton(appUrl: string): Markup {
+  return appUrl ? html`<p><a href="${appUrl}" class="btn md-app-btn" rel="noopener" target="_blank">Open the Sant&eacute; Mobile App</a></p>` : html``;
+}
+
+/** Affiliate Hub: the app line, with the app button when the link is set. No earnings, no referral link. */
 export function appOrdersContent(title: string, appUrl: string): Markup {
   return html`<div class="pd md-plain" data-md-page="app-orders">${pageHero(title, "")}<section class="md-card">
   <p>${APP_ORDERS_LINE}</p>
-  ${appUrl ? html`<p><a href="${appUrl}" class="btn md-app-btn" rel="noopener" target="_blank">Open the Sant&eacute; Mobile App</a></p>` : ""}
+  ${appButton(appUrl)}
 </section></div>`;
 }
 

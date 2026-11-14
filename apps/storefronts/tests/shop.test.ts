@@ -7,6 +7,7 @@ import { CART, ORDER, cookieName } from "../src/lib/cookies.ts";
 import { applyChange, countOf, parseCart, readCart, serializeCart, MAX_LINES } from "../src/lib/shop-cart.ts";
 import { fetchCatalog, shopQuote, parseBuyerOrder } from "../src/lib/shop-api.ts";
 import { addressErrors, cartGet, cartPost, checkoutGet, checkoutPost, doneGet, localDigits, productGet, productsGet, readOrder, shopOf, splitName } from "../src/lib/shop-flow.ts";
+import { productContent } from "../src/views/sante/shop-product.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
@@ -185,6 +186,34 @@ test("one product by code; an unknown code is the neutral 404; related products 
   assert.doesNotMatch(page, /Cash on Delivery|credit or debit card/i);
   assert.match(page, /You Might Also Like/);
   assert.equal((await productGet(shop(backend()), "NOPE")).status, 404);
+});
+
+const B = "https://abc123.public.blob.vercel-storage.com/";
+const FULL = { ...P1, image_url: B + "a.jpg", image_urls: [B + "a.jpg", B + "b.jpg", null, B + "d.jpg", null], features: "Rich <b>in</b> fibre.", specifications: "Net 100g", advantages: "Easy.\n\nFast.", benefits: "Energy." };
+
+test("an older API without the detail keys gives empty texts and the one photo; a new one gives five slots", async () => {
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[1].image_urls, [P2.image_url, "", "", "", ""]);
+  assert.equal(old?.[1].features, "");
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [FULL] }));
+  const now = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(now?.[0].image_urls, [B + "a.jpg", B + "b.jpg", "", B + "d.jpg", ""]);
+  assert.equal(now?.[0].advantages, "Easy.\n\nFast.");
+});
+
+test("the product page shows extra photos as thumbnails and the four sections only when filled", () => {
+  const rel: never[] = [];
+  const full = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") }, related: rel, members: false }).value;
+  assert.equal(full.match(/data-sf-thumb/g)?.length, 3);
+  assert.match(full, /data-sf-thumb class="active"/);
+  assert.match(full, /Product Feature[\s\S]*What(?:'|&#x27;)s Inside/);
+  assert.match(full, /Rich &lt;b&gt;in&lt;\/b&gt; fibre\./);
+  assert.match(full, /Specifications <span class="faq-icon">/);
+  assert.match(full, /Why It Stands Out/);
+  assert.match(full, /What You Get From It/);
+  assert.equal(full.match(/class="sf-fab-img"/g)?.length, 2); // photo 2 beside Feature, photo 4 beside Benefits; slot 3 is empty
+  const bare = productContent({ product: { ...P1, image_url: B + "a.jpg", image_urls: [B + "a.jpg", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" }, related: rel, members: false }).value;
+  assert.doesNotMatch(bare, /data-sf-thumb|sf-gallery-thumbs|sf-fab|Specifications/);
 });
 
 const BADGES = ["Trusted Since 2007", "BioGro NZ Certified", "Global Standard", "Halal Certified", "FDA Registered"];

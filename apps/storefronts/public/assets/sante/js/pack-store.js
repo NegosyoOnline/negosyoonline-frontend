@@ -71,6 +71,17 @@
     });
   }
 
+  // Gallery thumbnails: a click puts that photo in the main image (the merchant storefront.js thumb swap).
+  var main = document.getElementById('sfGalleryMain');
+  var thumbs = document.querySelectorAll('[data-sf-thumb]');
+  Array.prototype.forEach.call(thumbs, function (t) {
+    t.addEventListener('click', function () {
+      if (main) main.src = t.src;
+      Array.prototype.forEach.call(thumbs, function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+    });
+  });
+
   var input = document.getElementById('sfQty');
   if (!input) return;
   function qty() { var q = parseInt(input.value, 10); if (isNaN(q) || q < 1) q = 1; return Math.min(99, q); }

@@ -22,7 +22,7 @@ test("no inline script, handler or frame; nothing loaded from another origin but
   const page = render(FILLED);
   assert.deepEqual(page.match(/<script[^>]*>/g), [
     `<script src="/assets/sante/js/pack-home.js?v=db367a6b">`,
-    `<script src="/assets/sante/js/pack-store.js?v=6cc4f761">`,
+    `<script src="/assets/sante/js/pack-store.js?v=96c0924d">`,
     `<script src="/assets/sante/js/contact-form.js?v=${assetVersions()["js/contact-form.js"]}">`,
   ]);
   assert.equal(page.match(/<script[^>]*><\/script>/g)?.length, 3); // each one empty: a link, never code

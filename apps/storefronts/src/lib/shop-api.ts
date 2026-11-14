@@ -23,6 +23,8 @@ const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 export type CatalogProduct = {
   id: string; code: string; name: string; category: string; short_description: string; long_description: string;
   image_url: string; srp_centavos: number; unit_members_price_centavos: number; revision: number;
+  /** The four detail texts and the five photo slots (slot 1 first, "" where empty). An older API without them gives empty ones. */
+  features: string; specifications: string; advantages: string; benefits: string; image_urls: string[];
 };
 
 function parseProduct(v: unknown): CatalogProduct | null {
@@ -31,6 +33,8 @@ function parseProduct(v: unknown): CatalogProduct | null {
     id: v.id, code: v.code, name: v.name, category: str(v.category), short_description: str(v.short_description),
     long_description: str(v.long_description), image_url: str(v.image_url), srp_centavos: int(v.srp_centavos),
     unit_members_price_centavos: int(v.unit_members_price_centavos), revision: int(v.revision),
+    features: str(v.features), specifications: str(v.specifications), advantages: str(v.advantages), benefits: str(v.benefits),
+    image_urls: Array.from({ length: 5 }, (_, i) => str(arr(v.image_urls)[i]) || (i === 0 ? str(v.image_url) : "")),
   };
 }
 

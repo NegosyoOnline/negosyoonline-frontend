@@ -1,6 +1,8 @@
 /* One product: TWCinc's store_product.html (the merchant product page): hero, quantity stepper, Add to Cart, the support
-   line, the "More Details" accordion, the certification row, "You Might Also Like" and the compliance note. The catalog
-   has one photo and one description pair, so the gallery thumbnails and feature sections are not shown (as TWCinc's).
+   line, the "More Details" and "Specifications" accordions, the certification row, the Feature, Advantages and Benefits
+   sections, "You Might Also Like" and the compliance note. Follows TWCinc's sante_barley product_detail.html: the extra photos
+   are gallery thumbnails (a click swaps the main photo, pack-store.js) and each text section shows only when it is filled.
+   An empty photo slot or text shows nothing. Photo 2 sits beside Feature, 3 beside Advantages, 4 beside Benefits, when they exist.
    TWCinc's two support lines named Cash on Delivery and card payment; bank or e-wallet transfer is the only payment here,
    so the one line says so (plan z8uq9mek5v R6). */
 import { html, type Markup } from "../../lib/html.ts";
@@ -26,6 +28,23 @@ function trust(): Markup {
 export function productContent(m: ProductModel): Markup {
   const p = m.product;
   const image = safeImage(p.image_url);
+  const photos = p.image_urls.map(safeImage);
+  if (image && !photos[0]) photos[0] = image;
+  const thumbs = photos.filter(Boolean);
+  const fab = (kind: string, eyebrow: string, title: string, text: string, photo: string, cls: string): Markup =>
+    text.trim() ? html`
+<section class="sf-fab ${cls}" data-sf-${kind}>
+  <div class="section-inner">
+    <div class="sf-fab-block${cls ? " sf-fab-reverse" : ""}">
+      ${photo ? html`<div class="sf-fab-img"><img src="${photo}" alt="" loading="lazy"></div>` : ""}
+      <div class="sf-fab-text">
+        <div class="sf-fab-eyebrow">${eyebrow}</div>
+        <h2 class="sf-fab-title">${title}</h2>
+        <div class="sf-fab-body">${paragraphs(text)}</div>
+      </div>
+    </div>
+  </div>
+</section>` : html``;
   return html`
 <section class="section sf-detail">
   <div class="section-inner">
@@ -33,6 +52,7 @@ export function productContent(m: ProductModel): Markup {
 
       <div class="sf-gallery">
         ${image ? html`<img class="sf-gallery-main" id="sfGalleryMain" src="${image}" alt="${p.name}">` : ""}
+        ${thumbs.length > 1 ? html`<div class="sf-gallery-thumbs">${thumbs.map((u, i) => html`<img src="${u}" alt="" data-sf-thumb${i === 0 ? html` class="active"` : ""}>`)}</div>` : ""}
       </div>
 
       <div class="sf-detail-info">
@@ -62,12 +82,16 @@ export function productContent(m: ProductModel): Markup {
           </li>
         </ul>
 
-        ${p.long_description ? html`
+        ${p.long_description || p.specifications.trim() ? html`
         <div class="sf-accordions">
-          <div class="sf-accordion">
+          ${p.long_description ? html`<div class="sf-accordion">
             <div class="faq-q" data-faq-toggle>More Details <span class="faq-icon">+</span></div>
             <div class="faq-a">${paragraphs(p.long_description)}</div>
-          </div>
+          </div>` : ""}
+          ${p.specifications.trim() ? html`<div class="sf-accordion">
+            <div class="faq-q" data-faq-toggle>Specifications <span class="faq-icon">+</span></div>
+            <div class="faq-a">${paragraphs(p.specifications)}</div>
+          </div>` : ""}
         </div>` : ""}
       </div>
 
@@ -78,6 +102,10 @@ export function productContent(m: ProductModel): Markup {
 <div class="sf-detail-trust">
   ${trust()}
 </div>
+
+${fab("feature", "Product Feature", "What's Inside", p.features, photos[1] ?? "", "")}
+${fab("advantages", "Advantages", "Why It Stands Out", p.advantages, photos[2] ?? "", "sf-fab-tinted")}
+${fab("benefits", "Benefits", "What You Get From It", p.benefits, photos[3] ?? "", "")}
 
 <section class="section">
   <div class="section-inner">

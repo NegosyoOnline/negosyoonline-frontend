@@ -47,6 +47,7 @@ test("terms print the registration line only when there is one; privacy prints t
   assert.doesNotMatch(page("terms-and-conditions", { business: { ...policy("x").business, registration_details: "" } }), /Registration Details/);
   assert.match(page("privacy-policy"), /14 months/);
   assert.match(page("privacy-policy"), /privacy@demo-store\.example\.test/);
+  assert.match(page("privacy-policy"), /<p>If you post a product review, your display name, rating and review are shown on the store\.<\/p>/);
   const ship = page("shipping-policy");
   assert.match(ship, /1 to 2 business days/);
   assert.match(ship, /5 to 7 days/);

@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
 <link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
 <script src="/assets/js/theme.js?v=20261111a"></script>
-<link rel="stylesheet" href="/assets/css/hq.css?v=20261114a">
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261114c">
 </head>
 <body class="dash-app">
 <a class="skip" href="#main">Skip to content</a>
@@ -53,10 +53,21 @@
         <p class="banner fin-msg" id="l-ret" role="status" hidden><span class="chip chip-warn">Account disposal is switched off</span> A site whose account would be disposed of cannot be proposed until it is switched on.</p>
         <p class="dash-copy" id="l-asof" hidden></p>
 
-        <section class="dash-card list-card" aria-labelledby="a-h">
-          <div class="list-head"><h2 id="a-h">Due for erasure</h2><span class="small" id="a-count"></span></div>
+        <div class="lc-tabs" role="tablist" aria-label="Lifecycle lists" id="lc-tabs">
+          <button type="button" role="tab" id="tab-a" aria-controls="pan-a" aria-selected="true">Due for erasure<span id="n-a"></span></button>
+          <button type="button" role="tab" id="tab-b" aria-controls="pan-b" aria-selected="false">Not yet due<span id="n-b"></span></button>
+          <button type="button" role="tab" id="tab-c" aria-controls="pan-c" aria-selected="false">Batches<span id="n-c"></span></button>
+          <button type="button" role="tab" id="tab-d" aria-controls="pan-d" aria-selected="false">Holds<span id="n-d"></span></button>
+        </div>
+
+        <section class="dash-card list-card" role="tabpanel" id="pan-a" aria-labelledby="tab-a">
           <p class="dash-copy fin-note" id="a-loading">Loading…</p>
-          <ol class="list" id="a-rows" aria-labelledby="a-h"></ol>
+          <div class="lc-scroll" id="a-wrap" hidden>
+            <table class="lc-table">
+              <thead><tr><th scope="col"><span class="sr-only">Select</span></th><th scope="col">Site</th><th scope="col">Ended</th><th scope="col">Due</th><th scope="col">Overdue</th><th scope="col">Rows and files</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Details</span></th><th scope="col"><span class="sr-only">Hold</span></th></tr></thead>
+              <tbody id="a-rows"></tbody>
+            </table>
+          </div>
           <p class="dash-copy fin-note" id="a-empty" hidden>No site is due for erasure.</p>
           <p class="field-err fin-note" id="a-err" role="alert" hidden></p>
           <div class="lc-sticky" id="a-bar" hidden>
@@ -67,28 +78,38 @@
           <p class="field-err fin-note" id="pr-err" role="alert" hidden></p>
         </section>
 
-        <section class="dash-card list-card" aria-labelledby="b-h">
-          <div class="list-head"><h2 id="b-h">Not yet due and stopped</h2><span class="small" id="b-count"></span><button type="button" class="no-btn no-btn-ghost" id="b-toggle" aria-expanded="false" aria-controls="b-body">Show</button></div>
-          <div id="b-body" hidden>
-            <ol class="list" id="b-rows" aria-labelledby="b-h"></ol>
+        <section class="dash-card list-card" role="tabpanel" id="pan-b" aria-labelledby="tab-b" hidden>
+          <div class="lc-scroll" id="b-wrap" hidden>
+            <table class="lc-table">
+              <thead><tr><th scope="col">Site</th><th scope="col">Due</th><th scope="col">Days left</th><th scope="col"><span class="sr-only">Hold</span></th></tr></thead>
+              <tbody id="b-rows"></tbody>
+            </table>
           </div>
-          <p class="dash-copy fin-note" id="b-empty" hidden>Nothing is stopped or coming up within 14 days.</p>
+          <p class="dash-copy fin-note" id="b-empty" hidden>No site is coming up within 14 days or stopped.</p>
           <p class="field-err fin-note" id="b-err" role="alert" hidden></p>
         </section>
 
-        <section class="dash-card list-card" aria-labelledby="c-h">
-          <div class="list-head"><h2 id="c-h">Batches</h2><span class="small" id="c-count"></span></div>
-          <ol class="list" id="c-rows" aria-labelledby="c-h"></ol>
+        <section class="dash-card list-card" role="tabpanel" id="pan-c" aria-labelledby="tab-c" hidden>
+          <div class="lc-scroll" id="c-wrap" hidden>
+            <table class="lc-table">
+              <thead><tr><th scope="col">Batch</th><th scope="col">Status</th><th scope="col">Sites</th><th scope="col">Proposed or approved</th><th scope="col">Expires</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+              <tbody id="c-rows"></tbody>
+            </table>
+          </div>
           <p class="dash-copy fin-note" id="c-empty" hidden>No batches yet.</p>
           <p class="field-err fin-note" id="c-err" role="alert" hidden></p>
         </section>
 
-        <section class="dash-card fin-pay" aria-labelledby="d-h">
-          <h2 id="d-h">Holds</h2>
-          <p class="dash-copy">A held site is never erased and keeps its dates. It can be proposed again after the hold is released.</p>
-          <ol class="list" id="d-rows" aria-labelledby="d-h"></ol>
-          <p class="dash-copy" id="d-empty" hidden>No holds.</p>
-          <p class="field-err" id="d-err" role="alert" hidden></p>
+        <section class="dash-card list-card" role="tabpanel" id="pan-d" aria-labelledby="tab-d" hidden>
+          <p class="dash-copy fin-note">A held site is never erased and keeps its dates. It can be proposed again after the hold is released.</p>
+          <div class="lc-scroll" id="d-wrap" hidden>
+            <table class="lc-table">
+              <thead><tr><th scope="col">Site</th><th scope="col">Reason</th><th scope="col">Reference</th><th scope="col">Since</th><th scope="col">Due</th><th scope="col"><span class="sr-only">Release</span></th></tr></thead>
+              <tbody id="d-rows"></tbody>
+            </table>
+          </div>
+          <p class="dash-copy fin-note" id="d-empty" hidden>No holds.</p>
+          <p class="field-err fin-note" id="d-err" role="alert" hidden></p>
           <div class="fin-row fin-cta"><button type="button" class="no-btn no-btn-ghost" id="d-place" aria-haspopup="dialog">Place a hold</button></div>
         </section>
       </div>
@@ -188,6 +209,6 @@
 <script src="/assets/js/menu.js?v=20261114a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261113a"></script>
-<script src="/assets/js/lifecycle.js?v=20261114a"></script>
+<script src="/assets/js/lifecycle.js?v=20261114b"></script>
 </body>
 </html>

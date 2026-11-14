@@ -50,7 +50,9 @@ const buttons = (n, text) => n.all((x) => x.tagName === "BUTTON" && x.textConten
 const boxes = (n) => n.all((x) => x.tagName === "INPUT");
 const tick = (box, on) => { box.checked = on; box.fire("change"); };
 const type = (n, text) => { n.value = text; n.fire("input"); };
-const rowsText = (p, id) => p.node[id].children.map((li) => li.textContent);
+const rowsText = (p, id) => dataRows(p, id).map((tr) => tr.textContent);
+/* The rows of a table body, without the hidden per-table-counts row under a due site. */
+const dataRows = (p, id) => p.node[id].children.filter((r) => !r.classList.contains("lc-detrow"));
 
 /* Opens a proposed batch of the given sites through Propose. */
 async function proposed(sites = ["site_a", "site_b"], over = {}) {
@@ -76,28 +78,26 @@ test("the page asks who is signed in, then calls list/ and batches/ as POSTs wit
   assert.deepEqual(p.shown(), ["v-main"]);
   assert.equal(p.node["acct-name"].textContent, "sample.staff");
   assert.equal(p.node["l-asof"].textContent, "As of Nov 14, 2026, 9:02 AM");
-  assert.equal(p.node["a-count"].textContent, "1 site");
-  const row = p.node["a-rows"].children[0].textContent;
-  assert.match(row, /site_a/);
-  assert.match(row, /Sante · Ended Sep 24, 2026 · Due Dec 24, 2026 · 12 days overdue/);
-  assert.match(row, /608 rows to blank or delete, 3 private files/);
+  assert.equal(p.node["n-a"].textContent, " (1)");
+  const cells = dataRows(p, "a-rows")[0].children.map((c) => c.textContent);
+  assert.deepEqual(cells.slice(0, 6), ["", "site_aSante", "Sep 24, 2026", "Dec 24, 2026", "12 days", "608 rows to blank or delete, 3 private files"]);
+  const row = cells.join("|");
   assert.match(row, /Account will be disposed of/);
   assert.match(row, /No service-end email was sent/);
   assert.match(row, /Open usage will be written off first/);
-  assert.equal(p.node["b-count"].textContent, "1 stopped, 1 coming up");
-  assert.match(rowsText(p, "b-rows").join("|"), /site_hHeld: legal.*Release hold/);
-  assert.match(rowsText(p, "b-rows").join("|"), /site_nDue in 6 days.*Hold/);
-  assert.equal(p.node["b-body"].hidden, false, "the stopped list is open when something is stopped");
-  assert.equal(p.node["c-count"].textContent, "1");
-  assert.match(p.node["c-rows"].children[0].textContent, /ebt_m4Done1 site · 1 erased, 0 skipped, 0 failed · proposed Nov 14, 2026, 9:02 AMOpen/);
+  assert.equal(p.node["n-b"].textContent, " (1)", "a held site is not counted under Not yet due");
+  assert.deepEqual(rowsText(p, "b-rows"), ["site_nNov 20, 20266 daysHold"]);
+  assert.equal(p.node["n-c"].textContent, " (1)");
+  assert.deepEqual(dataRows(p, "c-rows")[0].children.map((c) => c.textContent), ["ebt_m4", "Done", "1 site1 erased, 0 skipped, 0 failed", "Approved Nov 7, 2026, 9:20 AM", "—", "Open"]);
+  assert.equal(p.node["n-d"].textContent, " (0)");
   assert.equal(p.node["l-asof"].hidden, false);
   assert.equal(p.node["l-ret"].hidden, true);
 });
 
 test("the per-table counts open under a row in words, with a table the page has no words for summed into Other records", async () => {
   const p = await page(base());
-  const first = p.node["a-rows"].children[0];
-  const det = first.children[1];
+  const first = dataRows(p, "a-rows")[0];
+  const det = p.node["a-rows"].children[1];
   assert.equal(det.hidden, true);
   const btn = buttons(first, "Details")[0];
   assert.equal(btn.getAttribute("aria-expanded"), "false");
@@ -107,6 +107,8 @@ test("the per-table counts open under a row in words, with a table the page has 
   assert.equal(btn.getAttribute("aria-expanded"), "true");
   assert.equal(det.textContent, "Site settings1Members214Shop orders388Seal files1Payment QR files2Other records5");
   assert.doesNotMatch(first.textContent, /a_table_without_words|sante_site_settings/);
+  btn.click();
+  assert.equal(det.hidden, true);
 });
 
 test("nothing erased yet: the first batch is one site, and a second ticked site turns Propose off with the reason", async () => {
@@ -144,9 +146,11 @@ test("with account disposal switched off, a row whose account would be disposed 
   assert.equal(a.disabled, true);
   assert.equal(b.disabled, false);
   assert.equal(p.node["l-ret"].hidden, false);
-  assert.match(p.node["a-rows"].children[0].textContent, /cannot be selected: its account would be disposed of and account disposal is switched off/);
-  assert.match(p.node["a-rows"].children[0].textContent, /Account kept: account disposal is switched off/);
-  assert.match(p.node["a-rows"].children[1].textContent, /Account kept: another site is live/);
+  const rows = dataRows(p, "a-rows");
+  assert.match(rows[0].textContent, /Cannot be selected: its account would be disposed of and account disposal is switched off/);
+  assert.match(rows[0].textContent, /Account kept: account disposal is switched off/);
+  assert.match(rows[1].textContent, /Account kept: another site is live/);
+  assert.doesNotMatch(rows[1].textContent, /Cannot be selected/);
 });
 
 test("with the switch off, list/ answering 404 shows only the not-switched-on card and makes no other call", async () => {
@@ -176,7 +180,7 @@ test("a signed-out answer sends the person to sign in, and a missing second step
 test("when batches/ fails the due list still paints and the batch and hold sections say so", async () => {
   const p = await page(base({ [BATCHES]: [500, {}] }));
   assert.deepEqual(p.shown(), ["v-main"]);
-  assert.equal(p.node["a-rows"].children.length, 2);
+  assert.equal(dataRows(p, "a-rows").length, 2);
   assert.equal(p.node["c-err"].hidden, false);
   assert.equal(p.node["c-err"].textContent, "Could not load. Reload the page.");
   assert.equal(p.node["d-err"].hidden, false);
@@ -185,6 +189,7 @@ test("when batches/ fails the due list still paints and the batch and hold secti
   assert.equal(q.node["a-err"].textContent, "Could not load. Reload the page.");
   assert.equal(q.node["a-bar"].hidden, true);
   assert.equal(q.node["c-rows"].children.length, 1);
+  assert.equal(q.node["n-a"].textContent, "", "no count while a list is not loaded");
 });
 
 test("empty lists say so", async () => {
@@ -239,7 +244,7 @@ test("a refused proposal lists each site with its reason in words, keeps the sit
   assert.equal(p.node["pr-err"].hidden, false);
   assert.deepEqual(p.shown(), ["v-main"]);
   assert.equal(p.sent(LIST).length, 2);
-  assert.equal(p.node["a-rows"].children.length, 1);
+  assert.equal(dataRows(p, "a-rows").length, 1);
   assert.equal(boxes(p.node["a-rows"])[0].checked, true, "the site still due stays ticked");
   assert.equal(p.doc.activeElement, p.node["propose"]);
 });
@@ -491,7 +496,7 @@ test("each batch status paints its words, and a running, approved or needs-atten
 test("a proposal that has expired is read-only with no Approve step", async () => {
   const old = batch("ebt_old", "proposed", [item("site_a")], { expires_at: PAST });
   const p = await page(base({ [BATCHES]: overview([old]) }));
-  assert.match(p.node["c-rows"].children[0].textContent, /expired/);
+  assert.match(p.node["c-rows"].children[0].textContent, /Expired/);
   buttons(p.node["c-rows"].children[0], "Open")[0].click();
   assert.equal(p.node["ap-area"].hidden, true);
   assert.equal(p.node["st-hint"].textContent, "This proposal expired. Make the list again.");
@@ -525,7 +530,7 @@ test("Place a hold sends {site, reason_code, reference}, repaints the holds from
   assert.deepEqual(p.sent(HOLD)[0].body, { site: "site_a", reason_code: "legal", reference: "LR-1 <i>x</i>" });
   assert.equal(p.node["m-hold"].hidden, true);
   assert.equal(p.node["l-msg"].textContent, "Hold placed on site_a.");
-  assert.equal(p.node["d-rows"].children[0].textContent, "site_hLegalReference LR-1 <i>x</i> · placed Nov 14, 2026Release");
+  assert.equal(p.node["d-rows"].children[0].textContent, "site_hLegalLR-1 <i>x</i>Nov 14, 2026—Release");
   assert.equal(p.sent(LIST).length, 2);
 });
 
@@ -585,18 +590,23 @@ test("Release hold names the site, its reason and reference, sends {site}, and r
   assert.equal(p.sent(LIST).length, 2);
 });
 
-test("not_held says so in the dialog and reads the lists again; a stopped row for a held site offers Release and others Hold", async () => {
+test("not_held says so in the dialog and reads the lists again; a held site is listed under Holds only, and the stopped rows under Not yet due offer Hold", async () => {
   const list = dry([], { refused: [{ site: "site_h", deletion_due_at: "2026-12-20T09:00:00+08:00", reason_code: "held", hold_reason: "fraud" },
     { site: "site_p", deletion_due_at: "2026-12-20T09:00:00+08:00", reason_code: "payment_under_review" }, { site: "site_e", deletion_due_at: "2026-12-20T09:00:00+08:00", reason_code: "already_erased" },
     { site: "site_u", deletion_due_at: "2026-12-20T09:00:00+08:00", reason_code: "unpaid_usage" }, { site: "site_x", deletion_due_at: "2026-12-20T09:00:00+08:00", reason_code: "brand_new" }] });
-  const p = await page(base({ [LIST]: list, [RELEASE]: [409, refused("not_held")] }));
-  const rows = p.node["b-rows"].children;
-  assert.deepEqual(rows.map((r) => buttons(r, "Release hold").length + "/" + buttons(r, "Hold").length), ["1/0", "0/1", "0/0", "0/1", "0/1"]);
-  assert.equal(rows[1].textContent.startsWith("site_pPayment proof under review"), true);
-  assert.match(rows[3].textContent, /Open usage charges, an operator must decide/);
-  assert.match(rows[4].textContent, /A reason this page has no words for/);
-  assert.doesNotMatch(rows[4].textContent, /brand_new/);
-  buttons(rows[0], "Release hold")[0].click();
+  const hold = { site: "site_h", reason_code: "fraud", reference: "", placed_at: "2026-11-13T09:30:00+08:00" };
+  const p = await page(base({ [LIST]: list, [BATCHES]: overview([DONE], [hold]), [RELEASE]: [409, refused("not_held")] }));
+  const rows = dataRows(p, "b-rows");
+  assert.deepEqual(rows.map((r) => buttons(r, "Hold").length), [1, 0, 1, 1]);
+  assert.equal(p.node["n-b"].textContent, " (4)");
+  assert.doesNotMatch(p.node["b-rows"].textContent, /site_h/);
+  assert.equal(rows[0].textContent.startsWith("site_pDec"), true);
+  assert.match(rows[0].textContent, /Payment proof under review/);
+  assert.match(rows[2].textContent, /Open usage charges, an operator must decide/);
+  assert.match(rows[3].textContent, /A reason this page has no words for/);
+  assert.doesNotMatch(rows[3].textContent, /brand_new/);
+  assert.equal(dataRows(p, "d-rows")[0].children[4].textContent, "Dec 20, 2026", "the due date of a held site comes from the dry run");
+  buttons(dataRows(p, "d-rows")[0], "Release")[0].click();
   assert.match(p.node["m-release-sub"].textContent, /Reason: Fraud/);
   p.node["release-go"].click();
   await settle();
@@ -622,7 +632,7 @@ test("a dialog cannot be closed by Escape while a call is on its way", async () 
 
 test("text from the backend is set as text, and no heading is ever given focus", async () => {
   const p = await page(base({ [BATCHES]: overview([DONE], [{ site: "site_<b>", reason_code: "other", reference: "<b>bold</b>", placed_at: "2026-11-13T09:30:00+08:00" }]) }));
-  assert.equal(p.node["d-rows"].children[0].textContent, "site_<b>OtherReference <b>bold</b> · placed Nov 13, 2026Release");
+  assert.equal(p.node["d-rows"].children[0].textContent, "site_<b>Other<b>bold</b>Nov 13, 2026—Release");
   assert.equal(p.node["d-rows"].all((n) => n.tagName === "B").length, 0);
   const q = await proposed(["site_a"]);
   assert.ok(!/^H[1-6]$/.test(q.doc.activeElement.tagName));
@@ -646,4 +656,116 @@ test("every field has a visible label, every error paragraph is an alert, and th
   assert.match(HTML, /id="ap-confirm"[^>]*autocomplete="off"[^>]*spellcheck="false"/);
   assert.doesNotMatch(HTML, /id="ap-confirm"[^>]*\bvalue=/);
   assert.doesNotMatch(HTML, /<h[1-6][^>]*tabindex|id="bt-msg"[^>]*tabindex/i);
+});
+
+/* ---- the horizontal tab menu: four lists, one shown at a time ---- */
+
+const shownPanels = (p) => ["a", "b", "c", "d"].filter((k) => !p.node["pan-" + k].hidden);
+const selectedTab = (p) => ["a", "b", "c", "d"].filter((k) => p.node["tab-" + k].getAttribute("aria-selected") === "true");
+
+test("the lists are four tabs in one tablist, each tab tied to a tabpanel, and the markup has no table with an empty body", () => {
+  assert.match(HTML, /role="tablist"/);
+  for (const k of ["a", "b", "c", "d"]) {
+    assert.match(HTML, new RegExp(`role="tab" id="tab-${k}" aria-controls="pan-${k}"`));
+    assert.match(HTML, new RegExp(`role="tabpanel" id="pan-${k}" aria-labelledby="tab-${k}"`));
+  }
+  assert.equal((HTML.match(/<table class="lc-table">/g) || []).length, 4);
+  assert.equal((HTML.match(/<th scope="col"/g) || []).length, 9 + 4 + 6 + 6);
+});
+
+test("Due for erasure is the tab that opens, each tab label carries its count, and the other panels are hidden", async () => {
+  const p = await page(base({ [BATCHES]: overview([DONE], [{ site: "site_h", reason_code: "legal", reference: "LR-1", placed_at: "2026-11-13T09:30:00+08:00" }]) }));
+  assert.deepEqual(selectedTab(p), ["a"]);
+  assert.deepEqual(shownPanels(p), ["a"]);
+  assert.deepEqual(["a", "b", "c", "d"].map((k) => p.node["n-" + k].textContent), [" (2)", " (0)", " (1)", " (1)"]);
+  assert.match(HTML, /Due for erasure<span id="n-a">/);
+  assert.match(HTML, /Not yet due<span id="n-b">/);
+  assert.match(HTML, /Batches<span id="n-c">/);
+  assert.match(HTML, /Holds<span id="n-d">/);
+});
+
+test("a click or the arrow, Home and End keys move between tabs and show only that panel", async () => {
+  const p = await page(base());
+  p.node["tab-c"].click();
+  assert.deepEqual(selectedTab(p), ["c"]);
+  assert.deepEqual(shownPanels(p), ["c"]);
+  const key = (k) => p.node["tab-" + selectedTab(p)[0]].fire("keydown", { key: k });
+  const e = key("ArrowRight");
+  assert.equal(e.prevented, true);
+  assert.deepEqual(selectedTab(p), ["d"]);
+  assert.equal(p.doc.activeElement, p.node["tab-d"], "focus follows the arrow key");
+  key("ArrowRight");
+  assert.deepEqual(selectedTab(p), ["a"], "wraps from the last tab to the first");
+  key("ArrowLeft");
+  assert.deepEqual(selectedTab(p), ["d"]);
+  key("Home");
+  assert.deepEqual(selectedTab(p), ["a"]);
+  key("End");
+  assert.deepEqual(selectedTab(p), ["d"]);
+  assert.equal(key("Tab").prevented, false, "other keys are left alone");
+  assert.deepEqual(shownPanels(p), ["d"]);
+});
+
+test("the chosen tab is kept when the lists are read again after a hold is placed and released", async () => {
+  const hold = { site: "site_a", reason_code: "legal", reference: "", placed_at: "2026-11-14T09:30:00+08:00" };
+  let held = false;
+  const p = await page(base({ [HOLD]: () => { held = true; return overview([DONE], [hold]); }, [RELEASE]: () => { held = false; return overview([DONE], []); },
+    [BATCHES]: () => overview([DONE], held ? [hold] : []) }));
+  p.node["tab-d"].click();
+  p.node["d-place"].click();
+  type(p.node["hold-site"], "site_a");
+  p.node["hold-reason"].value = "legal";
+  p.node["hold-form"].fire("submit");
+  await settle();
+  assert.deepEqual(selectedTab(p), ["d"]);
+  assert.deepEqual(shownPanels(p), ["d"]);
+  assert.equal(p.node["n-d"].textContent, " (1)");
+  buttons(dataRows(p, "d-rows")[0], "Release")[0].click();
+  p.node["release-go"].click();
+  await settle();
+  assert.deepEqual(selectedTab(p), ["d"]);
+  assert.equal(p.node["n-d"].textContent, " (0)");
+});
+
+test("each empty tab shows one plain line and no table, and a list that did not load shows its error and no count", async () => {
+  const p = await page(base({ [LIST]: dry([]), [BATCHES]: overview([]) }));
+  assert.deepEqual(["a", "b", "c", "d"].map((k) => p.node[k + "-wrap"].hidden), [true, true, true, true]);
+  assert.deepEqual(["a", "b", "c", "d"].map((k) => p.node[k + "-empty"].hidden), [false, false, false, false]);
+  assert.match(HTML, /id="a-empty" hidden>No site is due for erasure\.</);
+  assert.match(HTML, /id="b-empty" hidden>No site is coming up within 14 days or stopped\.</);
+  assert.match(HTML, /id="c-empty" hidden>No batches yet\.</);
+  assert.match(HTML, /id="d-empty" hidden>No holds\.</);
+  assert.equal(p.node["n-a"].textContent, " (0)");
+  const q = await page(base({ [LIST]: [500, {}], [BATCHES]: [500, {}] }));
+  assert.equal(q.node["n-a"].textContent, "");
+  assert.equal(q.node["n-d"].textContent, "");
+  assert.deepEqual(["a", "b", "c", "d"].map((k) => q.node[k + "-wrap"].hidden), [true, true, true, true]);
+  assert.deepEqual(["a", "b", "c", "d"].map((k) => q.node[k + "-empty"].hidden), [true, true, true, true]);
+});
+
+test("Not yet due lists coming-up sites with days left and stopped sites with the reason, and never a held site", async () => {
+  const p = await page(base({ [LIST]: dry([], { near: [{ site: "site_n", deletion_due_at: "2026-11-14T20:00:00+08:00", days_until: 0 }, { site: "site_m", deletion_due_at: "2026-11-20T09:00:00+08:00", days_until: 6 }],
+    refused: [{ site: "site_h", deletion_due_at: "2026-11-01T09:00:00+08:00", reason_code: "held", hold_reason: "legal" }, { site: "site_p", deletion_due_at: "2026-11-01T09:00:00+08:00", reason_code: "payment_under_review" }] }) }));
+  assert.deepEqual(rowsText(p, "b-rows"), ["site_pNov 1, 2026Payment proof under review", "site_nNov 14, 2026Due todayHold", "site_mNov 20, 20266 daysHold"].map((t, i) => i === 0 ? t + "Hold" : t));
+  assert.equal(p.node["n-b"].textContent, " (3)");
+});
+
+test("a proposed batch shows when it expires, a batch that ran shows its outcome and approval date, and Open still opens it", async () => {
+  const prop = batch("ebt_p", "proposed", [item("site_a"), item("site_b")]);
+  prop.expires_at = new Date(Date.now() + 6 * 86400000 + 3600000).toISOString();
+  const p = await page(base({ [BATCHES]: overview([prop, DONE]) }));
+  const [a, b] = dataRows(p, "c-rows");
+  assert.deepEqual(a.children.map((c) => c.textContent), ["ebt_p", "Proposed", "2 sites", "Proposed Nov 14, 2026, 9:02 AM", "In 6 days", "Open"]);
+  assert.deepEqual(b.children.map((c) => c.textContent), ["ebt_m4", "Done", "1 site1 erased, 0 skipped, 0 failed", "Approved Nov 7, 2026, 9:20 AM", "—", "Open"]);
+  buttons(a, "Open")[0].click();
+  assert.deepEqual(p.shown(), ["v-batch"]);
+});
+
+test("Holds shows site, reason, reference, since and due, keeps Place a hold on its own tab, and the Propose bar stays under the Due table", async () => {
+  const p = await page(base({ [BATCHES]: overview([DONE], [{ site: "site_a", reason_code: "legal", reference: "LR-1", placed_at: "2026-11-13T09:30:00+08:00" }]) }));
+  assert.deepEqual(dataRows(p, "d-rows")[0].children.map((c) => c.textContent), ["site_a", "Legal", "LR-1", "Nov 13, 2026", "—", "Release"]);
+  const panel = (k) => HTML.slice(HTML.indexOf(`id="pan-${k}"`), k === "d" ? HTML.indexOf('id="v-batch"') : HTML.indexOf(`id="pan-${String.fromCharCode(k.charCodeAt(0) + 1)}"`));
+  assert.match(panel("d"), /id="d-place"/);
+  assert.match(panel("a"), /id="a-bar"[\s\S]*id="propose"/);
+  assert.doesNotMatch(panel("a"), /d-place/);
 });

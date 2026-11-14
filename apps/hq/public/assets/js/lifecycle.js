@@ -88,11 +88,12 @@
   }
   function totals(rows, files) { return plural(rows, "row", "rows") + " to blank or delete, " + plural(files, "private file", "private files"); }
 
-  /* The disclosure under a row: the counts per table, in words. */
-  function details(counts, id) {
-    var box = F.el("div", "lc-det"), dl = F.el("dl", ""), lines = countLines(counts);
-    box.setAttribute("id", id);
-    box.hidden = true;
+  /* The row under a due site: the counts per table, in words. Hidden until Details opens it. */
+  function details(counts, id, cols) {
+    var tr = F.el("tr", "lc-detrow"), td = F.el("td", ""), box = F.el("div", "lc-det"), dl = F.el("dl", ""), lines = countLines(counts);
+    tr.setAttribute("id", id);
+    tr.hidden = true;
+    td.setAttribute("colspan", String(cols));
     lines.forEach(function (l) {
       var d = F.el("div", "");
       d.appendChild(F.el("dt", "", l[0]));
@@ -101,7 +102,9 @@
     });
     if (!lines.length) dl.appendChild(F.el("div", "", "Nothing to blank or delete."));
     box.appendChild(dl);
-    return box;
+    td.appendChild(box);
+    tr.appendChild(td);
+    return tr;
   }
   function disclosure(box) {
     var b = button("Details");
@@ -153,22 +156,46 @@
   function overdue(e) {
     var d = e.days_overdue;
     if (typeof d !== "number") return "";
-    return d > 0 ? plural(d, "day", "days") + " overdue" : "due today";
+    return d > 0 ? plural(d, "day", "days") : "Today";
   }
   function blocked(e) { return retentionOn === false && e.account_reason === "retention_switched_off"; }
 
+  /* One table cell; text may be "" (shown as a dash) or a node. */
+  function cell(content, cls) {
+    var td = F.el("td", cls || "");
+    if (content && typeof content === "object") td.appendChild(content);
+    else td.textContent = content || "—";
+    return td;
+  }
+  function stack(main, small) {
+    var box = F.el("div", "");
+    box.appendChild(F.el("span", "lc-id", main));
+    if (small) box.appendChild(F.el("small", "", small));
+    return box;
+  }
+  function act(btn) { var td = F.el("td", "lc-act"); if (btn) td.appendChild(btn); return td; }
+  function holdBtn(site) {
+    var hold = button("Hold");
+    hold.addEventListener("click", function () { openHold(site, true, hold); });
+    return hold;
+  }
+  /* The rows of a table, or a plain line when there are none. */
+  function fill(rowsId, wrapId, emptyId, rows, ok) {
+    var body = $(rowsId);
+    body.textContent = "";
+    if (ok) rows.forEach(function (r) { r.forEach(function (tr) { body.appendChild(tr); }); });
+    $(wrapId).hidden = !ok || rows.length === 0;
+    $(emptyId).hidden = !ok || rows.length > 0;
+  }
+
   function eligibleRow(e, i) {
-    var li = F.el("li", ""), box = F.el("div", "batch"), main = F.el("div", "batch-main"), end = F.el("div", "batch-end");
-    var sel = F.el("div", "lc-sel"), cb = F.el("input", ""), label = F.el("label", "", e.site), id = "s-" + i;
-    var ended = F.dayOf(e.service_ended_at), due = F.dayOf(e.deletion_due_at), chips = F.el("div", "batch-title");
-    var sub = [own(TEMPLATE, e.template) || "", ended ? "Ended " + ended : "", due ? "Due " + due : "", overdue(e)].filter(Boolean).join(" · ");
-    var det = details(e.counts, id + "-det"), hold = button("Hold"), subLine = F.el("span", "item-sub", "");
-    if (blocked(e)) sub += (sub ? " · " : "") + "cannot be selected: its account would be disposed of and account disposal is switched off";
-    subLine.textContent = sub;
+    var tr = F.el("tr", ""), id = "s-" + i, cb = F.el("input", ""), sel = F.el("td", ""), chips = F.el("div", "lc-chips"), st = F.el("td", "");
+    var ended = F.dayOf(e.service_ended_at), due = F.dayOf(e.deletion_due_at), det = details(e.counts, id + "-det", 9), why = F.el("small", "", "");
+    var more = disclosure(det);
     cb.setAttribute("type", "checkbox");
     cb.setAttribute("id", id);
+    cb.setAttribute("aria-label", "Select " + e.site);
     cb.setAttribute("aria-describedby", id + "-d");
-    label.setAttribute("for", id);
     cb.checked = selected[e.site] === true;
     cb.disabled = blocked(e);
     cb.addEventListener("change", function () {
@@ -176,23 +203,23 @@
       syncPropose();
     });
     sel.appendChild(cb);
-    sel.appendChild(label);
-    main.appendChild(sel);
-    subLine.setAttribute("id", id + "-d");
-    main.appendChild(subLine);
-    main.appendChild(F.el("span", "small", totals(rowsOf(e.counts), typeof e.private_files === "number" ? e.private_files : 0)));
+    tr.appendChild(sel);
+    tr.appendChild(cell(stack(e.site, own(TEMPLATE, e.template) || ""), ""));
+    tr.appendChild(cell(ended));
+    tr.appendChild(cell(due));
+    tr.appendChild(cell(overdue(e)));
+    tr.appendChild(cell(totals(rowsOf(e.counts), typeof e.private_files === "number" ? e.private_files : 0)));
     chips.appendChild(accountChip(e.account_action, e.account_reason));
     chips.appendChild(noticeChip(e.notice));
     if (e.usage_to_write_off === true) chips.appendChild(chip("chip-neutral", "Open usage will be written off first"));
-    main.appendChild(chips);
-    hold.addEventListener("click", function () { openHold(e.site, true, hold); });
-    end.appendChild(disclosure(det));
-    end.appendChild(hold);
-    box.appendChild(main);
-    box.appendChild(end);
-    li.appendChild(box);
-    li.appendChild(det);
-    return li;
+    st.appendChild(chips);
+    why.setAttribute("id", id + "-d");
+    if (blocked(e)) why.textContent = "Cannot be selected: its account would be disposed of and account disposal is switched off";
+    st.appendChild(why);
+    tr.appendChild(st);
+    tr.appendChild(act(more));
+    tr.appendChild(act(holdBtn(e.site)));
+    return [tr, det];
   }
 
   function selectedSites() { return eligible.filter(function (e) { return selected[e.site] === true; }).map(function (e) { return e.site; }); }
@@ -206,67 +233,42 @@
     $("propose").disabled = busy || !!why;
   }
 
+  /* The count shown on a tab, or nothing while its list is not loaded. */
+  function tabCount(key, ok, n) { $("n-" + key).textContent = ok ? " (" + num(n) + ")" : ""; }
+
   function paintA() {
-    var rows = $("a-rows");
-    rows.textContent = "";
-    eligible.forEach(function (e, i) { rows.appendChild(eligibleRow(e, i)); });
-    $("a-count").textContent = listOk ? plural(eligible.length, "site", "sites") : "";
-    $("a-empty").hidden = !listOk || eligible.length > 0;
+    fill("a-rows", "a-wrap", "a-empty", eligible.map(eligibleRow), listOk);
+    tabCount("a", listOk, eligible.length);
     $("a-bar").hidden = !listOk || eligible.length === 0;
     F.say("a-err", listOk ? "" : LOAD_ERR);
     if (!listOk) F.say("a-why", "");
     else syncPropose();
   }
 
-  function refusedRow(r) {
-    var li = F.el("li", "batch"), main = F.el("div", "batch-main"), title = F.el("div", "batch-title"), end = F.el("div", "batch-end");
-    var label = own(REASON, r.reason_code), due = F.dayOf(r.deletion_due_at), word;
-    title.appendChild(F.el("span", "", r.site));
-    if (r.reason_code === "held") word = "Held" + (r.hold_reason ? ": " + holdWords(r.hold_reason).toLowerCase() : "");
-    else word = label || NOWORDS.charAt(0).toUpperCase() + NOWORDS.slice(1);
-    title.appendChild(chip("chip-warn", word));
-    main.appendChild(title);
-    if (due) main.appendChild(F.el("span", "item-sub", "Due " + due));
-    li.appendChild(main);
-    if (r.reason_code === "held") {
-      var rel = button("Release hold");
-      rel.addEventListener("click", function () { openRelease(r.site, r.hold_reason, "", rel); });
-      end.appendChild(rel);
-    } else if (r.reason_code !== "already_erased") {
-      var hold = button("Hold");
-      hold.addEventListener("click", function () { openHold(r.site, true, hold); });
-      end.appendChild(hold);
-    }
-    li.appendChild(end);
-    return li;
+  /* Not yet due: sites coming up within 14 days, and due sites stopped for a reason other than a hold. A held site is
+     listed under Holds only. */
+  function stoppedRows() { return refused.filter(function (r) { return r.reason_code !== "held"; }); }
+  function stoppedRow(r) {
+    var tr = F.el("tr", ""), due = F.dayOf(r.deletion_due_at), label = own(REASON, r.reason_code);
+    tr.appendChild(cell(stack(r.site, "")));
+    tr.appendChild(cell(due));
+    tr.appendChild(cell(chip("chip-warn", label || NOWORDS.charAt(0).toUpperCase() + NOWORDS.slice(1))));
+    tr.appendChild(act(r.reason_code === "already_erased" ? null : holdBtn(r.site)));
+    return [tr];
   }
   function nearRow(r) {
-    var li = F.el("li", "batch"), main = F.el("div", "batch-main"), title = F.el("div", "batch-title"), end = F.el("div", "batch-end");
-    var d = r.days_until, due = F.dayOf(r.deletion_due_at), hold = button("Hold");
-    title.appendChild(F.el("span", "", r.site));
-    title.appendChild(chip("chip-neutral", typeof d === "number" && d > 0 ? "Due in " + plural(d, "day", "days") : "Due today"));
-    main.appendChild(title);
-    if (due) main.appendChild(F.el("span", "item-sub", "Due " + due));
-    hold.addEventListener("click", function () { openHold(r.site, true, hold); });
-    end.appendChild(hold);
-    li.appendChild(main);
-    li.appendChild(end);
-    return li;
+    var tr = F.el("tr", ""), d = r.days_until, due = F.dayOf(r.deletion_due_at);
+    tr.appendChild(cell(stack(r.site, "")));
+    tr.appendChild(cell(due));
+    tr.appendChild(cell(typeof d === "number" && d > 0 ? plural(d, "day", "days") : "Due today"));
+    tr.appendChild(act(holdBtn(r.site)));
+    return [tr];
   }
 
   function paintB() {
-    var rows = $("b-rows"), n = refused.length + near.length;
-    rows.textContent = "";
-    if (listOk) {
-      refused.forEach(function (r) { rows.appendChild(refusedRow(r)); });
-      near.forEach(function (r) { rows.appendChild(nearRow(r)); });
-    }
-    $("b-count").textContent = listOk && n ? refused.length + " stopped, " + near.length + " coming up" : "";
-    $("b-toggle").hidden = !listOk || !n;
-    $("b-empty").hidden = !listOk || n > 0;
-    $("b-body").hidden = !(listOk && n > 0 && refused.length > 0);
-    $("b-toggle").setAttribute("aria-expanded", String(!$("b-body").hidden));
-    $("b-toggle").textContent = $("b-body").hidden ? "Show" : "Hide";
+    var rows = stoppedRows().map(stoppedRow).concat(near.map(nearRow));
+    fill("b-rows", "b-wrap", "b-empty", rows, listOk);
+    tabCount("b", listOk, rows.length);
     F.say("b-err", listOk ? "" : LOAD_ERR);
   }
 
@@ -276,47 +278,43 @@
     return c.erased + " erased, " + c.skipped + " skipped, " + c.failed + " failed";
   }
   function batchRow(b) {
-    var li = F.el("li", "batch"), main = F.el("div", "batch-main"), title = F.el("div", "batch-title"), end = F.el("div", "batch-end");
-    var open = button("Open"), parts = [plural(arr(b.items).length, "site", "sites")], left, at = F.stamp(b.proposed_at);
-    title.appendChild(F.el("span", "", b.id));
-    title.appendChild(statusChip(BATCH_STATUS, b.status));
-    main.appendChild(title);
-    if (b.status !== "proposed" && b.status !== "cancelled") parts.push(outcome(b));
-    if (at) parts.push("proposed " + at);
-    if (b.status === "proposed") { left = until(b.expires_at); parts.push(left ? "expires in " + left : "expired"); }
-    main.appendChild(F.el("span", "item-sub", parts.join(" · ")));
+    var tr = F.el("tr", ""), open = button("Open"), left, status = F.el("td", "");
+    var when = b.approved_at ? "Approved " + F.stamp(b.approved_at) : F.stamp(b.proposed_at) ? "Proposed " + F.stamp(b.proposed_at) : "";
+    var sites = plural(arr(b.items).length, "site", "sites"), expires = "";
+    if (b.status === "proposed") { left = until(b.expires_at); expires = left ? "In " + left : "Expired"; }
+    status.appendChild(statusChip(BATCH_STATUS, b.status));
+    tr.appendChild(cell(stack(b.id, "")));
+    tr.appendChild(status);
+    tr.appendChild(cell(stack(sites, b.status !== "proposed" && b.status !== "cancelled" ? outcome(b) : "")));
+    tr.appendChild(cell(when));
+    tr.appendChild(cell(expires));
     open.addEventListener("click", function () { openBatch(b, ""); });
-    end.appendChild(open);
-    li.appendChild(main);
-    li.appendChild(end);
-    return li;
+    tr.appendChild(act(open));
+    return [tr];
+  }
+  /* The due date of a held site comes from the dry run, which still lists it. */
+  function dueOf(site) {
+    var all = refused.concat(near), i;
+    for (i = 0; i < all.length; i++) if (all[i].site === site) return F.dayOf(all[i].deletion_due_at);
+    return "";
   }
   function holdRow(h) {
-    var li = F.el("li", "batch"), main = F.el("div", "batch-main"), title = F.el("div", "batch-title"), end = F.el("div", "batch-end");
-    var rel = button("Release"), placed = F.dayOf(h.placed_at), sub = [];
-    title.appendChild(F.el("span", "", h.site));
-    title.appendChild(chip("chip-warn", holdWords(h.reason_code)));
-    main.appendChild(title);
-    if (h.reference) sub.push("Reference " + h.reference);
-    if (placed) sub.push("placed " + placed);
-    if (sub.length) main.appendChild(F.el("span", "item-sub", sub.join(" · ")));
+    var tr = F.el("tr", ""), rel = button("Release"), placed = F.dayOf(h.placed_at);
     rel.addEventListener("click", function () { openRelease(h.site, h.reason_code, h.reference, rel); });
-    end.appendChild(rel);
-    li.appendChild(main);
-    li.appendChild(end);
-    return li;
+    tr.appendChild(cell(stack(h.site, "")));
+    tr.appendChild(cell(chip("chip-warn", holdWords(h.reason_code))));
+    tr.appendChild(cell(h.reference || ""));
+    tr.appendChild(cell(placed));
+    tr.appendChild(cell(listOk ? dueOf(h.site) : ""));
+    tr.appendChild(act(rel));
+    return [tr];
   }
 
   function paintCD() {
-    $("c-rows").textContent = "";
-    $("d-rows").textContent = "";
-    if (batchesOk) {
-      batches.forEach(function (b) { $("c-rows").appendChild(batchRow(b)); });
-      holds.forEach(function (h) { $("d-rows").appendChild(holdRow(h)); });
-    }
-    $("c-count").textContent = batchesOk ? String(batches.length) : "";
-    $("c-empty").hidden = !batchesOk || batches.length > 0;
-    $("d-empty").hidden = !batchesOk || holds.length > 0;
+    fill("c-rows", "c-wrap", "c-empty", batches.map(batchRow), batchesOk);
+    fill("d-rows", "d-wrap", "d-empty", holds.map(holdRow), batchesOk);
+    tabCount("c", batchesOk, batches.length);
+    tabCount("d", batchesOk, holds.length);
     F.say("c-err", batchesOk ? "" : LOAD_ERR);
     F.say("d-err", batchesOk ? "" : LOAD_ERR);
   }
@@ -334,6 +332,29 @@
     paintA();
     paintB();
     paintCD();
+  }
+
+  /* ---- the tabs: one list at a time, the chosen one kept while the lists reload ---- */
+
+  var TABS = ["a", "b", "c", "d"], tab = "a";
+  function selectTab(key, focus) {
+    tab = key;
+    TABS.forEach(function (k) {
+      var on = k === key;
+      $("tab-" + k).setAttribute("aria-selected", String(on));
+      $("pan-" + k).hidden = !on;
+    });
+    if (focus) $("tab-" + key).focus();
+  }
+  function tabKey(e) {
+    var i = TABS.indexOf(tab), n = TABS.length, go = -1;
+    if (e.key === "ArrowRight") go = (i + 1) % n;
+    else if (e.key === "ArrowLeft") go = (i + n - 1) % n;
+    else if (e.key === "Home") go = 0;
+    else if (e.key === "End") go = n - 1;
+    if (go < 0) return;
+    e.preventDefault();
+    selectTab(TABS[go], true);
   }
 
   /* Takes the two answers into memory. Selections that are still on the due list stay. */
@@ -360,12 +381,12 @@
     var run = ++loadRun;
     listRun++;
     $("a-loading").hidden = false;
-    $("a-rows").setAttribute("aria-busy", "true");
+    $("a-wrap").setAttribute("aria-busy", "true");
     return Promise.all([call("list/"), call("batches/")]).then(function (rs) {
       var a = rs[0], b = rs[1];
       if (run !== loadRun) return;
       $("a-loading").hidden = true;
-      $("a-rows").removeAttribute("aria-busy");
+      $("a-wrap").removeAttribute("aria-busy");
       if (F.left(a) || F.left(b)) return;
       if (a.status === 404 || b.status === 404) { show("v-closed"); return; }
       if (first && !a.ok && !b.ok) { show("v-down"); return; }
@@ -841,12 +862,8 @@
   $("d-place").addEventListener("click", function () { openHold("", false, $("d-place")); });
   $("propose").addEventListener("click", propose);
   $("st-refresh").addEventListener("click", function () { if (!busy && current) refreshOpen("", "That batch no longer exists."); });
-  $("b-toggle").addEventListener("click", function () {
-    var open = $("b-body").hidden;
-    $("b-body").hidden = !open;
-    $("b-toggle").setAttribute("aria-expanded", String(open));
-    $("b-toggle").textContent = open ? "Hide" : "Show";
-  });
+  selectTab("a", false);
+  TABS.forEach(function (k) { $("tab-" + k).addEventListener("click", function () { selectTab(k, false); }); $("tab-" + k).addEventListener("keydown", tabKey); });
   $("bt-back").addEventListener("click", function (e) { e.preventDefault(); if (!busy) toMain(""); });
 
   /* Who is signed in comes from me/, the staff route that answers it; the lifecycle routes do not. */

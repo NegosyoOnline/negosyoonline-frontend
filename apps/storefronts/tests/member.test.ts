@@ -421,7 +421,7 @@ test("the sign-in page keeps TWCinc's wording and its hooks", () => {
 });
 
 test("the menu shows only the built sections, and the footer follows TWCinc's pack footer", () => {
-  assert.deepEqual(SECTIONS.filter((s) => s.built).map((s) => s.label), ["Dashboard", "My Orders", "Account"]);
+  assert.deepEqual(SECTIONS.filter((s) => s.built).map((s) => s.label), ["Dashboard", "My Orders", "Training", "Account"]);
   assert.equal(nextKey("orders"), "orders");
   assert.equal(nextKey("javascript:x"), "");
   assert.equal(nextKey("__proto__"), "");

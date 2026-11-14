@@ -23,6 +23,8 @@ import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
 import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
 import { memberDocument } from "../views/sante/member.ts";
+import { noticesPanel } from "../views/sante/training.ts";
+import { noticesFor } from "./training-content.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
 
@@ -76,7 +78,7 @@ function render(
   const scripts = [...(locked ? HOME_SCRIPTS : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
   const tiles = figures ? heroTiles(figures.summary) : undefined;
   const after = figures && !locked ? html`${orderMonitor(figures.monitor)}${viewAllLink()}` : undefined;
-  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, scripts, tiles, after), status);
+  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, scripts, tiles, after, locked ? undefined : noticesPanel(noticesFor(d.site.template))), status);
 }
 
 /** The Home: the member's payment card, and the registration card with its mobile check while the form is open. */

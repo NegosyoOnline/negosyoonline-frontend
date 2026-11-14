@@ -850,8 +850,8 @@
     var sizes = ["length_cm", "width_cm", "height_cm"].filter(function (k) { return pos(String(v[k] || "").trim()); });
     if (sizes.length < 3) return { body: null, why: "sizes" };
     if (!pos(String(v.weight_kg || "").trim())) return { body: null, why: "weight" };
-    var q = String(v.shipping_qty || "").trim();
-    return { body: { weight_kg: String(v.weight_kg).trim(), length_cm: String(v.length_cm).trim(), width_cm: String(v.width_cm).trim(),
+    var q = String(v.shipping_qty || "").trim(), vs = String(v.volume_slot || "").trim();
+    return { body: { volume_slot: pos(vs) ? vs : null, weight_kg: String(v.weight_kg).trim(), length_cm: String(v.length_cm).trim(), width_cm: String(v.width_cm).trim(),
       height_cm: String(v.height_cm).trim(), shipping_qty: /^[1-9]\d{0,8}$/.test(q) ? parseInt(q, 10) : null }, why: "" };
   }
   /* The preview's answer as tiles ([figure, label]) and a footnote. Without a peso figure the reason is the note. */
@@ -862,9 +862,9 @@
       tiles.push([formatPeso(d.ncr_centavos), "To NCR"]);
       if (typeof d.mindanao_centavos === "number") tiles.push([formatPeso(d.mindanao_centavos), "To Mindanao"]);
       if (typeof d.billable_kg === "string" && d.billable_kg) tiles.push([d.billable_kg + " kg", "Billed at"]);
-      return { tiles: tiles, note: FEE_NOTE };
+      return { tiles: tiles, reason: typeof d.reason === "string" ? d.reason : "", note: FEE_NOTE };
     }
-    return { tiles: tiles, note: typeof d.reason === "string" && d.reason ? d.reason : "The estimate is not available for this package." };
+    return { tiles: tiles, reason: "", note: typeof d.reason === "string" && d.reason ? d.reason : "The estimate is not available for this package." };
   }
 
   /* The tabbed editor, for Add and for Edit: TWCinc's merchants/product_form.html (the review-off tabbed editor) and its mpf- styles.
@@ -1079,31 +1079,34 @@
         return;
       }
       if (m.wait) { pvBody.appendChild(h("p", "pr-pv-note", "Working out the fee…")); return; }
-      if (m.error) { pvBody.appendChild(h("p", "pr-pv-note", "The fee estimate is not available right now.")); return; }
+      if (m.error) { pvBody.appendChild(h("p", "pr-pv-note", m.error === true ? "The fee estimate is not available right now." : m.error)); return; }
       var fm = feeModel(m.data);
       if (fm.tiles.length) {
         var fees = h("div", "pr-pv-fees");
         fm.tiles.forEach(function (t) { var tl = h("div", "pr-fee"); tl.appendChild(h("b", "", t[0])); tl.appendChild(h("span", "", t[1])); fees.appendChild(tl); });
         pvBody.appendChild(fees);
       }
+      if (fm.reason) pvBody.appendChild(h("p", "pr-pv-line pr-pv-reason", fm.reason));
       pvBody.appendChild(h("div", "pr-pv-foot", fm.note));
     }
     /* Asked a moment after the last keystroke; an answer that is no longer the latest is dropped. */
     function schedulePreview(now) {
       clearTimeout(previewTimer);
       var seq = ++previewSeq, vals = {};
-      ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) { vals[k] = fields[k].value; });
+      ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty", "volume_slot"].forEach(function (k) { vals[k] = fields[k].value; });
       var st = previewBody(vals);
       if (!st.body) { drawPreview({ why: st.why }); return; }
       drawPreview({ wait: true });
       previewTimer = setTimeout(function () {
         D.call("POST", "/sites/" + S.site + "/catalog/shipping-preview/", st.body, true).then(function (res) {
           if (mine !== token || seq !== previewSeq || res.status === 401) return;
-          drawPreview(res.ok && res.data ? { data: res.data } : { error: true });
+          var fe = res.ok ? null : describeError(res);
+          var first = fe && fe.kind === "fields" ? Object.keys(fe.fields)[0] : "";
+          drawPreview(res.ok && res.data ? { data: res.data } : { error: first ? String(fe.fields[first]) : true });
         });
       }, now ? 0 : 300);
     }
-    ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"].forEach(function (k) {
+    ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty", "volume_slot"].forEach(function (k) {
       fields[k].addEventListener("input", function () { schedulePreview(false); });
     });
 

@@ -965,8 +965,10 @@ test("add: when the hide step fails the product is kept, active, and the edit fo
 test("pure helpers: the shipping preview body needs all three sizes, then the weight; the fee tiles or the reason", () => {
   const u = boot().P.util;
   const ok = { length_cm: "20", width_cm: "10", height_cm: "5.5", weight_kg: "0.18", shipping_qty: "3" };
-  assert.deepEqual({ ...u.previewBody(ok).body }, { weight_kg: "0.18", length_cm: "20", width_cm: "10", height_cm: "5.5", shipping_qty: 3 });
+  assert.deepEqual({ ...u.previewBody(ok).body }, { volume_slot: null, weight_kg: "0.18", length_cm: "20", width_cm: "10", height_cm: "5.5", shipping_qty: 3 });
   assert.equal(u.previewBody({ ...ok, shipping_qty: "" }).body.shipping_qty, null);
+  assert.equal(u.previewBody({ ...ok, volume_slot: "2.5" }).body.volume_slot, "2.5");
+  assert.equal(u.previewBody({ ...ok, volume_slot: "x" }).body.volume_slot, null);
   assert.equal(u.previewBody({ ...ok, height_cm: "" }).why, "sizes");
   assert.equal(u.previewBody({ ...ok, width_cm: "0" }).why, "sizes");
   assert.equal(u.previewBody({ ...ok, weight_kg: "" }).why, "weight");
@@ -974,6 +976,8 @@ test("pure helpers: the shipping preview body needs all three sizes, then the we
   const fm = u.feeModel({ ncr_centavos: 12000, mindanao_centavos: 18050, billable_kg: "0.50", reason: "" });
   assert.deepEqual(Array.from(fm.tiles).map((t) => t.join("|")), ["₱120.00|To NCR", "₱180.50|To Mindanao", "0.50 kg|Billed at"]);
   assert.match(fm.note, /treat this as a floor/);
+  assert.equal(fm.reason, "");
+  assert.equal(u.feeModel({ ncr_centavos: 0, mindanao_centavos: 0, billable_kg: "0.50", reason: "Shipping is free for now." }).reason, "Shipping is free for now.");
   const none = u.feeModel({ ncr_centavos: null, mindanao_centavos: null, billable_kg: null, reason: "No courier rate covers this size." });
   assert.equal(none.tiles.length, 0);
   assert.equal(none.note, "No courier rate covers this size.");
@@ -995,7 +999,7 @@ test("Packaging & fee: asks the preview a moment after the last keystroke, shows
   assert.equal(asked().length, 1, "one call for the burst");
   assert.equal(asked()[0].method, "POST");
   assert.equal(asked()[0].path, `/sites/${SITE}/catalog/shipping-preview/`);
-  assert.deepEqual(asked()[0].body, { weight_kg: "0.5", length_cm: "20", width_cm: "10", height_cm: "6", shipping_qty: null });
+  assert.deepEqual(asked()[0].body, { volume_slot: null, weight_kg: "0.5", length_cm: "20", width_cm: "10", height_cm: "6", shipping_qty: null });
   assert.match(pv(), /₱120\.00To NCR/);
   assert.match(pv(), /₱180\.00To Mindanao/);
   assert.match(pv(), /0\.50 kgBilled at/);
@@ -1021,4 +1025,33 @@ test("source rules: API strings never reach innerHTML, no storage key, focus is 
   assert.ok(/:focus-visible/.test(CSS));
   assert.ok(!/#f2d99b|#c59a3b|#e8c16a|var\(--gold\)|var\(--cat\)|var\(--c-cat\)/i.test(CSS));
   for (const m of CSS.matchAll(/:focus-visible[^{]*\{([^}]*)\}/g)) assert.match(m[1], /var\(--link\)/);
+});
+
+test("Packaging & fee: volume slot goes in the body; a reason beside figures shows under them; a 400 invalid_request shows its field message", async () => {
+  const d = boot({ products: [product("1", { length_cm: "20", width_cm: "10", height_cm: "5", weight_kg: "0.5", volume_slot: "3.00" })] });
+  d.state.preview = { ncr_centavos: 0, mindanao_centavos: 0, billable_kg: "0.50", reason: "Shipping is free for now." };
+  await d.show();
+  d.manage(0, "pr-edit");
+  await wait(420);
+  const asked = () => d.calls.filter((c) => /shipping-preview/.test(c.path));
+  assert.equal(asked()[0].body.volume_slot, "3.00");
+  const pv = () => d.$("pr-pkg-preview").textContent;
+  assert.match(pv(), /To NCR/);
+  assert.match(pv(), /Shipping is free for now\./);
+  d.set("volume_slot", ""); await wait(420);
+  assert.equal(asked().pop().body.volume_slot, null);
+  const bad = boot({ products: [product("1", { length_cm: "20", width_cm: "10", height_cm: "5", weight_kg: "0.5" })],
+    routes: (m, p) => /shipping-preview/.test(p) ? { status: 400, body: { error: { code: "invalid_request", message: "Invalid.", fields: { weight_kg: "Enter a weight above 0." } } } } : null });
+  await bad.show();
+  bad.manage(0, "pr-edit"); await wait(420);
+  assert.match(bad.$("pr-pkg-preview").textContent, /Enter a weight above 0\./);
+});
+
+test("a photo upload refused with 400 invalid_request and a slot field shows it under the photos", async () => {
+  const d = boot({ routes: (m, p) => m === "POST" && /image\/\?slot/.test(p) ? { status: 400, body: { error: { code: "invalid_request", message: "Invalid.", fields: { slot: "Choose a photo slot from 1 to 5." } } } } : null });
+  await d.show();
+  d.manage(0, "pr-edit");
+  pickSlot(d, 2, { type: "image/png", size: 100, name: "a.png" }); await settle();
+  assert.equal(d.$("pr-e-image").hidden, false);
+  assert.match(d.$("pr-e-image").textContent, /Choose a photo slot from 1 to 5\./);
 });

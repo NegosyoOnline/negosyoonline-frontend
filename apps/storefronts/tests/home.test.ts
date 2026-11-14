@@ -214,7 +214,7 @@ const footerOf = (page: string) => page.slice(page.indexOf("<!-- FOOTER -->"), p
 const colTitles = (f: string) => [...f.matchAll(/class="footer-col-title">([^<]+)</g)].map((m) => m[1]);
 
 test("footer: brand, then Company, Shop, Legal; no Support column, no Our Story, no FAQs, no Membership Package", () => {
-  const f = footerOf(render(FILLED));
+  const f = footerOf(render({ ...FILLED, policy_links: [{ label: "Terms", path: "/terms/" }] }));
   assert.deepEqual(colTitles(f), ["Company", "Shop", "Legal"]);
   assert.match(f, /footer-logo/);
   assert.doesNotMatch(f, /Support|Our Story|FAQs|Membership Package|membership-pack/);
@@ -250,6 +250,19 @@ test("footer Legal column, the registration block, the copyright and the disclai
   assert.match(f, /class="footer-seal" src="\/business-seal\/"/);
   assert.match(f, /All rights reserved\./);
   assert.match(f, /Products are for general wellness support only/);
+});
+
+test("footer: the whole Legal column, heading included, is hidden when there are no policy links; nothing else changes", () => {
+  const none = footerOf(render({ ...FILLED, policy_links: [] }));
+  assert.deepEqual(colTitles(none), ["Company", "Shop"]);
+  assert.doesNotMatch(none, />Legal</);
+  assert.match(none, /footer-logo/);
+  assert.match(none, /All rights reserved\./);
+  assert.deepEqual(colTitles(footerOf(render({ ...FILLED, policy_links: [{ label: "Terms", path: "/terms/" }] }))), ["Company", "Shop", "Legal"]);
+  /* the Cookie settings control (a Pixel site) is a legal control: it keeps the column even with no policy page */
+  const px = footerOf(render({ ...FILLED, policy_links: [], meta_pixel_id: "123456789012345" } as never));
+  assert.deepEqual(colTitles(px), ["Company", "Shop", "Legal"]);
+  assert.match(px, /Cookie settings/);
 });
 
 test("footer CSS: four columns on desktop, and the brand column takes a row of its own on narrower screens", () => {

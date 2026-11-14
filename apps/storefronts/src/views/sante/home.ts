@@ -91,13 +91,13 @@ export function storeFooter(v: HomeModel): Markup {
           <li><a href="/products/?category=beauty">Sant&eacute; Beauty</a></li>
         </ul>
       </div>
-      <div>
+      ${v.policy_links.length || v.cookie_settings ? html`<div>
         <div class="footer-col-title">Legal</div>
         <ul class="footer-links">
           ${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}
           ${cookieSettingsItem(v.cookie_settings)}
         </ul>
-      </div>
+      </div>` : ""}
     </div>
     ${v.biz.has_seal || v.biz.registered_name || v.biz.tin || v.biz.dti_business_number ? html`
     <div class="footer-registration">

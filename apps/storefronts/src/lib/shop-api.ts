@@ -242,12 +242,22 @@ export function shopPlace(form: FormData, c: Calls): Promise<PackResult<Placed>>
   );
 }
 
+/** The buyer's own review of one order line (Django's buyer view). */
+export type BuyerReview = { id: string; rating: number; body: string; display_name: string; created_at: string; edited: boolean; can_edit: boolean };
+
+function parseBuyerReview(v: unknown): BuyerReview | null {
+  if (!record(v) || typeof v.rating !== "number" || v.rating < 1 || v.rating > 5) return null;
+  return { id: str(v.id), rating: Math.trunc(v.rating), body: str(v.body), display_name: str(v.display_name), created_at: str(v.created_at), edited: v.edited === true, can_edit: v.can_edit === true };
+}
+
 export type BuyerOrder = {
   id: string; order_number: string; status: string; status_label: string; tracker: string[]; cancelled: boolean; created_at: string;
   ship_mode: string; receiver_name: string; delivery_address: Partial<Address>;
   subtotal_centavos: number; shipping_charged_centavos: number; total_centavos: number;
   courier: string; tracking_no: string; shipped_on: string; delivered_on: string;
-  lines: { code: string; name: string; quantity: number; line_charged_centavos: number; unit_centavos?: number; image_url?: string }[];
+  lines: { code: string; name: string; quantity: number; line_charged_centavos: number; unit_centavos?: number; image_url?: string;
+    /** The review hooks of Django's buyer view; each is absent from an older backend, and the page then offers no review. */
+    position?: number; product_id?: string; can_review?: boolean; review?: BuyerReview | null }[];
   /* From the parity backend; each is absent from an older one, and the pages then show what they showed before. */
   receiver_mobile?: string; receiver_email?: string; verified_at?: string;
   member_savings_centavos?: number; srp_subtotal_centavos?: number;
@@ -268,6 +278,7 @@ export function parseBuyerOrder(v: unknown): BuyerOrder | null {
     lines: arr(v.lines).flatMap((l) => record(l) ? [{
       code: str(l.code), name: str(l.name), quantity: int(l.quantity), line_charged_centavos: int(l.line_charged_centavos),
       unit_centavos: optInt(l.unit_centavos), image_url: str(l.image_url),
+      position: optInt(l.position), product_id: str(l.product_id), can_review: l.can_review === true, review: parseBuyerReview(l.review),
     }] : []),
     receiver_mobile: str(v.receiver_mobile), receiver_email: str(v.receiver_email), verified_at: str(v.verified_at),
     member_savings_centavos: optInt(v.member_savings_centavos), srp_subtotal_centavos: optInt(v.srp_subtotal_centavos),
@@ -283,6 +294,55 @@ export function shopOrderView(args: { host: string; visitor_ip: string; order_id
 /** My Orders: the member's own shop orders, newest first. */
 export function memberShopOrders(args: { host: string; token: string }, c: Calls) {
   return packPost("member/shop-orders", args, (b) => (record(b) && Array.isArray(b.cards) ? { cards: b.cards.flatMap((x) => { const o = parseBuyerOrder(x); return o ? [o] : []; }) } : null), c);
+}
+
+/* ---- product reviews ------------------------------------------------------------------------------------------ */
+
+/** One review as a storefront shows it. Django only sends visible ones, each a verified buyer's. */
+export type StoreReview = { id: string; rating: number; body: string; display_name: string; created_at: string; edited: boolean };
+export type ReviewPage = { rating_average: string | null; rating_count: number; has_more: boolean; reviews: StoreReview[] };
+
+function parseStoreReview(v: unknown): StoreReview[] {
+  return record(v) && typeof v.rating === "number" && v.rating >= 1 && v.rating <= 5 && v.verified_buyer === true
+    ? [{ id: str(v.id), rating: Math.trunc(v.rating), body: str(v.body), display_name: str(v.display_name), created_at: str(v.created_at), edited: v.edited === true }] : [];
+}
+
+/** One page (10, newest first) of a product's reviews with the average and the count of all of them; null when the call fails or the shop is off. */
+export async function fetchReviewPage(host: string, productId: string, page: number, c: Calls): Promise<ReviewPage | null> {
+  const log = c.log ?? logShop;
+  if (!host || c.env.secret.length < SECRET_MIN_LENGTH) return null;
+  try {
+    const response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/shop/products/${encodeURIComponent(productId)}/reviews/?host=${encodeURIComponent(host)}&page=${page}`, {
+      headers: { Authorization: `Bearer ${c.env.secret}`, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    if (response.status !== 200) {
+      if (response.status !== 404) log(`the API answered ${response.status} for the reviews`);
+      return null;
+    }
+    const body: unknown = await response.json();
+    if (!record(body) || typeof body.rating_count !== "number" || !Array.isArray(body.reviews)) return null;
+    return {
+      rating_average: typeof body.rating_average === "string" && body.rating_average ? body.rating_average : null,
+      rating_count: int(body.rating_count), has_more: body.has_more === true, reviews: body.reviews.flatMap(parseStoreReview),
+    };
+  } catch {
+    log("the reviews could not be read");
+    return null;
+  }
+}
+
+/** The buyer's review of one order line: a new one (POST) or the one allowed change (PATCH). The order's proof is the view token (the placing
+    buyer) or the member's session; Django checks it is this buyer's own delivered order. */
+export function saveReview(
+  args: { host: string; visitor_ip: string; order_id: string; position: number; view_token: string; member_token: string; edit: boolean;
+    rating: number; body: string; display_name: string | undefined },
+  c: Calls,
+) {
+  const { order_id, position, edit, ...rest } = args;
+  return packPost(`shop/orders/${encodeURIComponent(order_id)}/lines/${position}/review`, rest, (b) => { const r = parseBuyerReview(b); return r ? { review: r } : null; }, c, undefined, edit ? "PATCH" : "POST");
 }
 
 export type { Calls, PackResult };

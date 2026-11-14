@@ -9,6 +9,7 @@ import { html, type Markup } from "../../lib/html.ts";
 import type { BuyerOrder } from "../../lib/shop-api.ts";
 import { checkoutSteps, prettyMobile } from "./shop-checkout.ts";
 import { php, safeImage } from "./shop-shell.ts";
+import { buyerReviews, type ReviewNotice } from "./shop-review.ts";
 
 export const PROOF_RECEIVED = "We received your payment proof. The store will review it.";
 
@@ -17,7 +18,9 @@ function lineTotal(o: BuyerOrder, l: BuyerOrder["lines"][number]): number {
   return (o.member_savings_centavos ?? 0) > 0 && l.unit_centavos !== undefined ? l.unit_centavos * l.quantity : l.line_charged_centavos;
 }
 
-export function doneContent(o: BuyerOrder): Markup {
+export const DONE_REVIEW_PATH = "/checkout/done/review/";
+
+export function doneContent(o: BuyerOrder, notice: ReviewNotice | null = null): Markup {
   const first = o.receiver_name.trim().split(/\s+/)[0] ?? "";
   const a = o.delivery_address;
   const area = [a.barangay, a.city, a.province].filter(Boolean).join(", ");
@@ -72,6 +75,7 @@ export function doneContent(o: BuyerOrder): Markup {
         </div>
       </aside>
     </div>
+    ${buyerReviews(o, DONE_REVIEW_PATH, false, notice)}
   </div>
 </section>`;
 }

@@ -6,11 +6,13 @@
    TWCinc's two support lines named Cash on Delivery and card payment; bank or e-wallet transfer is the only payment here,
    so the one line says so (plan z8uq9mek5v R6). */
 import { html, safe, type Markup } from "../../lib/html.ts";
-import type { CatalogProduct } from "../../lib/shop-api.ts";
+import type { CatalogProduct, ReviewPage } from "../../lib/shop-api.ts";
 import { trustBadges } from "./home.ts";
 import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
+import { ratingSummary, reviewsSection } from "./shop-review.ts";
 
-export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean };
+/** `reviews` is the first page(s) of this store's reviews of the product and `moreHref` the link to the next page; null or absent shows nothing. */
+export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string };
 
 /** Paragraphs as Django's linebreaks: a blank line starts a new paragraph, a single newline is a <br>. */
 function paragraphs(text: string): Markup {
@@ -118,6 +120,7 @@ export function productContent(m: ProductModel): Markup {
 
       <div class="sf-detail-info">
         <h1 class="sf-detail-name">${p.name}</h1>
+        ${ratingSummary(m.reviews)}
         ${priceRows(p)}
         ${p.short_description ? html`<div class="sf-detail-lead">${paragraphs(p.short_description)}</div>` : ""}
 
@@ -162,6 +165,8 @@ ${ingredientsBlock(p)}
 ${fab("feature", "Product Feature", "What Makes It Special", p.features, photos[1] ?? "", "")}
 ${fab("advantages", "Advantages", "Why It Stands Out", p.advantages, photos[2] ?? "", "sf-fab-tinted")}
 ${fab("benefits", "Benefits", "What You Get From It", p.benefits, photos[3] ?? "", "")}
+
+${reviewsSection(m.reviews, m.moreHref ?? "#reviews")}
 
 <section class="section">
   <div class="section-inner">

@@ -14,9 +14,10 @@ import { htmlResponse } from "./html.ts";
 import { callFor, redirect, type Call } from "./member.ts";
 import { PROOF_MAX_BYTES, type Calls } from "./pack-api.ts";
 import {
-  fetchCatalog, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
-  type Address, type CatalogProduct, type Quote,
+  fetchCatalog, fetchReviewPage, fetchShopAccounts, saveHomeAddress, shopOrderView, shopPlace, shopQuote, withZip,
+  type Address, type CatalogProduct, type Quote, type ReviewPage,
 } from "./shop-api.ts";
+import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { applyChange, readCart, writeCart, type CartChange, type CartLine } from "./shop-cart.ts";
 import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS, MSG_NO_HOME_ADDRESS, MSG_PRICES_CHANGED, MSG_SHIP_MODE, MSG_TRY_AGAIN } from "./shop-flow-text.ts";
 import { neutralNotFound } from "../views/neutral.ts";
@@ -24,6 +25,7 @@ import { homeModel, emptyContactForm, type HomeModel } from "../views/sante/mode
 import { cartContent } from "../views/sante/shop-cart.ts";
 import { checkoutContent, ADDRESS_FIELDS, CHECKOUT_PATH, type CheckoutModel, type Mode } from "../views/sante/shop-checkout.ts";
 import { doneContent } from "../views/sante/shop-done.ts";
+import { noticeFrom } from "../views/sante/shop-review.ts";
 import { productContent } from "../views/sante/shop-product.ts";
 import { CATEGORIES, productsContent } from "../views/sante/shop-products.ts";
 import { drawerOf, safeImage, shopDocument } from "../views/sante/shop-shell.ts";
@@ -130,7 +132,32 @@ export async function productGet(s: Shop, code: string): Promise<Response> {
   const b = await basketOf(s, readCart(s.request), product);
   const others = products.filter((p) => p.id !== product.id);
   const related = [...others.filter((p) => p.category === product.category), ...others.filter((p) => p.category !== product.category)].slice(0, 4);
-  return page(s, b, products, { title: product.name, content: productContent({ product, related, members: b.members }) });
+  const asked = Number(new URL(s.request.url).searchParams.get("reviews") ?? "1");
+  const pages = Number.isInteger(asked) ? Math.min(MAX_REVIEW_PAGES, Math.max(1, asked)) : 1;
+  const reviews = await reviewsOf(s, product.id, pages);
+  return page(s, b, products, {
+    title: product.name, css: [REVIEWS_CSS],
+    content: productContent({ product, related, members: b.members, reviews: reviews?.page ?? null, moreHref: `/products/${encodeURIComponent(product.code)}/?reviews=${(reviews?.loaded ?? 1) + 1}#reviews` }),
+  });
+}
+
+const MAX_REVIEW_PAGES = 10;
+export const REVIEWS_CSS = "css/pack-reviews.css";
+
+/** The product's reviews, the first `pages` pages (10 each, newest first) in one list; null when Django cannot answer (the page then simply has no reviews). */
+async function reviewsOf(s: Shop, productId: string, pages: number): Promise<{ page: ReviewPage; loaded: number } | null> {
+  const first = await fetchReviewPage(s.host, productId, 1, s.calls);
+  if (!first) return null;
+  const merged: ReviewPage = { ...first, reviews: [...first.reviews] };
+  let loaded = 1;
+  while (loaded < pages && merged.has_more) {
+    const next = await fetchReviewPage(s.host, productId, loaded + 1, s.calls);
+    if (!next) break;
+    merged.reviews.push(...next.reviews);
+    merged.has_more = next.has_more;
+    loaded += 1;
+  }
+  return { page: merged, loaded };
 }
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */
@@ -482,6 +509,15 @@ export async function doneGet(s: Shop): Promise<Response> {
     title: "Order", content: cartContent({ quote: null, images: new Map(), error: MSG_TRY_AGAIN, empty: true }),
   }), 503);
   const b: Basket = { lines: [], quote: null, members: false, stale: false, off: false };
-  return page(s, b, null, { title: `Order ${r.order.order_number}`, content: doneContent(r.order) });
+  return page(s, b, null, { title: `Order ${r.order.order_number}`, css: [REVIEWS_CSS], content: doneContent(r.order, noticeFrom(new URL(s.request.url).searchParams)) });
+}
+
+/** POST /checkout/done/review/: the placing buyer reviews a line of their own order (the `no_order` cookie is their proof). */
+export async function reviewPost(s: Shop, text: Record<string, string>): Promise<Response> {
+  const key = readOrder(s.request);
+  if (!key) return redirect("/products/");
+  const form = readReviewForm(text);
+  if (!form || !ORDER_ID.test(key.id)) return neutralNotFound();
+  return submitReview({ host: s.host, visitor_ip: s.visitor_ip, order_id: key.id, view_token: key.token, member_token: "", calls: s.calls }, form, "/checkout/done/");
 }
 

@@ -17,6 +17,8 @@ import {
   type Calls, type MemberPack, type MobileCheck, type OrderCard, type PackRefusal, type RegistrationCard,
 } from "./pack-api.ts";
 import { memberShopOrders } from "./shop-api.ts";
+import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
+import { noticeFrom } from "../views/sante/shop-review.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
 import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
@@ -116,8 +118,18 @@ export async function ordersPage(d: Dash): Promise<Response> {
   if (o.state !== "ok") return tryAgain();
   // The shop's cards come from their own route; a shop that is off or a call that fails leaves the Package cards as they were.
   const shop = await memberShopOrders({ host: d.call.host, token: d.call.member_token }, d.calls);
-  const content = ordersContent(s.member.full_name, o.cards, shop.state === "ok" ? shop.cards : []);
+  const content = ordersContent(s.member.full_name, o.cards, shop.state === "ok" ? shop.cards : [], noticeFrom(new URL(d.call.request.url).searchParams));
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Orders", member: s.member.full_name, current: "orders", content, scripts: ["js/pack-dashboard.js"] }));
+}
+
+/** POST /dashboard/orders/review/: the signed-in member reviews a line of their own delivered order. Django checks the order is theirs. */
+export async function reviewPost(d: Dash, text: Record<string, string>): Promise<Response> {
+  const s = await session(d);
+  if ("response" in s) return s.response;
+  const form = readReviewForm(text);
+  const orderId = (text.order_id ?? "").trim();
+  if (!form || !ORDER_ID.test(orderId)) return neutralNotFound();
+  return submitReview({ host: d.call.host, visitor_ip: d.call.visitor_ip, order_id: orderId, view_token: "", member_token: d.call.member_token, calls: d.calls }, form, "/dashboard/orders/");
 }
 
 /** Whether the dashboard is locked to Home (the order is rejected): other member pages use this. */

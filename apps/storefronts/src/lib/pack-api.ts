@@ -50,6 +50,7 @@ export async function packPost<T>(
   parse: (body: unknown) => T | null,
   c: Calls,
   timeoutMs = TIMEOUT_MS,
+  method = "POST",
 ): Promise<PackResult<T>> {
   const failed: PackResult<T> = { state: "failed" };
   const log = c.log ?? logPack;
@@ -63,7 +64,7 @@ export async function packPost<T>(
   let response: Response;
   try {
     response = await (c.fetchImpl ?? fetch)(`${c.env.apiBase}/storefront/v1/${path}/`, {
-      method: "POST",
+      method,
       headers,
       body: multipart ? payload : JSON.stringify(payload),
       cache: "no-store",

@@ -33,11 +33,13 @@ type Opts = {
   addressReply?: { status: number; body: unknown };
   /** Django's ZIP lookup answer for the address form (none: the lookup finds nothing). */
   zip?: { zip_code: string; zip_precision: string };
+  /** The product reviews pages Django answers (page 1 first), and a fixed answer of the buyer review save. */
+  reviewPages?: unknown[]; reviewReply?: { status: number; body: unknown };
 };
 
 /** A fake Django: records every call and answers the shop routes. `member` means the token is a member with active benefits. */
 function backend(o: Opts = {}) {
-  const calls: { url: string; body: unknown; form?: FormData }[] = [];
+  const calls: { url: string; body: unknown; form?: FormData; method?: string }[] = [];
   let extra = o.quoteExtra; // the address save changes what the next quote carries, like the real backend
   const fetchImpl = (url: string, init: RequestInit) => {
     const u = new URL(url);
@@ -50,7 +52,9 @@ function backend(o: Opts = {}) {
       if (path.endsWith("/shop/orders/")) return Promise.resolve(Response.json(o.placeBody ?? { order_id: "sho_1", order_number: "SO00001", view_token: "T".repeat(43), replay: false }, { status: o.placeStatus ?? 200 }));
     }
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-    calls.push({ url, body });
+    calls.push({ url, body, method: init.method });
+    if (path.endsWith("/shop/products/" + P1.id + "/reviews/")) return Promise.resolve(Response.json(o.reviewPages?.[Number(u.searchParams.get("page")) - 1] ?? { rating_average: null, rating_count: 0, page: 1, page_size: 10, has_more: false, reviews: [] }));
+    if (path.includes("/lines/") && path.endsWith("/review/")) return Promise.resolve(Response.json(o.reviewReply?.body ?? { id: "rev_1", rating: body.rating, body: body.body ?? "", display_name: body.display_name ?? "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true }, { status: o.reviewReply?.status ?? 200 }));
     if (path.endsWith("/address/zip/")) return Promise.resolve(Response.json(o.zip ? { ok: true, ...o.zip } : { ok: false, zip_code: "", zip_precision: "" }));
     if (path.endsWith("/member/address/")) {
       if (o.addressReply) return Promise.resolve(Response.json(o.addressReply.body, { status: o.addressReply.status }));
@@ -869,4 +873,177 @@ test("the catalog parser reads ingredients, drops nameless ones, caps at 8 and t
   assert.equal(got?.[1].ingredients?.length, 8);
   const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
   assert.deepEqual(old?.[0].ingredients, []);
+});
+
+/* ---- round 5b: reviews --------------------------------------------------------------------------------------------------- */
+
+import { fetchReviewPage } from "../src/lib/shop-api.ts";
+import { reviewPost } from "../src/lib/shop-flow.ts";
+import { noticeFrom, ratingSummary, reviewsSection, stars } from "../src/views/sante/shop-review.ts";
+import { doneContent } from "../src/views/sante/shop-done.ts";
+
+const RV = (over: Record<string, unknown> = {}) => ({ id: "rev_1", rating: 5, body: "Love it.\n\nWill buy again.", display_name: "Maria S.", created_at: "2026-11-14T02:00:00Z", edited: false, verified_buyer: true, ...over });
+const PAGE1 = { rating_average: "4.5", rating_count: 12, page: 1, page_size: 10, has_more: true, reviews: [RV(), RV({ id: "rev_2", rating: 4, body: "" })] };
+const PAGE2 = { rating_average: "4.5", rating_count: 12, page: 2, page_size: 10, has_more: false, reviews: [RV({ id: "rev_3", rating: 3, display_name: "Jo D." })] };
+const parsed = async (pages: unknown[]) => {
+  const fetchImpl = () => Promise.resolve(Response.json(pages[0]));
+  return fetchReviewPage("h.test", P1.id, 1, { env, fetchImpl: fetchImpl as never, log: () => {} });
+};
+
+test("the review page parser keeps only verified, rated reviews and keeps the text as data", async () => {
+  const got = await parsed([{ ...PAGE1, reviews: [RV(), RV({ rating: 9 }), RV({ verified_buyer: false }), 5, RV({ display_name: "<b>x</b>" })] }]);
+  assert.equal(got?.rating_average, "4.5");
+  assert.equal(got?.rating_count, 12);
+  assert.equal(got?.has_more, true);
+  assert.deepEqual(got?.reviews.map((r) => r.display_name), ["Maria S.", "<b>x</b>"]);
+  assert.equal(await parsed([{ rating_average: null, rating_count: 0, has_more: false, reviews: [] }]).then((r) => r?.rating_average), null);
+  assert.equal(await fetchReviewPage("h", P1.id, 1, { env, fetchImpl: (() => Promise.resolve(Response.json({}, { status: 404 }))) as never, log: () => {} }), null);
+  assert.equal(await fetchReviewPage("h", P1.id, 1, { env, fetchImpl: (() => Promise.resolve(Response.json({ nope: 1 }))) as never, log: () => {} }), null);
+});
+
+test("the product page shows nothing about reviews until the first real review", () => {
+  const none = [undefined, null, { rating_average: null, rating_count: 0, has_more: false, reviews: [] }];
+  for (const reviews of none) {
+    const page = productContent({ product: R5, related: [], members: false, reviews }).value;
+    assert.doesNotMatch(page, /sf-star|data-sf-reviews|data-sf-rating|review|Verified buyer/i);
+  }
+  assert.equal(ratingSummary(null).value, "");
+  assert.equal(reviewsSection(null, "#").value, "");
+});
+
+test("with reviews the page shows stars, average, count, each review as a verified buyer, escaped, and More reviews only when paged", () => {
+  const page = productContent({ product: R5, related: [], members: false, reviews: PAGE1, moreHref: "/products/SPH1/?reviews=2#reviews" }).value;
+  assert.match(page, /data-sf-rating>[\s\S]*<strong>4\.5<\/strong> <span>\(12 reviews\)<\/span>/);
+  assert.ok(page.indexOf("data-sf-rating") < page.indexOf('id="sfAddToCart"'), "the summary sits by the name, above Add to Cart");
+  assert.match(page, /id="reviews" data-sf-reviews/);
+  assert.match(page, /Based on 12 reviews/);
+  assert.equal(page.match(/class="sf-verified">Verified buyer</g)?.length, 2);
+  assert.match(page, /<p>Love it\.<\/p><p>Will buy again\.<\/p>/);
+  assert.equal(page.match(/class="sf-review-body"/g)?.length, 1, "a review without words shows no empty text");
+  assert.match(page, /href="\/products\/SPH1\/\?reviews=2#reviews" data-sf-more-reviews>More reviews</);
+  assert.match(page, /aria-label="5 out of 5 stars"/);
+  const last = productContent({ product: R5, related: [], members: false, reviews: { ...PAGE2, rating_count: 1 } }).value;
+  assert.doesNotMatch(last, /More reviews/);
+  assert.match(last, /\(1 review\)/);
+  assert.equal(stars(4.4).value.match(/is-on/g)?.length, 4);
+  assert.equal(stars(4.5).value.match(/is-on/g)?.length, 5);
+});
+
+test("review text is escaped, never trusted", () => {
+  const hostile = productContent({ product: R5, related: [], members: false, reviews: { ...PAGE1, reviews: [RV({ display_name: "<script>x</script>", body: "<img src=x onerror=y>\n\n<b>bold</b>" })] } }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x|<b>bold/);
+  assert.match(hostile, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.match(hostile, /&lt;img src=x onerror=y&gt;/);
+});
+
+test("the product page loads the pages asked for, newest first, and links to the next", async () => {
+  const b = backend({ reviewPages: [PAGE1, PAGE2] });
+  const s = shop(b);
+  s.request = new Request("http://demo.test/products/SPH1/?reviews=2", { headers: { host: "demo.test" } });
+  const page = await text(await productGet(s, "SPH1"));
+  assert.equal(b.calls.filter((c) => c.url.includes("/reviews/")).length, 2);
+  assert.match(page, /Jo D\./);
+  assert.doesNotMatch(page, /More reviews/);
+  const one = backend({ reviewPages: [PAGE1, PAGE2] });
+  const first = await text(await productGet(shop(one), "SPH1"));
+  assert.equal(one.calls.filter((c) => c.url.includes("/reviews/")).length, 1);
+  assert.match(first, /\/products\/SPH1\/\?reviews=2#reviews/);
+  assert.doesNotMatch(first, /Jo D\./);
+  const none = await text(await productGet(shop(backend()), "SPH1"));
+  assert.doesNotMatch(none, /data-sf-reviews|sf-star/, "a store with no reviews shows nothing");
+  const bad = await text(await productGet(shop(backend({ reviewPages: [{ nope: 1 }] })), "SPH1"));
+  assert.doesNotMatch(bad, /data-sf-reviews/, "an unreadable answer shows nothing and the page still loads");
+});
+
+const LINE = { position: 1, product_id: P1.id, can_review: true, review: null };
+const orderOf = (line: Record<string, unknown>, status = "delivered") => parseBuyerOrder({ id: "sho_1", order_number: "SO00001", status, status_label: "Delivered", total_centavos: 45000, lines: [{ code: "SPH1", name: "Fusion <Coffee>", quantity: 1, line_charged_centavos: 45000, ...line }] })!;
+
+test("the order page offers Rate this product per delivered line, as a plain form that posts to this host", () => {
+  const page = doneContent(orderOf(LINE)).value;
+  assert.match(page, /data-sf-review-block/);
+  assert.match(page, /<form class="sf-rv-form" method="post" action="\/checkout\/done\/review\/" data-sf-review-form>/);
+  assert.match(page, /name="position" value="1"/);
+  assert.match(page, /name="mode" value="create"/);
+  assert.doesNotMatch(page, /name="order_id"/, "the placing buyer's cookie names the order");
+  assert.equal(page.match(/type="radio" name="rating"/g)?.length, 5);
+  assert.match(page, /name="rating" id="[^"]+-r5" value="5" required/);
+  assert.match(page, /name="body" rows="3" maxlength="1000"/);
+  assert.match(page, /name="display_name" maxlength="40"/);
+  assert.match(page, /Post review/);
+  assert.match(page, /Fusion &lt;Coffee&gt;/);
+  assert.doesNotMatch(page, /Edit your review/);
+});
+
+test("no form for an order not delivered, a line already reviewed with no edit left, or an older backend", () => {
+  assert.doesNotMatch(doneContent(orderOf({ position: 1, can_review: false, review: null }, "placed")).value, /data-sf-review-block/);
+  assert.doesNotMatch(doneContent(orderOf({})).value, /data-sf-review-block/, "an older backend sends no review keys");
+  const locked = doneContent(orderOf({ position: 1, can_review: false, review: { id: "r", rating: 4, body: "Nice <b>one</b>", display_name: "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: true, can_edit: false } })).value;
+  assert.match(locked, /data-sf-my-review/);
+  assert.match(locked, /aria-label="4 out of 5 stars"/);
+  assert.match(locked, /Nice &lt;b&gt;one&lt;\/b&gt;/);
+  assert.match(locked, /\(edited\)/);
+  assert.doesNotMatch(locked, /<form|Edit your review/);
+});
+
+test("a review with an Edit left shows it once, prefilled, in edit mode; My Orders adds the order id", () => {
+  const mine = { position: 2, can_review: false, review: { id: "r", rating: 3, body: "Okay & fine", display_name: "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true } };
+  const page = doneContent(orderOf(mine)).value;
+  assert.equal(page.match(/Edit your review/g)?.length, 1);
+  assert.match(page, /name="mode" value="edit"/);
+  assert.match(page, /id="[^"]+-r3" value="3" checked/);
+  assert.match(page, />Okay &amp; fine<\/textarea>/);
+  assert.match(page, /value="Ana R\."/);
+  assert.match(page, /Save changes/);
+  const card = shopCard(orderOf(LINE), 0).value;
+  assert.match(card, /action="\/dashboard\/orders\/review\/"/);
+  assert.match(card, /name="order_id" value="sho_1"/);
+  assert.ok(card.indexOf("data-sf-review-block") < card.indexOf("oc-detail-toggle"), "the prompt is visible without opening the details");
+});
+
+test("a review post comes back as a fixed notice on its own line and nothing the buyer typed", () => {
+  const o = orderOf(LINE);
+  const note = (q: string) => doneContent(o, noticeFrom(new URLSearchParams(q))).value;
+  assert.match(note("review=saved&order=sho_1&line=1"), /role="status">Thank you! Your review is posted\./);
+  assert.match(note("review=invalid&order=sho_1&line=1"), /choose a rating/);
+  assert.match(note("review=locked&order=sho_1&line=1"), /can no longer be changed/);
+  assert.doesNotMatch(note("review=saved&order=sho_1&line=2"), /sf-rv-notice/, "another line");
+  assert.doesNotMatch(note("review=saved&order=sho_9&line=1"), /sf-rv-notice/, "another order");
+  assert.equal(noticeFrom(new URLSearchParams("review=%3Cscript%3E&order=sho_1&line=1")), null, "only known outcomes");
+  assert.equal(noticeFrom(new URLSearchParams("review=saved&order=a b&line=1")), null);
+  assert.equal(noticeFrom(new URLSearchParams("review=saved&order=sho_1&line=0")), null);
+});
+
+const REVIEWER = `no_order=sho_1.${"T".repeat(43)}`;
+const posted = (b: ReturnType<typeof backend>, form: Record<string, string>, cookie = REVIEWER) => reviewPost(shop(b, cookie), form);
+
+test("the order-done review post sends the order's own proof, a JSON rating and only what was typed; the answer redirects with an outcome", async () => {
+  const b = backend();
+  const r = await posted(b, { position: "1", mode: "create", rating: "5", body: "  Great  ", display_name: "" });
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("location"), "/checkout/done/?review=saved&order=sho_1&line=1#review-sho_1-1");
+  const call = b.calls.find((c) => c.url.includes("/lines/1/review/"))!;
+  assert.equal(call.method, "POST");
+  assert.ok(call.url.endsWith("/storefront/v1/shop/orders/sho_1/lines/1/review/"));
+  assert.deepEqual(call.body, { host: "demo.test", visitor_ip: "", view_token: "T".repeat(43), member_token: "", rating: 5, body: "  Great  " });
+  assert.strictEqual(typeof (call.body as { rating: unknown }).rating, "number");
+  const edit = backend();
+  await posted(edit, { position: "2", mode: "edit", rating: "4", body: "", display_name: " Ana R. " });
+  assert.equal(edit.calls.find((c) => c.url.includes("/lines/2/review/"))?.method, "PATCH");
+  assert.equal((edit.calls.find((c) => c.url.includes("/lines/2/review/"))?.body as { display_name: string }).display_name, "Ana R.");
+});
+
+test("a review post without a rating never reaches Django; refusals map to fixed outcomes; a stranger gets no review", async () => {
+  const b = backend();
+  const none = await posted(b, { position: "1", mode: "create", rating: "", body: "x" });
+  assert.match(none.headers.get("location") ?? "", /review=invalid/);
+  assert.equal(b.calls.filter((c) => c.url.includes("/review/")).length, 0);
+  const refused = async (status: number, code: string) => (await posted(backend({ reviewReply: { status, body: { error: { code, message: "m", fields: {} } } } }), { position: "1", mode: "create", rating: "5" })).headers.get("location") ?? "";
+  assert.match(await refused(409, "not_delivered"), /review=not_delivered/);
+  assert.match(await refused(409, "already_reviewed"), /review=exists/);
+  assert.match(await refused(409, "review_locked"), /review=locked/);
+  assert.match(await refused(422, "invalid_request"), /review=invalid/);
+  assert.match(await refused(404, "not_found"), /review=failed/);
+  assert.equal((await posted(backend(), { position: "1", rating: "5" }, "")).headers.get("location"), "/products/", "no order cookie, no review");
+  assert.equal((await posted(backend(), { position: "x", rating: "5" })).status, 404);
+  assert.equal((await posted(backend(), { position: "1000", rating: "5" })).status, 404);
 });

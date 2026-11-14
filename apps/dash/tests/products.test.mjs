@@ -262,13 +262,13 @@ test("CSV: formula-looking cells get an apostrophe, quotes and commas are escape
   assert.ok(!/0\.4000|Incomplete|Missing/.test(u.csvText(rows, false)));
 });
 
-test("Manage menu: edit, history, hide and show; hide sends the loaded revision", async () => {
+test("Manage menu: edit, history, reviews, hide and show; hide sends the loaded revision", async () => {
   const d = boot();
   await d.show();
   assert.equal(d.all("pr-menu").length, 0);
   d.all("pr-manage")[0].fire("click");
   assert.equal(d.all("pr-menu").length, 1);
-  assert.deepEqual(d.all("pr-menu-item").map((b) => b.textContent), ["Edit details", "History", "Hide from shops"]);
+  assert.deepEqual(d.all("pr-menu-item").map((b) => b.textContent), ["Edit details", "History", "Reviews", "Hide from shops"]);
   d.all("pr-toggle")[0].fire("click"); await settle();
   const w = d.writes();
   assert.equal(w.length, 1);
@@ -577,7 +577,7 @@ test("Arrange is the owner's only, and the Manage menu has separators and no sto
   const d = boot();
   await d.show();
   d.all("pr-manage")[0].fire("click");
-  assert.equal(d.all("pr-menu-sep").length, 2);
+  assert.equal(d.all("pr-menu-sep").length, 3);
   assert.equal(d.all("pr-menu")[0].getAttribute("role"), "menu");
   assert.ok(!/Restock|Adjust|Threshold|Remove|Toggle availability/.test(d.$("pr-root").textContent), "no stock actions: there is no stock");
   assert.ok(!/Stock|Cover|Health|Units on hand|Inventory value|Low stock/.test(d.$("pr-root").textContent), "no stock columns or tiles");
@@ -684,8 +684,8 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod7/);
-  assert.match(html, /products\.js\?v=20261114prod9/);
+  assert.match(html, /products\.css\?v=20261114prod8/);
+  assert.match(html, /products\.js\?v=20261114prod10/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -1303,4 +1303,73 @@ test("History names Ingredients", () => {
   const base = product("1", { ingredients: [] });
   assert.deepEqual(Array.from(u.changes({ ...base, ingredients: [{ name: "a", line: "", photo_slot: null }] }, base)), ["Ingredients changed"]);
   assert.deepEqual(Array.from(u.changes({ ...base, ingredients: [] }, { ...base, ingredients: undefined })), ["Saved with no changes"]);
+});
+
+/* ---- round 5b: Manage > Reviews --------------------------------------------------------------------------------------- */
+
+const REVS = [
+  { id: "rev_1", rating: 5, body: "Love it.\nWill <b>buy</b> again.", display_name: "Maria S.", created_at: "2026-11-14T02:00:00Z", edited: false, verified_buyer: true, product_id: "prod_1", product_code: "SPH1", product_name: "Product 1", order_number: "SO00001", is_hidden: false, hidden_at: null },
+  { id: "rev_2", rating: 2, body: "", display_name: "<script>x</script>", created_at: "2026-11-13T02:00:00Z", edited: true, verified_buyer: true, product_id: "prod_1", product_code: "SPH1", product_name: "Product 1", order_number: "SO00002", is_hidden: true, hidden_at: "2026-11-14T00:00:00Z" },
+];
+const revRoutes = (rows, hook) => (m, p) => {
+  if (m === "GET" && /\/shop\/reviews\/\?product=prod_1$/.test(p)) return { status: 200, body: { reviews: rows } };
+  const t = /\/shop\/reviews\/(rev_\w+)\/(hide|show)\/$/.exec(p);
+  if (m === "POST" && t) { if (hook) return hook(t); const row = rows.find((x) => x.id === t[1]); row.is_hidden = t[2] === "hide"; return { status: 200, body: row }; }
+  return null;
+};
+const openReviews = async (d) => { await d.show(); d.manage(0, "pr-reviews"); await settle(); };
+
+test("Manage > Reviews lists the product's reviews as read-only text with Verified buyer, Hide and Show", async () => {
+  const rows = REVS.map((r) => ({ ...r }));
+  const d = boot({ routes: revRoutes(rows) });
+  await openReviews(d);
+  assert.match(d.$("pr-root").textContent, /Reviews of Product 1/);
+  assert.equal(d.calls.filter((c) => /shop\/reviews/.test(c.path))[0].path.endsWith("/shop/reviews/?product=prod_1"), true);
+  assert.equal(d.all("pr-rev").length, 2);
+  assert.match(d.$("pr-root").textContent, /2 reviews · 1 shown in your shop, 1 hidden/);
+  assert.equal(d.all("pr-revname")[0].textContent, "Maria S.");
+  assert.equal(d.all("pr-revbody")[0].textContent, "Love it.\nWill <b>buy</b> again.", "the buyer's words are text, never markup");
+  assert.equal(d.all("pr-revname")[1].textContent, "<script>x</script>");
+  assert.equal(d.all("pr-revstars")[0].textContent, "★★★★★");
+  assert.equal(d.all("pr-revstars")[1].textContent, "★★☆☆☆");
+  assert.equal(d.all("pr-revbody").length, 1, "a review without words shows no empty text");
+  assert.match(d.$("pr-root").textContent, /Verified buyer/);
+  assert.match(d.$("pr-root").textContent, /Order SO00001/);
+  assert.equal(d.all("pr-rev-toggle")[0].textContent, "Hide from shop");
+  assert.equal(d.all("pr-rev-toggle")[1].textContent, "Show in shop");
+  assert.equal(d.$("pr-root").all((n) => n.tagName === "TEXTAREA" || n.tagName === "INPUT").length, 0, "nothing to edit");
+});
+
+test("Hide and Show post to the review and redraw it; a refusal keeps it as it was", async () => {
+  const rows = REVS.map((r) => ({ ...r }));
+  const d = boot({ routes: revRoutes(rows) });
+  await openReviews(d);
+  d.all("pr-rev-toggle")[0].fire("click"); await settle();
+  assert.deepEqual(d.writes().map((c) => [c.method, c.path.replace(/^\/sites\/site_\w+/, "")]), [["POST", "/shop/reviews/rev_1/hide/"]]);
+  assert.equal(d.writes()[0].body, null, "no words are sent, only the hide");
+  assert.equal(d.all("pr-rev-toggle")[0].textContent, "Show in shop");
+  assert.match(d.$("pr-root").textContent, /2 hidden/);
+  assert.ok(d.toasts.some((t) => /Review hidden/.test(t)));
+  d.all("pr-rev-toggle")[1].fire("click"); await settle();
+  assert.equal(d.writes()[1].path.endsWith("/shop/reviews/rev_2/show/"), true);
+  assert.equal(d.all("pr-rev-toggle")[1].textContent, "Hide from shop");
+  const bad = boot({ routes: revRoutes(REVS.map((r) => ({ ...r })), () => ({ status: 404, body: { error: { code: "not_found", message: "Not found." } } })) });
+  await openReviews(bad);
+  bad.all("pr-rev-toggle")[0].fire("click"); await settle();
+  assert.equal(bad.all("pr-rev-toggle")[0].textContent, "Hide from shop");
+  assert.equal(bad.all("pr-rev-toggle")[0].disabled, false);
+  assert.ok(bad.toasts.some((t) => /Not saved/.test(t)));
+});
+
+test("Reviews: an empty product says so, a failed read offers Try again, and Back returns to the list", async () => {
+  const d = boot({ routes: revRoutes([]) });
+  await openReviews(d);
+  assert.match(d.$("pr-root").textContent, /No reviews yet/);
+  assert.doesNotMatch(d.$("pr-root").textContent, /0 reviews/);
+  const e = boot({ routes: (m, p) => (/\/shop\/reviews\//.test(p) ? { status: 500, body: {} } : null) });
+  await openReviews(e);
+  assert.match(e.$("pr-root").textContent, /couldn’t load the reviews/);
+  assert.equal(e.buttons("Try again").length, 1);
+  d.buttons("Back to products")[0].fire("click"); await settle();
+  assert.equal(d.rows().length, 2);
 });

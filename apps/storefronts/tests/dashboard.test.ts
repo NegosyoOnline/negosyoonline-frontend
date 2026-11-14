@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { addressOf, homePage, proofGet, registrationPost, resubmitPost, type Dash } from "../src/lib/dashboard-flow.ts";
+import { addressOf, homePage, ordersPage, proofGet, registrationPost, resubmitPost, reviewPost, type Dash } from "../src/lib/dashboard-flow.ts";
 import { pesos } from "../src/views/sante/pack-member.ts";
 import { PROOF_MAX_BYTES } from "../src/lib/pack-api.ts";
 import { SITE } from "./site.ts";
@@ -363,4 +363,50 @@ test("a submit without the tick shows the terms error; a changed version clears 
     "member/pack": [ok({ pack: pack(), registration: REG_TERMS })], "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
   });
   assert.match(await (await registrationPost(dashOf(none), "details", { ...text, terms: "1" })).text(), /pp-ob-terms-err">Please review and agree/);
+});
+
+/* ---- round 5b: My Orders reviews ------------------------------------------------------------------------------------- */
+
+const SHOP_ORDER = (line: Record<string, unknown>) => ({
+  id: "sho_7", order_number: "SO00007", status: "delivered", status_label: "Delivered", tracker: ["Order Placed", "Order Confirmed", "Shipped", "Delivered"], cancelled: false,
+  created_at: "2026-11-01T02:00:00Z", ship_mode: "home", receiver_name: "Juan", delivery_address: { line: "1 St", barangay: "B", city: "C", province: "P", zip: "1300", landmark: "" },
+  subtotal_centavos: 45000, shipping_charged_centavos: 0, total_centavos: 45000, courier: "J&T", tracking_no: "", shipped_on: "2026-11-02", delivered_on: "2026-11-05",
+  lines: [{ code: "SPH1", name: "Fusion <Coffee>", quantity: 1, line_charged_centavos: 45000, ...line }],
+});
+
+test("My Orders offers Rate this product on a delivered line, posting to this host with the order id", async () => {
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/orders": [ok({ cards: [] })], "member/shop-orders": [ok({ cards: [SHOP_ORDER({ position: 1, product_id: "prd_A", can_review: true, review: null })] })] });
+  const body = await (await ordersPage(dashOf(f))).text();
+  assert.match(body, /data-sf-review-block/);
+  assert.match(body, /action="\/dashboard\/orders\/review\/"/);
+  assert.match(body, /name="order_id" value="sho_7"/);
+  assert.match(body, /Fusion &lt;Coffee&gt;/);
+  assert.match(body, /pack-reviews\.css/);
+});
+
+test("My Orders shows nothing to review for an undelivered order, and a notice only on its own line", async () => {
+  const plain = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/orders": [ok({ cards: [] })], "member/shop-orders": [ok({ cards: [SHOP_ORDER({ position: 1, can_review: false, review: null })] })] });
+  assert.doesNotMatch(await (await ordersPage(dashOf(plain))).text(), /data-sf-review-block/);
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/orders": [ok({ cards: [] })], "member/shop-orders": [ok({ cards: [SHOP_ORDER({ position: 1, can_review: true, review: null })] })] });
+  const d = dashOf(f);
+  d.call.request = new Request("http://www.santetest.com/dashboard/orders/?review=saved&order=sho_7&line=1");
+  assert.match(await (await ordersPage(d)).text(), /Thank you! Your review is posted\./);
+});
+
+test("the member's review post sends the session as data and the order id, then goes back to My Orders with an outcome", async () => {
+  const f = fake({ "member/me": [ME], "shop/orders/sho_7/lines/2/review": [ok({ id: "rev_1", rating: 4, body: "Nice", display_name: "Juan D.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true })] });
+  const r = await reviewPost(dashOf(f), { order_id: "sho_7", position: "2", mode: "create", rating: "4", body: "Nice", display_name: "" });
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("location"), "/dashboard/orders/?review=saved&order=sho_7&line=2#review-sho_7-2");
+  const sent = f.calls.find((c) => c.path.endsWith("/review"))!.body;
+  assert.deepEqual(sent, { host: "demo.negosyotest.com", visitor_ip: "", view_token: "", member_token: "M".repeat(43), rating: 4, body: "Nice" });
+});
+
+test("the member's review post: signed out goes to the store home, a bad order id or line is the neutral 404, a refusal is a fixed outcome", async () => {
+  assert.equal((await reviewPost(dashOf(fake({}), ""), { order_id: "sho_7", position: "1", rating: "5" })).headers.get("location"), "/");
+  assert.equal((await reviewPost(dashOf(fake({ "member/me": [ME] })), { order_id: "../x", position: "1", rating: "5" })).status, 404);
+  assert.equal((await reviewPost(dashOf(fake({ "member/me": [ME] })), { order_id: "sho_7", position: "0", rating: "5" })).status, 404);
+  const f = fake({ "member/me": [ME], "shop/orders/sho_7/lines/1/review": [err(409, "already_reviewed", "You already reviewed this product.")] });
+  const r = await reviewPost(dashOf(f), { order_id: "sho_7", position: "1", rating: "5" });
+  assert.match(r.headers.get("location") ?? "", /review=exists/);
 });

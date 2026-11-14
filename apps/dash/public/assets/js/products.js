@@ -308,6 +308,8 @@
       m.appendChild(h("div", "pr-menu-sep"));
       m.appendChild(item("History", "pr-hist", function () { S.view.menu = null; openHistory(p); }));
       m.appendChild(h("div", "pr-menu-sep"));
+      m.appendChild(item("Reviews", "pr-reviews", function () { S.view.menu = null; openReviews(p); }));
+      m.appendChild(h("div", "pr-menu-sep"));
       m.appendChild(item(p.is_active ? "Hide from shops" : "Show in shops", "pr-toggle", function () { S.view.menu = null; toggleActive(p); }));
       m.addEventListener("keydown", function (ev) { if (ev && ev.key === "Escape") { S.view.menu = null; refreshList(); var mb = S.listBox && S.listBox.querySelector(".pr-manage"); if (mb && mb.focus) mb.focus(); } });
       wrap.appendChild(m);
@@ -1667,6 +1669,84 @@
         list.appendChild(li);
       });
       body.appendChild(list);
+    });
+  }
+
+  /* ---------- reviews ---------- */
+
+  /* A product's reviews from verified buyers, newest first. The owner can hide one from the shop and show it again, and that is all:
+     the buyer's words, name and rating are read-only, and set as text. */
+  var REVIEW_RE = /^[0-9A-Za-z_-]{1,64}$/;
+  function starsText(n) { var k = Math.max(0, Math.min(5, Math.round(Number(n) || 0))); return "★★★★★".slice(0, k) + "☆☆☆☆☆".slice(0, 5 - k); }
+  function openReviews(p) {
+    S.mode = "reviews";
+    var mine = ++token;
+    var r = clear(pane());
+    r.setAttribute("aria-busy", "true");
+    var head = h("div", "pr-formhead");
+    head.appendChild(button("Back to products", "no-btn-ghost", function () { token++; loadList(); }));
+    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, "Reviews of " + p.name);
+    head.appendChild(title);
+    r.appendChild(head);
+    var body = h("div", "pr-revs");
+    body.appendChild(h("p", "pr-meta", "Loading reviews…"));
+    r.appendChild(body);
+    title.focus();
+    if (!PRODUCT_RE.test(p.id)) { clear(body).appendChild(failBox("We couldn’t load the reviews.")); r.removeAttribute("aria-busy"); return; }
+    D.call("GET", "/sites/" + S.site + "/shop/reviews/?product=" + encodeURIComponent(p.id), null, true).then(function (res) {
+      if (mine !== token || res.status === 401) return;
+      r.removeAttribute("aria-busy");
+      var rows = res.data && res.data.reviews;
+      clear(body);
+      if (!res.ok || !Array.isArray(rows)) { body.appendChild(failBox("We couldn’t load the reviews. Try again.", function () { openReviews(p); })); return; }
+      function draw() {
+        clear(body);
+        var shown = rows.filter(function (x) { return !x.is_hidden; }).length;
+        if (!rows.length) {
+          body.appendChild(h("p", "pr-meta", "No reviews yet. Reviews come from shoppers whose order was delivered, and they appear here as soon as they are posted."));
+          return;
+        }
+        body.appendChild(h("p", "pr-meta pr-revs-sum", rows.length + (rows.length === 1 ? " review" : " reviews") + " · " + shown + " shown in your shop" + (rows.length - shown ? ", " + (rows.length - shown) + " hidden" : "")));
+        var list = D.el("ul", { "class": "pr-revlist" });
+        rows.forEach(function (rv) {
+          var li = h("li", "pr-rev" + (rv.is_hidden ? " is-hidden" : ""));
+          var top = h("p", "pr-revtop");
+          var st = h("span", "pr-revstars", starsText(rv.rating));
+          st.setAttribute("role", "img"); st.setAttribute("aria-label", rv.rating + " out of 5 stars");
+          top.appendChild(st);
+          top.appendChild(h("strong", "pr-revname", rv.display_name || "Verified buyer"));
+          top.appendChild(chip("Verified buyer", "chip-ok"));
+          if (rv.is_hidden) top.appendChild(chip("Hidden", "chip-neutral"));
+          li.appendChild(top);
+          var when = stamp(rv.created_at);
+          li.appendChild(h("p", "pr-revmeta", (when ? when : "") + (rv.order_number ? (when ? " · " : "") + "Order " + rv.order_number : "") + (rv.edited ? " · edited" : "")));
+          if (rv.body) li.appendChild(h("p", "pr-revbody", rv.body));
+          var act = h("div", "pr-revact");
+          var btn = button(rv.is_hidden ? "Show in shop" : "Hide from shop", "no-btn-ghost pr-rev-toggle", function () {
+            if (!REVIEW_RE.test(String(rv.id))) return;
+            btn.disabled = true;
+            var hide = !rv.is_hidden;
+            D.call("POST", "/sites/" + S.site + "/shop/reviews/" + rv.id + "/" + (hide ? "hide" : "show") + "/", null, true).then(function (r2) {
+              if (mine !== token || res.status === 401) return;
+              if (r2.ok && r2.data && r2.data.id === rv.id) {
+                rv.is_hidden = r2.data.is_hidden === true;
+                D.toast(rv.is_hidden ? "Review hidden" : "Review shown", rv.is_hidden ? "It no longer appears in your shop." : "It appears in your shop again.");
+                say(rv.is_hidden ? "Review hidden." : "Review shown.");
+                draw();
+                return;
+              }
+              btn.disabled = false;
+              D.toast("Not saved", (r2.data && r2.data.message) || MSG.generic, "error");
+            });
+          });
+          btn.setAttribute("aria-label", (rv.is_hidden ? "Show the review by " : "Hide the review by ") + (rv.display_name || "a verified buyer"));
+          act.appendChild(btn);
+          li.appendChild(act);
+          list.appendChild(li);
+        });
+        body.appendChild(list);
+      }
+      draw();
     });
   }
 

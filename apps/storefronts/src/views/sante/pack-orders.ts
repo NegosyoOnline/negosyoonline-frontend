@@ -5,6 +5,7 @@ import { html, safe, type Markup } from "../../lib/html.ts";
 import type { HomeSummary, OrderCard, OrderMonitor } from "../../lib/pack-api.ts";
 import type { BuyerOrder } from "../../lib/shop-api.ts";
 import { money, safeImage } from "./shop-shell.ts";
+import { buyerReviews, type ReviewNotice } from "./shop-review.ts";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 /** "M j, Y" (Nov 12, 2026), or "M j" without the year, in Manila time; "" for an unreadable date. */
@@ -131,7 +132,9 @@ const SHOP_TRACK = ["placed", "confirmed", "shipped", "delivered"] as const;
 
 /** A shop order as a card beside the pack's (TWCinc _store_order_card.html over the pack card's look): the buyer's four-step tracker,
     "This order was cancelled." for a cancelled one, the courier line and the details. Django's buyer view is the source of every word. */
-export function shopCard(o: BuyerOrder, i = 0): Markup {
+export const ORDERS_REVIEW_PATH = "/dashboard/orders/review/";
+
+export function shopCard(o: BuyerOrder, i = 0, notice: ReviewNotice | null = null): Markup {
   const at = SHOP_TRACK.indexOf(o.status as (typeof SHOP_TRACK)[number]);
   const names = o.tracker.length === 4 ? o.tracker : ["Order Placed", "Order Confirmed", "Shipped", "Delivered"];
   const dates = [o.created_at, o.verified_at ?? "", o.shipped_on, o.delivered_on];
@@ -162,6 +165,7 @@ export function shopCard(o: BuyerOrder, i = 0): Markup {
     <span class="sf-status-chip ${chip}">${o.cancelled ? "Cancelled" : o.status_label}</span>
   </div>
   ${tail}
+  ${buyerReviews(o, ORDERS_REVIEW_PATH, true, notice)}
   <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-s${i}">View Details &rarr;</button></div>
   <div class="oc-detail" id="oc-detail-s${i}" hidden>
     <div class="oc-dgrid">
@@ -196,9 +200,9 @@ export function shopCard(o: BuyerOrder, i = 0): Markup {
 </div>`;
 }
 
-export function ordersContent(memberName: string, cards: OrderCard[], shop: BuyerOrder[] = []): Markup {
+export function ordersContent(memberName: string, cards: OrderCard[], shop: BuyerOrder[] = [], notice: ReviewNotice | null = null): Markup {
   // Package and shop cards share one list, newest first
-  const all = [...cards.map((c, i) => ({ at: Date.parse(c.created_at) || 0, view: card(c, i) })), ...shop.map((o, i) => ({ at: Date.parse(o.created_at) || 0, view: shopCard(o, i) }))].sort((x, y) => y.at - x.at);
+  const all = [...cards.map((c, i) => ({ at: Date.parse(c.created_at) || 0, view: card(c, i) })), ...shop.map((o, i) => ({ at: Date.parse(o.created_at) || 0, view: shopCard(o, i, notice) }))].sort((x, y) => y.at - x.at);
   return html`<div class="pd" id="pp-dash-orders">
 <div class="acct-hero">
   <div class="acct-hero-id">

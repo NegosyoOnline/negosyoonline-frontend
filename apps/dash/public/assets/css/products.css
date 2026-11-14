@@ -19,7 +19,9 @@ body.dash-app #view-products .pr-tool-search { flex: 1 1 200px; }
 body.dash-app #view-products .pr-toolbar .no-btn { min-height: 44px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
 /* Above the phone layout: search, status and category stay on one line; the buttons, kept together in one wrapper, sit beside them or, when they do not fit, on their own right-aligned line below. */
 @media (min-width: 641px) {
-  body.dash-app #view-products .pr-search-form { flex: 1 1 560px; flex-wrap: nowrap; min-width: 466px; }
+  body.dash-app #view-products .pr-search-form { flex: 1 1 692px; flex-wrap: nowrap; min-width: 0; }
+  body.dash-app #view-products .pr-search-form .pr-tool { min-width: 100px; }
+  body.dash-app #view-products .pr-search-form .pr-tool-search { min-width: 280px; }
   body.dash-app #view-products .pr-toolbtns { display: flex; gap: 9px; margin-left: auto; }
 }
 /* On the phone the wrapper steps aside so its buttons stay direct flex items of the toolbar, as before. */

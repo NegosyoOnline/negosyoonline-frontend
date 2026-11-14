@@ -40,7 +40,7 @@ export async function trainingPage(d: Dash): Promise<Response> {
   const [courses, live] = await Promise.all([memberCourses(args(d), d.calls), memberLive(args(d), d.calls)]);
   if (courses.state !== "ok") return ended(d, courses);
   if (live.state === "refused" && live.status === 401) return signedOut(d);
-  return document(d, g.name, "Training", universityContent(live.state === "ok" ? live.live : null, courses.resume, courses.courses));
+  return document(d, g.name, "Training", universityContent(live.state === "ok" ? live.live : null, courses.resume, courses.courses, d.now));
 }
 
 /** GET /dashboard/training/<course>/. */

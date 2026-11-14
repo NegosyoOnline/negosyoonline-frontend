@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { assetVersions } from "../src/lib/assets.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import {
@@ -22,7 +24,7 @@ test("no inline script, handler or frame; nothing loaded from another origin but
   const page = render(FILLED);
   assert.deepEqual(page.match(/<script[^>]*>/g), [
     `<script src="/assets/sante/js/pack-home.js?v=db367a6b">`,
-    `<script src="/assets/sante/js/pack-store.js?v=96c0924d">`,
+    `<script src="/assets/sante/js/pack-store.js?v=3caf40e6">`,
     `<script src="/assets/sante/js/contact-form.js?v=${assetVersions()["js/contact-form.js"]}">`,
   ]);
   assert.equal(page.match(/<script[^>]*><\/script>/g)?.length, 3); // each one empty: a link, never code
@@ -44,11 +46,11 @@ test("no TWC address, and no template tag left behind", () => {
 test("the approved links to pages of later slices are kept as they are", () => {
   const page = render();
   const count = (needle: string) => page.split(needle).length - 1;
-  assert.equal(count('href="/products/"'), 14); // 13 on the page and one in the empty basket
+  assert.equal(count('href="/products/"'), 10); // 9 on the page (the footer's four categories now carry ?category=) and one in the empty basket
   assert.equal(count('href="/cart/"'), 1);
   assert.equal(count('href="/checkout/"'), 1);
   assert.equal(count('href="/dashboard/sign-in/?next=orders"'), 2);
-  assert.equal(count('href="/funnel/membership-pack/landing-page/"'), 1); // the footer link, the template's only one
+  assert.equal(count('href="/funnel/membership-pack/landing-page/"'), 0); // the footer no longer links the Membership Package
 });
 
 test("the basket is empty: badge hidden, empty note shown, totals hidden, checkout disabled", () => {
@@ -106,7 +108,8 @@ test("socials: the fixed Santé Facebook link always; Instagram and TikTok only 
   assert.match(filled, facebook);
   assert.match(filled, /<a href="https:\/\/instagram\.com\/demostore" target="_blank" rel="noopener noreferrer" aria-label="Follow us on Instagram"/);
   assert.match(filled, /<a href="https:\/\/tiktok\.com\/@demostore" target="_blank" rel="noopener noreferrer" aria-label="Follow us on TikTok"/);
-  assert.doesNotMatch(filled, /facebook\.com\/demostore/);
+  const contactSection = filled.slice(filled.indexOf('id="contact"'), filled.indexOf("<!-- FOOTER -->"));
+  assert.doesNotMatch(contactSection, /facebook\.com\/demostore/, "the contact section keeps the fixed Santé link; the store's own page is in the footer");
   assert.doesNotMatch(render(), /Follow us on Instagram|Follow us on TikTok/);
   const bad = render({ ...SITE, instagram_url: "javascript:alert(1)", tiktok_url: "http://tiktok.com/@x" });
   assert.doesNotMatch(bad, /Follow us on Instagram|Follow us on TikTok|javascript:/);
@@ -205,4 +208,53 @@ test("the header CTA reads Login to a visitor and Dashboard (to /dashboard/) to 
   assert.match(inn, /<a href="\/dashboard\/" class="nav-cta">Dashboard<\/a>/);
   assert.doesNotMatch(inn, /class="nav-cta">Login/);
   assert.equal(inn.match(/class="nav-cta"/g)?.length, 1); // the one CTA serves desktop and the phone bar; the menu list has no second one
+});
+
+const footerOf = (page: string) => page.slice(page.indexOf("<!-- FOOTER -->"), page.indexOf("</footer>"));
+const colTitles = (f: string) => [...f.matchAll(/class="footer-col-title">([^<]+)</g)].map((m) => m[1]);
+
+test("footer: brand, then Company, Shop, Legal; no Support column, no Our Story, no FAQs, no Membership Package", () => {
+  const f = footerOf(render(FILLED));
+  assert.deepEqual(colTitles(f), ["Company", "Shop", "Legal"]);
+  assert.match(f, /footer-logo/);
+  assert.doesNotMatch(f, /Support|Our Story|FAQs|Membership Package|membership-pack/);
+  const company = f.slice(f.indexOf(">Company<"), f.indexOf(">Shop<"));
+  assert.deepEqual([...company.matchAll(/<li><a href="([^"]+)"[^>]*>(?:<svg[\s\S]*?<\/svg>)?([^<]*)/g)].slice(0, 2).map((m) => [m[1], m[2]]),
+    [["/#about", "About Santé"], ["/#contact", "Contact Us"]].map(([a, b]) => [a, b.replace("é", "&eacute;")]));
+  const shop = f.slice(f.indexOf(">Shop<"), f.indexOf(">Legal<"));
+  assert.deepEqual([...shop.matchAll(/<a href="([^"]+)">([^<]+)</g)].map((m) => [m[1], m[2]]), [
+    ["/products/", "All Products"], ["/products/?category=barley", "Sant&eacute; Barley"], ["/products/?category=drinks", "Sant&eacute; Special Drinks"],
+    ["/products/?category=essentials", "Sant&eacute; Essentials"], ["/products/?category=beauty", "Sant&eacute; Beauty"]]);
+});
+
+test("footer Company contact lines: the store owner's email, mobile and Facebook; each only when set", () => {
+  const f = footerOf(render(FILLED));
+  assert.match(f, /<a href="mailto:hello@demo-store\.example\.test"><svg[\s\S]*?<\/svg><span>hello@demo-store\.example\.test<\/span><\/a>/);
+  assert.match(f, /<a href="tel:09171234567"><svg[\s\S]*?<\/svg><span>09171234567<\/span><\/a>/, "a mobile that is not in +63 form is shown as stored");
+  assert.match(f, /<a href="https:\/\/facebook\.com\/demostore" target="_blank" rel="noopener noreferrer"><svg[\s\S]*?<\/svg><span>facebook\.com\/demostore<\/span><\/a>/);
+  const pretty = footerOf(render({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } }));
+  assert.match(pretty, /<a href="tel:\+639171234567">[\s\S]*?<span>\+63 917 123 4567<\/span>/);
+  const none = footerOf(render(SITE));
+  assert.doesNotMatch(none, /footer-contact|mailto:|tel:|facebook/);
+  const onlyMail = footerOf(render({ ...SITE, business: { ...SITE.business, contact_email: "a@b.test" } }));
+  assert.match(onlyMail, /mailto:a@b\.test/);
+  assert.doesNotMatch(onlyMail, /tel:|facebook/);
+  const badFb = footerOf(render({ ...SITE, facebook_url: "http://facebook.com/x" }));
+  assert.doesNotMatch(badFb, /facebook/, "only an https page is linked");
+});
+
+test("footer Legal column, the registration block, the copyright and the disclaimer are as they were", () => {
+  const f = footerOf(render({ ...FILLED, policy_links: [{ label: "Terms", path: "/terms/" }], business: { ...FILLED.business, has_seal: true } }));
+  assert.match(f, /<div class="footer-col-title">Legal<\/div>\s*<ul class="footer-links">\s*<li><a href="\/terms\/">Terms<\/a><\/li>/);
+  assert.match(f, /<div class="footer-registration">/);
+  assert.match(f, /class="footer-seal" src="\/business-seal\/"/);
+  assert.match(f, /All rights reserved\./);
+  assert.match(f, /Products are for general wellness support only/);
+});
+
+test("footer CSS: four columns on desktop, and the brand column takes a row of its own on narrower screens", () => {
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-home.css"), "utf8");
+  assert.match(css, /\.footer-top \{\s*display: grid;\s*grid-template-columns: 2fr 1fr 1fr 1fr;/);
+  assert.match(css, /\.footer-top > :first-child \{ grid-column: 1 \/ -1; \}/);
+  assert.match(css, /\.footer-contact a \{ display: flex; align-items: center; gap: 10px; \}/);
 });

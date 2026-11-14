@@ -7,10 +7,10 @@
    Only files a page links by name are listed. Images the stylesheets load (../img/...) are not. */
 
 const VERSIONS: Record<string, string> = {
-  "css/pack-home.css": "b95b223c",
-  "css/pack-storefront.css": "ebffded2",
+  "css/pack-home.css": "7bf002d3",
+  "css/pack-storefront.css": "73da0ea3",
   "js/pack-home.js": "db367a6b",
-  "js/pack-store.js": "96c0924d",
+  "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
   "css/pack-landing.min.css": "e84ee767",
   "css/pack-footer.min.css": "717c64da",

@@ -144,7 +144,7 @@ body.dash-app #view-products .pr-ar-price { text-align: right; color: var(--meta
 body.dash-app #view-products .pr-code { margin: 0; font-size: 12px; color: var(--meta); letter-spacing: .02em; }
 body.dash-app #view-products .pr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; }
 body.dash-app #view-products .pr-form, body.dash-app #view-products .pr-hist { max-width: 720px; }
-body.dash-app #view-products .pr-form.pr-tabbed { max-width: 1000px; }
+body.dash-app #view-products .pr-form.pr-tabbed { max-width: 1000px; margin-inline: auto; }
 body.dash-app #view-products .pr-formhead { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 0 0 16px; }
 body.dash-app #view-products .pr-formtitle { margin: 0; flex: 1 1 200px; font-size: 20px; font-weight: 700; color: var(--text); outline: none; }
 body.dash-app #view-products .pr-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; min-width: 0; }
@@ -230,10 +230,6 @@ body.dash-app #view-products .pr-combo-opt.is-disabled { background: none; color
 @media (prefers-reduced-motion: reduce) { body.dash-app #view-products .pr-combo-caret { transition: none; } }
 
 /* The product editor (TWCinc's tabbed merchant editor, mpf-*): crumb and header, a tab bar, cards, a sticky save bar. */
-body.dash-app #view-products .pr-crumb { margin: 0 0 10px; }
-body.dash-app #view-products .pr-addhead { margin: 0 0 16px; }
-body.dash-app #view-products .pr-addhead .pr-formtitle { font-size: 24px; }
-body.dash-app #view-products .pr-addsub { margin: 4px 0 0; font-size: 14px; line-height: 1.45; color: var(--meta); }
 body.dash-app #view-products .pr-card { scroll-margin-top: 14px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 body.dash-app #view-products .pr-card-head { display: flex; align-items: center; gap: 12px; padding: 14px 22px; background: var(--primary); color: #fff; }
 body.dash-app #view-products .pr-card-ico { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,.16); color: #fff; }
@@ -243,7 +239,6 @@ body.dash-app #view-products .pr-card-hint { margin: 0; font-size: 13px; line-he
 body.dash-app #view-products .pr-card-body { padding: 18px 22px 8px; }
 body.dash-app #view-products .pr-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
 body.dash-app #view-products .pr-main { position: absolute; top: 8px; left: 8px; z-index: 2; padding: 2px 8px; border-radius: 999px; background: var(--primary); color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .04em; pointer-events: none; }
-body.dash-app #view-products .pr-abar { position: sticky; bottom: 12px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); box-shadow: 0 -4px 18px rgba(20,30,80,.12); }
 body.dash-app #view-products .pr-abar .pr-check { margin: 0; }
 body.dash-app #view-products .pr-abar-sp { margin-left: auto; }
 
@@ -255,9 +250,6 @@ body.dash-app #view-products .pr-crop-stage { max-height: min(60vh, 420px); over
 body.dash-app #view-products .pr-crop-img { display: block; max-width: 100%; }
 body.dash-app #view-products .pr-crop-actions { justify-content: flex-end; margin-top: 14px; }
 
-@media (max-width: 899.98px) {
-  body.dash-app #view-products .pr-abar { bottom: 76px; }
-}
 @media (max-width: 640px) {
   body.dash-app #view-products .pr-trio { grid-template-columns: 1fr; }
   body.dash-app #view-products .pr-card-head { padding: 12px 16px; }
@@ -280,19 +272,9 @@ body.dash-app #view-products .pr-qs-input:focus { outline: none; box-shadow: non
 body.dash-app #view-products .pr-qs-input::placeholder { color: var(--meta); opacity: 1; }
 
 /* Tab bar: Details, Description, Media Library (disabled) */
-body.dash-app #view-products .pr-tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 2px solid var(--card-line); overflow-x: auto; }
-body.dash-app #view-products .pr-tab { flex: none; min-height: 44px; margin-bottom: -2px; padding: 10px 18px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--meta); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-body.dash-app #view-products .pr-tab:hover { color: var(--text); }
-body.dash-app #view-products .pr-tab.is-active { color: var(--link); border-bottom-color: var(--link); }
-body.dash-app #view-products .pr-tab:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-body.dash-app #view-products .pr-tab-off, body.dash-app #view-products .pr-tab-off:hover { color: var(--meta); opacity: .6; cursor: not-allowed; }
 body.dash-app #view-products .pr-soon { display: inline-block; margin-left: 6px; padding: 2px 8px; border: 1px solid var(--card-line); border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--meta); }
-body.dash-app #view-products .pr-soon-head { flex: none; border-color: rgba(255,255,255,.4); color: #fff; }
 body.dash-app #view-products .pr-tabpanel[hidden] { display: none; }
 body.dash-app #view-products .pr-tabform { display: flex; flex-direction: column; gap: 18px; }
-body.dash-app #view-products .pr-card-note { padding: 18px 22px; }
-body.dash-app #view-products .pr-card-note .pr-hint { font-size: 14px; }
-body.dash-app #view-products .pr-card-off .pr-card-body { opacity: .65; }
 body.dash-app #view-products .pr-abar-note { font-size: 13px; color: var(--meta); }
 
 /* Photos: five square slots, slot 1 is MAIN */
@@ -334,3 +316,23 @@ body.dash-app #view-products .pr-pv-foot { font-size: 12px; line-height: 1.5; co
 @media (max-width: 700px) {
   body.dash-app #view-products .pr-imgrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Editor: the Details / Description / Media Library bar is the dash's Settings menu (.set-tabs) with buttons for links, at the top of
+   the column beside the search, theme and bell buttons; the list heading steps aside while the editor is open. */
+body.dash-app #view-products:has(.pr-tabbed) .view-head.pr-head-off { display: none; }
+body.dash-app #view-products .pr-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+body.dash-app #view-products .pr-tabs button:hover { color: var(--text); }
+body.dash-app #view-products .pr-tabs button.is-active { color: var(--text); border-bottom-color: var(--primary, #2A50D0); }
+body.dash-app #view-products .pr-tabs button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+body.dash-app #view-products .pr-tabs button.pr-tab-off, body.dash-app #view-products .pr-tabs button.pr-tab-off:hover { color: var(--meta); opacity: .6; cursor: not-allowed; }
+body.dash-app #view-products .pr-soon { display: inline-block; margin-left: 6px; padding: 2px 8px; border: 1px solid var(--card-line); border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .03em; color: var(--meta); }
+/* "Back to products": a plain text link with an arrow, just above the first card. */
+body.dash-app #view-products .pr-backlink { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin: 0 0 14px; color: var(--link); font-size: 14px; font-weight: 600; text-decoration: none; }
+body.dash-app #view-products .pr-backlink:hover { text-decoration: underline; }
+body.dash-app #view-products .pr-backlink:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+/* Pricing inputs: a prefix box ("₱", "%") joined to the input. */
+body.dash-app #view-products .pr-ig { display: flex; align-items: stretch; }
+body.dash-app #view-products .pr-ig-pre { display: flex; align-items: center; justify-content: center; min-width: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-right: 0; border-radius: 8px 0 0 8px; background: var(--tile); color: var(--text-2); font-size: 16px; font-weight: 700; }
+body.dash-app #view-products .pr-ig .pr-input { flex: 1 1 auto; min-width: 0; border-radius: 0 8px 8px 0; }
+/* The save bar sits at the bottom of the form, in the normal flow. */
+body.dash-app #view-products .pr-abar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 18px; border: 1px solid var(--card-line); border-radius: 14px; background: var(--card); }

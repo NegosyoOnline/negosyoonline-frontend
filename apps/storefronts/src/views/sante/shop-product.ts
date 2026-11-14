@@ -85,12 +85,12 @@ export function productContent(m: ProductModel): Markup {
         ${p.long_description || p.specifications.trim() ? html`
         <div class="sf-accordions">
           ${p.long_description ? html`<div class="sf-accordion">
-            <div class="faq-q" data-faq-toggle>More Details <span class="faq-icon">+</span></div>
-            <div class="faq-a">${paragraphs(p.long_description)}</div>
+            <button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccDetails">More Details <span class="faq-icon" aria-hidden="true">+</span></button>
+            <div class="faq-a" id="sfAccDetails">${paragraphs(p.long_description)}</div>
           </div>` : ""}
           ${p.specifications.trim() ? html`<div class="sf-accordion">
-            <div class="faq-q" data-faq-toggle>Specifications <span class="faq-icon">+</span></div>
-            <div class="faq-a">${paragraphs(p.specifications)}</div>
+            <button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccSpecs">Specifications <span class="faq-icon" aria-hidden="true">+</span></button>
+            <div class="faq-a" id="sfAccSpecs">${paragraphs(p.specifications)}</div>
           </div>` : ""}
         </div>` : ""}
       </div>

@@ -868,15 +868,15 @@
   }
 
   /* The tabbed editor, for Add and for Edit: TWCinc's merchants/product_form.html (the review-off tabbed editor) and its mpf- styles.
-     Tabs: Details, Description, Media Library (disabled). Details has the Identity, Photos, Pricing, Promo packs (disabled) and Shipping
-     cards and a bottom save bar; Description has its own form. Each tab saves on its own and the editor stays open; Add becomes Edit
+     Tabs (a bar at the top of the column, like the Settings menu): Details, Description (off on Add), Media Library (disabled). Details has
+     the Identity, Photos, Pricing and Shipping cards and a save bar at the bottom of the form; Description has its own form. Each tab saves on its own and the editor stays open; Add becomes Edit
      after its first Details save. Only our catalog's fields are in it. */
   var ICON = {
     id: "M4 6h16v12H4zM8 10h4M8 14h8M15 10h2",
     text: "M4 6h16M4 10h16M4 14h10M4 18h12",
     photo: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
     price: "M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V4h9l8.6 8.6a2 2 0 010 2.8zM8 8h.01",
-    packs: "M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8",
+    back: "M19 12H5M12 5l-7 7 7 7",
     ship: "M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
   };
   function icon(d) {
@@ -913,26 +913,20 @@
     var f = h("div", "pr-form pr-tabbed");
 
     function leave() { dropPhotos(); clearTimeout(previewTimer); token++; loadList(); }
-    var crumb = h("div", "pr-crumb");
-    crumb.appendChild(button("Back to products", "no-btn-ghost pr-back", leave));
-    f.appendChild(crumb);
-    var ah = h("div", "pr-addhead");
-    var title = D.el("h2", { "class": "pr-formtitle", tabindex: "-1" }, adding ? "Add a product" : "Edit product");
-    ah.appendChild(title);
-    ah.appendChild(h("p", "pr-addsub", adding ? "Save the Details to create the product. Its description comes next." : p.name + " · " + p.code));
-    f.appendChild(ah);
+    /* No visible title: a screen-reader heading takes the focus when the editor opens. */
+    var title = D.el("h2", { "class": "pr-formtitle pr-sr", tabindex: "-1" }, adding ? "Add a product" : "Edit product");
+    f.appendChild(title);
 
     var top = D.el("div", { "class": "pr-topmsg", role: "alert" });
     top.hidden = true;
-    f.appendChild(top);
 
-    function row(name, label, control, hint) {
+    function row(name, label, control, hint, node) {
       var wrap = h("div", "pr-field");
       var lab = D.el("label", { "for": "pr-f-" + name }, label);
       wrap.appendChild(lab);
       control.setAttribute("id", "pr-f-" + name);
       fields[name] = control;
-      wrap.appendChild(control);
+      wrap.appendChild(node || control);
       if (hint) { wrap.appendChild(h("p", "pr-hint", hint)); }
       var err = D.el("p", { "class": "pr-ferr", id: "pr-e-" + name });
       err.hidden = true;
@@ -946,32 +940,51 @@
       i.value = value == null ? "" : value;
       return i;
     }
+    /* A prefix box ("₱", "%") joined to the input; the label still points at the input. */
+    function group(prefix, ctl) {
+      var g = h("div", "pr-ig");
+      g.appendChild(h("span", "pr-ig-pre", prefix));
+      g.appendChild(ctl);
+      return g;
+    }
     function read(name) { return fields[name].value.trim(); }
 
     /* ----- tabs ----- */
-    var tabs = D.el("div", { "class": "pr-tabs", role: "tablist", "aria-label": "Product sections" });
+    var tabs = D.el("div", { "class": "set-tabs pr-tabs", role: "tablist", "aria-label": "Product sections" });
     var tabBtns = {}, panels = {};
+    var keys = adding ? ["details"] : ["details", "description"];
     function tabButton(key, label) {
       var b = D.el("button", { type: "button", "class": "pr-tab", role: "tab", id: "pr-tab-" + key, "aria-controls": "pr-panel-" + key }, label);
       b.addEventListener("click", function () { selectTab(key, false); });
       b.addEventListener("keydown", function (e) {
         var d = e && e.key === "ArrowRight" ? 1 : e && e.key === "ArrowLeft" ? -1 : 0;
-        if (!d) return;
+        if (!d || adding) return;
         if (e.preventDefault) e.preventDefault();
         selectTab(key === "details" ? "description" : "details", true);
       });
       tabBtns[key] = b; tabs.appendChild(b);
     }
     tabButton("details", "Details");
-    tabButton("description", "Description");
+    if (adding) {
+      /* Off until the first Details save creates the product. */
+      var descOff = D.el("button", { type: "button", "class": "pr-tab pr-tab-off", role: "tab", id: "pr-tab-description", "aria-disabled": "true", tabindex: "-1", title: "Save the Details first" }, "Description");
+      descOff.disabled = true;
+      tabs.appendChild(descOff);
+    } else tabButton("description", "Description");
     var media = D.el("button", { type: "button", "class": "pr-tab pr-tab-off", role: "tab", id: "pr-tab-media", "aria-disabled": "true", tabindex: "-1" }, "Media Library ");
     media.disabled = true;
     media.appendChild(h("span", "pr-soon", "Coming soon"));
     tabs.appendChild(media);
-    f.appendChild(tabs);
+    r.appendChild(tabs);
+    var back = D.el("a", { "class": "pr-backlink", href: "/products/" });
+    back.appendChild(icon(ICON.back));
+    back.appendChild(h("span", "", "Back to products"));
+    back.addEventListener("click", function (e) { if (e && e.preventDefault) e.preventDefault(); leave(); });
+    f.appendChild(back);
+    f.appendChild(top);
     function selectTab(key, focus) {
       tab = key;
-      ["details", "description"].forEach(function (k) {
+      keys.forEach(function (k) {
         var on = k === key;
         tabBtns[k].classList.toggle("is-active", on);
         tabBtns[k].setAttribute("aria-selected", on ? "true" : "false");
@@ -1020,8 +1033,10 @@
 
     /* Pricing */
     var c3 = card("Pricing", "You set the selling price (SRP) and the members discount. Members see their price below.", ICON.price, "pr-s-pricing");
-    var srpRow = row("srp_centavos", "Selling price (SRP, ₱)", input("text", p ? centavosToField(p.srp_centavos) : "", { inputmode: "decimal" }));
-    var rateRow = row("earnings_rate", "Members discount (%)", input("text", p ? rateToPercent(p.earnings_rate) : "40", { inputmode: "decimal" }), "Between 10 and 50.");
+    var srpIn = input("text", p ? centavosToField(p.srp_centavos) : "", { inputmode: "decimal", placeholder: "0.00" });
+    var srpRow = row("srp_centavos", "Selling price (SRP, ₱)", srpIn, "", group("₱", srpIn));
+    var rateIn = input("text", p ? rateToPercent(p.earnings_rate) : "", { inputmode: "decimal", placeholder: "40" });
+    var rateRow = row("earnings_rate", "Members discount (%)", rateIn, "Between 10 and 50.", group("%", rateIn));
     var r3 = pairOf("pr-pair"); r3.appendChild(srpRow); r3.appendChild(rateRow);
     var calc = D.el("div", { "class": "pr-pcalc", "aria-live": "polite" });
     calc.appendChild(h("div", "pr-pcalc-t", "Members price per sale"));
@@ -1048,13 +1063,6 @@
     fields.earnings_rate.addEventListener("input", refresh);
     refresh();
     c3.body.appendChild(r3); c3.body.appendChild(calc);
-
-    /* Promo packs: in its place, not built yet. Nothing in it saves. */
-    var c4 = card("Promo packs", "Optional. Sell this product in bundles at a pack price. Shoppers would pick a pack on the product page.", ICON.packs, "pr-s-packs");
-    c4.sec.classList.add("pr-card-off");
-    c4.sec.setAttribute("aria-disabled", "true");
-    c4.head.appendChild(h("span", "pr-soon pr-soon-head", "Coming soon"));
-    c4.body.appendChild(h("p", "pr-hint", "Promo packs are coming soon. Nothing here is saved yet."));
 
     /* Shipping + Packaging & fee */
     var c5 = card("Shipping", "Measure the product boxed, exactly as it leaves your hands. These numbers set the courier fee. Optional for launch; length, width and height go together.", ICON.ship, "pr-s-shipping");
@@ -1115,7 +1123,7 @@
     bar.appendChild(h("span", "pr-abar-note", "Changes are saved and applied immediately."));
     bar.appendChild(h("span", "pr-abar-sp"));
     bar.appendChild(saveDetails);
-    [c1, c2, c3, c4, c5].forEach(function (c) { df.appendChild(c.sec); });
+    [c1, c2, c3, c5].forEach(function (c) { df.appendChild(c.sec); });
     df.appendChild(bar);
     panels.details = h("section", "pr-tabpanel");
     panels.details.setAttribute("role", "tabpanel"); panels.details.setAttribute("id", "pr-panel-details"); panels.details.setAttribute("aria-labelledby", "pr-tab-details");
@@ -1127,11 +1135,7 @@
     panels.description.setAttribute("role", "tabpanel"); panels.description.setAttribute("id", "pr-panel-description"); panels.description.setAttribute("aria-labelledby", "pr-tab-description");
     var saveDesc = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Save Description");
     var descForm = null;
-    if (adding) {
-      var wait = h("div", "pr-card pr-card-note");
-      wait.appendChild(h("p", "pr-hint", "Save the Details tab first to create the product, then add its description here."));
-      panels.description.appendChild(wait);
-    } else {
+    if (!adding) {
       descForm = D.el("form", { "class": "pr-tabform", novalidate: "" });
       var c6 = card("Description", "What shoppers read on the product page. Leave a box empty to show nothing for it.", ICON.text, "pr-s-description");
       var textRows = {};
@@ -1151,7 +1155,7 @@
       descForm.appendChild(c6.sec); descForm.appendChild(bar2);
       panels.description.appendChild(descForm);
     }
-    f.appendChild(panels.description);
+    if (!adding) f.appendChild(panels.description);
     r.appendChild(f);
 
     function fieldError(name, text) {

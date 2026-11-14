@@ -71,7 +71,7 @@
 .sf-accordions { margin-top: 34px; border-top: 1px solid var(--border); }
 .sf-accordion { border-bottom: 1px solid var(--border); }
 /* The question rows reuse the home FAQ's .faq-q (white text for its dark-green panel); on this light page they read dark. */
-.sf-accordion .faq-q { color: var(--text); padding: 18px 4px; }
+.sf-accordion .faq-q { width: 100%; border: 0; background: none; font: inherit; font-weight: 600; font-size: 15px; text-align: left; color: var(--text); padding: 18px 4px; }
 .sf-accordion .faq-q:hover { background: rgba(0,90,40,0.06); }
 .sf-accordion .faq-icon { color: var(--green-dark); }
 .sf-accordion.open .faq-q { color: var(--green-dark); }

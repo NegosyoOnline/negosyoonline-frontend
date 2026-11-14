@@ -317,7 +317,8 @@ test("add: pesos become centavos, the 40% rate goes as \"0.4000\", the code is u
   await d.show();
   d.buttons("Add product")[0].fire("click");
   d.set("code", "sph9001"); d.set("name", "  New Coffee "); d.set("category", "drinks"); d.set("srp_centavos", "1,400");
-  assert.equal(d.$("pr-f-earnings_rate").value, "40");
+  assert.equal(d.$("pr-f-earnings_rate").value, "", "Add starts with an empty discount; 40 is only the placeholder");
+  d.set("earnings_rate", "40");
   assert.equal(d.$("pr-c-mem").textContent, "₱840.00", "the live members price");
   assert.equal(d.$("pr-c-srp").textContent, "₱1,400.00");
   assert.equal(d.$("pr-c-disc").textContent, "−₱560.00");
@@ -344,7 +345,7 @@ test("add with Show in shops off: created, then a second write hides it", async 
   const d = boot({ products: [] });
   await d.show();
   d.buttons("Add product")[0].fire("click");
-  d.set("code", "X1"); d.set("name", "Hidden one"); d.set("srp_centavos", "100");
+  d.set("code", "X1"); d.set("name", "Hidden one"); d.set("srp_centavos", "100"); d.set("earnings_rate", "40");
   d.$("pr-f-is_active").checked = false;
   await d.submit();
   assert.deepEqual(d.writes().map((c) => c.method), ["POST", "PATCH"]);
@@ -365,7 +366,7 @@ test("server field errors and a taken code show under their fields", async () =>
   const d = boot({ products: [], routes: (m) => m === "POST" ? { status: 409, body: { error: { code: "code_taken", message: "That product code is already in the catalog.", fields: { code: ["That product code is already in the catalog."] } } } } : null });
   await d.show();
   d.buttons("Add product")[0].fire("click");
-  d.set("code", "DUP"); d.set("name", "n"); d.set("srp_centavos", "10");
+  d.set("code", "DUP"); d.set("name", "n"); d.set("srp_centavos", "10"); d.set("earnings_rate", "40");
   await d.submit();
   assert.equal(d.error("code"), "That product code is already in the catalog.");
   assert.equal(d.$("pr-f-code").getAttribute("aria-invalid"), "true");
@@ -674,32 +675,41 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(sect, /<h1 id="h-products" class="pr-sr"/, "the heading stays for screen readers, hidden from sight");
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
-  assert.match(html, /products\.css\?v=20261114prod3/);
-  assert.match(html, /products\.js\?v=20261114prod4/);
+  assert.match(html, /products\.css\?v=20261114prod4/);
+  assert.match(html, /products\.js\?v=20261114prod5/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
-const fill = (d, over = {}) => { d.set("code", "x1"); d.set("name", "Mug"); d.set("srp_centavos", "100"); for (const k of Object.keys(over)) d.set(k, over[k]); };
+const fill = (d, over = {}) => { d.set("code", "x1"); d.set("name", "Mug"); d.set("srp_centavos", "100"); d.set("earnings_rate", "40"); for (const k of Object.keys(over)) d.set(k, over[k]); };
 const pickSlot = (d, n, f) => { d.$("pr-f-image-" + n).files = [f]; d.$("pr-f-image-" + n).fire("change"); };
 const slot = (d, n) => d.all("pr-islot")[n - 1];
 const topmsg = (d) => d.all("pr-topmsg")[0].textContent;
 const tabs = (d) => d.all("pr-tab");
 
-test("editor (Add): crumb, title, three tabs with Media Library disabled, five cards in TWCinc's order, a save bar; no TWC-only wording, no stock", async () => {
+test("editor (Add): back link, tab bar, Description and Media Library off, four cards, a save bar; no TWC-only wording, no stock", async () => {
   const d = await openAdd();
-  assert.deepEqual(d.buttons("Back to products").length, 1);
-  assert.equal(d.all("pr-formtitle")[0].textContent, "Add a product");
+  assert.equal(d.buttons("Back to products").length, 0, "the back control is a link, not a button");
+  const back = d.all("pr-backlink")[0];
+  assert.equal(back.tagName, "A");
+  assert.equal(back.textContent, "Back to products");
+  assert.equal(back.all((n) => n.tagName === "SVG").length, 1, "an arrow icon");
   assert.equal(d.all("pr-formtitle")[0].getAttribute("tabindex"), "-1");
+  assert.ok(d.all("pr-formtitle")[0].classList.contains("pr-sr"), "no visible title");
+  assert.equal(d.all("pr-addsub").length, 0, "no name and code line");
   assert.equal(d.all("pr-tabs")[0].getAttribute("role"), "tablist");
+  assert.ok(d.all("pr-tabs")[0].classList.contains("set-tabs"), "the Settings menu style");
   assert.deepEqual(tabs(d).map((t) => t.textContent), ["Details", "Description", "Media Library Coming soon"]);
+  assert.equal(tabs(d)[1].getAttribute("aria-disabled"), "true", "Description is off on Add");
+  assert.equal(tabs(d)[1].disabled, true);
+  assert.equal(tabs(d)[1].listeners.click, undefined, "the Description tab does nothing on Add");
   assert.equal(tabs(d)[0].getAttribute("aria-selected"), "true");
-  assert.equal(tabs(d)[1].getAttribute("aria-selected"), "false");
   const media = tabs(d)[2];
   assert.equal(media.getAttribute("aria-disabled"), "true");
   assert.equal(media.disabled, true);
   assert.equal(media.listeners.click, undefined, "the Media Library tab does nothing");
   const cards = d.all("pr-card").filter((c) => c.attrs.id && c.attrs.id.indexOf("pr-s-") === 0);
-  assert.deepEqual(cards.map((c) => c.all((n) => n.tagName === "H3")[0].textContent), ["Identity", "Photos", "Pricing", "Promo packs", "Shipping"]);
+  assert.deepEqual(cards.map((c) => c.all((n) => n.tagName === "H3")[0].textContent), ["Identity", "Photos", "Pricing", "Shipping"]);
+  assert.ok(!/Promo packs/.test(d.$("pr-root").textContent), "no Promo packs card");
   for (const c of cards) {
     assert.equal(c.all((n) => n.tagName === "H3")[0].getAttribute("tabindex"), null, "card titles are not focusable");
     assert.equal(c.all((n) => n.tagName === "SVG").length, 1, "an icon");
@@ -711,20 +721,50 @@ test("editor (Add): crumb, title, three tabs with Media Library disabled, five c
   assert.equal(d.all("pr-islot").length, 5, "five photo slots");
   assert.equal(d.all("pr-main").length, 1, "only slot 1 is MAIN");
   assert.ok(inCard(2, "pr-f-srp_centavos") && inCard(2, "pr-f-earnings_rate") && inCard(2, "pr-c-mem"), "SRP, Members discount and the live Members price");
-  assert.equal(cards[3].getAttribute("aria-disabled"), "true");
-  assert.match(cards[3].textContent, /Coming soon/);
-  assert.equal(cards[3].all((n) => n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.tagName === "SELECT").length, 0, "Promo packs has nothing to save");
-  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"]) assert.ok(inCard(4, "pr-f-" + k), k);
-  assert.match(cards[4].all((n) => n.classList.contains("pr-pv"))[0].textContent, /Packaging & fee/);
+  for (const k of ["length_cm", "width_cm", "height_cm", "weight_kg", "shipping_qty"]) assert.ok(inCard(3, "pr-f-" + k), k);
+  assert.match(cards[3].all((n) => n.classList.contains("pr-pv"))[0].textContent, /Packaging & fee/);
   const bar = d.all("pr-abar")[0];
   assert.equal(bar.all((n) => n.classList.contains("pr-abar-note"))[0].textContent, "Changes are saved and applied immediately.");
   assert.deepEqual(bar.all((n) => n.tagName === "BUTTON").map((b) => b.textContent), ["Save Details"]);
   assert.equal(bar.all((n) => n.tagName === "BUTTON")[0].getAttribute("type"), "submit");
   const text = d.$("pr-root").textContent;
   assert.ok(!/TWC|SKU|Merchant|commission|platform fee|payment fee|you receive|Opening stock|Units on hand|Save draft|Submit for review/i.test(text), "no TWC-only wording, no commission lines, no stock");
-  assert.match(d.$("pr-panel-description").textContent, /Save the Details tab first to create the product, then add its description here\./);
-  assert.equal(d.$("pr-panel-description").all((n) => n.tagName === "FORM").length, 0, "no description form before the product exists");
-  assert.equal(d.$("pr-panel-description").hidden, true);
+  assert.equal(d.$("pr-panel-description"), null, "no Description panel before the product exists");
+  assert.ok(!/Save the Details tab first/.test(text));
+  assert.ok(!/position: sticky/.test(CSS.slice(CSS.indexOf(".pr-abar {"), CSS.indexOf(".pr-abar {") + 400)), "the save bar is not sticky");
+  assert.ok(!/\.pr-abar \{[^}]*(sticky|fixed)/.test(CSS), "the save bar is in normal flow");
+  assert.ok(!/pr-s-packs|pr-card-off|pr-soon-head|pr-card-note/.test(CSS + SRC), "nothing left of the Promo packs card");
+});
+
+test("pricing inputs are prefix groups with placeholders only: ₱ 0.00 and % 40; Edit shows the saved values", async () => {
+  const d = await openAdd();
+  const pre = d.all("pr-ig-pre");
+  assert.deepEqual(pre.map((n) => n.textContent), ["₱", "%"]);
+  assert.equal(d.$("pr-f-srp_centavos").getAttribute("placeholder"), "0.00");
+  assert.equal(d.$("pr-f-earnings_rate").getAttribute("placeholder"), "40");
+  assert.equal(d.$("pr-f-srp_centavos").value, "");
+  assert.equal(d.$("pr-f-earnings_rate").value, "");
+  assert.ok(pre[0].parentNode.classList.contains("pr-ig") && pre[0].parentNode.all((n) => n.tagName === "INPUT")[0] === d.$("pr-f-srp_centavos"));
+  assert.match(d.$("pr-root").textContent, /Between 10 and 50\./);
+  const e = boot({ products: [product("1")] });
+  await e.show(); e.manage(0, "pr-edit");
+  assert.equal(e.$("pr-f-srp_centavos").value, "450");
+  assert.equal(e.$("pr-f-earnings_rate").value, "40");
+});
+
+test("Description tab is off on Add and on after the first Save Details; Back to products returns to the list", async () => {
+  const d = await openAdd();
+  tabs(d)[1].fire("click"); tabs(d)[0].fire("keydown", { key: "ArrowRight" });
+  assert.equal(tabs(d)[0].getAttribute("aria-selected"), "true", "still on Details");
+  fill(d); await d.submit();
+  assert.equal(tabs(d)[1].getAttribute("aria-disabled"), null);
+  assert.equal(tabs(d)[1].disabled, false);
+  tabs(d)[1].fire("click");
+  assert.equal(d.$("pr-panel-description").hidden, false);
+  d.all("pr-backlink")[0].fire("click", { preventDefault() {} });
+  await settle();
+  assert.equal(d.all("pr-backlink").length, 0);
+  assert.equal(d.buttons("Add product").length, 1, "the list is back");
 });
 
 test("editor: the search box and Search button are gone from the form screens; the dash search style is light blue, never gold", () => {

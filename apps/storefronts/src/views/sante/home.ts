@@ -70,28 +70,25 @@ export function storeFooter(v: HomeModel): Markup {
         </div>
       </div>
       <div>
-        <div class="footer-col-title">Shop</div>
-        <ul class="footer-links">
-          <li><a href="/products/">Sant&eacute; Barley</a></li>
-          <li><a href="/products/">Sant&eacute; Special Drinks</a></li>
-          <li><a href="/products/">Sant&eacute; Essentials</a></li>
-          <li><a href="/products/">Sant&eacute; Beauty</a></li>
-          <li><a href="/products/">All Products</a></li>
-          <li><a href="/funnel/membership-pack/landing-page/">Sant&eacute; Membership Package</a></li>
-        </ul>
-      </div>
-      <div>
         <div class="footer-col-title">Company</div>
         <ul class="footer-links">
           <li><a href="/#about">About Sant&eacute;</a></li>
-          <li><a href="/#about">Our Story</a></li>
+          <li><a href="/#contact">Contact Us</a></li>
         </ul>
+        ${v.biz.contact_email || v.biz.contact_mobile || v.socials.facebook ? html`<ul class="footer-links footer-contact">
+          ${v.biz.contact_email ? html`<li><a href="mailto:${v.biz.contact_email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18v12H3zM3 7l9 6 9-6"/></svg><span>${v.biz.contact_email}</span></a></li>` : ""}
+          ${v.biz.contact_mobile ? html`<li><a href="tel:${v.biz.contact_tel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>${v.biz.contact_mobile}</span></a></li>` : ""}
+          ${v.socials.facebook ? html`<li><a href="${v.socials.facebook}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8.5A.5.5 0 0 1 14.5 8z"/></svg><span>${v.socials.facebook_label}</span></a></li>` : ""}
+        </ul>` : ""}
       </div>
       <div>
-        <div class="footer-col-title">Support</div>
+        <div class="footer-col-title">Shop</div>
         <ul class="footer-links">
-          <li><a href="/#faq">FAQs</a></li>
-          <li><a href="/#contact">Contact Us</a></li>
+          <li><a href="/products/">All Products</a></li>
+          <li><a href="/products/?category=barley">Sant&eacute; Barley</a></li>
+          <li><a href="/products/?category=drinks">Sant&eacute; Special Drinks</a></li>
+          <li><a href="/products/?category=essentials">Sant&eacute; Essentials</a></li>
+          <li><a href="/products/?category=beauty">Sant&eacute; Beauty</a></li>
         </ul>
       </div>
       <div>

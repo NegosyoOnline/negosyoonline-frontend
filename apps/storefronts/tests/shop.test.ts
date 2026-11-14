@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { assetVersions } from "../src/lib/assets.ts";
 import { CART, ORDER, cookieName } from "../src/lib/cookies.ts";
 import { applyChange, countOf, parseCart, readCart, serializeCart, MAX_LINES } from "../src/lib/shop-cart.ts";
 import { fetchCatalog, shopQuote, parseBuyerOrder } from "../src/lib/shop-api.ts";
@@ -208,7 +209,9 @@ test("the product page shows extra photos as thumbnails and the four sections on
   assert.match(full, /data-sf-thumb class="active"/);
   assert.match(full, /Product Feature[\s\S]*What(?:'|&#x27;)s Inside/);
   assert.match(full, /Rich &lt;b&gt;in&lt;\/b&gt; fibre\./);
-  assert.match(full, /Specifications <span class="faq-icon">/);
+  assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccSpecs">Specifications <span class="faq-icon" aria-hidden="true">\+<\/span><\/button>/);
+  assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccDetails">More Details /);
+  assert.doesNotMatch(full, /data-faq-toggle/, "the home FAQ's one-open-at-a-time script is not attached to these");
   assert.match(full, /Why It Stands Out/);
   assert.match(full, /What You Get From It/);
   assert.equal(full.match(/class="sf-fab-img"/g)?.length, 2); // photo 2 beside Feature, photo 4 beside Benefits; slot 3 is empty
@@ -734,4 +737,32 @@ test("the shop script and sheet exist and have no TWCinc name, no inline handler
   assert.doesNotMatch(js + css, /twc-select|data-twc|sfOtpModal|cod_send/i);
   assert.match(css, /#6C8CFF/);
   assert.doesNotMatch(css.replace(/\/\*[^]*?\*\//g, ""), /gold|#FFD/i);
+});
+
+test("product page accordions open and close on their own; aria-expanded follows; the home FAQ script is left alone", () => {
+  const listeners: Record<string, ((e: unknown) => void)[]> = {};
+  const doc = { getElementById: () => null, querySelectorAll: () => [], querySelector: () => null,
+    addEventListener: (t: string, f: (e: unknown) => void) => { (listeners[t] ||= []).push(f); } };
+  const mk = () => {
+    const cls = new Set<string>(), attrs: Record<string, string> = {};
+    const item = { classList: { contains: (c: string) => cls.has(c), toggle: (c: string, on: boolean) => { if (on) cls.add(c); else cls.delete(c); } } };
+    const head = { parentElement: item, setAttribute: (k: string, v: string) => { attrs[k] = v; }, closest: (sel: string) => (sel === "[data-sf-acc]" ? head : null) };
+    return { cls, attrs, head };
+  };
+  new Function("document", readFileSync(path.join(process.cwd(), "public/assets/sante/js/pack-store.js"), "utf8"))(doc);
+  const click = (a: { head: unknown }) => listeners.click.forEach((f) => f({ target: a.head }));
+  const a = mk(), b = mk();
+  click(a);
+  assert.ok(a.cls.has("open")); assert.equal(a.attrs["aria-expanded"], "true");
+  click(b);
+  assert.ok(a.cls.has("open") && b.cls.has("open"), "opening one does not close the other");
+  click(a);
+  assert.ok(!a.cls.has("open")); assert.equal(a.attrs["aria-expanded"], "false");
+  assert.ok(b.cls.has("open"));
+  const outside = { closest: () => null };
+  assert.doesNotThrow(() => listeners.click.forEach((f) => f({ target: outside })));
+  /* the home FAQ is still the one-open-at-a-time toggle on .faq-item */
+  const home = readFileSync(path.join(process.cwd(), "public/assets/sante/js/pack-home.js"), "utf8");
+  assert.match(home, /querySelectorAll\('\.faq-item\.open'\)/);
+  assert.equal(assetVersions()["js/pack-home.js"], "db367a6b", "pack-home.js is untouched");
 });

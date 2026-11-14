@@ -22,6 +22,7 @@ import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import { cookieSettingsItem } from "../../lib/meta.ts";
 import type { HomeModel } from "./model.ts";
+import { appNotice } from "./shop-app-notice.ts";
 
 export function storeNav(v: HomeModel): Markup {
   return html`
@@ -63,44 +64,41 @@ export function storeFooter(v: HomeModel): Markup {
     <div class="footer-top">
       <div>
         <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
-        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted for over two decades, present in 20+ countries.</p>
+        <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted since 2007, present in 20+ countries.</p>
         <div class="payment-row">
           <span class="pay-badge">Bank Transfer</span>
           <span class="pay-badge">E-wallet</span>
         </div>
       </div>
       <div>
-        <div class="footer-col-title">Shop</div>
-        <ul class="footer-links">
-          <li><a href="/products/">Sant&eacute; Barley</a></li>
-          <li><a href="/products/">Sant&eacute; Special Drinks</a></li>
-          <li><a href="/products/">Sant&eacute; Essentials</a></li>
-          <li><a href="/products/">Sant&eacute; Beauty</a></li>
-          <li><a href="/products/">All Products</a></li>
-          <li><a href="/funnel/membership-pack/landing-page/">Sant&eacute; Membership Package</a></li>
-        </ul>
-      </div>
-      <div>
         <div class="footer-col-title">Company</div>
         <ul class="footer-links">
           <li><a href="/#about">About Sant&eacute;</a></li>
-          <li><a href="/#about">Our Story</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Support</div>
-        <ul class="footer-links">
-          <li><a href="/#faq">FAQs</a></li>
           <li><a href="/#contact">Contact Us</a></li>
         </ul>
+        ${v.biz.contact_email || v.biz.contact_mobile || v.socials.facebook ? html`<ul class="footer-links footer-contact">
+          ${v.biz.contact_email ? html`<li><a href="mailto:${v.biz.contact_email}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 6h18v12H3zM3 7l9 6 9-6"/></svg><span>${v.biz.contact_email}</span></a></li>` : ""}
+          ${v.biz.contact_mobile ? html`<li><a href="tel:${v.biz.contact_tel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>${v.biz.contact_mobile}</span></a></li>` : ""}
+          ${v.socials.facebook ? html`<li><a href="${v.socials.facebook}" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 8h3V4h-3a4 4 0 0 0-4 4v3H7v4h3v6h4v-6h3l1-4h-4V8.5A.5.5 0 0 1 14.5 8z"/></svg><span>${v.socials.facebook_label}</span></a></li>` : ""}
+        </ul>` : ""}
       </div>
       <div>
+        <div class="footer-col-title">Shop</div>
+        <ul class="footer-links">
+          <li><a href="/products/">All Products</a></li>
+          <li><a href="/products/?category=barley">Sant&eacute; Barley</a></li>
+          <li><a href="/products/?category=drinks">Sant&eacute; Special Drinks</a></li>
+          <li><a href="/products/?category=essentials">Sant&eacute; Essentials</a></li>
+          <li><a href="/products/?category=beauty">Sant&eacute; Beauty</a></li>
+        </ul>
+      </div>
+      ${v.policy_links.length || v.cookie_settings ? html`<div>
         <div class="footer-col-title">Legal</div>
         <ul class="footer-links">
           ${v.policy_links.map((l) => html`<li><a href="${l.path}">${l.label}</a></li>`)}
           ${cookieSettingsItem(v.cookie_settings)}
         </ul>
-      </div>
+      </div>` : ""}
     </div>
     ${v.biz.has_seal || v.biz.registered_name || v.biz.tin || v.biz.dti_business_number ? html`
     <div class="footer-registration">
@@ -153,11 +151,13 @@ export function storeDrawer(v: HomeModel): Markup {
       <strong data-sf-drawer-subtotal>&#8369;${v.drawer.subtotal}</strong>
     </div>
   </div>
-  <footer class="sf-drawer-foot">
+  ${v.drawer.app ? html`<footer class="sf-drawer-foot">
+    ${appNotice(v.drawer.app.href)}
+  </footer>` : html`<footer class="sf-drawer-foot">
     <div class="sf-drawer-total"><span>Total</span><strong data-sf-drawer-total>&#8369;${v.drawer.subtotal}</strong></div>
     <p class="sf-drawer-note">Shipping is calculated at checkout.</p>
     <a href="/checkout/" class="btn-cart sf-drawer-checkout${!v.drawer.lines ? html` disabled` : ""}" id="sfDrawerCheckout">Proceed To Checkout</a>
-  </footer>
+  </footer>`}
 </aside>
 `;
 }
@@ -539,7 +539,7 @@ function homeBottom(v: HomeModel): Markup {
       <div class="about-panel-body">
         <h3><span>Global</span> Standard, Local Impact</h3>
         <p>From New Zealand farms to homes around the world, Sant&eacute; follows strict global quality benchmarks so every serving of barley meets the same high standard — no matter where you enjoy it.</p>
-        <p>We are present in more than 20 countries, and every market we serve receives the same internationally-certified, premium-quality product that Filipino families have trusted for over two decades.</p>
+        <p>We are present in more than 20 countries, and every market we serve receives the same internationally-certified, premium-quality product that Filipino families have trusted since 2007.</p>
       </div>
     </div>
 

@@ -23,3 +23,15 @@ export function storefrontEnv(source: Record<string, string | undefined> = proce
     hostAliases: source.STOREFRONT_HOST_ALIASES || "",
   };
 }
+
+/** STOREFRONT_MOBILE_APP_URL: where the Santé Mobile App can be opened or installed (a store link), shown to a signed-in member in place
+    of the cart and checkout. Server only, read on each request. Anything but an https URL counts as not set (the notice then has no link). */
+export function mobileAppUrl(source: Record<string, string | undefined> = process.env): string {
+  const raw = (source.STOREFRONT_MOBILE_APP_URL || "").trim();
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" && !/[\s"'<>]/.test(raw) ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}

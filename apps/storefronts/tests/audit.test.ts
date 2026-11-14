@@ -10,7 +10,7 @@ import { FILLED } from "./site.ts";
 const PUBLIC = path.join(import.meta.dirname, "..", "public", "assets", "sante");
 const css = (f: string) => readFileSync(path.join(PUBLIC, "css", f), "utf8");
 const page = homeDocument(homeModel(FILLED, undefined, new Date("2026-11-11T10:00:00+08:00"))).value;
-const P = { id: "prd_AAAAAAAAAAAA", code: "SPH1", name: "Fusion <Coffee>", category: "drinks", short_description: "", long_description: "", image_url: "", srp_centavos: 45000, unit_members_price_centavos: 27000, revision: 1 };
+const P = { id: "prd_AAAAAAAAAAAA", code: "SPH1", name: "Fusion <Coffee>", category: "drinks", short_description: "", long_description: "", image_url: "", srp_centavos: 45000, unit_members_price_centavos: 27000, revision: 1, features: "", specifications: "", advantages: "", benefits: "", image_urls: ["", "", "", "", ""] };
 
 test("home images below the fold are lazy and carry their size (item 1, lazy part)", () => {
   const imgs = page.match(/<img [^>]*img\/(about_\d|blog_\d|category_[a-z]+)\.png[^>]*>/g) ?? [];

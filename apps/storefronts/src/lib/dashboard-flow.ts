@@ -1,30 +1,33 @@
-/* The member dashboard Home and its posts, over the storefront API (TWCinc negosyoonline_sante_pack/dashboard.py).
+/* The member dashboard Home, My Purchases and its posts, over the storefront API (TWCinc negosyoonline_sante_pack/dashboard.py).
 
    The member session is this server's `__Host-no_member` cookie, passed to Django as data. A 401 anywhere means the session is
    gone: the cookie is cleared and the visitor goes to the store home, as the Home route has always done. While the order is
-   rejected the dashboard shows Home only (the lock): every other member page goes back to Home. Every refusal re-renders the Home
-   with TWCinc's own words in the panel it came from. A 404 is the neutral page: the pack is off, or the host is not served. */
+   rejected the dashboard shows My Purchases only (the lock, whose panels moved off the Home): every other member page, the Home
+   included, goes to /dashboard/purchases/. Every refusal re-renders My Purchases with TWCinc's own words in the panel it came from. A 404 is the neutral page: the pack is off, or the host is not served. */
 import { randomBytes } from "node:crypto";
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
 import { fetchPack, memberMe } from "./django.ts";
+import { mobileAppUrl } from "./env.ts";
 import type { Member } from "./django.ts";
 import { html, htmlResponse } from "./html.ts";
 import { redirect, type Call } from "./member.ts";
 import {
-  PROOF_MAX_BYTES, fetchOwnProof, memberHome, memberOrders, memberPack, memberPackResubmit, memberRegistration, registrationDetails,
+  PROOF_MAX_BYTES, fetchOwnProof, memberOrders, memberPack, memberPackResubmit, memberRegistration, registrationDetails,
   registrationMobileSend, registrationMobileVerify,
   type Calls, type MemberPack, type MobileCheck, type OrderCard, type PackRefusal, type RegistrationCard,
 } from "./pack-api.ts";
-import { memberShopOrders } from "./shop-api.ts";
+import { memberNotices } from "./notices-api.ts";
+import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
-import { HOME_PATH, chrome, homeDocument } from "../views/sante/member.ts";
-import { heroTiles, orderMonitor, ordersContent, viewAllLink } from "../views/sante/pack-orders.ts";
-import { memberDocument } from "../views/sante/member.ts";
+import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
+import { HOME_SLOTS, appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero, soonContent } from "../views/sante/member-dash.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
+import type { Markup } from "./html.ts";
 
-export type Dash = { site: Site; call: Call; calls: Calls; now?: Date };
+/** `appUrl` is the Santé Mobile App link for a test; a request reads STOREFRONT_MOBILE_APP_URL (src/lib/env.ts). */
+export type Dash = { site: Site; call: Call; calls: Calls; now?: Date; appUrl?: string };
 
 const TRY_AGAIN = "Please try again shortly.";
 const NO_MOBILE: MobileCheck = { pending: false, mobile: "", locked: false, code_sent_to: "", resend_in: 0, attempts_left: 5 };
@@ -62,23 +65,36 @@ const args = (d: Dash): Args => ({ host: d.call.host, visitor_ip: d.call.visitor
 
 type Over = { pack_errors?: PanelErrors; reg_errors?: PanelErrors; posted?: Record<string, string> };
 
-type Figures = Extract<Awaited<ReturnType<typeof memberHome>>, { state: "ok" }> | null;
-
 function render(
   d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200,
-  figures: Figures = null, terms: TermsVersion | null = null, order: OrderCard | null = null,
+  terms: TermsVersion | null = null, order: OrderCard | null = null,
 ): Response {
   const posted = { ...(over.posted ?? {}), submit_key: randomBytes(12).toString("base64url") };
   const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted, terms, order });
   const locked = !!pack?.lock;
   const scripts = [...(locked ? HOME_SCRIPTS : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
-  const tiles = figures ? heroTiles(figures.summary) : undefined;
-  const after = figures && !locked ? html`${orderMonitor(figures.monitor)}${viewAllLink()}` : undefined;
-  return htmlResponse(homeDocument(chrome(d.site, d.now), member.full_name, panels, scripts, tiles, after), status);
+  const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${pack ? panels : noPurchaseCard()}</div>`;
+  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Purchases", member: member.full_name, current: "purchases", content, scripts }), status);
 }
 
-/** The Home: the member's payment card, and the registration card with its mobile check while the form is open. */
-export async function homePage(d: Dash, over: Over = {}, status = 200): Promise<Response> {
+/** The Home: the hero, the Announcements & promos panel (nothing when there are none) and the slots M3 fills. A member whose order
+    is rejected goes to My Purchases, where the lock dialog is. */
+export async function homePage(d: Dash): Promise<Response> {
+  const s = await session(d);
+  if ("response" in s) return s.response;
+  const p = await memberPack(args(d), d.calls);
+  if (p.state === "refused" && p.status === 401) return signedOut(d);
+  if (p.state === "unavailable") return neutralNotFound();
+  if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
+  // The notices are the store's own news: a failed read leaves the Home without the panel, it never fails the page.
+  const n = await memberNotices({ host: d.call.host, token: d.call.member_token }, d.calls);
+  if (n.state === "refused" && n.status === 401) return signedOut(d);
+  const body = html`${n.state === "ok" ? noticesPanel(n.notices) : ""}${HOME_SLOTS}`;
+  return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, body));
+}
+
+/** My Purchases: the member's payment card, and the registration card with its mobile check while the form is open. */
+export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
   const p = await memberPack(args(d), d.calls);
@@ -93,37 +109,45 @@ export async function homePage(d: Dash, over: Over = {}, status = 200): Promise<
     // The terms tick shows only while the order has no Membership Terms acceptance; the popup shows the active version.
     if (p.registration.terms_required) terms = { version: (await fetchPack(d.call.host, d.calls.env, d.calls.fetchImpl, d.calls.log))?.agreement?.id ?? null };
   }
-  // The tiles and Order Monitoring are the backend's member/home figures; without them the Home still shows its cards.
-  const h = await memberHome(args(d), d.calls);
-  // The Shipment line is the same member/orders card My Orders shows for this order; if that read fails the card keeps its plain text.
+  // The Shipment line is the same member/orders card the app shows for this order; if that read fails the card keeps its plain text.
   let order: OrderCard | null = null;
   if (p.pack && p.pack.payment_status === "verified") {
     const o = await memberOrders(args(d), d.calls);
     if (o.state === "ok") order = o.cards.find((c) => c.order_number === p.pack!.order_number) ?? null;
   }
-  return render(d, s.member, p.pack, p.registration, mobile, over, status, h.state === "ok" ? h : null, terms, order);
+  return render(d, s.member, p.pack, p.registration, mobile, over, status, terms, order);
 }
 
-/** My Orders: every order as a card, newest first. A rejected order locks the dashboard to Home, so it goes there. */
-export async function ordersPage(d: Dash): Promise<Response> {
+/** A page with no data of its own (Training, Media Library, Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
+async function plainPage(d: Dash, key: string, title: string, content: (appUrl: string) => Markup): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
   const locked = await lockedHome(d);
   if (locked) return locked;
-  const o = await memberOrders(args(d), d.calls);
-  if (o.state === "refused" && o.status === 401) return signedOut(d);
-  if (o.state === "unavailable") return neutralNotFound();
-  if (o.state !== "ok") return tryAgain();
-  // The shop's cards come from their own route; a shop that is off or a call that fails leaves the Package cards as they were.
-  const shop = await memberShopOrders({ host: d.call.host, token: d.call.member_token }, d.calls);
-  const content = ordersContent(s.member.full_name, o.cards, shop.state === "ok" ? shop.cards : []);
-  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Orders", member: s.member.full_name, current: "orders", content, scripts: ["js/pack-dashboard.js"] }));
+  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileAppUrl()), scripts: [] });
+  return htmlResponse(doc);
 }
 
-/** Whether the dashboard is locked to Home (the order is rejected): other member pages use this. */
+export const trainingPage = (d: Dash) => plainPage(d, "training", "Training", () => soonContent("Training"));
+export const mediaPage = (d: Dash) => plainPage(d, "media", "Media Library", () => soonContent("Media Library"));
+/** Members order in the app; there is no earnings figure and no referral link here (held). */
+export const affiliatePage = (d: Dash) => plainPage(d, "affiliate", "Affiliate Hub", (url) => appOrdersContent("Affiliate Hub", url));
+export const ordersPage = (d: Dash) => plainPage(d, "orders", "Orders", (url) => appOrdersContent("Orders", url));
+
+/** POST /dashboard/orders/review/: the signed-in member reviews a line of their own delivered order. Django checks the order is theirs. */
+export async function reviewPost(d: Dash, text: Record<string, string>): Promise<Response> {
+  const s = await session(d);
+  if ("response" in s) return s.response;
+  const form = readReviewForm(text);
+  const orderId = (text.order_id ?? "").trim();
+  if (!form || !ORDER_ID.test(orderId)) return neutralNotFound();
+  return submitReview({ host: d.call.host, visitor_ip: d.call.visitor_ip, order_id: orderId, view_token: "", member_token: d.call.member_token, calls: d.calls }, form, "/dashboard/orders/");
+}
+
+/** Whether the dashboard is locked to My Purchases (the order is rejected): other member pages use this. */
 export async function lockedHome(d: Dash): Promise<Response | null> {
   const p = await memberPack(args(d), d.calls);
-  if (p.state === "ok" && p.pack?.lock) return redirect(HOME_PATH);
+  if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
   return null;
 }
 
@@ -145,7 +169,7 @@ export async function resubmitPost(d: Dash, form: FormData): Promise<Response> {
     else if (key === "proof") proof = value;
   }
   if (proof && proof.size > PROOF_MAX_BYTES) {
-    return homePage(d, { pack_errors: { error_message: "Check the highlighted fields.", field_errors: { proof: PROOF_TOO_LARGE } }, posted: text });
+    return purchasesPage(d, { pack_errors: { error_message: "Check the highlighted fields.", field_errors: { proof: PROOF_TOO_LARGE } }, posted: text });
   }
   const out = new FormData();
   const a = args(d);
@@ -156,13 +180,13 @@ export async function resubmitPost(d: Dash, form: FormData): Promise<Response> {
   for (const name of RESUBMIT_FIELDS) out.append(name, text[name] ?? "");
   if (proof && proof.size > 0) out.append("proof", proof, proof.name || "proof");
   const r = await memberPackResubmit(out, d.calls);
-  if (r.state === "ok") return redirect(HOME_PATH);
+  if (r.state === "ok") return redirect(PURCHASES_PATH);
   if (r.state === "unavailable") return neutralNotFound();
   if (r.state === "failed") return tryAgain();
   if (r.status === 401) return signedOut(d);
-  if (r.code === "not_rejected") return redirect(HOME_PATH); // nothing to resubmit: the Home shows where the order stands
+  if (r.code === "not_rejected") return redirect(PURCHASES_PATH); // nothing to resubmit: My Purchases shows where the order stands
   const posted = { ...text };
-  return homePage(d, { pack_errors: errorsOf(r), posted }, statusOf(r));
+  return purchasesPage(d, { pack_errors: errorsOf(r), posted }, statusOf(r));
 }
 
 type Kind = "mobile_send" | "mobile_verify" | "details";
@@ -176,14 +200,14 @@ export async function registrationPost(d: Dash, kind: Kind, text: Record<string,
     kind === "mobile_send" ? await registrationMobileSend({ ...a, mobile: (text.mobile ?? "").trim() || undefined }, d.calls)
     : kind === "mobile_verify" ? await registrationMobileVerify({ ...a, code: (text.code ?? "").trim() }, d.calls)
     : await registrationDetails({ ...a, date_of_birth: (text.date_of_birth ?? "").trim(), desired_username: text.desired_username ?? "", alternate_username: text.alternate_username ?? "", ...termsOf(text), ...addressOf(text) }, d.calls);
-  if (r.state === "ok") return redirect(HOME_PATH);
+  if (r.state === "ok") return redirect(PURCHASES_PATH);
   if (r.state === "unavailable") return neutralNotFound();
   if (r.state === "failed") return tryAgain();
   if (r.status === 401) return signedOut(d);
   const posted = { ...text };
   delete posted.code; // a wrong code is never put back
   if (r.code === "agreement_changed") delete posted.terms; // the terms moved on: the member agrees to the new version, not the one they ticked
-  return homePage(d, { reg_errors: errorsOf(r), posted }, statusOf(r));
+  return purchasesPage(d, { reg_errors: errorsOf(r), posted }, statusOf(r));
 }
 
 /** The terms tick and the version it was shown against, as the onboarding details step posts them. The form carries them

@@ -4,9 +4,9 @@
 import { html, type Markup } from "../../lib/html.ts";
 import type { Quote } from "../../lib/shop-api.ts";
 import { MSG_EMPTY_CART } from "../../lib/shop-flow-text.ts";
-import { php, safeImage } from "./shop-shell.ts";
+import { appNotice, php, safeImage } from "./shop-shell.ts";
 
-export type CartModel = { quote: Quote | null; images: Map<string, string>; error: string; empty: boolean };
+export type CartModel = { quote: Quote | null; images: Map<string, string>; error: string; empty: boolean; app?: { href: string } | null };
 
 /** The shipping line of the totals: the quote's own label, FREE under the `zero` policy. */
 export function shippingCell(q: Quote): Markup {
@@ -33,7 +33,11 @@ export function cartContent(m: CartModel): Markup {
     </div>
     ${m.error ? html`<p class="sf-quote-error" role="alert">${m.error}</p>` : ""}
 
-    ${m.empty || lines.length === 0 ? html`
+    ${m.app ? html`
+    <div class="sf-empty">
+      ${appNotice(m.app.href)}
+      <p><a href="/products/" class="sf-continue-link">&#8249; Back to products</a></p>
+    </div>` : m.empty || lines.length === 0 ? html`
     <div class="sf-empty">
       <p>${MSG_EMPTY_CART}</p>
       <a href="/products/" class="btn-cart">Shop Products</a>

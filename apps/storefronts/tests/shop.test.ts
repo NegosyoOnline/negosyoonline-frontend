@@ -3,13 +3,17 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { assetVersions } from "../src/lib/assets.ts";
 import { CART, ORDER, cookieName } from "../src/lib/cookies.ts";
 import { applyChange, countOf, parseCart, readCart, serializeCart, MAX_LINES } from "../src/lib/shop-cart.ts";
 import { fetchCatalog, shopQuote, parseBuyerOrder } from "../src/lib/shop-api.ts";
 import { addressErrors, cartGet, cartPost, checkoutGet, checkoutPost, doneGet, localDigits, productGet, productsGet, readOrder, shopOf, splitName } from "../src/lib/shop-flow.ts";
+import { productContent } from "../src/views/sante/shop-product.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
 import { homeModel } from "../src/views/sante/model.ts";
 import { money, safeImage } from "../src/views/sante/shop-shell.ts";
+import { mobileAppUrl } from "../src/lib/env.ts";
+import { localMediaOrigin } from "../src/lib/local-media.ts";
 import { shopCard } from "../src/views/sante/pack-orders.ts";
 import { SITE } from "./site.ts";
 
@@ -22,7 +26,7 @@ const P2 = { id: "prd_BBBBBBBBBBBB", code: "SPH2", name: "Barley", category: "ba
 const ACCOUNT = { id: "acc_1", kind: "bank", account_type: "savings", provider_name: "BDO", account_name: "Demo Store", account_number: "0012", has_qr: true };
 
 type Opts = {
-  member?: boolean; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[];
+  member?: boolean; memberOrders?: boolean /* legacy fake: the pre-M1 backend that let a member without benefits order as a guest */; quoteStatus?: number; placeStatus?: number; placeBody?: unknown; accounts?: unknown[];
   /** Extra quote fields (home_address, home_address_source) and a change to the quote's shipping. */
   quoteExtra?: Record<string, unknown>; estimated?: boolean;
   /** Extra fields of the buyer's order view (the parity fields), and per-line extras. */
@@ -31,16 +35,24 @@ type Opts = {
   addressReply?: { status: number; body: unknown };
   /** Django's ZIP lookup answer for the address form (none: the lookup finds nothing). */
   zip?: { zip_code: string; zip_precision: string };
+  /** The product reviews pages Django answers (page 1 first), and a fixed answer of the buyer review save. */
+  reviewPages?: unknown[]; reviewReply?: { status: number; body: unknown };
+  /** The Membership Pack read: "on" answers a pack, "throw" fails the call, anything else is off (404). */
+  pack?: "on" | "throw";
 };
 
 /** A fake Django: records every call and answers the shop routes. `member` means the token is a member with active benefits. */
 function backend(o: Opts = {}) {
-  const calls: { url: string; body: unknown; form?: FormData }[] = [];
+  const calls: { url: string; body: unknown; form?: FormData; method?: string }[] = [];
   let extra = o.quoteExtra; // the address save changes what the next quote carries, like the real backend
   const fetchImpl = (url: string, init: RequestInit) => {
     const u = new URL(url);
     const path = u.pathname;
     if (path.endsWith("/catalog/products/")) return Promise.resolve(Response.json({ products: [P1, P2] }));
+    if (path.endsWith("/storefront/v1/pack/")) {
+      if (o.pack === "throw") return Promise.reject(new Error("down"));
+      return Promise.resolve(o.pack === "on" ? Response.json({ price_centavos: 150000, currency: "PHP", available: true, agreement: null, payment_accounts: [] }) : Response.json({}, { status: 404 }));
+    }
     if (path.endsWith("/shop/payment-accounts/")) return Promise.resolve(Response.json({ available: true, accounts: o.accounts ?? [ACCOUNT] }));
     if (path.endsWith("/member/me/")) return Promise.resolve(Response.json({ member: { id: "m1", full_name: "Ana Reyes", email: "ana@example.test", mobile: "+639171234567", email_verified: true, mobile_verified: true } }));
     if (init.body instanceof FormData) {
@@ -48,7 +60,9 @@ function backend(o: Opts = {}) {
       if (path.endsWith("/shop/orders/")) return Promise.resolve(Response.json(o.placeBody ?? { order_id: "sho_1", order_number: "SO00001", view_token: "T".repeat(43), replay: false }, { status: o.placeStatus ?? 200 }));
     }
     const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-    calls.push({ url, body });
+    calls.push({ url, body, method: init.method });
+    if (path.endsWith("/shop/products/" + P1.id + "/reviews/")) return Promise.resolve(Response.json(o.reviewPages?.[Number(u.searchParams.get("page")) - 1] ?? { rating_average: null, rating_count: 0, page: 1, page_size: 10, has_more: false, reviews: [] }));
+    if (path.includes("/lines/") && path.endsWith("/review/")) return Promise.resolve(Response.json(o.reviewReply?.body ?? { id: "rev_1", rating: body.rating, body: body.body ?? "", display_name: body.display_name ?? "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true }, { status: o.reviewReply?.status ?? 200 }));
     if (path.endsWith("/address/zip/")) return Promise.resolve(Response.json(o.zip ? { ok: true, ...o.zip } : { ok: false, zip_code: "", zip_precision: "" }));
     if (path.endsWith("/member/address/")) {
       if (o.addressReply) return Promise.resolve(Response.json(o.addressReply.body, { status: o.addressReply.status }));
@@ -59,6 +73,8 @@ function backend(o: Opts = {}) {
     if (path.endsWith("/shop/quote/")) {
       const token = body.member_token as string;
       if (token === "stale") return Promise.resolve(Response.json({ error: { code: "member_session_invalid", message: "Not signed in." } }, { status: 401 }));
+      // The real backend refuses every signed-in member (409 member_use_app, M1): members order in the Santé Mobile App.
+      if (token !== "" && !o.member && !o.memberOrders) return Promise.resolve(Response.json({ error: { code: "member_use_app", message: "Members order through the Santé Mobile App." } }, { status: 409 }));
       const members = !!o.member && token !== "";
       const mode = members ? (body.ship_mode === "different" ? "different" : "home") : "guest";
       const lines = (body.lines as { id: string; qty: number }[]).map((l) => {
@@ -181,10 +197,49 @@ test("one product by code; an unknown code is the neutral 404; related products 
   const ok = await productGet(shop(backend()), "SPH1");
   assert.equal(ok.status, 200);
   const page = await text(ok);
-  assert.match(page, /Pay by bank or e-wallet transfer/);
+  assert.match(page, /Easy payment by bank or e-wallet transfer/);
   assert.doesNotMatch(page, /Cash on Delivery|credit or debit card/i);
   assert.match(page, /You Might Also Like/);
   assert.equal((await productGet(shop(backend()), "NOPE")).status, 404);
+});
+
+const B = "https://abc123.public.blob.vercel-storage.com/";
+const FULL = { ...P1, image_url: B + "a.jpg", image_urls: [B + "a.jpg", B + "b.jpg", null, B + "d.jpg", null], features: "Rich <b>in</b> fibre.", specifications: "Net 100g", advantages: "Easy.\n\nFast.", benefits: "Energy." };
+
+test("an older API without the detail keys gives empty texts and the one photo; a new one gives five slots", async () => {
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[1].image_urls, [P2.image_url, "", "", "", ""]);
+  assert.equal(old?.[1].features, "");
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [FULL] }));
+  const now = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(now?.[0].image_urls, [B + "a.jpg", B + "b.jpg", "", B + "d.jpg", ""]);
+  assert.equal(now?.[0].advantages, "Easy.\n\nFast.");
+});
+
+test("the product page shows extra photos as thumbnails and the four sections only when filled", () => {
+  const rel: never[] = [];
+  const full = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") }, related: rel, members: false }).value;
+  assert.equal(full.match(/data-sf-thumb/g)?.length, 3);
+  assert.match(full, /data-sf-thumb class="active"/);
+  assert.match(full, /Product Feature[\s\S]*What Makes It Special/);
+  assert.match(full, /Rich &lt;b&gt;in&lt;\/b&gt; fibre\./);
+  assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccSpecs">Specifications <span class="faq-icon" aria-hidden="true">\+<\/span><\/button>/);
+  assert.match(full, /<button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccDetails">More Details /);
+  assert.doesNotMatch(full, /data-faq-toggle/, "the home FAQ's one-open-at-a-time script is not attached to these");
+  assert.match(full, /Why It Stands Out/);
+  assert.match(full, /What You Get From It/);
+  assert.doesNotMatch(full, /class="sf-fab-img"/, "the sections never borrow a product photo; they take their own image");
+  const bare = productContent({ product: { ...P1, image_url: B + "a.jpg", image_urls: [B + "a.jpg", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" }, related: rel, members: false }).value;
+  assert.doesNotMatch(bare, /data-sf-thumb|sf-gallery-thumbs|sf-fab|Specifications/);
+});
+
+test("product page accordions and detail sections have their own light-page and gutter rules", () => {
+  const css = readFileSync(path.join(process.cwd(), "public/assets/sante/css/pack-storefront.css"), "utf8");
+  assert.match(css, /\.sf-accordion \.faq-q \{[^}]*color: var\(--text\)/);
+  assert.match(css, /\.sf-accordion \.faq-icon \{[^}]*color: var\(--green-dark\)/);
+  assert.match(css, /\.sf-accordion\.open \.faq-a \{ display: block; \}/);
+  assert.match(css, /\.sf-fab \{ padding: 48px 20px; \}/);
+  assert.match(css, /\.sf-fab \{ padding: 64px 40px; \}/);
 });
 
 const BADGES = ["Trusted Since 2007", "BioGro NZ Certified", "Global Standard", "Halal Certified", "FDA Registered"];
@@ -214,6 +269,28 @@ test("a photo from any other host is not shown", () => {
   assert.equal(safeImage("https://evil.test/x.jpg"), "");
   assert.equal(safeImage("http://abc.public.blob.vercel-storage.com/x.jpg"), "");
   assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg"), "https://abc.public.blob.vercel-storage.com/x.jpg");
+});
+
+test("local media (dev only): unset changes nothing; a loopback http origin is accepted; anything else is ignored", () => {
+  const local = "http://127.0.0.1:8141/files/products/a.jpg";
+  assert.equal(safeImage(local, {}), "", "unset: not shown");
+  assert.equal(safeImage(local), "", "the real environment has it unset");
+  assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" }), local);
+  assert.equal(safeImage("http://localhost:8141/files/a.jpg", { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:8141" }), "http://localhost:8141/files/a.jpg");
+  const on = { STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://127.0.0.1:8141" };
+  assert.equal(safeImage("http://127.0.0.1:8142/files/a.jpg", on), "", "another port");
+  assert.equal(safeImage("http://127.0.0.1:81410/a.jpg", on), "", "a longer port is not a prefix match");
+  assert.equal(safeImage("http://127.0.0.1:8141", on), "", "no file");
+  assert.equal(safeImage("http://127.0.0.1:8141/", on), "", "no file name");
+  assert.equal(safeImage("http://127.0.0.1:8141/a b.jpg", on), "");
+  assert.equal(safeImage("https://evil.test/x.jpg", on), "");
+  assert.equal(safeImage("https://abc.public.blob.vercel-storage.com/x.jpg", on), "https://abc.public.blob.vercel-storage.com/x.jpg", "the Blob rule is unchanged");
+  for (const bad of ["https://127.0.0.1:8141", "http://127.0.0.1", "http://127.0.0.1:8141/", "http://127.0.0.1:8141/files", "http://example.com:8141",
+    "http://127.0.0.1.evil.test:8141", "http://127.0.0.1:99999", "http://127.0.0.1:08141", "http://user@127.0.0.1:8141", "http://[::1]:8141", " http://127.0.0.1:8141", "*", ""]) {
+    assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", JSON.stringify(bad));
+    assert.equal(safeImage(local, { STOREFRONT_LOCAL_MEDIA_ORIGIN: bad }), "", "ignored: " + JSON.stringify(bad));
+  }
+  assert.equal(localMediaOrigin({ STOREFRONT_LOCAL_MEDIA_ORIGIN: "http://localhost:3" }), "http://localhost:3");
 });
 
 /* ---- the cart ------------------------------------------------------------------------------------------------------ */
@@ -384,16 +461,86 @@ test("'ship to another address' pays SRP and posts the typed address", async () 
   assert.match(pay, /name="ship_mode" value="different"/);
 });
 
-test("a member without benefits is a guest at SRP: no cards, 'home' refused, name and contact prefilled", async () => {
+/* ---- M1: a signed-in member orders only in the Santé Mobile App (ruling 1100430000523941) ---- */
+
+const APP_URL = "https://apps.example.test/sante";
+const asMember = (b: ReturnType<typeof backend>, cookie = `no_cart=${P1.id}.1; ${MEMBER}`) => {
+  const s = shop(b, cookie);
+  s.appUrl = APP_URL;
+  return s;
+};
+const NO_ORDERING = /Add to Cart|Proceed to Checkout|Proceed To Checkout|name="action" value="(add|set|remove|place|address|choose)"|Ship to my address|Ship to another address|Dropshipping|Members price|Members \u20B1|Members save up to/;
+
+test("a signed-in member sees the app notice, with the app link, on the product, the product list, the cart and the checkout, and no ordering action", async () => {
   const b = backend({ member: false });
-  const cookie = `no_cart=${P1.id}.1; ${MEMBER}`;
-  const page = await text(await checkoutGet(shop(b, cookie)));
-  assert.doesNotMatch(page, /How should we ship this order\?/);
-  assert.match(page, /value="Ana"/);
-  assert.match(page, /value="Reyes"/);
-  const home = await text((await checkoutPost(shop(b, cookie), { action: "choose", choice: "home" }, null)) as Response);
-  assert.match(home, /Choose how to ship this order\./);
-  assert.match(home, /id="delivery"/);
+  const pages = [
+    await text(await productsGet(asMember(b, MEMBER))),
+    await text(await productGet(asMember(b, MEMBER), P1.code)),
+    await text(await cartGet(asMember(b))),
+    await text(await checkoutGet(asMember(b))),
+  ];
+  for (const page of pages) {
+    assert.match(page, /Order in the Sant\u00E9 Mobile App/);
+    assert.match(page, /Members order through the Sant\u00E9 Mobile App\./);
+    assert.ok(page.includes(`href="${APP_URL}"`));
+    assert.doesNotMatch(page, NO_ORDERING);
+  }
+  // the checkout asks Django for no ship mode and posts no order
+  assert.ok(b.calls.every((c) => !c.url.includes("/shop/orders/") || c.url.includes("/view/")));
+});
+
+test("the notice has no link when no app link is configured", async () => {
+  const b = backend({ member: false });
+  const s = shop(b, `no_cart=${P1.id}.1; ${MEMBER}`);
+  const page = await text(await cartGet(s));
+  assert.match(page, /Order in the Sant\u00E9 Mobile App/);
+  assert.doesNotMatch(page, /Open the Sant/);
+});
+
+test("a member's basket drawer carries the notice instead of Proceed To Checkout", async () => {
+  const b = backend({ member: false });
+  const page = await text(await productsGet(asMember(b, MEMBER)));
+  const drawer = page.slice(page.indexOf('id="sfDrawer"'));
+  assert.match(drawer, /Order in the Sant\u00E9 Mobile App/);
+  assert.doesNotMatch(drawer, /sfDrawerCheckout/);
+});
+
+test("a member's post to the cart changes nothing, and a post to the checkout places nothing", async () => {
+  const b = backend({ member: false });
+  const add = await cartPost(asMember(b, MEMBER), { action: "add", product_id: P1.id, quantity: "2" });
+  assert.doesNotMatch(add.headers.get("set-cookie") ?? "", new RegExp(P1.id));
+  assert.match(await text(add), /Order in the Sant\u00E9 Mobile App/);
+  for (const action of ["place", "address", "choose", "save_home"]) {
+    const r = (await checkoutPost(asMember(b), { action, ship_mode: "home" }, null)) as Response;
+    assert.match(await text(r), /Order in the Sant\u00E9 Mobile App/);
+  }
+  assert.ok(b.calls.every((c) => !c.url.endsWith("/shop/orders/") && !c.url.endsWith("/member/address/")));
+});
+
+test("a guest still sees Add to Cart, the cart's checkout button and the address form, and no app notice", async () => {
+  const b = backend();
+  const cookie = `no_cart=${P1.id}.1`;
+  const product = await text(await productGet(shop(b), P1.code));
+  assert.match(product, /Add to Cart/);
+  assert.doesNotMatch(product, /Order in the Sant\u00E9 Mobile App/);
+  const cart = await text(await cartGet(shop(b, cookie)));
+  assert.match(cart, /Proceed to Checkout/);
+  assert.doesNotMatch(cart, /Order in the Sant\u00E9 Mobile App/);
+  const checkout = await text(await checkoutGet(shop(b, cookie)));
+  assert.match(checkout, /name="line"/);
+  assert.doesNotMatch(checkout, /Order in the Sant\u00E9 Mobile App/);
+});
+
+test("a dead member session is dropped: the visitor is a guest and sees the shop, not the notice", async () => {
+  const b = backend({ member: false });
+  const page = await text(await cartGet(shop(b, `no_cart=${P1.id}.1; no_member=stale`)));
+  assert.doesNotMatch(page, /Order in the Sant\u00E9 Mobile App/);
+});
+
+test("the app link is read from STOREFRONT_MOBILE_APP_URL and only an https URL counts", () => {
+  assert.equal(mobileAppUrl({ STOREFRONT_MOBILE_APP_URL: " https://apps.example.test/sante " }), "https://apps.example.test/sante");
+  for (const bad of ["", "http://apps.example.test", "javascript:alert(1)", "not a url", 'https://x.test/"onmouseover="y']) assert.equal(mobileAppUrl({ STOREFRONT_MOBILE_APP_URL: bad }), "", bad);
+  assert.equal(mobileAppUrl({}), "");
 });
 
 test("a member whose profile has no address is told so and sent to the other card", async () => {
@@ -696,4 +843,423 @@ test("the shop script and sheet exist and have no TWCinc name, no inline handler
   assert.doesNotMatch(js + css, /twc-select|data-twc|sfOtpModal|cod_send/i);
   assert.match(css, /#6C8CFF/);
   assert.doesNotMatch(css.replace(/\/\*[^]*?\*\//g, ""), /gold|#FFD/i);
+});
+
+test("product page accordions open and close on their own; aria-expanded follows; the home FAQ script is left alone", () => {
+  const listeners: Record<string, ((e: unknown) => void)[]> = {};
+  const doc = { getElementById: () => null, querySelectorAll: () => [], querySelector: () => null,
+    addEventListener: (t: string, f: (e: unknown) => void) => { (listeners[t] ||= []).push(f); } };
+  const mk = () => {
+    const cls = new Set<string>(), attrs: Record<string, string> = {};
+    const item = { classList: { contains: (c: string) => cls.has(c), toggle: (c: string, on: boolean) => { if (on) cls.add(c); else cls.delete(c); } } };
+    const head = { parentElement: item, setAttribute: (k: string, v: string) => { attrs[k] = v; }, closest: (sel: string) => (sel === "[data-sf-acc]" ? head : null) };
+    return { cls, attrs, head };
+  };
+  new Function("document", readFileSync(path.join(process.cwd(), "public/assets/sante/js/pack-store.js"), "utf8"))(doc);
+  const click = (a: { head: unknown }) => listeners.click.forEach((f) => f({ target: a.head }));
+  const a = mk(), b = mk();
+  click(a);
+  assert.ok(a.cls.has("open")); assert.equal(a.attrs["aria-expanded"], "true");
+  click(b);
+  assert.ok(a.cls.has("open") && b.cls.has("open"), "opening one does not close the other");
+  click(a);
+  assert.ok(!a.cls.has("open")); assert.equal(a.attrs["aria-expanded"], "false");
+  assert.ok(b.cls.has("open"));
+  const outside = { closest: () => null };
+  assert.doesNotThrow(() => listeners.click.forEach((f) => f({ target: outside })));
+  /* the home FAQ is still the one-open-at-a-time toggle on .faq-item */
+  const home = readFileSync(path.join(process.cwd(), "public/assets/sante/js/pack-home.js"), "utf8");
+  assert.match(home, /querySelectorAll\('\.faq-item\.open'\)/);
+  assert.equal(assetVersions()["js/pack-home.js"], "db367a6b", "pack-home.js is untouched");
+});
+
+/* ---- round 5a: per serving, trust strip, FAQs ------------------------------------------------------------------------ */
+
+const R5 = { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "", servings_per_pack: 30, price_per_serving_centavos: 1500, members_price_per_serving_centavos: 900, faq: [{ q: "Who is it for?", a: "Anyone <b>busy</b>.\n\nReally." }] };
+
+test("the product page shows the price per serving and a plain-text Members row, hidden when unset", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /&#8369;450\.00 <span class="sf-per-serving">&#8369;15\.00 \/ serving<\/span>/);
+  assert.match(on, /<p class="sf-members-row">Members &#8369;270\.00 <span class="sf-per-serving">\(&#8369;9\.00 \/ serving\)<\/span><\/p>/);
+  assert.doesNotMatch(on.match(/<p class="sf-members-row">[\s\S]*?<\/p>/)?.[0] ?? "", /<a /, "the Members row is plain text");
+  const noServings = productContent({ product: { ...R5, price_per_serving_centavos: null, members_price_per_serving_centavos: null }, related: [], members: false }).value;
+  assert.doesNotMatch(noServings, /serving/);
+  assert.match(noServings, /Members &#8369;270\.00<\/p>/);
+  const older = productContent({ product: { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" } as never, related: [], members: false }).value;
+  assert.doesNotMatch(older, /serving|undefined/);
+  const noMembers = productContent({ product: { ...R5, unit_members_price_centavos: 0 }, related: [], members: false }).value;
+  assert.doesNotMatch(noMembers, /sf-members-row|Members save/);
+});
+
+test("the trust strip sits under Add to Cart with four lines; the members line needs a members rate", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  const cart = on.indexOf('id="sfAddToCart"');
+  const strip = on.indexOf("data-sf-trust");
+  assert.ok(cart > 0 && strip > cart, "the strip follows the Add to Cart button");
+  assert.match(on, /Easy payment by bank or e-wallet transfer/);
+  assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
+  assert.match(on, /100% genuine Sant&eacute;, trusted since 2007/);
+  assert.match(on, /Members save up to 40%/);
+  const none = productContent({ product: { ...R5, unit_members_price_centavos: 0 }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /Members save up to/);
+  assert.match(none, /trusted since 2007/);
+});
+
+test("the trust strip's Members line links to the membership pack funnel; the other lines are unchanged", () => {
+  const on = productContent({ product: R5, related: [], members: false, packOn: true }).value;
+  assert.match(on, /<li data-sf-trust-members>.*<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/);
+  const off = productContent({ product: R5, related: [], members: false, packOn: false }).value;
+  assert.match(off, /<li data-sf-trust-members>.*<span>Members save up to 40%<\/span>/);
+  assert.doesNotMatch(off, /membership-pack/);
+  assert.match(on, /<a href="\/#contact">Talk to your Sant&eacute; store<\/a> anytime/);
+  assert.match(on, /<span>100% genuine Sant&eacute;, trusted since 2007<\/span>/);
+});
+
+test("the product page links the Members line only while the pack is on; a failed pack read is plain text, not an error", async () => {
+  const link = /<a href="\/funnel\/membership-pack\/landing-page\/">Members save up to 40%<\/a>/;
+  const on = await productGet(shop(backend({ pack: "on" })), "SPH1");
+  assert.equal(on.status, 200);
+  assert.match(await text(on), link);
+  for (const pack of [undefined, "throw"] as const) {
+    const r = await productGet(shop(backend({ pack })), "SPH1");
+    assert.equal(r.status, 200);
+    const page = await text(r);
+    assert.match(page, /Members save up to 40%/);
+    assert.doesNotMatch(page, /membership-pack/);
+  }
+});
+
+test("the FAQs sit right after Benefits and before You Might Also Like; not in the info column", () => {
+  const full = { ...R5, features: "Inside", advantages: "Stands out", benefits: "You get" };
+  const r = { ...R5, code: "SPH2", id: "prd_BBBBBBBBBBBB" };
+  const on = productContent({ product: full, related: [r], members: false }).value;
+  const at = (s: string) => on.indexOf(s);
+  assert.ok(at("What You Get From It") > 0 && at("data-sf-faqs") > at("What You Get From It"), "after Benefits");
+  assert.ok(at("data-sf-faqs") < at("You Might Also Like"), "before Related");
+  assert.ok(at("What&#39;s Inside") < 0 || at("What's Inside") < at("data-sf-faqs"), "Inside and Why it stands out stay above");
+  assert.ok(at("Why It Stands Out") < at("data-sf-faqs"));
+  assert.ok(at("data-sf-faqs") > at('class="sf-detail-trust"'), "no longer in the info column");
+  const noBen = productContent({ product: { ...full, benefits: "" }, related: [r], members: false }).value;
+  assert.ok(noBen.indexOf("data-sf-faqs") > noBen.indexOf("Why It Stands Out") && noBen.indexOf("data-sf-faqs") < noBen.indexOf("You Might Also Like"));
+});
+
+test("the FAQs block lists the product's pairs then the fixed How do I pay? item, escaped, even with none", () => {
+  const on = productContent({ product: R5, related: [], members: false }).value;
+  assert.match(on, /data-sf-faqs/);
+  assert.equal(on.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 2);
+  assert.ok(on.indexOf("Who is it for?") < on.indexOf("How do I pay?"), "the fixed item is last");
+  assert.match(on, /Anyone &lt;b&gt;busy&lt;\/b&gt;\./);
+  assert.doesNotMatch(on, /<b>busy/);
+  const hostile = productContent({ product: { ...R5, faq: [{ q: "<script>x</script>", a: "<img src=x onerror=y>" }] }, related: [], members: false }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x/);
+  const none = productContent({ product: { ...R5, faq: [] }, related: [], members: false }).value;
+  assert.match(none, /data-sf-faqs/);
+  assert.match(none, /How do I pay\?/);
+  assert.match(none, /proof of payment/);
+  const older = productContent({ product: { ...P1, image_urls: ["", "", "", "", ""], features: "", specifications: "", advantages: "", benefits: "" } as never, related: [], members: false }).value;
+  assert.match(older, /How do I pay\?/);
+});
+
+test("the catalog parser reads the r5a fields and tolerates an older API", async () => {
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [R5, { ...P2, faq: [{ q: "", a: "x" }, { q: "ok", a: "yes" }, 5] }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.equal(got?.[0].servings_per_pack, 30);
+  assert.equal(got?.[0].price_per_serving_centavos, 1500);
+  assert.equal(got?.[0].members_price_per_serving_centavos, 900);
+  assert.deepEqual(got?.[0].faq, [{ q: "Who is it for?", a: "Anyone <b>busy</b>.\n\nReally." }]);
+  assert.equal(got?.[1].servings_per_pack, null);
+  assert.deepEqual(got?.[1].faq, [{ q: "ok", a: "yes" }]);
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.equal(old?.[0].price_per_serving_centavos, null);
+  assert.deepEqual(old?.[0].faq, []);
+});
+
+/* ---- round 5b: ingredient cards ---------------------------------------------------------------------------------------- */
+
+const BLOB = "https://abc123.public.blob.vercel-storage.com/";
+const R5B = { ...R5, ingredients: [{ name: "Barley <grass>", line: "Young & green.", photo_url: BLOB + "g.jpg" }, { name: "Lemon", line: "", photo_url: null }] };
+
+test("What's Inside shows a card per ingredient, only when there are some, and the Feature subtitle no longer clashes", () => {
+  const on = productContent({ product: R5B, related: [], members: false }).value;
+  assert.match(on, /data-sf-ingredients/);
+  assert.match(on, /<h2 class="section-title">What&rsquo;s Inside<\/h2>/);
+  assert.equal(on.match(/class="sf-ing-card"/g)?.length, 2);
+  assert.match(on, /<img class="sf-ing-img" src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/g\.jpg" alt="" loading="lazy">/);
+  assert.equal(on.match(/class="sf-ing-img"/g)?.length, 1, "no photo for the card without one");
+  assert.match(on, /<h3 class="sf-ing-name">Lemon<\/h3>\s*<\/div>/, "an empty line shows no paragraph");
+  const none = productContent({ product: { ...R5, ingredients: [] }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /data-sf-ingredients|sf-ing-/);
+  const older = productContent({ product: R5, related: [], members: false }).value;
+  assert.doesNotMatch(older, /data-sf-ingredients/);
+  const feature = productContent({ product: { ...R5B, features: "Made with care." }, related: [], members: false }).value;
+  assert.equal(feature.match(/What&rsquo;s Inside|What's Inside/g)?.length, 1, "the r3 Feature section has its own title now");
+  assert.match(feature, /<h2 class="sf-fab-title">What Makes It Special<\/h2>/);
+});
+
+test("ingredient text is escaped and a photo must pass safeImage", () => {
+  const hostile = productContent({ product: { ...R5, ingredients: [
+    { name: "<script>x</script>", line: "<img src=x onerror=y>", photo_url: "javascript:alert(1)" },
+    { name: "B", line: "", photo_url: "https://evil.test/p.jpg" }] }, related: [], members: false }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x|javascript:|evil\.test/);
+  assert.match(hostile, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.doesNotMatch(hostile, /sf-ing-img/);
+});
+
+test("the catalog parser reads ingredients, drops nameless ones, caps at 8 and tolerates an older API", async () => {
+  const many = Array.from({ length: 10 }, (_, i) => ({ name: "I" + i, line: "", photo_url: null }));
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [R5B, { ...P2, ingredients: [{ name: " ", line: "x", photo_url: null }, 5, ...many] }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(got?.[0].ingredients, [{ name: "Barley <grass>", line: "Young & green.", photo_url: BLOB + "g.jpg" }, { name: "Lemon", line: "", photo_url: null }]);
+  assert.equal(got?.[1].ingredients?.length, 8);
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[0].ingredients, []);
+});
+
+/* ---- round 5b: reviews --------------------------------------------------------------------------------------------------- */
+
+import { fetchReviewPage } from "../src/lib/shop-api.ts";
+import { reviewPost } from "../src/lib/shop-flow.ts";
+import { noticeFrom, ratingSummary, reviewsSection, stars, summaryStars } from "../src/views/sante/shop-review.ts";
+import { doneContent } from "../src/views/sante/shop-done.ts";
+
+const RV = (over: Record<string, unknown> = {}) => ({ id: "rev_1", rating: 5, body: "Love it.\n\nWill buy again.", display_name: "Maria S.", created_at: "2026-11-14T02:00:00Z", edited: false, verified_buyer: true, ...over });
+const PAGE1 = { rating_average: "4.5", rating_count: 12, page: 1, page_size: 10, has_more: true, reviews: [RV(), RV({ id: "rev_2", rating: 4, body: "" })] };
+const PAGE2 = { rating_average: "4.5", rating_count: 12, page: 2, page_size: 10, has_more: false, reviews: [RV({ id: "rev_3", rating: 3, display_name: "Jo D." })] };
+const parsed = async (pages: unknown[]) => {
+  const fetchImpl = () => Promise.resolve(Response.json(pages[0]));
+  return fetchReviewPage("h.test", P1.id, 1, { env, fetchImpl: fetchImpl as never, log: () => {} });
+};
+
+test("the review page parser keeps only verified, rated reviews and keeps the text as data", async () => {
+  const got = await parsed([{ ...PAGE1, reviews: [RV(), RV({ rating: 9 }), RV({ verified_buyer: false }), 5, RV({ display_name: "<b>x</b>" })] }]);
+  assert.equal(got?.rating_average, "4.5");
+  assert.equal(got?.rating_count, 12);
+  assert.equal(got?.has_more, true);
+  assert.deepEqual(got?.reviews.map((r) => r.display_name), ["Maria S.", "<b>x</b>"]);
+  assert.equal(await parsed([{ rating_average: null, rating_count: 0, has_more: false, reviews: [] }]).then((r) => r?.rating_average), null);
+  assert.equal(await fetchReviewPage("h", P1.id, 1, { env, fetchImpl: (() => Promise.resolve(Response.json({}, { status: 404 }))) as never, log: () => {} }), null);
+  assert.equal(await fetchReviewPage("h", P1.id, 1, { env, fetchImpl: (() => Promise.resolve(Response.json({ nope: 1 }))) as never, log: () => {} }), null);
+});
+
+test("the product page shows nothing about reviews until the first real review", () => {
+  const none = [undefined, null, { rating_average: null, rating_count: 0, has_more: false, reviews: [] }];
+  for (const reviews of none) {
+    const page = productContent({ product: R5, related: [], members: false, reviews }).value;
+    assert.doesNotMatch(page, /sf-star|data-sf-reviews|data-sf-rating|review|Verified buyer/i);
+  }
+  assert.equal(ratingSummary(null).value, "");
+  assert.equal(reviewsSection(null, "#").value, "");
+});
+
+test("with reviews the page shows stars, average, count, each review as a verified buyer, escaped, and More reviews only when paged", () => {
+  const page = productContent({ product: R5, related: [], members: false, reviews: PAGE1, moreHref: "/products/SPH1/?reviews=2#reviews" }).value;
+  assert.match(page, /data-sf-rating>[\s\S]*<strong>4\.5<\/strong> <span>\(12 reviews\)<\/span>/);
+  assert.ok(page.indexOf("data-sf-rating") < page.indexOf('id="sfAddToCart"'), "the summary sits by the name, above Add to Cart");
+  assert.match(page, /id="reviews" data-sf-reviews/);
+  assert.match(page, /Based on 12 reviews/);
+  assert.equal(page.match(/class="sf-verified">Verified buyer</g)?.length, 2);
+  assert.match(page, /<p>Love it\.<\/p><p>Will buy again\.<\/p>/);
+  assert.equal(page.match(/class="sf-review-body"/g)?.length, 1, "a review without words shows no empty text");
+  assert.match(page, /href="\/products\/SPH1\/\?reviews=2#reviews" data-sf-more-reviews>More reviews</);
+  assert.match(page, /aria-label="4\.5 out of 5 stars"/, "the summary label states the real average");
+  assert.equal(page.match(/aria-label="4\.5 out of 5 stars"/g)?.length, 2, "under the name and in What Our Customers Say");
+  assert.equal(page.match(/is-half/g)?.length, 2, "each summary draws one half star");
+  assert.equal(page.match(/aria-label="5 out of 5 stars"/g)?.length, 1, "only the 5-star review says 5; individual reviews keep whole stars");
+  assert.match(page, /aria-label="4 out of 5 stars"/);
+  const last = productContent({ product: R5, related: [], members: false, reviews: { ...PAGE2, rating_count: 1 } }).value;
+  assert.doesNotMatch(last, /More reviews/);
+  assert.match(last, /\(1 review\)/);
+  assert.equal(stars(4.4).value.match(/is-on/g)?.length, 4);
+  assert.equal(stars(4.5).value.match(/is-on/g)?.length, 5);
+  const sum = (n: number) => { const v = summaryStars(n).value; return { on: v.match(/is-on/g)?.length ?? 0, half: v.match(/is-half/g)?.length ?? 0, label: v.match(/aria-label="([^"]+)"/)?.[1] }; };
+  assert.deepEqual(sum(4.5), { on: 4, half: 1, label: "4.5 out of 5 stars" });
+  assert.deepEqual(sum(4.2), { on: 4, half: 0, label: "4.2 out of 5 stars" });
+  assert.deepEqual(sum(4.3), { on: 4, half: 1, label: "4.3 out of 5 stars" });
+  assert.deepEqual(sum(4.7), { on: 4, half: 1, label: "4.7 out of 5 stars" });
+  assert.deepEqual(sum(4), { on: 4, half: 0, label: "4.0 out of 5 stars" });
+  assert.deepEqual(sum(5), { on: 5, half: 0, label: "5.0 out of 5 stars" });
+  assert.deepEqual(sum(1.2), { on: 1, half: 0, label: "1.2 out of 5 stars" });
+  assert.deepEqual(sum(0.4), { on: 0, half: 1, label: "0.4 out of 5 stars" });
+  assert.deepEqual(sum(NaN), { on: 0, half: 0, label: "0.0 out of 5 stars" });
+  const css = readFileSync(path.join(PUBLIC, "assets/sante/css/pack-reviews.css"), "utf8");
+  assert.match(css, /\.sf-star\.is-half \{[^}]*linear-gradient\(90deg, #e8a317 50%, #d0d6d0 50%\)/);
+});
+
+test("review text is escaped, never trusted", () => {
+  const hostile = productContent({ product: R5, related: [], members: false, reviews: { ...PAGE1, reviews: [RV({ display_name: "<script>x</script>", body: "<img src=x onerror=y>\n\n<b>bold</b>" })] } }).value;
+  assert.doesNotMatch(hostile, /<script>x|<img src=x|<b>bold/);
+  assert.match(hostile, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.match(hostile, /&lt;img src=x onerror=y&gt;/);
+});
+
+test("the product page loads the pages asked for, newest first, and links to the next", async () => {
+  const b = backend({ reviewPages: [PAGE1, PAGE2] });
+  const s = shop(b);
+  s.request = new Request("http://demo.test/products/SPH1/?reviews=2", { headers: { host: "demo.test" } });
+  const page = await text(await productGet(s, "SPH1"));
+  assert.equal(b.calls.filter((c) => c.url.includes("/reviews/")).length, 2);
+  assert.match(page, /Jo D\./);
+  assert.doesNotMatch(page, /More reviews/);
+  const one = backend({ reviewPages: [PAGE1, PAGE2] });
+  const first = await text(await productGet(shop(one), "SPH1"));
+  assert.equal(one.calls.filter((c) => c.url.includes("/reviews/")).length, 1);
+  assert.match(first, /\/products\/SPH1\/\?reviews=2#reviews/);
+  assert.doesNotMatch(first, /Jo D\./);
+  const none = await text(await productGet(shop(backend()), "SPH1"));
+  assert.doesNotMatch(none, /data-sf-reviews|sf-star/, "a store with no reviews shows nothing");
+  const bad = await text(await productGet(shop(backend({ reviewPages: [{ nope: 1 }] })), "SPH1"));
+  assert.doesNotMatch(bad, /data-sf-reviews/, "an unreadable answer shows nothing and the page still loads");
+});
+
+const LINE = { position: 1, product_id: P1.id, can_review: true, review: null };
+const orderOf = (line: Record<string, unknown>, status = "delivered") => parseBuyerOrder({ id: "sho_1", order_number: "SO00001", status, status_label: "Delivered", total_centavos: 45000, lines: [{ code: "SPH1", name: "Fusion <Coffee>", quantity: 1, line_charged_centavos: 45000, ...line }] })!;
+
+test("the order page offers Rate this product per delivered line, as a plain form that posts to this host", () => {
+  const page = doneContent(orderOf(LINE)).value;
+  assert.match(page, /data-sf-review-block/);
+  assert.match(page, /<form class="sf-rv-form" method="post" action="\/checkout\/done\/review\/" data-sf-review-form>/);
+  assert.match(page, /name="position" value="1"/);
+  assert.match(page, /name="mode" value="create"/);
+  assert.doesNotMatch(page, /name="order_id"/, "the placing buyer's cookie names the order");
+  assert.equal(page.match(/type="radio" name="rating"/g)?.length, 5);
+  assert.match(page, /name="rating" id="[^"]+-r5" value="5" required/);
+  assert.match(page, /name="body" rows="3" maxlength="1000"/);
+  assert.match(page, /name="display_name" maxlength="40"/);
+  assert.match(page, /Post review/);
+  assert.match(page, /Fusion &lt;Coffee&gt;/);
+  assert.doesNotMatch(page, /Edit your review/);
+});
+
+test("no form for an order not delivered, a line already reviewed with no edit left, or an older backend", () => {
+  assert.doesNotMatch(doneContent(orderOf({ position: 1, can_review: false, review: null }, "placed")).value, /data-sf-review-block/);
+  assert.doesNotMatch(doneContent(orderOf({})).value, /data-sf-review-block/, "an older backend sends no review keys");
+  const locked = doneContent(orderOf({ position: 1, can_review: false, review: { id: "r", rating: 4, body: "Nice <b>one</b>", display_name: "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: true, can_edit: false } })).value;
+  assert.match(locked, /data-sf-my-review/);
+  assert.match(locked, /aria-label="4 out of 5 stars"/);
+  assert.match(locked, /Nice &lt;b&gt;one&lt;\/b&gt;/);
+  assert.match(locked, /\(edited\)/);
+  assert.doesNotMatch(locked, /<form|Edit your review/);
+});
+
+test("a review with an Edit left shows it once, prefilled, in edit mode; My Orders adds the order id", () => {
+  const mine = { position: 2, can_review: false, review: { id: "r", rating: 3, body: "Okay & fine", display_name: "Ana R.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true } };
+  const page = doneContent(orderOf(mine)).value;
+  assert.equal(page.match(/Edit your review/g)?.length, 1);
+  assert.match(page, /name="mode" value="edit"/);
+  assert.match(page, /id="[^"]+-r3" value="3" checked/);
+  assert.match(page, />Okay &amp; fine<\/textarea>/);
+  assert.match(page, /value="Ana R\."/);
+  assert.match(page, /Save changes/);
+  const card = shopCard(orderOf(LINE), 0).value;
+  assert.match(card, /action="\/dashboard\/orders\/review\/"/);
+  assert.match(card, /name="order_id" value="sho_1"/);
+  assert.ok(card.indexOf("data-sf-review-block") < card.indexOf("oc-detail-toggle"), "the prompt is visible without opening the details");
+});
+
+test("a review post comes back as a fixed notice on its own line and nothing the buyer typed", () => {
+  const o = orderOf(LINE);
+  const note = (q: string) => doneContent(o, noticeFrom(new URLSearchParams(q))).value;
+  assert.match(note("review=saved&order=sho_1&line=1"), /role="status">Thank you! Your review is posted\./);
+  assert.match(note("review=invalid&order=sho_1&line=1"), /choose a rating/);
+  assert.match(note("review=locked&order=sho_1&line=1"), /can no longer be changed/);
+  assert.doesNotMatch(note("review=saved&order=sho_1&line=2"), /sf-rv-notice/, "another line");
+  assert.doesNotMatch(note("review=saved&order=sho_9&line=1"), /sf-rv-notice/, "another order");
+  assert.equal(noticeFrom(new URLSearchParams("review=%3Cscript%3E&order=sho_1&line=1")), null, "only known outcomes");
+  assert.equal(noticeFrom(new URLSearchParams("review=saved&order=a b&line=1")), null);
+  assert.equal(noticeFrom(new URLSearchParams("review=saved&order=sho_1&line=0")), null);
+});
+
+const REVIEWER = `no_order=sho_1.${"T".repeat(43)}`;
+const posted = (b: ReturnType<typeof backend>, form: Record<string, string>, cookie = REVIEWER) => reviewPost(shop(b, cookie), form);
+
+test("the order-done review post sends the order's own proof, a JSON rating and only what was typed; the answer redirects with an outcome", async () => {
+  const b = backend();
+  const r = await posted(b, { position: "1", mode: "create", rating: "5", body: "  Great  ", display_name: "" });
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("location"), "/checkout/done/?review=saved&order=sho_1&line=1#review-sho_1-1");
+  const call = b.calls.find((c) => c.url.includes("/lines/1/review/"))!;
+  assert.equal(call.method, "POST");
+  assert.ok(call.url.endsWith("/storefront/v1/shop/orders/sho_1/lines/1/review/"));
+  assert.deepEqual(call.body, { host: "demo.test", visitor_ip: "", view_token: "T".repeat(43), member_token: "", rating: 5, body: "  Great  " });
+  assert.strictEqual(typeof (call.body as { rating: unknown }).rating, "number");
+  const edit = backend();
+  await posted(edit, { position: "2", mode: "edit", rating: "4", body: "", display_name: " Ana R. " });
+  assert.equal(edit.calls.find((c) => c.url.includes("/lines/2/review/"))?.method, "PATCH");
+  assert.equal((edit.calls.find((c) => c.url.includes("/lines/2/review/"))?.body as { display_name: string }).display_name, "Ana R.");
+});
+
+test("a review post without a rating never reaches Django; refusals map to fixed outcomes; a stranger gets no review", async () => {
+  const b = backend();
+  const none = await posted(b, { position: "1", mode: "create", rating: "", body: "x" });
+  assert.match(none.headers.get("location") ?? "", /review=invalid/);
+  assert.equal(b.calls.filter((c) => c.url.includes("/review/")).length, 0);
+  const refused = async (status: number, code: string) => (await posted(backend({ reviewReply: { status, body: { error: { code, message: "m", fields: {} } } } }), { position: "1", mode: "create", rating: "5" })).headers.get("location") ?? "";
+  assert.match(await refused(409, "not_delivered"), /review=not_delivered/);
+  assert.match(await refused(409, "already_reviewed"), /review=exists/);
+  assert.match(await refused(409, "review_locked"), /review=locked/);
+  assert.match(await refused(422, "invalid_request"), /review=invalid/);
+  assert.match(await refused(404, "not_found"), /review=failed/);
+  assert.equal((await posted(backend(), { position: "1", rating: "5" }, "")).headers.get("location"), "/products/", "no order cookie, no review");
+  assert.equal((await posted(backend(), { position: "x", rating: "5" })).status, 404);
+  assert.equal((await posted(backend(), { position: "1000", rating: "5" })).status, 404);
+});
+
+/* ---- round 5c: section images and category FAQs (ClickUp z8uq9mek5w) ---------------------------------------------- */
+
+const sectionOf = (page: string, marker: string, next: string) => page.slice(page.indexOf(marker), page.indexOf(next));
+const R5C = { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? ""), features_image_url: B + "f-own.jpg", advantages_image_url: "", benefits_image_url: B + "b-own.jpg" };
+
+test("a section shows its own image beside the text, with alt text and lazy loading; with none it is text only and never uses a product photo", () => {
+  const page = productContent({ product: R5C, related: [], members: false }).value;
+  const feature = sectionOf(page, "data-sf-feature", "data-sf-advantages");
+  assert.match(feature, /<div class="sf-fab-img"><img src="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/f-own\.jpg" alt="Fusion &lt;Coffee&gt; - What Makes It Special" loading="lazy"><\/div>/);
+  const advantages = sectionOf(page, "data-sf-advantages", "data-sf-benefits");
+  assert.doesNotMatch(advantages, /sf-fab-img|<img/, "no image: text only");
+  assert.match(advantages, /Easy\./, "the text is still there");
+  const benefits = sectionOf(page, "data-sf-benefits", "data-sf-faqs");
+  assert.match(benefits, /b-own\.jpg" alt="Fusion &lt;Coffee&gt; - What You Get From It" loading="lazy"/);
+  /* The product's photos 2 and 4 (b.jpg, d.jpg) fill none of the three sections, though the gallery still lists them. */
+  const sections = feature + advantages + benefits;
+  assert.doesNotMatch(sections, /b\.jpg|d\.jpg|a\.jpg/);
+  assert.equal(page.match(/class="sf-fab-img"/g)?.length, 2);
+  const none = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") }, related: [], members: false }).value;
+  assert.doesNotMatch(none, /class="sf-fab-img"/, "four photos, no section image: nothing in the sections");
+  assert.match(none, /data-sf-thumb/, "the gallery keeps the photos");
+  const older = productContent({ product: { ...FULL, image_urls: FULL.image_urls.map((u) => u ?? "") } as never, related: [], members: false }).value;
+  assert.match(older, /data-sf-advantages/);
+});
+
+test("a section image must pass safeImage", () => {
+  const page = productContent({ product: { ...R5C, features_image_url: "https://evil.test/x.jpg", benefits_image_url: "javascript:alert(1)" }, related: [], members: false }).value;
+  assert.doesNotMatch(page, /evil\.test|javascript:/);
+  assert.doesNotMatch(page, /class="sf-fab-img"/);
+});
+
+test("the FAQs: the product's own first, then the category's, then How do I pay?, under one heading", () => {
+  const both = productContent({ product: { ...R5, category_faq: [{ q: "Category question <b>?", a: "Category answer." }, { q: "Second category?", a: "Yes." }] }, related: [], members: false }).value;
+  const at = (s: string) => both.indexOf(s);
+  assert.ok(at("Who is it for?") > 0 && at("Who is it for?") < at("Category question") && at("Category question") < at("Second category?") && at("Second category?") < at("How do I pay?"));
+  assert.equal(both.match(/data-sf-faqs/g)?.length, 1, "one block");
+  assert.equal(both.match(/<h2 class="sf-faqs-title">/g)?.length, 1, "one heading");
+  assert.equal(both.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 4);
+  assert.match(both, /Category question &lt;b&gt;\?/);
+  assert.ok(at("data-sf-faqs") > at(`class="sf-detail-trust"`) && at("data-sf-faqs") < at("sf-legal-box"), "where it was");
+  const catOnly = productContent({ product: { ...R5, faq: [], category_faq: [{ q: "C?", a: "C." }] }, related: [], members: false }).value;
+  assert.ok(catOnly.indexOf("C?") < catOnly.indexOf("How do I pay?"));
+  const empty = productContent({ product: { ...R5, faq: [], category_faq: [] }, related: [], members: false }).value;
+  assert.equal(empty.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 1, "today's behaviour: the fixed item alone");
+  const older = productContent({ product: R5, related: [], members: false }).value;
+  assert.equal(older.match(/data-sf-acc aria-expanded="false" aria-controls="sfFaq/g)?.length, 2, "an older API without category_faq");
+});
+
+test("the catalog parser reads category_faq and the three section image URLs, and tolerates an older API", async () => {
+  const fetchImpl = () => Promise.resolve(Response.json({ products: [{ ...R5, category_faq: [{ q: "", a: "x" }, { q: "ok", a: "yes" }, 5], features_image_url: B + "f.jpg", advantages_image_url: null, benefits_image_url: B + "b.jpg" }] }));
+  const got = await fetchCatalog("h.test", { env, fetchImpl: fetchImpl as never, log: () => {} });
+  assert.deepEqual(got?.[0].category_faq, [{ q: "ok", a: "yes" }]);
+  assert.equal(got?.[0].features_image_url, B + "f.jpg");
+  assert.equal(got?.[0].advantages_image_url, "");
+  assert.equal(got?.[0].benefits_image_url, B + "b.jpg");
+  const old = await fetchCatalog("h.test", { env, fetchImpl: backend().fetchImpl, log: () => {} });
+  assert.deepEqual(old?.[0].category_faq, []);
+  assert.equal(old?.[0].features_image_url, "");
 });

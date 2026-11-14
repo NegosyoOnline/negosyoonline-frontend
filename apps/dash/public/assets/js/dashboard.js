@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -22,7 +22,8 @@
     "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
-    "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" } /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
+    "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
+    "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
@@ -82,6 +83,9 @@
     var MP = window.NOMetaPixel; /* meta-pixel.js loads after this file; same enter/leave hooks as Payments */
     if (MP && shownView === "settings-meta-pixel" && r.view !== "settings-meta-pixel") MP.hide();
     if (MP && r.view === "settings-meta-pixel" && shownView !== "settings-meta-pixel") MP.show();
+    var NT = window.NONotices; /* notices.js loads after this file; same enter/leave hooks as Payments */
+    if (NT && shownView === "settings-notices" && r.view !== "settings-notices") NT.hide();
+    if (NT && r.view === "settings-notices" && shownView !== "settings-notices") NT.show();
     var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
     if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
     if (PO && r.view === "orders" && shownView !== "orders") PO.show();
@@ -1351,6 +1355,7 @@
       load();
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
+      if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   });

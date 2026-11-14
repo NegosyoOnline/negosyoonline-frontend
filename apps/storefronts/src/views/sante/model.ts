@@ -20,9 +20,9 @@ export type HomeModel = {
   free_shipping_banner: boolean;
   year: number;
   /* The basket: `lines` says whether it has rows, `rows` is their markup (the shop fills it; the home passes none). */
-  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup };
+  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: string } };
   dist: { name: string; initials: string; tel: string; phone: string; photo: boolean };
-  socials: { instagram: string; tiktok: string };
+  socials: { instagram: string; tiktok: string; facebook: string; facebook_label: string };
   contact_path: string;
   cf: ContactForm;
   policy_links: { label: string; path: string }[];
@@ -33,6 +33,9 @@ export type HomeModel = {
     tin: string;
     dti_business_number: string;
     contact_email: string;
+    /* The store's own mobile in the PH display form, and the number for tel:; "" when not set. */
+    contact_mobile: string;
+    contact_tel: string;
     has_seal: boolean;
   };
 };
@@ -134,7 +137,12 @@ export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now:
       phone,
       photo: false, // no /distributor-photo/ route until private files exist: the design's no-photo state
     },
-    socials: { instagram: httpsUrl(site.instagram_url), tiktok: httpsUrl(site.tiktok_url) },
+    socials: {
+      instagram: httpsUrl(site.instagram_url),
+      tiktok: httpsUrl(site.tiktok_url),
+      facebook: httpsUrl(site.facebook_url),
+      facebook_label: httpsUrl(site.facebook_url).replace(/^https:\/\//, ""),
+    },
     contact_path: CONTACT_PATH,
     cf,
     policy_links: site.policy_links.filter((link) => /^\/[^/\\]/.test(link.path)),
@@ -144,6 +152,8 @@ export function homeModel(site: Site, cf: ContactForm = emptyContactForm(), now:
       tin: site.business.tin,
       dti_business_number: site.business.dti_business_number,
       contact_email: site.business.contact_email,
+      contact_mobile: formatMobile(site.business.contact_mobile) || site.business.contact_mobile,
+      contact_tel: site.business.contact_mobile,
       has_seal: site.business.has_seal === true, // the owner's uploaded BIR badge, shown through /business-seal/
     },
   };

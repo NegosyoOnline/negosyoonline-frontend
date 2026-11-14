@@ -1,19 +1,90 @@
 /* One product: TWCinc's store_product.html (the merchant product page): hero, quantity stepper, Add to Cart, the support
-   line, the "More Details" accordion, the certification row, "You Might Also Like" and the compliance note. The catalog
-   has one photo and one description pair, so the gallery thumbnails and feature sections are not shown (as TWCinc's).
+   line, the "More Details" and "Specifications" accordions, the certification row, the Feature, Advantages and Benefits
+   sections, "You Might Also Like" and the compliance note. Follows TWCinc's sante_barley product_detail.html: the extra photos
+   are gallery thumbnails (a click swaps the main photo, pack-store.js) and each text section shows only when it is filled.
+   An empty photo slot or text shows nothing. Feature, Advantages and Benefits each take their own optional image (features_image_url,
+   advantages_image_url, benefits_image_url, set in the dash product editor); with none the section is text only, full width, and it
+   never borrows a product photo (Coach Ed, ClickUp z8uq9mek5w r5c).
    TWCinc's two support lines named Cash on Delivery and card payment; bank or e-wallet transfer is the only payment here,
    so the one line says so (plan z8uq9mek5v R6). */
-import { html, type Markup } from "../../lib/html.ts";
-import type { CatalogProduct } from "../../lib/shop-api.ts";
+import { html, safe, type Markup } from "../../lib/html.ts";
+import type { CatalogProduct, ReviewPage } from "../../lib/shop-api.ts";
 import { trustBadges } from "./home.ts";
-import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
+import { LANDING_PATH } from "./pack-page.ts";
+import { PRODUCT_PLACEHOLDER, appNotice, php, safeImage } from "./shop-shell.ts";
+import { ratingSummary, reviewsSection } from "./shop-review.ts";
 
-export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean };
+/** `reviews` is the first page(s) of this store's reviews of the product and `moreHref` the link to the next page; null or absent shows nothing. */
+export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string; packOn?: boolean;
+  /** A signed-in member: the app notice replaces Add to Cart, and no member price or saving is written (`href` is the app link, may be empty). */
+  app?: { href: string } | null };
 
 /** Paragraphs as Django's linebreaks: a blank line starts a new paragraph, a single newline is a <br>. */
 function paragraphs(text: string): Markup {
   const parts = text.replace(/\r\n?/g, "\n").trim().split(/\n{2,}/).filter(Boolean);
   return html`${parts.map((p) => html`<p>${p.split("\n").map((line, i) => (i === 0 ? html`${line}` : html`<br>${line}`))}</p>`)}`;
+}
+
+/** The fixed last FAQ item on every product page. */
+export const PAY_FAQ = {
+  q: "How do I pay?",
+  a: "Paying is simple: place your order, then send your payment by bank or e-wallet transfer using the details shown at checkout. Upload or send us your proof of payment and we will confirm it, then get your order moving. Questions along the way? Just message your Santé store.",
+};
+
+function priceRows(p: CatalogProduct, app: boolean): Markup {
+  const members = !app && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos;
+  return html`
+        <div class="sf-detail-price">${php(p.srp_centavos)}${typeof p.price_per_serving_centavos === "number" ? html` <span class="sf-per-serving">${php(p.price_per_serving_centavos)} / serving</span>` : ""}</div>
+        ${members ? html`<p class="sf-members-row">Members ${php(p.unit_members_price_centavos)}${typeof p.members_price_per_serving_centavos === "number" ? html` <span class="sf-per-serving">(${php(p.members_price_per_serving_centavos)} / serving)</span>` : ""}</p>` : ""}`;
+}
+
+function trustStrip(p: CatalogProduct, packOn: boolean, app: boolean): Markup {
+  const icon = (d: string): Markup => html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${safe(d)}</svg>`;
+  // N comes from the product's own two prices; it is a percentage for display, never a money amount.
+  const pct = !app && p.srp_centavos > 0 && p.unit_members_price_centavos > 0 && p.unit_members_price_centavos < p.srp_centavos
+    ? Math.floor(((p.srp_centavos - p.unit_members_price_centavos) * 100) / p.srp_centavos) : 0;
+  return html`
+        <ul class="sf-trust-strip" data-sf-trust>
+          <li>${icon('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>')}<span>Easy payment by bank or e-wallet transfer</span></li>
+          <li>${icon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>')}<span><a href="/#contact">Talk to your Sant&eacute; store</a> anytime</span></li>
+          <li>${icon('<path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/>')}<span>100% genuine Sant&eacute;, trusted since 2007</span></li>
+          ${pct >= 1 ? html`<li data-sf-trust-members>${icon('<path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>')}<span>${packOn ? html`<a href="${LANDING_PATH}">Members save up to ${String(pct)}%</a>` : html`Members save up to ${String(pct)}%`}</span></li>` : ""}
+        </ul>`;
+}
+
+function faqBlock(p: CatalogProduct): Markup {
+  // The product's own FAQs first, then its category's general ones, then the fixed payment answer, under the one heading.
+  const items = [...(p.faq ?? []), ...(p.category_faq ?? []), PAY_FAQ];
+  return html`
+          <div class="sf-accordion-group sf-faqs" data-sf-faqs>
+            <h2 class="sf-faqs-title">FAQs</h2>
+            ${items.map((f, i) => html`<div class="sf-accordion">
+              <button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfFaq${String(i)}">${f.q} <span class="faq-icon" aria-hidden="true">+</span></button>
+              <div class="faq-a" id="sfFaq${String(i)}">${paragraphs(f.a)}</div>
+            </div>`)}
+          </div>`;
+}
+
+/** The "What's Inside" card grid: shown only when the owner added ingredients. A card's photo shows only when its photo_url passes safeImage. */
+function ingredientsBlock(p: CatalogProduct): Markup {
+  const items = p.ingredients ?? [];
+  if (items.length === 0) return html``;
+  return html`
+<section class="section sf-ingredients" data-sf-ingredients>
+  <div class="section-inner">
+    <h2 class="section-title">What&rsquo;s Inside</h2>
+    <div class="sf-ing-grid">
+      ${items.map((i) => {
+        const img = safeImage(i.photo_url ?? "");
+        return html`<div class="sf-ing-card">
+        ${img ? html`<img class="sf-ing-img" src="${img}" alt="" loading="lazy">` : ""}
+        <h3 class="sf-ing-name">${i.name}</h3>
+        ${i.line ? html`<p class="sf-ing-line">${i.line}</p>` : ""}
+      </div>`;
+      })}
+    </div>
+  </div>
+</section>`;
 }
 
 function trust(): Markup {
@@ -26,6 +97,25 @@ function trust(): Markup {
 export function productContent(m: ProductModel): Markup {
   const p = m.product;
   const image = safeImage(p.image_url);
+  const photos = p.image_urls.map((u) => safeImage(u));
+  if (image && !photos[0]) photos[0] = image;
+  const thumbs = photos.filter(Boolean);
+  const fab = (kind: string, eyebrow: string, title: string, text: string, own: string | undefined, cls: string): Markup => {
+    const photo = safeImage(own ?? "");
+    return text.trim() ? html`
+<section class="sf-fab ${cls}" data-sf-${kind}>
+  <div class="section-inner">
+    <div class="sf-fab-block${cls ? " sf-fab-reverse" : ""}">
+      ${photo ? html`<div class="sf-fab-img"><img src="${photo}" alt="${p.name} - ${title}" loading="lazy"></div>` : ""}
+      <div class="sf-fab-text">
+        <div class="sf-fab-eyebrow">${eyebrow}</div>
+        <h2 class="sf-fab-title">${title}</h2>
+        <div class="sf-fab-body">${paragraphs(text)}</div>
+      </div>
+    </div>
+  </div>
+</section>` : html``;
+  };
   return html`
 <section class="section sf-detail">
   <div class="section-inner">
@@ -33,15 +123,16 @@ export function productContent(m: ProductModel): Markup {
 
       <div class="sf-gallery">
         ${image ? html`<img class="sf-gallery-main" id="sfGalleryMain" src="${image}" alt="${p.name}">` : ""}
+        ${thumbs.length > 1 ? html`<div class="sf-gallery-thumbs">${thumbs.map((u, i) => html`<img src="${u}" alt="" data-sf-thumb${i === 0 ? html` class="active"` : ""}>`)}</div>` : ""}
       </div>
 
       <div class="sf-detail-info">
         <h1 class="sf-detail-name">${p.name}</h1>
-        <div class="sf-detail-price">${php(p.srp_centavos)}</div>
-        ${m.members ? html`<p class="sf-units-note">Members price ${php(p.unit_members_price_centavos)} each</p>` : ""}
+        ${ratingSummary(m.reviews)}
+        ${priceRows(p, !!m.app)}
         ${p.short_description ? html`<div class="sf-detail-lead">${paragraphs(p.short_description)}</div>` : ""}
 
-        <form method="post" action="/cart/">
+        ${m.app ? appNotice(m.app.href) : html`        <form method="post" action="/cart/">
           <input type="hidden" name="action" value="add">
           <input type="hidden" name="product_id" value="${p.id}">
           <div class="sf-qty-row">
@@ -53,21 +144,19 @@ export function productContent(m: ProductModel): Markup {
             </div>
           </div>
           <button type="submit" class="btn-cart sf-add-to-cart" id="sfAddToCart">Add to Cart</button>
-        </form>
+        </form>`}
 
-        <ul class="sf-cta-support">
-          <li>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Pay by bank or e-wallet transfer
-          </li>
-        </ul>
+        ${trustStrip(p, m.packOn === true, !!m.app)}
 
-        ${p.long_description ? html`
-        <div class="sf-accordions">
-          <div class="sf-accordion">
-            <div class="faq-q" data-faq-toggle>More Details <span class="faq-icon">+</span></div>
-            <div class="faq-a">${paragraphs(p.long_description)}</div>
-          </div>
+        ${p.long_description || p.specifications.trim() ? html`<div class="sf-accordions">
+          ${p.long_description ? html`<div class="sf-accordion">
+            <button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccDetails">More Details <span class="faq-icon" aria-hidden="true">+</span></button>
+            <div class="faq-a" id="sfAccDetails">${paragraphs(p.long_description)}</div>
+          </div>` : ""}
+          ${p.specifications.trim() ? html`<div class="sf-accordion">
+            <button type="button" class="faq-q" data-sf-acc aria-expanded="false" aria-controls="sfAccSpecs">Specifications <span class="faq-icon" aria-hidden="true">+</span></button>
+            <div class="faq-a" id="sfAccSpecs">${paragraphs(p.specifications)}</div>
+          </div>` : ""}
         </div>` : ""}
       </div>
 
@@ -78,6 +167,18 @@ export function productContent(m: ProductModel): Markup {
 <div class="sf-detail-trust">
   ${trust()}
 </div>
+
+${ingredientsBlock(p)}
+${fab("feature", "Product Feature", "What Makes It Special", p.features, p.features_image_url, "")}
+${fab("advantages", "Advantages", "Why It Stands Out", p.advantages, p.advantages_image_url, "sf-fab-tinted")}
+${fab("benefits", "Benefits", "What You Get From It", p.benefits, p.benefits_image_url, "")}
+
+<section class="sf-faqs-section">
+  <div class="section-inner">${faqBlock(p)}
+  </div>
+</section>
+
+${reviewsSection(m.reviews, m.moreHref ?? "#reviews")}
 
 <section class="section">
   <div class="section-inner">

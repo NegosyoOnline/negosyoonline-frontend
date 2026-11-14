@@ -151,7 +151,7 @@ test("a hold (423), the throttle (429), a dead session, a failure and an older b
   }
 });
 
-test("no session goes to the store home; a dead one clears the cookie; a locked order goes to Home", async () => {
+test("no session goes to the store home; a dead one clears the cookie; a locked order goes to My Purchases", async () => {
   const none = dashOf(fake());
   none.call.member_token = "";
   assert.equal((await addressGet(none)).headers.get("location"), "/");
@@ -160,5 +160,5 @@ test("no session goes to the store home; a dead one clears the cookie; a locked 
   assert.equal(dead.headers.get("location"), "/");
   assert.match(dead.headers.get("set-cookie") ?? "", /no_member=; .*Max-Age=0/);
   const lockedOrder = await addressGet(dashOf(fake({ packLock: true })));
-  assert.equal(lockedOrder.headers.get("location"), "/dashboard/");
+  assert.equal(lockedOrder.headers.get("location"), "/dashboard/purchases/");
 });

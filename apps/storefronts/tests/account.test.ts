@@ -54,7 +54,7 @@ test("a verified email hides the Verify email link and sends codes to the email"
   assert.match(b, /Sign-in codes go to<small>Your email<\/small>/);
 });
 
-test("no session goes to the store home; a dead one clears the cookie; a locked order goes to Home", async () => {
+test("no session goes to the store home; a dead one clears the cookie; a locked order goes to My Purchases", async () => {
   const none = dashOf(fake({}));
   none.call.member_token = "";
   assert.equal((await accountPage(none)).headers.get("location"), "/");
@@ -63,7 +63,7 @@ test("no session goes to the store home; a dead one clears the cookie; a locked 
   assert.match(dead.headers.getSetCookie().join("\n"), /no_member=;/);
   const lock = ok({ pack: { order_number: "SP-1", payment_status: "rejected", payment_label: "Rejected", method_label: "Bank transfer", price_centavos: 100, tone: "bad", benefits_off: true, lock: { reason_label: "x", other_text: "", resubmitted: false, accounts: [] }, proofs: [] }, registration: null });
   const locked = await accountPage(dashOf(fake({ "member/me": [ME], "member/pack": [lock] })));
-  assert.equal(locked.headers.get("location"), "/dashboard/");
+  assert.equal(locked.headers.get("location"), "/dashboard/purchases/");
 });
 
 test("verify email: send step, code step with its error under the field, done with the backend's message", async () => {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { addressOf, homePage, proofGet, registrationPost, resubmitPost, type Dash } from "../src/lib/dashboard-flow.ts";
+import { addressOf, purchasesPage, proofGet, registrationPost, resubmitPost, reviewPost, type Dash } from "../src/lib/dashboard-flow.ts";
 import { pesos } from "../src/views/sante/pack-member.ts";
 import { PROOF_MAX_BYTES } from "../src/lib/pack-api.ts";
 import { SITE } from "./site.ts";
@@ -47,7 +47,7 @@ const cookies = (r: Response) => r.headers.getSetCookie().join("\n");
 
 test("the Home shows the under-review payment card, with the order's own price", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: null })] });
-  const r = await homePage(dashOf(f));
+  const r = await purchasesPage(dashOf(f));
   assert.equal(r.status, 200);
   const body = await r.text();
   assert.match(body, /Membership Pack/);
@@ -62,7 +62,7 @@ test("the Home shows the under-review payment card, with the order's own price",
 
 test("a verified order shows the shipment line and no dialog", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack({ payment_status: "verified", payment_label: "Verified", tone: "ok", benefits_off: false }), registration: null })] });
-  const body = await (await homePage(dashOf(f))).text();
+  const body = await (await purchasesPage(dashOf(f))).text();
   assert.match(body, /The store will let you know when it ships/);
   assert.doesNotMatch(body, /Ships after the store verifies/);
 });
@@ -79,7 +79,7 @@ test("the Shipment line follows the same member/orders card My Orders shows: not
   ];
   for (const [over, want, not] of cases) {
     const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: VERIFIED(), registration: null })], "member/orders": [shipped(over)] });
-    const body = await (await homePage(dashOf(f))).text();
+    const body = await (await purchasesPage(dashOf(f))).text();
     assert.match(body, want);
     if (not) assert.doesNotMatch(body, not);
   }
@@ -87,7 +87,7 @@ test("the Shipment line follows the same member/orders card My Orders shows: not
 
 test("the Shipment line keeps its text when the orders read fails or has no card for the order", async () => {
   const f = fake({ "member/me": [ME, ME], "member/pack": [ok({ pack: VERIFIED(), registration: null }), ok({ pack: VERIFIED(), registration: null })], "member/orders": [err(500, "x", "x"), ok({ cards: [] })] });
-  for (let i = 0; i < 2; i++) assert.match(await (await homePage(dashOf(f))).text(), /The store will let you know when it ships/);
+  for (let i = 0; i < 2; i++) assert.match(await (await purchasesPage(dashOf(f))).text(), /The store will let you know when it ships/);
 });
 
 test("the registration card lists the details form, with the mobile check when it is pending", async () => {
@@ -96,12 +96,12 @@ test("the registration card lists the details form, with the mobile check when i
     "member/pack": [ok({ pack: pack(), registration: REG }), ok({ pack: pack(), registration: REG })],
     "member/registration": [ok({ registration: REG, mobile: MOBILE }), ok({ registration: REG, mobile: { ...MOBILE, pending: true, mobile: "+639171234567" } })],
   });
-  const form = await (await homePage(dashOf(f))).text();
+  const form = await (await purchasesPage(dashOf(f))).text();
   assert.match(form, /Santé membership registration/);
   assert.match(form, /action="\/dashboard\/registration\/details\/#registration"/);
   assert.match(form, /<section class="pk-card" id="registration"/); // a refused post re-renders at the card, not the page top
   assert.match(form, /name="date_of_birth"/);
-  const mobile = await (await homePage(dashOf(f))).text();
+  const mobile = await (await purchasesPage(dashOf(f))).text();
   assert.match(mobile, /Confirm your mobile number/);
   assert.match(mobile, /action="\/dashboard\/registration\/mobile\/send\/#registration"/);
   assert.doesNotMatch(mobile, /name="desired_username"/);
@@ -109,7 +109,7 @@ test("the registration card lists the details form, with the mobile check when i
 
 test("a rejected order opens the dialog with the reason, the accounts and the resubmit form", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack({ payment_status: "rejected", payment_label: "Needs attention", tone: "att", lock: LOCK }), registration: null })] });
-  const body = await (await homePage(dashOf(f))).text();
+  const body = await (await purchasesPage(dashOf(f))).text();
   assert.match(body, /<dialog class="pk-dlg" id="pk-lock" open/);
   assert.match(body, /Your payment needs attention/);
   assert.match(body, /Reason from the store<\/b>Amount does not match/);
@@ -122,7 +122,7 @@ test("a rejected order opens the dialog with the reason, the accounts and the re
 
 test("the reason of an Other rejection reads 'Other: ...', and a sent proof shows the waiting note without the form", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack({ payment_status: "rejected", tone: "att", lock: { ...LOCK, other_text: "Blurry", resubmitted: true } }), registration: null })] });
-  const body = await (await homePage(dashOf(f))).text();
+  const body = await (await purchasesPage(dashOf(f))).text();
   assert.match(body, /Other: Blurry/);
   assert.match(body, /We received your new proof\. The store is reviewing it\./);
   assert.doesNotMatch(body, /pk-resubmit/);
@@ -131,22 +131,22 @@ test("the reason of an Other rejection reads 'Other: ...', and a sent proof show
 
 test("a session the API no longer knows clears the cookie and goes to the store home", async () => {
   const f = fake({ "member/me": [err(401, "member_session_invalid", "Sign in again.")] });
-  const r = await homePage(dashOf(f));
+  const r = await purchasesPage(dashOf(f));
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("location"), "/");
   assert.match(cookies(r), /no_member=; .*Max-Age=0/);
-  const none = await homePage(dashOf(fake({}), ""));
+  const none = await purchasesPage(dashOf(fake({}), ""));
   assert.equal(none.headers.get("location"), "/");
 });
 
-test("resubmit sends the fields and the proof to Django, then goes Home", async () => {
+test("resubmit sends the fields and the proof to Django, then goes to My Purchases", async () => {
   const f = fake({ "member/me": [ME], "member/pack/resubmit": [ok({ pack: pack(), registration: null })] });
   const form = new FormData();
   for (const [k, v] of Object.entries({ submit_key: "K1", account_id: "a1", sender_bank: "BDO", reference_number: "R1", sender_name: "Juan", sender_account_number: "123", amount_sent: "1488.00", transferred_at: "2026-11-12T10:00" })) form.append(k, v);
   form.append("proof", new File(["x"], "p.png", { type: "image/png" }));
   const r = await resubmitPost(dashOf(f), form);
   assert.equal(r.status, 303);
-  assert.equal(r.headers.get("location"), "/dashboard/");
+  assert.equal(r.headers.get("location"), "/dashboard/purchases/");
   const sent = f.calls.find((c) => c.path === "member/pack/resubmit")!.form!;
   assert.equal(sent.get("token"), "M".repeat(43));
   assert.equal(sent.get("host"), "demo.negosyotest.com");
@@ -179,10 +179,10 @@ test("a proof over the cap is refused here, before Django is called", async () =
   assert.equal(f.calls.some((c) => c.path === "member/pack/resubmit"), false);
 });
 
-test("resubmit on an order that is not rejected goes Home", async () => {
+test("resubmit on an order that is not rejected goes to My Purchases", async () => {
   const f = fake({ "member/me": [ME], "member/pack/resubmit": [err(409, "not_rejected", "Nothing to send.")] });
   const r = await resubmitPost(dashOf(f), new FormData());
-  assert.equal(r.headers.get("location"), "/dashboard/");
+  assert.equal(r.headers.get("location"), "/dashboard/purchases/");
 });
 
 test("the details post sends the one date as is, the usernames and the address block only when typed", async () => {
@@ -192,7 +192,7 @@ test("the details post sends the one date as is, the usernames and the address b
   });
   const f = fake({ "member/me": [ME], "member/registration/details": [ok({ registration: REG, mobile: MOBILE })] });
   const r = await registrationPost(dashOf(f), "details", { date_of_birth: "1990-03-07", desired_username: "juan12345", alternate_username: "juan54321" });
-  assert.equal(r.headers.get("location"), "/dashboard/");
+  assert.equal(r.headers.get("location"), "/dashboard/purchases/");
   assert.deepEqual(f.calls.find((c) => c.path === "member/registration/details")!.body, {
     host: "demo.negosyotest.com", visitor_ip: "", token: "M".repeat(43), date_of_birth: "1990-03-07",
     desired_username: "juan12345", alternate_username: "juan54321",
@@ -233,10 +233,6 @@ test("pesos writes centavos as TWCinc writes money", () => {
   assert.equal(pesos(5), "₱0.05");
 });
 
-const HOME = {
-  summary: { total_spent: 1488, total_spent_text: "1,488.00", total_spent_centavos: 148800, total_orders: 1, delivered: 0, needs_attention: 0 },
-  order_monitor: { delta: 1, awaiting_approval: 1, for_booking: 0, for_shipping: 0, delivered: 0, has_orders: true, series: [{ label: "Sun", count: 0, h: 0 }, { label: "Mon", count: 1, h: 100 }] },
-};
 const CARD = {
   order_number: "SP-1001", created_at: "2026-11-12T02:00:00Z", total: 1488, total_text: "1,488.00", total_centavos: 148800, payment_label: "Bank transfer", headline: "Membership Pack",
   chip_class: "is-review", chip_label: "Under review", problem: false, problem_line: "", note: "", awaiting_payment: false, under_review: true, steps: [],
@@ -244,59 +240,6 @@ const CARD = {
   address: "1 Rizal St, Manila", receiver_name: "Juan Dela Cruz", receiver_mobile: "+639171234567",
   membership: { label: "Details received", line: "We have your details.", registered: false, sante_member_id: "", act: false },
 };
-
-test("the Home shows the four tiles, Order Monitoring and View all orders from the member/home figures", async () => {
-  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: null })], "member/home": [ok(HOME)] });
-  const body = await (await homePage(dashOf(f))).text();
-  assert.match(body, /Total Spent<\/span><span class="acct-kpi-value">&#8369;1,488\.00/);
-  assert.match(body, /Needs Attention/);
-  assert.match(body, /Order Monitoring/);
-  assert.match(body, /&#9650; \+1 vs last month/);
-  assert.match(body, /sf-om-h-100/);
-  assert.match(body, /<a href="\/dashboard\/orders\/">View all orders<\/a>/);
-});
-
-test("while rejected the Home shows no Order Monitoring and no View all orders", async () => {
-  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack({ payment_status: "rejected", tone: "att", lock: LOCK }), registration: null })], "member/home": [ok(HOME)] });
-  const body = await (await homePage(dashOf(f))).text();
-  assert.doesNotMatch(body, /Order Monitoring|View all orders/);
-});
-
-test("My Orders lists the cards; with none it says so; a rejected order sends it Home", async () => {
-  const { ordersPage } = await import("../src/lib/dashboard-flow.ts");
-  const f = fake({
-    "member/me": [ME, ME, ME],
-    "member/pack": [ok({ pack: pack(), registration: null }), ok({ pack: pack(), registration: null }), ok({ pack: pack({ payment_status: "rejected", tone: "att", lock: LOCK }), registration: null })],
-    "member/orders": [ok({ cards: [CARD] }), ok({ cards: [] })],
-  });
-  const body = await (await ordersPage(dashOf(f))).text();
-  assert.match(body, /<h1>My Orders<\/h1>/);
-  assert.match(body, /<div class="oc-ref">SP-1001<\/div><div class="oc-date">Placed Nov 12, 2026<\/div>/);
-  assert.match(body, /We received your payment\. The store is <strong>checking<\/strong> it/);
-  assert.match(body, /Membership Status/);
-  assert.match(body, /pack-dashboard\.js/);
-  assert.match((await (await ordersPage(dashOf(f))).text()), /No orders on your dashboard yet\./);
-  const locked = await ordersPage(dashOf(f));
-  assert.equal(locked.headers.get("location"), "/dashboard/");
-});
-
-test("each order's View Details toggle points at its own panel with aria-controls", async () => {
-  const { ordersPage } = await import("../src/lib/dashboard-flow.ts");
-  const f = fake({
-    "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: null })],
-    "member/orders": [ok({ cards: [CARD, { ...CARD, order_number: "SP-1002" }] })],
-  });
-  const body = await (await ordersPage(dashOf(f))).text();
-  for (const id of ["oc-detail-p0", "oc-detail-p1"]) {
-    assert.match(body, new RegExp(`aria-expanded="false" aria-controls="${id}"`));
-    assert.match(body, new RegExp(`<div class="oc-detail" id="${id}" hidden>`));
-  }
-});
-
-test("money falls back to the centavos when the backend sends no text", async () => {
-  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration: null })], "member/home": [ok({ summary: { total_spent_centavos: 148800, total_orders: 1, delivered: 0, needs_attention: 0 }, order_monitor: { delta: 0, awaiting_approval: 0, for_booking: 0, for_shipping: 0, delivered: 0, series: [], has_orders: true } })] });
-  assert.match(await (await homePage(dashOf(f))).text(), /acct-kpi-value">&#8369;1,488\.00</);
-});
 
 /* ---- the Santé Membership Terms on the account details card (terms_required) ---- */
 
@@ -308,7 +251,7 @@ test("terms_required puts the Membership Terms tick, the popup of the active ver
     "member/me": [ME], "member/pack": [ok({ pack: pack(), registration: REG_TERMS }), ],
     "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
   });
-  const body = await (await homePage(dashOf(f))).text();
+  const body = await (await purchasesPage(dashOf(f))).text();
   assert.match(body, /<input type="hidden" name="agreement_version_id" value="7">/);
   assert.match(body, /<input type="checkbox" id="dt-terms" name="terms" value="1">/);
   assert.match(body, /I have read and agree to the <a class="lnk"[^>]*data-terms-popup>Sant&eacute; Membership Terms&nbsp;&#8599;<\/a>\./);
@@ -319,7 +262,7 @@ test("terms_required puts the Membership Terms tick, the popup of the active ver
 test("terms_required false or absent shows no tick, no popup, no script", async () => {
   for (const registration of [REG, { ...REG, terms_required: false }]) {
     const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: pack(), registration })], "member/registration": [ok({ registration, mobile: MOBILE })] });
-    const body = await (await homePage(dashOf(f))).text();
+    const body = await (await purchasesPage(dashOf(f))).text();
     assert.match(body, /name="desired_username"/);
     assert.doesNotMatch(body, /dt-terms|agreement_version_id|pp-terms-dlg|pack-terms-popup/);
     assert.ok(!f.calls.some((c) => c.path === "pack")); // the agreement is not even read
@@ -363,4 +306,25 @@ test("a submit without the tick shows the terms error; a changed version clears 
     "member/pack": [ok({ pack: pack(), registration: REG_TERMS })], "member/registration": [ok({ registration: REG_TERMS, mobile: MOBILE })], pack: [ok(PACK_READ)],
   });
   assert.match(await (await registrationPost(dashOf(none), "details", { ...text, terms: "1" })).text(), /pp-ob-terms-err">Please review and agree/);
+});
+
+/* ---- round 5b: My Orders reviews ------------------------------------------------------------------------------------- */
+
+
+test("the member's review post sends the session as data and the order id, then goes back to My Orders with an outcome", async () => {
+  const f = fake({ "member/me": [ME], "shop/orders/sho_7/lines/2/review": [ok({ id: "rev_1", rating: 4, body: "Nice", display_name: "Juan D.", created_at: "2026-11-14T02:00:00Z", edited: false, can_edit: true })] });
+  const r = await reviewPost(dashOf(f), { order_id: "sho_7", position: "2", mode: "create", rating: "4", body: "Nice", display_name: "" });
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("location"), "/dashboard/orders/?review=saved&order=sho_7&line=2#review-sho_7-2");
+  const sent = f.calls.find((c) => c.path.endsWith("/review"))!.body;
+  assert.deepEqual(sent, { host: "demo.negosyotest.com", visitor_ip: "", view_token: "", member_token: "M".repeat(43), rating: 4, body: "Nice" });
+});
+
+test("the member's review post: signed out goes to the store home, a bad order id or line is the neutral 404, a refusal is a fixed outcome", async () => {
+  assert.equal((await reviewPost(dashOf(fake({}), ""), { order_id: "sho_7", position: "1", rating: "5" })).headers.get("location"), "/");
+  assert.equal((await reviewPost(dashOf(fake({ "member/me": [ME] })), { order_id: "../x", position: "1", rating: "5" })).status, 404);
+  assert.equal((await reviewPost(dashOf(fake({ "member/me": [ME] })), { order_id: "sho_7", position: "0", rating: "5" })).status, 404);
+  const f = fake({ "member/me": [ME], "shop/orders/sho_7/lines/1/review": [err(409, "already_reviewed", "You already reviewed this product.")] });
+  const r = await reviewPost(dashOf(f), { order_id: "sho_7", position: "1", rating: "5" });
+  assert.match(r.headers.get("location") ?? "", /review=exists/);
 });

@@ -1,8 +1,14 @@
 /* Meta Pixel and Conversions API, storefront side (ClickUp z8uq9md3n5; backend apps/meta_ads).
 
-   Only three pages carry it: the home page, the landing page and the checkout page. Never the one-time access link
-   (/funnel/membership-pack/access/*), the member pages, the onboarding steps or the completed page: Meta's script
-   sends the page address, and some of those addresses are secrets.
+   Only three pages carry the notice and the page events: the home page, the landing page and the checkout page. Never the
+   one-time access link (/funnel/membership-pack/access/*), the member pages, the onboarding steps or the completed page:
+   Meta's script sends the page address, and some of those addresses are secrets.
+
+   The one exception (ClickUp z8uq9mfh12, Coach Ed 2026-11-15, "Fire at onboarding"): the onboarding verify page
+   (GET /funnel/membership-pack/onboarding/verify/) carries one Purchase event, once per order, and only when the
+   consent cookie is already "1". Its address is a fixed path (the buyer's state is in the checkout cookie, not the URL),
+   so no secret goes to Meta. It never shows the notice, and the other onboarding steps, the access link and the
+   completed page stay free of Meta. See onboardingPurchase below.
 
    Nothing loads and nothing is sent before the visitor presses Accept. The choice lives in one first-party cookie
    (no_meta_consent: "1" accepted, "0" declined), set by the notice's own button script (js/meta-pixel.js), which
@@ -15,8 +21,8 @@
        the same ids go to Django (POST /storefront/v1/meta/events/) so Meta pairs the two;
      - the first-party script js/meta-pixel.js (no inline code).
    The server call never delays or breaks a page: it runs after the response (the route passes `send` to Next's
-   after()), has a 2 second timeout and swallows every failure. Purchase and AddPaymentInfo are never made here:
-   Django builds them from an order. */
+   after()), has a 2 second timeout and swallows every failure. AddPaymentInfo is never made here, and Purchase only
+   as onboardingPurchase says: Django builds both from an order. */
 import { randomBytes } from "node:crypto";
 import { asset } from "./assets.ts";
 import { cookieName, isSecure, readCookieShaped } from "./cookies.ts";
@@ -266,5 +272,63 @@ export async function sendEvents(
     if (response.status !== 200 && response.status !== 404) log(`the API answered ${response.status}`);
   } catch {
     log("the API could not be reached in time");
+  }
+}
+
+/* ---- Purchase on the onboarding verify page (ClickUp z8uq9mfh12) ---------------------------------------------------- */
+
+const PURCHASE_ID = /^pur_[A-Za-z0-9_-]{1,60}$/; // backend events.ORDER_EVENTS["Purchase"] + "_" + the order's public id
+const CURRENCY = /^[A-Z]{3}$/;
+const CONTENT_ID_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
+
+export type PurchaseArgs = {
+  request: Request;
+  site: Site;
+  host: string;
+  /** The buyer's checkout cookie value: Django finds the order from it, filtered by site. */
+  token: string;
+  visitorIp: string;
+  env: Pick<StorefrontEnv, "apiBase" | "secret">;
+  fetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
+  log?: (reason: string) => void;
+};
+
+/** What the verify page adds just before </body>: the data block and the script with one Purchase, only when the site has
+    a Pixel, the consent cookie is "1" on this visit and Django answers that this was the first Purchase for the order.
+    Otherwise nothing, and never the notice. It waits for Django at most 2 seconds and swallows every failure, so the page
+    is never broken or held longer. The browser event carries Django's event id, so Meta pairs it with the server's. */
+export async function onboardingPurchase(a: PurchaseArgs): Promise<Markup> {
+  const none = safe("");
+  if (!hasPixel(a.site) || !consentGiven(a.request) || !a.token || a.env.secret.length < SECRET_MIN_LENGTH) return none;
+  const log = a.log ?? logMeta;
+  try {
+    const response = await (a.fetchImpl ?? fetch)(`${a.env.apiBase}/storefront/v1/meta/purchase/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${a.env.secret}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ host: a.host, visitor_ip: a.visitorIp, token: a.token, consent: true }),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(EVENTS_TIMEOUT_MS),
+    });
+    if (response.status !== 200) {
+      if (response.status !== 404 && response.status !== 409) log(`the API answered ${response.status}`);
+      return none;
+    }
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) return none;
+    const v = body as Record<string, unknown>;
+    if (v.first !== true || typeof v.event_id !== "string" || !PURCHASE_ID.test(v.event_id)) return none;
+    if (typeof v.value !== "number" || !Number.isFinite(v.value) || v.value <= 0) return none;
+    if (typeof v.currency !== "string" || !CURRENCY.test(v.currency)) return none;
+    const ids = Array.isArray(v.content_ids) ? v.content_ids : [];
+    if (ids.length === 0 || !ids.every((id) => typeof id === "string" && CONTENT_ID_SHAPE.test(id))) return none;
+    const block = dataBlock({
+      pixel_id: a.site.meta_pixel_id, checkout: true, // checkout: Meta's form reading stays off (OTP, email and mobile fields)
+      events: [{ name: "Purchase", id: v.event_id, data: { value: v.value, currency: v.currency, content_ids: ids } }],
+    });
+    return html`${block}<script src="${asset("js/meta-pixel.js")}"></script>`;
+  } catch {
+    log("the API could not be reached in time");
+    return none;
   }
 }

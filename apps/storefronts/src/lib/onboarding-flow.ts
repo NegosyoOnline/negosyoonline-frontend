@@ -12,9 +12,10 @@ import {
   CHECKOUT, CHECKOUT_MAX_AGE, MEMBER, MEMBER_MAX_AGE, clearCookie, setCookie,
 } from "./cookies.ts";
 import type { Pack, Site } from "./django.ts";
-import { htmlResponse } from "./html.ts";
+import { htmlResponse, type Markup } from "./html.ts";
 import { localMobile } from "./checkout-flow.ts";
 import { redirect } from "./member.ts";
+import { onboardingPurchase } from "./meta.ts";
 import {
   accessRead, accessRedeem, accessRenew, addressZip, onboardingAddress, onboardingCompleted, onboardingDetails,
   onboardingEmailSend, onboardingEmailVerify, onboardingMobileSend, onboardingMobileVerify, onboardingState,
@@ -89,9 +90,11 @@ async function load(f: ObFlow): Promise<Loaded> {
   return { response: closedFunnel(r, f) ?? redirect(SIGN_IN_PATH) };
 }
 
-function render(f: ObFlow, sub: Sub, state: OnboardingState, over: Partial<ObView> = {}, status = 200): Response {
+function render(
+  f: ObFlow, sub: Sub, state: OnboardingState, over: Partial<ObView> = {}, status = 200, tracking?: Markup,
+): Response {
   const view: ObView = { sub, state, error_message: "", field_errors: {}, posted: {}, now: f.now ?? new Date(), ...over };
-  return slide(htmlResponse(onboardingDocument(ctx(f), view, f.pack.agreement?.id ?? null), status), f);
+  return slide(htmlResponse(onboardingDocument({ ...ctx(f), tracking }, view, f.pack.agreement?.id ?? null), status), f);
 }
 
 /* ---- GET ---------------------------------------------------------------------------------------------------- */
@@ -113,7 +116,17 @@ function gate(state: OnboardingState, sub: Sub, f: ObFlow): Response | null {
 export async function onboardingPage(f: ObFlow, sub: Sub): Promise<Response | null> {
   const loaded = await load(f);
   if ("response" in loaded) return loaded.response;
-  return gate(loaded.state, sub, f) ?? render(f, sub, loaded.state);
+  const sent = gate(loaded.state, sub, f);
+  if (sent) return sent;
+  /* The one Meta event outside the home, landing and checkout pages: Purchase on the verify page's GET (src/lib/meta.ts).
+     No other step, and no POST re-render, carries anything of Meta's. */
+  const tracking = sub === "verify"
+    ? await onboardingPurchase({
+        request: f.request, site: f.site, host: f.host, token: f.token, visitorIp: f.visitor_ip, env: f.calls.env,
+        fetchImpl: f.calls.fetchImpl, log: f.calls.log,
+      })
+    : undefined;
+  return render(f, sub, loaded.state, {}, 200, tracking);
 }
 
 /* ---- POST: every step ------------------------------------------------------------------------------------------ */

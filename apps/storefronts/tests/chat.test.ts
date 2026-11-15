@@ -322,6 +322,9 @@ const widget = createRequire(import.meta.url)(path.join(ASSETS, "js", "chat-widg
   pollDelay(ms: number): number; errorKind(status: number, body: unknown): string; emailOk(v: string): boolean;
   mergeReplies(log: { items: { who: string; id: number; text: string; at: string }[]; last: number }, replies: unknown[]): boolean;
   readLog(storage: unknown): { items: unknown[]; last: number }; writeLog(storage: unknown, log: unknown): void;
+  readProbe(storage: unknown, host: string, now: number): { available: boolean; state: string } | null;
+  writeProbe(storage: unknown, host: string, now: number, available: boolean, state: string): void; PROBE_KEY: string;
+  start(doc: unknown, win: unknown): void;
   TEXT: Record<string, unknown>; ERRORS: Record<string, string>; LOG_KEY: string;
 };
 
@@ -404,4 +407,69 @@ test("the home links the widget's stylesheet and script, with the store name as 
   const page = homeDocument(homeModel({ ...FILLED, display_name: 'Nena "<b>" Shop' })).value;
   assert.match(page, /<link rel="stylesheet" href="\/assets\/sante\/css\/chat-widget\.css\?v=[0-9a-f]{8}">/);
   assert.match(page, /<script src="\/assets\/sante\/js\/chat-widget\.js\?v=[0-9a-f]{8}" data-chat-widget data-store="Nena &quot;&lt;b&gt;&quot; Shop"><\/script>/);
+});
+
+const memory = () => {
+  const m = new Map<string, string>();
+  return { m, getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k) };
+};
+
+test("the availability answer is remembered for 60 s per host, and only for that host", () => {
+  const st = memory(), t = 1_000_000;
+  assert.equal(widget.readProbe(st, "a.test", t), null);
+  widget.writeProbe(st, "a.test", t, true, "open");
+  assert.deepEqual(widget.readProbe(st, "a.test", t + 59_999), { available: true, state: "open" });
+  assert.equal(widget.readProbe(st, "a.test", t + 60_000), null, "after 60 s it asks again");
+  assert.equal(widget.readProbe(st, "b.test", t + 1), null, "another host does not use it");
+  assert.equal(widget.readProbe(st, "a.test", t - 1), null, "a time in the future is not trusted");
+  widget.writeProbe(st, "a.test", t, false, "none");
+  assert.deepEqual(widget.readProbe(st, "a.test", t + 1), { available: false, state: "none" });
+  st.m.set(widget.PROBE_KEY, "{not json");
+  assert.equal(widget.readProbe(st, "a.test", t), null);
+  const blocked = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+  assert.equal(widget.readProbe(blocked, "a.test", t), null);
+  assert.doesNotThrow(() => widget.writeProbe(blocked, "a.test", t, true, "none"));
+});
+
+/* A bare page for the script: just enough document and window to run start() and count the polls. */
+function page(session: ReturnType<typeof memory>, answer: { status: number; body: unknown }) {
+  const calls: string[] = [];
+  const el = (): Record<string, unknown> => ({ classList: { add() {} }, appendChild() {}, setAttribute() {}, addEventListener() {}, style: {} });
+  const doc = { currentScript: null, querySelector: () => null, createElement: el, createElementNS: el, body: el(), documentElement: el(), addEventListener() {}, hidden: false };
+  const win = { sessionStorage: session, location: { host: "demo.test" }, setTimeout, clearTimeout, AbortController,
+    fetch: (url: string) => { calls.push(url); return Promise.resolve({ status: answer.status, json: () => Promise.resolve(answer.body) }); } };
+  return { calls, doc, win };
+}
+const tick = () => new Promise((r) => setTimeout(r, 5));
+
+test("browsing several pages costs one probe poll a minute: the second page reads the remembered answer, and chat that is off is remembered too", async () => {
+  const session = memory();
+  const first = page(session, { status: 200, body: { ok: true, state: "none", available: true, messages: [] } });
+  widget.start(first.doc, first.win);
+  await tick();
+  assert.deepEqual(first.calls, ["/chat/poll/"]);
+  const second = page(session, { status: 200, body: { ok: true, state: "none", available: true, messages: [] } });
+  widget.start(second.doc, second.win);
+  await tick();
+  assert.deepEqual(second.calls, [], "no poll on the next page within the minute");
+  const off = memory(), a = page(off, { status: 404, body: null });
+  widget.start(a.doc, a.win);
+  await tick();
+  const b = page(off, { status: 404, body: null });
+  widget.start(b.doc, b.win);
+  await tick();
+  assert.deepEqual([a.calls.length, b.calls.length], [1, 0], "a 404 is remembered");
+  const down = memory(), c = page(down, { status: 503, body: { ok: false, error: "failed" } });
+  widget.start(c.doc, c.win);
+  await tick();
+  const d = page(down, { status: 503, body: { ok: false, error: "failed" } });
+  widget.start(d.doc, d.win);
+  await tick();
+  assert.equal(d.calls.length, 1, "a failure is not remembered");
+});
+
+test("the conversation and the probe are in sessionStorage, never localStorage", () => {
+  const code = readFileSync(path.join(ASSETS, "js", "chat-widget.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(code, /win\.sessionStorage/);
+  assert.doesNotMatch(code, /localStorage/);
 });

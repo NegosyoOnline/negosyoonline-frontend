@@ -11,9 +11,13 @@
    Polling: every 20 s while the panel is open, every 60 s after 10 minutes without the visitor doing anything, and not at all after
    30 minutes without. Writing, or opening the panel again, starts it again. A page that is hidden is not polled.
 
-   The conversation as the visitor sees it (their own messages and the store's replies) is kept in this browser's localStorage under
-   "no-chat-log", so a reload keeps it; Django only returns the store's replies. It is dropped when the server no longer knows the
-   visitor. A browser that blocks storage keeps the conversation in memory for the page only. */
+   The conversation as the visitor sees it (their own messages and the store's replies) is kept in this tab's sessionStorage under
+   "no-chat-log", so a reload keeps it and closing the tab drops it (safer on a shared phone); Django only returns the store's replies.
+   It is also dropped when the server no longer knows the visitor. A browser that blocks storage keeps the conversation in memory for
+   the page only.
+
+   The first poll (is chat available here?) is remembered in sessionStorage under "no-chat-probe" for 60 s per host, so a visitor
+   moving between pages costs one poll a minute, not one per page. An open panel still polls on its own 20 s / 60 s schedule. */
 (function (root, factory) {
   var api = factory();
   if (typeof module === "object" && module.exports) module.exports = api; // the tests read the rules below
@@ -24,6 +28,7 @@
   var MAX = 1000;
   var FAST_MS = 20000, SLOW_MS = 60000, SLOW_AFTER_MS = 10 * 60000, STOP_AFTER_MS = 30 * 60000;
   var LOG_KEY = "no-chat-log", LOG_MAX = 80;
+  var PROBE_KEY = "no-chat-probe", PROBE_MS = 60000;
   var CONTACT_HREF = "/#contact-form";
   var TEXT = {
     launcher: "Chat with us",
@@ -123,6 +128,21 @@
     } catch { /* blocked or full: the conversation stays in memory for this page */ }
   }
 
+  /** The remembered answer to "is chat available on this host?", or null when there is none, it is older than 60 s, or it is for another host. */
+  function readProbe(storage, host, now) {
+    try {
+      var raw = storage && storage.getItem(PROBE_KEY);
+      if (!raw) return null;
+      var p = JSON.parse(raw);
+      if (!p || p.host !== host || typeof p.at !== "number" || p.at > now || now - p.at >= PROBE_MS || typeof p.available !== "boolean") return null;
+      return { available: p.available, state: typeof p.state === "string" ? p.state : "none" };
+    } catch { return null; }
+  }
+
+  function writeProbe(storage, host, now, available, state) {
+    try { if (storage) storage.setItem(PROBE_KEY, JSON.stringify({ host: host, at: now, available: available, state: state })); } catch { /* blocked: the next page asks again */ }
+  }
+
   function clockOf(iso) {
     var d = new Date(iso);
     if (isNaN(d.getTime())) return "";
@@ -145,7 +165,7 @@
     var script = doc.currentScript || doc.querySelector("script[data-chat-widget]");
     var store = script && script.getAttribute ? String(script.getAttribute("data-store") || "").slice(0, 80) : "";
     var storage = null;
-    try { storage = win.localStorage; } catch { storage = null; }
+    try { storage = win.sessionStorage; } catch { storage = null; }
     var log = readLog(storage);
 
     var S = { open: false, view: "form", state: "none", sending: false, error: "", draft: { text: "", name: "", email: "" },
@@ -439,12 +459,22 @@
       if (!doc.hidden && S.open) { refresh(); schedule(); }
     });
 
+    var host = win.location && win.location.host ? win.location.host : "";
+    var known = readProbe(storage, host, Date.now());
+    if (known) {
+      if (known.available) { S.state = known.state; S.view = viewFor(); build(); }
+      return;
+    }
     poll().then(function (r) {
-      if (!r || r.status !== 200 || !r.body || r.body.ok !== true || r.body.available === false) return; // chat is not available: nothing is drawn
-      build();
+      if (!r) return;
+      if (r.status === 404) { writeProbe(storage, host, Date.now(), false, "none"); return; } // chat is off here: remembered too
+      if (r.status !== 200 || !r.body || r.body.ok !== true) return; // a failure is not remembered: the next page asks again
+      var ok = r.body.available !== false;
+      writeProbe(storage, host, Date.now(), ok, S.state);
+      if (ok) build(); // not available: nothing is drawn
     });
   }
 
-  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog,
-    TEXT: TEXT, ERRORS: ERRORS, LOG_KEY: LOG_KEY };
+  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, readProbe: readProbe, writeProbe: writeProbe,
+    TEXT: TEXT, ERRORS: ERRORS, LOG_KEY: LOG_KEY, PROBE_KEY: PROBE_KEY };
 });

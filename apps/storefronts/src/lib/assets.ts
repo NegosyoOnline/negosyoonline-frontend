@@ -84,7 +84,7 @@ const VERSIONS: Record<string, string> = {
   "img/blog_3.webp": "cc22ea9b",
   "css/pack-media.css": "083dfbc3", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
   "js/pack-media.js": "20115d2f", // this storefront's own file: the Media Library's drawer, Copy caption, preview popup and in-place "Load 12 more"
-  "js/meta-pixel.js": "6385c256", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
+  "js/meta-pixel.js": "8036cc39", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };
 
 export const ASSET_BASE = "/assets/sante/";

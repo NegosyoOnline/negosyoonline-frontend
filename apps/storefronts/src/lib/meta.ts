@@ -1,8 +1,14 @@
 /* Meta Pixel and Conversions API, storefront side (ClickUp z8uq9md3n5; backend apps/meta_ads).
 
-   Only three pages carry it: the home page, the landing page and the checkout page. Never the one-time access link
-   (/funnel/membership-pack/access/*), the member pages, the onboarding steps or the completed page: Meta's script
-   sends the page address, and some of those addresses are secrets.
+   Only three pages carry the notice and the page events: the home page, the landing page and the checkout page. Never the
+   one-time access link (/funnel/membership-pack/access/*), the member pages, the onboarding steps or the completed page:
+   Meta's script sends the page address, and some of those addresses are secrets.
+
+   The one exception (ClickUp z8uq9mfh12, Coach Ed 2026-11-15, "Fire at onboarding"): the onboarding verify page
+   (GET /funnel/membership-pack/onboarding/verify/) carries one Purchase event, once per order, and only when the
+   consent cookie is already "1". Its address is a fixed path (the buyer's state is in the checkout cookie, not the URL),
+   so no secret goes to Meta. It never shows the notice, and the other onboarding steps, the access link and the
+   completed page stay free of Meta. See onboardingPurchase below.
 
    Nothing loads and nothing is sent before the visitor presses Accept. The choice lives in one first-party cookie
    (no_meta_consent: "1" accepted, "0" declined), set by the notice's own button script (js/meta-pixel.js), which
@@ -15,8 +21,8 @@
        the same ids go to Django (POST /storefront/v1/meta/events/) so Meta pairs the two;
      - the first-party script js/meta-pixel.js (no inline code).
    The server call never delays or breaks a page: it runs after the response (the route passes `send` to Next's
-   after()), has a 2 second timeout and swallows every failure. Purchase and AddPaymentInfo are never made here:
-   Django builds them from an order. */
+   after()), has a 2 second timeout and swallows every failure. AddPaymentInfo is never made here, and Purchase only
+   as onboardingPurchase says: Django builds both from an order. */
 import { randomBytes } from "node:crypto";
 import { asset } from "./assets.ts";
 import { cookieName, isSecure, readCookieShaped } from "./cookies.ts";
@@ -127,19 +133,47 @@ export function placeFields(request: Request, site: Site, now: Date = new Date()
   };
 }
 
-/* The notice. */
-export const NOTICE_TEXT = "We use Meta tools to measure visits and orders and improve our ads. Allow this?";
+/* The notice: a centred, blocking popup (ClickUp z8uq9mfh05). Layout adapted from TWCinc
+   app/static/plugins/twc_cookie_consent.js (scrim, card with header band, message, grey Decline beside a filled Accept), in Santé
+   green. The script (js/meta-pixel.js) does the blocking: focus trap, Esc ignored, page scroll locked, focus rings. */
+export const NOTICE_TEXT = "We use cookies to keep our store secure and working. With your OK, we also use Meta tools to measure visits and orders and improve our ads. Nothing goes to Meta unless you accept.";
 export const NOTICE_ACCEPT = "Accept";
 export const NOTICE_DECLINE = "Decline";
 export const NOTICE_LABEL = "Tracking notice";
+export const NOTICE_KICKER = "Cookies & privacy";
+export const NOTICE_TITLE = "Let's Make Your Santé Experience Better and Secure";
+export const NOTICE_POLICY_LABEL = "Privacy & Cookies Policy";
+export const NOTICE_POLICY_PATH = "/privacy-policy/";
+export const NOTICE_CHANGE = "You can change this anytime in Cookie settings at the bottom of the page.";
+export const NOTICE_REMEMBER = "We'll remember your choice for 180 days.";
+
+const BTN = "flex:1 1 140px;min-height:44px;box-sizing:border-box;padding:10px 18px;border-radius:8px;font:inherit;font-weight:700;font-size:15px;cursor:pointer";
+const BTN_DECLINE = `${BTN};background:#f3f4f6;border:1px solid #9ca3af;color:#1f2937`;
+const BTN_ACCEPT = `${BTN};background:#03572d;border:1px solid #03572d;color:#fff`;
 
 function notice(request: Request): Markup {
   const secure = isSecure(request);
   return html`
-<div id="no-meta-notice" role="region" aria-label="${NOTICE_LABEL}" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:12px 16px;background:#fff;color:#1f2937;border-top:1px solid #d1d5db;font:14px/1.4 system-ui,sans-serif">
-  <span>${NOTICE_TEXT}</span>
-  <button type="button" data-meta-choice="1" style="padding:8px 18px;border:1px solid #03572d;border-radius:999px;background:#03572d;color:#fff;font:inherit;font-weight:600;cursor:pointer">${NOTICE_ACCEPT}</button>
-  <button type="button" data-meta-choice="0" style="padding:8px 18px;border:1px solid #6b7280;border-radius:999px;background:#fff;color:#1f2937;font:inherit;font-weight:600;cursor:pointer">${NOTICE_DECLINE}</button>
+<div id="no-meta-notice" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(17,24,39,0.82);overflow:auto;font-family:Manrope,system-ui,sans-serif;color:#1f2937">
+  <div role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;width:100%;max-width:460px;max-height:100%;overflow:auto;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.35)">
+    <div style="padding:18px 22px;background:#03572d;color:#fff">
+      <div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85">${NOTICE_KICKER}</div>
+      <h2 id="no-meta-title" style="margin:0;font-size:22px;line-height:1.25;font-weight:800;color:#fff">${NOTICE_TITLE}</h2>
+    </div>
+    <div style="padding:20px 22px 18px">
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.55">We use cookies to keep our store <strong>secure</strong> and working. With your OK, we also use <strong>Meta tools</strong> to <strong>measure visits and orders</strong> and <strong>improve our ads</strong>. Nothing goes to Meta unless you accept.</p>
+      <p style="margin:0 0 14px;font-size:14px;line-height:1.5">Review our <a href="${NOTICE_POLICY_PATH}" target="_blank" rel="noopener" style="color:#03572d;font-weight:600">${NOTICE_POLICY_LABEL}</a>.</p>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin:0 0 18px;padding:10px 12px;background:#ecf6f0;border:1px solid #cfe5d8;border-radius:8px;font-size:13px;line-height:1.5;color:#1f2937">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false" style="flex:none;margin-top:1px"><circle cx="9" cy="9" r="9" fill="#03572d"/><rect x="8" y="4" width="2" height="6" rx="1" fill="#fff"/><circle cx="9" cy="13" r="1.2" fill="#fff"/></svg>
+        <span>${NOTICE_CHANGE}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <button type="button" data-meta-choice="0" style="${BTN_DECLINE}">${NOTICE_DECLINE}</button>
+        <button type="button" data-meta-choice="1" style="${BTN_ACCEPT}">${NOTICE_ACCEPT}</button>
+      </div>
+      <p style="margin:12px 0 0;font-size:12px;line-height:1.4;color:#4b5563;text-align:center">${NOTICE_REMEMBER}</p>
+    </div>
+  </div>
 </div>
 <script src="${asset("js/meta-pixel.js")}"></script>
 `;
@@ -246,5 +280,63 @@ export async function sendEvents(
     if (response.status !== 200 && response.status !== 404) log(`the API answered ${response.status}`);
   } catch {
     log("the API could not be reached in time");
+  }
+}
+
+/* ---- Purchase on the onboarding verify page (ClickUp z8uq9mfh12) ---------------------------------------------------- */
+
+const PURCHASE_ID = /^pur_[A-Za-z0-9_-]{1,60}$/; // backend events.ORDER_EVENTS["Purchase"] + "_" + the order's public id
+const CURRENCY = /^[A-Z]{3}$/;
+const CONTENT_ID_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
+
+export type PurchaseArgs = {
+  request: Request;
+  site: Site;
+  host: string;
+  /** The buyer's checkout cookie value: Django finds the order from it, filtered by site. */
+  token: string;
+  visitorIp: string;
+  env: Pick<StorefrontEnv, "apiBase" | "secret">;
+  fetchImpl?: (url: string, init: RequestInit) => Promise<Response>;
+  log?: (reason: string) => void;
+};
+
+/** What the verify page adds just before </body>: the data block and the script with one Purchase, only when the site has
+    a Pixel, the consent cookie is "1" on this visit and Django answers that this was the first Purchase for the order.
+    Otherwise nothing, and never the notice. It waits for Django at most 2 seconds and swallows every failure, so the page
+    is never broken or held longer. The browser event carries Django's event id, so Meta pairs it with the server's. */
+export async function onboardingPurchase(a: PurchaseArgs): Promise<Markup> {
+  const none = safe("");
+  if (!hasPixel(a.site) || !consentGiven(a.request) || !a.token || a.env.secret.length < SECRET_MIN_LENGTH) return none;
+  const log = a.log ?? logMeta;
+  try {
+    const response = await (a.fetchImpl ?? fetch)(`${a.env.apiBase}/storefront/v1/meta/purchase/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${a.env.secret}`, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ host: a.host, visitor_ip: a.visitorIp, token: a.token, consent: true }),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(EVENTS_TIMEOUT_MS),
+    });
+    if (response.status !== 200) {
+      if (response.status !== 404 && response.status !== 409) log(`the API answered ${response.status}`);
+      return none;
+    }
+    const body: unknown = await response.json();
+    if (typeof body !== "object" || body === null) return none;
+    const v = body as Record<string, unknown>;
+    if (v.first !== true || typeof v.event_id !== "string" || !PURCHASE_ID.test(v.event_id)) return none;
+    if (typeof v.value !== "number" || !Number.isFinite(v.value) || v.value <= 0) return none;
+    if (typeof v.currency !== "string" || !CURRENCY.test(v.currency)) return none;
+    const ids = Array.isArray(v.content_ids) ? v.content_ids : [];
+    if (ids.length === 0 || !ids.every((id) => typeof id === "string" && CONTENT_ID_SHAPE.test(id))) return none;
+    const block = dataBlock({
+      pixel_id: a.site.meta_pixel_id, checkout: true, // checkout: Meta's form reading stays off (OTP, email and mobile fields)
+      events: [{ name: "Purchase", id: v.event_id, data: { value: v.value, currency: v.currency, content_ids: ids } }],
+    });
+    return html`${block}<script src="${asset("js/meta-pixel.js")}"></script>`;
+  } catch {
+    log("the API could not be reached in time");
+    return none;
   }
 }

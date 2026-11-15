@@ -879,7 +879,7 @@ test("d6: the Inbox channels card, then Email, then the Pancake card; the web ch
   assert.deepEqual(d.calls.filter((c) => c.method === "PUT" && c.path.endsWith("channels/")).map((c) => c.body).at(-1), { webchat_enabled: false });
 });
 
-test("d6: Pause for is the house dropdown with a grey placeholder, nothing selected, the label matches the placeholder, typing filters; Pause chat sends the time; Resume clears it", async () => {
+test("d6: Pause for is the house dropdown with a grey placeholder, nothing selected, the visible label reads Pause chat until, typing filters; Pause chat sends the time; Resume clears it", async () => {
   const d = boot({ conn: CONN_OK, channels: { ...CHANNELS_ON } });
   await d.openSettings();
   const root = d.$("ibs-root");
@@ -889,8 +889,8 @@ test("d6: Pause for is the house dropdown with a grey placeholder, nothing selec
   assert.equal(comboInput(d, "ibs-pause").value, "");
   assert.equal(comboInput(d, "ibs-pause").getAttribute("placeholder"), "Pause for");
   const labels = d.all(root, "pm-label").map((l) => l.textContent);
-  assert.ok(labels.includes("Pause for"), "the visible label matches the placeholder");
-  assert.ok(!labels.includes("Pause chat until"), "the old label is gone");
+  assert.ok(labels.includes("Pause chat until"), "the visible label reads Pause chat until");
+  assert.ok(root.textContent.includes("Pause for"), "the dropdown keeps its Pause for accessible name");
   assert.equal(d.press(root, "Pause chat").disabled, true, "Pause chat waits for a choice");
   comboBox(d, "ibs-pause").fire("click");
   assert.deepEqual(comboRows(d, "ibs-pause"), ["1 hour", "4 hours", "Until tomorrow", "Until I turn it back on"], "the placeholder is not an option");
@@ -940,7 +940,7 @@ test("a pause the API refuses shows its line in a toast and changes nothing on t
   assert.ok(d.$("ibs-pause-status").classList.contains("chip-ok"));
 });
 
-test("d6: Email card: the contact-form switch writes email_enabled and shows only when the API says contact_inbox_available; coming soon is said once", async () => {
+test("d6: Email card: the contact-form switch writes email_enabled and shows only when the API says contact_inbox_available; the help line sits under the coming-soon line only with the switch", async () => {
   const d = boot({ conn: CONN_OK, channels: { ...CHANNELS_ON, contact_inbox_available: true, email_enabled: false } });
   await d.openSettings();
   const root = d.$("ibs-root");
@@ -950,7 +950,8 @@ test("d6: Email card: the contact-form switch writes email_enabled and shows onl
   await d.click(sw);
   assert.deepEqual(d.calls.filter((c) => c.method === "PUT" && c.path.endsWith("channels/")).map((c) => c.body), [{ email_enabled: true }]);
   assert.equal(switchOf(d, "ibs-sw-form").getAttribute("aria-checked"), "true");
-  assert.equal(root.textContent.match(/coming soon/gi).length, 1, "coming soon appears once");
+  assert.equal(root.textContent.match(/coming soon/gi).length, 2, "chip plus the help line");
+  assert.ok(root.textContent.includes("Receiving email directly: coming soon."));
   assert.ok(root.textContent.includes("Receiving email directly"));
   assert.ok(root.textContent.includes("Coming soon"));
   for (const without of [{ ...CHANNELS_ON }, { ...CHANNELS_ON, contact_inbox_available: false }]) {

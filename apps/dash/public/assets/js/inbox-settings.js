@@ -276,7 +276,8 @@
     if (!on) return s;
     var controls = h("div", ""); controls.setAttribute("id", "ibs-chat-controls");
     var field = h("div", "pm-field"); field.setAttribute("style", "margin-top:12px");
-    var lab = h("label", "pm-label", "Pause for"); lab.setAttribute("for", "ibs-pause");
+    var vis = h("span", "pm-label", "Pause chat until"); vis.setAttribute("id", "ibs-pause-l");
+    var lab = h("label", "bl-sr", "Pause for"); lab.setAttribute("for", "ibs-pause");
     var row = h("div", "mk-pause"), cell = h("div", "");
     var sel = D.el("select", { "class": "ib-input", id: "ibs-pause" });
     PAUSES.forEach(function (p) { sel.appendChild(D.el("option", { value: p[0] }, p[1])); });
@@ -289,7 +290,7 @@
     go.setAttribute("id", "ibs-pause-btn"); go.disabled = !sel.value;
     sel.addEventListener("change", function () { S.pause = sel.value; go.disabled = !sel.value; });
     add(cell, sel); add(row, cell, go);
-    add(field, lab, row, h("p", "pm-hint", "While chat is paused, visitors see that chat is not available and are pointed to your contact form."));
+    add(field, vis, lab, row, h("p", "pm-hint", "While chat is paused, visitors see that chat is not available and are pointed to your contact form."));
     var status = chatStatus(ch, now), st = h("div", "mk-status"); st.setAttribute("role", "status"); st.setAttribute("aria-live", "polite");
     var chip = h("span", "chip chip-" + status[0], status[1]); chip.setAttribute("id", "ibs-pause-status");
     st.appendChild(chip);
@@ -308,7 +309,9 @@
         swtch("ibs-sw-form", "ibs-sw-form-l", ch.email_enabled === true, function (b, next) { putChannels(b, { email_enabled: next }, next ? "Contact form messages now appear in your Inbox." : "Contact form messages no longer appear in your Inbox.", "ibs-sw-form"); })));
     }
     var soon = line("Receiving email directly", "", "Customers writing to a store address will reach your Inbox.", h("span", "chip chip-neutral", "Coming soon"));
-    return add(s, soon);
+    add(s, soon);
+    if (ch.contact_inbox_available === true) add(s, h("p", "pm-hint", "Receiving email directly: coming soon."));
+    return s;
   }
   /* One write to the channels route; the answer is the new state. Focus returns to the control that was used. */
   function putChannels(b, body, said, focusId) {

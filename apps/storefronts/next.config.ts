@@ -50,7 +50,6 @@ const lessonCsp = policy([
 const MEDIA = "dashboard/media";
 const mediaCsp = policy([], false, true);
 
-
 /* The other Pixel pages: the home page, the checkout page (not its /check, /qr/ or post-placement paths) and the onboarding verify
    page (the Purchase fires there; no other onboarding path, no access link, no completed page). */
 const CHECKOUT = "funnel/membership-pack/checkout";

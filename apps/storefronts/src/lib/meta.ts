@@ -16,9 +16,11 @@
    checkout post.
 
    A page with a Pixel and consent gets:
-     - a JSON data block (#no-meta; "<" escaped, so it can never close its tag) holding the Pixel ID and the page's
-       events, each with a deduplication id (pv_, vc_ or ic_ + 16 hex): the browser Pixel sends them with eventID, and
-       the same ids go to Django (POST /storefront/v1/meta/events/) so Meta pairs the two;
+     - a JSON data block (#no-meta; "<" escaped, so it can never close its tag) holding the Pixel ID, "page_view" (true
+       on a page that tracks PageView) and the page's other events, each with a deduplication id (vc_ or ic_ + 16 hex):
+       the browser Pixel sends them with eventID, and the same ids go to Django (POST /storefront/v1/meta/events/) so
+       Meta pairs the two. PageView is browser-only (Coach Ed, 2026-11-15; TWCinc eco funnel, app/static/plugins/
+       twc_facebook.js loadEcoPixel: fbq('track','PageView') right after init): no id, no server event;
      - the first-party script js/meta-pixel.js (no inline code).
    The server call never delays or breaks a page: it runs after the response (the route passes `send` to Next's
    after()), has a 2 second timeout and swallows every failure. AddPaymentInfo is never made here, and Purchase only
@@ -53,7 +55,8 @@ export function cookieSettingsItem(show: boolean | undefined): Markup {
 }
 
 export type MetaEvent = "PageView" | "ViewContent" | "InitiateCheckout";
-const PREFIX: Record<MetaEvent, string> = { PageView: "pv", ViewContent: "vc", InitiateCheckout: "ic" };
+export type DedupedEvent = Exclude<MetaEvent, "PageView">; // PageView has no deduplication id: the browser alone sends it
+const PREFIX: Record<DedupedEvent, string> = { ViewContent: "vc", InitiateCheckout: "ic" };
 export const CONTENT_ID = "membership-pack"; // backend apps/meta_ads/events.py CONTENT_ID
 
 const PIXEL_ID = /^[0-9]{8,20}$/; // the backend's own rule for a saved Pixel ID
@@ -62,8 +65,8 @@ const FBC = /^fb\.[0-9]\.[0-9]{10,14}\.[A-Za-z0-9_-]{1,200}$/; // backend events
 const FBCLID = /^[A-Za-z0-9_-]{1,200}$/;
 const EVENTS_TIMEOUT_MS = 2000;
 
-/** A fresh deduplication id: "pv_" + 16 hex (the backend accepts 16 to 32). */
-export function metaEventId(name: MetaEvent): string {
+/** A fresh deduplication id: "vc_" or "ic_" + 16 hex (the backend accepts 16 to 32). */
+export function metaEventId(name: DedupedEvent): string {
   return `${PREFIX[name]}_${randomBytes(8).toString("hex")}`;
 }
 
@@ -221,18 +224,18 @@ export function metaPage(a: MetaPageArgs): MetaPage {
   if (reopenRequested(a.request)) return { markup: notice(a.request), send: null };
   if (choice === "declined") return NONE;
   if (choice === "unset") return { markup: notice(a.request), send: null };
-  const events = a.events.map((name) => {
+  const pageView = a.events.includes("PageView");
+  const events = a.events.filter((name): name is DedupedEvent => name !== "PageView").map((name) => {
     const id = metaEventId(name);
-    const data =
-      name === "PageView" || !a.pack
-        ? {}
-        : {
-            content_type: "product", content_ids: [CONTENT_ID],
-            value: Math.round(a.pack.price_centavos) / 100, currency: a.pack.currency,
-          };
+    const data = !a.pack
+      ? {}
+      : {
+          content_type: "product", content_ids: [CONTENT_ID],
+          value: Math.round(a.pack.price_centavos) / 100, currency: a.pack.currency,
+        };
     return { name, id, data };
   });
-  const block = dataBlock({ pixel_id: a.site.meta_pixel_id, checkout: a.checkout === true, events });
+  const block = dataBlock({ pixel_id: a.site.meta_pixel_id, checkout: a.checkout === true, page_view: pageView, events });
   const markup = html`${block}<script src="${asset("js/meta-pixel.js")}"></script>`;
   const cookies = metaCookies(a.request, a.now);
   const body = {
@@ -245,7 +248,7 @@ export function metaPage(a: MetaPageArgs): MetaPage {
     user_agent: (a.request.headers.get("user-agent") ?? "").slice(0, 400),
     consent: true,
   };
-  return { markup, send: () => sendEvents(body, a.env, a.fetchImpl, a.log) };
+  return { markup, send: events.length === 0 ? null : () => sendEvents(body, a.env, a.fetchImpl, a.log) };
 }
 
 /** Runs the server events call after the response is sent (Next's after()). Next is imported here, not at the top,

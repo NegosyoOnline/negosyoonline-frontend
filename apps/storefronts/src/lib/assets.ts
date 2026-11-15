@@ -82,7 +82,7 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.webp": "99d5623c",
   "img/blog_2.webp": "6870f46a",
   "img/blog_3.webp": "cc22ea9b",
-  "css/pack-media.css": "28aa8058", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
+  "css/pack-media.css": "4c296f2e", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
   "js/pack-media.js": "6406e23c", // this storefront's own file: the Media Library's drawer, Copy caption, preview popup and in-place "Load 12 more"
   "js/meta-pixel.js": "6385c256", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };

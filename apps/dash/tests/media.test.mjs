@@ -157,6 +157,16 @@ test("a 404 says the Media Library is not available yet and keeps the links hidd
 
 /* ---------- the list ---------- */
 
+test("an asset the API hides (active: false) shows a neutral Hidden chip and a hint, never Published or Draft", async () => {
+  const d = boot({ assets: [asset("h1", { published: true, active: false }), asset("h2", { published: false, active: false }), asset("h3", { published: true })] });
+  await d.open();
+  assert.deepEqual(chips(rowOf(d, "h1")), ["Hidden", "Image"]);
+  assert.deepEqual(chips(rowOf(d, "h2")), ["Hidden", "Image"]);
+  assert.ok(rowOf(d, "h1").textContent.includes("Hidden from members"));
+  assert.ok(!rowOf(d, "h3").textContent.includes("Hidden"));
+  assert.deepEqual(chips(rowOf(d, "h3")), ["Published", "Image"]);
+});
+
 test("the list shows each asset with its state; a video with no file is flagged and cannot be published; texts and pictures are safe", async () => {
   const d = boot({ assets: [asset("a1", { published: true, category_label: "Product Promo", product_category: "barley", product_category_label: "Barley" }),
     video("a2", { title: "<b>ad</b>" }), asset("a3", { title: "x", file_url: "javascript:alert(1)" })] });

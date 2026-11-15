@@ -272,12 +272,12 @@
     return s;
   }
   function row(a, i, ids) {
-    var li = h("li", "ml-row"), isVideo = a.asset_type === "video", open = pending(a), pic = picture(a);
+    var li = h("li", "ml-row"), isVideo = a.asset_type === "video", open = pending(a), pic = picture(a), hidden = a.active === false;
     li.setAttribute("data-asset", a.id);
-    var head = add(h("div", "ml-row-head"), h("span", "chip chip-" + (a.published ? "ok" : "neutral"), a.published ? "Published" : "Draft"), h("span", "chip chip-neutral", isVideo ? "Video" : "Image"));
+    var head = add(h("div", "ml-row-head"), h("span", "chip chip-" + (hidden ? "neutral" : a.published ? "ok" : "neutral"), hidden ? "Hidden" : a.published ? "Published" : "Draft"), h("span", "chip chip-neutral", isVideo ? "Video" : "Image"));
     if (open) head.appendChild(h("span", "chip chip-warn", "No video yet"));
     var detail = [a.category_label || labelOf(CATEGORIES, a.category), a.product_category_label || labelOf(PRODUCTS, a.product_category || "")].filter(Boolean).join(" · ");
-    var main = add(h("div", "ml-row-main"), head, h("h3", "ml-row-title", a.title), detail ? h("p", "ml-meta", detail) : null);
+    var main = add(h("div", "ml-row-main"), head, h("h3", "ml-row-title", a.title), detail ? h("p", "ml-meta", detail) : null, hidden ? h("p", "ml-meta", "Hidden from members") : null);
     var acts = h("div", "ml-row-actions");
     var up = btn("Up", "ghost", function (b) { reorder(b, a.id, -1, ids); }), dn = btn("Down", "ghost", function (b) { reorder(b, a.id, 1, ids); });
     up.setAttribute("aria-label", "Move " + a.title + " up"); dn.setAttribute("aria-label", "Move " + a.title + " down");
@@ -409,7 +409,7 @@
 
   /* The edit form: the fields, then one control for each file (image, poster, thumbnail, video). */
   function editCard(a) {
-    var isVideo = a.asset_type === "video", s = card("edit", "Edit: " + a.title, a.published ? ["ok", "Published"] : ["neutral", "Draft"]);
+    var isVideo = a.asset_type === "video", s = card("edit", "Edit: " + a.title, a.active === false ? ["neutral", "Hidden"] : a.published ? ["ok", "Published"] : ["neutral", "Draft"]);
     var title = input("text", "title", TITLE_MAX); title.value = a.title || "";
     var cat = select("category", CATEGORIES, a.category || "promo"), prod = select("product_category", PRODUCTS, a.product_category || ""), ratio = select("crop_ratio", RATIOS, a.crop_ratio || "1:1");
     var cap = textarea("caption", CAPTION_MAX); cap.value = a.caption || "";

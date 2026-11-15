@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mediaPage } from "../src/lib/media-flow.ts";
 import { clock, filtersOf, hrefFor } from "../src/views/sante/media.ts";
 import nextConfig from "../next.config.ts";
@@ -179,4 +180,12 @@ test("only the Media Library page may load a video, from the media store only; e
     assert.equal(hit.length, 1, path);
     assert.doesNotMatch(hit[0], /media-src/, path);
   }
+});
+
+test("the preview dialog is centred and capped to the viewport so it fits a phone", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  const rule = /^\.ml-dialog \{([^}]*)\}/m.exec(css)?.[1] ?? "";
+  assert.match(rule, /margin:\s*auto/);
+  assert.match(rule, /width:\s*min\(920px,\s*calc\(100vw - 32px\)\)/);
+  assert.match(rule, /max-height:\s*calc\(100dvh - 32px\)/);
 });

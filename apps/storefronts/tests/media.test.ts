@@ -85,7 +85,7 @@ test("the page lists the assets with Copy caption and Download, the filter rail 
   assert.match(body, /ml-play/);
   assert.doesNotMatch(body, /ml-r(45|11|916|169)/);
   assert.doesNotMatch(body, /<h3[^>]*(tabindex|href)/);
-  assert.match(body, /<select name="sort" aria-label="Sort" data-pk-select>/);
+  assert.match(body, /<select name="sort" aria-label="Sort" data-pk-select data-pk-select-nofilter>/);
   assert.match(body, /js\/pack-select\.js\?v=[0-9a-f]{8}/);
   assert.match(body, /css\/pack-select\.css\?v=[0-9a-f]{8}/);
   assert.match(body, /js\/pack-media\.js\?v=[0-9a-f]{8}/);
@@ -285,6 +285,11 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   assert.match(media, /html\[data-theme="dark"\] \.e4 \.ml-sort \.pk-select-input \{ color: #E6EDE9/);
   assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-panel \{ background: #1B2620/);
   assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-opt \{ color: #E6EDE9/);
+  const js = readFileSync(new URL("../public/assets/sante/js/pack-select.js", import.meta.url), "utf8");
+  assert.match(js, /hasAttribute\("data-pk-select-nofilter"\)/);
+  assert.match(js, /input\.readOnly = true; input\.setAttribute\("inputmode", "none"\)/);
+  assert.match(js, /if \(nofilter && !select\.disabled\)[\s\S]*ArrowDown[\s\S]*ArrowUp[\s\S]*"Enter"/);
+  assert.match(shell, /\.pk-select-opt\.is-active \{ box-shadow: inset 0 0 0 2px #6C8CFF/);
   assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);
 });
 test("dark mode: the preview tile values are light, and the grid steps down 4 / 3 / 2 / 1", () => {
@@ -336,4 +341,8 @@ test("text sizes match the owner dashboard (apps/dash dash.css): body 16, labels
   assert.deepEqual(needed.filter((x) => !raised.includes(x)), []);
   assert.match(bar, /\.pdn-links a \{ font-size: 15px; \}/);
   assert.match(bar, /\.pdn-who \{ font-size: 15px; \}/);
+});
+test("the Orders form selects are pk-select without the typing filter", async () => {
+  const src = readFileSync(new URL("../src/views/sante/member-orders.ts", import.meta.url), "utf8");
+  assert.match(src, /name="\$\{name\}" data-pk-select data-pk-select-nofilter required/);
 });

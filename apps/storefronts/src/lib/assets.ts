@@ -20,7 +20,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "9ad9af0d", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
-  "css/pack-member-bar.css": "f42b9dbf", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "css/pack-member-bar.css": "574591fd", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
@@ -30,7 +30,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-lock.js": "ca426504", // this storefront's own file: the rejection dialog's script, inline in TWCinc
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "80d50155",
-  "css/pack-select.css": "096379bc",
+  "css/pack-select.css": "7171d49a",
   "css/pack-shop.css": "bc0c601f", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
@@ -44,7 +44,7 @@ const VERSIONS: Record<string, string> = {
   "img/hero-nz-tall-40pct-2000.webp": "fc680919",
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
-  "js/pack-select.js": "ff1d7b9e",
+  "js/pack-select.js": "cb6e2dac",
   "js/pack-checkout.js": "4027ca6d", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",

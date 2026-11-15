@@ -269,7 +269,7 @@ function select(p: FormPage, name: "payment" | "status", label: string): Markup 
   const msg = p.field_errors[name];
   const id = `mo-${name}`;
   return html`<div class="fld"><label for="${id}">${label}</label>
-<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select required${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
+<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select data-pk-select-nofilter required${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
 ${OPTIONS[name].map(([v, l]) => html`<option value="${v}"${p.values[name] === v ? safe(" selected") : ""}>${l}</option>`)}
 </select>
 ${msg ? html`<p class="err" id="${id}-msg">${msg}</p>` : ""}</div>`;

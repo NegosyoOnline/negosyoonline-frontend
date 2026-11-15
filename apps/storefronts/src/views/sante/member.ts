@@ -213,7 +213,7 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
 /** A member page: the base document, with the Santé bar and footer around `content`. `member` is the signed-in
     member's name ("" when the name is empty), or null on a signed-out page (the sign-in page). */
 export function memberDocument(
-  v: Chrome, args: { title: string; member: string | null; current: string; content: Markup; scripts: string[] },
+  v: Chrome, args: { title: string; member: string | null; current: string; content: Markup; scripts: string[]; styles?: string[] },
 ): Markup {
   const signedIn = args.member !== null;
   return html`<!doctype html>
@@ -236,6 +236,7 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-reviews.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
 <link rel="stylesheet" href="${asset("css/pack-member-bar.css")}">
+${(args.styles ?? []).map((s) => html`<link rel="stylesheet" href="${asset(s)}">`)}
 ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
 <body>

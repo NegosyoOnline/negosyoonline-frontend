@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { affiliatePage, homePage, mediaPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { affiliatePage, homePage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { mediaPage } from "../src/lib/media-flow.ts";
 import { ordersPage } from "../src/lib/orders-flow.ts";
 import { trainingPage } from "../src/lib/training-flow.ts";
 import { bellGet, bellRead, bellReadAll } from "../src/lib/bell-flow.ts";
@@ -81,7 +82,7 @@ test("the bar's files are listed assets, the script has no inline form, and the 
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../public/assets/sante/css/pack-member-bar.css", import.meta.url), "utf8");
   const js = readFileSync(new URL("../public/assets/sante/js/pack-member-bar.js", import.meta.url), "utf8");
-  assert.match(css, /max-width: 1240px/);
+  assert.match(css, /max-width: min\(1600px, calc\(50vw \+ 620px\)\)/);
   assert.match(css, /padding: 24px 15px 40px/);
   assert.match(css, /html\[data-theme="dark"\]/);
   assert.match(js, /no-member-theme/);
@@ -160,16 +161,7 @@ test("My Purchases: signed out goes to the store home, a dead session clears the
   assert.equal(dead.headers.get("location"), "/");
 });
 
-/* ---- the placeholder pages --------------------------------------------------------------------------------------- */
-
-test("Media Library is a plain placeholder", async () => {
-  for (const [page, title] of [[mediaPage, "Media Library"]] as const) {
-    const body = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
-    assert.match(body, new RegExp(`<h1>${title}</h1>`));
-    assert.match(body, /data-md-page="soon"/);
-    assert.match(body, /This page is coming soon\./);
-  }
-});
+/* ---- the plain pages --------------------------------------------------------------------------------------- */
 
 test("Affiliate Hub says the orders are in the app, with the app link only when it is set, and shows no earnings or referral link (the Orders log is in orders.test.ts)", async () => {
   for (const [page, title] of [[affiliatePage, "Affiliate Hub"]] as const) {

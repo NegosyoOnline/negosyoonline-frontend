@@ -40,7 +40,8 @@
 .ml-page .ml-search input::placeholder { color: #5B6B63; opacity: 1; }
 .ml-page .ml-search input::-webkit-search-cancel-button, .ml-page .ml-search input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
 .ml-page .ml-search input:-webkit-autofill, .ml-page .ml-sort select:-webkit-autofill { -webkit-text-fill-color: #14201B; box-shadow: 0 0 0 40px #F2F7F4 inset; caret-color: #14201B; }
-.ml-search:focus-within, .ml-sort:focus-within { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
+.ml-search:focus-within, .ml-sort:focus-within, .ml-sort:has(.pk-select.is-open),
+html[data-theme="dark"] .ml-search:focus-within, html[data-theme="dark"] .ml-sort:focus-within, html[data-theme="dark"] .ml-sort:has(.pk-select.is-open) { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
 .ml-sort { flex: 0 0 auto; position: relative; cursor: pointer; padding: 0 13px; gap: 8px; }
 .ml-page .ml-sort select { padding: 0 2px; font: 600 16px 'Open Sans', system-ui, sans-serif; cursor: pointer; }
 /* The sort is the approved pk-select (pack-select.css), shaped into the pill: no box of its own, the pill carries the border and the #6C8CFF focus ring. */

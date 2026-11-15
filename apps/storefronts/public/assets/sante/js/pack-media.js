@@ -55,12 +55,13 @@
     });
   }
   function copied(button, ok) {
-    var was = button.getAttribute("data-label") || button.textContent;
+    var t = button.querySelector(".ml-act-t") || button;
+    var was = button.getAttribute("data-label") || t.textContent;
     button.setAttribute("data-label", was);
-    button.textContent = ok ? "Copied" : "Copy failed";
+    t.textContent = ok ? "Copied" : "Copy failed";
     say(ok ? "Caption copied." : "The caption could not be copied.");
     clearTimeout(timers[0]);
-    timers[0] = setTimeout(function () { button.textContent = was; }, 1800);
+    timers[0] = setTimeout(function () { t.textContent = was; }, 1800);
   }
 
   /* ---- the preview popup ---- */
@@ -118,13 +119,8 @@
         if (!frag) throw new Error("shape");
         frag.querySelectorAll(".ml-card").forEach(function (c) { grid.appendChild(document.importNode(c, true)); });
         var next = frag.querySelector("[data-ml-more]");
-        var count = page.querySelector("[data-ml-count]");
         slot.textContent = "";
         if (next) slot.appendChild(document.importNode(next.parentNode, true));
-        if (count) count.textContent = frag.getAttribute("data-shown") ? (function () {
-          var shown = grid.querySelectorAll(".ml-card").length, total = Number(frag.getAttribute("data-count")) || shown;
-          return shown >= total ? total + (total === 1 ? " item" : " items") : "Showing " + shown + " of " + total + " items";
-        })() : count.textContent;
         say("More media loaded.");
       })
       .catch(function () { link.removeAttribute("aria-busy"); location.assign(link.getAttribute("href")); });

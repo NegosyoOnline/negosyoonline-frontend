@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mediaPage } from "../src/lib/media-flow.ts";
-import { clock, filtersOf, hrefFor } from "../src/views/sante/media.ts";
+import { clock, fileLine, filtersOf, hrefFor, sizeText } from "../src/views/sante/media.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
 
@@ -61,22 +61,30 @@ test("the page lists the assets with Copy caption and Download, the filter rail 
   const r = await mediaPage(dashOf(f));
   assert.equal(r.status, 200);
   const body = await text(r);
-  assert.match(body, /<h1>Media Library<\/h1>/);
+  assert.match(body, /<header class="tr-ph ml-head"><p class="ml-eyebrow">Promotion materials<\/p><h1>Media Library<\/h1><p>Ready-to-post photos and videos for promoting Santé\.<\/p>/);
   assert.match(body, /data-md-page="media"/);
   assert.match(body, /class="pd md-plain tr-page ml-page"/);
-  assert.match(body, /<header class="tr-ph"><h1>Media Library<\/h1>/);
+  assert.match(body, /<div class="ml-rail-head"><h2>Filters<\/h2>/);
   for (const label of ["Type", "Category", "Product"]) assert.match(body, new RegExp(`<legend>${label}</legend>`));
   assert.doesNotMatch(body, /Source/);
+  for (const t of ["All types", "Images", "Videos", "All categories"]) assert.match(body, new RegExp(`<span>${t}</span>`));
+  assert.match(body, /<label class="ml-chip"><input type="radio" name="type" value="" checked><svg[^>]*>.*?<\/svg><span>All types<\/span><\/label>/);
   assert.match(body, /<span>Barley<\/span><em>8<\/em>/);
-  assert.match(body, /name="search"/);
-  assert.match(body, /<option value="oldest">Oldest<\/option>/);
-  assert.match(body, /2 items/);
-  assert.equal((body.match(/class="tr-card ml-card"/g) ?? []).length, 2);
-  assert.match(body, /data-ml-copy data-caption="Caption a1">Copy caption<\/button>/);
-  assert.match(body, /href="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/media-library\/a1\/a\.jpg\?download=1"/);
-  assert.match(body, /1:05/);
+  assert.match(body, /&times; Clear all filters<\/a>/);
+  assert.match(body, /name="search"[^>]*placeholder="Search materials/);
+  assert.match(body, /<option value="newest" selected>Newest first<\/option>/);
+  assert.match(body, /<option value="oldest">Oldest first<\/option>/);
+  assert.match(body, /<b>2<\/b> assets/);
+  assert.equal((body.match(/class="ml-card"/g) ?? []).length, 2);
+  assert.match(body, /<p class="ml-cat">Product Promo<\/p>\s*<h3 class="ml-name">Asset a1<\/h3>/);
+  assert.match(body, /<p class="ml-meta">JPG · Image · 800 × 1000 \(4:5\) · 1 KB<\/p>/);
+  assert.match(body, /<p class="ml-meta">MP4 · Video · 1:05 · 1 KB<\/p>/);
+  assert.match(body, /data-ml-copy data-caption="Caption a1"><svg[^>]*>.*?<\/svg><span class="ml-act-t">Copy caption<\/span><\/button>/);
+  assert.match(body, /<a class="ml-act ml-act-go" href="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/media-library\/a1\/a\.jpg\?download=1"[^>]*><svg[^>]*>.*?<\/svg><span class="ml-act-t">Download<\/span>/);
+  assert.match(body, /<span class="ml-len">1:05<\/span>/);
   assert.match(body, /ml-play/);
-  assert.match(body, /ml-r916/);
+  assert.doesNotMatch(body, /ml-r(45|11|916|169)/);
+  assert.doesNotMatch(body, /<h3[^>]*(tabindex|href)/);
   assert.match(body, /js\/pack-media\.js\?v=[0-9a-f]{8}/);
   assert.match(body, /css\/pack-media\.css\?v=[0-9a-f]{8}/);
   assert.doesNotMatch(body, /<script(?![^>]*\ssrc=)/);
@@ -102,7 +110,7 @@ test("the filters in the address are cleaned, sent to Django, and shown selected
   assert.match(body, /name="category" value="" checked/);
   assert.match(body, /<option value="oldest" selected>/);
   assert.match(body, /value="barley promo"/);
-  assert.match(body, /Clear filters/);
+  assert.match(body, /Clear all filters/);
   assert.deepEqual(filtersOf(new URLSearchParams("search=" + "x".repeat(300))).search.length, 100);
   assert.equal(hrefFor({ type: "image", category: "", product_category: "", search: "a b", sort: "newest" }, 24), "/dashboard/media/?type=image&search=a+b&shown=24");
 });
@@ -112,12 +120,12 @@ test("Load 12 more: a link with a larger shown; shown=24 reads two pages and lis
   const second = Array.from({ length: 12 }, (_, i) => A(`b${i}`));
   const one = fake(base([PAGE(first, { count: 30, next_offset: 12 })]));
   const body = await text(await mediaPage(dashOf(one)));
-  assert.match(body, /Showing 12 of 30 items/);
+  assert.match(body, /<b>30<\/b> assets/);
   assert.match(body, /<a class="tr-btn tr-btn-go ml-btn ml-btn-go ml-more" href="\/dashboard\/media\/\?shown=24" data-ml-more data-next="12">Load 12 more<\/a>/);
 
   const two = fake(base([PAGE(first, { count: 30, next_offset: 12 }), PAGE(second, { count: 30, offset: 12, next_offset: 24 })]));
   const body2 = await text(await mediaPage(dashOf(two, "?shown=24")));
-  assert.equal((body2.match(/class="tr-card ml-card"/g) ?? []).length, 24);
+  assert.equal((body2.match(/class="ml-card"/g) ?? []).length, 24);
   assert.deepEqual(two.calls.filter((c) => c.path === "member/media").map((c) => c.body.offset).sort(), [0, 12]);
   assert.match(body2, /shown=36/);
 
@@ -153,7 +161,7 @@ test("signed out, a dead session, a rejected order, an unavailable site and a fa
 
 test("an asset the page cannot draw is left out", async () => {
   const body = await text(await mediaPage(dashOf(fake(base([PAGE([A("a1"), { id: "", title: "x" }, { id: "z", title: "z", asset_type: "pdf" }])])))));
-  assert.equal((body.match(/class="tr-card ml-card"/g) ?? []).length, 1);
+  assert.equal((body.match(/class="ml-card"/g) ?? []).length, 1);
 });
 
 test("clock writes minutes and seconds", () => {
@@ -200,4 +208,23 @@ test("on a phone the Filters drawer and its scrim sit above the sticky site head
   assert.ok(header >= 100);
   assert.ok(scrim > header, "the scrim covers the header");
   assert.ok(rail > scrim, "the drawer is over the scrim");
+});
+
+test("file lines and sizes", () => {
+  const a = { asset_type: "image", file_url: `${BLOB}/x/a.jpg?x=1`, width: 1080, height: 1350, crop_ratio: "4:5", file_size: 315 * 1024, duration_seconds: 0 } as unknown as import("../src/lib/media-api.ts").MediaAsset;
+  assert.equal(fileLine(a), "JPG · Image · 1080 × 1350 (4:5) · 315 KB");
+  const v = { ...a, asset_type: "video", file_url: `${BLOB}/x/v.mp4`, duration_seconds: 39, file_size: Math.round(3.2 * 1024 * 1024) } as typeof a;
+  assert.equal(fileLine(v), "MP4 · Video · 0:39 · 3.2 MB");
+  assert.equal(sizeText(0), "");
+});
+
+test("the Media Library CSS: equal 1:1 media box, 3 columns, green band, focus light blue, no gold ring or focus", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(/^\.ml-thumb \{([^}]*)\}/m.exec(css)?.[1] ?? "", /aspect-ratio:\s*1 \/ 1/);
+  assert.match(css, /\.ml-grid \{[^}]*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.ml-rail-head \{[^}]*background: #03572d/);
+  assert.match(css, /\.ml-clear \{[^}]*border: 1px dashed/);
+  assert.doesNotMatch(css, /201,\s*162,\s*39|#C9A227/i);
+  for (const m of css.matchAll(/[^{}]*:focus[^{}]*\{([^}]*)\}/g)) assert.doesNotMatch(m[1], /#E4C96A|#8A6513|gold/i);
+  assert.doesNotMatch(css, /\.ml-name:focus/);
 });

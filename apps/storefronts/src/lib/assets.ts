@@ -82,7 +82,7 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.webp": "99d5623c",
   "img/blog_2.webp": "6870f46a",
   "img/blog_3.webp": "cc22ea9b",
-  "js/meta-pixel.js": "8036cc39", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
+  "js/meta-pixel.js": "aebfa05c", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };
 
 export const ASSET_BASE = "/assets/sante/";

@@ -38,10 +38,9 @@ const DECLINE = "__Host-no_meta_consent=0";
 /* ---- ids, data block, fbc ---- */
 
 test("event ids are the prefix and 16 hex, new each time", () => {
-  assert.match(metaEventId("PageView"), /^pv_[0-9a-f]{16}$/);
   assert.match(metaEventId("ViewContent"), /^vc_[0-9a-f]{16}$/);
   assert.match(metaEventId("InitiateCheckout"), /^ic_[0-9a-f]{16}$/);
-  assert.notEqual(metaEventId("PageView"), metaEventId("PageView"));
+  assert.notEqual(metaEventId("ViewContent"), metaEventId("ViewContent"));
 });
 
 test("the data block escapes < > & and the line separators, so a value cannot close the tag", () => {
@@ -121,13 +120,11 @@ test("after Accept: the data block with ids and data, the script, and one server
   const block = JSON.parse(raw.slice(raw.indexOf(">") + 1, raw.indexOf("</script>")));
   assert.equal(block.pixel_id, "123456789012345");
   assert.equal(block.checkout, false);
-  assert.equal(block.events.length, 2);
-  assert.equal(block.events[0].name, "PageView");
-  assert.match(block.events[0].id, /^pv_[0-9a-f]{16}$/);
-  assert.deepEqual(block.events[0].data, {});
-  assert.equal(block.events[1].name, "ViewContent");
-  assert.match(block.events[1].id, /^vc_[0-9a-f]{16}$/);
-  assert.deepEqual(block.events[1].data, { content_type: "product", content_ids: ["membership-pack"], value: 1488, currency: "PHP" });
+  assert.equal(block.page_view, true, "PageView is a flag for the browser Pixel, with no id");
+  assert.equal(block.events.length, 1);
+  assert.equal(block.events[0].name, "ViewContent");
+  assert.match(block.events[0].id, /^vc_[0-9a-f]{16}$/);
+  assert.deepEqual(block.events[0].data, { content_type: "product", content_ids: ["membership-pack"], value: 1488, currency: "PHP" });
   assert.ok(m.send);
   assert.equal(calls.length, 0, "nothing is sent until the route runs send() after the response");
   await m.send();
@@ -146,12 +143,13 @@ test("after Accept: the data block with ids and data, the script, and one server
 
 test("the server call carries no query string, builds fbc from fbclid, and the visitor ip only on Vercel", async () => {
   const request = req(ACCEPT, "https://www.santetest.com/?fbclid=AbC123&contact=sent", { "x-vercel-forwarded-for": "203.0.113.9" });
-  const m = metaPage({ ...args(request), now: new Date(1700000000000), fetchImpl: () => Promise.resolve(Response.json({})) });
+  const events = { events: ["PageView" as const, "ViewContent" as const], pack: PACK };
+  const m = metaPage({ ...args(request, events), now: new Date(1700000000000), fetchImpl: () => Promise.resolve(Response.json({})) });
   assert.ok(m.send);
   const seen: string[] = [];
   await sendEvents({ a: 1 }, env, (url, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); });
   assert.deepEqual(seen, ['{"a":1}']);
-  const withIp = metaPage({ ...args(request), now: new Date(1700000000000), fetchImpl: (_u, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); } });
+  const withIp = metaPage({ ...args(request, events), now: new Date(1700000000000), fetchImpl: (_u, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); } });
   await withIp.send?.();
   const body = JSON.parse(seen[1]);
   assert.equal(body.url, "https://www.santetest.com/");
@@ -320,10 +318,8 @@ test("the home route: no Pixel ID shows nothing; a Pixel shows the notice first,
 
   const accepted = await homeWith(PIXEL_SITE, ACCEPT);
   assert.ok(accepted.page.includes('id="no-meta">') && accepted.page.includes("meta-pixel.js"));
-  assert.equal(accepted.events.length, 1);
-  const ids = [...accepted.page.matchAll(/"id":"(pv_[0-9a-f]{16})"/g)].map((m) => m[1]);
-  assert.deepEqual((accepted.events[0].body.events as { id: string }[]).map((e) => e.id), ids);
-  assert.equal(accepted.events[0].body.consent, true);
+  assert.equal(accepted.events.length, 0, "PageView is browser-only: the home page sends nothing to Django");
+  assert.ok(accepted.page.includes('"page_view":true') && !accepted.page.includes("pv_"));
 });
 
 /* ---- Cookie settings: withdrawing consent ---- */
@@ -359,7 +355,7 @@ test("?cookie-settings=1 reopens the notice after Accept or Decline, with no Met
   const home = await homeWith(PIXEL_SITE, ACCEPT, "/?cookie-settings=1");
   assert.ok(home.page.includes('id="no-meta-notice"') && !home.page.includes('id="no-meta">'));
   assert.equal(home.events.length, 0, "nothing is sent to Meta from the reopened page");
-  assert.equal((await homeWith(PIXEL_SITE, ACCEPT)).events.length, 1, "the ordinary page still sends after Accept");
+  assert.equal((await homeWith(PIXEL_SITE, ACCEPT)).events.length, 0, "PageView is browser-only: the ordinary home page sends nothing to Django either");
 });
 
 type Listener = (e: Record<string, unknown>) => void;
@@ -618,4 +614,38 @@ test("the popup script gives focused controls a light-blue ring and never gold",
   assert.equal(ring.style.boxShadow, "0 0 0 3px #6C8CFF");
   for (const fn of ring.listeners.blur) fn({ currentTarget: s.accept });
   assert.equal(ring.style.boxShadow, "");
+});
+
+/* ---- PageView is browser-only (Coach Ed, 2026-11-15): the script tracks it with no eventID ---- */
+
+function trackedBy(block: unknown): { args: unknown[] }[] {
+  const source = readFileSync(new URL("../public/assets/sante/js/meta-pixel.js", import.meta.url), "utf8");
+  const win: Record<string, unknown> = {
+    document: {
+      getElementById: (id: string) => (id === "no-meta" ? { textContent: JSON.stringify(block) } : null),
+      createElement: () => ({}),
+      head: { appendChild: () => {} },
+    },
+    location: { protocol: "https:", pathname: "/", search: "", hash: "" },
+  };
+  win.window = win;
+  vm.runInNewContext(source, { ...win, parseInt, RegExp, String });
+  const queue = [...(win.fbq as { queue: unknown[] }).queue];
+  return queue.map((a) => ({ args: JSON.parse(JSON.stringify(Array.from(a as ArrayLike<unknown>))) as unknown[] }));
+}
+
+test("the script tracks PageView with no eventID, then each listed event with its eventID", () => {
+  const calls = trackedBy({
+    pixel_id: "123456789012345", checkout: false, page_view: true,
+    events: [{ name: "ViewContent", id: "vc_0123456789abcdef", data: { value: 1488 } }],
+  }).filter((c) => c.args[0] === "track");
+  assert.deepEqual(calls.map((c) => c.args), [["track", "PageView"], ["track", "ViewContent", { value: 1488 }, { eventID: "vc_0123456789abcdef" }]]);
+});
+
+test("the script never tracks a PageView the data block did not ask for, even one listed with an id", () => {
+  const calls = trackedBy({
+    pixel_id: "123456789012345", checkout: true,
+    events: [{ name: "PageView", id: "pv_0123456789abcdef", data: {} }, { name: "Purchase", id: "pur_x1", data: { value: 1 } }],
+  }).filter((c) => c.args[0] === "track");
+  assert.deepEqual(calls.map((c) => c.args[1]), ["Purchase"]);
 });

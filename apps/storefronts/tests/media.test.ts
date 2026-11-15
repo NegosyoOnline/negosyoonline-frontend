@@ -291,3 +291,8 @@ test("infinite scroll: an observer on a sentinel ahead of the edge, a live statu
   assert.match(js, /"IntersectionObserver" in window/);
   assert.match(css, /\.ml-auto \.ml-more-row \{ display: none; \}/);
 });
+test("toolbar alignment: the count has no stray margin (the .pd p rule), and on a phone search is its own row above Filters, sort and count", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(css, /\.ml-tools \.ml-count \{ margin: 0; align-self: center;/);
+  assert.match(css, /\.ml-search \{ flex: 1 1 100%; order: -1; \}/);
+});

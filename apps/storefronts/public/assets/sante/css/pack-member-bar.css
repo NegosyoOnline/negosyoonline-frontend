@@ -309,6 +309,24 @@ html[data-theme="dark"] .tr-player { background: #070B09; }
 .pdn-who { font-size: 15px; }
 .pdn-out button { font-size: 16px; }
 .pdn-avatar { font-size: 15px; }
+/* Every dropdown on a member page is the approved pk-select (Coach Ed 2026-11-15): light and dark, never the browser's own menu. */
+.e4 .pk-select-box { background: #fff; border: 2px solid #E2E2E2; border-radius: 10px; min-height: 54px; padding: 0 44px 0 14px; }
+.e4 .pk-select-box:focus-within, .e4 .pk-select.is-open .pk-select-box { border-color: #007A3D; box-shadow: 0 0 0 3px rgba(0,122,61,.2); }
+.e4 .pk-select-input { color: #14201B; font-size: 17px; cursor: pointer; }
+.e4 .pk-select-input::placeholder { color: #5B6B63; }
+.e4 .pk-select-caret { color: #5B6B63; }
+.e4 .pk-select-panel { background: #fff; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,40,28,.16); }
+.e4 .pk-select-opt { color: #14201B; font-size: 16px; }
+.e4 .pk-select-opt:hover { background: #F2F7F4; }
+.e4 .pk-select-opt.is-selected { background: #E1F0E7; color: #03572D; }
+html[data-theme="dark"] .e4 .pk-select-box { background: #17201B; border-color: #3A4A42; }
+html[data-theme="dark"] .e4 .pk-select-input { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .pk-select-input::placeholder, html[data-theme="dark"] .e4 .pk-select-caret { color: #A9B8B0; }
+html[data-theme="dark"] .e4 .pk-select-panel { background: #1B2620; border-color: #3A4A42; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+html[data-theme="dark"] .e4 .pk-select-opt { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .pk-select-opt:hover { background: rgba(255,255,255,.08); }
+html[data-theme="dark"] .e4 .pk-select-opt.is-selected { background: #254033; color: #fff; }
+html[data-theme="dark"] .e4 .pk-select-opt.is-disabled { color: #A9B8B0; }
 
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */

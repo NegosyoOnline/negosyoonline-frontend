@@ -53,7 +53,7 @@ export async function mediaPage(d: Dash): Promise<Response> {
   const list: MediaList = { items, count: first.count, offset: 0, next_offset: last.next_offset, options: first.options };
   const doc = memberDocument(chrome(d.site, d.now), {
     title: "Media Library", member: s.member.full_name, current: "media", content: mediaContent(f, list, items, items.length),
-    scripts: ["js/pack-media.js"], styles: ["css/pack-media.css"],
+    scripts: ["js/pack-select.js", "js/pack-media.js"], styles: ["css/pack-select.css", "css/pack-media.css"],
   });
   return htmlResponse(doc);
 }

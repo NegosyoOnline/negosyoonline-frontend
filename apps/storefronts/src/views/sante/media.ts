@@ -182,7 +182,7 @@ export function mediaContent(f: Filters, list: MediaList, items: MediaAsset[], s
       <div class="ml-tools">
         <button type="button" class="ml-filter-btn" data-ml-filters aria-controls="ml-rail" aria-expanded="false">${SVG(I.filter, 15)} Filters</button>
         <label class="ml-search">${SVG(I.search, 16)}<span class="sr-only">Search media</span><input type="search" name="search" value="${f.search}" maxlength="100" placeholder="Search materials&hellip;" autocomplete="off"></label>
-        <label class="ml-sort">${SVG(I.sort, 15)}<span class="sr-only">Sort</span><select name="sort"><option value="newest"${f.sort !== "oldest" ? html` selected` : ""}>Newest first</option><option value="oldest"${f.sort === "oldest" ? html` selected` : ""}>Oldest first</option></select>${SVG(I.chevron, 12)}</label>
+        <div class="ml-sort">${SVG(I.sort, 15)}<select name="sort" aria-label="Sort" data-pk-select><option value="newest"${f.sort !== "oldest" ? html` selected` : ""}>Newest first</option><option value="oldest"${f.sort === "oldest" ? html` selected` : ""}>Oldest first</option></select></div>
         <p class="ml-count" id="ml-count" role="status" aria-live="polite" data-ml-count>${SVG(I.image, 15)}<span><b>${list.count}</b> ${list.count === 1 ? "asset" : "assets"}</span></p>
         <button type="submit" class="tr-btn tr-btn-go ml-btn ml-search-go">Search</button>
       </div>

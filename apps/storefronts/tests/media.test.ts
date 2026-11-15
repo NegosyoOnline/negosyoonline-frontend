@@ -85,6 +85,9 @@ test("the page lists the assets with Copy caption and Download, the filter rail 
   assert.match(body, /ml-play/);
   assert.doesNotMatch(body, /ml-r(45|11|916|169)/);
   assert.doesNotMatch(body, /<h3[^>]*(tabindex|href)/);
+  assert.match(body, /<select name="sort" aria-label="Sort" data-pk-select>/);
+  assert.match(body, /js\/pack-select\.js\?v=[0-9a-f]{8}/);
+  assert.match(body, /css\/pack-select\.css\?v=[0-9a-f]{8}/);
   assert.match(body, /js\/pack-media\.js\?v=[0-9a-f]{8}/);
   assert.match(body, /css\/pack-media\.css\?v=[0-9a-f]{8}/);
   assert.doesNotMatch(body, /<script(?![^>]*\ssrc=)/);
@@ -272,6 +275,17 @@ test("the toolbar: search, sort and count share one height and fill; the fields 
   for (const d of [/appearance: none/, /background: transparent/, /border: 0/, /box-shadow: none/]) assert.match(bare, d);
   assert.match(css, /html\[data-theme="dark"\] \.e4 \.ml-page \.ml-search input, html\[data-theme="dark"\] \.e4 \.ml-page \.ml-sort select \{[^}]*background: transparent/);
   assert.match(css, /-webkit-autofill/);
+});
+test("the sort is the approved pk-select in the pill, in light and dark, with the panel dark-readable and unclipped (position: fixed)", () => {
+  const read = (f: string) => readFileSync(new URL(`../public/assets/sante/css/${f}`, import.meta.url), "utf8");
+  const media = read("pack-media.css");
+  const shell = read("pack-member-bar.css");
+  assert.match(media, /\.e4 \.ml-sort \.pk-select-input \{[^}]*font: 600 16px/);
+  assert.match(media, /\.ml-page \.ml-sort select, \.e4 \.ml-sort \.pk-select-input \{ font-size: 15px; \}/);
+  assert.match(media, /html\[data-theme="dark"\] \.e4 \.ml-sort \.pk-select-input \{ color: #E6EDE9/);
+  assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-panel \{ background: #1B2620/);
+  assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-opt \{ color: #E6EDE9/);
+  assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);
 });
 test("dark mode: the preview tile values are light, and the grid steps down 4 / 3 / 2 / 1", () => {
   const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");

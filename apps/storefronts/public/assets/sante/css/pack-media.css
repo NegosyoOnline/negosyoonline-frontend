@@ -47,7 +47,7 @@
 .ml-sort .pk-select { display: flex; align-items: center; height: 100%; }
 .e4 .ml-sort .pk-select-box, .e4 .ml-sort .pk-select-box:focus-within, .e4 .ml-sort .pk-select.is-open .pk-select-box { height: 100%; min-height: 0; padding: 0; gap: 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .e4 .ml-sort .pk-select-input { width: 6.8em; height: 100%; font: 600 16px 'Open Sans', system-ui, sans-serif; color: #14201B; }
-.e4 .ml-sort .pk-select-caret, .e4 .ml-sort .pk-select.is-open .pk-select-caret { position: static; top: auto; right: auto; transform: none; display: flex; color: #5B6B63; }
+.e4 .ml-sort .pk-select-caret, .e4 .ml-sort .pk-select.is-open .pk-select-caret { position: static; top: auto; right: auto; transform: none; display: block; flex: 0 0 14px; }
 .e4 .ml-sort .pk-select.is-open .pk-select-caret { transform: rotate(180deg); }
 .e4 .ml-sort .pk-select-panel { min-width: 150px; }
 .ml-tools .ml-count { margin: 0; align-self: center; flex: 0 0 auto; padding: 0 14px; font-size: 14px; font-weight: 600; white-space: nowrap; }
@@ -180,4 +180,3 @@ html[data-theme="dark"] .ml-act { background: #17201B; border-color: #3A4A42; co
 html[data-theme="dark"] .ml-act-go { background: #1F7A5C; border-color: #1F7A5C; color: #fff; }
 html[data-theme="dark"] .ml-filter-btn { background: #1F7A5C; }
 html[data-theme="dark"] .e4 .ml-sort .pk-select-input { color: #E6EDE9; }
-html[data-theme="dark"] .e4 .ml-sort .pk-select-caret { color: #A9B8B0; }

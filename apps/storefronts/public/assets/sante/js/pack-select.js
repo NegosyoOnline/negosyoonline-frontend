@@ -288,7 +288,7 @@
     input.addEventListener("focus", function () {
       if (select.disabled) { input.blur(); return; }
       if (!wrap.classList.contains("is-open")) open();
-      input.select();
+      if (!nofilter) input.select();
     });
     input.addEventListener("input", function () { renderOptions(input.value); });
     input.addEventListener("keydown", function (e) {

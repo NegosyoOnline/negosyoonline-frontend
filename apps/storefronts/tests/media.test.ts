@@ -289,6 +289,10 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   assert.match(js, /hasAttribute\("data-pk-select-nofilter"\)/);
   assert.match(js, /input\.readOnly = true; input\.setAttribute\("inputmode", "none"\)/);
   assert.match(js, /if \(nofilter && !select\.disabled\)[\s\S]*ArrowDown[\s\S]*ArrowUp[\s\S]*"Enter"/);
+  assert.match(js, /if \(!nofilter\) input\.select\(\)/);
+  assert.match(shell, /\.e4 \.pk-select-caret \{ width: 14px; height: 14px; background: url\("data:image\/svg\+xml[^}]*stroke='%235B6B63'/);
+  assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-caret \{ background: url\("data:image\/svg\+xml[^}]*stroke='%23A9B8B0'/);
+  assert.match(shell, /\.e4 \.pk-select-caret::before \{ display: none; \}/);
   assert.match(shell, /\.pk-select-opt\.is-active \{ box-shadow: inset 0 0 0 2px #6C8CFF/);
   assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);
 });

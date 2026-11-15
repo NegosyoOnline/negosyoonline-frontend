@@ -427,3 +427,107 @@ export async function fetchPack(
   }
   return body;
 }
+
+/* ---- the website chat (POST /storefront/v1/chat/send/ and /chat/poll/, backend apps/inquiries/api_storefront.py) ------------
+   Server to server only. The site comes from `host` alone. The visitor's secret is passed as data: this server keeps it in its own
+   cookie, Django only stores its SHA-256. Nothing a visitor typed, no secret and no address is ever logged. */
+
+export type ChatMessage = { id: number; text: string; at: string };
+
+/** The chat's state for this visitor: "none" (no conversation), "open", "closed" or "paused". */
+export type ChatAnswer = { state: "none" | "open" | "closed" | "paused"; visitor_secret: string; messages: ChatMessage[] };
+
+export type ChatRefusal = { state: "refused"; status: number; code: string; message: string; fields: Record<string, string> };
+
+export type ChatResult =
+  | { state: "ok"; chat: ChatAnswer }
+  | ChatRefusal
+  | { state: "unavailable" } // 404: chat is switched off, or the host is not a served site
+  | { state: "failed" };
+
+export type ChatSend = {
+  host: string;
+  visitor_ip: string;
+  visitor_secret: string;
+  name: string;
+  email: string;
+  text: string;
+  website: string; // the widget's hidden field, passed on as posted: the API decides what it means
+  opened_at: string | null;
+  after_id: number;
+};
+
+export type ChatPoll = { host: string; visitor_ip: string; visitor_secret: string; after_id: number };
+
+const logChat: Log = (reason) => console.error(`storefront: chat call failed: ${reason}`);
+const CHAT_STATES = ["none", "open", "closed", "paused"];
+
+function chatAnswer(body: unknown): ChatAnswer | null {
+  if (!record(body) || typeof body.state !== "string" || !CHAT_STATES.includes(body.state)) return null;
+  if (typeof body.visitor_secret !== "string" || !Array.isArray(body.messages)) return null;
+  const messages: ChatMessage[] = [];
+  for (const m of body.messages) {
+    if (!record(m) || typeof m.id !== "number" || !Number.isInteger(m.id) || typeof m.text !== "string" || typeof m.at !== "string") return null;
+    messages.push({ id: m.id, text: m.text, at: m.at });
+  }
+  return { state: body.state as ChatAnswer["state"], visitor_secret: body.visitor_secret, messages };
+}
+
+async function chatPost(
+  path: "send" | "poll",
+  payload: ChatSend | ChatPoll,
+  env: Pick<StorefrontEnv, "apiBase" | "secret">,
+  fetchImpl: Fetch,
+  log: Log,
+): Promise<ChatResult> {
+  const failed: ChatResult = { state: "failed" };
+  if (!payload.host) return failed;
+  if (env.secret.length < SECRET_MIN_LENGTH) {
+    log("STOREFRONT_SERVER_SECRET is not set");
+    return failed;
+  }
+  let response: Response;
+  try {
+    response = await fetchImpl(`${env.apiBase}/storefront/v1/chat/${path}/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.secret}`, Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
+    return failed;
+  }
+  if (response.status === 404) return { state: "unavailable" }; // chat is off or the host is not served: the everyday answer, not logged
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    log(`the API answered ${response.status} without JSON`);
+    return failed;
+  }
+  if (response.status === 200) {
+    const parsed = chatAnswer(body);
+    if (parsed === null) {
+      log("the API answer had the wrong shape");
+      return failed;
+    }
+    return { state: "ok", chat: parsed };
+  }
+  if ([409, 422, 429].includes(response.status)) return refusal(response.status, body);
+  log(`the API answered ${response.status}`);
+  return failed;
+}
+
+/** One visitor message. */
+export function chatSend(payload: ChatSend, env: Pick<StorefrontEnv, "apiBase" | "secret">, fetchImpl: Fetch = fetch, log: Log = logChat) {
+  return chatPost("send", payload, env, fetchImpl, log);
+}
+
+/** The owner's replies since `after_id`, and the conversation's state. */
+export function chatPoll(payload: ChatPoll, env: Pick<StorefrontEnv, "apiBase" | "secret">, fetchImpl: Fetch = fetch, log: Log = logChat) {
+  return chatPost("poll", payload, env, fetchImpl, log);
+}

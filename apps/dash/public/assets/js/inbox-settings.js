@@ -4,10 +4,16 @@
    the API never returns it, the box is emptied as soon as it is sent, and nothing is stored in the browser. Every status
    comes from the API; API strings reach the page through textContent or D.el only. While the API answers 404 (the
    INQUIRIES_ENABLED switch is off, or not a Santé site) the page says the inbox is not available yet and the Inbox links
-   stay hidden. Plain ES5. NOInboxSettings.util holds the pure helpers (tests/inbox.test.mjs). */
+   stay hidden. Plain ES5. NOInboxSettings.util holds the pure helpers (tests/inbox.test.mjs).
+
+   G3 PR3 (ClickUp z8uq9mfj12, mockup d6) adds two cards above the Pancake one, from GET/PUT .../inquiries/channels/: "Inbox channels"
+   (the website chat switch, the "Pause for" house dropdown with Pause chat, the status line and Resume chat) and "Email" (the
+   contact-form switch, only when the API says contact_inbox_available, and the one "coming soon" line for direct email). Fields the
+   API does not send yet (email_enabled, contact_inbox_available) hide their part; a 404 on the channels route hides both cards. */
 (function () {
   var D = window.NODash;
   var token = 0, S = null;
+  var DAY = 86400000;
   var PAGE_RE = /^[A-Za-z0-9_]{3,64}$/, TOKEN_RE = /^\S{20,1500}$/;
 
   function byId(id) { return document.getElementById(id); }
@@ -48,6 +54,26 @@
     }
     return rel + ", " + clock;
   }
+  /* "Pause for" choices and the time each one means (Coach Ed's routine decision, ClickUp comment 1100430000530396): 1 hour, 4 hours,
+     the next day 08:00 Manila time, and the longest the API accepts (90 days, less ten minutes so a clock a little ahead is still inside). */
+  var PAUSES = [["", "Pause for"], ["1h", "1 hour"], ["4h", "4 hours"], ["tomorrow", "Until tomorrow"], ["manual", "Until I turn it back on"]];
+  function pauseUntil(choice, now) {
+    if (choice === "1h") return new Date(now.getTime() + 3600000).toISOString();
+    if (choice === "4h") return new Date(now.getTime() + 4 * 3600000).toISOString();
+    if (choice === "manual") return new Date(now.getTime() + 90 * DAY - 10 * 60000).toISOString();
+    if (choice === "tomorrow") {
+      var key = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" }).format(now).split("-");
+      /* 08:00 in Manila (UTC+8, no daylight saving) is 00:00 UTC of the same calendar day. */
+      return new Date(Date.UTC(Number(key[0]), Number(key[1]) - 1, Number(key[2]) + 1, 0, 0, 0)).toISOString();
+    }
+    return "";
+  }
+  /* The chat's status line from the API's paused_until: [chip colour, text]. */
+  function chatStatus(ch, now) {
+    var until = ch && ch.paused_until ? new Date(ch.paused_until) : null;
+    if (until && !isNaN(until.getTime()) && until.getTime() > now.getTime()) return ["warn", "Website chat is paused until " + whenText(ch.paused_until, now) + "."];
+    return ["ok", "Website chat is on. Visitors can write to you."];
+  }
   /* The one line the test block shows for each outcome code the API can answer. */
   var TEST_TEXT = {
     ok: "Pancake answered for this page.",
@@ -81,7 +107,7 @@
   /* ---------- load ---------- */
 
   function show() {
-    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, conn: null, replacing: false };
+    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, conn: null, replacing: false, ch: null, pause: "" };
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "pm-meta", "Loading your inbox settings…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -99,10 +125,16 @@
       if (mine !== token || !S || res.status === 401) return;
       if (res.status === 404) { unavailable(); return; }
       if (!res.ok) { failedPanel(res.status === 403 ? msgOf(res, "") : ""); return; }
-      S.conn = res.data; S.replacing = false; render(); setNav(true);
-      if (then) then();
+      S.conn = res.data; S.replacing = false; setNav(true);
+      D.call("GET", chBase(), null, true).then(function (r2) {
+        if (mine !== token || !S || r2.status === 401) return;
+        S.ch = r2.ok && r2.data && typeof r2.data === "object" ? r2.data : null; /* a 404 or a failure: the two channel cards stay away */
+        render();
+        if (then) then();
+      });
     });
   }
+  function chBase() { return "/sites/" + S.site + "/inquiries/channels/"; }
   function setNav(on) { Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; }); }
 
   function card(id, title, chip) {
@@ -213,7 +245,87 @@
       add(actions, btn("Test connection", "primary", test), only, btn("Disconnect", "danger", disconnect));
     }
     s.appendChild(actions);
+    if (S.ch) add(root, channelsCard(), emailCard());
     add(root, s, howCard());
+  }
+
+  /* ---------- the channel cards (d6) ---------- */
+
+  /* An on/off switch: a button with role switch, a track and the word On or Off. */
+  function swtch(id, labelId, on, fn) {
+    var b = h("button", "mk-sw"); b.setAttribute("type", "button"); b.setAttribute("id", id); b.setAttribute("role", "switch");
+    b.setAttribute("aria-checked", on ? "true" : "false"); b.setAttribute("aria-labelledby", labelId);
+    var track = h("span", "mk-sw-track"); track.setAttribute("aria-hidden", "true");
+    add(b, track, h("span", "mk-sw-t", on ? "On" : "Off"));
+    b.addEventListener("click", function () { fn(b, !on); });
+    return b;
+  }
+  function line(title, titleId, desc, control) {
+    var row = h("div", "mk-line"), t = h("div", "mk-line-t"), b = h("b", "", title);
+    if (titleId) b.setAttribute("id", titleId);
+    add(t, b, h("span", "", desc));
+    return add(row, t, control);
+  }
+  function channelsCard() {
+    var ch = S.ch, on = ch.webchat_enabled === true, now = new Date();
+    var s = card("ch", "Inbox channels");
+    add(s, h("p", "pm-lead", "Choose which channels reach your Inbox. Facebook Messenger through Pancake is set up in its own card on this page."));
+    var h3 = h("h3", "pm-h2", "Website chat"); h3.setAttribute("style", "font-size:17px");
+    add(s, h3, line("Show the chat on your website", "ibs-sw-chat-l", "Visitors can write to you from the chat button on your store. Chat stays off until it is switched on here.",
+      swtch("ibs-sw-chat", "ibs-sw-chat-l", on, function (b, next) { putChannels(b, { webchat_enabled: next }, next ? "Website chat is on." : "Website chat is off.", "ibs-sw-chat"); })));
+    if (!on) return s;
+    var controls = h("div", ""); controls.setAttribute("id", "ibs-chat-controls");
+    var field = h("div", "pm-field"); field.setAttribute("style", "margin-top:12px");
+    var lab = h("label", "pm-label", "Pause for"); lab.setAttribute("for", "ibs-pause");
+    var row = h("div", "mk-pause"), cell = h("div", "");
+    var sel = D.el("select", { "class": "ib-input", id: "ibs-pause" });
+    PAUSES.forEach(function (p) { sel.appendChild(D.el("option", { value: p[0] }, p[1])); });
+    sel.value = S.pause;
+    var go = btn("Pause chat", "primary", function (b) {
+      var until = pauseUntil(sel.value, new Date()); if (!until) return;
+      S.pause = "";
+      putChannels(b, { paused_until: until }, "Website chat is paused.", "ibs-pause");
+    });
+    go.setAttribute("id", "ibs-pause-btn"); go.disabled = !sel.value;
+    sel.addEventListener("change", function () { S.pause = sel.value; go.disabled = !sel.value; });
+    add(cell, sel); add(row, cell, go);
+    add(field, lab, row, h("p", "pm-hint", "While chat is paused, visitors see that chat is not available and are pointed to your contact form."));
+    var status = chatStatus(ch, now), st = h("div", "mk-status"); st.setAttribute("role", "status"); st.setAttribute("aria-live", "polite");
+    var chip = h("span", "chip chip-" + status[0], status[1]); chip.setAttribute("id", "ibs-pause-status");
+    st.appendChild(chip);
+    if (status[0] === "warn") {
+      var resume = btn("Resume chat", "ghost", function (b) { putChannels(b, { paused_until: null }, "Website chat is back on.", "ibs-sw-chat"); });
+      resume.classList.add("mk-small"); resume.setAttribute("id", "ibs-resume"); st.appendChild(resume);
+    }
+    add(controls, field, st); s.appendChild(controls);
+    if (window.NOInbox && window.NOInbox.combo) window.NOInbox.combo(sel, "Pause for", { blankEmpty: true });
+    return s;
+  }
+  function emailCard() {
+    var ch = S.ch, s = card("em", "Email");
+    if (ch.contact_inbox_available === true) {
+      add(s, line("Contact form messages appear in your Inbox", "ibs-sw-form-l", "Messages sent from the contact form on your store show as email conversations. The email to your contact address is still sent as before.",
+        swtch("ibs-sw-form", "ibs-sw-form-l", ch.email_enabled === true, function (b, next) { putChannels(b, { email_enabled: next }, next ? "Contact form messages now appear in your Inbox." : "Contact form messages no longer appear in your Inbox.", "ibs-sw-form"); })));
+    }
+    var soon = line("Receiving email directly", "", "Customers writing to a store address will reach your Inbox.", h("span", "chip chip-neutral", "Coming soon"));
+    return add(s, soon);
+  }
+  /* One write to the channels route; the answer is the new state. Focus returns to the control that was used. */
+  function putChannels(b, body, said, focusId) {
+    var mine = token; busy(b, true);
+    D.call("PUT", chBase(), body, true).then(function (res) {
+      if (res.status === 401 || mine !== token || !S) return;
+      if (!res.ok) {
+        busy(b, false);
+        if (res.status === 404) { S.ch = null; render(); return; }
+        var f = res.data && res.data.fields, first = f ? f[Object.keys(f)[0]] : null;
+        D.toast("That did not work", msgOf(res, Array.isArray(first) && typeof first[0] === "string" ? first[0] : "We could not save. Please try again."), "error");
+        return;
+      }
+      var merged = {}; Object.keys(S.ch).forEach(function (k) { merged[k] = S.ch[k]; }); Object.keys(res.data || {}).forEach(function (k) { merged[k] = res.data[k]; }); S.ch = merged;
+      render(); say(said);
+      var again = byId(focusId); if (again && again.focus) again.focus();
+    });
   }
   function howCard() {
     var s = card("how", "How the inbox works"), ul = h("ul", "mk-list");
@@ -270,5 +382,5 @@
     });
   }
 
-  window.NOInboxSettings = { show: show, hide: hide, util: { whenText: whenText, testText: testText, chipOf: chipOf, pageError: pageError, tokenError: tokenError } };
+  window.NOInboxSettings = { show: show, hide: hide, util: { whenText: whenText, testText: testText, chipOf: chipOf, pageError: pageError, tokenError: tokenError, pauseUntil: pauseUntil, chatStatus: chatStatus } };
 })();

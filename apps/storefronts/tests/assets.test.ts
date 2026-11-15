@@ -12,7 +12,7 @@ const PUBLIC = path.join(import.meta.dirname, "..", "public");
 
 test("every listed file exists, and its version is the start of its SHA-256", () => {
   const versions = assetVersions();
-  assert.equal(Object.keys(versions).length, 78);
+  assert.equal(Object.keys(versions).length, 80);
   for (const [file, version] of Object.entries(versions)) {
     const bytes = readFileSync(path.join(PUBLIC, ASSET_BASE, file));
     assert.equal(version, createHash("sha256").update(bytes).digest("hex").slice(0, 8), file);
@@ -27,7 +27,7 @@ test("an unlisted file is an error, not a silent link", () => {
 test("every file the home and its stylesheets name is in public/", () => {
   const page = homeDocument(homeModel(SITE)).value;
   const linked = [...page.matchAll(/(?:src|href)="(\/assets\/[^"?]+)\?v=[0-9a-f]{8}"/g)].map((m) => m[1]);
-  assert.equal(new Set(linked).size, 18);
+  assert.equal(new Set(linked).size, 20);
   for (const file of linked) assert.ok(existsSync(path.join(PUBLIC, file)), file);
   for (const sheet of ["pack-home.css", "pack-storefront.css"]) {
     const css = readFileSync(path.join(PUBLIC, ASSET_BASE, "css", sheet), "utf8");

@@ -26,8 +26,9 @@ test("no inline script, handler or frame; nothing loaded from another origin but
     `<script src="/assets/sante/js/pack-home.js?v=db367a6b">`,
     `<script src="/assets/sante/js/pack-store.js?v=3caf40e6">`,
     `<script src="/assets/sante/js/contact-form.js?v=${assetVersions()["js/contact-form.js"]}">`,
+    `<script src="/assets/sante/js/chat-widget.js?v=${assetVersions()["js/chat-widget.js"]}" data-chat-widget data-store="Nena&#x27;s Wellness &amp; Barley">`,
   ]);
-  assert.equal(page.match(/<script[^>]*><\/script>/g)?.length, 3); // each one empty: a link, never code
+  assert.equal(page.match(/<script[^>]*><\/script>/g)?.length, 4); // each one empty: a link, never code
   assert.doesNotMatch(page, /<style|<iframe|\son[a-z]+\s*=|javascript:/i);
   const loaded = [...page.matchAll(/<(?:link|img|script)[^>]*(?:href|src)="([^"]+)"/g)].map((m) => m[1]);
   for (const url of loaded) {
@@ -154,7 +155,7 @@ test("after a post: the approved failure note, the typed values kept and escaped
   assert.match(page, /name="subject" value="&quot;quoted&quot; &amp; more"/);
   assert.match(page, />Hello &lt;\/textarea&gt;&lt;script&gt;alert\(1\)&lt;\/script&gt;\nline two<\/textarea>/);
   assert.doesNotMatch(page, /Thanks! Your message has been sent/);
-  assert.equal(page.match(/<script/g)?.length, 3);
+  assert.equal(page.match(/<script/g)?.length, 4); // the three of the page and the chat widget's own
 });
 
 test("posted values are cut to the form's limits, and a missing field is empty", () => {

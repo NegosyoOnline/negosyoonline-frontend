@@ -104,6 +104,8 @@
   }
   function initialsOf(name) {
     var w = String(name || "").trim().split(/\s+/).filter(Boolean);
+    var named = w.filter(function (x) { return /^[A-Za-z0-9\u00C0-\uFFFF]/.test(x); }); /* "Ana Reyes (test)" is AR, not A( */
+    if (named.length) w = named;
     if (!w.length) return "?";
     var a = Array.from(w[0])[0], b = w.length > 1 ? Array.from(w[w.length - 1])[0] : "";
     return (a + b).toUpperCase();

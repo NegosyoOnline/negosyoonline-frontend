@@ -48,8 +48,12 @@ html[data-theme="dark"] .ml-search:focus-within, html[data-theme="dark"] .ml-sor
    fills the whole pill (-1px margins cover the border) so .pk-select-box has the pill's own rect, and pack-select.js opens the panel at the pill's left
    edge, at its full width, 6px below it, like the dash. The sort icon sits in the box's left padding. */
 .ml-sort > svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); pointer-events: none; }
-.ml-sort .pk-select { display: block; align-self: stretch; margin: -1px; }
+.ml-sort .pk-select { display: block; align-self: stretch; margin: -1px; border-radius: inherit; }
 .e4 .ml-sort .pk-select-box, .e4 .ml-sort .pk-select-box:focus-within, .e4 .ml-sort .pk-select.is-open .pk-select-box { height: 100%; min-height: 0; padding: 0 14px 0 37px; gap: 8px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+/* Dark: pack-member-bar.css paints .e4 .pk-select-box (and its focus/open forms) an opaque square box at a higher specificity, which would cover the
+   pill's rounded border. These match or out-rank it, so the sort box stays clear and the pill's border and focus ring show. */
+html[data-theme="dark"] .e4 .ml-sort .pk-select-box, html[data-theme="dark"] .e4 .ml-sort .pk-select-box:focus-within, html[data-theme="dark"] .e4 .ml-sort .pk-select.is-open .pk-select-box { background: transparent; border: 0; border-radius: 999px; box-shadow: none; }
+.e4 .ml-sort .pk-select-box { border-radius: 999px; }
 .e4 .ml-sort .pk-select-input { width: 6.8em; height: 100%; font: 600 16px 'Open Sans', system-ui, sans-serif; color: #14201B; }
 .e4 .ml-sort .pk-select-caret, .e4 .ml-sort .pk-select.is-open .pk-select-caret { position: static; top: auto; right: auto; transform: none; display: block; flex: 0 0 14px; }
 .e4 .ml-sort .pk-select.is-open .pk-select-caret { transform: rotate(180deg); }

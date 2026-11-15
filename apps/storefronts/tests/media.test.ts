@@ -303,7 +303,7 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   // Fix 9: the pk-select box fills the pill (so pack-select.js opens the panel at the pill's left edge, full width, 6px below), and the rows are 44px as in Orders.
   assert.match(media, /\.ml-sort \{ flex: 0 0 auto; position: relative; cursor: pointer; padding: 0; gap: 0; \}/);
   assert.match(media, /\.ml-sort > svg \{ position: absolute; left: 13px;/);
-  assert.match(media, /\.ml-sort \.pk-select \{ display: block; align-self: stretch; margin: -1px; \}/);
+  assert.match(media, /\.ml-sort \.pk-select \{ display: block; align-self: stretch; margin: -1px; border-radius: inherit; \}/);
   assert.match(media, /\.e4 \.ml-sort \.pk-select-box, [^{]*\{ height: 100%; min-height: 0; padding: 0 14px 0 37px;/);
   assert.doesNotMatch(media, /\.ml-sort \.pk-select-panel/);
   assert.match(media, /\.e4 \.ml-sort \.pk-select-opt \{ line-height: 24px; \}/);
@@ -362,4 +362,10 @@ test("text sizes match the owner dashboard (apps/dash dash.css): body 16, labels
 test("the Orders form selects are pk-select without the typing filter", async () => {
   const src = readFileSync(new URL("../src/views/sante/member-orders.ts", import.meta.url), "utf8");
   assert.match(src, /name="\$\{name\}" data-pk-select data-pk-select-nofilter required/);
+});
+
+test("the sort box stays clear in dark mode, so the pill's rounded border shows", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.ml-sort \.pk-select-box, [^{]*\.pk-select\.is-open \.pk-select-box \{ background: transparent; border: 0; border-radius: 999px; box-shadow: none; \}/);
+  assert.match(css, /\.ml-sort \.pk-select \{[^}]*border-radius: inherit/);
 });

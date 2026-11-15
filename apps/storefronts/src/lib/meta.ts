@@ -134,36 +134,44 @@ export function placeFields(request: Request, site: Site, now: Date = new Date()
 }
 
 /* The notice: a centred, blocking popup (ClickUp z8uq9mfh05). Layout adapted from TWCinc
-   app/static/plugins/twc_cookie_consent.js (scrim, card with header band, title, text, two equal choices), in Santé green. The script
-   (js/meta-pixel.js) does the blocking: focus trap, Esc ignored, page scroll locked, focus rings. */
-export const NOTICE_TEXT = "We use Meta tools to measure visits and orders and improve our ads. Allow this?";
+   app/static/plugins/twc_cookie_consent.js (scrim, card with header band, message, grey Decline beside a filled Accept), in Santé
+   green. The script (js/meta-pixel.js) does the blocking: focus trap, Esc ignored, page scroll locked, focus rings. */
+export const NOTICE_TEXT = "We use cookies to keep our store secure and working. With your OK, we also use Meta tools to measure visits and orders and improve our ads. Nothing goes to Meta unless you accept.";
 export const NOTICE_ACCEPT = "Accept";
 export const NOTICE_DECLINE = "Decline";
 export const NOTICE_LABEL = "Tracking notice";
 export const NOTICE_KICKER = "Cookies & privacy";
-export const NOTICE_TITLE = "Your choice about tracking";
+export const NOTICE_TITLE = "Let's Make Your Santé Experience Better";
 export const NOTICE_POLICY_LABEL = "Privacy & Cookies Policy";
 export const NOTICE_POLICY_PATH = "/privacy-policy/";
 export const NOTICE_CHANGE = "You can change this anytime in Cookie settings at the bottom of the page.";
 export const NOTICE_REMEMBER = "We'll remember your choice for 180 days.";
 
-const BTN = "flex:1 1 140px;min-height:44px;box-sizing:border-box;padding:10px 18px;border:2px solid #03572d;border-radius:999px;font:inherit;font-weight:700;font-size:15px;cursor:pointer";
+const BTN = "flex:1 1 140px;min-height:44px;box-sizing:border-box;padding:10px 18px;border-radius:8px;font:inherit;font-weight:700;font-size:15px;cursor:pointer";
+const BTN_DECLINE = `${BTN};background:#f3f4f6;border:1px solid #9ca3af;color:#1f2937`;
+const BTN_ACCEPT = `${BTN};background:#03572d;border:1px solid #03572d;color:#fff`;
 
 function notice(request: Request): Markup {
   const secure = isSecure(request);
   return html`
 <div id="no-meta-notice" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(17,24,39,0.6);overflow:auto;font-family:Manrope,system-ui,sans-serif;color:#1f2937">
-  <div role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;width:100%;max-width:440px;max-height:100%;overflow:auto;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.35)">
-    <div style="padding:10px 20px;background:#03572d;color:#fff;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">${NOTICE_KICKER}</div>
-    <div style="padding:20px">
-      <h2 id="no-meta-title" style="margin:0 0 10px;font-size:20px;line-height:1.3;color:#03572d">${NOTICE_TITLE}</h2>
-      <p style="margin:0 0 10px;font-size:15px;line-height:1.5">${NOTICE_TEXT}</p>
-      <p style="margin:0 0 10px;font-size:14px;line-height:1.5"><a href="${NOTICE_POLICY_PATH}" target="_blank" rel="noopener" style="color:#03572d;font-weight:600">${NOTICE_POLICY_LABEL}</a></p>
-      <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#4b5563">${NOTICE_CHANGE} ${NOTICE_REMEMBER}</p>
-      <div style="display:flex;flex-wrap:wrap;gap:12px">
-        <button type="button" data-meta-choice="0" style="${BTN};background:#fff;color:#03572d">${NOTICE_DECLINE}</button>
-        <button type="button" data-meta-choice="1" style="${BTN};background:#fff;color:#03572d">${NOTICE_ACCEPT}</button>
+  <div role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;width:100%;max-width:460px;max-height:100%;overflow:auto;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.35)">
+    <div style="padding:18px 22px;background:#03572d;color:#fff">
+      <div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85">${NOTICE_KICKER}</div>
+      <h2 id="no-meta-title" style="margin:0;font-size:22px;line-height:1.25;font-weight:800;color:#fff">${NOTICE_TITLE}</h2>
+    </div>
+    <div style="padding:20px 22px 18px">
+      <p style="margin:0 0 12px;font-size:15px;line-height:1.55">We use cookies to keep our store <strong>secure</strong> and working. With your OK, we also use <strong>Meta tools</strong> to <strong>measure visits and orders</strong> and <strong>improve our ads</strong>. Nothing goes to Meta unless you accept.</p>
+      <p style="margin:0 0 14px;font-size:14px;line-height:1.5">Review our <a href="${NOTICE_POLICY_PATH}" target="_blank" rel="noopener" style="color:#03572d;font-weight:600">${NOTICE_POLICY_LABEL}</a>.</p>
+      <div style="display:flex;align-items:flex-start;gap:10px;margin:0 0 18px;padding:10px 12px;background:#ecf6f0;border:1px solid #cfe5d8;border-radius:8px;font-size:13px;line-height:1.5;color:#1f2937">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false" style="flex:none;margin-top:1px"><circle cx="9" cy="9" r="9" fill="#03572d"/><rect x="8" y="4" width="2" height="6" rx="1" fill="#fff"/><circle cx="9" cy="13" r="1.2" fill="#fff"/></svg>
+        <span>${NOTICE_CHANGE}</span>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <button type="button" data-meta-choice="0" style="${BTN_DECLINE}">${NOTICE_DECLINE}</button>
+        <button type="button" data-meta-choice="1" style="${BTN_ACCEPT}">${NOTICE_ACCEPT}</button>
+      </div>
+      <p style="margin:12px 0 0;font-size:12px;line-height:1.4;color:#4b5563;text-align:center">${NOTICE_REMEMBER}</p>
     </div>
   </div>
 </div>

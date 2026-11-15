@@ -94,7 +94,7 @@ test("no Pixel ID: no notice, no block, no call", () => {
 test("before an answer: the notice only, nothing of Meta, nothing sent", () => {
   const m = metaPage(args(req()));
   assert.equal(m.send, null);
-  assert.ok(m.markup.value.includes(NOTICE_TEXT) && m.markup.value.includes(NOTICE_ACCEPT) && m.markup.value.includes(NOTICE_DECLINE));
+  assert.ok(m.markup.value.includes("Nothing goes to Meta unless you accept.") && m.markup.value.includes(NOTICE_ACCEPT) && m.markup.value.includes(NOTICE_DECLINE));
   assert.ok(m.markup.value.includes('data-cookie="__Host-no_meta_consent"'));
   assert.ok(!m.markup.value.includes("no-meta\"") && !m.markup.value.includes("123456789012345"));
   assert.ok(!m.markup.value.includes("facebook"));
@@ -329,7 +329,7 @@ test("the home route: no Pixel ID shows nothing; a Pixel shows the notice first,
 /* ---- Cookie settings: withdrawing consent ---- */
 
 test("the notice carries the final wording", () => {
-  assert.equal(NOTICE_TEXT, "We use Meta tools to measure visits and orders and improve our ads. Allow this?");
+  assert.equal(NOTICE_TEXT, "We use cookies to keep our store secure and working. With your OK, we also use Meta tools to measure visits and orders and improve our ads. Nothing goes to Meta unless you accept.");
 });
 
 test("the Cookie settings link is in the store footer on a Pixel site and absent without one", () => {
@@ -349,7 +349,7 @@ test("?cookie-settings=1 reopens the notice after Accept or Decline, with no Met
   for (const cookie of [ACCEPT, DECLINE, ""]) {
     const m = metaPage(args(req(cookie, "https://www.santetest.com/?cookie-settings=1")));
     assert.equal(m.send, null);
-    assert.ok(m.markup.value.includes('id="no-meta-notice"') && m.markup.value.includes(NOTICE_TEXT));
+    assert.ok(m.markup.value.includes('id="no-meta-notice"') && m.markup.value.includes("Nothing goes to Meta unless you accept."));
     assert.ok(!m.markup.value.includes('id="no-meta"') && !m.markup.value.includes("123456789012345"));
   }
   const noPixel = metaPage({ ...args(req(ACCEPT, "https://www.santetest.com/?cookie-settings=1")), site: SITE });
@@ -544,21 +544,27 @@ test("the popup markup: dialog, labelled title, equal buttons, policy link, chan
   assert.match(raw, /role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;/);
   assert.match(raw, /<h2 id="no-meta-title" style=/);
   assert.ok(!/<h2[^>]*tabindex/.test(raw), "the title is never focusable");
-  assert.ok(raw.includes("Cookies &amp; privacy"));
-  assert.ok(raw.includes(NOTICE_TEXT));
-  assert.match(raw, /<a href="\/privacy-policy\/"[^>]*>Privacy &amp; Cookies Policy<\/a>/);
+  assert.match(raw, /<div[^>]*>Cookies &amp; privacy<\/div>\s*<h2 id="no-meta-title"[^>]*>Let&#x27;s Make Your Santé Experience Better<\/h2>/, "eyebrow and title in the band");
+  assert.match(raw, /background:#03572d;color:#fff">\s*<div/, "green header band, white text");
+  assert.ok(raw.includes("We use cookies to keep our store <strong>secure</strong> and working. With your OK, we also use <strong>Meta tools</strong> to <strong>measure visits and orders</strong> and <strong>improve our ads</strong>. Nothing goes to Meta unless you accept."));
+  assert.match(raw, /Review our <a href="\/privacy-policy\/"[^>]*>Privacy &amp; Cookies Policy<\/a>\./);
   assert.equal(NOTICE_POLICY_LABEL, "Privacy & Cookies Policy");
   assert.equal(NOTICE_CHANGE, "You can change this anytime in Cookie settings at the bottom of the page.");
   assert.equal(NOTICE_REMEMBER, "We'll remember your choice for 180 days.");
-  assert.ok(raw.includes("You can change this anytime in Cookie settings at the bottom of the page."));
+  assert.match(raw, /background:#ecf6f0[^"]*">\s*<svg[\s\S]*?<\/svg>\s*<span>You can change this anytime in Cookie settings at the bottom of the page\.<\/span>/, "tinted note with icon");
   assert.ok(raw.includes("We&#x27;ll remember your choice for 180 days."));
+  assert.ok(!raw.includes(">Cookies Settings<"), "no Cookies Settings link in the popup");
   assert.equal(CONSENT_MAX_AGE, 180 * 24 * 3600);
   const styles = [...raw.matchAll(/<button type="button" data-meta-choice="([01])" style="([^"]*)">([^<]*)<\/button>/g)];
   assert.equal(styles.length, 2);
-  assert.deepEqual(styles.map((m) => m[3]).sort(), ["Accept", "Decline"]);
-  assert.equal(styles[0][2], styles[1][2], "Accept and Decline carry the same style");
+  assert.deepEqual(styles.map((m) => m[3]), ["Decline", "Accept"]);
+  const [decline, accept] = [styles[0][2], styles[1][2]];
+  const size = (x: string) => x.split(";").filter((d) => /^(flex|min-height|box-sizing|padding|border-radius|font)/.test(d)).join(";");
+  assert.equal(size(decline), size(accept), "equal size, height and radius");
+  assert.match(decline, /background:#f3f4f6;border:1px solid #9ca3af;color:#1f2937/);
+  assert.match(accept, /background:#03572d;[^"]*color:#fff/);
   assert.ok(!/close|&times;|×|aria-label="Close/i.test(raw), "no close control");
-  assert.ok(!/gold|#c9a|#d4af|navy/i.test(raw));
+  assert.ok(!/gold|#c9a|#d4af|navy|#1e3a|#0a2/i.test(raw));
   assert.ok(!raw.includes("<style") && !/onclick=|onkeydown=/.test(raw), "no inline style element or handler (CSP)");
 });
 

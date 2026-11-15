@@ -44,8 +44,8 @@ function boot({ assets = [], off = null, search = "" } = {}) {
     else if (s.off && rest !== null) a = s.off;
     else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets });
     else if (rest === "" && opts.method === "POST") a = s.answer || (() => {
-      const f = opts.body, id = "ast_" + ++s.next, kind = f.get("asset_type");
-      const row = kind === "video" ? video(id, { title: f.get("title") }) : asset(id, { title: f.get("title") });
+      const id = "ast_" + ++s.next;
+      const row = body.asset_type === "video" ? video(id, { title: body.title, poster_url: null }) : asset(id, { title: body.title, file_url: null });
       s.assets.push(row); return ok(row, 201);
     })();
     else if (rest === "reorder/") { s.assets = body.ids.map((i) => find(i)); a = ok({ assets: s.assets }); }
@@ -53,7 +53,7 @@ function boot({ assets = [], off = null, search = "" } = {}) {
     else if (seg.length === 2 && seg[1] === "unpublish") { const x = find(seg[0]); x.published = false; a = ok(x); }
     else if (seg.length === 1 && opts.method === "PATCH") { const x = find(seg[0]); a = s.answer || (Object.assign(x, body), ok(x)); }
     else if (seg.length === 1 && opts.method === "DELETE") { s.assets = s.assets.filter((x) => x.id !== seg[0]); a = ok({ status: "deleted" }); }
-    else if (seg[1] === "image" && opts.method === "POST") { const x = find(seg[0]); const k = opts.body.get("kind"); x[k === "file" ? "file_url" : k + "_url"] = BLOB + seg[0] + "/new.jpg"; a = ok(x); }
+    else if (seg[1] === "image" && opts.method === "POST") { if (s.imageAnswer) { a = s.imageAnswer; return Promise.resolve({ ok: false, status: a.status, json: () => Promise.resolve(a.body) }); } const x = find(seg[0]); const k = opts.body.get("kind"); x[k === "file" ? "file_url" : k + "_url"] = BLOB + seg[0] + "/new.jpg"; a = ok(x); }
     else if (seg[1] === "image" && opts.method === "DELETE") { const x = find(seg[0]); x.thumb_url = null; a = ok(x); }
     else if (seg[1] === "video" && seg[2] === "token") a = s.tokenAnswer || ok({ upload_url: "https://vercel.com/api/blob/?pathname=media-library%2F" + seg[0] + "%2Fx.mp4", method: "PUT",
       headers: { authorization: "Bearer t", "x-api-version": "7" }, max_bytes: 50 * 1024 * 1024, public_url: BLOB + seg[0] + "/x.mp4" });
@@ -217,7 +217,7 @@ test("Delete asks twice, then removes the asset", async () => {
 
 /* ---------- add ---------- */
 
-test("an image goes up as one multipart request and starts as a draft", async () => {
+test("an image is created as a JSON draft, then its file goes up as one multipart request", async () => {
   const d = boot();
   await d.open();
   await d.click(d.press(d.root(), "Add media"));
@@ -226,13 +226,10 @@ test("an image goes up as one multipart request and starts as a draft", async ()
   d.$("ml-n-file").files = [file("a.jpg", "image/jpeg")];
   await d.click(d.press(d.root(), "Add media"));
   const post = d.calls.find((c) => c.method === "POST" && c.path === M);
-  assert.equal(post.form.get("asset_type"), "image");
-  assert.equal(post.form.get("title"), "New promo");
-  assert.equal(post.form.get("category"), "ad");
-  assert.equal(post.form.get("product_category"), "drinks");
-  assert.equal(post.form.get("crop_ratio"), "4:5");
-  assert.equal(post.form.get("caption"), "Buy now");
-  assert.ok(post.form.get("file"));
+  assert.deepEqual(post.body, { title: "New promo", asset_type: "image", category: "ad", crop_ratio: "4:5", caption: "Buy now", product_category: "drinks" });
+  const up = d.calls.find((c) => c.method === "POST" && c.path === M + "ast_101/image/");
+  assert.equal(up.form.get("kind"), "file");
+  assert.ok(up.form.get("file"));
   assert.deepEqual(chips(rowOf(d, "ast_101")), ["Draft", "Image"]);
   assert.ok(d.toasts.some((t) => t.startsWith("Added")));
 });
@@ -277,9 +274,11 @@ test("a video: a draft with its poster, a token, the PUT to the given address wi
   d.$("ml-n-video").files = [movie];
   await d.click(d.press(d.root(), "Add media"));
   const create = d.calls.find((c) => c.method === "POST" && c.path === M);
-  assert.equal(create.form.get("asset_type"), "video");
-  assert.ok(create.form.get("poster"));
-  assert.equal(create.form.has("file"), false, "the video does not go through this server");
+  assert.equal(create.body.asset_type, "video");
+  const poster = d.calls.find((c) => c.path === M + "ast_101/image/");
+  assert.equal(poster.form.get("kind"), "poster");
+  assert.ok(poster.form.get("file"));
+  assert.equal(d.calls.some((c) => c.form && c.form.has("video")), false, "the video does not go through this server");
   assert.ok(d.calls.some((c) => c.path === M + "ast_101/video/token/" && c.method === "POST"));
   assert.equal(d.puts.length, 1);
   assert.equal(d.puts[0].m, "PUT");
@@ -331,6 +330,19 @@ test("a token the API refuses (503) says the store is not set up and sends nothi
   await d.click(d.press(d.root(), "Upload video"));
   assert.equal(d.puts.length, 0);
   assert.equal(d.$("ml-e-video-err").textContent, "Files cannot be stored yet: the media store is not set up.");
+});
+
+test("if the draft is created but its picture is refused, the draft stays and its editor opens with the error", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(d.press(d.root(), "Add media"));
+  d.set("ml-n-title", "T");
+  d.$("ml-n-file").files = [file("a.jpg", "image/jpeg")];
+  d.s.imageAnswer = err(400, "invalid_request", "x", { file: ["That picture is not valid."] });
+  await d.click(d.press(d.root(), "Add media"));
+  assert.ok(rowOf(d, "ast_101"));
+  assert.equal(d.$("ml-e-title").value, "T");
+  assert.equal(d.$("ml-e-file-err").textContent, "That picture is not valid.");
 });
 
 /* ---------- edit ---------- */

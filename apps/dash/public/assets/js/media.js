@@ -364,12 +364,11 @@
       }
       if (hasErrors(errors)) { showFields(f, errors); return; }
       showFields(f, {});
-      var form = new FormData(), mine = token; busy(b, true);
-      form.append("title", built.body.title); form.append("asset_type", kind); form.append("category", built.body.category); form.append("crop_ratio", built.body.crop_ratio);
-      form.append("caption", built.body.caption);
-      if (built.body.product_category) form.append("product_category", built.body.product_category);
-      if (kind === "image") form.append("file", img.file); else form.append("poster", poster1.file);
-      D.send("POST", base(), form).then(function (res) {
+      var mine = token, create = { title: built.body.title, asset_type: kind, category: built.body.category, crop_ratio: built.body.crop_ratio, caption: built.body.caption };
+      if (built.body.product_category) create.product_category = built.body.product_category;
+      busy(b, true);
+      /* (1) the draft, as JSON, with no file; (2) its image (or the video's poster) as a multipart request; (3) for a video, token, PUT and attach. */
+      D.call("POST", base(), create, true).then(function (res) {
         if (res.status === 401 || mine !== token || !S) return;
         if (!res.ok || !valid(res.data)) {
           busy(b, false);
@@ -377,15 +376,30 @@
           if (!showFields(f, apiFields(res))) D.toast("That did not work", refused(res), "error");
           return;
         }
+        var id = res.data.id, form = new FormData(), pic = kind === "image" ? img.file : poster1.file;
         S.assets = upsert(S.assets, res.data);
-        if (kind === "image") { S.adding = false; render(); D.toast("Added", "The image was added as a draft."); say("Image added as a draft."); return; }
-        sendVideo(res.data.id, movie.file, note, mine).then(function (sent) {
-          if (mine !== token || !S) return;
-          busy(b, false);
-          if (sent.ok) { if (valid(sent.asset)) S.assets = upsert(S.assets, sent.asset); S.adding = false; render(); D.toast("Added", "The video was added as a draft."); say("Video added as a draft."); return; }
-          S.adding = false; S.editing = res.data.id; reload(function () {
-            var box = byId("ml-e-video"); if (box && sent.message) markBad(box, sent.message);
-            D.toast("Saved, but the video is not uploaded", sent.message || "Open it with Edit and choose the video again.", "error");
+        form.append("kind", kind === "image" ? "file" : "poster"); form.append("file", pic);
+        D.send("POST", base() + id + "/image/", form).then(function (up) {
+          if (up.status === 401 || mine !== token || !S) return;
+          if (!up.ok) {
+            busy(b, false);
+            var uf = apiFields(up), why = (uf && uf.file) || refused(up);
+            S.adding = false; S.editing = id; reload(function () {
+              var box = byId(kind === "image" ? "ml-e-file" : "ml-e-poster"); if (box) markBad(box, why);
+              D.toast("Saved as a draft, but the picture was not added", why, "error");
+            });
+            return;
+          }
+          if (valid(up.data)) S.assets = upsert(S.assets, up.data);
+          if (kind === "image") { busy(b, false); S.adding = false; render(); D.toast("Added", "The image was added as a draft."); say("Image added as a draft."); return; }
+          sendVideo(id, movie.file, note, mine).then(function (sent) {
+            if (mine !== token || !S) return;
+            busy(b, false);
+            if (sent.ok) { if (valid(sent.asset)) S.assets = upsert(S.assets, sent.asset); S.adding = false; render(); D.toast("Added", "The video was added as a draft."); say("Video added as a draft."); return; }
+            S.adding = false; S.editing = id; reload(function () {
+              var box = byId("ml-e-video"); if (box && sent.message) markBad(box, sent.message);
+              D.toast("Saved, but the video is not uploaded", sent.message || "Open it with Edit and choose the video again.", "error");
+            });
           });
         });
       });

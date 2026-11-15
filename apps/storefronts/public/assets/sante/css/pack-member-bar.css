@@ -2,8 +2,9 @@
    Indigo Command shell (max-width 1240px, content padding 24px 15px), the notification bell, the name dropdown (after TWCinc's
    topbar profile menu: account links, Display Options, Logout), the Dashboard notices panel, the plain pages and the dark theme.
    The theme is html[data-theme="dark"], set by pack-member-bar.js from localStorage. */
-.pdn-inner { max-width: 1240px; }
-.e4 .shell { max-width: 1240px; padding: 24px 15px 40px; }
+/* Half of the empty side space of TWCinc's 1240px box: on a wide screen each side is half what it was (content = (width + 1240px) / 2), capped at 1600px. */
+.pdn-inner { max-width: min(1600px, calc(50vw + 620px)); }
+.e4 .shell { max-width: min(1600px, calc(50vw + 620px)); padding: 24px 15px 40px; }
 .pdn { padding: 0 15px; }
 
 /* The bell and the name */
@@ -104,7 +105,7 @@ html[data-theme="dark"] .md-notices h2, html[data-theme="dark"] .md-notice-dates
 /* Training (the University home, course page and lesson player). After TWCinc's university.css, rebuilt in the Santé member palette:
    green #007A3D with its deep green for the hero surfaces, gold #8A6513 for gold on light (and a light gold on the dark surfaces).
    The dark theme is html[data-theme="dark"], as the rest of the member dashboard. */
-.tr-page { max-width: 1240px; padding-bottom: 32px; }
+.tr-page { max-width: none; padding-bottom: 32px; }
 .tr-bcb, .tr-card, .tr-hero, .tr-mod, .tr-plist { --tr-gold: #8A6513; --tr-ink: #1F2933; --tr-muted: #5B6B63; --tr-line: #E2E8F0; --tr-soft: #F2F7F4; --tr-tint: #E8F2EE; }
 .tr-ph { margin: 2px 0 20px; }
 .tr-ph h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.01em; }

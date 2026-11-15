@@ -99,6 +99,19 @@ export function fileLine(a: MediaAsset): string {
   return [extOf(a.file_url), kind, middle, sizeText(a.file_size)].filter(Boolean).join(" \u00b7 ");
 }
 
+/** "Jul 31, 2026" from an ISO time (the Philippines' calendar day), or "". */
+export function dateText(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "Asia/Manila" }).format(d);
+}
+
+/** "1080 \u00d7 1350 (4:5)" for an image, "" when the size is not known. */
+export const dimsText = (a: MediaAsset): string =>
+  a.width > 0 && a.height > 0 ? `${a.width} \u00d7 ${a.height}${a.crop_ratio ? ` (${a.crop_ratio})` : ""}` : "";
+
+/** The Copy caption label: all three words sit in one grid cell, so the button keeps one width and height in every state. */
+const COPY_LABEL: Markup = html`<span class="ml-act-t"><span class="ml-t-copy">Copy caption</span><span class="ml-t-ok" aria-hidden="true">Copied</span><span class="ml-t-fail" aria-hidden="true">Copy failed</span></span>`;
+
 function card(a: MediaAsset): Markup {
   const file = fileOf(a.file_url);
   const thumb = fileOf(a.thumb_url) || fileOf(a.poster_url) || (a.asset_type === "image" ? file : "");
@@ -107,7 +120,7 @@ function card(a: MediaAsset): Markup {
   const picture = thumb ? html`<img src="${thumb}" alt="" loading="lazy">` : html`<span class="ml-blank" aria-hidden="true"></span>`;
   const badges = html`${a.asset_type === "video" ? html`<span class="ml-play">${PLAY}</span>` : ""}${a.is_new ? html`<span class="ml-new">New</span>` : ""}${length ? html`<span class="ml-len">${length}</span>` : ""}`;
   const preview = file
-    ? html`<a class="ml-thumb" href="${file}" target="_blank" rel="noopener noreferrer" data-ml-open data-kind="${a.asset_type}" data-file="${file}" data-poster="${fileOf(a.poster_url) || thumb}" data-title="${a.title}" data-caption="${a.caption}" aria-label="Preview ${a.title}">${picture}${badges}</a>`
+    ? html`<a class="ml-thumb" href="${file}" target="_blank" rel="noopener noreferrer" data-ml-open data-kind="${a.asset_type}" data-file="${file}" data-poster="${fileOf(a.poster_url) || thumb}" data-title="${a.title}" data-caption="${a.caption}" data-cat="${a.category_label}" data-date="${dateText(a.published_at)}" data-format="${[extOf(a.file_url), a.asset_type === "video" ? "Video" : "Image"].filter(Boolean).join(" \u00b7 ")}" data-dims="${a.asset_type === "video" ? clock(a.duration_seconds) : dimsText(a)}" data-size="${sizeText(a.file_size)}" data-download="${download}" aria-label="Preview ${a.title}">${picture}${badges}</a>`
     : html`<span class="ml-thumb">${picture}${badges}</span>`;
   return html`<article class="ml-card" data-asset="${a.id}" data-type="${a.asset_type}">
   ${preview}
@@ -117,7 +130,7 @@ function card(a: MediaAsset): Markup {
     <p class="ml-meta">${fileLine(a)}</p>
   </div>
   <div class="ml-acts">
-    ${a.caption ? html`<button type="button" class="ml-act" data-ml-copy data-caption="${a.caption}">${SVG(I.copy, 14)}<span class="ml-act-t">Copy caption</span></button>` : ""}
+    ${a.caption ? html`<button type="button" class="ml-act" data-ml-copy data-caption="${a.caption}">${SVG(I.copy, 14)}${COPY_LABEL}</button>` : ""}
     ${download ? html`<a class="ml-act ml-act-go" href="${download}" rel="noopener noreferrer" download>${SVG(I.download, 14)}<span class="ml-act-t">Download</span></a>` : ""}
   </div>
 </article>`;
@@ -181,11 +194,19 @@ export function mediaContent(f: Filters, list: MediaList, items: MediaAsset[], s
     </section>
   </form>
   <dialog class="ml-dialog" data-ml-dialog aria-labelledby="ml-dialog-title">
-    <div class="ml-dialog-box">
-      <div class="ml-dialog-head"><h2 id="ml-dialog-title" data-ml-dialog-title></h2><button type="button" class="ml-x" data-ml-dialog-close aria-label="Close preview">${ICON("M6 6l12 12M18 6L6 18")}</button></div>
-      <div class="ml-stage" data-ml-stage></div>
-      <p class="ml-dialog-cap" data-ml-dialog-cap></p>
+    <div class="ml-m-media" data-ml-stage></div>
+    <div class="ml-m-rail">
+      <p class="ml-m-cat" data-ml-dialog-cat></p>
+      <h2 class="ml-m-title" id="ml-dialog-title" data-ml-dialog-title></h2>
+      <p class="ml-m-pub" data-ml-dialog-pub></p>
+      <div class="ml-m-meta" data-ml-dialog-meta></div>
+      <div class="ml-m-cap" data-ml-dialog-capbox><p class="ml-m-k">Ready-made caption</p><div class="ml-m-txt" data-ml-dialog-cap tabindex="0" role="region" aria-label="Ready-made caption"></div></div>
+      <div class="ml-m-acts">
+        <button type="button" class="ml-act" data-ml-dialog-copy>${SVG(I.copy, 14)}${COPY_LABEL}</button>
+        <a class="ml-act ml-act-go" data-ml-dialog-dl href="#" rel="noopener noreferrer" download>${SVG(I.download, 14)}<span class="ml-act-t" data-ml-dialog-dl-t>Download original</span></a>
+      </div>
     </div>
+    <button type="button" class="ml-m-close" data-ml-dialog-close aria-label="Close preview">${ICON("M6 6l12 12M18 6L6 18")}</button>
   </dialog>
 </div>`;
 }

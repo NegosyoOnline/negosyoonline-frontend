@@ -54,22 +54,24 @@
       if (ok) resolve(); else reject(new Error("copy"));
     });
   }
+  /* The button keeps its size: its three labels share one grid cell (pack-media.css) and only data-state changes which shows. */
   function copied(button, ok) {
-    var t = button.querySelector(".ml-act-t") || button;
-    var was = button.getAttribute("data-label") || t.textContent;
-    button.setAttribute("data-label", was);
-    t.textContent = ok ? "Copied" : "Copy failed";
+    button.setAttribute("data-state", ok ? "ok" : "fail");
     say(ok ? "Caption copied." : "The caption could not be copied.");
     clearTimeout(timers[0]);
-    timers[0] = setTimeout(function () { t.textContent = was; }, 1800);
+    timers[0] = setTimeout(function () { button.removeAttribute("data-state"); }, 1800);
   }
 
-  /* ---- the preview popup ---- */
+  /* ---- the preview popup (after TWCinc's media preview) ---- */
+  function part(sel) { return dialog.querySelector(sel); }
   function preview(link) {
     if (!dialog || typeof dialog.showModal !== "function") return false;
-    var stage = dialog.querySelector("[data-ml-stage]");
+    var stage = part("[data-ml-stage]");
     var kind = link.getAttribute("data-kind");
     var file = link.getAttribute("data-file") || "";
+    var title = link.getAttribute("data-title") || "";
+    var caption = link.getAttribute("data-caption") || "";
+    var size = link.getAttribute("data-size") || "";
     var el;
     stage.textContent = "";
     if (kind === "video") {
@@ -81,12 +83,35 @@
       el.setAttribute("src", file);
     } else {
       el = document.createElement("img");
-      el.setAttribute("alt", link.getAttribute("data-title") || "");
+      el.setAttribute("alt", title);
       el.setAttribute("src", file);
     }
     stage.appendChild(el);
-    dialog.querySelector("[data-ml-dialog-title]").textContent = link.getAttribute("data-title") || "";
-    dialog.querySelector("[data-ml-dialog-cap]").textContent = link.getAttribute("data-caption") || "";
+    part("[data-ml-dialog-cat]").textContent = link.getAttribute("data-cat") || "";
+    part("[data-ml-dialog-title]").textContent = title;
+    part("[data-ml-dialog-pub]").textContent = link.getAttribute("data-date") ? "Published " + link.getAttribute("data-date") : "";
+    var meta = part("[data-ml-dialog-meta]");
+    meta.textContent = "";
+    [["Format", link.getAttribute("data-format")], [kind === "video" ? "Duration" : "Dimensions", link.getAttribute("data-dims")], ["File size", size]].forEach(function (f) {
+      if (!f[1]) return;
+      var tile = document.createElement("div");
+      var k = document.createElement("p");
+      var v = document.createElement("p");
+      k.className = "ml-m-k"; k.textContent = f[0];
+      v.className = "ml-m-v"; v.textContent = f[1];
+      tile.appendChild(k); tile.appendChild(v); meta.appendChild(tile);
+    });
+    part("[data-ml-dialog-capbox]").hidden = !caption;
+    part("[data-ml-dialog-cap]").textContent = caption;
+    var copy = part("[data-ml-dialog-copy]");
+    copy.hidden = !caption;
+    copy.setAttribute("data-caption", caption);
+    copy.removeAttribute("data-state");
+    var dl = part("[data-ml-dialog-dl]");
+    var href = link.getAttribute("data-download") || "";
+    dl.hidden = !href;
+    if (href) dl.setAttribute("href", href);
+    part("[data-ml-dialog-dl-t]").textContent = "Download original" + (size ? " (" + size + ")" : "");
     dialog.showModal();
     dialog._from = link;
     return true;
@@ -94,6 +119,7 @@
   function closePreview() { if (dialog && dialog.open) dialog.close(); }
   if (dialog) {
     dialog.querySelector("[data-ml-dialog-close]").addEventListener("click", closePreview);
+    /* A click on the dimmed area is a click on the dialog element itself: its content fills the whole box. */
     dialog.addEventListener("click", function (e) { if (e.target === dialog) closePreview(); });
     dialog.addEventListener("close", function () {
       dialog.querySelector("[data-ml-stage]").textContent = "";
@@ -131,7 +157,7 @@
     var t = e.target && e.target.closest ? e.target : null;
     var el;
     if (!t) return;
-    if ((el = t.closest("[data-ml-copy]"))) {
+    if ((el = t.closest("[data-ml-copy], [data-ml-dialog-copy]"))) {
       e.preventDefault();
       copyText(el.getAttribute("data-caption") || "").then(function () { copied(el, true); }, function () { copied(el, false); });
     } else if ((el = t.closest("[data-ml-open]"))) {

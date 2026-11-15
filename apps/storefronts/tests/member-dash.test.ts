@@ -82,7 +82,7 @@ test("the bar's files are listed assets, the script has no inline form, and the 
   const { readFileSync } = await import("node:fs");
   const css = readFileSync(new URL("../public/assets/sante/css/pack-member-bar.css", import.meta.url), "utf8");
   const js = readFileSync(new URL("../public/assets/sante/js/pack-member-bar.js", import.meta.url), "utf8");
-  assert.match(css, /max-width: 1240px/);
+  assert.match(css, /max-width: min\(1600px, calc\(50vw \+ 620px\)\)/);
   assert.match(css, /padding: 24px 15px 40px/);
   assert.match(css, /html\[data-theme="dark"\]/);
   assert.match(js, /no-member-theme/);

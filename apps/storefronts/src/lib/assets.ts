@@ -20,7 +20,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "9ad9af0d", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
-  "css/pack-member-bar.css": "7f129caf", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "css/pack-member-bar.css": "bf7043af", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
@@ -82,8 +82,8 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.webp": "99d5623c",
   "img/blog_2.webp": "6870f46a",
   "img/blog_3.webp": "cc22ea9b",
-  "css/pack-media.css": "aa9f9112", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
-  "js/pack-media.js": "ec9641b1", // this storefront's own file: the Media Library's drawer, Copy caption, preview popup and in-place "Load 12 more"
+  "css/pack-media.css": "84db9b59", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
+  "js/pack-media.js": "2342fbec", // this storefront's own file: the Media Library's drawer, Copy caption, preview popup and in-place "Load 12 more"
   "js/meta-pixel.js": "6385c256", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };
 

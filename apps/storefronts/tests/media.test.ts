@@ -79,7 +79,7 @@ test("the page lists the assets with Copy caption and Download, the filter rail 
   assert.match(body, /<p class="ml-cat">Product Promo<\/p>\s*<h3 class="ml-name">Asset a1<\/h3>/);
   assert.match(body, /<p class="ml-meta">JPG · Image · 800 × 1000 \(4:5\) · 1 KB<\/p>/);
   assert.match(body, /<p class="ml-meta">MP4 · Video · 1:05 · 1 KB<\/p>/);
-  assert.match(body, /data-ml-copy data-caption="Caption a1"><svg[^>]*>.*?<\/svg><span class="ml-act-t">Copy caption<\/span><\/button>/);
+  assert.match(body, /data-ml-copy data-caption="Caption a1"><svg[^>]*>.*?<\/svg><span class="ml-act-t"><span class="ml-t-copy">Copy caption<\/span><span class="ml-t-ok" aria-hidden="true">Copied<\/span><span class="ml-t-fail" aria-hidden="true">Copy failed<\/span><\/span><\/button>/);
   assert.match(body, /<a class="ml-act ml-act-go" href="https:\/\/abc123\.public\.blob\.vercel-storage\.com\/media-library\/a1\/a\.jpg\?download=1"[^>]*><svg[^>]*>.*?<\/svg><span class="ml-act-t">Download<\/span>/);
   assert.match(body, /<span class="ml-len">1:05<\/span>/);
   assert.match(body, /ml-play/);
@@ -99,7 +99,7 @@ test("Django text is escaped, a file outside the media store is neither shown no
   assert.doesNotMatch(body, /<img src=x/);
   assert.doesNotMatch(body, /evil\.example\.test/);
   assert.doesNotMatch(body, /data-ml-open/);
-  assert.doesNotMatch(body, /Download/);
+  assert.doesNotMatch(body, /class="ml-act ml-act-go" href/);
 });
 
 test("the filters in the address are cleaned, sent to Django, and shown selected; an unknown value becomes All", async () => {
@@ -190,12 +190,41 @@ test("only the Media Library page may load a video, from the media store only; e
   }
 });
 
-test("the preview dialog is centred and capped to the viewport so it fits a phone", () => {
+test("the preview popup is TWCinc's layout: media left, details right, caption box, Copy and Download, no Schedule post", async () => {
+  const f = fake(base([PAGE([A("a1", { crop_ratio: "4:5", width: 1080, height: 1350, file_size: 315 * 1024, category_label: "Page Post", published_at: "2026-07-31T01:00:00Z" })])]));
+  const body = await text(await mediaPage(dashOf(f)));
+  assert.match(body, /data-cat="Page Post" data-date="Jul 31, 2026" data-format="JPG \u00b7 Image" data-dims="1080 \u00d7 1350 \(4:5\)" data-size="315 KB" data-download="[^"]*\?download=1"/);
+  const dialog = /<dialog[\s\S]*<\/dialog>/.exec(body)?.[0] ?? "";
+  for (const hook of ["data-ml-stage", "data-ml-dialog-cat", "data-ml-dialog-title", "data-ml-dialog-pub", "data-ml-dialog-meta", "Ready-made caption", "data-ml-dialog-copy", "data-ml-dialog-dl", "data-ml-dialog-close"]) assert.ok(dialog.includes(hook), hook);
+  assert.doesNotMatch(body, /Schedule post|Coming soon/i);
+});
+
+test("the preview popup CSS: two panes, scrolling caption, pinned actions, round close, stacked under 800px, no Schedule", () => {
   const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
-  const rule = /^\.ml-dialog \{([^}]*)\}/m.exec(css)?.[1] ?? "";
-  assert.match(rule, /margin:\s*auto/);
-  assert.match(rule, /width:\s*min\(920px,\s*calc\(100vw - 32px\)\)/);
-  assert.match(rule, /max-height:\s*calc\(100dvh - 32px\)/);
+  assert.match(css, /\.ml-dialog\[open\] \{[^}]*display: grid; grid-template-columns:/);
+  assert.match(/^\.ml-dialog \{([^}]*)\}/m.exec(css)?.[1] ?? "", /max-height:\s*calc\(100dvh - 32px\)/);
+  assert.match(/^\.ml-m-txt \{([^}]*)\}/m.exec(css)?.[1] ?? "", /overflow-y: auto/);
+  assert.match(/^\.ml-m-acts \{([^}]*)\}/m.exec(css)?.[1] ?? "", /margin-top: auto/);
+  assert.match(/^\.ml-m-close \{([^}]*)\}/m.exec(css)?.[1] ?? "", /border-radius: 50%/);
+  assert.match(css, /@media \(max-width: 800px\) \{[^@]*\.ml-dialog\[open\] \{ display: block; \}/);
+  assert.match(css, /\.ml-m-close:focus-visible \{ outline: 2px solid #6C8CFF/);
+});
+
+test("Copy caption and Copied share one grid cell, so the button keeps its size", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(css, /\.ml-act-t \{ display: inline-grid;/);
+  assert.match(css, /\.ml-act-t > span \{ grid-area: 1 \/ 1; \}/);
+  assert.match(css, /\.ml-t-ok, \.ml-t-fail \{ visibility: hidden; \}/);
+  const js = readFileSync(new URL("../public/assets/sante/js/pack-media.js", import.meta.url), "utf8");
+  assert.doesNotMatch(js, /textContent = ok \?/);
+  assert.match(js, /setAttribute\("data-state"/);
+});
+
+test("the member shell is half as wide at the sides as TWCinc's 1240px box, for the bar and the content", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-member-bar.css", import.meta.url), "utf8");
+  assert.match(css, /^\.pdn-inner \{ max-width: min\(1600px, calc\(50vw \+ 620px\)\); \}/m);
+  assert.match(css, /^\.e4 \.shell \{ max-width: min\(1600px, calc\(50vw \+ 620px\)\);/m);
+  assert.match(css, /^\.tr-page \{ max-width: none;/m);
 });
 
 test("on a phone the Filters drawer and its scrim sit above the sticky site header (z-index 100)", () => {

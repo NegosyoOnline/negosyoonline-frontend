@@ -62,14 +62,43 @@
 .ml-more[aria-busy="true"] { opacity: .6; pointer-events: none; }
 .ml-x { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; background: transparent; color: inherit; cursor: pointer; border-radius: 8px; }
 .ml-rail .ml-x { display: none; color: #fff; }
-.ml-dialog { margin: auto; border: 0; padding: 0; border-radius: 14px; width: min(920px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; background: #fff; color: #14201B; }
-.ml-dialog::backdrop { background: rgba(0,0,0,.6); }
-.ml-dialog-box { padding: 16px 18px 18px; }
-.ml-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.ml-dialog-head h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
-.ml-stage { margin-top: 10px; display: flex; justify-content: center; background: #0D1411; border-radius: 10px; overflow: hidden; }
-.ml-stage img, .ml-stage video { display: block; max-width: 100%; max-height: min(70vh, calc(100dvh - 190px)); }
-.ml-dialog-cap { margin: 12px 0 0; white-space: pre-line; line-height: 1.5; font-size: 15px; overflow-wrap: anywhere; }
+/* The Copy caption label: the three words share one grid cell, so the button is as wide and tall as the longest in every state. */
+.ml-act-t { display: inline-grid; justify-items: center; }
+.ml-act-t > span { grid-area: 1 / 1; }
+.ml-t-ok, .ml-t-fail { visibility: hidden; }
+[data-state="ok"] .ml-t-copy, [data-state="fail"] .ml-t-copy { visibility: hidden; }
+[data-state="ok"] .ml-t-ok, [data-state="fail"] .ml-t-fail { visibility: visible; }
+/* The preview popup (after TWCinc's media preview): the media fills the left pane, the details and actions sit on the right. */
+.ml-dialog { margin: auto; border: 0; padding: 0; border-radius: 16px; width: min(940px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: hidden; background: #fff; color: #14201B; box-shadow: 0 24px 70px rgba(0,0,0,.4); }
+.ml-dialog[open] { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); }
+.ml-dialog::backdrop { background: rgba(10,24,17,.6); backdrop-filter: blur(2px); }
+.ml-m-media { min-width: 0; background: #0D1411; display: flex; align-items: center; justify-content: center; }
+.ml-m-media img, .ml-m-media video { display: block; width: 100%; height: auto; max-height: calc(100dvh - 32px); object-fit: contain; }
+.ml-m-rail { min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; max-height: calc(100dvh - 32px); }
+.ml-m-cat { margin: 0; padding-right: 44px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8A6513; }
+.ml-m-title { margin: 0; padding-right: 44px; font-size: 19px; line-height: 1.3; font-weight: 800; color: #03572d; overflow-wrap: anywhere; }
+.ml-m-pub { margin: 0; font-size: 13px; color: #5B6B63; }
+.ml-m-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ml-m-meta > div { background: #F1F6F3; border-radius: 10px; padding: 8px 11px; min-width: 0; }
+.ml-m-k { margin: 0 0 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5B6B63; }
+.ml-m-meta .ml-m-v { margin: 0; font-size: 13.5px; font-weight: 700; color: #14201B; overflow-wrap: anywhere; }
+.ml-m-cap { background: #F1F6F3; border-radius: 12px; padding: 12px 14px; }
+.ml-m-txt { max-height: 150px; overflow-y: auto; white-space: pre-line; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.ml-m-txt:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
+.ml-m-acts { display: flex; flex-direction: column; gap: 8px; margin-top: auto; padding-top: 4px; }
+.ml-m-acts .ml-act { flex: none; padding: 12px 10px; font-size: 14px; }
+.ml-m-close { position: absolute; top: 14px; right: 14px; z-index: 3; width: 38px; height: 38px; border: 0; border-radius: 50%; background: rgba(20,32,27,.72); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.ml-dialog [hidden] { display: none !important; }
+.ml-m-close:hover { background: rgba(20,32,27,.9); }
+.ml-m-close:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
+@media (max-width: 800px) {
+  .ml-dialog { overflow-y: auto; }
+  .ml-dialog[open] { display: block; }
+  .ml-m-media img, .ml-m-media video { max-height: 60dvh; }
+  .ml-m-rail { overflow: visible; max-height: none; padding: 18px; }
+  .ml-m-cat, .ml-m-title { padding-right: 0; }
+  .ml-m-close { position: fixed; top: 24px; right: 24px; }
+}
 @media (max-width: 1000px) { .ml-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 @media (max-width: 819px) {
   .ml-layout { grid-template-columns: minmax(0, 1fr); }
@@ -87,6 +116,10 @@
 @media (min-width: 820px) { .ml-scrim { display: none !important; } }
 @media (prefers-reduced-motion: reduce) { .ml-rail, .ml-card, .ml-play { transition: none; } .ml-card:hover { transform: none; } }
 html[data-theme="dark"] .ml-dialog { background: #17201B; border: 1px solid #2C3A33; color: #E6EDE9; }
+html[data-theme="dark"] .ml-m-title { color: #fff; }
+html[data-theme="dark"] .ml-m-cat { color: #E4C96A; }
+html[data-theme="dark"] .ml-m-pub, html[data-theme="dark"] .ml-m-k { color: #A9B8B0; }
+html[data-theme="dark"] .ml-m-meta > div, html[data-theme="dark"] .ml-m-cap { background: #1F2B25; }
 html[data-theme="dark"] .ml-head h1, html[data-theme="dark"] .ml-name, html[data-theme="dark"] .ml-count b { color: #fff; }
 html[data-theme="dark"] .tr-ph .ml-eyebrow, html[data-theme="dark"] .ml-cat { color: #E4C96A; }
 html[data-theme="dark"] .ml-rail-head { background: #02421f; }

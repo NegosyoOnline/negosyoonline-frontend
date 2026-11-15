@@ -292,6 +292,8 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   assert.match(js, /if \(!nofilter\) input\.select\(\)/);
   assert.match(shell, /\.e4 \.pk-select-caret \{ width: 14px; height: 14px; background: url\("data:image\/svg\+xml[^}]*stroke='%235B6B63'/);
   assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-caret \{ background: url\("data:image\/svg\+xml[^}]*stroke='%23A9B8B0'/);
+  assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-input \{ background: transparent; border: 0; box-shadow: none; color: #E6EDE9/);
+  assert.match(shell, /\.e4 \.pk-select-label, html\[data-theme="dark"\] \.e4 \.pk-select-label \{ display: none; background: transparent; \}/);
   assert.match(shell, /\.e4 \.pk-select-caret::before \{ display: none; \}/);
   assert.match(shell, /\.pk-select-opt\.is-active \{ box-shadow: inset 0 0 0 2px #6C8CFF/);
   assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);

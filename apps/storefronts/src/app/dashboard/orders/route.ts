@@ -1,5 +1,5 @@
-/* Orders, /dashboard/orders/: the Santé Mobile App line. Signed out it goes to the store home; a rejected order sends it to My Purchases. */
-import { ordersPage } from "../../../lib/dashboard-flow.ts";
+/* Orders, /dashboard/orders/: the member's own log of Santé app orders, under the app line. Signed out it goes to the store home; a rejected order sends it to My Purchases. */
+import { ordersPage } from "../../../lib/orders-flow.ts";
 import { dashGet } from "../../../lib/dashboard-route.ts";
 import { neutralNotFound } from "../../../views/neutral.ts";
 

@@ -5,7 +5,7 @@ import { localMediaOrigin } from "./src/lib/local-media.ts";
    JS and images served from /public. No page carries an inline script, so script-src stays
    'self'. Later slices widen this policy by name when a page needs it. */
 
-/* The Meta Pixel (ClickUp z8uq9md3n5) widens three directives by host name, on the home, landing and checkout pages
+/* The Meta Pixel (ClickUp z8uq9md3n5) widens three directives by host name, on the home, landing, checkout and onboarding verify pages
    only. A site with no Pixel renders no Meta tag, so the wider allowance loads nothing there. Never *, 'unsafe-inline'
    or 'unsafe-eval'. */
 const META_SCRIPT = "https://connect.facebook.net";
@@ -16,12 +16,13 @@ const META_CONNECT = ["https://www.facebook.com", "https://connect.facebook.net"
    local preview can show photos from the local media stand-in. Unset, or any other value, adds nothing. */
 const LOCAL_MEDIA = localMediaOrigin();
 
-const policy = (frameSrc: string[] = [], meta = false) => [
+const policy = (frameSrc: string[] = [], meta = false, media = false) => [
   "default-src 'self'",
   `script-src 'self'${meta ? ` ${META_SCRIPT}` : ""}`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   `img-src 'self' data:${meta ? ` ${META_IMG}` : ""} https://*.public.blob.vercel-storage.com${LOCAL_MEDIA ? ` ${LOCAL_MEDIA}` : ""}`, // product photos: the public media store (backend PUBLIC_MEDIA_BASE_URL)
+  ...(media ? [`media-src https://*.public.blob.vercel-storage.com${LOCAL_MEDIA ? ` ${LOCAL_MEDIA}` : ""}`] : []), // the Media Library's video preview, from the public media store only
   `connect-src 'self'${meta ? ` ${META_CONNECT.join(" ")}` : ""}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -45,8 +46,14 @@ const lessonCsp = policy([
   "https://player.vimeo.com", "https://iframe.mediadelivery.net",
 ]);
 
-/* The other two Pixel pages: the home page and the checkout page (not its /check, /qr/ or post-placement paths). */
+/* The member Media Library (/dashboard/media/) plays a video preview from the public media store, so only that path adds media-src. */
+const MEDIA = "dashboard/media";
+const mediaCsp = policy([], false, true);
+
+/* The other Pixel pages: the home page, the checkout page (not its /check, /qr/ or post-placement paths) and the onboarding verify
+   page (the Purchase fires there; no other onboarding path, no access link, no completed page). */
 const CHECKOUT = "funnel/membership-pack/checkout";
+const VERIFY = "funnel/membership-pack/onboarding/verify";
 const metaCsp = policy([], true);
 
 /* The same security headers on every page; only the policy differs. No includeSubDomains or preload until the domain
@@ -72,8 +79,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        /* Every path but the three Pixel pages (the empty path, the landing page and the checkout page) and the lesson player. */
-        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT})/?)?$)(?!${LESSON}).*)`,
+        /* Every path but the Pixel pages (the empty path, the landing, checkout and onboarding verify pages), the lesson player and the Media Library. */
+        source: `/:path((?!(?:(?:${LANDING}|${CHECKOUT}|${VERIFY})/?)?$)(?!${LESSON})(?!${MEDIA}/?$).*)`,
         headers: securityHeaders(csp),
       },
       {
@@ -85,12 +92,20 @@ const nextConfig: NextConfig = {
         headers: securityHeaders(metaCsp),
       },
       {
+        source: `/${VERIFY}{/}?`,
+        headers: securityHeaders(metaCsp),
+      },
+      {
         source: `/${LANDING}{/}?`,
         headers: securityHeaders(landingCsp),
       },
       {
         source: `/${LESSON}:path*`,
         headers: securityHeaders(lessonCsp),
+      },
+      {
+        source: `/${MEDIA}{/}?`,
+        headers: securityHeaders(mediaCsp),
       },
       {
         source: "/assets/(.*)",

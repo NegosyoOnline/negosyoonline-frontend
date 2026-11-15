@@ -109,6 +109,17 @@
       '<span class="pk-select-caret"><i class="fas fa-chevron-down"></i></span>';
     wrap.appendChild(box);
     var input = box.querySelector(".pk-select-input");
+    // Opt-in (data-pk-select-nofilter): a short fixed list. The trigger is read-only (no typing
+    // filter, no phone keyboard) and the panel is driven by ArrowDown/ArrowUp, Enter and Space.
+    // Selects without the attribute behave exactly as before.
+    var nofilter = select.hasAttribute("data-pk-select-nofilter");
+    var active = null;
+    if (nofilter) { input.readOnly = true; input.setAttribute("inputmode", "none"); }
+    function setActive(row) {
+      if (active) active.classList.remove("is-active");
+      active = row || null;
+      if (active) { active.classList.add("is-active"); if (active.scrollIntoView) active.scrollIntoView({ block: "nearest" }); }
+    }
     // Optional placeholder shown inside the box when nothing is selected
     // (opt-in via data-placeholder; existing selects without it are unchanged).
     var phText = select.getAttribute("data-placeholder");
@@ -259,6 +270,7 @@
       reposition();
       window.addEventListener("resize", reposition);
       document.addEventListener("scroll", onAncestorScroll, true);
+      if (nofilter) setActive(panel.querySelector(".pk-select-opt.is-selected") || panel.querySelector(".pk-select-opt:not(.is-disabled)"));
     }
     function close() {
       wrap.classList.remove("is-open");
@@ -276,10 +288,26 @@
     input.addEventListener("focus", function () {
       if (select.disabled) { input.blur(); return; }
       if (!wrap.classList.contains("is-open")) open();
-      input.select();
+      if (!nofilter) input.select();
     });
     input.addEventListener("input", function () { renderOptions(input.value); });
     input.addEventListener("keydown", function (e) {
+      if (nofilter && !select.disabled) {
+        var rows = Array.prototype.slice.call(panel.querySelectorAll(".pk-select-opt:not(.is-disabled)"));
+        var isOpen = wrap.classList.contains("is-open");
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!isOpen) { open(); return; }
+          var at = rows.indexOf(active);
+          setActive(rows[e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, at - 1)]);
+          return;
+        }
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!isOpen) open(); else if (active) active.click(); else close();
+          return;
+        }
+      }
       if (e.key === "Escape") { close(); input.blur(); }
       else if (e.key === "Enter") { e.preventDefault(); }
     });

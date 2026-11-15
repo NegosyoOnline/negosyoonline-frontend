@@ -17,7 +17,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   `img-src 'self' data: blob: ${mediaOrigin}`,
-  `connect-src 'self' ${apiOrigin}`,
+  `connect-src 'self' ${apiOrigin} https://vercel.com`, // https://vercel.com: the Media Library's direct video upload to Vercel Blob (media.js)
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

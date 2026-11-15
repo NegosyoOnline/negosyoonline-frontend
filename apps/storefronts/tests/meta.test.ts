@@ -6,7 +6,7 @@ import { checkoutGet, checkoutPost, type Flow } from "../src/lib/checkout-flow.t
 import { fetchSite, type Pack } from "../src/lib/django.ts";
 import { html } from "../src/lib/html.ts";
 import {
-  buildFbc, COOKIE_SETTINGS_PATH, consentChoice, consentGiven, dataBlock, metaEventId, metaPage, NOTICE_ACCEPT, NOTICE_DECLINE, NOTICE_TEXT,
+  buildFbc, CONSENT_MAX_AGE, COOKIE_SETTINGS_PATH, consentChoice, consentGiven, dataBlock, metaEventId, metaPage, NOTICE_ACCEPT, NOTICE_CHANGE, NOTICE_DECLINE, NOTICE_POLICY_LABEL, NOTICE_REMEMBER, NOTICE_TEXT,
   placeFields, sendEvents,
 } from "../src/lib/meta.ts";
 import { homeDocument } from "../src/views/sante/home.ts";
@@ -38,10 +38,9 @@ const DECLINE = "__Host-no_meta_consent=0";
 /* ---- ids, data block, fbc ---- */
 
 test("event ids are the prefix and 16 hex, new each time", () => {
-  assert.match(metaEventId("PageView"), /^pv_[0-9a-f]{16}$/);
   assert.match(metaEventId("ViewContent"), /^vc_[0-9a-f]{16}$/);
   assert.match(metaEventId("InitiateCheckout"), /^ic_[0-9a-f]{16}$/);
-  assert.notEqual(metaEventId("PageView"), metaEventId("PageView"));
+  assert.notEqual(metaEventId("ViewContent"), metaEventId("ViewContent"));
 });
 
 test("the data block escapes < > & and the line separators, so a value cannot close the tag", () => {
@@ -94,7 +93,7 @@ test("no Pixel ID: no notice, no block, no call", () => {
 test("before an answer: the notice only, nothing of Meta, nothing sent", () => {
   const m = metaPage(args(req()));
   assert.equal(m.send, null);
-  assert.ok(m.markup.value.includes(NOTICE_TEXT) && m.markup.value.includes(NOTICE_ACCEPT) && m.markup.value.includes(NOTICE_DECLINE));
+  assert.ok(m.markup.value.includes("Nothing goes to Meta unless you accept.") && m.markup.value.includes(NOTICE_ACCEPT) && m.markup.value.includes(NOTICE_DECLINE));
   assert.ok(m.markup.value.includes('data-cookie="__Host-no_meta_consent"'));
   assert.ok(!m.markup.value.includes("no-meta\"") && !m.markup.value.includes("123456789012345"));
   assert.ok(!m.markup.value.includes("facebook"));
@@ -121,13 +120,11 @@ test("after Accept: the data block with ids and data, the script, and one server
   const block = JSON.parse(raw.slice(raw.indexOf(">") + 1, raw.indexOf("</script>")));
   assert.equal(block.pixel_id, "123456789012345");
   assert.equal(block.checkout, false);
-  assert.equal(block.events.length, 2);
-  assert.equal(block.events[0].name, "PageView");
-  assert.match(block.events[0].id, /^pv_[0-9a-f]{16}$/);
-  assert.deepEqual(block.events[0].data, {});
-  assert.equal(block.events[1].name, "ViewContent");
-  assert.match(block.events[1].id, /^vc_[0-9a-f]{16}$/);
-  assert.deepEqual(block.events[1].data, { content_type: "product", content_ids: ["membership-pack"], value: 1488, currency: "PHP" });
+  assert.equal(block.page_view, true, "PageView is a flag for the browser Pixel, with no id");
+  assert.equal(block.events.length, 1);
+  assert.equal(block.events[0].name, "ViewContent");
+  assert.match(block.events[0].id, /^vc_[0-9a-f]{16}$/);
+  assert.deepEqual(block.events[0].data, { content_type: "product", content_ids: ["membership-pack"], value: 1488, currency: "PHP" });
   assert.ok(m.send);
   assert.equal(calls.length, 0, "nothing is sent until the route runs send() after the response");
   await m.send();
@@ -146,12 +143,13 @@ test("after Accept: the data block with ids and data, the script, and one server
 
 test("the server call carries no query string, builds fbc from fbclid, and the visitor ip only on Vercel", async () => {
   const request = req(ACCEPT, "https://www.santetest.com/?fbclid=AbC123&contact=sent", { "x-vercel-forwarded-for": "203.0.113.9" });
-  const m = metaPage({ ...args(request), now: new Date(1700000000000), fetchImpl: () => Promise.resolve(Response.json({})) });
+  const events = { events: ["PageView" as const, "ViewContent" as const], pack: PACK };
+  const m = metaPage({ ...args(request, events), now: new Date(1700000000000), fetchImpl: () => Promise.resolve(Response.json({})) });
   assert.ok(m.send);
   const seen: string[] = [];
   await sendEvents({ a: 1 }, env, (url, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); });
   assert.deepEqual(seen, ['{"a":1}']);
-  const withIp = metaPage({ ...args(request), now: new Date(1700000000000), fetchImpl: (_u, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); } });
+  const withIp = metaPage({ ...args(request, events), now: new Date(1700000000000), fetchImpl: (_u, init) => { seen.push(String(init.body)); return Promise.resolve(Response.json({})); } });
   await withIp.send?.();
   const body = JSON.parse(seen[1]);
   assert.equal(body.url, "https://www.santetest.com/");
@@ -320,16 +318,14 @@ test("the home route: no Pixel ID shows nothing; a Pixel shows the notice first,
 
   const accepted = await homeWith(PIXEL_SITE, ACCEPT);
   assert.ok(accepted.page.includes('id="no-meta">') && accepted.page.includes("meta-pixel.js"));
-  assert.equal(accepted.events.length, 1);
-  const ids = [...accepted.page.matchAll(/"id":"(pv_[0-9a-f]{16})"/g)].map((m) => m[1]);
-  assert.deepEqual((accepted.events[0].body.events as { id: string }[]).map((e) => e.id), ids);
-  assert.equal(accepted.events[0].body.consent, true);
+  assert.equal(accepted.events.length, 0, "PageView is browser-only: the home page sends nothing to Django");
+  assert.ok(accepted.page.includes('"page_view":true') && !accepted.page.includes("pv_"));
 });
 
 /* ---- Cookie settings: withdrawing consent ---- */
 
 test("the notice carries the final wording", () => {
-  assert.equal(NOTICE_TEXT, "We use Meta tools to measure visits and orders and improve our ads. Allow this?");
+  assert.equal(NOTICE_TEXT, "We use cookies to keep our store secure and working. With your OK, we also use Meta tools to measure visits and orders and improve our ads. Nothing goes to Meta unless you accept.");
 });
 
 test("the Cookie settings link is in the store footer on a Pixel site and absent without one", () => {
@@ -349,7 +345,7 @@ test("?cookie-settings=1 reopens the notice after Accept or Decline, with no Met
   for (const cookie of [ACCEPT, DECLINE, ""]) {
     const m = metaPage(args(req(cookie, "https://www.santetest.com/?cookie-settings=1")));
     assert.equal(m.send, null);
-    assert.ok(m.markup.value.includes('id="no-meta-notice"') && m.markup.value.includes(NOTICE_TEXT));
+    assert.ok(m.markup.value.includes('id="no-meta-notice"') && m.markup.value.includes("Nothing goes to Meta unless you accept."));
     assert.ok(!m.markup.value.includes('id="no-meta"') && !m.markup.value.includes("123456789012345"));
   }
   const noPixel = metaPage({ ...args(req(ACCEPT, "https://www.santetest.com/?cookie-settings=1")), site: SITE });
@@ -359,24 +355,52 @@ test("?cookie-settings=1 reopens the notice after Accept or Decline, with no Met
   const home = await homeWith(PIXEL_SITE, ACCEPT, "/?cookie-settings=1");
   assert.ok(home.page.includes('id="no-meta-notice"') && !home.page.includes('id="no-meta">'));
   assert.equal(home.events.length, 0, "nothing is sent to Meta from the reopened page");
-  assert.equal((await homeWith(PIXEL_SITE, ACCEPT)).events.length, 1, "the ordinary page still sends after Accept");
+  assert.equal((await homeWith(PIXEL_SITE, ACCEPT)).events.length, 0, "PageView is browser-only: the ordinary home page sends nothing to Django either");
 });
 
+type Listener = (e: Record<string, unknown>) => void;
 function runPixelScript(cookieIn: string, search: string) {
   const source = readFileSync(new URL("../public/assets/sante/js/meta-pixel.js", import.meta.url), "utf8");
-  const state = { cookie: cookieIn, assigned: "", reloaded: 0, appended: 0, clicks: [] as ((e: unknown) => void)[] };
-  const buttons = ["1", "0"].map((v) => ({
-    addEventListener: (_: string, fn: (e: unknown) => void) => state.clicks.push(() => fn({ currentTarget: { getAttribute: () => v } })),
-    getAttribute: () => v,
-  }));
-  const noticeEl = {
-    getAttribute: (n: string) => (n === "data-cookie" ? "__Host-no_meta_consent" : n === "data-max-age" ? "15552000" : null),
-    querySelectorAll: () => buttons,
+  const state = {
+    cookie: cookieIn, assigned: "", reloaded: 0, appended: 0, clicks: [] as ((e: unknown) => void)[],
+    docListeners: {} as Record<string, Listener[]>, focused: "", prevented: 0, bodyOverflow: "", htmlOverflow: "",
   };
+  type Mock = Record<string, unknown> & { focus: () => void };
+  const mk = (name: string, extra: Record<string, unknown> = {}): Mock => {
+    const el = {
+      name, style: {} as Record<string, string>, listeners: {} as Record<string, Listener[]>,
+      addEventListener: (t: string, fn: Listener) => { ((el.listeners as Record<string, Listener[]>)[t] ||= []).push(fn); },
+      focus: () => { state.focused = name; active.el = el; },
+      getAttribute: () => null, ...extra,
+    } as Mock;
+    return el;
+  };
+  const active: { el: Mock | null } = { el: null };
+  const decline = mk("decline", { getAttribute: () => "0" });
+  const accept = mk("accept", { getAttribute: () => "1" });
+  const link = mk("link");
+  const title = mk("title");
+  const outside = mk("outside");
+  const choiceButtons = [accept, decline];
+  const controls = [link, decline, accept];
+  const card = mk("card", { contains: (x: unknown) => x === title || controls.includes(x as never) || x === card });
+  const noticeEl = mk("notice", {
+    getAttribute: (n: string) => (n === "data-cookie" ? "__Host-no_meta_consent" : n === "data-max-age" ? "15552000" : null),
+    querySelector: (q: string) => (q === "[role=dialog]" ? card : q === "#no-meta-title" ? title : null),
+    querySelectorAll: (q: string) => (q === "button, a[href]" ? controls : choiceButtons),
+  });
+  for (const b of choiceButtons) {
+    const orig = b.addEventListener as unknown as (t: string, fn: Listener) => void;
+    b.addEventListener = (t: string, fn: Listener) => { orig(t, fn); if (t === "click") state.clicks.push(() => fn({ currentTarget: b })); };
+  }
   const doc = {
     getElementById: (id: string) => (id === "no-meta-notice" ? noticeEl : null),
     createElement: () => ({}),
     head: { appendChild: () => { state.appended++; } },
+    documentElement: { style: new Proxy({}, { set: (_t, _k, v) => { state.htmlOverflow = v; return true; } }) },
+    body: { style: new Proxy({}, { set: (_t, _k, v) => { state.bodyOverflow = v; return true; } }) },
+    addEventListener: (t: string, fn: Listener) => { (state.docListeners[t] ||= []).push(fn); },
+    get activeElement() { return active.el; },
     set cookie(v: string) { state.cookie = v; },
     get cookie() { return state.cookie; },
   };
@@ -389,7 +413,14 @@ function runPixelScript(cookieIn: string, search: string) {
   };
   win.window = win;
   vm.runInNewContext(source, { ...win, parseInt, RegExp, String });
-  return state;
+  const key = (k: string, shiftKey = false) => {
+    const e = { key: k, shiftKey, preventDefault: () => { state.prevented++; } };
+    for (const fn of state.docListeners.keydown ?? []) fn(e);
+  };
+  return { ...state, state, key, controls, title, outside, card, link, decline, accept, active,
+    focusin: (target: Record<string, unknown>) => { for (const fn of state.docListeners.focusin ?? []) fn({ target }); },
+    get cookie() { return state.cookie; }, get assigned() { return state.assigned; }, get reloaded() { return state.reloaded; },
+    get appended() { return state.appended; }, clicks: state.clicks };
 }
 
 test("Decline after an earlier Accept rewrites the cookie to declined and loads a clean page, so nothing more goes to Meta", () => {
@@ -424,7 +455,7 @@ type Rule = { source: string; headers: { key: string; value: string }[] };
 const require = createRequire(import.meta.url);
 const { pathToRegexp } = require("next/dist/compiled/path-to-regexp") as { pathToRegexp: (s: string) => RegExp };
 
-test("the policy: the three Pixel pages widen script, img and connect by name; every other path keeps today's", async () => {
+test("the policy: the four Pixel pages widen script, img and connect by name; every other path keeps today's", async () => {
   const rules = (await nextConfig.headers!()) as Rule[];
   const policyFor = (path: string): string[] => {
     const hits = rules
@@ -446,7 +477,8 @@ test("the policy: the three Pixel pages widen script, img and connect by name; e
     "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'",
   ];
   const wide = (p: string[]) => p.join("; ");
-  for (const path of ["/", "/funnel/membership-pack/checkout/", "/funnel/membership-pack/checkout"]) {
+  for (const path of ["/", "/funnel/membership-pack/checkout/", "/funnel/membership-pack/checkout",
+    "/funnel/membership-pack/onboarding/verify/", "/funnel/membership-pack/onboarding/verify"]) {
     assert.deepEqual(policyFor(path), [wide(pixel)], path);
   }
   for (const path of ["/funnel/membership-pack/landing-page/", "/funnel/membership-pack/landing-page"]) {
@@ -454,6 +486,8 @@ test("the policy: the three Pixel pages widen script, img and connect by name; e
   }
   for (const path of [
     "/funnel/membership-pack/access/abc123", "/funnel/membership-pack/onboarding/", "/funnel/membership-pack/completed",
+    "/funnel/membership-pack/onboarding/address/", "/funnel/membership-pack/onboarding/details/",
+    "/funnel/membership-pack/onboarding/completed/", "/funnel/membership-pack/access/abc/", "/funnel/membership-pack/onboarding/verify/x",
     "/funnel/membership-pack/checkout/check", "/funnel/membership-pack/checkout/qr/5", "/dashboard/", "/dashboard/orders",
     "/checkout", "/cart", "/products/", "/contact/", "/privacy-policy/", "/portal/",
   ]) {
@@ -497,4 +531,121 @@ test("local media (dev only): the CSP gains the one loopback origin only when it
   } finally {
     if (keep === undefined) delete process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN; else process.env.STOREFRONT_LOCAL_MEDIA_ORIGIN = keep;
   }
+});
+
+/* ---- The blocking popup (z8uq9mfh05) ---- */
+
+test("the popup markup: dialog, labelled title, equal buttons, policy link, change and 180-day lines, no close control", () => {
+  const raw = metaPage(args(req())).markup.value;
+  assert.match(raw, /role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;/);
+  assert.match(raw, /<h2 id="no-meta-title" style=/);
+  assert.ok(!/<h2[^>]*tabindex/.test(raw), "the title is never focusable");
+  assert.match(raw, /<div[^>]*>Cookies &amp; privacy<\/div>\s*<h2 id="no-meta-title"[^>]*>Let&#x27;s Make Your Santé Experience Better and Secure<\/h2>/, "eyebrow and title in the band");
+  assert.match(raw, /background:#03572d;color:#fff">\s*<div/, "green header band, white text");
+  assert.ok(raw.includes("We use cookies to keep our store <strong>secure</strong> and working. With your OK, we also use <strong>Meta tools</strong> to <strong>measure visits and orders</strong> and <strong>improve our ads</strong>. Nothing goes to Meta unless you accept."));
+  assert.match(raw, /Review our <a href="\/privacy-policy\/"[^>]*>Privacy &amp; Cookies Policy<\/a>\./);
+  assert.equal(NOTICE_POLICY_LABEL, "Privacy & Cookies Policy");
+  assert.equal(NOTICE_CHANGE, "You can change this anytime in Cookie settings at the bottom of the page.");
+  assert.equal(NOTICE_REMEMBER, "We'll remember your choice for 180 days.");
+  assert.match(raw, /background:#ecf6f0[^"]*">\s*<svg[\s\S]*?<\/svg>\s*<span>You can change this anytime in Cookie settings at the bottom of the page\.<\/span>/, "tinted note with icon");
+  assert.ok(raw.includes("We&#x27;ll remember your choice for 180 days."));
+  assert.ok(!raw.includes(">Cookies Settings<"), "no Cookies Settings link in the popup");
+  assert.equal(CONSENT_MAX_AGE, 180 * 24 * 3600);
+  const styles = [...raw.matchAll(/<button type="button" data-meta-choice="([01])" style="([^"]*)">([^<]*)<\/button>/g)];
+  assert.equal(styles.length, 2);
+  assert.deepEqual(styles.map((m) => m[3]), ["Decline", "Accept"]);
+  const [decline, accept] = [styles[0][2], styles[1][2]];
+  const size = (x: string) => x.split(";").filter((d) => /^(flex|min-height|box-sizing|padding|border-radius|font)/.test(d)).join(";");
+  assert.equal(size(decline), size(accept), "equal size, height and radius");
+  assert.match(decline, /background:#f3f4f6;border:1px solid #9ca3af;color:#1f2937/);
+  assert.match(accept, /background:#03572d;[^"]*color:#fff/);
+  assert.ok(!/close|&times;|×|aria-label="Close/i.test(raw), "no close control");
+  assert.ok(!/gold|#c9a|#d4af|navy|#1e3a|#0a2/i.test(raw));
+  assert.ok(!raw.includes("<style") && !/onclick=|onkeydown=/.test(raw), "no inline style element or handler (CSP)");
+});
+
+test("the popup reopens from ?cookie-settings=1 with the same dialog and nothing of Meta's", () => {
+  const raw = metaPage(args(req(ACCEPT, "https://www.santetest.com/?cookie-settings=1"))).markup.value;
+  assert.ok(raw.includes('role="dialog"') && raw.includes('aria-modal="true"'));
+  assert.ok(!raw.includes("facebook") && !raw.includes('id="no-meta"') && !raw.includes("fbevents"));
+});
+
+test("the unanswered page has nothing of Meta's: no fbevents, no data block, no Pixel ID, no server call", () => {
+  const m = metaPage(args(req()));
+  assert.equal(m.send, null);
+  assert.ok(!/fbevents|connect\.facebook|fbq|facebook/.test(m.markup.value));
+  assert.ok(!m.markup.value.includes('type="application/json"'));
+});
+
+test("the popup script locks the page scroll, focuses the card (not the title) and ignores Esc", () => {
+  const s = runPixelScript("", "");
+  assert.equal(s.state.bodyOverflow, "hidden");
+  assert.equal(s.state.htmlOverflow, "hidden");
+  assert.equal(s.state.focused, "card", "first focus is the card, not the title or a button");
+  s.key("Escape");
+  assert.equal(s.state.prevented, 1);
+  assert.equal(s.cookie, "", "Esc writes no choice");
+  assert.equal(s.reloaded, 0);
+  assert.equal(s.assigned, "");
+});
+
+test("the popup script traps Tab inside the card, both ways, and pulls stray focus back", () => {
+  const s = runPixelScript("", "");
+  s.accept.focus(); // last control
+  s.key("Tab");
+  assert.equal(s.state.focused, "link", "Tab on the last control wraps to the first");
+  s.key("Tab", true);
+  assert.equal(s.state.focused, "accept", "Shift+Tab on the first control wraps to the last");
+  s.card.focus();
+  s.key("Tab", true);
+  assert.equal(s.state.focused, "accept", "Shift+Tab from the card goes to the last control");
+  s.outside.focus();
+  s.key("Tab");
+  assert.equal(s.state.focused, "link", "Tab from outside the card enters it");
+  s.outside.focus();
+  s.focusin(s.outside);
+  assert.equal(s.state.focused, "card", "focus that leaves the card returns to the card");
+});
+
+test("the popup script gives focused controls a light-blue ring and never gold", () => {
+  const s = runPixelScript("", "");
+  const ring = (s.accept as unknown as { listeners: Record<string, Listener[]>; style: Record<string, string> });
+  for (const fn of ring.listeners.focus) fn({ currentTarget: s.accept });
+  assert.equal(ring.style.boxShadow, "0 0 0 3px #6C8CFF");
+  for (const fn of ring.listeners.blur) fn({ currentTarget: s.accept });
+  assert.equal(ring.style.boxShadow, "");
+});
+
+/* ---- PageView is browser-only (Coach Ed, 2026-11-15): the script tracks it with no eventID ---- */
+
+function trackedBy(block: unknown): { args: unknown[] }[] {
+  const source = readFileSync(new URL("../public/assets/sante/js/meta-pixel.js", import.meta.url), "utf8");
+  const win: Record<string, unknown> = {
+    document: {
+      getElementById: (id: string) => (id === "no-meta" ? { textContent: JSON.stringify(block) } : null),
+      createElement: () => ({}),
+      head: { appendChild: () => {} },
+    },
+    location: { protocol: "https:", pathname: "/", search: "", hash: "" },
+  };
+  win.window = win;
+  vm.runInNewContext(source, { ...win, parseInt, RegExp, String });
+  const queue = [...(win.fbq as { queue: unknown[] }).queue];
+  return queue.map((a) => ({ args: JSON.parse(JSON.stringify(Array.from(a as ArrayLike<unknown>))) as unknown[] }));
+}
+
+test("the script tracks PageView with no eventID, then each listed event with its eventID", () => {
+  const calls = trackedBy({
+    pixel_id: "123456789012345", checkout: false, page_view: true,
+    events: [{ name: "ViewContent", id: "vc_0123456789abcdef", data: { value: 1488 } }],
+  }).filter((c) => c.args[0] === "track");
+  assert.deepEqual(calls.map((c) => c.args), [["track", "PageView"], ["track", "ViewContent", { value: 1488 }, { eventID: "vc_0123456789abcdef" }]]);
+});
+
+test("the script never tracks a PageView the data block did not ask for, even one listed with an id", () => {
+  const calls = trackedBy({
+    pixel_id: "123456789012345", checkout: true,
+    events: [{ name: "PageView", id: "pv_0123456789abcdef", data: {} }, { name: "Purchase", id: "pur_x1", data: { value: 1 } }],
+  }).filter((c) => c.args[0] === "track");
+  assert.deepEqual(calls.map((c) => c.args[1]), ["Purchase"]);
 });

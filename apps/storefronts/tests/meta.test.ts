@@ -459,7 +459,7 @@ type Rule = { source: string; headers: { key: string; value: string }[] };
 const require = createRequire(import.meta.url);
 const { pathToRegexp } = require("next/dist/compiled/path-to-regexp") as { pathToRegexp: (s: string) => RegExp };
 
-test("the policy: the three Pixel pages widen script, img and connect by name; every other path keeps today's", async () => {
+test("the policy: the four Pixel pages widen script, img and connect by name; every other path keeps today's", async () => {
   const rules = (await nextConfig.headers!()) as Rule[];
   const policyFor = (path: string): string[] => {
     const hits = rules
@@ -481,7 +481,8 @@ test("the policy: the three Pixel pages widen script, img and connect by name; e
     "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'",
   ];
   const wide = (p: string[]) => p.join("; ");
-  for (const path of ["/", "/funnel/membership-pack/checkout/", "/funnel/membership-pack/checkout"]) {
+  for (const path of ["/", "/funnel/membership-pack/checkout/", "/funnel/membership-pack/checkout",
+    "/funnel/membership-pack/onboarding/verify/", "/funnel/membership-pack/onboarding/verify"]) {
     assert.deepEqual(policyFor(path), [wide(pixel)], path);
   }
   for (const path of ["/funnel/membership-pack/landing-page/", "/funnel/membership-pack/landing-page"]) {
@@ -489,6 +490,8 @@ test("the policy: the three Pixel pages widen script, img and connect by name; e
   }
   for (const path of [
     "/funnel/membership-pack/access/abc123", "/funnel/membership-pack/onboarding/", "/funnel/membership-pack/completed",
+    "/funnel/membership-pack/onboarding/address/", "/funnel/membership-pack/onboarding/details/",
+    "/funnel/membership-pack/onboarding/completed/", "/funnel/membership-pack/access/abc/", "/funnel/membership-pack/onboarding/verify/x",
     "/funnel/membership-pack/checkout/check", "/funnel/membership-pack/checkout/qr/5", "/dashboard/", "/dashboard/orders",
     "/checkout", "/cart", "/products/", "/contact/", "/privacy-policy/", "/portal/",
   ]) {

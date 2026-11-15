@@ -544,7 +544,7 @@ test("the popup markup: dialog, labelled title, equal buttons, policy link, chan
   assert.match(raw, /role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;/);
   assert.match(raw, /<h2 id="no-meta-title" style=/);
   assert.ok(!/<h2[^>]*tabindex/.test(raw), "the title is never focusable");
-  assert.match(raw, /<div[^>]*>Cookies &amp; privacy<\/div>\s*<h2 id="no-meta-title"[^>]*>Let&#x27;s Make Your Santé Experience Better<\/h2>/, "eyebrow and title in the band");
+  assert.match(raw, /<div[^>]*>Cookies &amp; privacy<\/div>\s*<h2 id="no-meta-title"[^>]*>Let&#x27;s Make Your Santé Experience Better and Secure<\/h2>/, "eyebrow and title in the band");
   assert.match(raw, /background:#03572d;color:#fff">\s*<div/, "green header band, white text");
   assert.ok(raw.includes("We use cookies to keep our store <strong>secure</strong> and working. With your OK, we also use <strong>Meta tools</strong> to <strong>measure visits and orders</strong> and <strong>improve our ads</strong>. Nothing goes to Meta unless you accept."));
   assert.match(raw, /Review our <a href="\/privacy-policy\/"[^>]*>Privacy &amp; Cookies Policy<\/a>\./);

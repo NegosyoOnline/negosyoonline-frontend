@@ -115,6 +115,7 @@
       if (!res.ok) { failedPanel(); return; }
       if (!sites.length) { unavailable(); return; }
       S.site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
+      if (!S.site) { unavailable(); return; } /* no site id, so no media request */
       read(mine);
     });
   }
@@ -136,6 +137,7 @@
       var sites = res.ok ? D.sitesOf(res) : [];
       if (!sites.length) return;
       var site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
+      if (!site) return;
       D.call("GET", "/sites/" + site + "/media/", null, true).then(function (r) { if (r.ok) setNav(true); });
     });
   }

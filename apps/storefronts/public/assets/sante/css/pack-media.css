@@ -15,7 +15,7 @@
 .ml-opt em { font-style: normal; font-size: 13px; color: #5B6B63; }
 .ml-rail-foot { display: flex; flex-direction: column; gap: 10px; }
 .ml-clear { font-size: 14px; color: #007A3D; font-weight: 700; }
-.ml-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; }
+.ml-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 140; }
 .ml-main { min-width: 0; }
 .ml-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
 .ml-search { flex: 1 1 220px; min-width: 0; }
@@ -57,7 +57,7 @@
 @media (max-width: 819px) {
   .ml-layout { grid-template-columns: minmax(0, 1fr); }
   .ml-filter-btn { display: inline-flex; }
-  .ml-rail { position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(320px, 86vw); border-radius: 0 14px 14px 0; overflow-y: auto; transform: translateX(-105%); visibility: hidden; transition: transform .2s, visibility .2s; }
+  .ml-rail { position: fixed; z-index: 150; top: 0; bottom: 0; left: 0; width: min(320px, 86vw); border-radius: 0 14px 14px 0; overflow-y: auto; transform: translateX(-105%); visibility: hidden; transition: transform .2s, visibility .2s; }
   .ml-rail.ml-open { transform: none; visibility: visible; }
   .ml-rail .ml-x { display: inline-flex; }
   .ml-js .ml-rail-foot .ml-btn-go { display: inline-flex; }

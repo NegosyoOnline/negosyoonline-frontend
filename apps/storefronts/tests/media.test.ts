@@ -189,3 +189,15 @@ test("the preview dialog is centred and capped to the viewport so it fits a phon
   assert.match(rule, /width:\s*min\(920px,\s*calc\(100vw - 32px\)\)/);
   assert.match(rule, /max-height:\s*calc\(100dvh - 32px\)/);
 });
+
+test("on a phone the Filters drawer and its scrim sit above the sticky site header (z-index 100)", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  const shell = readFileSync(new URL("../public/assets/sante/css/pack-dashboard-shell.css", import.meta.url), "utf8");
+  const header = Number(/position: sticky; top: 0; z-index: (\d+)/.exec(shell)?.[1]);
+  const mobile = css.slice(css.indexOf("@media (max-width: 819px)"));
+  const rail = Number(/\.ml-rail \{[^}]*position: fixed; z-index: (\d+)/.exec(mobile)?.[1]);
+  const scrim = Number(/\.ml-scrim \{[^}]*z-index: (\d+)/.exec(css)?.[1]);
+  assert.ok(header >= 100);
+  assert.ok(scrim > header, "the scrim covers the header");
+  assert.ok(rail > scrim, "the drawer is over the scrim");
+});

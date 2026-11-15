@@ -25,7 +25,7 @@ const asset = (id, over = {}) => ({ id, title: "Media " + id, asset_type: "image
   active: true, order: 1, published: false, ...over });
 const video = (id, over = {}) => asset(id, { asset_type: "video", file_url: null, poster_url: BLOB + id + "/p.jpg", ...over });
 
-function boot({ assets = [], off = null, search = "" } = {}) {
+function boot({ assets = [], off = null, search = "", siteId = A } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], puts = [];
   const page = doc.body.appendChild(doc.createElement("div"));
   for (const id of ["ml-root", "ml-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
@@ -40,7 +40,7 @@ function boot({ assets = [], off = null, search = "" } = {}) {
     let a = err(404, "not_found", "Not found.");
     const rest = p.startsWith(M) ? p.slice(M.length) : null, seg = rest ? rest.split("/").filter(Boolean) : [];
     const find = (id) => s.assets.find((x) => x.id === id);
-    if (opts.method === "GET" && p === "/sites/") a = ok({ items: [{ id: A, template: "sante" }], next_cursor: null });
+    if (opts.method === "GET" && p === "/sites/") a = ok({ items: [{ id: siteId, template: "sante" }], next_cursor: null });
     else if (s.off && rest !== null) a = s.off;
     else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets });
     else if (rest === "" && opts.method === "POST") a = s.answer || (() => {
@@ -431,4 +431,13 @@ test("buildAsset, moved and safeUrl", () => {
   assert.equal(safeUrl("http://evil.example/x"), "");
   assert.equal(safeUrl("javascript:alert(1)"), "");
   assert.ok(imageCheck(null, "x").error && videoCheck(null).error);
+});
+
+test("a sites answer with an empty site id makes no media request, in the editor or the probe", async () => {
+  const d = boot({ siteId: "" });
+  await d.open();
+  d.window.NOMedia.probe(); await settle();
+  assert.deepEqual(d.list(), ["GET /sites/", "GET /sites/"]);
+  assert.ok(!d.list().some((c) => c.includes("/media/")));
+  assert.deepEqual(d.nav.map((n) => n.hidden), [true, true, true]);
 });

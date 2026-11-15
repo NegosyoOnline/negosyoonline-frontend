@@ -538,8 +538,9 @@ test("local media (dev only): the CSP gains the one loopback origin only when it
 
 test("the popup markup: dialog, labelled title, equal buttons, policy link, change and 180-day lines, no close control", () => {
   const raw = metaPage(args(req())).markup.value;
-  assert.match(raw, /role="dialog" aria-modal="true" aria-labelledby="no-meta-title"/);
-  assert.match(raw, /<h2 id="no-meta-title" tabindex="-1"/);
+  assert.match(raw, /role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;/);
+  assert.match(raw, /<h2 id="no-meta-title" style=/);
+  assert.ok(!/<h2[^>]*tabindex/.test(raw), "the title is never focusable");
   assert.ok(raw.includes("Cookies &amp; privacy"));
   assert.ok(raw.includes(NOTICE_TEXT));
   assert.match(raw, /<a href="\/privacy-policy\/"[^>]*>Privacy &amp; Cookies Policy<\/a>/);
@@ -571,11 +572,11 @@ test("the unanswered page has nothing of Meta's: no fbevents, no data block, no 
   assert.ok(!m.markup.value.includes('type="application/json"'));
 });
 
-test("the popup script locks the page scroll, focuses the title and ignores Esc", () => {
+test("the popup script locks the page scroll, focuses the card (not the title) and ignores Esc", () => {
   const s = runPixelScript("", "");
   assert.equal(s.state.bodyOverflow, "hidden");
   assert.equal(s.state.htmlOverflow, "hidden");
-  assert.equal(s.state.focused, "title", "first focus is the title, not a button");
+  assert.equal(s.state.focused, "card", "first focus is the card, not the title or a button");
   s.key("Escape");
   assert.equal(s.state.prevented, 1);
   assert.equal(s.cookie, "", "Esc writes no choice");
@@ -590,15 +591,15 @@ test("the popup script traps Tab inside the card, both ways, and pulls stray foc
   assert.equal(s.state.focused, "link", "Tab on the last control wraps to the first");
   s.key("Tab", true);
   assert.equal(s.state.focused, "accept", "Shift+Tab on the first control wraps to the last");
-  s.title.focus();
+  s.card.focus();
   s.key("Tab", true);
-  assert.equal(s.state.focused, "accept", "Shift+Tab from the title goes to the last control");
+  assert.equal(s.state.focused, "accept", "Shift+Tab from the card goes to the last control");
   s.outside.focus();
   s.key("Tab");
   assert.equal(s.state.focused, "link", "Tab from outside the card enters it");
   s.outside.focus();
   s.focusin(s.outside);
-  assert.equal(s.state.focused, "title", "focus that leaves the card returns to the title");
+  assert.equal(s.state.focused, "card", "focus that leaves the card returns to the card");
 });
 
 test("the popup script gives focused controls a light-blue ring and never gold", () => {

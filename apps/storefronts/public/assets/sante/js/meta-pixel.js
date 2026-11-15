@@ -28,7 +28,6 @@
       else window.location.assign(window.location.pathname + search + window.location.hash);
     };
     var card = notice.querySelector("[role=dialog]");
-    var title = notice.querySelector("#no-meta-title");
     var ring = "0 0 0 3px #6C8CFF"; /* light blue, as the dashboard's focus rings; never gold */
     var controls = notice.querySelectorAll("button, a[href]");
     var setRing = function (el, on) {
@@ -52,7 +51,7 @@
       var last = controls[controls.length - 1];
       var active = document.activeElement;
       var inside = card && active && card.contains(active);
-      if (event.shiftKey && (active === first || active === title || !inside)) {
+      if (event.shiftKey && (active === first || active === card || !inside)) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && (active === last || !inside)) {
@@ -61,9 +60,9 @@
       }
     });
     document.addEventListener("focusin", function (event) {
-      if (card && !card.contains(event.target) && title) title.focus();
+      if (card && !card.contains(event.target)) card.focus();
     });
-    if (title) title.focus();
+    if (card) card.focus(); /* the card, never the heading: a title is not made focusable */
     var buttons = notice.querySelectorAll("[data-meta-choice]");
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].addEventListener("click", function (event) {

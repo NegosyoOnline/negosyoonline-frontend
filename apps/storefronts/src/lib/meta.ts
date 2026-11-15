@@ -135,7 +135,7 @@ export const NOTICE_ACCEPT = "Accept";
 export const NOTICE_DECLINE = "Decline";
 export const NOTICE_LABEL = "Tracking notice";
 export const NOTICE_KICKER = "Cookies & privacy";
-export const NOTICE_TITLE = "Let's Make Your Santé Experience Better";
+export const NOTICE_TITLE = "Let's Make Your Santé Experience Better and Secure";
 export const NOTICE_POLICY_LABEL = "Privacy & Cookies Policy";
 export const NOTICE_POLICY_PATH = "/privacy-policy/";
 export const NOTICE_CHANGE = "You can change this anytime in Cookie settings at the bottom of the page.";
@@ -148,7 +148,7 @@ const BTN_ACCEPT = `${BTN};background:#03572d;border:1px solid #03572d;color:#ff
 function notice(request: Request): Markup {
   const secure = isSecure(request);
   return html`
-<div id="no-meta-notice" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(17,24,39,0.6);overflow:auto;font-family:Manrope,system-ui,sans-serif;color:#1f2937">
+<div id="no-meta-notice" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(17,24,39,0.82);overflow:auto;font-family:Manrope,system-ui,sans-serif;color:#1f2937">
   <div role="dialog" aria-modal="true" aria-labelledby="no-meta-title" tabindex="-1" style="outline:none;width:100%;max-width:460px;max-height:100%;overflow:auto;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.35)">
     <div style="padding:18px 22px;background:#03572d;color:#fff">
       <div style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;opacity:0.85">${NOTICE_KICKER}</div>

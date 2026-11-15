@@ -127,19 +127,39 @@ export function placeFields(request: Request, site: Site, now: Date = new Date()
   };
 }
 
-/* The notice. */
+/* The notice: a centred, blocking popup (ClickUp z8uq9mfh05). Layout adapted from TWCinc
+   app/static/plugins/twc_cookie_consent.js (scrim, card with header band, title, text, two equal choices), in Santé green. The script
+   (js/meta-pixel.js) does the blocking: focus trap, Esc ignored, page scroll locked, focus rings. */
 export const NOTICE_TEXT = "We use Meta tools to measure visits and orders and improve our ads. Allow this?";
 export const NOTICE_ACCEPT = "Accept";
 export const NOTICE_DECLINE = "Decline";
 export const NOTICE_LABEL = "Tracking notice";
+export const NOTICE_KICKER = "Cookies & privacy";
+export const NOTICE_TITLE = "Your choice about tracking";
+export const NOTICE_POLICY_LABEL = "Privacy & Cookies Policy";
+export const NOTICE_POLICY_PATH = "/privacy-policy/";
+export const NOTICE_CHANGE = "You can change this anytime in Cookie settings at the bottom of the page.";
+export const NOTICE_REMEMBER = "We'll remember your choice for 180 days.";
+
+const BTN = "flex:1 1 140px;min-height:44px;box-sizing:border-box;padding:10px 18px;border:2px solid #03572d;border-radius:999px;font:inherit;font-weight:700;font-size:15px;cursor:pointer";
 
 function notice(request: Request): Markup {
   const secure = isSecure(request);
   return html`
-<div id="no-meta-notice" role="region" aria-label="${NOTICE_LABEL}" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;left:0;right:0;bottom:0;z-index:2147483000;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px;padding:12px 16px;background:#fff;color:#1f2937;border-top:1px solid #d1d5db;font:14px/1.4 system-ui,sans-serif">
-  <span>${NOTICE_TEXT}</span>
-  <button type="button" data-meta-choice="1" style="padding:8px 18px;border:1px solid #03572d;border-radius:999px;background:#03572d;color:#fff;font:inherit;font-weight:600;cursor:pointer">${NOTICE_ACCEPT}</button>
-  <button type="button" data-meta-choice="0" style="padding:8px 18px;border:1px solid #6b7280;border-radius:999px;background:#fff;color:#1f2937;font:inherit;font-weight:600;cursor:pointer">${NOTICE_DECLINE}</button>
+<div id="no-meta-notice" data-cookie="${cookieName(CONSENT, secure)}" data-max-age="${CONSENT_MAX_AGE}" style="position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(17,24,39,0.6);overflow:auto;font-family:Manrope,system-ui,sans-serif;color:#1f2937">
+  <div role="dialog" aria-modal="true" aria-labelledby="no-meta-title" style="width:100%;max-width:440px;max-height:100%;overflow:auto;box-sizing:border-box;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,0.35)">
+    <div style="padding:10px 20px;background:#03572d;color:#fff;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase">${NOTICE_KICKER}</div>
+    <div style="padding:20px">
+      <h2 id="no-meta-title" tabindex="-1" style="margin:0 0 10px;font-size:20px;line-height:1.3;color:#03572d">${NOTICE_TITLE}</h2>
+      <p style="margin:0 0 10px;font-size:15px;line-height:1.5">${NOTICE_TEXT}</p>
+      <p style="margin:0 0 10px;font-size:14px;line-height:1.5"><a href="${NOTICE_POLICY_PATH}" target="_blank" rel="noopener" style="color:#03572d;font-weight:600">${NOTICE_POLICY_LABEL}</a></p>
+      <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#4b5563">${NOTICE_CHANGE} ${NOTICE_REMEMBER}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:12px">
+        <button type="button" data-meta-choice="0" style="${BTN};background:#fff;color:#03572d">${NOTICE_DECLINE}</button>
+        <button type="button" data-meta-choice="1" style="${BTN};background:#fff;color:#03572d">${NOTICE_ACCEPT}</button>
+      </div>
+    </div>
+  </div>
 </div>
 <script src="${asset("js/meta-pixel.js")}"></script>
 `;

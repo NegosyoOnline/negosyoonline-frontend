@@ -1,7 +1,9 @@
 /* Meta Pixel for the home, landing and checkout pages (src/lib/meta.ts). Plain ES5, no inline code.
 
    Two jobs:
-   1. The tracking notice (#no-meta-notice): Accept or Decline writes the one first-party choice cookie and loads the
+   1. The tracking notice (#no-meta-notice), a blocking popup (adapted from TWCinc app/static/plugins/twc_cookie_consent.js):
+      no way to dismiss it (Esc does nothing, no backdrop click), focus stays in the card, the page cannot scroll behind
+      it. Accept or Decline writes the one first-party choice cookie and loads the
       page again (without ?cookie-settings=1, the footer link that reopens this notice, so a choice made there takes
       effect on a clean page: after Decline nothing more goes to Meta). Nothing of Meta's loads before Accept.
    2. After Accept the page carries the JSON data block #no-meta ({pixel_id, checkout, events:[{name,id,data}]}). This
@@ -25,6 +27,43 @@
       if (search === window.location.search) window.location.reload();
       else window.location.assign(window.location.pathname + search + window.location.hash);
     };
+    var card = notice.querySelector("[role=dialog]");
+    var title = notice.querySelector("#no-meta-title");
+    var ring = "0 0 0 3px #6C8CFF"; /* light blue, as the dashboard's focus rings; never gold */
+    var controls = notice.querySelectorAll("button, a[href]");
+    var setRing = function (el, on) {
+      el.style.boxShadow = on ? ring : "";
+      el.style.outline = "none";
+    };
+    for (var c = 0; c < controls.length; c++) {
+      controls[c].addEventListener("focus", function (event) { setRing(event.currentTarget, true); });
+      controls[c].addEventListener("blur", function (event) { setRing(event.currentTarget, false); });
+    }
+    var htmlEl = document.documentElement;
+    if (htmlEl && htmlEl.style) htmlEl.style.overflow = "hidden";
+    if (document.body && document.body.style) document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" || event.key === "Esc") {
+        event.preventDefault();
+        return;
+      }
+      if (event.key !== "Tab" || controls.length === 0) return;
+      var first = controls[0];
+      var last = controls[controls.length - 1];
+      var active = document.activeElement;
+      var inside = card && active && card.contains(active);
+      if (event.shiftKey && (active === first || active === title || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    document.addEventListener("focusin", function (event) {
+      if (card && !card.contains(event.target) && title) title.focus();
+    });
+    if (title) title.focus();
     var buttons = notice.querySelectorAll("[data-meta-choice]");
     for (var i = 0; i < buttons.length; i++) {
       buttons[i].addEventListener("click", function (event) {

@@ -295,7 +295,11 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-input \{ background: transparent; border: 0; box-shadow: none; color: #E6EDE9/);
   assert.match(shell, /\.e4 \.pk-select-label, html\[data-theme="dark"\] \.e4 \.pk-select-label \{ display: none; background: transparent; \}/);
   assert.match(shell, /\.e4 \.pk-select-caret::before \{ display: none; \}/);
-  assert.match(shell, /\.pk-select-opt\.is-active \{ box-shadow: inset 0 0 0 2px #6C8CFF/);
+  assert.doesNotMatch(shell, /\.pk-select-opt\.is-active \{ box-shadow/);
+  assert.match(shell, /\.e4 \.pk-select-box:focus-within, \.e4 \.pk-select\.is-open \.pk-select-box,\nhtml\[data-theme="dark"\] \.e4 \.pk-select-box:focus-within, html\[data-theme="dark"\] \.e4 \.pk-select\.is-open \.pk-select-box \{ border-color: #6C8CFF; box-shadow: none; \}/);
+  assert.match(shell, /\.e4 \.pk-select-opt\.is-selected \{ background: rgba\(108,140,255,\.16\); color: #173DB8; font-weight: 600; \}/);
+  assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-opt\.is-selected \{ background: rgba\(157,180,255,\.20\); color: #9DB4FF; font-weight: 600; \}/);
+  assert.match(media, /html\[data-theme="dark"\] \.ml-sort:focus-within[^{]*\{ border-color: #6C8CFF/);
   assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);
 });
 test("dark mode: the preview tile values are light, and the grid steps down 4 / 3 / 2 / 1", () => {

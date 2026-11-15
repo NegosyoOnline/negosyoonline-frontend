@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { affiliatePage, homePage, mediaPage, ordersPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { affiliatePage, homePage, mediaPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
+import { ordersPage } from "../src/lib/orders-flow.ts";
 import { trainingPage } from "../src/lib/training-flow.ts";
 import { bellGet, bellRead, bellReadAll } from "../src/lib/bell-flow.ts";
 import { initials } from "../src/views/sante/member.ts";
@@ -170,8 +171,8 @@ test("Media Library is a plain placeholder", async () => {
   }
 });
 
-test("Orders and Affiliate Hub say the orders are in the app, with the app link only when it is set, and show no earnings or referral link", async () => {
-  for (const [page, title] of [[ordersPage, "Orders"], [affiliatePage, "Affiliate Hub"]] as const) {
+test("Affiliate Hub says the orders are in the app, with the app link only when it is set, and shows no earnings or referral link (the Orders log is in orders.test.ts)", async () => {
+  for (const [page, title] of [[affiliatePage, "Affiliate Hub"]] as const) {
     const withLink = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] }), { appUrl: "https://apps.example.test/sante" }))).text();
     assert.match(withLink, new RegExp(`<h1>${title}</h1>`));
     assert.match(withLink, /Your orders are placed and tracked in the Sant(é|&eacute;) Mobile App\./);

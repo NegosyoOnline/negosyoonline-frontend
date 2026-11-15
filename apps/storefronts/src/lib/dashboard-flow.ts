@@ -123,7 +123,7 @@ export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Pro
   return render(d, s.member, p.pack, p.registration, mobile, over, status, terms, order);
 }
 
-/** A page with no data of its own (Media Library, Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
+/** A page with no data of its own (Media Library, Affiliate Hub): the signed-in member, the lock rule, the content. */
 async function plainPage(d: Dash, key: string, title: string, content: (appUrl: string) => Markup): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
@@ -136,7 +136,6 @@ async function plainPage(d: Dash, key: string, title: string, content: (appUrl: 
 export const mediaPage = (d: Dash) => plainPage(d, "media", "Media Library", () => soonContent("Media Library"));
 /** Members order in the app; there is no earnings figure and no referral link here (held). */
 export const affiliatePage = (d: Dash) => plainPage(d, "affiliate", "Affiliate Hub", (url) => appOrdersContent("Affiliate Hub", url));
-export const ordersPage = (d: Dash) => plainPage(d, "orders", "Orders", (url) => appOrdersContent("Orders", url));
 
 /** POST /dashboard/orders/review/: the signed-in member reviews a line of their own delivered order. Django checks the order is theirs. */
 export async function reviewPost(d: Dash, text: Record<string, string>): Promise<Response> {

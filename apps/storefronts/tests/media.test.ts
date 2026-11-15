@@ -267,7 +267,7 @@ test("batches are whole rows of the 4-column grid, and the no-script Load link s
 });
 test("the toolbar: search, sort and count share one height and fill; the fields are bare, in light and dark", () => {
   const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
-  assert.match(css, /\.ml-search, \.ml-sort, \.ml-count \{[^}]*height: 40px[^}]*border-radius: 999px/);
+  assert.match(css, /\.ml-search, \.ml-sort, \.ml-count \{[^}]*height: 44px[^}]*border-radius: 999px/);
   const bare = /\.ml-page \.ml-search input, \.ml-page \.ml-sort select \{([^}]*)\}/.exec(css)?.[1] ?? "";
   for (const d of [/appearance: none/, /background: transparent/, /border: 0/, /box-shadow: none/]) assert.match(bare, d);
   assert.match(css, /html\[data-theme="dark"\] \.e4 \.ml-page \.ml-search input, html\[data-theme="dark"\] \.e4 \.ml-page \.ml-sort select \{[^}]*background: transparent/);
@@ -295,4 +295,31 @@ test("toolbar alignment: the count has no stray margin (the .pd p rule), and on 
   const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
   assert.match(css, /\.ml-tools \.ml-count \{ margin: 0; align-self: center;/);
   assert.match(css, /\.ml-search \{ flex: 1 1 100%; order: -1; \}/);
+});
+test("text sizes match the owner dashboard (apps/dash dash.css): body 16, labels and chips 14, h1 26 / 34, inputs and buttons 16", () => {
+  const read = (f: string) => readFileSync(new URL(`../public/assets/sante/css/${f}`, import.meta.url), "utf8");
+  const media = read("pack-media.css");
+  const rule = (sel: string) => (new RegExp(`^${sel.replace(/[.[\]]/g, "\\$&")} \\{([^}]*)\\}`, "m").exec(media)?.[1] ?? "");
+  const px = (sel: string) => Number(/font(?:-size)?:[^;]*?(\d+(?:\.\d+)?)px/.exec(rule(sel))?.[1]);
+  for (const s of [".ml-cat", ".ml-meta", ".ml-new", ".ml-len", ".ml-chip em", ".ml-m-k", ".ml-m-pub", ".ml-m-cat"]) assert.ok(px(s) >= 14, `${s} ${px(s)}`);
+  for (const s of [".ml-clear", ".ml-status", ".ml-m-meta .ml-m-v", ".ml-m-txt", ".ml-m-acts .ml-act"]) assert.ok(px(s) >= 16, `${s} ${px(s)}`);
+  assert.ok(px(".ml-name") >= 17);
+  assert.match(media, /\.ml-search, \.ml-sort, \.ml-count \{[^}]*height: 44px/);
+  assert.match(media, /\.ml-page \.ml-search input \{[^}]*font: 500 16px/);
+  assert.match(media, /\.ml-grid \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
+  assert.match(media, /min-height: 44px/);
+  assert.match(media, /@media \(min-width: 900px\) \{ \.ml-head h1 \{ font-size: 34px;/);
+  // The shared member sheets have no text under 14px (the bell count, avatar and progress ring inside fixed circles excepted).
+  const bar = read("pack-member-bar.css");
+  const small = [...bar.matchAll(/^(.*?)(?:font-size: *|font: *\d+ )(\d+(?:\.\d+)?)px/gm)].filter((m) => Number(m[2]) < 14 && !/pdn-badge|pdn-avatar|tr-ring|tr-cal/.test(m[1]));
+  assert.deepEqual(small.map((m) => m[0].slice(0, 60)), []);
+  // pack-dashboard.css is a byte-for-byte TWCinc original: its text under 14px is raised by selector in the member-only sheet.
+  const dash = read("pack-dashboard.css");
+  const override = /\n([^{}]*)\{ font-size: 14px; \}\n$/.exec(bar)?.[1] ?? "";
+  const raised = override.replace(/\/\*[\s\S]*?\*\//g, "").split(",").map((x) => x.trim());
+  const needed = [...dash.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter((m) => Number(/font-size: *(\d+(?:\.\d+)?)px/.exec(m[2])?.[1]) < 14 && !m[1].trim().startsWith("@")).map((m) => m[1].replace(/\/\*[\s\S]*?\*\//g, "").trim());
+  assert.ok(needed.length > 30);
+  assert.deepEqual(needed.filter((x) => !raised.includes(x)), []);
+  assert.match(bar, /\.pdn-links a \{ font-size: 15px; \}/);
+  assert.match(bar, /\.pdn-who \{ font-size: 15px; \}/);
 });

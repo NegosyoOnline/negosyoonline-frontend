@@ -1,6 +1,6 @@
 /* The member Media Library (ClickUp z8uq9mezdk), this storefront's own file. Without it the page still works: the filters are a
    GET form and "Load 12 more" is a link. With it: filters apply on change, the phone drawer, Copy caption, the preview popup, and
-   "Load 12 more" adds the next cards in place. It reads text from the page and puts it in with textContent and setAttribute only;
+   the next cards load by themselves as the end of the grid nears (the link is the fallback). It reads text from the page and puts it in with textContent and setAttribute only;
    the next cards come from this site's own address and are adopted as nodes, never written as HTML text. */
 (function () {
   var page = document.querySelector("[data-ml-page]");
@@ -127,30 +127,98 @@
     });
   }
 
-  /* ---- Load 12 more, in place ---- */
+  /* ---- the next batch, in place ----
+     With IntersectionObserver the next 12 cards load by themselves when the end of the grid comes within 600px of the screen
+     (the "Load 12 more" link is then hidden by css: .ml-auto). Without it the link stays and loads in place on a click. A failed
+     read shows a Retry button instead of leaving the page. */
+  var slot = page.querySelector("[data-ml-more-slot]");
+  var grid = page.querySelector("[data-ml-grid]");
+  var busy = false;
+  var sentinel = null;
+  var status = null;
+  var observer = null;
+  function nextLink() { return slot ? slot.querySelector("[data-ml-more]") : null; }
+  function setStatus(kind) {
+    if (!status) return;
+    status.textContent = "";
+    if (kind === "loading") {
+      var spin = document.createElement("span");
+      spin.className = "ml-spin";
+      spin.setAttribute("aria-hidden", "true");
+      var t = document.createElement("span");
+      t.textContent = "Loading more media\u2026";
+      status.appendChild(spin); status.appendChild(t);
+    } else if (kind === "error") {
+      var m = document.createElement("span");
+      m.textContent = "More media could not be loaded.";
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "ml-retry"; b.setAttribute("data-ml-retry", "");
+      b.textContent = "Try again";
+      status.appendChild(m); status.appendChild(b);
+    }
+  }
+  function stop() {
+    if (observer) { observer.disconnect(); observer = null; }
+    if (sentinel && sentinel.parentNode) sentinel.parentNode.removeChild(sentinel);
+    sentinel = null;
+  }
+  function watch() {
+    if (!observer || !sentinel) return;
+    if (!nextLink()) { stop(); return; }
+    observer.unobserve(sentinel); observer.observe(sentinel); /* observe again: a tall screen may still show the end */
+  }
   function more(link) {
-    var slot = page.querySelector("[data-ml-more-slot]");
-    var grid = page.querySelector("[data-ml-grid]");
+    if (busy) return true;
     var url = new URL(link.getAttribute("href"), location.href);
     url.searchParams.delete("shown");
     url.searchParams.set("fragment", "1");
     url.searchParams.set("offset", link.getAttribute("data-next") || "0");
     if (url.origin !== location.origin || !grid || !slot) return false;
+    busy = true;
     link.setAttribute("aria-busy", "true");
+    setStatus("loading");
     fetch(url.pathname + url.search, { credentials: "same-origin", headers: { Accept: "text/html" } })
       .then(function (r) { if (!r.ok) throw new Error("status"); return r.text(); })
       .then(function (text) {
         var doc = new DOMParser().parseFromString(text, "text/html");
         var frag = doc.querySelector("[data-ml-frag]");
         if (!frag) throw new Error("shape");
-        frag.querySelectorAll(".ml-card").forEach(function (c) { grid.appendChild(document.importNode(c, true)); });
+        frag.querySelectorAll(".ml-card").forEach(function (c) {
+          var card = document.importNode(c, true);
+          card.classList.add("ml-card-in");
+          grid.appendChild(card);
+        });
         var next = frag.querySelector("[data-ml-more]");
         slot.textContent = "";
         if (next) slot.appendChild(document.importNode(next.parentNode, true));
-        say("More media loaded.");
+        busy = false;
+        setStatus("");
+        say(next ? "More media loaded." : "All media loaded.");
+        watch();
       })
-      .catch(function () { link.removeAttribute("aria-busy"); location.assign(link.getAttribute("href")); });
+      .catch(function () {
+        busy = false;
+        link.removeAttribute("aria-busy");
+        setStatus("error");
+      });
     return true;
+  }
+  if (grid && slot && "IntersectionObserver" in window && nextLink()) {
+    page.classList.add("ml-auto");
+    sentinel = document.createElement("div");
+    sentinel.className = "ml-sentinel";
+    sentinel.setAttribute("aria-hidden", "true");
+    status = document.createElement("div");
+    status.className = "ml-status";
+    status.setAttribute("aria-live", "polite");
+    slot.parentNode.insertBefore(sentinel, slot);
+    slot.parentNode.insertBefore(status, slot);
+    observer = new IntersectionObserver(function (entries) {
+      var hit = entries.some(function (e) { return e.isIntersecting; });
+      var link = nextLink();
+      if (hit && link && !busy) more(link); else if (!link) stop();
+    }, { rootMargin: "0px 0px 600px 0px", threshold: 0 });
+    observer.observe(sentinel);
   }
 
   page.addEventListener("click", function (e) {
@@ -162,6 +230,9 @@
       copyText(el.getAttribute("data-caption") || "").then(function () { copied(el, true); }, function () { copied(el, false); });
     } else if ((el = t.closest("[data-ml-open]"))) {
       if (preview(el)) e.preventDefault();
+    } else if ((el = t.closest("[data-ml-retry]"))) {
+      var again = nextLink();
+      if (again) more(again);
     } else if ((el = t.closest("[data-ml-more]"))) {
       if (more(el)) e.preventDefault();
     }

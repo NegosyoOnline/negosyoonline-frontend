@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mediaPage } from "../src/lib/media-flow.ts";
-import { clock, fileLine, filtersOf, hrefFor, sizeText } from "../src/views/sante/media.ts";
+import { MAX_SHOWN, PAGE_SIZE, clock, fileLine, filtersOf, hrefFor, sizeText } from "../src/views/sante/media.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
 
@@ -247,13 +247,47 @@ test("file lines and sizes", () => {
   assert.equal(sizeText(0), "");
 });
 
-test("the Media Library CSS: equal 1:1 media box, 3 columns, green band, focus light blue, no gold ring or focus", () => {
+test("the Media Library CSS: equal 1:1 media box, 4 columns, green band, focus light blue, no gold ring or focus", () => {
   const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
   assert.match(/^\.ml-thumb \{([^}]*)\}/m.exec(css)?.[1] ?? "", /aspect-ratio:\s*1 \/ 1/);
-  assert.match(css, /\.ml-grid \{[^}]*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.ml-grid \{[^}]*repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(css, /\.ml-rail-head \{[^}]*background: #03572d/);
   assert.match(css, /\.ml-clear \{[^}]*border: 1px dashed/);
   assert.doesNotMatch(css, /201,\s*162,\s*39|#C9A227/i);
   for (const m of css.matchAll(/[^{}]*:focus[^{}]*\{([^}]*)\}/g)) assert.doesNotMatch(m[1], /#E4C96A|#8A6513|gold/i);
   assert.doesNotMatch(css, /\.ml-name:focus/);
+});
+
+test("batches are whole rows of the 4-column grid, and the no-script Load link stays in the markup", async () => {
+  assert.equal(PAGE_SIZE % 4, 0);
+  assert.equal(MAX_SHOWN % 4, 0);
+  const first = Array.from({ length: 12 }, (_, i) => A(`a${i}`));
+  const body = await text(await mediaPage(dashOf(fake(base([PAGE(first, { count: 30, next_offset: 12 })])))));
+  assert.match(body, /data-ml-more-slot><p class="ml-more-row" data-ml-more-row><a [^>]*data-ml-more /);
+});
+test("the toolbar: search, sort and count share one height and fill; the fields are bare, in light and dark", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(css, /\.ml-search, \.ml-sort, \.ml-count \{[^}]*height: 40px[^}]*border-radius: 999px/);
+  const bare = /\.ml-page \.ml-search input, \.ml-page \.ml-sort select \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  for (const d of [/appearance: none/, /background: transparent/, /border: 0/, /box-shadow: none/]) assert.match(bare, d);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.ml-page \.ml-search input, html\[data-theme="dark"\] \.e4 \.ml-page \.ml-sort select \{[^}]*background: transparent/);
+  assert.match(css, /-webkit-autofill/);
+});
+test("dark mode: the preview tile values are light, and the grid steps down 4 / 3 / 2 / 1", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.ml-m-meta \.ml-m-v \{ color: #E6EDE9/);
+  assert.match(css, /max-width: 1179px\) \{ \.ml-grid \{ grid-template-columns: repeat\(3,/);
+  assert.match(css, /max-width: 639px\) \{ \.ml-grid \{ grid-template-columns: repeat\(2,/);
+  assert.match(css, /max-width: 420px\) \{ \.ml-grid \{ grid-template-columns: minmax\(0, 1fr\)/);
+});
+test("infinite scroll: an observer on a sentinel ahead of the edge, a live status with Try again, and the link hidden only when it runs", () => {
+  const css = readFileSync(new URL("../public/assets/sante/css/pack-media.css", import.meta.url), "utf8");
+  const js = readFileSync(new URL("../public/assets/sante/js/pack-media.js", import.meta.url), "utf8");
+  assert.match(js, /new IntersectionObserver\(/);
+  assert.match(js, /rootMargin: "0px 0px 600px 0px"/);
+  assert.match(js, /aria-live", "polite"/);
+  assert.match(js, /data-ml-retry/);
+  assert.match(js, /observer\.disconnect\(\)/);
+  assert.match(js, /"IntersectionObserver" in window/);
+  assert.match(css, /\.ml-auto \.ml-more-row \{ display: none; \}/);
 });

@@ -1,7 +1,7 @@
 /* The member Media Library (ClickUp z8uq9mezdk), ported from TWCinc's Media Library (app/media_library/templates/media_library/library.html,
    partials/_library_body.html, app/static/dashboard/subscriber/css/media-library.css and dashboard/shared/css/media-card.css), TWC navy
    mapped to Santé green #03572d. Page heading, filter rail with its green FILTERS band and pill chips, search / sort / count row, a
-   3-column grid of equal 1:1 cards, the phone drawer and the preview popup. Loaded after pack-member-bar.css. Light and dark
+   4-column grid (3 / 2 / 1 as it narrows) of equal 1:1 cards, the phone drawer and the preview popup. Loaded after pack-member-bar.css. Light and dark
    (html[data-theme="dark"]). Focus is light blue (#6C8CFF), never gold; card titles are not focusable. */
 .ml-head { margin-bottom: 16px; }
 .tr-ph .ml-eyebrow { margin: 0; color: #8A6513; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
@@ -30,16 +30,24 @@
 .ml-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 140; }
 .ml-main { min-width: 0; }
 .ml-tools { display: flex; flex-wrap: nowrap; gap: 10px; align-items: center; margin-bottom: 16px; }
-.ml-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 9px; background: #F2F7F4; border: 1px solid #E2E8F0; border-radius: 999px; padding: 8px 15px; color: #5B6B63; }
-.ml-search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: 500 13px 'Open Sans', system-ui, sans-serif; color: #14201B; }
+/* Search, sort and the count are one family: 40px tall, a 1px pill, one fill. The fields inside are bare (no fill, border or shadow of
+   their own, so the pill is one colour); the .e4 dark form rule would otherwise paint a lighter box in them. */
+.ml-search, .ml-sort, .ml-count { box-sizing: border-box; height: 40px; margin: 0; display: flex; align-items: center; gap: 9px; background: #F2F7F4; border: 1px solid #E2E8F0; border-radius: 999px; padding: 0 15px; color: #5B6B63; line-height: 1; }
+.ml-search { flex: 1 1 auto; min-width: 0; }
+.ml-page .ml-search input, .ml-page .ml-sort select { appearance: none; -webkit-appearance: none; box-sizing: border-box; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none; color: #14201B; }
+.ml-page .ml-search input { flex: 1; min-width: 0; font: 500 13px 'Open Sans', system-ui, sans-serif; }
+.ml-page .ml-search input::placeholder { color: #5B6B63; opacity: 1; }
+.ml-page .ml-search input::-webkit-search-cancel-button, .ml-page .ml-search input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+.ml-page .ml-search input:-webkit-autofill, .ml-page .ml-sort select:-webkit-autofill { -webkit-text-fill-color: #14201B; box-shadow: 0 0 0 40px #F2F7F4 inset; caret-color: #14201B; }
 .ml-search:focus-within, .ml-sort:focus-within { border-color: #6C8CFF; box-shadow: 0 0 0 1px #6C8CFF; }
-.ml-sort { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; background: #F2F7F4; border: 1px solid #E2E8F0; border-radius: 999px; padding: 8px 13px; color: #5B6B63; position: relative; cursor: pointer; }
-.ml-sort select { appearance: none; -webkit-appearance: none; border: 0; background: none; outline: none; padding: 0 2px; font: 600 13px 'Open Sans', system-ui, sans-serif; color: #14201B; cursor: pointer; }
-.ml-count { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; margin: 0; background: #fff; border: 1px solid #E2E8F0; border-radius: 999px; padding: 7px 14px; font-size: 12.5px; font-weight: 600; color: #5B6B63; white-space: nowrap; }
+.ml-sort { flex: 0 0 auto; position: relative; cursor: pointer; padding: 0 13px; gap: 8px; }
+.ml-page .ml-sort select { padding: 0 2px; font: 600 13px 'Open Sans', system-ui, sans-serif; cursor: pointer; }
+.ml-count { flex: 0 0 auto; padding: 0 14px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .ml-count b { color: #03572d; font-variant-numeric: tabular-nums; }
-.ml-filter-btn { display: none; align-items: center; gap: 7px; flex: 0 0 auto; background: #03572d; color: #fff; border: 0; border-radius: 999px; padding: 9px 14px; font: 700 12.5px 'Open Sans', system-ui, sans-serif; cursor: pointer; }
+.ml-filter-btn { display: none; align-items: center; gap: 7px; flex: 0 0 auto; height: 40px; box-sizing: border-box; background: #03572d; color: #fff; border: 0; border-radius: 999px; padding: 0 16px; font: 700 12.5px 'Open Sans', system-ui, sans-serif; cursor: pointer; }
+.ml-tools .ml-search-go { height: 40px; box-sizing: border-box; padding: 0 18px; border-radius: 999px; display: inline-flex; align-items: center; }
 .ml-js .ml-search-go, .ml-js .ml-rail-foot .ml-btn-go { display: none; }
-.ml-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.ml-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .ml-card { display: flex; flex-direction: column; min-width: 0; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,40,28,.05), 0 4px 14px rgba(15,40,28,.06); transition: transform .15s, box-shadow .15s; }
 .ml-card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(3,87,45,.18); }
 .ml-thumb { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; background: #E8F2EE; overflow: hidden; }
@@ -60,6 +68,18 @@
 .ml-act-go:hover { filter: brightness(1.12); }
 .ml-more-row { text-align: center; margin: 22px 0 0; }
 .ml-more[aria-busy="true"] { opacity: .6; pointer-events: none; }
+/* Infinite scroll: with the script the link is hidden, a sentinel sits under the grid and the status shows Loading / Try again. */
+.ml-auto .ml-more-row { display: none; }
+.ml-sentinel { height: 1px; margin-top: 8px; }
+.ml-status { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 24px; margin: 8px 0 0; font-size: 13px; font-weight: 600; color: #5B6B63; }
+.ml-status:empty { display: none; }
+.ml-spin { width: 18px; height: 18px; box-sizing: border-box; border: 2px solid #C9D3CD; border-top-color: #03572d; border-radius: 50%; animation: ml-spin .8s linear infinite; }
+.ml-retry { font: 700 12.5px 'Open Sans', system-ui, sans-serif; padding: 8px 16px; border-radius: 999px; border: 1px solid #03572d; background: #fff; color: #03572d; cursor: pointer; }
+.ml-retry:hover { background: #F2F7F4; }
+.ml-retry:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
+.ml-card-in { animation: ml-in .35s ease both; }
+@keyframes ml-spin { to { transform: rotate(360deg); } }
+@keyframes ml-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .ml-x { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; background: transparent; color: inherit; cursor: pointer; border-radius: 8px; }
 .ml-rail .ml-x { display: none; color: #fff; }
 /* The Copy caption label: the three words share one grid cell, so the button is as wide and tall as the longest in every state. */
@@ -99,7 +119,8 @@
   .ml-m-cat, .ml-m-title { padding-right: 0; }
   .ml-m-close { position: fixed; top: 24px; right: 24px; }
 }
-@media (max-width: 1000px) { .ml-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (max-width: 1179px) { .ml-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 820px) and (max-width: 939px) { .ml-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 @media (max-width: 819px) {
   .ml-layout { grid-template-columns: minmax(0, 1fr); }
   .ml-filter-btn { display: inline-flex; }
@@ -112,9 +133,10 @@
   .ml-search { flex: 1 1 100%; order: 3; }
   .ml-sort { margin-left: auto; }
 }
+@media (max-width: 639px) { .ml-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
 @media (max-width: 420px) { .ml-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (min-width: 820px) { .ml-scrim { display: none !important; } }
-@media (prefers-reduced-motion: reduce) { .ml-rail, .ml-card, .ml-play { transition: none; } .ml-card:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ml-rail, .ml-card, .ml-play { transition: none; } .ml-card-in, .ml-spin { animation: none; } .ml-card:hover { transform: none; } }
 html[data-theme="dark"] .ml-dialog { background: #17201B; border: 1px solid #2C3A33; color: #E6EDE9; }
 html[data-theme="dark"] .ml-m-title { color: #fff; }
 html[data-theme="dark"] .ml-m-cat { color: #E4C96A; }
@@ -131,7 +153,17 @@ html[data-theme="dark"] .ml-chip:has(input:checked) { background: rgba(95,211,15
 html[data-theme="dark"] .ml-clear { color: #5FD39B; border-color: #3A4A42; }
 html[data-theme="dark"] .ml-clear:hover { background: rgba(255,255,255,.06); }
 html[data-theme="dark"] .ml-search, html[data-theme="dark"] .ml-sort, html[data-theme="dark"] .ml-count { background: #17201B; border-color: #3A4A42; color: #A9B8B0; }
-html[data-theme="dark"] .ml-search input, html[data-theme="dark"] .ml-sort select { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .ml-page .ml-search input, html[data-theme="dark"] .e4 .ml-page .ml-sort select { background: transparent; border: 0; box-shadow: none; color: #E6EDE9; }
+html[data-theme="dark"] .e4 .ml-page .ml-search input::placeholder { color: #A9B8B0; }
+html[data-theme="dark"] .e4 .ml-page .ml-search input:-webkit-autofill, html[data-theme="dark"] .e4 .ml-page .ml-sort select:-webkit-autofill { -webkit-text-fill-color: #E6EDE9; box-shadow: 0 0 0 40px #17201B inset; caret-color: #E6EDE9; }
+html[data-theme="dark"] .ml-sort select option { background: #17201B; color: #E6EDE9; }
+html[data-theme="dark"] .ml-status { color: #A9B8B0; }
+html[data-theme="dark"] .ml-spin { border-color: #3A4A42; border-top-color: #5FD39B; }
+html[data-theme="dark"] .ml-retry { background: #17201B; border-color: #5FD39B; color: #5FD39B; }
+html[data-theme="dark"] .ml-retry:hover { background: rgba(255,255,255,.06); }
+html[data-theme="dark"] .e4 .ml-m-meta .ml-m-v { color: #E6EDE9; }
+html[data-theme="dark"] .ml-m-close { border: 1px solid rgba(255,255,255,.35); }
+html[data-theme="dark"] .e4 .ml-page .md-card a { color: #5FD39B; }
 html[data-theme="dark"] .ml-card { background: #17201B; border-color: #2C3A33; }
 html[data-theme="dark"] .ml-thumb { background: #22302A; }
 html[data-theme="dark"] .ml-act { background: #17201B; border-color: #3A4A42; color: #E6EDE9; }

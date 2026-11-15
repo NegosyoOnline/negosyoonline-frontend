@@ -300,6 +300,13 @@ test("the sort is the approved pk-select in the pill, in light and dark, with th
   assert.match(shell, /\.e4 \.pk-select-opt\.is-selected \{ background: rgba\(108,140,255,\.16\); color: #173DB8; font-weight: 600; \}/);
   assert.match(shell, /html\[data-theme="dark"\] \.e4 \.pk-select-opt\.is-selected \{ background: rgba\(157,180,255,\.20\); color: #9DB4FF; font-weight: 600; \}/);
   assert.match(media, /html\[data-theme="dark"\] \.ml-sort:focus-within[^{]*\{ border-color: #6C8CFF/);
+  // Fix 9: the pk-select box fills the pill (so pack-select.js opens the panel at the pill's left edge, full width, 6px below), and the rows are 44px as in Orders.
+  assert.match(media, /\.ml-sort \{ flex: 0 0 auto; position: relative; cursor: pointer; padding: 0; gap: 0; \}/);
+  assert.match(media, /\.ml-sort > svg \{ position: absolute; left: 13px;/);
+  assert.match(media, /\.ml-sort \.pk-select \{ display: block; align-self: stretch; margin: -1px; \}/);
+  assert.match(media, /\.e4 \.ml-sort \.pk-select-box, [^{]*\{ height: 100%; min-height: 0; padding: 0 14px 0 37px;/);
+  assert.doesNotMatch(media, /\.ml-sort \.pk-select-panel/);
+  assert.match(media, /\.e4 \.ml-sort \.pk-select-opt \{ line-height: 24px; \}/);
   assert.match(read("pack-select.css"), /\.pk-select-panel\{display:none;position:fixed/);
 });
 test("dark mode: the preview tile values are light, and the grid steps down 4 / 3 / 2 / 1", () => {

@@ -145,6 +145,19 @@ test("My Purchases holds the Membership Pack payment card, and the rejected orde
   assert.doesNotMatch(gone, /SP-1001|Membership Pack/);
 });
 
+test("The rejected-payment dialog has a dark rule for its card and contents, before and after resubmit", async () => {
+  const resub = ok({ pack: { ...(LOCKED.body as { pack: Record<string, unknown> }).pack, lock: { reason_label: "Amount does not match", other_text: "", resubmitted: true, accounts: [] } }, registration: null });
+  for (const reply of [LOCKED, resub]) {
+    const body = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [reply] })))).text();
+    assert.match(body, /<dialog class="pk-dlg" id="pk-lock" open/);
+    assert.match(body, /\.pk-dlg\{[^}]*background:#fff/); // light mode unchanged
+    assert.match(body, /html\[data-theme="dark"\] \.pk-dlg\{background:#17201B;color:#E6EDE9/);
+    for (const sel of [".pk-dlg-head", ".pk-dlg .pk-reason", ".pk-dlg .note.info", ".pk-dlg .pk-file", ".pk-dlg .pk-linkbtn", ".pk-dlg .pk-select-box", ".pk-dlg .pk-select-panel"]) {
+      assert.ok(body.includes(`html[data-theme="dark"] ${sel}`), `dark rule for ${sel}`);
+    }
+  }
+});
+
 test("My Purchases: a member with no pack sees the empty-state sentence, a member with a pack does not", async () => {
   const none = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
   assert.match(none, /You have no Membership Pack purchase on this account yet\./);

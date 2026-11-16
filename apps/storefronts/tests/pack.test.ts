@@ -99,8 +99,11 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   assert.match(hero, /Free Shipping Nationwide/);
   assert.ok(hero.indexOf("pp-hero-cta ") > hero.indexOf("<ul") && hero.indexOf("pp-hero-cta ") < hero.indexOf("pp-hero-video")); // the button row follows the icon row (outside the copy column) and precedes the video
   assert.ok(hero.indexOf("pp-hero-cta ") > hero.indexOf("</ul>"));
-  assert.doesNotMatch(hero, /Get the Membership Pack/); // the hero button has its own label; the six _cta buttons keep theirs
-  assert.equal((doc.match(/Get the Membership Pack/g) ?? []).length, 6); // the six _cta includes (the phone bar among them)
+  const LABEL = "Get 2 Boxes &amp; Unlock My Discount";
+  assert.equal((doc.match(/Get the Membership Pack/g) ?? []).length, 0); // every order button carries the new label
+  assert.equal((doc.match(new RegExp(LABEL, "g")) ?? []).length, 7); // the hero button and the six _cta includes (the phone bar among them)
+  assert.match(hero, /data-pp-hero-cta class="[^"]*\bbg-accent-400 text-primary-950 shadow-\[var\(--shadow-cta\)\] hover:bg-accent-300\b/); // the hero button keeps the gold look
+  assert.doesNotMatch(doc, /pp-hero-cta-green/);
 });
 
 test("the landing page, order button off: only the message, no link, no phone bar", () => {
@@ -108,7 +111,7 @@ test("the landing page, order button off: only the message, no link, no phone ba
   assert.match(doc, /<div role="status" data-pp-hero-cta[^>]*>\s*<p class="text-base leading-7 font-bold text-ink-900">Membership Pack checkout is not available yet\.<\/p>/);
   assert.doesNotMatch(doc, /membership-pack\/checkout\//);
   assert.doesNotMatch(doc, /data-pp-sticky/);
-  assert.doesNotMatch(doc, /Get the Membership Pack/);
+  assert.doesNotMatch(doc, /Get the Membership Pack|Unlock My Discount/);
 });
 
 test("the landing page never carries an inline script and never a per-order billing word", () => {

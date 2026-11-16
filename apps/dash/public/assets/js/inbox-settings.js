@@ -217,7 +217,7 @@
       var txt = h("span", "mk-saved-text"); add(txt, lockIcon(), document.createTextNode("Token saved"));
       var replace = btn("Replace token", "ghost", function () { S.replacing = true; render(); var t = byId("ibs-access_token"); if (t) t.focus(); });
       replace.classList.add("mk-small");
-      add(box, txt, replace);
+      add(box, txt, add(h("span", "mk-saved-actions"), replace));
       add(row, lab2, box, h("p", "pm-hint", "The token is never shown again. To change it, replace it."));
       s.appendChild(row);
     }

@@ -27,9 +27,22 @@
 #view-settings-inbox .pm-actions .no-btn { min-height: 44px; }
 #view-settings-inbox .pm-danger { color: var(--err-h); }
 #view-settings-inbox .pm-secret { position: relative; }
-#view-settings-inbox .mk-saved { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 8px 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); }
-#view-settings-inbox .mk-saved-text { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); }
+#view-settings-inbox .mk-saved { display: flex; flex-wrap: wrap; align-items: stretch; min-height: 44px; }
+#view-settings-inbox .mk-saved-text { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 160px; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px 0 0 8px; background: var(--bl-select-bg); font-weight: 600; color: var(--text); }
 #view-settings-inbox .mk-saved-text svg { width: 18px; height: 18px; color: var(--meta); }
+#view-settings-inbox .mk-saved-actions { display: inline-flex; flex: 0 0 auto; }
+#view-settings-inbox .mk-saved .no-btn.mk-small { min-height: 44px !important; padding: 0 16px !important; font-size: 14px; border-radius: 0 !important; margin: 0 0 0 -1px; border: 1px solid var(--bl-select-line); }
+#view-settings-inbox .mk-saved .no-btn.mk-small:last-child { border-radius: 0 8px 8px 0 !important; }
+#view-settings-inbox .mk-saved .no-btn.mk-small:focus-visible { position: relative; z-index: 1; outline: none; box-shadow: 0 0 0 2px var(--link); }
+@media (max-width: 340px) {
+#view-settings-inbox .mk-saved-text { flex-basis: 100%; border-radius: 8px 8px 0 0; }
+#view-settings-inbox .mk-saved-actions { flex: 1 1 100%; margin-top: -1px; }
+#view-settings-inbox .mk-saved .no-btn.mk-small { flex: 1 1 0; margin-left: 0; }
+#view-settings-inbox .mk-saved .no-btn.mk-small + .no-btn.mk-small { margin-left: -1px; }
+#view-settings-inbox .mk-saved .no-btn.mk-small:first-child:not(:last-child) { border-radius: 0 0 0 8px !important; }
+#view-settings-inbox .mk-saved .no-btn.mk-small:last-child { border-radius: 0 0 8px 0 !important; }
+#view-settings-inbox .mk-saved .no-btn.mk-small:first-child:last-child { border-radius: 0 0 8px 8px !important; }
+}
 #view-settings-inbox .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
 #view-settings-inbox .mk-test { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 2px 0 16px; padding: 12px 14px; border-radius: 12px; font-size: 15px; color: var(--text-2); }
 #view-settings-inbox .mk-test-ok { background: var(--chip-ok-bg); }

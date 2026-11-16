@@ -19,7 +19,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "b47e4fe1", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "bbc3d1a0", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",

@@ -194,16 +194,19 @@ test("the 40% member savings badge is one real element on the video, and the her
   for (const w of ["1400", "2000"]) assert.ok(existsSync(path.join("public/assets/sante/img", `hero-nz-clean-${w}.webp`)));
 });
 
-test("the phone hero order is set by CSS under 40rem: label, headline, video, line, button, certifications", () => {
+test("the phone hero order is set by CSS under 64rem (phone and tablet): label, headline, video, line, button, certifications", () => {
   const css = readFileSync("public/assets/sante/css/pack-focus.css", "utf8");
-  const phone = css.slice(css.indexOf("@media (max-width: 39.99rem) {\n  .pp-hero {"));
+  const phone = css.slice(css.indexOf("@media (max-width: 63.99rem) {\n  .pp-hero {"));
   assert.match(phone, /\.pp-hero-body, \.pp-hero-copy \{ display: contents; \}/);
   const order = (cls: string) => Number(phone.match(new RegExp(`\\.${cls} \\{[^}]*order: (\\d)`))?.[1]);
   const seq = ["pp-hero-label", "pp-hero-h1", "pp-hero-video", "pp-hero-lede", "pp-hero-cta", "pp-hero-certs"].map(order);
   assert.deepEqual(seq, [1, 2, 3, 4, 5, 6]);
-  assert.match(phone, /\.pp-hero-photo \{ display: none;/); // round 6: the photo block is gone on a phone
+  assert.match(phone, /\.pp-hero-photo \{ display: none;/);
+  assert.match(css, /@media \(min-width: 40rem\) and \(max-width: 63\.99rem\) \{\n  \.pp-hero \{ padding-bottom: 2rem; \}/); // r9b: tablet values set back to the phone's
+  assert.match(css, /\.pp-hero \.pp-hero-btn \{ width: 100%;/); // full-width hero button on a tablet too
+  assert.doesNotMatch(page(PACK), /sizes="[^"]*min-width: 40rem/); // round 6: the photo block is gone on a phone
   const hero = page(PACK);
-  assert.match(hero, /<picture><source media="\(max-width: 39\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img src="[^"]*hero-nz-clean-2000\.webp[^"]*" srcset="[^"]*1400w[^"]*2000w"[^>]*fetchpriority="high"[^>]*><\/picture>/);
+  assert.match(hero, /<picture><source media="\(max-width: 63\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img src="[^"]*hero-nz-clean-2000\.webp[^"]*" srcset="[^"]*1400w[^"]*2000w"[^>]*fetchpriority="high"[^>]*><\/picture>/);
   assert.match(hero, /<span aria-hidden="true" class="pp-hero-blur hidden desk:block"><picture><source media="\(max-width: 63\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img [^>]*loading="lazy"><\/picture><\/span>/);
   const doc = page(PACK);
   for (const cls of ["pp-hero-label", "pp-hero-h1", "pp-hero-lede", "pp-hero-certs", "pp-hero-cta", "pp-hero-video", "pp-hero-photo"]) assert.equal((doc.match(new RegExp(`class="${cls}[ "]`, "g")) ?? []).length, 1, cls);

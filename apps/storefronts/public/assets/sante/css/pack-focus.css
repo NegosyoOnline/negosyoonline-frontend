@@ -145,7 +145,7 @@
   .pp-hero-badge { right: auto; top: calc(6.75rem - var(--pp-bd) / 2);
     left: min(calc(var(--pp-vl) + var(--pp-vw) - var(--pp-bd) / 2), calc(100cqw - var(--pp-bd) - 0.5rem)); }
 }
-@media (max-width: 39.99rem) {
+@media (max-width: 63.99rem) {
   .pp-hero { display: flex; flex-direction: column; }
   .pp-hero-body, .pp-hero-copy { display: contents; }
   .pp-hero-label, .pp-hero-h1, .pp-hero-lede, .pp-hero-certs { padding-left: 1.25rem; padding-right: 1.25rem; }
@@ -155,7 +155,27 @@
   .pp-hero-lede { order: 4; }
   .pp-hero-cta { order: 5; }
   .pp-hero-certs { order: 6; }
-  .pp-hero-photo { display: none; } /* fix round 6: no photo on a phone (its <picture> also gives phones an empty source, so it is not downloaded) */
+  .pp-hero-photo { display: none; } /* fix round 6: no photo on a phone or tablet (its <picture> also gives them an empty source, so it is not downloaded) */
+}
+
+/* Task z8uq9mfw37, fix round 9b (Coach Ed 2026-11-16 23:41 HKT, "tablet like phone"): the whole <64rem block above is the phone layout, so the
+   tablet (40rem up to just under the 64rem desktop) now gets it too, and the photo is hidden and not downloaded there. The hero's own
+   tab: utilities and the 40rem rules above would still make 40-63.99rem differ from the phone, so this block sets the phone's values back
+   for the hero only (two-class selectors beat the single-class utilities; a phone, under 40rem, never matches this block). */
+@media (min-width: 40rem) and (max-width: 63.99rem) {
+  .pp-hero { padding-bottom: 2rem; }
+  .pp-hero .pp-hero-label { font-size: var(--text-xs); line-height: var(--text-xs--line-height); }
+  .pp-hero .pp-hero-h1 { margin-top: 1.25rem; font-size: 2.125rem; }
+  .pp-hero .pp-hero-lede { margin-top: 1.25rem; font-size: var(--text-lg); }
+  .pp-hero .pp-hero-video { padding: 0 1.25rem; }
+  .pp-hero .pp-hero-badge { --pp-bd: 5.75rem; top: -1.5rem; right: 0.5rem; }
+  .pp-hero .pp-hero-cta { margin-top: 2.5rem; padding-left: 1.25rem; padding-right: 1.25rem; }
+  .pp-hero .pp-hero-cta > div { display: flex; }
+  .pp-hero .pp-hero-btn { width: 100%; gap: 0.5rem; padding-left: 1rem; padding-right: 1rem; text-align: center; font-size: 1rem; line-height: 1.5rem; }
+  .pp-hero .pp-hero-btn svg { width: 1.375rem; height: 1.375rem; }
+  .pp-hero .pp-hero-certs { justify-content: center; gap: 1rem; margin-top: 1.125rem; }
+  .pp-hero .pp-cert { flex: 1 1 0; width: auto; max-width: 7.5rem; }
+  .pp-hero .pp-cert-img { width: 4.5rem; height: 4.5rem; }
 }
 
 /* Task z8uq9mfw37, fix round 6: "We are the Barley Authority" (TWCinc components/_about.html), between the IQVIA strip and "Watch Before You Buy".

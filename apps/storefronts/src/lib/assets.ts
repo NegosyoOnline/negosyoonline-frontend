@@ -19,7 +19,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "c4e78ea1", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "6d0a0aa4", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
@@ -66,7 +66,7 @@ const VERSIONS: Record<string, string> = {
   "img/reels/reel-5.jpg": "4ba707d2",
   "img/reels/reel-6.jpg": "10790ca5",
   "img/reels/reel-7.jpg": "a979b622",
-  "js/pack-landing.js": "af9d225b", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
+  "js/pack-landing.js": "682f627e", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",

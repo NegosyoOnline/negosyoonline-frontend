@@ -232,3 +232,19 @@ test("the landing page carries We are the Barley Authority between the IQVIA str
   for (const n of [1, 2, 3, 4]) assert.ok(section.includes(`/assets/sante/img/about/about-${n}.webp?v=`), String(n));
   assert.ok(existsSync(path.join("public/assets/sante/img/about", "about-bg.webp")));
 });
+
+test("round 7: the hero video has a white frame and a green play button (a real button, a sibling of the one iframe)", () => {
+  const doc = page(PACK);
+  assert.equal((doc.match(/<iframe\b/g) ?? []).length, 1);
+  const hero = doc.slice(doc.indexOf('<section class="pp-hero'), doc.indexOf("</section>", doc.indexOf('<section class="pp-hero')));
+  const video = hero.slice(hero.indexOf('<div class="pp-hero-video">'), hero.indexOf("pp-hero-badge"));
+  assert.match(video, /<iframe [^>]*title="Santé Membership Pack video"><\/iframe>\s*<button type="button" data-hero-play class="pp-reel-play pp-hero-play" aria-label="Play video with sound">/);
+  assert.equal((video.match(/aria-label="Play video with sound"/g) ?? []).length, 1);
+  assert.ok(video.includes("pp-reel-icon") && video.includes("pp-reel-tri")); // the reel's green icon and white triangle
+  const css = readFileSync("public/assets/sante/css/pack-focus.css", "utf8");
+  assert.match(css, /\.pp-hero-video-frame \{[^}]*box-shadow: 0 0 0 5px #fff/);
+  assert.match(css, /\.pp-hero-video-frame \{ position: absolute; pointer-events: auto;[^}]*box-shadow: 0 0 0 5px #fff/);
+  const js = readFileSync("public/assets/sante/js/pack-landing.js", "utf8");
+  for (const m of ["setCurrentTime", "unmute", "setVolume", "play"]) assert.ok(js.includes(`"${m}"`), m);
+  assert.match(js, /e\.origin!==origin/);
+});

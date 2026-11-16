@@ -77,6 +77,7 @@ export function landingContent(c: PackCtx): Markup {
   <div class="pp-hero-video">
     <div class="pp-hero-video-frame">
       <iframe class="absolute inset-0 h-full w-full" style="border:0" referrerpolicy="strict-origin-when-cross-origin" src="${c.video_url}" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true" title="Santé Membership Pack video"></iframe>
+      <button type="button" data-hero-play class="pp-reel-play pp-hero-play" aria-label="Play video with sound"><span data-reel-icon class="pp-reel-icon"><svg viewBox="0 0 24 24" class="pp-reel-tri" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.2-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg></span></button>
     </div>
     <div class="pp-hero-badge" role="img" aria-label="Unlock 40% member savings"><span class="pp-hero-badge-top">Unlock</span><strong class="pp-hero-badge-pct">40%</strong><span class="pp-hero-badge-bot">Member<br>Savings</span></div>
   </div>

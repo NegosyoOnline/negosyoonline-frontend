@@ -8,6 +8,25 @@ import { html, type Markup } from "../../lib/html.ts";
 import { asset } from "../../lib/assets.ts";
 import { packDocument, type PackCtx } from "./pack-page.ts";
 
+
+/* "Watch Before You Buy": the rotating reel carousel, markup adapted from TWCinc's membership-pack landing_page.html (section#reels) and
+   components/_reel.html. Same Bunny library (744094), video ids, order and titles; the titles are TWCinc's placeholder titles. Its
+   behaviour is in js/pack-landing.js. */
+const REELS: { n: string; label: string; guid: string; title: string }[] = [
+  { n: "3", label: "1", guid: "9466115c-2583-4570-8ce8-d4ccacae1cee", title: "Mixed and ready in seconds" },
+  { n: "1", label: "2", guid: "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", title: "Open, mix, enjoy" },
+  { n: "2", label: "3", guid: "8218fd28-4d31-4418-84e6-068349c7c7df", title: "A glass of barley with breakfast" },
+  { n: "4", label: "4", guid: "53d83f5a-771d-4250-a5c6-6a8d47290ebd", title: "Hear it from someone who drinks it" },
+  { n: "5", label: "5", guid: "bfa29211-334b-4e09-9f8d-0214da938616", title: "Santé Barley, up close" },
+  { n: "6", label: "6", guid: "b9617923-49f4-42b6-9b37-f0a53fa2882e", title: "Santé Barley, up close" },
+  { n: "7", label: "7", guid: "39f71444-5e52-4966-9ba3-2cee5a13590d", title: "Santé Barley, up close" },
+];
+
+function reelCard(r: { n: string; label: string; guid: string; title: string }): Markup {
+  const src = `https://player.mediadelivery.net/embed/744094/${r.guid}?autoplay=false&loop=false&muted=false&preload=false&responsive=true&playsinline=true&disableIosPlayer=true`;
+  return html`<div data-reel-card data-reel-title="${r.title}" class="pp-reel-card" style="transform:translateX(-50%)"><div data-reel class="pp-reel"><img src="${asset(`img/reels/reel-${r.n}.jpg`)}" alt="" loading="lazy" data-reel-poster class="pp-reel-poster"><button type="button" data-reel-play data-src="${src}" aria-label="Play video ${r.label} with sound: ${r.title}" class="pp-reel-play"><span aria-hidden="true" class="pp-reel-shade"></span><span data-reel-icon class="pp-reel-icon"><svg viewBox="0 0 24 24" class="pp-reel-tri" fill="currentColor"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.2-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></svg></span></button><span data-reel-veil aria-hidden="true" class="pp-reel-veil"></span></div></div>`;
+}
+
 export function landingContent(c: PackCtx): Markup {
   return html`
 
@@ -20,7 +39,7 @@ export function landingContent(c: PackCtx): Markup {
       <h1 class="mt-5 text-[2.125rem] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink-900 tab:text-[2.75rem] tab:mt-6 desk:text-[3.25rem]">Why Keep Paying the <span class="text-[#157a38]">Regular Price</span> for Your Barley?</h1>
       <p class="mt-5 text-lg leading-8 text-[#1d5e33] tab:mt-6 tab:text-xl">Get 2 boxes of Santé Barley Powder from ${c.store_name} for <strong class="font-bold">only ${c.price}</strong> and unlock your <strong class="font-bold">Lifetime Membership</strong>.</p>
 
-      <ul class="pp-hero-certs mt-9 tab:mt-10">
+      <ul class="pp-hero-certs">
         <li class="pp-cert"><img src="${asset("img/certifications/biogro-certified-organic.png")}" alt="" class="pp-cert-img" width="96" height="96"><span class="mt-2 text-center text-xs leading-snug font-medium text-ink-600">BioGro NZ Certified Organic</span></li>
         <li class="pp-cert"><img src="${asset("img/certifications/halal-idcp.png")}" alt="" class="pp-cert-img" width="96" height="96"><span class="mt-2 text-center text-xs leading-snug font-medium text-ink-600">Halal &mdash; IDCP Philippines</span></li>
         <li class="pp-cert"><img src="${asset("img/certifications/superbrands-philippines-choice.png")}" alt="" class="pp-cert-img" width="96" height="96"><span class="mt-2 text-center text-xs leading-snug font-medium text-ink-600">Superbrands Philippines&rsquo; Choice</span></li>
@@ -31,7 +50,7 @@ export function landingContent(c: PackCtx): Markup {
     <div class="pp-hero-cta mx-auto mt-10 w-full max-w-6xl px-5 tab:mt-12 tab:px-8 text-center">
       ${(c.cta) ? html`
       <div class="flex flex-col items-center tab:inline-flex">
-        <a href="${c.checkout_path}" data-pp-hero-cta class="inline-flex w-full items-center justify-center gap-3 rounded-full bg-accent-400 text-primary-950 shadow-[var(--shadow-cta)] hover:bg-accent-300 hover:shadow-[0_12px_26px_-10px_rgba(244,172,28,0.9)] px-10 py-4 text-lg leading-7 font-bold transition-[transform,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 active:translate-y-0 ph:gap-2 ph:px-4 ph:text-center ph:text-[0.9375rem] tab:w-auto tab:text-xl">Get 2 Boxes &amp; Unlock My Discount<svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 shrink-0 tab:h-6 tab:w-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <a href="${c.checkout_path}" data-pp-hero-cta class="pp-hero-btn inline-flex w-full items-center justify-center gap-3 rounded-full bg-accent-400 text-primary-950 shadow-[var(--shadow-cta)] hover:bg-accent-300 hover:shadow-[0_12px_26px_-10px_rgba(244,172,28,0.9)] px-10 py-4 text-lg leading-7 font-bold transition-[transform,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 active:translate-y-0 ph:gap-2 ph:px-4 ph:text-center ph:text-[0.9375rem] tab:w-auto tab:text-xl">Get 2 Boxes &amp; Unlock My Discount<svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 shrink-0 tab:h-6 tab:w-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         <ul class="pp-hero-trust mt-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-base font-semibold text-[#157a38]"><li class="flex items-center gap-2"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5 shrink-0"><path d="M3 7h10v9H3zM13 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Free Shipping Nationwide</li><li class="flex items-center gap-2"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5 shrink-0"><path d="M3.5 4.5h2.2l2 10.5h10.3l1.9-7.5H6.6"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg>One-Time Purchase</li><li class="flex items-center gap-2"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" class="h-5 w-5 shrink-0"><path d="M12 21s-8.5-5.1-8.5-11.4A4.9 4.9 0 0 1 12 6.7a4.9 4.9 0 0 1 8.5 2.9C20.5 15.9 12 21 12 21z"/></svg>Lifetime Membership</li></ul>
       </div>
       ` : html`
@@ -68,6 +87,25 @@ export function landingContent(c: PackCtx): Markup {
     <p class="mt-1 text-sm font-semibold text-accent-700 tab:text-base">According to an IQVIA study conducted in 2021.</p>
     <span aria-hidden="true" class="mt-3 h-px w-12 bg-[#c9a44a]"></span>
     <p class="mt-2 text-xs text-ink-500">Source: Independent market study, 2021.</p>
+  </div>
+</section>
+
+<section id="reels" class="pp-reels">
+  <header class="pp-reels-head">
+    <h2>Watch Before You Buy</h2>
+    <div>See a sachet opened, mixed and finished &mdash; the closest thing to holding the box before you order.</div>
+  </header>
+  <div data-reel-stage class="pp-reels-stage" role="region" aria-roledescription="carousel" aria-label="Santé Barley videos">
+    <div aria-hidden="true" class="pp-reel-spacer"></div>
+    ${REELS.map(reelCard)}
+  </div>
+  <div class="pp-reels-nav">
+    <button type="button" aria-label="Previous video" data-reel-prev class="pp-reels-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5"><path d="m15 6-6 6 6 6"/></svg></button>
+    <div class="pp-reels-cap" aria-live="polite">
+      <p data-reel-caption class="pp-reels-title">Mixed and ready in seconds</p>
+      <p class="pp-reels-count"><span data-reel-count>1</span> / 7</p>
+    </div>
+    <button type="button" aria-label="Next video" data-reel-next class="pp-reels-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5"><path d="m9 6 6 6-6 6"/></svg></button>
   </div>
 </section>
 

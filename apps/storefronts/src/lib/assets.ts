@@ -19,7 +19,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "480d8416", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "db70b151", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
@@ -55,7 +55,14 @@ const VERSIONS: Record<string, string> = {
   "data/barangays.json": "4f4439a8",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
-  "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
+  "img/reels/reel-1.jpg": "cf79141a",
+  "img/reels/reel-2.jpg": "83a7f8b4",
+  "img/reels/reel-3.jpg": "43aac9d7",
+  "img/reels/reel-4.jpg": "3b1c0a11",
+  "img/reels/reel-5.jpg": "4ba707d2",
+  "img/reels/reel-6.jpg": "10790ca5",
+  "img/reels/reel-7.jpg": "a979b622",
+  "js/pack-landing.js": "ab3ff6f6", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",

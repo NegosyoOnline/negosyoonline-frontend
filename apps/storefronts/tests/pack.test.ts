@@ -120,6 +120,23 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   for (const label of ["Free Shipping Nationwide", "One-Time Purchase", "Lifetime Membership"]) assert.ok(trust.includes(label), label);
 });
 
+test("the landing page carries the Watch Before You Buy reel carousel before the bundle", () => {
+  const doc = page(PACK);
+  const reels = doc.indexOf('<section id="reels"');
+  assert.ok(reels > 0);
+  assert.ok(doc.indexOf("Recognized as the Philippines") < reels && reels < doc.indexOf('<section id="the-bundle"'));
+  assert.match(doc, /<h2>Watch Before You Buy<\/h2>/);
+  const section = doc.slice(reels, doc.indexOf("</section>", reels));
+  assert.equal((section.match(/data-reel-card/g) ?? []).length, 7);
+  const guids = [...section.matchAll(/embed\/744094\/([0-9a-f-]{36})\?/g)].map((m) => m[1]);
+  assert.deepEqual(guids, ["9466115c-2583-4570-8ce8-d4ccacae1cee", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", "8218fd28-4d31-4418-84e6-068349c7c7df", "53d83f5a-771d-4250-a5c6-6a8d47290ebd", "bfa29211-334b-4e09-9f8d-0214da938616", "b9617923-49f4-42b6-9b37-f0a53fa2882e", "39f71444-5e52-4966-9ba3-2cee5a13590d"]);
+  for (const n of [1, 2, 3, 4, 5, 6, 7]) assert.ok(section.includes(`/assets/sante/img/reels/reel-${n}.jpg?v=`), String(n));
+  assert.match(section, /<span data-reel-count>1<\/span> \/ 7/);
+  assert.match(section, /data-reel-prev/);
+  assert.match(section, /data-reel-next/);
+  assert.match(section, /role="region" aria-roledescription="carousel"/);
+});
+
 test("the landing page, order button off: only the message, no link, no phone bar", () => {
   const doc = page({ ...PACK, available: false, payment_accounts: [] });
   assert.match(doc, /<div role="status" data-pp-hero-cta[^>]*>\s*<p class="text-base leading-7 font-bold text-ink-900">Membership Pack checkout is not available yet\.<\/p>/);

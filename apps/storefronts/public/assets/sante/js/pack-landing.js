@@ -36,4 +36,84 @@ var e=es[0];hide(e.isIntersecting||e.boundingClientRect.top>0);
 }).observe(hero);
 hide(true);
 }
+
+/* "Watch Before You Buy": the rotating centre-stage reel carousel, adapted from TWCinc's membership-pack-landing.min.js (the reels part,
+   rewritten here, no muted preview). The ring is placed around the centred reel: 0 is the centre, +-1 and +-2 step down in size under a
+   deepening sage veil, anything further sits hidden. Previous/Next, a swipe, or a tap on a side reel rotate it. Only the centred reel
+   plays: its play button mounts the Bunny player (sound, from 0:00, inline) and a reel that rotates away loses its player. */
+var rst=document.querySelector("[data-reel-stage]");
+if(rst){
+var rcards=[].slice.call(rst.querySelectorAll("[data-reel-card]")),rn=rcards.length;
+var rcap=document.querySelector("[data-reel-caption]"),rcnt=document.querySelector("[data-reel-count]");
+var RSCALE=[1,0.7,0.54,0.44],RVEIL=[0,0.18,0.4,1],rslots=rcards.map(function(){return null;});
+var ractive=0,rlastSwipe=0,rstartX=null;
+var rcalm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var rslot=function(i){var o=((i-ractive)%rn+rn)%rn;return o>rn/2?o-rn:o;};
+var rstop=function(card){
+var f=card.querySelector("[data-reel]"),pl=f.querySelector("iframe");
+if(pl){pl.remove();}
+[].forEach.call(f.querySelectorAll("[data-reel-poster],[data-reel-play]"),function(el){el.hidden=false;});
+};
+var rlayout=function(){
+if(!rn){return;}
+var w=rcards[0].offsetWidth,gap=window.innerWidth<640?12:20,off=[0];
+for(var k=1;k<RSCALE.length;k++){off[k]=off[k-1]+(w*RSCALE[k-1])/2+gap+(w*RSCALE[k])/2;}
+rcards.forEach(function(card,i){
+var o=rslot(i),d=Math.min(Math.abs(o),RSCALE.length-1),x=(o<0?-1:1)*off[d],prevSlot=rslots[i];
+/* the first placement, and a reel wrapping round the ring, jump instead of gliding */
+card.style.transition=rcalm||prevSlot===null||Math.abs(prevSlot-o)>1?"none":"";
+card.style.transform="translateX(-50%) translateX("+x+"px) scale("+RSCALE[d]+")";
+card.style.opacity=d>=RSCALE.length-1?"0":"1";
+card.style.zIndex=String(10-d);
+card.style.pointerEvents=d>=RSCALE.length-1?"none":"";
+card.setAttribute("aria-hidden",d===0?"false":"true");
+var f=card.querySelector("[data-reel]");
+f.style.boxShadow=d===0?"0 0 0 5px #fff, 0 30px 60px -30px rgba(6,58,24,0.55)":"none";
+f.querySelector("[data-reel-veil]").style.opacity=String(RVEIL[d]);
+f.querySelector("[data-reel-icon]").style.opacity=d===0?"1":"0";
+f.querySelector("[data-reel-play]").tabIndex=d===0?0:-1;
+rslots[i]=o;
+});
+if(rcap){rcap.textContent=rcards[ractive].getAttribute("data-reel-title")||"";}
+if(rcnt){rcnt.textContent=ractive+1;}
+};
+var rrotate=function(i){
+ractive=((i%rn)+rn)%rn;
+rcards.forEach(function(card,j){if(j!==ractive){rstop(card);}});
+rlayout();
+};
+var rplay=function(card){
+var f=card.querySelector("[data-reel]"),btn=f.querySelector("[data-reel-play]");
+if(f.querySelector("iframe")){return;}
+var pl=document.createElement("iframe");
+pl.src=btn.getAttribute("data-src").replace("autoplay=false","autoplay=true").replace("preload=false","preload=true");
+pl.title=(btn.getAttribute("aria-label")||"").replace(/^Play /,"");
+pl.style.cssText="border:0;position:absolute;top:0;left:0;height:100%;width:100%;";
+pl.setAttribute("allow","accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;");
+pl.setAttribute("allowfullscreen","true");
+pl.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
+f.insertBefore(pl,f.firstChild);
+[].forEach.call(f.querySelectorAll("[data-reel-poster],[data-reel-play]"),function(el){el.hidden=true;});
+};
+var rprev=document.querySelector("[data-reel-prev]"),rnext=document.querySelector("[data-reel-next]");
+if(rprev){rprev.addEventListener("click",function(){rrotate(ractive-1);});}
+if(rnext){rnext.addEventListener("click",function(){rrotate(ractive+1);});}
+rst.addEventListener("pointerdown",function(e){rstartX=e.clientX;});
+rst.addEventListener("pointerup",function(e){
+if(rstartX===null){return;}
+var dx=e.clientX-rstartX;rstartX=null;
+if(Math.abs(dx)>40){rlastSwipe=Date.now();rrotate(ractive+(dx<0?1:-1));}
+});
+rst.addEventListener("pointercancel",function(){rstartX=null;});
+[].forEach.call(rst.querySelectorAll("[data-reel-play]"),function(btn){
+btn.addEventListener("click",function(){
+if(Date.now()-rlastSwipe<400){return;}
+var card=btn.closest("[data-reel-card]"),i=rcards.indexOf(card);
+if(i!==ractive){rrotate(i);return;}
+rplay(card);
+});
+});
+window.addEventListener("resize",rlayout);
+rlayout();
+}
 })();

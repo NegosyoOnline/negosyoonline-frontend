@@ -64,3 +64,58 @@
 .pp-cert-img { display: block; width: 4.5rem; height: 4.5rem; object-fit: contain; }
 @media (min-width: 40rem) { .pp-hero-certs { justify-content: flex-start; gap: 2rem; } .pp-cert { flex: none; width: 8.5rem; max-width: none; } .pp-cert-img { width: 5rem; height: 5rem; } }
 .pp-hero-trust { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 1.75rem; row-gap: 0.5rem; list-style: none; padding: 0; }
+
+/* Task z8uq9mfw37, fix round 5 (Coach Ed 2026-11-16 22:29).
+   1) The certifications sit closer under the intro line: half the old gap (36px phone, 40px tablet and up).
+   2) The hero order button is about 20-25% bigger (type and padding); the other order buttons are unchanged.
+   3) The hero's top and bottom space are equal: the smaller of the two, per width (phone 2rem, tablet 3rem, desktop 4rem). */
+.pp-hero-certs { margin-top: 1.125rem; }
+@media (min-width: 40rem) { .pp-hero-certs { margin-top: 1.25rem; } }
+.pp-hero-btn { padding-top: 1.25rem; padding-bottom: 1.25rem; font-size: 1.125rem; line-height: 1.75rem; }
+.pp-hero-btn svg { width: 1.5rem; height: 1.5rem; }
+@media (min-width: 40rem) { .pp-hero-btn { padding-left: 3rem; padding-right: 3rem; font-size: 1.5rem; line-height: 2rem; } .pp-hero-btn svg { width: 1.75rem; height: 1.75rem; } }
+.pp-hero { padding-bottom: 2rem; }
+@media (min-width: 40rem) { .pp-hero { padding-bottom: 3rem; } }
+@media (min-width: 64rem) {
+  .pp-hero { padding-bottom: 4rem; }
+  .pp-hero-body { padding-bottom: 13.25rem; }
+  .pp-hero-cta { padding-bottom: 0; }
+}
+
+/* "Watch Before You Buy" (task z8uq9mfw37, fix round 5): the rotating reel carousel on sage, adapted from TWCinc's section#reels. The
+   stage is one centred reel with two smaller reels each side; js/pack-landing.js places them. */
+.pp-reels { overflow: hidden; background: #e5f0e3; color: #000; padding: 4rem 0; }
+@media (min-width: 40rem) { .pp-reels { padding: 5rem 0; } }
+@media (min-width: 64rem) { .pp-reels { padding: 6rem 0; } }
+.pp-reels-head { max-width: 42rem; margin: 0 auto 2.5rem; padding: 0 1.25rem; text-align: center; }
+@media (min-width: 40rem) { .pp-reels-head { margin-bottom: 3rem; padding: 0 2rem; } }
+.pp-reels-head h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 700; color: #13300a; }
+@media (min-width: 40rem) { .pp-reels-head h2 { font-size: 1.75rem; line-height: 2.25rem; } }
+@media (min-width: 64rem) { .pp-reels-head h2 { font-size: 2rem; line-height: 2.5rem; } }
+.pp-reels-head div { margin-top: 1rem; font-size: 1rem; line-height: 1.75rem; color: #4f4f4f; text-wrap: balance; }
+.pp-reels-stage { position: relative; margin: 0 auto; touch-action: pan-y; user-select: none; }
+.pp-reel-spacer { visibility: hidden; margin: 0 auto; aspect-ratio: 9 / 16; width: 70vw; max-width: 17rem; }
+.pp-reel-card { position: absolute; top: 0; left: 50%; width: 70vw; max-width: 17rem; transform-origin: center; transition: transform .5s cubic-bezier(.22,.61,.36,1), opacity .5s cubic-bezier(.22,.61,.36,1); }
+@media (min-width: 40rem) { .pp-reel-spacer, .pp-reel-card { width: 18.5rem; max-width: none; } }
+@media (min-width: 64rem) { .pp-reel-spacer, .pp-reel-card { width: 22rem; } }
+@media (prefers-reduced-motion: reduce) { .pp-reel-card { transition: none; } }
+.pp-reel { position: relative; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 1.5rem; background: #0f2000; transition: box-shadow .5s; }
+.pp-reel-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pp-reel-poster[hidden], .pp-reel-play[hidden] { display: none; }
+.pp-reel-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: 0; padding: 0; }
+.pp-reel-play:focus-visible { outline: 2px solid #6C8CFF; outline-offset: -4px; }
+.pp-reel-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,32,0,.45), transparent 50%, rgba(15,32,0,.15)); }
+.pp-reel-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 5rem; height: 5rem; border-radius: 9999px; background: #499e3c; color: #fff;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.45); transition: opacity .3s; }
+.pp-reel-tri { width: 2.75rem; height: 2.75rem; margin-left: .125rem; }
+.pp-reel-veil { position: absolute; inset: 0; background: #e5f0e3; opacity: 0; pointer-events: none; transition: opacity .5s; }
+.pp-reels-nav { display: flex; align-items: center; justify-content: center; gap: 1rem; max-width: 36rem; margin: 2rem auto 0; padding: 0 1.25rem; }
+@media (min-width: 40rem) { .pp-reels-nav { gap: 1.5rem; margin-top: 2.5rem; } }
+.pp-reels-btn { display: flex; flex: none; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; border: 0; background: #fff;
+  color: #13300a; cursor: pointer; box-shadow: 0 1px 2px #0000000a, 0 8px 24px -14px #0000002e, 0 0 0 1px #cee5c4; transition: background-color .2s; }
+.pp-reels-btn:hover { background: #f2f8ef; }
+.pp-reels-btn:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
+.pp-reels-cap { min-width: 0; flex: 1 1 0; text-align: center; }
+.pp-reels-title { font-size: 1.125rem; line-height: 1.375; font-weight: 700; color: #13300a; }
+@media (min-width: 40rem) { .pp-reels-title { font-size: 1.25rem; } }
+.pp-reels-count { margin-top: .25rem; font-size: .875rem; font-weight: 500; color: #4f4f4f; }

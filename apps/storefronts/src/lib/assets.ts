@@ -65,7 +65,7 @@ const VERSIONS: Record<string, string> = {
   "img/reels/reel-d9de4a51.jpg": "69a5a925",
   "img/reels/reel-54990aa4.jpg": "3b642baf",
   "img/reels/reel-1.jpg": "cf79141a",
-  "js/pack-landing.js": "b1875f41", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
+  "js/pack-landing.js": "625c300d", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",

@@ -1,5 +1,39 @@
 /* The landing page script, moved byte for byte from the inline <script> of TWCinc's landing.html (the policy allows no inline script): photo gallery, "tap what sounds like you" lines, phone order bar. */
 (function(){
+/* Bunny player.js, shared by the hero video and the reels. Bunny's embed speaks the player.js postMessage protocol, so raw messages go to the
+   iframe (targetOrigin = the iframe's own origin, no library) and the "ready" reply is accepted only from that origin and that window.
+   restart() is the green play button: from 0:00, with sound, no loop. If the player has not announced "ready" yet the messages could be
+   dropped, so the fallback reloads the same URL with muted=false&autoplay=true&loop=false, which also starts at 0:00 with sound. */
+var bunny=function(fr){
+var origin="",ready=false;
+try{origin=new URL(fr.src).origin;}catch{return null;}
+var send=function(m,v){
+var o={context:"player.js",version:"0.0.11",method:m};
+if(v!==undefined){o.value=v;}
+try{fr.contentWindow.postMessage(JSON.stringify(o),origin);}catch{}
+};
+var onMsg=function(e){
+if(e.origin!==origin||e.source!==fr.contentWindow){return;}
+var d=e.data;
+if(typeof d==="string"){try{d=JSON.parse(d);}catch{return;}}
+if(d&&d.context==="player.js"&&d.event==="ready"){ready=true;}
+};
+window.addEventListener("message",onMsg);
+var listen=function(){send("addEventListener","ready");};
+fr.addEventListener("load",listen);
+listen();
+return{
+restart:function(){
+if(ready){
+send("setLoop",false);send("setCurrentTime",0);send("unmute");send("setVolume",100);send("play");
+}else{
+var u=new URL(fr.src);u.searchParams.set("muted","false");u.searchParams.set("autoplay","true");u.searchParams.set("loop","false");
+fr.src=u.toString();
+}
+},
+destroy:function(){window.removeEventListener("message",onMsg);}
+};
+};
 var g=document.querySelector("[data-gallery]");
 if(g){
 var slides=g.querySelectorAll("[data-gal-slide]"),thumbs=g.querySelectorAll("[data-gal-thumb]"),cur=0;
@@ -38,9 +72,12 @@ hide(true);
 }
 
 /* "Watch Before You Buy": the rotating centre-stage reel carousel, adapted from TWCinc's membership-pack-landing.min.js (the reels part,
-   rewritten here, no muted preview). The ring is placed around the centred reel: 0 is the centre, +-1 and +-2 step down in size under a
-   deepening sage veil, anything further sits hidden. Previous/Next, a swipe, or a tap on a side reel rotate it. Only the centred reel
-   plays: its play button mounts the Bunny player (sound, from 0:00, inline) and a reel that rotates away loses its player. */
+   rewritten here). The ring is placed around the centred reel: 0 is the centre, +-1 and +-2 step down in size under a deepening sage veil,
+   anything further sits hidden. Previous/Next, a swipe, or a tap on a side reel rotate it. Only the centred reel plays (Coach Ed, 2026-11-16):
+   once the stage is on screen its iframe is created and autoplays MUTED, inline, no loop, with the green play button still on top; the button
+   restarts it from 0:00 with sound and then goes. A reel that rotates away (or a stage that leaves the screen) loses its player and, when it
+   is centred again, starts muted again. Nothing is mounted before the stage is seen; under reduced motion nothing autoplays and the button
+   mounts the player with sound. Reel iframes are all after the hero's in the document (the visit script binds the first mediadelivery iframe). */
 var rst=document.querySelector("[data-reel-stage]");
 if(rst){
 var rcards=[].slice.call(rst.querySelectorAll("[data-reel-card]")),rn=rcards.length;
@@ -51,6 +88,7 @@ var rcalm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)
 var rslot=function(i){var o=((i-ractive)%rn+rn)%rn;return o>rn/2?o-rn:o;};
 var rstop=function(card){
 var f=card.querySelector("[data-reel]"),pl=f.querySelector("iframe");
+if(card._bn){card._bn.destroy();card._bn=null;}
 if(pl){pl.remove();}
 [].forEach.call(f.querySelectorAll("[data-reel-poster],[data-reel-play]"),function(el){el.hidden=false;});
 };
@@ -81,19 +119,39 @@ var rrotate=function(i){
 ractive=((i%rn)+rn)%rn;
 rcards.forEach(function(card,j){if(j!==ractive){rstop(card);}});
 rlayout();
+rauto();
 };
-var rplay=function(card){
+var rvis=false;
+var rurl=function(btn,muted){
+var u=new URL(btn.getAttribute("data-src"));
+u.searchParams.set("autoplay","true");u.searchParams.set("muted",muted?"true":"false");u.searchParams.set("preload","true");
+u.searchParams.set("loop","false");u.searchParams.set("playsinline","true");
+return u.toString();
+};
+/* mount the centre reel's player: muted autoplay (the button stays on top) or, from the button with no player yet, with sound */
+var rmount=function(card,muted){
 var f=card.querySelector("[data-reel]"),btn=f.querySelector("[data-reel-play]");
 if(f.querySelector("iframe")){return;}
 var pl=document.createElement("iframe");
-pl.src=btn.getAttribute("data-src").replace("autoplay=false","autoplay=true").replace("preload=false","preload=true");
+pl.src=rurl(btn,muted);
 pl.title=(btn.getAttribute("aria-label")||"").replace(/^Play /,"");
 pl.style.cssText="border:0;position:absolute;top:0;left:0;height:100%;width:100%;";
 pl.setAttribute("allow","accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;");
 pl.setAttribute("allowfullscreen","true");
 pl.setAttribute("referrerpolicy","strict-origin-when-cross-origin");
 f.insertBefore(pl,f.firstChild);
-[].forEach.call(f.querySelectorAll("[data-reel-poster],[data-reel-play]"),function(el){el.hidden=true;});
+card._bn=bunny(pl);
+var poster=f.querySelector("[data-reel-poster]");
+if(poster){poster.hidden=true;}
+btn.hidden=!muted;
+};
+var rauto=function(){
+if(rvis&&!rcalm&&rn){rmount(rcards[ractive],true);}
+};
+var rplay=function(card){
+var f=card.querySelector("[data-reel]"),btn=f.querySelector("[data-reel-play]");
+if(f.querySelector("iframe")&&card._bn){card._bn.restart();btn.hidden=true;return;}
+rmount(card,false);
 };
 var rprev=document.querySelector("[data-reel-prev]"),rnext=document.querySelector("[data-reel-next]");
 if(rprev){rprev.addEventListener("click",function(){rrotate(ractive-1);});}
@@ -115,6 +173,26 @@ rplay(card);
 });
 window.addEventListener("resize",rlayout);
 rlayout();
+if(!rcalm&&"IntersectionObserver" in window){
+new IntersectionObserver(function(es){
+es.forEach(function(en){
+if(en.intersectionRatio>=0.25){rvis=true;rauto();}
+else if(!en.isIntersecting){rvis=false;rstop(rcards[ractive]);}
+});
+},{threshold:[0,0.25]}).observe(rst);
+}
+}
+
+/* Hero video: the green play button. The video autoplays muted (the URL has loop=false); one click or tap restarts it from 0:00 with sound
+   through the shared bunny helper, and neither path loops (Coach Ed, 2026-11-16). Then the button goes, so Bunny's own controls take over. */
+var hbtn=document.querySelector("[data-hero-play]");
+var hfr=document.querySelector(".pp-hero-video iframe");
+var hbn=hbtn&&hfr?bunny(hfr):null;
+if(hbn){
+hbtn.addEventListener("click",function(){
+hbn.restart();
+hbtn.hidden=true;hbtn.remove();
+});
 }
 })();
 
@@ -152,38 +230,4 @@ if(next!==null){e.preventDefault();stop();show(next,true);}
 });
 });
 if(!still){timer=setInterval(function(){show(current+1,false);},4000);}
-})();
-/* Hero video: the green play button. The video autoplays muted; one click or tap restarts it from 0:00 with sound. Bunny's embed speaks the
-   player.js postMessage protocol, so raw messages go to the iframe (targetOrigin = the iframe's own origin, no library). If the player has not
-   announced "ready" by click time the messages could be dropped, so the fallback reloads the same URL with muted=false, which also starts at 0:00
-   with sound. Neither path loops: the URL has loop=false and the player is told setLoop false before play (Coach Ed, 2026-11-16). Then the button goes, so Bunny's own controls take over. */
-(function(){
-var btn=document.querySelector("[data-hero-play]");
-var fr=document.querySelector(".pp-hero-video iframe");
-if(!btn||!fr){return;}
-var origin="",ready=false;
-try{origin=new URL(fr.src).origin;}catch{return;}
-var send=function(m,v){
-var o={context:"player.js",version:"0.0.11",method:m};
-if(v!==undefined){o.value=v;}
-try{fr.contentWindow.postMessage(JSON.stringify(o),origin);}catch{}
-};
-window.addEventListener("message",function(e){
-if(e.origin!==origin||e.source!==fr.contentWindow){return;}
-var d=e.data;
-if(typeof d==="string"){try{d=JSON.parse(d);}catch{return;}}
-if(d&&d.context==="player.js"&&d.event==="ready"){ready=true;}
-});
-var listen=function(){send("addEventListener","ready");};
-fr.addEventListener("load",listen);
-listen();
-btn.addEventListener("click",function(){
-if(ready){
-send("setLoop",false);send("setCurrentTime",0);send("unmute");send("setVolume",100);send("play");
-}else{
-var u=new URL(fr.src);u.searchParams.set("muted","false");u.searchParams.set("autoplay","true");u.searchParams.set("loop","false");
-fr.src=u.toString();
-}
-btn.hidden=true;btn.remove();
-});
 })();

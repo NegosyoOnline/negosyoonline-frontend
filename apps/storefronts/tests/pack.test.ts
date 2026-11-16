@@ -270,6 +270,31 @@ test("no video loops: the hero embed says loop=false, the play click turns loopi
   assert.doesNotMatch(js, /loop=true|["']ended["']/);
 });
 
+test("r10: the highlight reel autoplays muted once the stage is seen, the button restarts it with sound; the hero is unchanged (Coach Ed, 2026-11-16)", () => {
+  const doc = page(PACK);
+  assert.equal((doc.match(/<iframe\b/g) ?? []).length, 1); // only the hero at load: no reel iframe in the markup
+  const reels = doc.slice(doc.indexOf('<section id="reels"'), doc.indexOf("</section>", doc.indexOf('<section id="reels"')));
+  const srcs = [...reels.matchAll(/data-src="([^"]+)"/g)].map((m) => m[1]);
+  assert.equal(srcs.length, 6);
+  for (const s of srcs) assert.match(s, /loop=false/);
+  assert.ok(doc.indexOf("<iframe") < doc.indexOf('<section id="reels"')); // the hero iframe stays the first mediadelivery iframe
+  assert.match(VIDEO_EMBED_URL, /autoplay=true/);
+  assert.match(VIDEO_EMBED_URL, /muted=true/);
+  assert.match(VIDEO_EMBED_URL, /loop=false/);
+  const js = readFileSync("public/assets/sante/js/pack-landing.js", "utf8");
+  assert.match(js, /new IntersectionObserver\(/); // lazy: nothing mounted before the stage is on screen
+  assert.match(js, /var rauto=function\(\)\{\s*if\(rvis&&!rcalm&&rn\)\{rmount\(rcards\[ractive\],true\);\}/);
+  assert.match(js, /rcalm=window\.matchMedia&&window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
+  assert.match(js, /if\(!rcalm&&"IntersectionObserver" in window\)/); // reduced motion: no autoplay
+  for (const [k, v] of [["autoplay", "true"], ["preload", "true"], ["loop", "false"], ["playsinline", "true"]]) assert.ok(js.includes(`u.searchParams.set("${k}","${v}")`), k);
+  assert.ok(js.includes('u.searchParams.set("muted",muted?"true":"false")'));
+  assert.match(js, /card\._bn\.restart\(\);btn\.hidden=true/); // the reel button restarts with sound, then goes
+  assert.match(js, /send\("setLoop",false\);send\("setCurrentTime",0\);send\("unmute"\);send\("setVolume",100\);send\("play"\)/);
+  assert.match(js, /hbn\.restart\(\)/); // the hero button uses the same helper
+  assert.match(js, /rrotate\(i\);return;/); // a side reel's button rotates it to the centre
+  assert.equal((js.match(/bunny\(/g) ?? []).length, 2); // the reel and the hero share one helper
+});
+
 test("every order button carries the heartbeat: double-beat keyframes, paused on hover and focus, none under reduced motion", () => {
   const doc = page(PACK);
   const buttons = doc.match(/<a href="[^"]*" [^>]*data-pp-beat/g) ?? [];

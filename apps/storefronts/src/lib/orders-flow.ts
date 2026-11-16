@@ -55,8 +55,8 @@ async function gate(d: Dash): Promise<Gate> {
   return { name: s.member.full_name };
 }
 
-function page(d: Dash, name: string, title: string, content: Markup, status = 200, form = false): Response {
-  const select = form ? { scripts: ["js/pack-select.js"], styles: ["css/pack-select.css"] } : { scripts: [], styles: [] };
+function page(d: Dash, name: string, title: string, content: Markup, status = 200): Response {
+  const select = { scripts: ["js/pack-select.js"], styles: ["css/pack-select.css"] };
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title, member: name, current: "orders", content, ...select }), status);
 }
 
@@ -81,7 +81,7 @@ export async function ordersPage(d: Dash): Promise<Response> {
 
 function formPage(d: Dash, name: string, p: Partial<FormPage> & { id: string | null; values: OrderFields }, status = 200): Response {
   const full: FormPage = { field_errors: {}, error_message: "", today: todayOf(d), ...p };
-  return page(d, name, p.id === null ? "Add order" : "Edit order", orderFormContent(full), status, true);
+  return page(d, name, p.id === null ? "Add order" : "Edit order", orderFormContent(full), status);
 }
 
 /** The typed values, as typed (trimmed): they go back into the form on an error and to the backend on a save. */

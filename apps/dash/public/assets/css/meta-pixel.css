@@ -13,6 +13,15 @@
 #view-settings-meta-pixel .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
 #view-settings-meta-pixel .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
 #view-settings-meta-pixel .pm-field { margin: 0 0 14px; }
+#view-settings-meta-pixel .pm-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+#view-settings-meta-pixel .pm-row > .pm-field { min-width: 0; }
+#view-settings-meta-pixel .pm-label-row { position: relative; display: flex; align-items: center; margin: 0 0 6px; min-height: 20px; }
+#view-settings-meta-pixel .pm-label-row .pm-label { margin: 0; }
+/* the "?" tip, same look as Payments and Billing (their rules are scoped to those views); the bubble is anchored to the label row (not the button), so it stays inside the field column and the card, also on a phone */
+#view-settings-meta-pixel .bl-tip { position: static; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: 8px; padding: 0; border: 1px solid var(--bl-row-line); border-radius: 50%; background: transparent; color: var(--text-2); font: inherit; font-size: 12px; font-weight: 700; line-height: 1; cursor: help; }
+#view-settings-meta-pixel .bl-tip:hover, #view-settings-meta-pixel .bl-tip:focus, #view-settings-meta-pixel .bl-tip:focus-visible { color: var(--text); border-color: var(--text-2); }
+#view-settings-meta-pixel .bl-tip::after { content: attr(data-tip); position: absolute; left: 0; right: auto; bottom: calc(100% + 4px); transform: none; width: max-content; max-width: 100%; box-sizing: border-box; padding: 10px 14px; border-radius: 10px; background: var(--bl-tip-bg); border: 1px solid var(--bl-tip-line); box-shadow: 0 8px 24px rgba(0,0,0,.45); color: var(--bl-tip-text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: left; white-space: normal; opacity: 0; visibility: hidden; pointer-events: none; z-index: 5; }
+#view-settings-meta-pixel .bl-tip:hover::after, #view-settings-meta-pixel .bl-tip:focus::after, #view-settings-meta-pixel .bl-tip:focus-visible::after { opacity: 1; visibility: visible; }
 #view-settings-meta-pixel .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
 #view-settings-meta-pixel .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
 #view-settings-meta-pixel .pm-input:focus, #view-settings-meta-pixel .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
@@ -54,6 +63,7 @@
 #view-settings-meta-pixel .mp-event-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--meta); overflow-wrap: anywhere; }
 #view-settings-meta-pixel .mp-event-when { margin-left: auto; color: var(--meta); font-size: 14px; }
 @media (max-width: 640px) {
+  #view-settings-meta-pixel .pm-row { grid-template-columns: minmax(0, 1fr); }
   #view-settings-meta-pixel .pm-card { padding: 18px 16px; }
   #view-settings-meta-pixel .pm-actions .no-btn { width: 100%; }
   #view-settings-meta-pixel .mp-event-when { margin-left: 0; width: 100%; }

@@ -89,6 +89,7 @@
     if (!v) return "Paste the access token from Events Manager.";
     return TOKEN_RE.test(v) ? "" : "That token does not look right. Copy it again from Events Manager.";
   }
+  var CODE_TIP = "From the Test events tab in Events Manager. The connection test sends one event with this code, so it never touches your live numbers.";
   /* The test needs all three saved. */
   function canTest(conn) { return !!(conn.pixel_id && conn.token_set && conn.test_event_code); }
 
@@ -152,14 +153,19 @@
   /* ---------- render ---------- */
 
   /* One labelled field. `secret` wraps the box in the .pm-secret holder. The field's error line is kept on the input (pmErr). */
-  function field(id, label, input, hint, secret) {
-    var w = h("div", "pm-field"), lab = h("label", "pm-label", label), err = h("p", "pm-error"), box = input;
+  function field(id, label, input, hint, secret, tipText) {
+    var w = h("div", "pm-field"), lab = h("label", "pm-label", label), err = h("p", "pm-error"), box = input, head = lab;
+    if (tipText) { /* the "?" sits beside the label, not inside it */
+      var q = h("button", "bl-tip", "?");
+      q.setAttribute("type", "button"); q.setAttribute("aria-label", "About " + label.toLowerCase() + ": " + tipText); q.setAttribute("data-tip", tipText);
+      head = add(h("div", "pm-label-row"), lab, q);
+    }
     lab.setAttribute("for", id); input.setAttribute("id", id); err.setAttribute("id", id + "-err"); err.hidden = true;
     input.pmErr = err;
     var tip = hint ? h("p", "pm-hint", hint) : null;
     if (tip) { tip.setAttribute("id", id + "-hint"); input.setAttribute("aria-describedby", id + "-hint"); input.setAttribute("data-hint", id + "-hint"); }
     if (secret) { box = h("div", "pm-secret"); box.appendChild(input); }
-    return add(w, lab, box, tip, err);
+    return add(w, head, box, tip, err);
   }
   function markBad(input, text) {
     var err = input.pmErr; if (!err) return;
@@ -196,7 +202,10 @@
     add(s, h("p", "pm-lead", "Add your Pixel ID to measure visits to your store in Meta. Add an access token to also send the same events from our server."));
     var pixel = input("text", "pixel_id", { inputmode: "numeric", maxlength: "20" });
     if (c.pixel_id) pixel.value = c.pixel_id; else pixel.setAttribute("placeholder", "For example 123456789012345");
-    add(s, field("mp-pixel_id", "Pixel ID", pixel));
+    var code = input("text", "test_event_code", { maxlength: "32" });
+    if (c.test_event_code) code.value = c.test_event_code; else code.setAttribute("placeholder", "For example TEST12345");
+    var codeField = field("mp-test_event_code", "Test event code", code, null, false, CODE_TIP);
+    add(s, add(h("div", "pm-row"), field("mp-pixel_id", "Pixel ID", pixel), codeField));
     var tk = null;
     if (tokenBox) {
       tk = input("password", "access_token", { maxlength: "800", placeholder: saved ? "Paste a new token from Events Manager" : "Paste the token from Events Manager" });
@@ -212,9 +221,6 @@
       add(row, lab2, box, h("p", "pm-hint", "The token is never shown again. To change it, replace it."));
       s.appendChild(row);
     }
-    var code = input("text", "test_event_code", { maxlength: "32" });
-    if (c.test_event_code) code.value = c.test_event_code; else code.setAttribute("placeholder", "For example TEST12345");
-    add(s, field("mp-test_event_code", "Test event code", code, "From the Test events tab in Events Manager. The connection test sends one event with this code, so it never touches your live numbers."));
     if (c.last_test) {
       var good = c.last_test.outcome === "ok", when = whenText(c.last_test.at, new Date());
       var t = h("div", "mk-test " + (good ? "mk-test-ok" : "mk-test-bad")); t.setAttribute("role", good ? "status" : "alert");
@@ -226,7 +232,6 @@
     add(actions, btn("Save", "primary", function (b) { save(b, pixel, code, tk); }), testBtn);
     if (S.replacing) add(actions, btn("Cancel", "ghost", function () { S.replacing = false; render(); }));
     s.appendChild(actions);
-    if (!canTest(c)) s.appendChild(h("p", "pm-hint", "The test needs a saved Pixel ID, access token and test event code."));
     add(root, s, eventsCard(c.events || []));
   }
   function eventsCard(events) {

@@ -90,7 +90,7 @@
   }
 
   /* ---- load ---- */
-  function show() { token++; S = fresh(); revokeAll(); tabsInit(); load(); }
+  function show() { token++; S = fresh(); wanted = null; revokeAll(); tabsInit(); load(); }
   function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); if (MR()) MR().reset(); if (REG()) REG().close(); }
   function revokeAll() { Object.keys(urls).forEach(function (k) { try { URL.revokeObjectURL(urls[k]); } catch (e) { /* ignore */ } }); urls = {}; }
   function load() {
@@ -111,6 +111,7 @@
       if (!r.ok) { if (!quiet) { S.listState = "error"; render(); } return; }
       S.rows = Array.isArray(r.data.orders) ? r.data.orders : [];
       S.listState = S.rows.length ? "ok" : "empty"; render();
+      deepLink();
       if (MR()) MR().load(S.site, S.rows);
     });
   }
@@ -124,6 +125,13 @@
       if (typeof r.data.price_centavos === "number") S.price[id] = r.data.price_centavos;
       render();
     });
+  }
+  /* The Journey (journey.js) links here with ?order=<id>: open that order once, after the first load of the list. */
+  var wanted = null;
+  function deepLink() {
+    if (wanted === null) { var m = /[?&]order=([A-Za-z0-9_-]{1,64})(?:&|$)/.exec(location.search || ""); wanted = m ? m[1] : ""; }
+    var id = wanted; wanted = "";
+    if (id && find(id) && !S.open[id]) toggle(id);
   }
   function toggle(id) {
     if (S.open[id]) { delete S.open[id]; render(); return; }

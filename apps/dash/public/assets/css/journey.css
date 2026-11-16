@@ -1,0 +1,68 @@
+/* Journey (ClickUp z8uq9meyqk, journey.js): the period dropdown, the steps, the Meta events and the recent orders. One card per section, like
+   the Media Library. Scoped to .jr-root so dash.css is not touched. Colours come from the dash tokens (light and dark); focus is the light
+   blue, never gold, and a card title is not a control and shows no ring. */
+.jr-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; color: var(--text); }
+.jr-root .jr-card { min-width: 0; margin-bottom: 16px; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); }
+.jr-root .jr-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+.jr-root .jr-lead { margin: 0 0 14px; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+.jr-root .jr-meta, .jr-root .jr-hint, .jr-root .jr-stamp { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+.jr-root .jr-state { margin: 0 0 6px; font-size: 16px; font-weight: 600; color: var(--text); }
+.jr-root .jr-empty { margin: 0; color: var(--text-2); font-size: 15px; line-height: 1.5; }
+.jr-root .jr-note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--card-line); color: var(--text-2); font-size: 14px; line-height: 1.5; }
+.jr-root .jr-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.jr-root .jr-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 20px; margin: 0 0 16px; }
+.jr-root .jr-field { width: 240px; max-width: 100%; }
+.jr-root .jr-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.jr-root .jr-stamp { margin: 0 0 12px; }
+.jr-root .jr-steps { margin: 0; padding: 0; list-style: none; }
+.jr-root .jr-step { padding: 12px 0; border-top: 1px solid var(--card-line); }
+.jr-root .jr-step:first-child { border-top: 0; padding-top: 0; }
+.jr-root .jr-step-main { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.jr-root .jr-step-name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jr-root .jr-step-name strong { font-size: 16px; font-weight: 700; color: var(--text); }
+.jr-root .jr-step-hint { color: var(--meta); font-size: 14px; line-height: 1.4; }
+.jr-root .jr-num { flex: 0 0 auto; font-size: 24px; font-weight: 800; line-height: 1.2; color: var(--text); font-variant-numeric: tabular-nums; }
+.jr-root .jr-break { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 8px 0 0; padding: 0; list-style: none; color: var(--text-2); font-size: 14px; }
+.jr-root .jr-break li { display: flex; gap: 6px; }
+.jr-root .jr-break strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.jr-root .jr-scroll { overflow-x: auto; }
+.jr-root .jr-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.jr-root .jr-table th, .jr-root .jr-table td { padding: 10px 8px; border-top: 1px solid var(--card-line); text-align: left; color: var(--text); font-weight: 400; }
+.jr-root .jr-table thead th { border-top: 0; color: var(--text-2); font-size: 14px; font-weight: 600; }
+.jr-root .jr-table tbody th { font-weight: 600; word-break: break-word; }
+.jr-root .jr-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+.jr-root .jr-recent { margin: 0; padding: 0; list-style: none; }
+.jr-root .jr-order { padding: 12px 0; border-top: 1px solid var(--card-line); }
+.jr-root .jr-order:first-child { border-top: 0; padding-top: 0; }
+.jr-root .jr-order-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.jr-root .jr-order-link { min-height: 44px; display: inline-flex; align-items: center; color: var(--link); font-weight: 700; font-size: 16px; text-decoration: none; }
+.jr-root .jr-order-link:hover { text-decoration: underline; }
+.jr-root .jr-order-link:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 2px var(--link); }
+.jr-root .jr-order-meta { margin: 0; color: var(--meta); font-size: 14px; line-height: 1.5; }
+.jr-root .chip { min-height: 26px; }
+.jr-root .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+.jr-root .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+.jr-root a.no-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.jr-root .no-btn { min-height: 44px; }
+@media (max-width: 640px) {
+  .jr-root .jr-card { padding: 18px 16px; }
+  .jr-root .jr-field { width: 100%; }
+  .jr-root .jr-num { font-size: 22px; }
+}
+
+/* the house dropdown (the pr-combo of Products, renamed jr-): the Period box. Focus is the light blue, never gold. */
+body.dash-app .jr-combo { position: relative; }
+body.dash-app .jr-combo .jr-combo-native { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; appearance: none; -webkit-appearance: none; width: 100%; height: 100%; }
+body.dash-app .jr-combo-box { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 36px 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); cursor: pointer; }
+body.dash-app .jr-combo-box:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+body.dash-app .jr-combo-input, body.dash-app .jr-combo-input:focus, body.dash-app .jr-combo-input:focus-visible { flex: 1; min-width: 0; padding: 0; border: 0 !important; outline: none !important; box-shadow: none !important; background: transparent !important; color: var(--bl-select-text); font: inherit; font-size: 16px; cursor: pointer; }
+body.dash-app .jr-combo-input::placeholder { color: var(--meta); opacity: 1; }
+body.dash-app .jr-combo-caret { position: absolute; top: 50%; right: 15px; width: 7px; height: 7px; border-right: 2px solid var(--meta); border-bottom: 2px solid var(--meta); transform: translateY(-70%) rotate(45deg); transition: transform .15s ease; pointer-events: none; }
+body.dash-app .jr-combo.is-open .jr-combo-caret { transform: translateY(-30%) rotate(225deg); }
+body.dash-app .jr-combo-panel { display: none; position: fixed; z-index: 70; box-sizing: border-box; padding: 6px; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 12px; background: var(--card); box-shadow: var(--card-shadow), 0 8px 24px rgba(0,0,0,.18); }
+body.dash-app .jr-combo.is-open .jr-combo-panel { display: block; }
+body.dash-app .jr-combo-opt { padding: 10px 12px; border-radius: 8px; color: var(--text); font-size: 15px; cursor: pointer; }
+body.dash-app .jr-combo-opt:hover, body.dash-app .jr-combo-opt.is-active { background: color-mix(in srgb, var(--link) 12%, transparent); }
+body.dash-app .jr-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
+body.dash-app .jr-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
+@media (prefers-reduced-motion: reduce) { body.dash-app .jr-combo-caret { transition: none; } }

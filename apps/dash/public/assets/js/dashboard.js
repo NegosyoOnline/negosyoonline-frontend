@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -27,7 +27,8 @@
     "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
     "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
     "/training/live/": { view: "training-live", nav: "training", title: "Live trainings | Training | NegosyoOnline" },
-    "/media/": { view: "media", title: "Media Library | NegosyoOnline" } /* Media Library editor (z8uq9mezdk): its links show only while the API says the Media Library is open (media.js probe) */
+    "/media/": { view: "media", title: "Media Library | NegosyoOnline" }, /* Media Library editor (z8uq9mezdk): its links show only while the API says the Media Library is open (media.js probe) */
+    "/journey/": { view: "journey", title: "Journey | NegosyoOnline" } /* Santé Journey (z8uq9meyqk): its links show only while the API says the Journey is open (journey.js probe) */
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
@@ -96,6 +97,9 @@
     var ML = window.NOMedia; /* media.js loads after this file; same enter/leave hooks as Notices */
     if (ML && shownView === "media" && r.view !== "media") ML.hide();
     if (ML && r.view === "media" && shownView !== "media") ML.show();
+    var JY = window.NOJourney; /* journey.js loads after this file; same enter/leave hooks as Media Library */
+    if (JY && shownView === "journey" && r.view !== "journey") JY.hide();
+    if (JY && r.view === "journey" && shownView !== "journey") JY.show();
     var PO = window.NOPackOrders; /* pack-orders.js loads after this file; entering and leaving Orders only */
     if (PO && shownView === "orders" && r.view !== "orders") PO.hide();
     if (PO && r.view === "orders" && shownView !== "orders") PO.show();
@@ -1372,6 +1376,7 @@
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */
       if (window.NOMedia) window.NOMedia.probe(); /* shows the Media Library links only when the API says the Media Library is open for this site */
+      if (window.NOJourney) window.NOJourney.probe(); /* shows the Journey links only when the API says the Journey is open for this site */
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
   });

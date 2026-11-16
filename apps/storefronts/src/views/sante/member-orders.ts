@@ -249,7 +249,7 @@ export type FormPage = {
   today: string;
 };
 
-export const EMPTY_ORDER = (today: string): OrderFields => ({ order_number: "", ordered_on: today, customer_first_name: "", city: "", payment: "cod", total: "", status: "for_approval" });
+export const EMPTY_ORDER = (today: string): OrderFields => ({ order_number: "", ordered_on: today, customer_first_name: "", city: "", payment: "", total: "", status: "" });
 
 const OPTIONS = {
   payment: [["cod", "COD"], ["prepaid", "Prepaid"]],
@@ -269,7 +269,8 @@ function select(p: FormPage, name: "payment" | "status", label: string): Markup 
   const msg = p.field_errors[name];
   const id = `mo-${name}`;
   return html`<div class="fld"><label for="${id}">${label}</label>
-<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select data-pk-select-nofilter required${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
+<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select data-pk-select-nofilter data-placeholder="${label}"${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
+<option value="">${label}</option>
 ${OPTIONS[name].map(([v, l]) => html`<option value="${v}"${p.values[name] === v ? safe(" selected") : ""}>${l}</option>`)}
 </select>
 ${msg ? html`<p class="err" id="${id}-msg">${msg}</p>` : ""}</div>`;

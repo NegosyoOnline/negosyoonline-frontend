@@ -33,7 +33,7 @@ export const MSG_AGREEMENT_UNAVAILABLE = "Membership checkout is not available r
 /* TWCinc's Bunny Stream embed of the landing video (constants.VIDEO_EMBED_URL, Coach Ed 2026-10-30). */
 export const VIDEO_EMBED_URL =
   "https://player.mediadelivery.net/embed/744094/312f84cc-4cb6-41eb-bba6-5207f604817b" +
-  "?autoplay=true&loop=true&muted=true&preload=true&responsive=true&playsinline=true&disableIosPlayer=true";
+  "?autoplay=true&loop=false&muted=true&preload=true&responsive=true&playsinline=true&disableIosPlayer=true";
 
 /** Centavos as the pages show them: "₱1,488.00". */
 export function pesos(centavos: number): string {

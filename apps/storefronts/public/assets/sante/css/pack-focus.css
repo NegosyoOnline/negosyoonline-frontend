@@ -28,3 +28,205 @@
    stretched to the full width and left the card at the left. Capping it at the card's own width lets .wrap centre the pair,
    so the card sits centred as on /dashboard/sign-in/ and the banner above it has the card's width. */
 .portal-sign-in { width: 100%; max-width: 560px; }
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16, mockup of 22:02): the landing hero carries the Santé video. Phone and tablet: text, the button,
+   the video at the content width, then the hero photo. Desktop (64rem and up), measured on his mockup as fractions of the page width:
+   the video is a 16:9 card from .485 to .90 (never closer than 2rem to the copy column, so a narrow window makes it smaller), its top level with the top of the h1; the button and "Free Shipping Nationwide" sit
+   centred on the hero below the icon row and the video. The video may cover the photo's script and badge (his mockup). The copy stays
+   at the top of its column so the h1's distance from the hero top is fixed; the bottom padding of the body holds the button row. */
+.pp-hero-video { position: relative; z-index: 20; width: 100%; max-width: 72rem; margin: 2rem auto 0; padding: 0 1.25rem; }
+@media (min-width: 40rem) { .pp-hero-video { padding: 0 2rem; } }
+.pp-hero-video-frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 20px; background: #0b3d1c;
+  box-shadow: 0 0 0 5px #fff, 0 28px 68px -34px rgba(6, 58, 24, 0.45); } /* the white frame is the same 5px ring as the centred reel */
+/* The green play button over the autoplaying muted video: a sibling of the iframe, covering it; centred, so it never meets the corner badge. */
+.pp-hero-play { z-index: 3; }
+@media (min-width: 64rem) {
+  .pp-hero-body { justify-content: flex-start; min-height: 0; padding-bottom: 15rem; }
+  .pp-hero-cta { grid-area: 1 / 1; align-self: end; position: relative; z-index: 10; max-width: none; margin: 0; padding: 0 0 2.5rem; }
+  .pp-hero-video { grid-area: 1 / 1; max-width: none; margin: 0; padding: 0; pointer-events: none;
+    --pp-vl: max(48.5cqw, calc(var(--pp-cr) + 2rem)); --pp-vw: min(41.5cqw, calc(100cqw - var(--pp-vl) - 2rem)); }
+  .pp-hero-video-frame { position: absolute; pointer-events: auto; left: var(--pp-vl); top: 6.75rem;
+    width: var(--pp-vw); box-shadow: 0 0 0 5px #fff, 0 18px 44px -18px rgba(6, 30, 12, 0.55); }
+}
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16): every order button reads "Get 2 Boxes & Unlock My Discount". In the phone order bar the button
+   shared its row with the price and the shipping line and wrapped to two lines, so below the desktop width the bar stacks: the price and
+   "Free Shipping Nationwide" on one row, the button full width under them, its label on one line at the bar's own text size. */
+@media (max-width: 63.99rem) {
+  .pp-sticky > div { flex-wrap: wrap; row-gap: 0.5rem; }
+  .pp-sticky > div > div { flex: 1 1 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+  .pp-sticky > div > div > p + p { margin-top: 0; }
+  .pp-sticky > div > a { flex: 1 1 100%; min-width: 0; white-space: nowrap; }
+}
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16 22:19): the three certifications moved from their own section into the hero copy column, in the
+   place of the five benefit icons, which the three items under the button replace. A row that wraps and stays centred on a phone. */
+.pp-hero-certs { display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 1rem; list-style: none; padding: 0; }
+.pp-cert { display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; max-width: 7.5rem; }
+.pp-cert-img { display: block; width: 4.5rem; height: 4.5rem; object-fit: contain; }
+@media (min-width: 40rem) { .pp-hero-certs { justify-content: flex-start; gap: 2rem; } .pp-cert { flex: none; width: 8.5rem; max-width: none; } .pp-cert-img { width: 5rem; height: 5rem; } }
+.pp-hero-trust { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 1.75rem; row-gap: 0.5rem; list-style: none; padding: 0; }
+
+/* Task z8uq9mfw37, fix round 5 (Coach Ed 2026-11-16 22:29).
+   1) The certifications sit closer under the intro line: half the old gap (36px phone, 40px tablet and up).
+   2) The hero order button is about 20-25% bigger (type and padding); the other order buttons are unchanged.
+   3) The hero's top and bottom space are equal: the smaller of the two, per width (phone 2rem, tablet 3rem, desktop 4rem). */
+.pp-hero-certs { margin-top: 1.125rem; }
+@media (min-width: 40rem) { .pp-hero-certs { margin-top: 1.25rem; } }
+.pp-hero-btn { padding-top: 1.25rem; padding-bottom: 1.25rem; font-size: 1rem; line-height: 1.5rem; }
+.pp-hero-btn svg { width: 1.375rem; height: 1.375rem; }
+@media (min-width: 40rem) { .pp-hero-btn { padding-left: 3rem; padding-right: 3rem; font-size: 1.5rem; line-height: 2rem; } .pp-hero-btn svg { width: 1.75rem; height: 1.75rem; } }
+.pp-hero { padding-bottom: 2rem; }
+@media (min-width: 40rem) { .pp-hero { padding-bottom: 3rem; } }
+@media (min-width: 64rem) {
+  .pp-hero { padding-bottom: 4rem; }
+  .pp-hero-body { padding-bottom: 13.25rem; }
+  .pp-hero-cta { padding-bottom: 0; }
+}
+
+/* "Watch Before You Buy" (task z8uq9mfw37, fix round 5): the rotating reel carousel on sage, adapted from TWCinc's section#reels. The
+   stage is one centred reel with two smaller reels each side; js/pack-landing.js places them. */
+.pp-reels { overflow: hidden; background: #e5f0e3; color: #000; padding: 4rem 0; }
+@media (min-width: 40rem) { .pp-reels { padding: 5rem 0; } }
+@media (min-width: 64rem) { .pp-reels { padding: 6rem 0; } }
+.pp-reels-head { max-width: 42rem; margin: 0 auto 2.5rem; padding: 0 1.25rem; text-align: center; }
+@media (min-width: 40rem) { .pp-reels-head { margin-bottom: 3rem; padding: 0 2rem; } }
+.pp-reels-head h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 700; color: #13300a; }
+@media (min-width: 40rem) { .pp-reels-head h2 { font-size: 1.75rem; line-height: 2.25rem; } }
+@media (min-width: 64rem) { .pp-reels-head h2 { font-size: 2rem; line-height: 2.5rem; } }
+.pp-reels-head div { margin-top: 1rem; font-size: 1rem; line-height: 1.75rem; color: #4f4f4f; text-wrap: balance; }
+.pp-reels-stage { position: relative; margin: 0 auto; touch-action: pan-y; user-select: none; }
+.pp-reel-spacer { visibility: hidden; margin: 0 auto; aspect-ratio: 9 / 16; width: 70vw; max-width: 17rem; }
+.pp-reel-card { position: absolute; top: 0; left: 50%; width: 70vw; max-width: 17rem; transform-origin: center; transition: transform .5s cubic-bezier(.22,.61,.36,1), opacity .5s cubic-bezier(.22,.61,.36,1); }
+@media (min-width: 40rem) { .pp-reel-spacer, .pp-reel-card { width: 18.5rem; max-width: none; } }
+@media (min-width: 64rem) { .pp-reel-spacer, .pp-reel-card { width: 22rem; } }
+@media (prefers-reduced-motion: reduce) { .pp-reel-card { transition: none; } }
+.pp-reel { position: relative; aspect-ratio: 9 / 16; overflow: hidden; border-radius: 1.5rem; background: #0f2000; transition: box-shadow .5s; }
+.pp-reel-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.pp-reel-poster[hidden], .pp-reel-play[hidden] { display: none; }
+.pp-reel-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: none; border: 0; padding: 0; }
+.pp-reel-play:focus-visible { outline: 2px solid #6C8CFF; outline-offset: -4px; }
+.pp-reel-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,32,0,.45), transparent 50%, rgba(15,32,0,.15)); }
+.pp-reel-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 5rem; height: 5rem; border-radius: 9999px; background: #499e3c; color: #fff;
+  box-shadow: 0 8px 24px -8px rgba(0,0,0,.45); transition: opacity .3s; }
+.pp-reel-tri { width: 2.75rem; height: 2.75rem; margin-left: .125rem; }
+.pp-reel-veil { position: absolute; inset: 0; background: #e5f0e3; opacity: 0; pointer-events: none; transition: opacity .5s; }
+.pp-reels-nav { display: flex; align-items: center; justify-content: center; gap: 1rem; max-width: 36rem; margin: 2rem auto 0; padding: 0 1.25rem; }
+@media (min-width: 40rem) { .pp-reels-nav { gap: 1.5rem; margin-top: 2.5rem; } }
+.pp-reels-btn { display: flex; flex: none; align-items: center; justify-content: center; width: 2.75rem; height: 2.75rem; border-radius: 9999px; border: 0; background: #fff;
+  color: #13300a; cursor: pointer; box-shadow: 0 1px 2px #0000000a, 0 8px 24px -14px #0000002e, 0 0 0 1px #cee5c4; transition: background-color .2s; }
+.pp-reels-btn:hover { background: #f2f8ef; }
+.pp-reels-btn:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
+.pp-reels-cap { min-width: 0; flex: 1 1 0; text-align: center; }
+.pp-reels-title { font-size: 1.125rem; line-height: 1.375; font-weight: 700; min-height: 1.375em; color: #13300a; }
+@media (min-width: 40rem) { .pp-reels-title { font-size: 1.25rem; } }
+.pp-reels-count { margin-top: .25rem; font-size: .875rem; font-weight: 500; color: #4f4f4f; }
+
+/* Task z8uq9mfw37, fix round 5 additions (Coach Ed 2026-11-16 22:37).
+   1) The "Unlock 40% Member Savings" badge is a real element on the hero video's top-right corner, no longer painted into the hero
+      photo (img/hero-nz-clean-*.webp are the photo with the badge and the painted "Goodness from New Zealand" text removed). Colours sampled from the old image: circle #054d27, "40%" #ebd74c.
+      It never takes the pointer, so the player's controls stay clickable; it sits on the corner, well away from the play button.
+   2) Phone order, under 40rem: label, headline, the video (with the badge), the "Get 2 boxes" line, the button with the three trust items
+      under it, then the certifications. The body and copy wrappers drop out of the layout (display: contents) so the section's own
+      flex order can interleave them; the markup is not duplicated. */
+.pp-hero-badge { --pp-bd: 5.75rem; position: absolute; z-index: 2; pointer-events: none; top: -1.5rem; right: 0.5rem;
+  width: var(--pp-bd); height: var(--pp-bd); font-size: calc(var(--pp-bd) / 10); border-radius: 50%; background: #054d27; color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-weight: 800;
+  box-shadow: 0 6px 16px -6px rgba(6, 30, 12, 0.45); }
+.pp-hero-badge-top { font-size: 1.2em; line-height: 1.1; letter-spacing: 0.05em; text-transform: uppercase; }
+.pp-hero-badge-pct { font-size: 3.1em; line-height: 1; font-weight: 900; color: #ebd74c; }
+.pp-hero-badge-bot { font-size: 1.25em; line-height: 1.05; text-transform: uppercase; }
+@media (min-width: 40rem) {
+  .pp-hero-badge { --pp-bd: 8rem; top: -2.5rem; right: 0.75rem; }
+  .pp-hero-video { margin-top: 4rem; }
+}
+@media (min-width: 64rem) {
+  .pp-hero-video { margin-top: 0; }
+  .pp-hero-badge { right: auto; top: calc(6.75rem - var(--pp-bd) / 2);
+    left: min(calc(var(--pp-vl) + var(--pp-vw) - var(--pp-bd) / 2), calc(100cqw - var(--pp-bd) - 0.5rem)); }
+}
+@media (max-width: 63.99rem) {
+  .pp-hero { display: flex; flex-direction: column; }
+  .pp-hero-body, .pp-hero-copy { display: contents; }
+  .pp-hero-label, .pp-hero-h1, .pp-hero-lede, .pp-hero-certs { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .pp-hero-label { order: 1; margin-top: 2rem; }
+  .pp-hero-h1 { order: 2; }
+  .pp-hero-video { order: 3; margin-top: 2.75rem; }
+  .pp-hero-lede { order: 4; }
+  .pp-hero-cta { order: 5; }
+  .pp-hero-certs { order: 6; }
+  .pp-hero-photo { display: none; } /* fix round 6: no photo on a phone or tablet (its <picture> also gives them an empty source, so it is not downloaded) */
+}
+
+/* Task z8uq9mfw37, fix round 9b (Coach Ed 2026-11-16 23:41 HKT, "tablet like phone"): the whole <64rem block above is the phone layout, so the
+   tablet (40rem up to just under the 64rem desktop) now gets it too, and the photo is hidden and not downloaded there. The hero's own
+   tab: utilities and the 40rem rules above would still make 40-63.99rem differ from the phone, so this block sets the phone's values back
+   for the hero only (two-class selectors beat the single-class utilities; a phone, under 40rem, never matches this block). */
+@media (min-width: 40rem) and (max-width: 63.99rem) {
+  .pp-hero { padding-bottom: 2rem; }
+  .pp-hero .pp-hero-label { font-size: var(--text-xs); line-height: var(--text-xs--line-height); }
+  .pp-hero .pp-hero-h1 { margin-top: 1.25rem; font-size: 2.125rem; }
+  .pp-hero .pp-hero-lede { margin-top: 1.25rem; font-size: var(--text-lg); }
+  .pp-hero .pp-hero-video { padding: 0 1.25rem; }
+  .pp-hero .pp-hero-badge { --pp-bd: 5.75rem; top: -1.5rem; right: 0.5rem; }
+  .pp-hero .pp-hero-cta { margin-top: 2.5rem; padding-left: 1.25rem; padding-right: 1.25rem; }
+  .pp-hero .pp-hero-cta > div { display: flex; }
+  .pp-hero .pp-hero-btn { width: 100%; gap: 0.5rem; padding-left: 1rem; padding-right: 1rem; text-align: center; font-size: 1rem; line-height: 1.5rem; }
+  .pp-hero .pp-hero-btn svg { width: 1.375rem; height: 1.375rem; }
+  .pp-hero .pp-hero-certs { justify-content: center; gap: 1rem; margin-top: 1.125rem; }
+  .pp-hero .pp-cert { flex: 1 1 0; width: auto; max-width: 7.5rem; }
+  .pp-hero .pp-cert-img { width: 4.5rem; height: 4.5rem; }
+}
+
+/* Task z8uq9mfw37, fix round 6: "We are the Barley Authority" (TWCinc components/_about.html), between the IQVIA strip and "Watch Before You Buy".
+   The template's Tailwind utilities are written out here so this page needs no other sheet. Colours as the template: the deep #0f2000 wash with
+   the lime glow, lime-400 #93f814 for the accent, primary-600 #217900 for the active-tab bar, primary-700 #1a6207 for the active-tab text.
+   Phone: the tabs sit two to a row and wrap, each panel stacks with the image on top. 48rem and up: tabs in a centred row, image left, text right. */
+.pp-about { position: relative; padding: 3.5rem 0; color: #fff; background-size: cover; background-position: center; background-repeat: no-repeat;
+  background-image: radial-gradient(circle at 84% 6%, rgba(77,238,19,.16) 0, transparent 48%), radial-gradient(circle at 4% 92%, rgba(33,121,0,.55) 0, transparent 50%), linear-gradient(rgba(15,32,0,.86), rgba(15,32,0,.92)), url(../img/about/about-bg.webp); }
+@media (min-width: 40rem) { .pp-about { padding: 4rem 0; } }
+@media (min-width: 48rem) { .pp-about { padding: 5.5rem 0; } }
+.pp-about-in { margin: 0 auto; width: 100%; max-width: 75rem; padding: 0 1.125rem; }
+@media (min-width: 40rem) { .pp-about-in { padding: 0 1.25rem; } }
+@media (min-width: 48rem) { .pp-about-in { padding: 0 2.5rem; } }
+.pp-about h2 { margin: 0 0 1.5rem; text-align: center; font-size: 2.125rem; line-height: 1.15; font-weight: 800; color: #fff; }
+.pp-about h2 span { color: #93f814; }
+@media (min-width: 40rem) { .pp-about h2 { margin-bottom: 1.75rem; font-size: 2.375rem; } }
+@media (min-width: 48rem) { .pp-about h2 { margin-bottom: 2rem; font-size: 2.625rem; line-height: 1.2; } }
+.pp-about-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-bottom: 1.625rem; }
+@media (min-width: 40rem) { .pp-about-tabs { gap: 0.75rem; margin-bottom: 2rem; } }
+@media (min-width: 48rem) { .pp-about-tabs { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 2.5rem; } }
+.pp-about-tab { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 2.625rem; padding: 0.5625rem 0.625rem; overflow: hidden;
+  border: 1.5px solid rgba(255,255,255,.3); border-radius: 9999px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); font: inherit; font-size: 0.78125rem; font-weight: 600; text-align: center; cursor: pointer; transition: all .2s; }
+@media (min-width: 40rem) { .pp-about-tab { min-height: 2.75rem; padding: 0.625rem 0.75rem; font-size: 0.8125rem; } }
+@media (min-width: 48rem) { .pp-about-tab { width: auto; min-height: 0; padding: 0.5625rem 1.25rem; font-size: 0.875rem; } }
+.pp-about-tab[aria-selected="false"]:hover { border-color: #fff; background: rgba(255,255,255,.15); color: #fff; }
+.pp-about-tab[aria-selected="true"] { border-color: #fff; background: #fff; color: #1a6207; }
+.pp-about-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; bottom: -1px; height: 3px; width: 100%; border-radius: 9999px; background: #217900; }
+.pp-about-tab:focus-visible { outline: 2px solid #93f814; outline-offset: 2px; }
+.pp-about-panel { display: flex; flex-direction: column; gap: 1.125rem; padding: 1.125rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1.125rem; background: rgba(255,255,255,.08); }
+.pp-about-panel[hidden] { display: none; }
+@media (min-width: 40rem) { .pp-about-panel { gap: 1.375rem; padding: 1.375rem; border-radius: 1.25rem; } }
+@media (min-width: 48rem) { .pp-about-panel { display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 3rem; padding: 2.5rem; border-radius: 1.5rem; }
+  .pp-about-panel[hidden] { display: none; } }
+.pp-about-img { overflow: hidden; border-radius: 1rem; }
+.pp-about-img img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 1rem; height: auto; }
+@media (min-width: 48rem) { .pp-about-img img { aspect-ratio: auto; height: 20rem; } }
+.pp-about-panel h3 { margin: 0 0 0.875rem; font-size: 1.5rem; line-height: 1.18; font-weight: 800; color: #fff; }
+.pp-about-panel p { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.65; color: rgba(255,255,255,.78); }
+@media (min-width: 40rem) { .pp-about-panel h3 { font-size: 1.625rem; line-height: 1.2; } .pp-about-panel p { font-size: 0.90625rem; line-height: 1.7; } }
+@media (min-width: 48rem) { .pp-about-panel h3 { margin-bottom: 1rem; font-size: 1.75rem; line-height: 1.3; } .pp-about-panel p { margin-bottom: 0.875rem; font-size: 0.9375rem; line-height: 1.8; } }
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16): a heartbeat on every "Get 2 Boxes & Unlock My Discount" order button (the hero button, the in-page
+   buttons and the phone order bar all carry data-pp-beat). A double beat in the first 0.8 s of a 1.8 s loop, then rest. Transform only, so
+   nothing shifts; the glow pulses lightly. It stops on hover and keyboard focus so the button's own hover lift works, and under reduced motion. */
+@keyframes pp-heartbeat {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+  14% { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(244, 172, 28, 0.28); }
+  28% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+  42% { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(244, 172, 28, 0.2); }
+  56%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+}
+[data-pp-beat] { animation: pp-heartbeat 1.8s ease-in-out infinite; }
+[data-pp-beat]:hover, [data-pp-beat]:focus-visible { animation: none; }
+@media (prefers-reduced-motion: reduce) { [data-pp-beat] { animation: none; } }

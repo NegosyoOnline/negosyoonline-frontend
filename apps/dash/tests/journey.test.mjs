@@ -117,7 +117,9 @@ test("Prospects: the royal blue header with the search inside it at the right, t
   assert.deepEqual(chips.map((b) => b.textContent), ["All", "New Lead", "Landing Page", "Start Watching", "Done Watching", "Add to Cart", "Checked Out", "Account Setup", "Activated"]);
   assert.equal(chips[1].getAttribute("title"), "New Lead, 2 people");
   assert.match(CSS, /\.jr-pr-head \{[^}]*background: var\(--primary\);[^}]*color: #fff/);
-  assert.match(CSS, /\.jr-pr-chip\.is-on[^{]*\{[^}]*background: var\(--primary\);[^}]*color: #fff/);
+  assert.match(CSS, /\.jr-pr-chip\.is-on[^{]*\{[^}]*background: var\(--ov-gold\);[^}]*color: #1F1700/);
+  assert.match(CSS, /\.jr-pr-chips \{[^}]*color-mix\(in srgb, var\(--ov-gold\)/);
+  assert.ok(!/thead th:(first|last)-child \{[^}]*border-radius/.test(CSS), "square table head");
   assert.match(CSS, /\.jr-pr-table thead th \{[^}]*letter-spacing[^}]*text-transform: uppercase/);
   const heads = d.$("jr-pr-body").all((n) => n.tagName === "TH").map((n) => n.textContent);
   assert.deepEqual(heads, ["Prospect", "Contact", "Video progress", "Stage", "Last activity", "ACTION"]);
@@ -256,7 +258,7 @@ test("the card clears the dash's top-right buttons from 900px up, and the search
 });
 
 test("the CSS: light blue focus, no gold, the segmented bar scrolls on a phone, popups use dash tokens", () => {
-  assert.match(CSS, /\.jr-pr-tools:focus-within \{[^}]*border-color: var\(--link\)/);
+  assert.match(CSS, /\.jr-pr-tools:focus-within \{[^}]*border-color: var\(--card-line\); box-shadow: none/, "no ring on the header search");
   assert.match(CSS, /\.jr-pr-chips \{[^}]*overflow-x: auto/);
   assert.ok(!/#f2d99b|#c59a3b|#e8c16a|var\(--gold\)|var\(--cat\)/i.test(CSS));
   assert.match(CSS, /\.jr-dialog \{[^}]*background: var\(--card\)/);

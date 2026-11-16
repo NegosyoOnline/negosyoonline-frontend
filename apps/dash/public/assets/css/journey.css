@@ -35,20 +35,22 @@
 .jr-root .jr-pr-main { padding: 18px 24px 22px; }
 /* The search: the look of the top-right quick search (.qs-field in dash.css), a magnifier inside the box, on the blue band. */
 .jr-root .jr-pr-tools { position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: min(440px, 100%); height: 44px; padding: 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
-.jr-root .jr-pr-tools:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+/* Coach Ed's look ruling (2026-11-16): this field shows no border change or ring when focused; the caret shows focus. */
+.jr-root .jr-pr-tools:focus-within { border-color: var(--card-line); box-shadow: none; }
 .jr-root .jr-pr-tools .jr-ic { width: 20px; height: 20px; }
+.jr-root .jr-pr-q:focus, .jr-root .jr-pr-q:focus-visible { outline: 0; box-shadow: none; border: 0; }
 .jr-root .jr-pr-q { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; }
 .jr-root .jr-pr-q::placeholder { color: var(--meta); opacity: 1; }
 /* One segmented bar in a rounded light container; scrolls sideways on a phone. */
-.jr-root .jr-pr-chips { display: flex; flex-wrap: nowrap; gap: 4px; margin: 0 0 14px; padding: 4px; overflow-x: auto; border: 1px solid var(--card-line); border-radius: 12px; background: color-mix(in srgb, var(--link) 7%, var(--card)); }
+.jr-root .jr-pr-chips { display: flex; flex-wrap: nowrap; gap: 4px; margin: 0 0 14px; padding: 4px; overflow-x: auto; border: 1px solid var(--card-line); border-radius: 12px; background: color-mix(in srgb, var(--ov-gold) 16%, var(--card)); }
 .jr-root .jr-pr-chip { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 0; border-radius: 6px; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 500; white-space: nowrap; cursor: pointer; }
-.jr-root .jr-pr-chip:hover { color: var(--text); background: color-mix(in srgb, var(--link) 10%, transparent); }
+.jr-root .jr-pr-chip:hover { color: var(--text); background: color-mix(in srgb, var(--ov-gold) 22%, transparent); }
 .jr-root .jr-pr-chip:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--link); }
-.jr-root .jr-pr-chip.is-on, .jr-root .jr-pr-chip.is-on:hover { background: var(--primary); color: #fff; font-weight: 600; }
+/* The light gold version: the selected stage is solid gold (the Overview's --ov-gold, light and dark) with dark text, 7.7:1 light and 10.5:1 dark. */
+.jr-root .jr-pr-chip.is-on, .jr-root .jr-pr-chip.is-on:hover { background: var(--ov-gold); color: #1F1700; font-weight: 600; }
 /* Table head: small, uppercase, letter-spaced, grey on a light band. */
 .jr-root .jr-pr-table thead th { padding: 12px; border-top: 0; background: color-mix(in srgb, var(--link) 7%, var(--card)); color: var(--meta); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
-.jr-root .jr-pr-table thead th:first-child { border-radius: 8px 0 0 8px; }
-.jr-root .jr-pr-table thead th:last-child { border-radius: 0 8px 8px 0; text-align: right; }
+.jr-root .jr-pr-table thead th:last-child { text-align: right; }
 .jr-root .jr-pr-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .jr-root .jr-pr-av { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 700; background: var(--chip-neutral-bg); color: var(--chip-neutral); }
 .jr-root .jr-pr-av-1 { background: var(--chip-ok-bg); color: var(--chip-ok); }

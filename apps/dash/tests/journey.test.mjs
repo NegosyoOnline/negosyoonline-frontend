@@ -173,8 +173,8 @@ test("Prospects: the card, the approved lead, the search, the stage chips with c
   const d = boot(); await d.open();
   assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1`));
   const t = d.text();
-  assert.ok(t.includes("Prospects") && t.includes("People with a Membership Pack order or a message to your site, newest activity first."));
-  assert.ok(d.$("jr-pr-q") && d.$("jr-pr-q").getAttribute("placeholder") === "Search by name or order number");
+  assert.ok(t.includes("Prospects") && t.includes("People who visited your Membership Pack page, ordered, or messaged your site, newest activity first."));
+  assert.ok(d.$("jr-pr-q") && d.$("jr-pr-q").getAttribute("placeholder") === "Search by name, order number, mobile or email");
   const chips = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").map((b) => b.textContent);
   assert.deepEqual(chips, ["All5", "New Lead2", "Landing Page0", "Start Watching0", "Done Watching0", "Add to Cart1", "Checked Out1", "Account Setup1", "Activated0"]);
   for (const w of ["Membership Pack page", "Facebook via Pancake", "Website chat", "Ready to register", "No name", "Order PK-0001"]) assert.ok(t.includes(w), w);

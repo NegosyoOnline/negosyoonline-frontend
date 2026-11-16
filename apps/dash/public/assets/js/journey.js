@@ -282,9 +282,9 @@
   /* ---------- the prospects card ---------- */
 
   function prospectsCard() {
-    var c = card("prospects", "Prospects", "People with a Membership Pack order or a message to your site, newest activity first."), tb = h("div", "jr-pr-tools");
-    var lab = D.el("label", { "for": "jr-pr-q", "class": "jr-sr" }, "Search by name or order number");
-    var inp = D.el("input", { id: "jr-pr-q", type: "search", "class": "jr-pr-q", placeholder: "Search by name or order number", autocomplete: "off", maxlength: "120" });
+    var c = card("prospects", "Prospects", "People who visited your Membership Pack page, ordered, or messaged your site, newest activity first."), tb = h("div", "jr-pr-tools");
+    var lab = D.el("label", { "for": "jr-pr-q", "class": "jr-sr" }, "Search by name, order number, mobile or email");
+    var inp = D.el("input", { id: "jr-pr-q", type: "search", "class": "jr-pr-q", placeholder: "Search by name, order number, mobile or email", autocomplete: "off", maxlength: "120" });
     inp.addEventListener("input", function () {
       var pr = S && S.pr; if (!pr) return;
       if (pr.timer) clearTimeout(pr.timer);

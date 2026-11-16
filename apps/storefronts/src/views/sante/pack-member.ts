@@ -90,6 +90,30 @@ body:has(.pk-dlg[open]){overflow:hidden}
 .pk-grid{display:grid;grid-template-columns:1fr;gap:0 16px}
 .pk-grid .fld{min-width:0}
 @media (min-width:820px){.pk-dlg-head,.pk-dlg-body,.pk-dlg-foot{padding-left:24px;padding-right:24px}.pk-dlg:has(.pk-grid){max-width:760px}.pk-grid{grid-template-columns:1fr 1fr}.pk-dlg:has(.pk-grid) .pk-reason{margin-bottom:10px}}
+/* Dark theme (html[data-theme="dark"], the member pages' switch): same surfaces and ink as pack-member-bar.css. Light mode is untouched. */
+html[data-theme="dark"] .pk-dlg{background:#17201B;color:#E6EDE9;--ink:#E6EDE9;--muted:#A9B8B0;--line:#2C3A33;--err:#F0968F}
+html[data-theme="dark"] .pk-dlg-head,html[data-theme="dark"] .pk-dlg-foot,html[data-theme="dark"] .pk-dlg .pk-sect{border-color:#2C3A33}
+html[data-theme="dark"] .pk-dlg h1,html[data-theme="dark"] .pk-dlg h2,html[data-theme="dark"] .pk-dlg label,html[data-theme="dark"] .pk-dlg p{color:#E6EDE9}
+html[data-theme="dark"] .pk-dlg .hint{color:#A9B8B0}
+html[data-theme="dark"] .pk-dlg .err{color:#F0968F}
+html[data-theme="dark"] .pk-dlg .pk-reason,html[data-theme="dark"] .pk-dlg .note.bad{background:#3A1D1A;color:#F8C9C4}
+html[data-theme="dark"] .pk-dlg .note.info{background:#1F3A2D;color:#8BE0B8}
+html[data-theme="dark"] .pk-dlg .inp,html[data-theme="dark"] .pk-dlg input,html[data-theme="dark"] .pk-dlg select,html[data-theme="dark"] .pk-dlg textarea{background:#0f1512;color:#E6EDE9;border-color:#3A4A42}
+html[data-theme="dark"] .pk-dlg .inp.bad{border-color:#F0968F}
+html[data-theme="dark"] .pk-dlg .pk-file{background:#0f1512;border-color:#5C6F66;color:#E6EDE9}
+html[data-theme="dark"] .pk-dlg .pk-file.bad{border-color:#F0968F}
+html[data-theme="dark"] .pk-dlg .pk-file input{background:transparent;border:0}
+html[data-theme="dark"] .pk-dlg .pk-linkbtn{color:#A9B8B0}
+html[data-theme="dark"] .pk-dlg .pk-linkbtn:hover{color:#E6EDE9}
+html[data-theme="dark"] .pk-dlg .pk-select-box{background:#0f1512;border-color:#3A4A42}
+html[data-theme="dark"] .pk-dlg .pk-select-label{background:#17201B;color:#8BE0B8}
+html[data-theme="dark"] .pk-dlg .pk-select-input{color:#E6EDE9}
+html[data-theme="dark"] .pk-dlg .pk-select-input::placeholder{color:#A9B8B0}
+html[data-theme="dark"] .pk-dlg .pk-select-panel{background:#17201B;border-color:#2C3A33}
+html[data-theme="dark"] .pk-dlg .pk-select-opt{color:#E6EDE9}
+html[data-theme="dark"] .pk-dlg .pk-select-opt:hover{background:#22302A}
+html[data-theme="dark"] .pk-dlg .pk-select-opt.is-selected{background:#1F3A2D;color:#8BE0B8}
+html[data-theme="dark"] .pk-dlg .pk-select-group{color:#A9B8B0}
 `;
 
 const bad = (fe: FieldErrors, name: string): string => (fe[name] ? " bad" : "");

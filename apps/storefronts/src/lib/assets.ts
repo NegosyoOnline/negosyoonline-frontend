@@ -82,8 +82,10 @@ const VERSIONS: Record<string, string> = {
   "img/blog_1.webp": "99d5623c",
   "img/blog_2.webp": "6870f46a",
   "img/blog_3.webp": "cc22ea9b",
-  "css/pack-media.css": "4b60b1a0", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
+  "css/pack-media.css": "30988ed0", // this storefront's own file: the member Media Library (filter rail, grid, drawer, preview popup)
   "js/pack-media.js": "20115d2f", // this storefront's own file: the Media Library's drawer, Copy caption, preview popup and in-place "Load 12 more"
+  "css/chat-widget.css": "256f69f3", // this storefront's own file: the website chat launcher and panel (G3 PR3)
+  "js/chat-widget.js": "597cd961", // this storefront's own file: the website chat widget (G3 PR3; src/lib/chat-flow.ts)
   "js/meta-pixel.js": "aebfa05c", // this storefront's own file: the tracking notice and the Meta Pixel (home, landing, checkout; src/lib/meta.ts)
 };
 

@@ -7,7 +7,14 @@
    While the API answers 404 (the INQUIRIES_ENABLED switch is off, or not a Santé site) the page says so and the Inbox
    links stay hidden. The reply-until time shows only when the thread carries reply.expires_at, and the "Reply time
    ended" chip on a list row only when that row says reply_open is false. NOInbox.util holds the pure helpers
-   (tests/inbox.test.mjs). Plain ES5. */
+   (tests/inbox.test.mjs). Plain ES5.
+
+   G3 PR3 (ClickUp z8uq9mfj12, mockups d1 to d5 and d7) adds the stored channels next to Facebook: a neutral channel badge on every
+   conversation, a Channel filter in the house dropdown, an unread dot, Close and Reopen (POST .../close/ and .../reopen/), the
+   delivery chips and fixed failure texts of a reply (sent, failed, rate_limited; chat "Delivered to chat when the visitor is online"),
+   the unverified-sender and no-email notes, a closed conversation with its reply box off, and the banners: Pancake not reachable,
+   chat paused, chat limit reached (one chat banner at a time, the limit first). GET .../channels/ feeds the two chat banners.
+   Every word that came from the API or a visitor still reaches the page through textContent only. */
 (function () {
   var D = window.NODash;
   var TZ = "Asia/Manila", MAX = 2000;
@@ -36,7 +43,10 @@
     warn: "M12 3l10 18H2zM12 10v5M12 18h.01",
     refresh: "M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4",
     back: "M15 6l-6 6 6 6",
-    open: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"
+    open: "M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5",
+    globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
+    mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6",
+    facebook: "M14 8h2.5V4.5H14A3.5 3.5 0 0 0 10.5 8v2.5H8V14h2.5v6H14v-6h2.3l.6-3.5H14V8.2c0-.1.1-.2 0-.2z"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -94,6 +104,8 @@
   }
   function initialsOf(name) {
     var w = String(name || "").trim().split(/\s+/).filter(Boolean);
+    var named = w.filter(function (x) { return /^[A-Za-z0-9\u00C0-\uFFFF]/.test(x); }); /* "Ana Reyes (test)" is AR, not A( */
+    if (named.length) w = named;
     if (!w.length) return "?";
     var a = Array.from(w[0])[0], b = w.length > 1 ? Array.from(w[w.length - 1])[0] : "";
     return (a + b).toUpperCase();
@@ -115,6 +127,73 @@
     if (m.attachments && m.attachments.length) parts.push(attachmentLine(m.attachments));
     return parts.join("\n") || "[Message]";
   }
+  /* ---------- the channels ---------- */
+
+  var CHANNEL = {
+    facebook: { label: "Facebook via Pancake", icon: "facebook" },
+    webchat: { label: "Website chat", icon: "globe" },
+    email: { label: "Email", icon: "mail" }
+  };
+  var FILTERS = [["all", "All channels"], ["facebook", "Facebook via Pancake"], ["webchat", "Website chat"], ["email", "Email"]];
+  /* A conversation's channel: what the API says, else what its ref says. A Pancake ref has no prefix, so it is Facebook. */
+  function channelOf(x) {
+    var c = x && x.channel;
+    if (c === "webchat" || c === "email" || c === "facebook") return c;
+    var ref = x && typeof x.ref === "string" ? x.ref : "";
+    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : "facebook";
+  }
+  function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email"; }
+  function filterItems(items, filter) {
+    return filter && filter !== "all" ? items.filter(function (i) { return channelOf(i) === filter; }) : items;
+  }
+  /* The fixed owner texts of a reply that did not go (mockup d7). Never the mail server's words. */
+  var FAIL = {
+    sender_not_ready: "Email replies are not set up for this store.",
+    no_recipient: "This conversation has no email address to reply to.",
+    email_failed: "The email could not be sent. Please try again shortly.",
+    rate_limited: "Too many emails have been sent from this store. Please wait and try again."
+  };
+  function failTextOf(code) { return Object.prototype.hasOwnProperty.call(FAIL, code) ? FAIL[code] : FAIL.email_failed; }
+  var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server";
+  var NOTE_NO_EMAIL = "No email address was given. Your reply shows in the chat only while the visitor's browser keeps it.";
+  var NOTE_UNVERIFIED = "This address was typed into your contact form and has not been confirmed.";
+  var BANNER_LIMIT = ["Today's chat limit was reached.", " Visitors see that chat is not available. Website chat opens again tomorrow."];
+  /* The delivery chip of an owner message in a stored thread: [colour, text] or null. `code` is the failure code paired to it. */
+  function chipFor(channel, m, code) {
+    if (!m || m.direction !== "out") return null;
+    if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code)];
+    if (m.delivery_state !== "sent") return null;
+    return channel === "email" ? ["ok", CHIP_MAIL] : ["info", CHIP_CHAT];
+  }
+  /* The thread's messages do not carry the failure code; the replies list does (newest first). The failed owner messages, newest
+     first, are matched to the failed replies in the same order. A message with no match gets the generic email_failed text. */
+  function failCodes(messages, replies) {
+    var failedReplies = (Array.isArray(replies) ? replies : []).filter(function (r) { return r && (r.state === "failed" || r.state === "blocked_rate"); });
+    var out = {}, n = 0;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      var m = messages[i];
+      if (m.direction === "out" && m.delivery_state === "failed") { var r = failedReplies[n++]; out[m.id] = r && typeof r.error_code === "string" ? r.error_code : ""; }
+    }
+    return out;
+  }
+  /* The banner the list shows for the chat, from GET .../channels/: the daily limit first, else a pause, else none. */
+  function chatBanner(ch, now) {
+    if (!ch || ch.webchat_enabled !== true || ch.webchat_available === false) return null;
+    if (ch.chat_limit_reached === true) return { kind: "limit" };
+    var until = ch.paused_until ? validDate(ch.paused_until) : null;
+    if (until && until.getTime() > now.getTime()) return { kind: "paused", until: ch.paused_until };
+    return null;
+  }
+  /* The Pancake warning of the list, when Pancake gave nothing but the stored channels did: the words, or null for no banner. */
+  function pancakeBanner(sources) {
+    var p = sources && typeof sources.pancake === "string" ? sources.pancake : "ok";
+    if (p === "ok" || p === "not_configured" || p === "not_found") return null;
+    if (p === "invalid_credentials" || p === "expired_credentials" || p === "forbidden_page") {
+      return ["Pancake did not accept the saved token.", " Facebook conversations may be missing. Website chat and email conversations still show below."];
+    }
+    return ["Pancake is not reachable right now.", " Facebook conversations may be missing. Website chat and email conversations still show below."];
+  }
+
   /* An idempotency key the API accepts: letters, digits, "_" and "-", 8 to 64 of them. */
   function newKey() {
     var out = "r";
@@ -148,11 +227,96 @@
     return { kind: "down" };
   }
 
+  /* The house dropdown, ported from products.js combo() (the pr-combo; payments.js has the original pm-combo): the same box, panel below
+     it (above when there is no room), typing filters, textContent only. The native select stays in the page, hidden, as the source of
+     truth. With o.blankEmpty the empty option is not typed into the box: the box stays empty and shows that option's text as its grey
+     placeholder, so nothing is selected when it opens (the "Pause for" field). Without it the box shows the chosen option ("All
+     channels"). select.ibSync() redraws the box after the code sets select.value; select.ibFocus() puts the cursor in the box.
+     Focus is the light blue (--link), never gold. Also used by Settings > Inbox (inbox-settings.js, NOInbox.combo). */
+  function combo(select, label, o) {
+    o = o || {};
+    var wrap = h("div", "ib-combo"), box = h("div", "ib-combo-box"), panel = h("div", "ib-combo-panel"), rows = [], active = -1;
+    var input = D.el("input", { "class": "ib-combo-input", type: "text", role: "combobox", autocomplete: "off", spellcheck: "false", "aria-label": label, "aria-autocomplete": "list", "aria-expanded": "false", "aria-controls": select.id + "-list" });
+    if (o.describedby) input.setAttribute("aria-describedby", o.describedby);
+    panel.setAttribute("id", select.id + "-list"); panel.setAttribute("role", "listbox");
+    select.parentNode.insertBefore(wrap, select);
+    select.classList.add("ib-combo-native"); select.setAttribute("tabindex", "-1"); select.setAttribute("aria-hidden", "true");
+    wrap.appendChild(select); box.appendChild(input); box.appendChild(h("span", "ib-combo-caret")); wrap.appendChild(box); wrap.appendChild(panel);
+    function opts() { return Array.prototype.slice.call(select.children); }
+    function chosen() {
+      var all = opts(), t = all.length ? all[0].textContent : "";
+      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) { t = all[i].textContent; if (o.blankEmpty && all[i].value === "") t = ""; break; }
+      if (o.blankEmpty && all.length && all[0].value === "" && !all.some(function (x) { return x.value === select.value; })) t = "";
+      return t;
+    }
+    function isOpen() { return wrap.classList.contains("is-open"); }
+    function mark(i) {
+      active = i;
+      rows.forEach(function (r, n) { r.classList.toggle("is-active", n === i); });
+      if (i >= 0) input.setAttribute("aria-activedescendant", rows[i].id); else input.removeAttribute("aria-activedescendant");
+    }
+    function announce() { if (typeof Event === "function" && select.dispatchEvent) select.dispatchEvent(new Event("change", { bubbles: true })); }
+    function draw(q) {
+      clear(panel); rows = [];
+      opts().forEach(function (op) {
+        if (o.blankEmpty && op.value === "") return; /* the placeholder is not a choice */
+        if (q && op.textContent.toLowerCase().indexOf(q) < 0) return;
+        var on = op.value === select.value && !(o.blankEmpty && op.value === "");
+        var row = h("div", "ib-combo-opt" + (on ? " is-selected" : ""), op.textContent);
+        row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(on));
+        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); });
+        rows.push(row); panel.appendChild(row);
+      });
+      if (!rows.length) panel.appendChild(h("div", "ib-combo-opt is-disabled", "No matches"));
+      mark(-1);
+    }
+    /* Fixed, so the page's scrolling cannot clip it; opens upward only when there is no room below. */
+    function place() {
+      if (!box.getBoundingClientRect) return;
+      var r = box.getBoundingClientRect(), below = window.innerHeight - r.bottom, up = below < 160 && r.top > below;
+      panel.style.left = r.left + "px"; panel.style.width = r.width + "px";
+      panel.style.maxHeight = Math.max(120, Math.min(320, (up ? r.top : below) - 16)) + "px";
+      panel.style.top = up ? "auto" : (r.bottom + 6) + "px";
+      panel.style.bottom = up ? (window.innerHeight - r.top + 6) + "px" : "auto";
+    }
+    function onScroll(e) { if (!panel.contains || !panel.contains(e.target)) shut(); }
+    function onDoc(e) { if (!wrap.contains || !wrap.contains(e.target)) shut(); }
+    function show() {
+      if (isOpen()) return;
+      wrap.classList.add("is-open"); input.setAttribute("aria-expanded", "true");
+      draw(""); place();
+      window.addEventListener("resize", place); document.addEventListener("scroll", onScroll, true); document.addEventListener("click", onDoc);
+    }
+    function shut() {
+      wrap.classList.remove("is-open"); input.setAttribute("aria-expanded", "false"); input.value = chosen(); mark(-1);
+      window.removeEventListener("resize", place); document.removeEventListener("scroll", onScroll, true); document.removeEventListener("click", onDoc);
+    }
+    box.addEventListener("click", function () { show(); input.focus(); });
+    select.addEventListener("focus", function () { input.focus(); });
+    select.addEventListener("change", function () { input.value = chosen(); });
+    select.ibSync = function () { input.value = chosen(); };
+    select.ibFocus = function () { input.focus(); };
+    input.addEventListener("focus", function () { if (input.select) input.select(); });
+    input.addEventListener("input", function () { show(); draw(input.value.trim().toLowerCase()); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Tab") { shut(); return; }
+      if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); shut(); return; }
+      if (e.key === "Enter") { e.preventDefault(); if (active >= 0) { if (rows[active].fire) rows[active].fire("click"); else rows[active].click(); } else show(); return; }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      e.preventDefault();
+      if (!isOpen()) { show(); return; }
+      var d = e.key === "ArrowDown" ? 1 : -1, n = rows.length;
+      if (n) mark(active < 0 ? (d > 0 ? 0 : n - 1) : (active + d + n) % n);
+    });
+    if (o.blankEmpty && select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent);
+    input.value = chosen();
+  }
+
   /* ---------- state ---------- */
 
   function fresh() {
-    return { site: null, state: "loading", fail: null, items: [], next: null, updated: null, more: false,
-      sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, local: [], notice: null, key: null, sending: false, olderBusy: false };
+    return { site: null, state: "loading", fail: null, items: [], next: null, updated: null, more: false, filter: "all", sources: null, stNext: null, chat: null,
+      closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, local: [], notice: null, key: null, sending: false, olderBusy: false };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -200,33 +364,56 @@
         if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
         S.items = Array.isArray(res.data.items) ? res.data.items : [];
         S.next = typeof res.data.next_cursor === "string" && res.data.next_cursor ? res.data.next_cursor : null;
+        S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
+        S.sources = res.data.sources && typeof res.data.sources === "object" ? res.data.sources : null;
         S.state = S.items.length ? "ready" : "empty"; S.fail = null; S.updated = new Date();
         reveal(true);
         redraw();
         say(S.items.length ? "Conversations loaded." : "No conversations yet.");
+        loadChat(mine);
       });
     }, mine);
   }
   function reveal404(res) { if (res.status === 404) reveal(false); }
+  /* The chat's pause and limit, for the two banners. A site without the stored channels answers 404: no banner, nothing wrong. */
+  function loadChat(mine) {
+    D.call("GET", base() + "channels/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401) return;
+      S.chat = res.ok && res.data && typeof res.data === "object" ? res.data : null;
+      if (byId("ib-listbody")) drawList();
+    });
+  }
   function loadMore(b) {
-    if (!S.next) return;
-    var mine = token; busy(b, true);
-    D.call("GET", base() + "conversations/?cursor=" + encodeURIComponent(S.next), null, true).then(function (res) {
+    if (!S.next && !S.stNext) return;
+    var mine = token, stored = !S.next; busy(b, true);
+    var query = stored ? "?stored_cursor=" + encodeURIComponent(S.stNext) : "?cursor=" + encodeURIComponent(S.next);
+    D.call("GET", base() + "conversations/" + query, null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
       busy(b, false);
       if (!res.ok) { D.toast("That did not work", msgOf(res, "We could not load more conversations. Please try again."), "error"); return; }
       var seen = {}; S.items.forEach(function (i) { seen[i.ref] = true; });
       (Array.isArray(res.data.items) ? res.data.items : []).forEach(function (i) { if (!seen[i.ref]) S.items.push(i); });
-      S.next = typeof res.data.next_cursor === "string" && res.data.next_cursor ? res.data.next_cursor : null;
+      if (stored) S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
+      else S.next = typeof res.data.next_cursor === "string" && res.data.next_cursor ? res.data.next_cursor : null;
+      S.items.sort(function (a, b) { var x = validDate(a.updated_at), y = validDate(b.updated_at); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
       drawList();
     });
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;
-    S.sel = ref; S.selName = name || ""; S.thread = null; S.tstate = "loading"; S.tfail = null; S.local = []; S.notice = null; S.key = null;
+    S.sel = ref; S.selName = name || ""; S.thread = null; S.tstate = "loading"; S.tfail = null; S.local = []; S.notice = null; S.noticeStored = false; S.key = null;
     drawList(); drawThread();
     fetchThread(false);
+    markRead(ref);
     var back = byId("ib-back"); if (back) back.focus();
+  }
+  /* Opening an unread stored conversation marks it read; the dot goes at once, and the server has the record. */
+  function markRead(ref) {
+    var item = null;
+    S.items.forEach(function (i) { if (i.ref === ref) item = i; });
+    if (!item || item.unread !== true || !isStored(item)) return;
+    item.unread = false; drawList();
+    D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/read/", null, true);
   }
   function fetchThread(silent) {
     var mine = ++tload, ref = S.sel;
@@ -271,22 +458,38 @@
     if (S.sending) return;
     var text = box.value.trim();
     if (!text || text.length > MAX) return;
-    var mine = tload, ref = S.sel, key = S.key || newKey();
+    var mine = tload, ref = S.sel, key = S.key || newKey(), stored = isStored({ ref: ref, channel: S.thread && S.thread.channel });
     var st = S; S.key = key; S.sending = true; busy(b, true);
     D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/reply/", { text: text, idempotency_key: key }, true).then(function (res) {
       st.sending = false;
       if (res.status === 401) return;
       if (S !== st || mine !== tload || S.sel !== ref) return; /* another conversation was opened meanwhile; the API has the record */
       S.local = S.local.filter(function (l) { return l.state !== "failed"; });
+      S.noticeStored = stored;
       if (!res.ok) {
         if (res.status !== 0) S.key = null; /* a reply the API never saw can use a new key; a lost answer keeps the old one so nothing goes twice */
+        if (stored && res.status === 409 && codeOf(res) === "closed") {
+          if (S.thread) { S.thread.status = "closed"; S.thread.reply = { open: false, reason: "closed" }; }
+          S.items.forEach(function (i) { if (i.ref === ref) i.status = "closed"; });
+          S.notice = null; drawList(); drawThread(); return;
+        }
         S.notice = res.status === 0
           ? "We could not confirm it was sent. Press Try again: it will not be sent twice."
-          : msgOf(res, "The reply could not be sent.") + " Nothing reached the customer.";
+          : stored ? msgOf(res, "The reply could not be sent.") : msgOf(res, "The reply could not be sent.") + " Nothing reached the customer.";
         drawThread(true); return;
       }
       S.key = null;
       var state = res.data && res.data.state, at = res.data && res.data.created_at;
+      if (stored) {
+        /* The thread now holds the owner's message with its delivery state, sent or failed: read it again. */
+        var code = res.data && typeof res.data.error_code === "string" ? res.data.error_code : "";
+        if (state === "sent") { S.drafts[ref] = ""; S.notice = null; say("Reply sent."); }
+        else if (state === "sending") { S.notice = "Your reply is still being sent. Refresh in a moment to see it."; }
+        else { S.notice = failTextOf(code); S.drafts[ref] = text; }
+        drawThread(true);
+        fetchThread(true);
+        return;
+      }
       if (state === "sent") {
         S.local.push({ text: text, at: at, state: "sent" });
         S.drafts[ref] = ""; S.notice = null; say("Reply sent.");
@@ -369,7 +572,7 @@
   function fillList(body) {
     clear(body);
     if (S.state === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Loading your conversations…")); return; }
-    if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer messages your Facebook page, the conversation will show up here. Press Refresh to check again.")); return; }
+    if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer messages your Facebook page, writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again.")); return; }
     if (S.state === "failed") {
       var f = S.fail || { kind: "down" }, busyNow = f.kind === "busy";
       body.appendChild(stateBox(ICON.warn, busyNow ? "Pancake is busy" : "We couldn't reach Pancake",
@@ -377,23 +580,81 @@
         [btn("Try again", "primary", function (b) { busy(b, true); load(false); }, ICON.refresh), (function () { var a = h("a", "no-btn no-btn-ghost", "Check connection"); a.setAttribute("href", "/settings/inbox/"); return a; })()], true));
       return;
     }
+    body.appendChild(toolbar());
+    var banners = bannerBox(); if (banners) body.appendChild(banners);
+    var shown = filterItems(S.items, S.filter);
+    if (!shown.length) {
+      body.appendChild(h("p", "ib-empty-filter", "No conversations in this channel yet."));
+      if (S.next || S.stNext) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
+      return;
+    }
     var ul = h("ul", "ib-list"); ul.setAttribute("id", "ib-list");
     var now = new Date();
-    S.items.forEach(function (it) {
-      var li = h("li", ""), sel = S.sel === it.ref;
-      var b = h("button", "ib-item" + (sel ? " is-sel" : "")); b.setAttribute("type", "button");
+    shown.forEach(function (it) {
+      var li = h("li", ""), sel = S.sel === it.ref, unread = it.unread === true;
+      var b = h("button", "ib-item" + (sel ? " is-sel" : "") + (unread ? " ib-unread" : "")); b.setAttribute("type", "button");
       if (sel) b.setAttribute("aria-current", "true");
       var av = h("span", "ib-av", initialsOf(it.display_name)); av.setAttribute("aria-hidden", "true");
-      var text = h("span", "ib-it"), top = h("span", "ib-top");
-      add(top, h("span", "ib-name", nameOf(it.display_name)), h("span", "ib-time", listTime(it.updated_at, now)));
-      add(text, top, h("span", "ib-snip", it.snippet || ""));
-      if (it.reply_open === false) text.appendChild(h("span", "chip chip-neutral ib-mini", "Reply time ended"));
+      var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
+      if (unread) { var dot = h("span", "ib-dot"); dot.appendChild(h("span", "sr-only", "Unread. ")); nm.appendChild(dot); }
+      nm.appendChild(document.createTextNode(nameOf(it.display_name)));
+      add(top, nm, h("span", "ib-time", listTime(it.updated_at, now)));
+      var badges = h("span", "ib-badges");
+      badges.appendChild(channelBadge(channelOf(it)));
+      if (it.status === "closed") badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed"));
+      if (it.reply_open === false) badges.appendChild(h("span", "chip chip-neutral ib-mini", "Reply time ended"));
+      add(text, top, h("span", "ib-snip", it.snippet || ""), badges);
       add(b, av, text);
       b.addEventListener("click", function () { openThread(it.ref, nameOf(it.display_name)); });
       li.appendChild(b); ul.appendChild(li);
     });
     body.appendChild(ul);
-    if (S.next) { var more = btn("Show more conversations", "ghost", loadMore); more.classList.add("ib-more"); body.appendChild(more); }
+    if (S.next || S.stNext) { var more = btn("Show more conversations", "ghost", loadMore); more.classList.add("ib-more"); body.appendChild(more); }
+  }
+  /* A neutral outlined pill with an icon and words, so the channel never depends on colour (P2). */
+  function channelBadge(channel) {
+    var c = CHANNEL[channel] || CHANNEL.facebook, b = h("span", "ib-ch");
+    b.appendChild(icon(ICON[c.icon]));
+    b.appendChild(document.createTextNode(c.label));
+    return b;
+  }
+  /* The Channel filter: the house dropdown, showing its real default "All channels". */
+  function toolbar() {
+    var box = h("div", "ib-tools");
+    var lab = h("label", "pm-label", "Channel"); lab.setAttribute("for", "ib-filter");
+    var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
+    FILTERS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
+    sel.value = S.filter;
+    sel.addEventListener("change", function () { S.filter = sel.value; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); });
+    add(box, lab, sel);
+    combo(sel, "Channel");
+    return box;
+  }
+  /* The banners above the list: Pancake not reachable, and at most one chat banner (the daily limit first, else a pause). */
+  function bannerBox() {
+    var rows = [], pb = pancakeBanner(S.sources), cb = chatBanner(S.chat, new Date());
+    if (pb && S.items.some(isStored)) {
+      var retry = btn("Try again", "ghost", function (b) { busy(b, true); load(true); });
+      rows.push(banner(pb[0], pb[1], retry));
+    }
+    if (cb && cb.kind === "limit") rows.push(banner(BANNER_LIMIT[0], BANNER_LIMIT[1], null));
+    else if (cb) {
+      var link = h("a", "no-btn no-btn-ghost", "Resume or change in Settings"); link.setAttribute("href", "/settings/inbox/");
+      rows.push(banner("Website chat is paused until " + whenText(cb.until, new Date()) + ".", " Visitors see that chat is not available and are pointed to the contact form.", link));
+    }
+    if (!rows.length) return null;
+    var wrap = h("div", "ib-banners");
+    rows.forEach(function (r) { wrap.appendChild(r); });
+    return wrap;
+  }
+  function banner(strong, rest, action) {
+    var b = h("div", "ib-banner"); b.setAttribute("role", "status");
+    b.appendChild(icon(ICON.warn));
+    var body = h("div", "ib-bbody"), text = h("div", "");
+    add(text, h("strong", "", strong), document.createTextNode(rest));
+    add(body, text, action);
+    b.appendChild(body);
+    return b;
   }
   function drawList() {
     var body = byId("ib-listbody"), p = byId("ib-listpane");
@@ -410,15 +671,26 @@
     return p;
   }
 
-  function threadHead(name, chip, url) {
+  /* The thread's head: back (phone), avatar, name with its channel badge and state chip, an optional address, and the action:
+     "Open in Pancake" for Facebook, Close or Reopen conversation for a stored channel (mockups d2 to d4). */
+  function threadHead(name, o) {
+    o = o || {};
     var head = h("div", "ib-thead");
     var back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
     back.appendChild(icon(ICON.back)); back.appendChild(h("span", "", "Inbox"));
     back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.")); } });
     var av = h("span", "ib-av", initialsOf(name)); av.setAttribute("aria-hidden", "true");
-    var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name))); if (chip) nm.appendChild(chip);
+    var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name)));
+    if (o.channel) {
+      var row = h("div", "ib-chrow"); row.appendChild(channelBadge(o.channel));
+      if (o.status) row.appendChild(h("span", "chip ib-mini " + (o.status === "closed" ? "chip-neutral" : "chip-ok"), o.status === "closed" ? "Closed" : "Open"));
+      if (o.chip) row.appendChild(o.chip);
+      nm.appendChild(row);
+    } else if (o.chip) nm.appendChild(o.chip);
+    if (o.sub) nm.appendChild(h("p", "ib-sub", o.sub));
     add(head, back, av, nm);
-    if (url) head.appendChild(providerLink(url, "no-btn no-btn-ghost ib-open"));
+    if (o.action) head.appendChild(o.action);
+    else if (o.url) head.appendChild(providerLink(o.url, "no-btn no-btn-ghost ib-open"));
     return head;
   }
   function providerLink(url, cls) {
@@ -429,6 +701,35 @@
   }
   function safeUrl(u) { return typeof u === "string" && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : ""; }
 
+  /* ---------- close and reopen ---------- */
+
+  function setStatus(b, to) {
+    if (S.closing || !S.sel) return;
+    var mine = tload, ref = S.sel, st = S;
+    S.closing = true; busy(b, true);
+    D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/" + (to === "closed" ? "close" : "reopen") + "/", null, true).then(function (res) {
+      st.closing = false;
+      if (res.status === 401) return;
+      if (S !== st || mine !== tload || S.sel !== ref) return;
+      busy(b, false);
+      if (!res.ok) {
+        D.toast("That did not work", res.status === 409 ? msgOf(res, "That visitor already has another open conversation.") : msgOf(res, "We could not change this conversation. Please try again."), "error");
+        return;
+      }
+      var status = res.data && res.data.status === "closed" ? "closed" : "open";
+      S.items.forEach(function (i) { if (i.ref === ref) i.status = status; });
+      if (S.thread) { S.thread.status = status; S.thread.reply = { open: status === "open", reason: status === "open" ? "" : "closed" }; }
+      S.notice = null; S.noticeStored = false;
+      drawList(); drawThread(status === "open");
+      say(status === "closed" ? "Conversation closed." : "Conversation reopened.");
+    });
+  }
+  function statusButton(closed) {
+    var b = btn(closed ? "Reopen conversation" : "Close conversation", closed ? "primary" : "ghost", function (x) { setStatus(x, closed ? "open" : "closed"); });
+    b.classList.add("ib-open");
+    return b;
+  }
+
   function drawThread(focusBox) {
     var p = byId("ib-threadpane"); if (!p || !S || !S.sel) return;
     clear(p);
@@ -436,21 +737,33 @@
     p.setAttribute("aria-label", "Conversation with " + (t && t.display_name ? t.display_name : S.selName || "customer"));
     p.classList.remove("is-hide-phone");
     if (S.tstate === "loading" || !t) {
-      p.appendChild(threadHead(S.selName, null, ""));
+      p.appendChild(threadHead(S.selName, { channel: channelOf({ ref: S.sel }) }));
       if (S.tstate === "failed") {
-        var f = S.tfail || { kind: "down" }, text = f.kind === "gone" ? "This conversation is no longer available." : f.kind === "down" ? "Pancake did not answer just now. Wait a moment, then try again." : f.message || "Please try again.";
+        var f = S.tfail || { kind: "down" }, text = f.kind === "gone" ? "This conversation is no longer available." : f.kind === "down" ? (isStored({ ref: S.sel }) ? "We could not load this conversation just now. Wait a moment, then try again." : "Pancake did not answer just now. Wait a moment, then try again.") : f.message || "Please try again.";
         p.appendChild(stateBox(ICON.warn, "We couldn't open this conversation", text, [btn("Try again", "primary", function (b) { busy(b, true); S.tstate = "loading"; drawThread(); fetchThread(false); }, ICON.refresh)], true));
       } else p.appendChild(h("p", "pm-meta ib-loading", "Opening the conversation…"));
       return;
     }
     var name = nameOf(t.display_name || S.selName), now = new Date(), url = safeUrl(t.provider_url);
-    var open = !!(t.reply && t.reply.open), until = open && t.reply && t.reply.expires_at ? whenText(t.reply.expires_at, now) : "";
-    var chip = open ? (until ? h("span", "chip chip-info", "You can reply until " + until) : null) : h("span", "chip chip-neutral", "Reply time ended");
-    p.appendChild(threadHead(name, chip, open ? url : ""));
+    var channel = channelOf(t.channel ? t : { ref: S.sel }), stored = channel !== "facebook";
+    var closed = stored && t.status === "closed";
+    var open = !!(t.reply && t.reply.open);
+    if (stored) {
+      p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: channel === "email" ? t.contact_email : "", action: statusButton(closed) }));
+      var note = noteFor(channel, t);
+      if (note) p.appendChild(note);
+    } else {
+      var until = open && t.reply && t.reply.expires_at ? whenText(t.reply.expires_at, now) : "";
+      var chip = open ? (until ? h("span", "chip chip-info", "You can reply until " + until) : null) : h("span", "chip chip-neutral", "Reply time ended");
+      p.appendChild(threadHead(name, { channel: "facebook", chip: chip, url: open ? url : "" }));
+    }
     /* messages */
     var msgs = h("div", "ib-msgs"); msgs.setAttribute("tabindex", "0"); msgs.setAttribute("aria-label", "Messages");
     if (t.next_cursor) { var older = btn("Show earlier messages", "ghost", loadOlder); older.classList.add("ib-more"); older.setAttribute("style", "align-self:center"); msgs.appendChild(older); }
-    var list = ordered(Array.isArray(t.messages) ? t.messages : []).map(function (m) { return { out: m.direction === "out", text: bubbleText(m), at: m.at }; });
+    var codes = stored ? failCodes(Array.isArray(t.messages) ? t.messages : [], t.replies) : {};
+    var list = ordered(Array.isArray(t.messages) ? t.messages : []).map(function (m) {
+      return { out: m.direction === "out", text: bubbleText(m), at: m.at, chip: stored ? chipFor(channel, m, codes[m.id]) : null, tag: channel === "email" && m.direction === "in" && /^Subject: /.test(m.text || "") ? "Contact form" : "" };
+    });
     list = list.concat(S.local.map(function (l) { return { out: true, text: l.text, at: l.at, state: l.state, why: l.why }; }));
     var lastDay = "";
     list.forEach(function (m) {
@@ -458,22 +771,42 @@
       if (key && key !== lastDay) { lastDay = key; msgs.appendChild(h("div", "ib-day", dayLabel(m.at, now))); }
       var row = h("div", "ib-msg " + (m.out ? "ib-msg-out" : "ib-msg-in"));
       var meta = h("span", "ib-meta", d ? clock(d) : "");
+      if (m.tag) { meta.appendChild(document.createTextNode(" ")); var tag = h("span", "ib-ch"); tag.appendChild(icon(ICON.mail)); tag.appendChild(document.createTextNode(m.tag)); meta.appendChild(tag); }
       if (m.state === "sent") meta.appendChild(h("span", "chip chip-ok ib-mini", "Sent"));
       if (m.state === "failed") meta.appendChild(h("span", "chip chip-danger ib-mini", "Failed: " + m.why));
+      if (m.chip) meta.appendChild(h("span", "chip chip-" + m.chip[0] + " ib-mini ib-long", m.chip[1]));
       add(row, h("p", "ib-bub", m.text), meta);
       msgs.appendChild(row);
     });
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
-    p.appendChild(replyBox(name, open, url, focusBox));
+    p.appendChild(replyBox(name, stored ? !closed : open, url, focusBox, stored ? { channel: channel, closed: closed } : null));
     msgs.scrollTop = msgs.scrollHeight;
   }
-  function replyBox(name, open, url, focusBox) {
+  /* The note under a stored thread's head: no email given (chat), or the contact-form address nobody confirmed (email). A note only (P1). */
+  function noteFor(channel, t) {
+    if (channel === "webchat" && !t.contact_email) return noteBox(NOTE_NO_EMAIL, true);
+    if (channel === "email" && t.auth_flag !== "") return noteBox(NOTE_UNVERIFIED, false);
+    return null;
+  }
+  function noteBox(text, info) {
+    var n = h("p", "ib-note" + (info ? " ib-note-info" : "")); n.appendChild(icon(info ? ICON.chat : ICON.warn)); n.appendChild(h("span", "", text));
+    return n;
+  }
+  function replyBox(name, open, url, focusBox, stored) {
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc");
     var count = h("span", "ib-count", "0 / " + MAX); count.setAttribute("id", "ib-rc");
     var foot = h("div", "ib-rfoot");
+    if (!open && stored) {
+      /* d4: a closed conversation. The box is off and the reason is said. */
+      ta.disabled = true; ta.setAttribute("aria-describedby", "ib-rn");
+      var why = h("p", "ib-closed-t"); why.setAttribute("id", "ib-rn"); add(why, h("strong", "", "This conversation is closed."), document.createTextNode(" Reopen it to reply."));
+      var sendOff0 = btn("Send", "primary"); sendOff0.disabled = true; sendOff0.setAttribute("aria-disabled", "true");
+      add(wrap, lab, ta, why, add(foot, count, sendOff0));
+      return wrap;
+    }
     if (!open) {
       var t1 = h("p", "ib-closed-t"); add(t1, h("strong", "", "You can't reply here anymore."), document.createTextNode(" Facebook only allows a reply for a limited time after the customer's last message, and that time has ended."));
       add(wrap, t1, h("p", "ib-closed-s", "You can still answer this customer in Pancake."));
@@ -485,7 +818,9 @@
     }
     if (S.notice) {
       var fail = h("div", "ib-fail"); fail.setAttribute("role", "alert"); fail.appendChild(icon(ICON.warn));
-      var body = h("div", ""); add(body, h("strong", "", "Your reply was not sent."), document.createTextNode(" " + S.notice + " Your text is still in the box. Press Try again to send it again."));
+      var body = h("div", "");
+      if (S.noticeStored) add(body, h("strong", "", "Your reply was not sent."), document.createTextNode(" " + S.notice + " Your text is still in the box."));
+      else add(body, h("strong", "", "Your reply was not sent."), document.createTextNode(" " + S.notice + " Your text is still in the box. Press Try again to send it again."));
       fail.appendChild(body); wrap.appendChild(fail);
     }
     ta.setAttribute("maxlength", String(MAX));
@@ -511,5 +846,7 @@
 
   window.NOInbox = { show: show, hide: hide, probe: probe,
     util: { dayKey: dayKey, listTime: listTime, dayLabel: dayLabel, whenText: whenText, initialsOf: initialsOf, ordered: ordered, bubbleText: bubbleText,
-      newKey: newKey, reasonOf: reasonOf, failure: failure } };
+      newKey: newKey, reasonOf: reasonOf, failure: failure, channelOf: channelOf, filterItems: filterItems, chipFor: chipFor,
+      failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, pancakeBanner: pancakeBanner },
+    combo: combo };
 })();

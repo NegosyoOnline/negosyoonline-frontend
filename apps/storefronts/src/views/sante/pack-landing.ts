@@ -10,15 +10,17 @@ import { packDocument, type PackCtx } from "./pack-page.ts";
 
 
 /* "Watch Before You Buy": the rotating reel carousel, markup adapted from TWCinc's membership-pack landing_page.html (section#reels) and
-   components/_reel.html; behaviour in js/pack-landing.js. The list now follows Coach Ed's 2026-11-16 r8 order (same Bunny library 744094);
-   Only "Open, mix, enjoy" (last) is from TWCinc. The five new videos have no title yet: an empty title shows no caption line. */
+   components/_reel.html; behaviour in js/pack-landing.js. The list follows Coach Ed's 2026-11-16 r8 order (same Bunny library 744094), with r11 (2026-11-17):
+   "Open, mix, enjoy" is the 4th entry and the d9de4a51 reel the last. The ring is 6 around the centred reel (slots -2..+2 visible,
+   +3 hidden), so on load d9de4a51 shows at the left of the centre and "Open, mix, enjoy" is the hidden reel, reached last whichever
+   way a visitor rotates; it is not shown on page load. Only "Open, mix, enjoy" is from TWCinc. The five new videos have no title yet: an empty title shows no caption line. */
 const REELS: { poster: string; guid: string; title: string }[] = [
   { poster: "d49a0f2e", guid: "d49a0f2e-1122-4c79-b1af-50797c81cd27", title: "" },
   { poster: "d7e40dca", guid: "d7e40dca-b2bf-4301-9051-7865ad6352f1", title: "" },
   { poster: "41271ba0", guid: "41271ba0-6628-4655-8ff8-b5d5f02ea17b", title: "" },
-  { poster: "d9de4a51", guid: "d9de4a51-3484-443a-a624-9bb9520b4a42", title: "" },
-  { poster: "54990aa4", guid: "54990aa4-775d-48c1-b85b-bfb50c63f85a", title: "" },
   { poster: "1", guid: "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", title: "Open, mix, enjoy" },
+  { poster: "54990aa4", guid: "54990aa4-775d-48c1-b85b-bfb50c63f85a", title: "" },
+  { poster: "d9de4a51", guid: "d9de4a51-3484-443a-a624-9bb9520b4a42", title: "" },
 ];
 
 const ABOUT = [

@@ -129,15 +129,17 @@ test("the landing page carries the Watch Before You Buy reel carousel before the
   const section = doc.slice(reels, doc.indexOf("</section>", reels));
   assert.equal((section.match(/data-reel-card/g) ?? []).length, 6);
   const guids = [...section.matchAll(/embed\/744094\/([0-9a-f-]{36})\?/g)].map((m) => m[1]);
-  assert.deepEqual(guids, ["d49a0f2e-1122-4c79-b1af-50797c81cd27", "d7e40dca-b2bf-4301-9051-7865ad6352f1", "41271ba0-6628-4655-8ff8-b5d5f02ea17b", "d9de4a51-3484-443a-a624-9bb9520b4a42", "54990aa4-775d-48c1-b85b-bfb50c63f85a", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8"]);
+  assert.deepEqual(guids, ["d49a0f2e-1122-4c79-b1af-50797c81cd27", "d7e40dca-b2bf-4301-9051-7865ad6352f1", "41271ba0-6628-4655-8ff8-b5d5f02ea17b", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", "54990aa4-775d-48c1-b85b-bfb50c63f85a", "d9de4a51-3484-443a-a624-9bb9520b4a42"]);
   for (const gone of ["9466115c", "8218fd28", "53d83f5a", "bfa29211", "b9617923", "39f71444"]) assert.ok(!section.includes(gone), gone);
   for (const n of ["d49a0f2e", "d7e40dca", "41271ba0", "d9de4a51", "54990aa4", "1"]) assert.ok(section.includes(`/assets/sante/img/reels/reel-${n}.jpg?v=`), n);
   for (const n of [2, 3, 4, 5, 6, 7]) assert.ok(!section.includes(`reel-${n}.jpg`), String(n));
+  const order = [...section.matchAll(/img\/reels\/reel-([0-9a-f]+)\.jpg/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["d49a0f2e", "d7e40dca", "41271ba0", "1", "54990aa4", "d9de4a51"]); // r11: "Open, mix, enjoy" is the hidden reel on load
   assert.match(section, /<p data-reel-caption class="pp-reels-title"><\/p>/); // the first reel has no title
   assert.equal((section.match(/data-reel-title=""/g) ?? []).length, 5);
   assert.match(section, /data-reel-title="Open, mix, enjoy"/);
-  assert.ok(section.lastIndexOf("ffba1527") > section.lastIndexOf("54990aa4")); // Open, mix, enjoy last
-  assert.ok(section.includes('aria-label="Play video 1 with sound"') && section.includes('aria-label="Play video 6 with sound: Open, mix, enjoy"'));
+  assert.ok(section.lastIndexOf("d9de4a51") > section.lastIndexOf("54990aa4")); // r11: the d9de4a51 reel last; "Open, mix, enjoy" fourth (hidden on load)
+  assert.ok(section.includes('aria-label="Play video 1 with sound"') && section.includes('aria-label="Play video 4 with sound: Open, mix, enjoy"'));
   assert.match(section, /<span data-reel-count>1<\/span> \/ 6/);
   assert.match(section, /data-reel-prev/);
   assert.match(section, /data-reel-next/);

@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fetchPack, type Pack } from "../src/lib/django.ts";
 import { landingDocument } from "../src/views/sante/pack-landing.ts";
-import { MSG_AGREEMENT_UNAVAILABLE, MSG_NOT_AVAILABLE, packContext, pesos } from "../src/views/sante/pack-page.ts";
+import { MSG_AGREEMENT_UNAVAILABLE, MSG_NOT_AVAILABLE, VIDEO_EMBED_URL, packContext, pesos } from "../src/views/sante/pack-page.ts";
 import { FILLED, SITE } from "./site.ts";
 
 const secret = randomBytes(24).toString("hex"); // throwaway, made for this run only
@@ -78,12 +78,25 @@ test("the landing page, order button on: the price, the checkout link, the TWCin
   assert.match(doc, /Get 2 boxes of Santé Barley Powder from Demo Store for <strong class="font-bold">only ₱1,488\.00<\/strong>/);
   assert.equal((doc.match(/href="\/funnel\/membership-pack\/checkout\/"/g) ?? []).length, 7); // TWCinc's landing: the hero button and six _cta includes (the phone bar among them)
   assert.match(doc, /Free Shipping Nationwide/);
-  assert.match(doc, /Prepaid only\. Cash on delivery is not available for this pack\./);
-  assert.match(doc, /You review and agree to the Santé Membership Terms when you complete your account details after payment\./);
+  assert.doesNotMatch(doc, /Prepaid only\. Cash on delivery/);
+  assert.doesNotMatch(doc, /You review and agree to the Santé Membership Terms when you complete/);
   assert.match(doc, /Frequently Asked Questions/);
   assert.match(doc, /data-pp-sticky/);
   assert.doesNotMatch(doc, /role="status"/);
   assert.doesNotMatch(doc, /\{%|\{\{|undefined|\[object/);
+});
+
+test("the landing hero holds the video, the From Nature card is gone, the button is centred", () => {
+  const doc = page(PACK);
+  const iframes = doc.match(/<iframe\b[^>]*>/g) ?? [];
+  assert.equal(iframes.length, 1);
+  assert.equal(iframes[0], `<iframe class="absolute inset-0 h-full w-full" style="border:0" referrerpolicy="strict-origin-when-cross-origin" src="${VIDEO_EMBED_URL.replaceAll("&", "&amp;")}" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true" title="Santé Membership Pack video">`);
+  const hero = doc.slice(doc.indexOf('<section class="pp-hero'), doc.indexOf("</section>", doc.indexOf('<section class="pp-hero')));
+  assert.ok(hero.includes(iframes[0]));
+  assert.ok(hero.indexOf("pp-hero-video") > hero.indexOf("data-pp-hero-cta") && hero.indexOf("pp-hero-video") < hero.indexOf("pp-hero-photo")); // phone: text and button, video, photo
+  assert.doesNotMatch(doc, /From Nature to a Healthier You|Pure\. Natural\. Trusted\./);
+  assert.match(hero, /<div class="mt-10 tab:mt-12 text-center">\s*<div class="flex flex-col items-center tab:inline-flex">\s*<a href="\/funnel\/membership-pack\/checkout\/" data-pp-hero-cta[^>]*>Get the Membership Pack/);
+  assert.match(hero, /Free Shipping Nationwide/);
 });
 
 test("the landing page, order button off: only the message, no link, no phone bar", () => {

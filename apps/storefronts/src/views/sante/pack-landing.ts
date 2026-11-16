@@ -28,13 +28,11 @@ export function landingContent(c: PackCtx): Markup {
         <li class="flex basis-1/3 flex-col items-center px-1 text-center tab:flex-1 tab:basis-auto desk:shrink-0 desk:px-0 tab:border-l tab:border-[#d5e5d2]"><span class="flex h-14 w-14 items-center justify-center rounded-full bg-[#e5f0e3] text-[#0f6831] tab:h-16 tab:w-16"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-7 w-7 tab:h-8 tab:w-8"><path d="M3.5 4.5h2.2l2 10.5h10.3l1.9-7.5H6.6"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg></span><span class="mt-3 max-w-[7.5rem] text-[0.8125rem] leading-snug text-ink-700 tab:text-sm">No maintenance purchases</span></li>
       </ul>
 
-      <div class="mt-10 tab:mt-12">
+      <div class="mt-10 tab:mt-12 text-center">
         ${(c.cta) ? html`
         <div class="flex flex-col items-center tab:inline-flex">
           <a href="${c.checkout_path}" data-pp-hero-cta class="inline-flex w-full items-center justify-center gap-3 rounded-full bg-accent-400 px-10 py-4 text-lg leading-7 font-bold text-primary-950 shadow-[var(--shadow-cta)] transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-accent-300 hover:shadow-[0_12px_26px_-10px_rgba(244,172,28,0.9)] motion-safe:hover:-translate-y-0.5 active:translate-y-0 ph:gap-2 ph:px-4 ph:text-center ph:text-[0.9375rem] tab:w-auto tab:text-xl">Get the Membership Pack<svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 shrink-0 tab:h-6 tab:w-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
           <p class="mt-4 flex items-center justify-center gap-2 text-base font-semibold text-[#157a38]"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5 shrink-0"><path d="M3 7h10v9H3zM13 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Free Shipping Nationwide</p>
-          <p class="mt-2 text-center text-sm text-ink-600">Prepaid only. Cash on delivery is not available for this pack.</p>
-          <p class="pp-agree mt-2 text-center text-sm text-ink-600">You review and agree to the Santé Membership Terms when you complete your account details after payment.</p>
         </div>
         ` : html`
         <div role="status" data-pp-hero-cta class="max-w-xl rounded-[20px] bg-accent-50 px-6 py-5 text-center ring-1 ring-accent-200">
@@ -42,6 +40,12 @@ export function landingContent(c: PackCtx): Markup {
         </div>
         `}
       </div>
+    </div>
+  </div>
+
+  <div class="pp-hero-video">
+    <div class="pp-hero-video-frame">
+      <iframe class="absolute inset-0 h-full w-full" style="border:0" referrerpolicy="strict-origin-when-cross-origin" src="${c.video_url}" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true" title="Santé Membership Pack video"></iframe>
     </div>
   </div>
 
@@ -53,18 +57,6 @@ export function landingContent(c: PackCtx): Markup {
     <span aria-hidden="true" class="absolute inset-x-0 bottom-0 hidden h-1/3 bg-gradient-to-t from-white to-transparent desk:block"></span>
   </div>
 
-  <div class="relative z-10 mx-auto mt-8 w-full max-w-6xl px-5 tab:px-8 desk:row-start-2 desk:-mt-2.5">
-    <div class="overflow-hidden rounded-[20px] bg-[#f0f6ed] shadow-[0_28px_68px_-34px_rgba(6,58,24,0.45)] ring-1 ring-primary-950/[0.06] desk:grid desk:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
-      <div class="relative aspect-video overflow-hidden bg-primary-950">
-        <iframe class="absolute inset-0 h-full w-full" style="border:0" referrerpolicy="strict-origin-when-cross-origin" src="${c.video_url}" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true" title="Santé Membership Pack video"></iframe>
-      </div>
-      <div class="flex flex-col justify-center px-6 py-7 tab:px-10 tab:py-9">
-        <h2 class="font-serif text-2xl leading-tight font-bold tab:text-[1.875rem]">From Nature to a Healthier You</h2>
-        <p class="mt-4 max-w-2xl text-base leading-7 text-ink-700 tab:text-[1.0625rem]">Santé brings nature&rsquo;s goodness to your daily life. Your Membership Pack gives you 2 boxes of Santé Barley and a Lifetime Membership with ${c.store_name}.</p>
-        <p class="mt-5 flex items-center gap-3 text-base font-bold text-[#157a38] tab:text-[1.0625rem]"><svg viewBox="0 0 32 24" aria-hidden="true" fill="currentColor" class="h-6 w-8 shrink-0"><path d="M15 22C9 22 3.5 18 3 9c6 0 12 3.5 12 13z"/><path d="M16.5 22c0-9 5-15.5 13-17-.2 9.5-5.3 17-13 17z"/></svg>Pure. Natural. Trusted.</p>
-      </div>
-    </div>
-  </div>
 </section>
 
 

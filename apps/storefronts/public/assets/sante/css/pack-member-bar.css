@@ -369,6 +369,10 @@ html[data-theme="dark"] .e4 .pk-date-cell.is-selected, html[data-theme="dark"] .
 html[data-theme="dark"] .e4 .pk-date-cell.is-today:not(.is-selected), html[data-theme="dark"] .e4 .pk-date-mcell.is-today:not(.is-selected) { color: #9DB4FF; }
 html[data-theme="dark"] .e4 .pk-date-foot { border-color: #3A4A42; }
 html[data-theme="dark"] .e4 .pk-date-link { color: #9DB4FF; }
+.e4 .pk-date-cell.is-disabled, .e4 .pk-date-cell.is-disabled:hover, .e4 .pk-date-mcell.is-disabled, .e4 .pk-date-mcell.is-disabled:hover, .e4 .pk-date-link.is-disabled { color: #9AA8A0; opacity: .55; cursor: not-allowed; background: transparent; text-decoration: none; }
+.e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not-allowed; }
+html[data-theme="dark"] .e4 .pk-date-cell.is-disabled, html[data-theme="dark"] .e4 .pk-date-cell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-link.is-disabled { color: #A9B8B0; opacity: .4; cursor: not-allowed; background: transparent; text-decoration: none; }
+html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not-allowed; }
 
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */

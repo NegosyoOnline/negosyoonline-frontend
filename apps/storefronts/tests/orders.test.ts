@@ -106,6 +106,11 @@ test("filters are sent to the backend and carried into the tile links, the pagin
   assert.match(body, /rel="next" href="\/dashboard\/orders\/\?q=ana&amp;status=shipping&amp;from=2026-11-01&amp;to=2026-11-15&amp;page=3"/);
   assert.match(body, /href="\/dashboard\/orders\/export\.csv\?q=ana&amp;status=shipping&amp;from=2026-11-01&amp;to=2026-11-15" data-mo="export">Export CSV</);
   assert.match(body, /<input type="hidden" name="status" value="shipping">/);
+  // From and To are the house calendar picker, values kept, and the list page loads its assets
+  assert.match(body, /<input id="mo-from" class="inp" type="date" name="from" value="2026-11-01" data-pk-date data-placeholder="From date">/);
+  assert.match(body, /<input id="mo-to" class="inp" type="date" name="to" value="2026-11-15" data-pk-date data-placeholder="To date">/);
+  assert.match(body, /js\/pack-select\.js/);
+  assert.match(body, /css\/pack-select\.css/);
   assert.match(body, /name="q"[^>]*value="ana"/);
   assert.match(body, /Page 2 of 3/);
   assert.doesNotMatch(body, /junk/);
@@ -183,7 +188,8 @@ test("the list page answers the GET only", async () => {
 test("the add form has the seven fields, today as the date's latest, and chooses nothing for Payment and Status", async () => {
   const body = await (await orderAddGet(dashOf(setup({})))).text();
   for (const name of ["order_number", "ordered_on", "customer_first_name", "city", "payment", "total", "status"]) assert.match(body, new RegExp(`name="${name}"`));
-  assert.match(body, /type="date" min="2007-01-01" max="2026-11-15"/);
+  assert.match(body, /type="date" min="2007-01-01" max="2026-11-15" data-pk-date data-placeholder="Order date"/);
+  assert.match(body, /css\/pack-select\.css/);
   assert.match(body, /<select id="mo-payment"[^>]*data-pk-select data-pk-select-nofilter data-placeholder="Payment"/);
   assert.match(body, /<select id="mo-status"[^>]*data-pk-select data-pk-select-nofilter data-placeholder="Status"/);
   assert.match(body, /<option value="">Payment<\/option>/);
@@ -276,7 +282,7 @@ test("the edit form is filled from the order and carries the delete confirm", as
   const body = await (await orderEditGet(dashOf(f), "mol_1")).text();
   assert.match(body, /<h1>Edit order<\/h1>/);
   assert.match(body, /name="order_number" value="PH-000123"/);
-  assert.match(body, /name="ordered_on" value="2026-11-12"/);
+  assert.match(body, /name="ordered_on" value="2026-11-12"[^>]*data-pk-date/);
   assert.match(body, /name="total" value="1450\.00"/);
   assert.match(body, /<form method="post" action="\/dashboard\/orders\/mol_1\/edit\/">/);
   assert.match(body, /<details class="mo-del" data-mo="delete"><summary>Delete this order<\/summary>\n<p>Delete this order from your log\?<\/p>\n<form method="post" action="\/dashboard\/orders\/mol_1\/delete\/">/);

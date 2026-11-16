@@ -85,6 +85,11 @@ test("the bar's files are listed assets, the script has no inline form, and the 
   assert.match(css, /max-width: min\(1600px, calc\(50vw \+ 620px\)\)/);
   assert.match(css, /padding: 24px 15px 40px/);
   assert.match(css, /html\[data-theme="dark"\]/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-box \{ background: #17201B/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-panel/);
+  assert.match(css, /\.e4 \.pk-date-box \{ background: #fff; border: 1\.5px solid #dee2e6/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-cell\.is-disabled/);
+  assert.match(css, /\.e4 \.pk-date-cell\.is-disabled/);
   assert.match(js, /no-member-theme/);
   assert.match(js, /localStorage/);
   assert.match(js, /\/dashboard\/notifications\/read-all\//);

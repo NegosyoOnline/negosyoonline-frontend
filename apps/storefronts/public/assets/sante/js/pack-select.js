@@ -410,6 +410,26 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
+    // The native input's min / max (yyyy-mm-dd), read each time the panel draws. An input
+    // with neither behaves exactly as before: nothing below is disabled.
+    function isoKey(str) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str || "");
+      return m ? +m[1] * 10000 + (+m[2] - 1) * 100 + +m[3] : null;
+    }
+    function bounds() { return { min: isoKey(input.getAttribute("min")), max: isoKey(input.getAttribute("max")) }; }
+    function dayOk(y, m, d) {
+      var b = bounds(), k = y * 10000 + m * 100 + d;
+      return !(b.min !== null && k < b.min) && !(b.max !== null && k > b.max);
+    }
+    // True when any day of the span [y,m1]..[y,m2] (months, 0-based; m2 may be a whole year) is allowed.
+    function spanOk(y, m1, m2) {
+      var b = bounds();
+      if (b.min !== null && y * 10000 + m2 * 100 + 31 < b.min) return false;
+      if (b.max !== null && y * 10000 + m1 * 100 + 1 > b.max) return false;
+      return true;
+    }
+    function offAttrs(off) { return off ? ' disabled aria-disabled="true"' : ""; }
+
     function syncFromInput() {
       var v = parsed();
       var placeholder = input.getAttribute("data-placeholder") || "Select date";
@@ -446,10 +466,14 @@
       var first = new Date(view.y, view.m, 1).getDay();
       var total = new Date(view.y, view.m + 1, 0).getDate();
 
+      var bd = bounds();
+      var cur = view.y * 12 + view.m;
+      var prevOff = bd.min !== null && cur <= Math.floor(bd.min / 10000) * 12 + Math.floor(bd.min % 10000 / 100);
+      var nextOff = bd.max !== null && cur >= Math.floor(bd.max / 10000) * 12 + Math.floor(bd.max % 10000 / 100);
       var html = '<div class="pk-date-head">' +
-        '<button type="button" class="pk-date-nav" data-nav="-1" data-navunit="month">' + SVG_L + '</button>' +
+        '<button type="button" class="pk-date-nav' + (prevOff ? " is-disabled" : "") + '" data-nav="-1" data-navunit="month"' + offAttrs(prevOff) + '>' + SVG_L + '</button>' +
         '<span class="pk-date-month pk-date-zoom" data-zoom="' + LEVEL_MONTHS + '">' + MONTHS[view.m] + " " + view.y + "</span>" +
-        '<button type="button" class="pk-date-nav" data-nav="1" data-navunit="month">' + SVG_R + '</button>' +
+        '<button type="button" class="pk-date-nav' + (nextOff ? " is-disabled" : "") + '" data-nav="1" data-navunit="month"' + offAttrs(nextOff) + '>' + SVG_R + '</button>' +
         "</div>" +
         '<div class="pk-date-week">' + WEEKDAYS.map(function (w) { return "<span>" + w + "</span>"; }).join("") + "</div>" +
         '<div class="pk-date-grid">';
@@ -458,14 +482,16 @@
       for (var d = 1; d <= total; d++) {
         var isSel = !!(sel && sel.y === view.y && sel.m === view.m && sel.d === d);
         var isToday = today.getFullYear() === view.y && today.getMonth() === view.m && today.getDate() === d;
+        var dayOff = !dayOk(view.y, view.m, d);
         html += '<button type="button" class="pk-date-cell' +
-          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") +
-          '" data-day="' + d + '">' + d + "</button>";
+          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") + (dayOff ? " is-disabled" : "") +
+          '" data-day="' + d + '"' + offAttrs(dayOff) + '>' + d + "</button>";
       }
+      var todayOff = !dayOk(today.getFullYear(), today.getMonth(), today.getDate());
       html += "</div>" +
         '<div class="pk-date-foot">' +
         '<button type="button" class="pk-date-link" data-action="clear">Clear</button>' +
-        '<button type="button" class="pk-date-link" data-action="today">Today</button>' +
+        '<button type="button" class="pk-date-link' + (todayOff ? " is-disabled" : "") + '" data-action="today"' + offAttrs(todayOff) + '>Today</button>' +
         "</div>";
       panel.innerHTML = html;
     }
@@ -473,19 +499,22 @@
     function renderMonths() {
       var sel = parsed();
       var today = new Date();
+      var by = bounds();
+      var pyOff = by.min !== null && view.y <= Math.floor(by.min / 10000), nyOff = by.max !== null && view.y >= Math.floor(by.max / 10000);
       var html = '<div class="pk-date-head">' +
-        '<button type="button" class="pk-date-nav" data-nav="-1" data-navunit="year">' + SVG_L + '</button>' +
+        '<button type="button" class="pk-date-nav' + (pyOff ? " is-disabled" : "") + '" data-nav="-1" data-navunit="year"' + offAttrs(pyOff) + '>' + SVG_L + '</button>' +
         '<span class="pk-date-month pk-date-zoom" data-zoom="' + LEVEL_YEARS + '">' + view.y + "</span>" +
-        '<button type="button" class="pk-date-nav" data-nav="1" data-navunit="year">' + SVG_R + '</button>' +
+        '<button type="button" class="pk-date-nav' + (nyOff ? " is-disabled" : "") + '" data-nav="1" data-navunit="year"' + offAttrs(nyOff) + '>' + SVG_R + '</button>' +
         "</div>" +
         '<div class="pk-date-mgrid">';
 
       for (var mi = 0; mi < 12; mi++) {
         var isSel = !!(sel && sel.y === view.y && sel.m === mi);
         var isToday = today.getFullYear() === view.y && today.getMonth() === mi;
+        var mOff = !spanOk(view.y, mi, mi);
         html += '<button type="button" class="pk-date-mcell' +
-          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") +
-          '" data-month="' + mi + '">' + MONTHS[mi].slice(0, 3) + "</button>";
+          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") + (mOff ? " is-disabled" : "") +
+          '" data-month="' + mi + '"' + offAttrs(mOff) + '>' + MONTHS[mi].slice(0, 3) + "</button>";
       }
       html += "</div>";
       panel.innerHTML = html;
@@ -495,19 +524,22 @@
       var sel = parsed();
       var today = new Date();
       var base = Math.floor(view.y / 12) * 12;
+      var bz = bounds();
+      var pdOff = bz.min !== null && Math.floor(bz.min / 10000) >= base, ndOff = bz.max !== null && Math.floor(bz.max / 10000) <= base + 11;
       var html = '<div class="pk-date-head">' +
-        '<button type="button" class="pk-date-nav" data-nav="-1" data-navunit="decade">' + SVG_L + '</button>' +
+        '<button type="button" class="pk-date-nav' + (pdOff ? " is-disabled" : "") + '" data-nav="-1" data-navunit="decade"' + offAttrs(pdOff) + '>' + SVG_L + '</button>' +
         '<span class="pk-date-month">' + base + '–' + (base + 11) + "</span>" +
-        '<button type="button" class="pk-date-nav" data-nav="1" data-navunit="decade">' + SVG_R + '</button>' +
+        '<button type="button" class="pk-date-nav' + (ndOff ? " is-disabled" : "") + '" data-nav="1" data-navunit="decade"' + offAttrs(ndOff) + '>' + SVG_R + '</button>' +
         "</div>" +
         '<div class="pk-date-mgrid">';
 
       for (var yi = base; yi < base + 12; yi++) {
         var isSel = !!(sel && sel.y === yi);
         var isToday = today.getFullYear() === yi;
+        var yOff = !spanOk(yi, 0, 11);
         html += '<button type="button" class="pk-date-mcell' +
-          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") +
-          '" data-year="' + yi + '">' + yi + "</button>";
+          (isSel ? " is-selected" : "") + (isToday ? " is-today" : "") + (yOff ? " is-disabled" : "") +
+          '" data-year="' + yi + '"' + offAttrs(yOff) + '>' + yi + "</button>";
       }
       html += "</div>";
       panel.innerHTML = html;
@@ -568,6 +600,8 @@
       // the panel right after it re-renders. Never let panel clicks bubble.
       e.stopPropagation();
 
+      if (e.target.closest(".is-disabled")) return;
+
       var zoom = e.target.closest("[data-zoom]");
       if (zoom) { view.level = zoom.dataset.zoom; renderPanel(); return; }
 
@@ -602,6 +636,7 @@
         close();
       } else if (action && action.dataset.action === "today") {
         var t = new Date();
+        if (!dayOk(t.getFullYear(), t.getMonth(), t.getDate())) return;
         setValue(t.getFullYear(), t.getMonth(), t.getDate());
         view.level = LEVEL_DAYS;
         close();

@@ -15,7 +15,7 @@
   var PAYMENT = "Bank or e-wallet transfer";
   var S, token = 0, urls = {}, closeDlg = null;
 
-  function fresh() { return { site: null, tab: "products", filter: null, rows: [], listState: "loading", open: {}, details: {}, proofErr: {}, busy: false }; }
+  function fresh() { return { site: null, tab: "products", filter: null, rows: [], listState: "loading", listMsg: "", open: {}, details: {}, proofErr: {}, busy: false }; }
   S = fresh();
 
   function byId(id) { return document.getElementById(id); }
@@ -92,7 +92,7 @@
     return D.call("GET", base() + "?filter=all", null, true).then(function (r) {
       if (mine !== token || r.status === 401) return;
       if (r.status === 404) { S.rows = []; S.listState = "empty"; render(); return; } /* not a Santé site, or the shop is off: nothing to review */
-      if (!r.ok) { if (!quiet) { S.listState = "error"; render(); } return; }
+      if (!r.ok) { if (!quiet) { S.listState = "error"; S.listMsg = r.status === 403 ? msg(r, "") : ""; render(); } return; } /* 403 billing_only: the API's own sentence */
       S.rows = Array.isArray(r.data.orders) ? r.data.orders : [];
       S.listState = S.rows.length ? "ok" : "empty"; render();
     });
@@ -293,7 +293,7 @@
       cb.addEventListener("click", function () { S.filter = null; render(); }); root.appendChild(add(cl, cb));
     }
     if (S.listState === "loading") { root.appendChild(skel(3, 4)); return; }
-    if (S.listState === "error") { root.appendChild(errBox("We could not load your orders", "Check your connection, then try again.", load)); return; }
+    if (S.listState === "error") { root.appendChild(errBox("We could not load your orders", S.listMsg || "Check your connection, then try again.", load)); return; }
     var queue = S.listState === "ok" ? S.rows.filter(function (o) { return o.status === "placed"; }) : [];
     if (queue.length) {
       root.appendChild(add(h("div", "mc-queue-head"), h("span", "mc-queue-title", "To review"), h("span", "mc-queue-sub", "confirm the payment or cancel the order")));

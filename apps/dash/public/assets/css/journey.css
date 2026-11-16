@@ -50,6 +50,48 @@
   .jr-root .jr-num { font-size: 22px; }
 }
 
+/* the Prospects card (ClickUp z8uq9mfw14): search, stage chips, table, pager. Light blue focus, never gold; tokens only, so light and dark both work. */
+.jr-root .jr-pr-tools { margin: 0 0 12px; }
+.jr-root .jr-pr-q { display: block; width: 100%; max-width: 420px; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+.jr-root .jr-pr-q:focus, .jr-root .jr-pr-q:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+.jr-root .jr-pr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+.jr-root .jr-pr-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--card-line); border-radius: 999px; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.jr-root .jr-pr-chip:hover { border-color: var(--link); }
+.jr-root .jr-pr-chip:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 2px var(--link); }
+.jr-root .jr-pr-chip.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 16%, transparent); color: var(--link); }
+.jr-root .jr-pr-n { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--meta); }
+.jr-root .jr-pr-chip.is-on .jr-pr-n { color: var(--link); }
+.jr-root .jr-pr-who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.jr-root .jr-pr-av { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 50%; font-size: 13px; font-weight: 700; background: var(--chip-neutral-bg); color: var(--chip-neutral); }
+.jr-root .jr-pr-av-1 { background: var(--chip-ok-bg); color: var(--chip-ok); }
+.jr-root .jr-pr-av-2 { background: var(--chip-info-bg); color: var(--chip-info); }
+.jr-root .jr-pr-av-3 { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+.jr-root .jr-pr-av-4 { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+.jr-root .jr-pr-id { display: flex; flex-direction: column; min-width: 0; }
+.jr-root .jr-pr-name { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.jr-root .jr-pr-name.is-blank { color: var(--meta); font-weight: 400; font-style: italic; }
+.jr-root .jr-pr-sub, .jr-root .jr-pr-reg { color: var(--meta); font-size: 14px; }
+.jr-root .jr-pr-stage { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.jr-root .jr-pr-table td { vertical-align: middle; }
+.jr-root .jr-pr-c-when, .jr-root .jr-pr-c-src { color: var(--text-2); }
+.jr-root .jr-pr-open { min-height: 44px; display: inline-flex; align-items: center; color: var(--link); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.jr-root .jr-pr-open:hover { text-decoration: underline; }
+.jr-root .jr-pr-open:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 2px var(--link); }
+.jr-root .jr-pr-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 12px; color: var(--meta); font-size: 14px; }
+.jr-root .jr-pr-pager { display: flex; align-items: center; gap: 12px; }
+.jr-root .jr-pr-pager .no-btn[disabled] { opacity: .5; cursor: default; }
+@media (max-width: 640px) {
+  .jr-root .jr-pr-q { max-width: none; }
+  .jr-root .jr-pr-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .jr-root .jr-pr-table, .jr-root .jr-pr-table tbody, .jr-root .jr-pr-table tr, .jr-root .jr-pr-table td { display: block; }
+  .jr-root .jr-pr-table tr { padding: 12px 0; border-top: 1px solid var(--card-line); }
+  .jr-root .jr-pr-table tbody tr:first-child { border-top: 0; padding-top: 0; }
+  .jr-root .jr-pr-table td { padding: 2px 0; border: 0; }
+  .jr-root .jr-pr-table .jr-pr-c-src, .jr-root .jr-pr-table .jr-pr-c-when { display: inline-block; margin-right: 12px; font-size: 14px; }
+  .jr-root .jr-pr-table .jr-pr-c-who { padding-bottom: 6px; }
+  .jr-root .jr-pr-table .jr-pr-c-stage { padding: 4px 0; }
+}
+
 /* the house dropdown (the pr-combo of Products, renamed jr-): the Period box. Focus is the light blue, never gold. */
 body.dash-app .jr-combo { position: relative; }
 body.dash-app .jr-combo .jr-combo-native { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; appearance: none; -webkit-appearance: none; width: 100%; height: 100%; }

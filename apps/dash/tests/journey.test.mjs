@@ -29,7 +29,19 @@ const payload = (over = {}) => ({
   ...over,
 });
 
-function boot({ answer = () => ({ status: 200, body: payload() }), siteId = A } = {}) {
+const prospectsBody = (over = {}) => ({
+  page: 1, page_size: 25, pages: 1, total: 4,
+  stage_counts: { all: 4, order_placed: 1, proof_submitted: 0, payment_verified: 0, registration: 1, dashboard_access: 0, message: 2 },
+  results: [
+    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "order", stage: "registration", registration_status: "ready_to_register", last_activity: "2026-11-15T03:00:00Z" },
+    { kind: "order", name: "Ben Cruz", order_number: "PK-0002", order_id: "ord_2", source: "order", stage: "order_placed", registration_status: null, last_activity: "2026-11-14T03:00:00Z" },
+    { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "message", registration_status: null, last_activity: "2026-11-13T03:00:00Z" },
+    { kind: "inquiry", name: "", order_number: null, order_id: null, source: "facebook", stage: "message", registration_status: null, last_activity: "2026-11-12T03:00:00Z" },
+  ],
+  ...over,
+});
+
+function boot({ answer = () => ({ status: 200, body: payload() }), prospects = () => ({ status: 200, body: prospectsBody() }), siteId = A } = {}) {
   const doc = makeDocument(), calls = [];
   const page = doc.body.appendChild(doc.createElement("div"));
   for (const id of ["jr-root", "jr-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
@@ -40,6 +52,7 @@ function boot({ answer = () => ({ status: 200, body: payload() }), siteId = A } 
     calls.push(p);
     let a = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
     if (p === "/sites/") a = { status: 200, body: { items: [{ id: siteId, template: "sante" }], next_cursor: null } };
+    else if (p.startsWith(`/sites/${A}/pack/journey/prospects/`)) a = prospects(p);
     else if (p.startsWith(`/sites/${A}/pack/journey/`)) a = answer(p);
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
   };
@@ -119,7 +132,7 @@ test("empty states: no orders, no steps reached, no events", async () => {
 
 test("recent orders link to the existing order detail and say registration and member dashboard plainly", async () => {
   const d = boot(); await d.open();
-  const links = d.root().all((n) => n.tagName === "A").map((a) => a.getAttribute("href"));
+  const links = d.root().all((n) => n.tagName === "A" && n.classList.contains("jr-order-link")).map((a) => a.getAttribute("href"));
   assert.deepEqual(links, ["/orders/?order=ord_1", "/orders/?order=ord_2"]);
   const t = d.text();
   assert.ok(t.includes("Registration: No registration yet") && t.includes("Member dashboard: not yet") && t.includes("Member dashboard: signed in"));
@@ -153,4 +166,55 @@ test("the Steps reached lead and the Checkout started hint are plain and accurat
     assert.ok(!/in last 30 days|in all time/.test(t));
     assert.ok(t.includes("Checkouts started on your Membership Pack page") && !t.includes("People who began checking out"));
   }
+});
+
+test("Prospects: the card, the approved lead, the search, the stage chips with counts and the columns", async () => {
+  const d = boot(); await d.open();
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1`));
+  const t = d.text();
+  assert.ok(t.includes("Prospects") && t.includes("People with a Membership Pack order or a message to your site, newest activity first."));
+  assert.ok(d.$("jr-pr-q") && d.$("jr-pr-q").getAttribute("placeholder") === "Search by name or order number");
+  const chips = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").map((b) => b.textContent);
+  assert.deepEqual(chips, ["All4", "Order placed1", "Payment proof submitted0", "Payment verified0", "Registration1", "Member dashboard access0", "Message2"]);
+  for (const w of ["Membership Pack page", "Facebook via Pancake", "Website chat", "Ready to register", "No name", "Order PK-0001"]) assert.ok(t.includes(w), w);
+  assert.ok(!/video|watch|landing/i.test(d.$("jr-pr-body").textContent), "no video or landing column");
+});
+
+test("Prospects: Open order only on order rows; no chat button; the blank name stays a placeholder", async () => {
+  const d = boot(); await d.open();
+  const links = d.$("jr-pr-body").all((n) => n.tagName === "A").map((a) => a.getAttribute("href"));
+  assert.deepEqual(links, ["/orders/?order=ord_1", "/orders/?order=ord_2"]);
+  assert.ok(!/chat|message prospect/i.test(d.$("jr-pr-body").all((n) => n.tagName === "BUTTON").map((b) => b.textContent).join(" ")));
+  const u = d.window.NOJourney.util;
+  assert.equal(u.initials("ana reyes cruz"), "AR"); assert.equal(u.initials(""), "?");
+});
+
+test("Prospects: a stage chip re-reads with that stage; search re-reads after a pause with q and page 1", async () => {
+  const d = boot(); await d.open();
+  const chip = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("Message"));
+  chip.fire("click"); await settle();
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=message`));
+  assert.equal(d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("Message")).getAttribute("aria-pressed"), "true");
+  const q = d.$("jr-pr-q"); q.value = "  PK-0001 "; q.fire("input");
+  await new Promise((r) => setTimeout(r, 400)); await settle();
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=message&q=PK-0001`));
+});
+
+test("Prospects: paging, empty and error states; the period change does not reload them", async () => {
+  let d = boot({ prospects: () => ({ status: 200, body: prospectsBody({ page: 1, pages: 3, total: 60 }) }) }); await d.open();
+  assert.ok(d.text().includes("Page 1 of 3") && d.text().includes("60 people"));
+  d.root().all((n) => n.tagName === "BUTTON").find((b) => b.textContent === "Next").fire("click"); await settle();
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=2`));
+  const before = d.calls.filter((c) => c.includes("/prospects/")).length;
+  const sel = d.$("jr-period"); sel.value = "7d"; sel.fire("change"); await settle();
+  assert.equal(d.calls.filter((c) => c.includes("/prospects/")).length, before);
+  d = boot({ prospects: () => ({ status: 200, body: prospectsBody({ results: [], total: 0, stage_counts: { all: 0 } }) }) }); await d.open();
+  assert.ok(d.text().includes("No prospects yet."));
+  d = boot({ prospects: () => ({ status: 500, body: { error: { code: "x", message: "Boom." } } }) }); await d.open();
+  assert.ok(d.text().includes("We could not load the prospects.") && d.text().includes("Boom."));
+});
+
+test("Prospects: the CSS has the light-blue focus and no gold", () => {
+  assert.match(CSS, /\.jr-pr-q:focus[^}]*border-color: var\(--link\)/);
+  assert.ok(!/#f2d99b|#c59a3b|#e8c16a|var\(--gold\)/i.test(CSS));
 });

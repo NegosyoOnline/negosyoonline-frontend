@@ -4,6 +4,9 @@
    people, and the API says per-person Meta attribution is not recorded; this page says so and makes no claim about ad results.
    The period dropdown is the house dropdown, mirrored from products.js combo() (jr- classes in journey.css). While the API answers
    404 (not a Santé site, or the package is off) the page says it is not available yet and its links stay hidden (probe).
+   The Prospects card (ClickUp z8uq9mfw14, below the recent orders, not tied to the period) reads GET .../pack/journey/prospects/?stage=&q=&page=:
+   one row per order and per stored message of this site, a name and nothing else about the person (layout adapted from TWCinc partnership.js,
+   _section_prospects.html and partnership.css). Order and message rows are never matched by name; only "Open order" links, no chat button.
    API strings reach the page through textContent or D.el only. Plain ES5. NOJourney.util holds the pure helpers (tests/journey.test.mjs). */
 (function () {
   var D = window.NODash;
@@ -14,6 +17,11 @@
     ["onboarding", "Registration", "Paid members by registration status"], ["dashboard_access", "Member dashboard access", "Members who signed in to the member dashboard"]];
   var PAY = { pending_review: ["warn", "Under review"], rejected: ["danger", "Needs attention"], verified: ["ok", "Verified"] };
   var REG = { ready_to_register: "Ready to register", in_registration: "In registration", registered: "Registered" };
+
+  var PR_STAGES = [["order_placed", "Order placed"], ["proof_submitted", "Payment proof submitted"], ["payment_verified", "Payment verified"], ["registration", "Registration"], ["dashboard_access", "Member dashboard access"], ["message", "Message"]];
+  var PR_SOURCES = { order: "Membership Pack page", facebook: "Facebook via Pancake", webchat: "Website chat", email: "Email" };
+  var PR_TONE = { order_placed: "neutral", proof_submitted: "warn", payment_verified: "info", registration: "info", dashboard_access: "ok", message: "neutral" };
+  var NO_NAME = "No name";
 
   function byId(id) { return document.getElementById(id); }
   function h(tag, cls, text) { return D.el(tag, cls ? { "class": cls } : {}, text); }
@@ -49,6 +57,19 @@
   }
   function stamp(iso) { var p = parts(iso); return p ? String(p.month || "").replace(/\.$/, "") + " " + p.day + ", " + p.year + ", " + p.hour + ":" + p.minute + " " + String(p.dayPeriod || "").toUpperCase().replace(/\./g, "") : ""; }
   function orderLink(id) { return typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? "/orders/?order=" + encodeURIComponent(id) : "/orders/"; }
+
+  function prStage(key) { return labelOf(PR_STAGES, key) || human(key); }
+  function prSource(key) { return PR_SOURCES[key] || human(key); }
+  /* The avatar: the first letters of the first two words of the name, "?" for a blank name. */
+  function initials(name) {
+    var w = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return w.length ? (w[0].charAt(0) + (w.length > 1 ? w[1].charAt(0) : "")).toUpperCase() : "?";
+  }
+  function tone(name) { var n = 0, t = String(name || ""); for (var i = 0; i < t.length; i++) n = (n * 31 + t.charCodeAt(i)) % 5; return n; }
+  function prPath(site, pr) {
+    var q = "?page=" + pr.page + (pr.stage ? "&stage=" + encodeURIComponent(pr.stage) : "") + (pr.q ? "&q=" + encodeURIComponent(pr.q) : "");
+    return "/sites/" + site + "/pack/journey/prospects/" + q;
+  }
 
   /* ---------- the house dropdown (mirrors products.js combo(), jr- classes) ---------- */
 
@@ -123,7 +144,7 @@
 
   function show() {
     var mine = ++token, r = clear(root());
-    S = { site: null, period: "30d", data: null, state: "loading" };
+    S = { site: null, period: "30d", data: null, state: "loading", pr: { stage: "", q: "", page: 1, data: null, state: "loading", req: 0, timer: null } };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "jr-meta", "Loading…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -135,7 +156,7 @@
       frame(); read(mine);
     });
   }
-  function hide() { token++; S = null; say(""); var r = root(); if (r) { r.removeAttribute("aria-busy"); clear(r); } }
+  function hide() { token++; if (S && S.pr && S.pr.timer) clearTimeout(S.pr.timer); S = null; say(""); var r = root(); if (r) { r.removeAttribute("aria-busy"); clear(r); } }
   function read(mine) {
     var period = S.period, out = byId("jr-results");
     S.state = "loading"; if (out) { out.setAttribute("aria-busy", "true"); }
@@ -184,7 +205,7 @@
     sel.addEventListener("change", function () { S.period = periodOf(sel.value); S.data = null; var mine = ++token; read(mine); });
     add(f, lab, sel); add(bar, f, h("p", "jr-stamp", ""));
     var out = h("div", "jr-results"); out.setAttribute("id", "jr-results"); out.setAttribute("aria-live", "polite");
-    add(r, bar, out); combo(sel, "Period");
+    add(r, bar, out, prospectsCard()); combo(sel, "Period"); prRead();
   }
 
   function results() {
@@ -256,5 +277,94 @@
     return c;
   }
 
-  window.NOJourney = { show: show, hide: hide, probe: probe, util: { orderStages: orderStages, count: count, human: human, periodOf: periodOf, orderLink: orderLink, PERIODS: PERIODS } };
+  /* ---------- the prospects card ---------- */
+
+  function prospectsCard() {
+    var c = card("prospects", "Prospects", "People with a Membership Pack order or a message to your site, newest activity first."), tb = h("div", "jr-pr-tools");
+    var lab = D.el("label", { "for": "jr-pr-q", "class": "jr-sr" }, "Search by name or order number");
+    var inp = D.el("input", { id: "jr-pr-q", type: "search", "class": "jr-pr-q", placeholder: "Search by name or order number", autocomplete: "off", maxlength: "120" });
+    inp.addEventListener("input", function () {
+      var pr = S && S.pr; if (!pr) return;
+      if (pr.timer) clearTimeout(pr.timer);
+      pr.timer = setTimeout(function () { pr.timer = null; var v = inp.value.trim(); if (v !== pr.q) { pr.q = v; pr.page = 1; prRead(); } }, 300);
+    });
+    add(tb, lab, inp);
+    var chips = h("div", "jr-pr-chips"); chips.setAttribute("id", "jr-pr-chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "Filter prospects by stage");
+    var body = h("div", "jr-pr-body"); body.setAttribute("id", "jr-pr-body");
+    add(c, tb, chips, body); c.classList.add("jr-pr-card");
+    prChips(); prBody();
+    return c;
+  }
+  function prRead() {
+    var mine = token, pr = S.pr, req = ++pr.req;
+    pr.state = "loading"; prBody();
+    D.call("GET", prPath(S.site, pr), null, true).then(function (res) {
+      if (mine !== token || !S || req !== pr.req || res.status === 401) return;
+      if (!res.ok) { pr.state = "error"; pr.err = msgOf(res, ""); prBody(); return; }
+      pr.data = res.data || {}; pr.state = "ok";
+      if (typeof pr.data.page === "number" && pr.data.page !== pr.page) pr.page = pr.data.page;
+      prChips(); prBody(); say("Prospects updated");
+    });
+  }
+  function prChips() {
+    var box = byId("jr-pr-chips"); if (!box || !S) return;
+    var pr = S.pr, counts = pr.data && pr.data.stage_counts || {};
+    clear(box);
+    [["", "All"]].concat(PR_STAGES).forEach(function (st) {
+      var n = counts[st[0] === "" ? "all" : st[0]], on = pr.stage === st[0];
+      var b = h("button", "jr-pr-chip" + (on ? " is-on" : ""));
+      b.setAttribute("type", "button"); b.setAttribute("aria-pressed", String(on));
+      add(b, h("span", "", st[1]), typeof n === "number" ? h("span", "jr-pr-n", count(n)) : null);
+      b.addEventListener("click", function () { if (pr.stage === st[0]) return; pr.stage = st[0]; pr.page = 1; prChips(); prRead(); });
+      add(box, b);
+    });
+  }
+  function prRow(r) {
+    var tr = h("tr"), name = typeof r.name === "string" ? r.name.trim() : "", order = r.kind === "order";
+    var who = h("div", "jr-pr-who"), av = h("span", "jr-pr-av jr-pr-av-" + tone(name), initials(name)); av.setAttribute("aria-hidden", "true");
+    var txt = h("span", "jr-pr-id");
+    add(txt, h("span", "jr-pr-name" + (name ? "" : " is-blank"), name || NO_NAME), order && r.order_number ? h("span", "jr-pr-sub", "Order " + r.order_number) : null);
+    add(who, av, txt);
+    var st = prStage(r.stage), stage = h("span", "chip chip-" + (PR_TONE[r.stage] || "neutral"), st);
+    var reg = r.stage === "registration" && r.registration_status ? h("span", "jr-pr-reg", REG[r.registration_status] || human(r.registration_status)) : null;
+    var link = order ? D.el("a", { "class": "jr-pr-open", href: orderLink(r.order_id) }, "Open order") : null;
+    if (link) link.setAttribute("aria-label", "Open order " + (r.order_number || ""));
+    [["jr-pr-c-who", who], ["jr-pr-c-src", h("span", "", prSource(r.source))], ["jr-pr-c-stage", add(h("div", "jr-pr-stage"), stage, reg)],
+      ["jr-pr-c-when", h("span", "", stamp(r.last_activity))], ["jr-pr-c-act", link]].forEach(function (x) { add(tr, add(h("td", x[0]), x[1])); });
+    return tr;
+  }
+  function prBody() {
+    var box = byId("jr-pr-body"); if (!box || !S) return;
+    var pr = S.pr, d = pr.data; clear(box);
+    if (pr.state === "loading" && !d) { add(box, h("p", "jr-meta", "Loading…")); return; }
+    if (pr.state === "error") {
+      var b = h("button", "no-btn no-btn-ghost", "Try again"); b.setAttribute("type", "button"); b.addEventListener("click", function () { prRead(); });
+      add(box, h("p", "jr-state", "We could not load the prospects."), h("p", "jr-hint", pr.err || "Please check your connection and try again."), b); return;
+    }
+    var rows = d && Array.isArray(d.results) ? d.results.filter(function (r) { return r && typeof r === "object"; }) : [];
+    box.setAttribute("aria-busy", pr.state === "loading" ? "true" : "false");
+    if (!rows.length) {
+      var all = d && d.stage_counts && num(d.stage_counts.all) > 0;
+      add(box, h("p", "jr-empty", all ? "No one matches this search or stage." : "No prospects yet.")); return;
+    }
+    var t = h("table", "jr-table jr-pr-table"), hd = h("thead"), tr = h("tr"), tbd = h("tbody");
+    ["Prospect", "Source", "Stage", "Last activity", ""].forEach(function (x) {
+      var th = h("th", x ? "" : "jr-sr", x || "Action"); th.setAttribute("scope", "col"); add(tr, th);
+    });
+    rows.forEach(function (r) { add(tbd, prRow(r)); });
+    add(t, add(hd, tr), tbd); add(box, add(h("div", "jr-scroll"), t));
+    var pages = num(d.pages) || 1, page = num(d.page) || 1, total = num(d.total), foot = h("div", "jr-pr-foot");
+    add(foot, h("span", "jr-pr-count", count(total) + (total === 1 ? " person" : " people")));
+    if (pages > 1) {
+      var nav = h("div", "jr-pr-pager"), prev = h("button", "no-btn no-btn-ghost", "Previous"), next = h("button", "no-btn no-btn-ghost", "Next");
+      prev.setAttribute("type", "button"); next.setAttribute("type", "button");
+      prev.disabled = page <= 1; next.disabled = page >= pages;
+      prev.addEventListener("click", function () { if (pr.page > 1) { pr.page -= 1; prRead(); } });
+      next.addEventListener("click", function () { if (pr.page < pages) { pr.page += 1; prRead(); } });
+      add(nav, prev, h("span", "jr-pr-page", "Page " + count(page) + " of " + count(pages)), next); add(foot, nav);
+    }
+    add(box, foot);
+  }
+
+  window.NOJourney = { show: show, hide: hide, probe: probe, util: { initials: initials, prPath: prPath, orderStages: orderStages, count: count, human: human, periodOf: periodOf, orderLink: orderLink, PERIODS: PERIODS } };
 })();

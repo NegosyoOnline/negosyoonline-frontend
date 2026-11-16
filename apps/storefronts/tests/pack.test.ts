@@ -120,13 +120,15 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   for (const label of ["Free Shipping Nationwide", "One-Time Purchase", "Lifetime Membership"]) assert.ok(trust.includes(label), label);
 });
 
-test("the landing page carries the Watch Before You Buy reel carousel before the bundle", () => {
+test("the landing page carries the Product Testimonials reel carousel before the bundle", () => {
   const doc = page(PACK);
   const reels = doc.indexOf('<section id="reels"');
   assert.ok(reels > 0);
   assert.ok(doc.indexOf("Recognized as the Philippines") < reels && reels < doc.indexOf('<section id="the-bundle"'));
-  assert.match(doc, /<h2>Watch Before You Buy<\/h2>/);
+  assert.match(doc, /<h2>Product Testimonials<\/h2>/);
   const section = doc.slice(reels, doc.indexOf("</section>", reels));
+  assert.ok(section.includes("<div>Real Santé customers share their own experience with Santé Barley. Individual results may vary.</div>"));
+  assert.ok(!doc.includes("Watch Before You Buy") && !doc.includes("closest thing to holding the box"));
   assert.equal((section.match(/data-reel-card/g) ?? []).length, 6);
   const guids = [...section.matchAll(/embed\/744094\/([0-9a-f-]{36})\?/g)].map((m) => m[1]);
   assert.deepEqual(guids, ["d49a0f2e-1122-4c79-b1af-50797c81cd27", "d7e40dca-b2bf-4301-9051-7865ad6352f1", "41271ba0-6628-4655-8ff8-b5d5f02ea17b", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", "54990aa4-775d-48c1-b85b-bfb50c63f85a", "d9de4a51-3484-443a-a624-9bb9520b4a42"]);

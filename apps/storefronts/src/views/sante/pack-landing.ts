@@ -9,7 +9,7 @@ import { asset } from "../../lib/assets.ts";
 import { packDocument, type PackCtx } from "./pack-page.ts";
 
 
-/* "Watch Before You Buy": the rotating reel carousel, markup adapted from TWCinc's membership-pack landing_page.html (section#reels) and
+/* "Product Testimonials" (was "Watch Before You Buy" until r12): the rotating reel carousel, markup adapted from TWCinc's membership-pack landing_page.html (section#reels) and
    components/_reel.html; behaviour in js/pack-landing.js. The list follows Coach Ed's 2026-11-16 r8 order (same Bunny library 744094), with r11 (2026-11-17):
    "Open, mix, enjoy" is the 4th entry and the d9de4a51 reel the last. The ring is 6 around the centred reel (slots -2..+2 visible,
    +3 hidden), so on load d9de4a51 shows at the left of the centre and "Open, mix, enjoy" is the hidden reel, reached last whichever
@@ -111,8 +111,8 @@ ${aboutSection()}
 
 <section id="reels" class="pp-reels">
   <header class="pp-reels-head">
-    <h2>Watch Before You Buy</h2>
-    <div>See a sachet opened, mixed and finished &mdash; the closest thing to holding the box before you order.</div>
+    <h2>Product Testimonials</h2>
+    <div>Real Santé customers share their own experience with Santé Barley. Individual results may vary.</div>
   </header>
   <div data-reel-stage class="pp-reels-stage" role="region" aria-roledescription="carousel" aria-label="Santé Barley videos">
     <div aria-hidden="true" class="pp-reel-spacer"></div>

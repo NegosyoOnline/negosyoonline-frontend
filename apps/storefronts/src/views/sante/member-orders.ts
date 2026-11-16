@@ -174,8 +174,8 @@ function toolbar(p: ListPage): Markup {
   <form method="get" action="${ORDERS_PATH}" role="search">
     ${f.status ? html`<input type="hidden" name="status" value="${f.status}">` : ""}
     <div class="fld mo-q"><label for="mo-q">Search</label><input id="mo-q" class="inp" type="search" name="q" maxlength="60" value="${f.q ?? ""}" placeholder="PH number or customer first name"></div>
-    <div class="fld"><label for="mo-from">From</label><input id="mo-from" class="inp" type="date" name="from" value="${f.date_from ?? ""}"></div>
-    <div class="fld"><label for="mo-to">To</label><input id="mo-to" class="inp" type="date" name="to" value="${f.date_to ?? ""}"></div>
+    <div class="fld"><label for="mo-from">From</label><input id="mo-from" class="inp" type="date" name="from" value="${f.date_from ?? ""}" data-pk-date data-placeholder="From date"></div>
+    <div class="fld"><label for="mo-to">To</label><input id="mo-to" class="inp" type="date" name="to" value="${f.date_to ?? ""}" data-pk-date data-placeholder="To date"></div>
     <button class="btn ghost" type="submit">Search</button>
   </form>
   <div class="mo-actions">
@@ -284,7 +284,7 @@ export function orderFormContent(p: FormPage): Markup {
 ${p.error_message ? html`<div class="note bad" role="alert">${p.error_message}</div>` : ""}
 <form method="post" action="${action}">
 ${input(p, "order_number", "PH #", html` maxlength="32" autocapitalize="characters" autocomplete="off" placeholder="PH-000123"`)}
-${input(p, "ordered_on", "Order date", html` type="date" min="2007-01-01" max="${p.today}"`)}
+${input(p, "ordered_on", "Order date", html` type="date" min="2007-01-01" max="${p.today}" data-pk-date data-placeholder="Order date"`)}
 ${input(p, "customer_first_name", "Customer first name", html` maxlength="60" autocomplete="off"`)}
 ${input(p, "city", "City", html` maxlength="80" autocomplete="off"`)}
 ${select(p, "payment", "Payment")}

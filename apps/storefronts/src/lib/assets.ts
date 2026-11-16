@@ -59,6 +59,7 @@ const VERSIONS: Record<string, string> = {
   "img/about/about-2.webp": "8d3ec232",
   "img/about/about-3.webp": "f4e28038",
   "img/about/about-4.webp": "bc975708",
+  "img/reels/reel-d49a0f2e.jpg": "b34a294d",
   "img/reels/reel-d7e40dca.jpg": "373da1c2",
   "img/reels/reel-41271ba0.jpg": "f77bdf0e",
   "img/reels/reel-d9de4a51.jpg": "69a5a925",

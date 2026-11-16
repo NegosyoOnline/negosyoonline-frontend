@@ -11,9 +11,9 @@ import { packDocument, type PackCtx } from "./pack-page.ts";
 
 /* "Watch Before You Buy": the rotating reel carousel, markup adapted from TWCinc's membership-pack landing_page.html (section#reels) and
    components/_reel.html; behaviour in js/pack-landing.js. The list now follows Coach Ed's 2026-11-16 r8 order (same Bunny library 744094);
-   d49a0f2e (Coach Ed's first pick) is held pending his decision HERO-R8-D1; re-adding it first is a one-line change plus its poster.
    Only "Open, mix, enjoy" (last) is from TWCinc. The five new videos have no title yet: an empty title shows no caption line. */
 const REELS: { poster: string; guid: string; title: string }[] = [
+  { poster: "d49a0f2e", guid: "d49a0f2e-1122-4c79-b1af-50797c81cd27", title: "" },
   { poster: "d7e40dca", guid: "d7e40dca-b2bf-4301-9051-7865ad6352f1", title: "" },
   { poster: "41271ba0", guid: "41271ba0-6628-4655-8ff8-b5d5f02ea17b", title: "" },
   { poster: "d9de4a51", guid: "d9de4a51-3484-443a-a624-9bb9520b4a42", title: "" },

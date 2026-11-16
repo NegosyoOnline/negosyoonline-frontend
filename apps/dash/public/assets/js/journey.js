@@ -3,7 +3,7 @@
    ?stage=&q=&page= (apps/pack/api_journey.py): this site only (layout adapted from TWCinc partnership.js, _section_prospects.html and partnership.css).
    Coach Ed, 2026-11-16: the Steps reached, Events sent to Meta and Recent orders cards are gone and the page is this list alone.
    A row shows the contact the API already holds (his ruling D2), a phone and an email in full; order and message rows are never matched by name.
-   The Action column is icon only: SMS and Email open a popup SHELL (nothing is sent, no mailto or sms link, no provider call), Open order opens
+   The Action column is icon only: SMS and Email open a popup whose Send link opens the owner's own phone or email app, prefilled (nothing is sent by us), Open order opens
    a summary popup (only what the Orders page already shows) with a link to the full order. While the API answers 404 (not a Santé site, or the
    package is off) the page says it is not available yet and its links stay hidden (probe).
    API strings reach the page through textContent or D.el only. Plain ES5. NOJourney.util holds the pure helpers (tests/journey.test.mjs). */
@@ -131,18 +131,30 @@
       return body;
     }, opener);
   }
-  /* SMS and Email: a SHELL only. It shows who it is for and a message box. Nothing is sent from here. */
+  /* The link Send opens (Coach Ed, 2026-11-16, option A): the owner's own phone or email app, prefilled. NegosyoOnline sends nothing, makes no
+     request, and stores or logs neither the message nor the recipient. encodeURIComponent (never "+") keeps spaces, &, newlines and emoji intact.
+     SMS: sms:<number>?&body=<msg>. iOS wants "&body=" after a "?", Android wants "?body=" and ignores the stray "&", so this one form works on both.
+     The number stays as shown (09...), which both phones dial. Email: mailto:<address>?subject=...&body=..., the subject only when the site name is known. */
+  function smsHref(number, msg) { return "sms:" + number + "?&body=" + encodeURIComponent(msg); }
+  function mailHref(address, siteName, msg) {
+    var q = (siteName ? "subject=" + encodeURIComponent("From " + siteName) + "&" : "") + "body=" + encodeURIComponent(msg);
+    return "mailto:" + address + "?" + q;
+  }
+  /* SMS and Email: who it is for, a message box that starts empty, and Send, a link that opens the owner's own app. */
   function messagePopup(kind, r, opener) {
     var sms = kind === "sms", to = sms ? mobileText(r.mobile) : emailText(r.email), name = typeof r.name === "string" ? r.name.trim() : "";
+    var siteName = S && S.siteName || "";
+    function href(msg) { return sms ? smsHref(to, msg) : mailHref(to, siteName, msg); }
     modal(sms ? "SMS" : "Email", function (close) {
       var body = h("div", "jr-dlg-body"), who = h("p", "jr-dlg-to"), lab = D.el("label", { "for": "jr-dlg-msg", "class": "jr-label" }, "Message");
       add(who, h("span", "jr-dlg-to-l", "To "), h("strong", "", name || NO_NAME), h("span", "jr-dlg-to-v", " " + to));
       var ta = D.el("textarea", { id: "jr-dlg-msg", "class": "jr-dlg-msg", rows: "5", maxlength: "1000" });
-      /* HOLD: sending behaviour awaits Coach Ed's decision (Manager). The button stays disabled; no mailto or sms link, no provider call. */
-      var send = h("button", "no-btn no-btn-primary", "Send"), cancel = h("button", "no-btn no-btn-ghost", "Close");
-      send.setAttribute("type", "button"); send.disabled = true; cancel.setAttribute("type", "button");
+      var send = D.el("a", { "class": "no-btn no-btn-primary jr-dlg-send", href: href("") }, "Send"), cancel = h("button", "no-btn no-btn-ghost", "Close");
+      cancel.setAttribute("type", "button");
+      ta.addEventListener("input", function () { send.setAttribute("href", href(ta.value)); });
       cancel.addEventListener("click", function () { close(true); });
-      add(body, who, lab, ta, add(h("div", "jr-dlg-actions"), cancel, send));
+      send.addEventListener("click", function () { setTimeout(function () { close(true); }, 0); });
+      add(body, who, lab, ta, add(h("div", "jr-dlg-actions"), cancel, send), h("p", "jr-dlg-note", sms ? "Opens your phone's messaging app" : "Opens your email app"));
       return body;
     }, opener);
   }
@@ -160,6 +172,7 @@
       var sites = D.sitesOf(res);
       S.site = sites.length ? D.siteFromQuery(sites.map(function (s) { return s.id; })) : null;
       if (!S.site) { unavailable(); return; }
+      sites.forEach(function (x) { if (x.id === S.site && typeof x.display_name === "string") S.siteName = x.display_name.trim(); });
       var r2 = clear(root()); r2.removeAttribute("aria-busy");
       add(r2, prospectsCard()); prRead();
     });
@@ -305,5 +318,5 @@
     add(box, foot);
   }
 
-  window.NOJourney = { show: show, hide: hide, probe: probe, util: { initials: initials, videoBar: videoBar, prPath: prPath, count: count, human: human, orderLink: orderLink, mobileText: mobileText, peso: peso } };
+  window.NOJourney = { show: show, hide: hide, probe: probe, util: { initials: initials, videoBar: videoBar, prPath: prPath, count: count, human: human, orderLink: orderLink, mobileText: mobileText, peso: peso, smsHref: smsHref, mailHref: mailHref } };
 })();

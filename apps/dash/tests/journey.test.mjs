@@ -39,7 +39,7 @@ function boot({ prospects = () => ({ status: 200, body: prospectsBody() }), site
     const p = url.replace("http://api.test/v1", "");
     calls.push(p);
     let a = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
-    if (p === "/sites/") a = { status: 200, body: { items: [{ id: siteId, template: "sante" }], next_cursor: null } };
+    if (p === "/sites/") a = { status: 200, body: { items: [{ id: siteId, template: "sante", display_name: "Sante Shop" }], next_cursor: null } };
     else if (p.startsWith(`/sites/${A}/pack/journey/prospects/`)) a = prospects(p);
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
   };
@@ -189,33 +189,37 @@ test("Open order: a popup with the order summary the Orders page shows and a lin
   assert.equal(d.doc.activeElement, opener, "focus returned to the button");
 });
 
-test("SMS and Email: a shell with the recipient and a message box; the Send button is disabled and nothing is sent or linked", async () => {
+test("SMS and Email: the box starts empty, Send is a link to the owner's own app, rebuilt as they type; nothing is requested", async () => {
   const d = boot(); await d.open();
   const before = d.calls.length;
-  for (const [label, kind, to] of [["SMS Ana Reyes", "SMS", "09170000009"], ["Email Ana Reyes", "Email", "coach.test@example.test"]]) {
+  const cases = [["SMS Ana Reyes", "SMS", "sms:09170000009?&body=", "Opens your phone's messaging app"],
+    ["Email Ana Reyes", "Email", "mailto:coach.test@example.test?subject=From%20Sante%20Shop&body=", "Opens your email app"]];
+  for (const [label, kind, base, note] of cases) {
     const opener = btns(d.$("jr-pr-body"), label)[0];
     opener.focus(); opener.fire("click");
     const dlg = d.root().all((n) => n.getAttribute("role") === "dialog")[0];
     assert.equal(dlg.all((n) => n.tagName === "H2")[0].textContent, kind);
-    assert.ok(dlg.textContent.includes("Ana Reyes") && dlg.textContent.includes(to));
-    assert.equal(dlg.all((n) => n.tagName === "TEXTAREA").length, 1);
-    const send = dlg.all((n) => n.tagName === "BUTTON" && n.textContent === "Send")[0];
-    assert.equal(send.disabled, true);
-    send.fire("click");
-    assert.equal(dlg.all((n) => n.tagName === "A").length, 0, "no mailto or sms link");
+    assert.ok(dlg.textContent.includes("Ana Reyes") && dlg.textContent.includes(note));
+    const ta = dlg.all((n) => n.tagName === "TEXTAREA")[0], send = dlg.all((n) => n.tagName === "A")[0];
+    assert.equal(ta.value, "", "no greeting");
+    assert.equal(send.textContent, "Send");
+    assert.equal(send.getAttribute("href"), base, "enabled with an empty message: the app opens blank");
+    ta.value = "Hi Ana & co,\nsee 100% + more \u{1F60A}"; ta.fire("input");
+    assert.equal(send.getAttribute("href"), base + "Hi%20Ana%20%26%20co%2C%0Asee%20100%25%20%2B%20more%20%F0%9F%98%8A");
+    send.fire("click"); await settle();
+    assert.equal(d.root().all((n) => n.getAttribute("role") === "dialog").length, 0, "the popup closes after Send");
     assert.equal(d.calls.length, before, "no request is made");
-    dlg.all((n) => n.tagName === "BUTTON" && n.textContent === "Close")[0].fire("click");
-    assert.equal(d.root().all((n) => n.getAttribute("role") === "dialog").length, 0);
-    assert.equal(d.doc.activeElement, opener);
   }
-  assert.match(read("journey.js"), /HOLD: sending behaviour awaits Coach Ed's decision \(Manager\)/);
+  const u = d.window.NOJourney.util;
+  assert.equal(u.mailHref("a@b.test", "", "x y"), "mailto:a@b.test?body=x%20y", "no site name, no subject");
+  assert.ok(!/HOLD:/.test(read("journey.js")) && !/fetch|XMLHttp|sendBeacon/.test(read("journey.js").slice(read("journey.js").indexOf("function messagePopup"), read("journey.js").indexOf("/* ---------- load"))));
 });
 
 test("popups: the close button and a click outside close; Tab stays inside", async () => {
   const d = boot(); await d.open();
   btns(d.$("jr-pr-body"), "SMS Ana Reyes")[0].fire("click");
   const dlg = d.root().all((n) => n.getAttribute("role") === "dialog")[0];
-  const inside = dlg.all((n) => n.tagName === "BUTTON" && !n.disabled);
+  const inside = dlg.all((n) => (n.tagName === "BUTTON" || n.tagName === "TEXTAREA" || n.tagName === "A") && !n.disabled);
   inside[inside.length - 1].focus();
   const e = press(d.doc, "Tab"); assert.ok(e.prevented, "Tab from the last control wraps");
   assert.equal(d.doc.activeElement, inside[0]);

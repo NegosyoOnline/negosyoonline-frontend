@@ -332,6 +332,44 @@ html[data-theme="dark"] .e4 .pk-select-opt:hover, html[data-theme="dark"] .e4 .p
 html[data-theme="dark"] .e4 .pk-select-opt.is-selected { background: rgba(157,180,255,.20); color: #9DB4FF; font-weight: 600; }
 html[data-theme="dark"] .e4 .pk-select-opt.is-disabled { color: #A9B8B0; }
 
+/* The calendar picker (pk-date) on a member page matches the field next to it and the pk-select above: light and dark (ClickUp z8uq9mfvve). */
+.e4 .pk-date-box { background: #fff; border: 1.5px solid #dee2e6; border-radius: 12px; min-height: 51px; padding: 0 44px 0 14px; }
+.e4 .mo-toolbar .pk-date-box { min-height: 44px; }
+.e4 .pk-date.is-open .pk-date-box { border-color: #6C8CFF; }
+.e4 .pk-date:has(.inp.bad) .pk-date-box { border-color: #c0392b; border-width: 2px; }
+.e4 .pk-date-label, html[data-theme="dark"] .e4 .pk-date-label { display: none; background: transparent; }
+.e4 .pk-date-value { color: #14201B; font-size: 16px; }
+.e4 .pk-date.is-empty .pk-date-value { color: #5B6B63; }
+.e4 .pk-date-ic { color: #5B6B63; }
+.e4 .pk-date-panel { background: #fff; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,40,28,.16); }
+.e4 .pk-date-month { color: #14201B; }
+.e4 .pk-date-week { color: #5B6B63; }
+.e4 .pk-date-nav { background: rgba(108,140,255,.10); color: #173DB8; }
+.e4 .pk-date-nav:hover, .e4 .pk-date-zoom:hover { background: rgba(108,140,255,.16); color: #173DB8; }
+.e4 .pk-date-cell, .e4 .pk-date-mcell { color: #14201B; }
+.e4 .pk-date-cell:not(.is-blank):hover, .e4 .pk-date-mcell:hover { background: rgba(108,140,255,.10); }
+.e4 .pk-date-cell.is-selected, .e4 .pk-date-mcell.is-selected { background: #173DB8; color: #fff; }
+.e4 .pk-date-cell.is-today:not(.is-selected), .e4 .pk-date-mcell.is-today:not(.is-selected) { color: #173DB8; }
+.e4 .pk-date-foot { border-color: #E2E8F0; }
+.e4 .pk-date-link { color: #173DB8; }
+html[data-theme="dark"] .e4 .pk-date-box { background: #17201B; border-color: #3A4A42; }
+html[data-theme="dark"] .e4 .pk-date.is-open .pk-date-box { border-color: #6C8CFF; }
+html[data-theme="dark"] .e4 .pk-date:has(.inp.bad) .pk-date-box { border-color: #c0392b; }
+html[data-theme="dark"] .e4 .pk-date-value { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .pk-date.is-empty .pk-date-value { color: #A9B8B0; }
+html[data-theme="dark"] .e4 .pk-date-ic { color: #A9B8B0; }
+html[data-theme="dark"] .e4 .pk-date-panel { background: #1B2620; border-color: #3A4A42; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+html[data-theme="dark"] .e4 .pk-date-month { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .pk-date-week { color: #A9B8B0; }
+html[data-theme="dark"] .e4 .pk-date-nav { background: rgba(157,180,255,.12); color: #9DB4FF; }
+html[data-theme="dark"] .e4 .pk-date-nav:hover, html[data-theme="dark"] .e4 .pk-date-zoom:hover { background: rgba(157,180,255,.20); color: #9DB4FF; }
+html[data-theme="dark"] .e4 .pk-date-cell, html[data-theme="dark"] .e4 .pk-date-mcell { color: #E6EDE9; }
+html[data-theme="dark"] .e4 .pk-date-cell:not(.is-blank):hover, html[data-theme="dark"] .e4 .pk-date-mcell:hover { background: rgba(157,180,255,.12); }
+html[data-theme="dark"] .e4 .pk-date-cell.is-selected, html[data-theme="dark"] .e4 .pk-date-mcell.is-selected { background: #9DB4FF; color: #0f1512; }
+html[data-theme="dark"] .e4 .pk-date-cell.is-today:not(.is-selected), html[data-theme="dark"] .e4 .pk-date-mcell.is-today:not(.is-selected) { color: #9DB4FF; }
+html[data-theme="dark"] .e4 .pk-date-foot { border-color: #3A4A42; }
+html[data-theme="dark"] .e4 .pk-date-link { color: #9DB4FF; }
+
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */
 .sf-status-chip,

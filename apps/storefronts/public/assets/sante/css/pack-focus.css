@@ -29,19 +29,22 @@
    so the card sits centred as on /dashboard/sign-in/ and the banner above it has the card's width. */
 .portal-sign-in { width: 100%; max-width: 560px; }
 
-/* Task z8uq9mfw37 (Coach Ed 2026-11-16): the landing hero carries the Santé video. Phone and tablet: text and button, then the
-   video at the content width, then the hero photo. Desktop: the video sits on the right of the hero, over the boxes and glass of the
-   photo (image fractions: x .44 to .86, from y .54 down, so the "Goodness from New Zealand" script and the 40% badge above stay
-   clear), kept inside the hero's right edge. The iframe keeps its own classes; the frame gives it the 16:9 box. */
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16, mockup of 22:02): the landing hero carries the Santé video. Phone and tablet: text, the button,
+   the video at the content width, then the hero photo. Desktop (64rem and up), measured on his mockup as fractions of the page width:
+   the video is a 16:9 card from .485 to .90 (never closer than 2rem to the copy column, so a narrow window makes it smaller), its top level with the top of the h1; the button and "Free Shipping Nationwide" sit
+   centred on the hero below the icon row and the video. The video may cover the photo's script and badge (his mockup). The copy stays
+   at the top of its column so the h1's distance from the hero top is fixed; the bottom padding of the body holds the button row. */
 .pp-hero-video { position: relative; z-index: 20; width: 100%; max-width: 72rem; margin: 2rem auto 0; padding: 0 1.25rem; }
 @media (min-width: 40rem) { .pp-hero-video { padding: 0 2rem; } }
 .pp-hero-video-frame { position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 20px; background: #0b3d1c;
   box-shadow: 0 28px 68px -34px rgba(6, 58, 24, 0.45); }
 @media (min-width: 64rem) {
+  .pp-hero-body { justify-content: flex-start; min-height: 0; padding-bottom: 15rem; }
+  .pp-hero-cta { grid-area: 1 / 1; align-self: end; position: relative; z-index: 10; max-width: none; margin: 0; padding: 0 0 2.5rem; }
   .pp-hero-video { grid-area: 1 / 1; max-width: none; margin: 0; padding: 0; pointer-events: none;
-    --pp-vl: max(calc(var(--pp-il) + .44 * var(--pp-w)), calc(var(--pp-cr) + var(--pp-gap))); }
-  .pp-hero-video-frame { position: absolute; pointer-events: auto; left: var(--pp-vl); top: calc(var(--pp-t) + .54 * var(--pp-h));
-    width: min(calc(.42 * var(--pp-w)), calc(100cqw - var(--pp-vl) - 2rem)); box-shadow: 0 18px 44px -18px rgba(6, 30, 12, 0.55); }
+    --pp-vl: max(48.5cqw, calc(var(--pp-cr) + 2rem)); }
+  .pp-hero-video-frame { position: absolute; pointer-events: auto; left: var(--pp-vl); top: 6.75rem;
+    width: min(41.5cqw, calc(100cqw - var(--pp-vl) - 2rem)); box-shadow: 0 18px 44px -18px rgba(6, 30, 12, 0.55); }
 }
 
 /* Coach Ed 2026-11-16 (task z8uq9mfw37, fix round 1): the hero button "Get 2 Boxes & Unlock My Discount" is the Santé green pill, white bold

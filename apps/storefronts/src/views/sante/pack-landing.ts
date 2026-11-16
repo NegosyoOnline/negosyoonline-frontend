@@ -14,7 +14,7 @@ export function landingContent(c: PackCtx): Markup {
 <div id="pp-landing">
 
 <section class="pp-hero relative overflow-hidden bg-white pb-10 tab:pb-14 desk:grid desk:grid-cols-1 desk:pb-16">
-  <div class="relative z-10 mx-auto w-full max-w-6xl px-5 pt-8 tab:px-8 tab:pt-12 desk:[grid-area:1/1] desk:mx-0 desk:max-w-none desk:pl-[var(--pp-cl)] desk:flex desk:min-h-[min(44vw,48rem)] desk:flex-col desk:justify-center desk:pt-16 desk:pb-14">
+  <div class="pp-hero-body relative z-10 mx-auto w-full max-w-6xl px-5 pt-8 tab:px-8 tab:pt-12 desk:[grid-area:1/1] desk:mx-0 desk:max-w-none desk:pl-[var(--pp-cl)] desk:flex desk:min-h-[min(44vw,48rem)] desk:flex-col desk:justify-center desk:pt-16 desk:pb-14">
     <div class="pp-hero-copy max-w-xl desk:max-w-[35rem]">
       <p class="flex items-center gap-3 text-xs font-bold tracking-[0.06em] text-[#0b4f24] uppercase tab:text-sm"><svg viewBox="0 0 32 12" aria-hidden="true" class="h-3 w-8 shrink-0 text-[#157a38]"><path d="M2 2h28M2 10h28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>For Regular Barley Consumers</p>
       <h1 class="mt-5 text-[2.125rem] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink-900 tab:text-[2.75rem] tab:mt-6 desk:text-[3.25rem]">Why Keep Paying the <span class="text-[#157a38]">Regular Price</span> for Your Barley?</h1>
@@ -27,21 +27,21 @@ export function landingContent(c: PackCtx): Markup {
         <li class="flex basis-1/3 flex-col items-center px-1 text-center tab:flex-1 tab:basis-auto desk:px-0 tab:border-l tab:border-[#d5e5d2]"><span class="flex h-14 w-14 items-center justify-center rounded-full bg-[#e5f0e3] text-[#0f6831] tab:h-16 tab:w-16"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-7 w-7 tab:h-8 tab:w-8"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/><path stroke-width="2.4" d="M8.5 13.5h.01M12 13.5h.01M15.5 13.5h.01M8.5 16.8h.01M12 16.8h.01"/></svg></span><span class="mt-3 max-w-[7.5rem] text-[0.8125rem] leading-snug text-ink-700 tab:text-sm">No monthly quotas</span></li>
         <li class="flex basis-1/3 flex-col items-center px-1 text-center tab:flex-1 tab:basis-auto desk:shrink-0 desk:px-0 tab:border-l tab:border-[#d5e5d2]"><span class="flex h-14 w-14 items-center justify-center rounded-full bg-[#e5f0e3] text-[#0f6831] tab:h-16 tab:w-16"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-7 w-7 tab:h-8 tab:w-8"><path d="M3.5 4.5h2.2l2 10.5h10.3l1.9-7.5H6.6"/><circle cx="9.5" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/></svg></span><span class="mt-3 max-w-[7.5rem] text-[0.8125rem] leading-snug text-ink-700 tab:text-sm">No maintenance purchases</span></li>
       </ul>
-
-      <div class="mt-10 tab:mt-12 text-center">
-        ${(c.cta) ? html`
-        <div class="flex flex-col items-center tab:inline-flex">
-          <a href="${c.checkout_path}" data-pp-hero-cta class="inline-flex w-full items-center justify-center gap-3 rounded-full pp-hero-cta-green px-10 py-4 text-lg leading-7 font-bold transition-[transform,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 active:translate-y-0 ph:gap-2 ph:px-4 ph:text-center ph:text-[0.9375rem] tab:w-auto tab:text-xl">Get 2 Boxes &amp; Unlock My Discount<svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 shrink-0 tab:h-6 tab:w-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <p class="mt-4 flex items-center justify-center gap-2 text-base font-semibold text-[#157a38]"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5 shrink-0"><path d="M3 7h10v9H3zM13 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Free Shipping Nationwide</p>
-        </div>
-        ` : html`
-        <div role="status" data-pp-hero-cta class="max-w-xl rounded-[20px] bg-accent-50 px-6 py-5 text-center ring-1 ring-accent-200">
-          <p class="text-base leading-7 font-bold text-ink-900">${c.message}</p>
-        </div>
-        `}
-      </div>
     </div>
   </div>
+
+    <div class="pp-hero-cta mx-auto mt-10 w-full max-w-6xl px-5 tab:mt-12 tab:px-8 text-center">
+      ${(c.cta) ? html`
+      <div class="flex flex-col items-center tab:inline-flex">
+        <a href="${c.checkout_path}" data-pp-hero-cta class="inline-flex w-full items-center justify-center gap-3 rounded-full pp-hero-cta-green px-10 py-4 text-lg leading-7 font-bold transition-[transform,background-color,box-shadow] duration-200 ease-out motion-safe:hover:-translate-y-0.5 active:translate-y-0 ph:gap-2 ph:px-4 ph:text-center ph:text-[0.9375rem] tab:w-auto tab:text-xl">Get 2 Boxes &amp; Unlock My Discount<svg viewBox="0 0 24 24" aria-hidden="true" class="h-5 w-5 shrink-0 tab:h-6 tab:w-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <p class="mt-4 flex items-center justify-center gap-2 text-base font-semibold text-[#157a38]"><svg viewBox="0 0 24 24" fill="${html`none`}" stroke="${html`currentColor`}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="h-5 w-5 shrink-0"><path d="M3 7h10v9H3zM13 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>Free Shipping Nationwide</p>
+      </div>
+      ` : html`
+      <div role="status" data-pp-hero-cta class="mx-auto max-w-xl rounded-[20px] bg-accent-50 px-6 py-5 text-center ring-1 ring-accent-200">
+        <p class="text-base leading-7 font-bold text-ink-900">${c.message}</p>
+      </div>
+      `}
+    </div>
 
   <div class="pp-hero-video">
     <div class="pp-hero-video-frame">

@@ -44,7 +44,7 @@ function poDocument() {
   return doc;
 }
 
-function boot({ rows = ROWS, listStatus = 200, listBody, detail = DETAIL, proofStatus = 200, decideStatus = 200, decideBody } = {}) {
+function boot({ rows = ROWS, listStatus = 200, listBody, detail = DETAIL, proofStatus = 200, decideStatus = 200, decideBody, search = "" } = {}) {
   const doc = poDocument(), calls = [], toasts = [], opened = [];
   const page = doc.body.appendChild(doc.createElement("div"));
   const tabs = doc.createElement("nav"); tabs.setAttribute("id", "orders-tabs"); page.appendChild(tabs);
@@ -74,7 +74,7 @@ function boot({ rows = ROWS, listStatus = 200, listBody, detail = DETAIL, proofS
   const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800,
     open: (u, t, f) => { opened.push([u, t, f]); } };
   const URLs = { createObjectURL: () => "blob:test/" + (opened.length + calls.length), revokeObjectURL() {} };
-  const context = vm.createContext({ window, document: doc, location: { search: "", pathname: "/orders/", replace() {}, assign() {} }, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, FormData,
+  const context = vm.createContext({ window, document: doc, location: { search, pathname: "/orders/", replace() {}, assign() {} }, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, FormData,
     localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch, URL: URLs });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(read("pack-orders.js"), context, { filename: "pack-orders.js" });
@@ -707,4 +707,20 @@ test("Reject: a long note with no spaces wraps inside the dialog, which scrolls 
 
 test("index.html loads pack-orders.js and .css under a new version", () => {
   assert.ok(!/pack-orders\.(js|css)\?v=20261113ol2/.test(HTML));
+});
+
+test("the Journey's order link (?order=<id>) opens that order, scrolls it to the centre and focuses its Details button", async () => {
+  for (const [id, rowId] of [["ord_37", "pk-row-ord_37"], ["ord_42", "pk-tk-ord_42"]]) {
+    const d = boot({ search: "?order=" + id });
+    const scrolled = [], mk = d.doc.createElement;
+    d.doc.createElement = (t) => { const n = mk(t); n.scrollIntoView = (o) => scrolled.push([n.attrs.id, o]); return n; };
+    await d.show();
+    const el = d.$(rowId);
+    assert.ok(el, rowId);
+    const last = scrolled.filter((x) => x[0] === rowId).pop();
+    assert.ok(last, "scrolled");
+    assert.deepEqual({ ...last[1] }, { block: "center", behavior: "smooth" });
+    const b = d.doc.activeElement;
+    assert.ok(b && b.tagName === "BUTTON" && b.getAttribute("aria-expanded") === "true" && el.all((n) => n === b).length === 1, "focus is on the open Details button");
+  }
 });

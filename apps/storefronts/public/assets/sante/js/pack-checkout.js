@@ -233,3 +233,45 @@ b.textContent="Placing order…";
 setTimeout(function(){b.disabled=true;},0);
 });
 })();
+/* The Membership Pack page visitor (ClickUp z8uq9mfw14, adapted from TWCinc's update_lead on blur): the visit's ref lives in
+   localStorage (set by js/pack-visit.js on the landing page). The checkout reports that it was opened, saves the name, mobile
+   and email as the buyer leaves each field, and sends the ref with the order so the visit is tied to it. Nothing here blocks the form. */
+(function(){
+var KEY="np:visit-ref",URL="/funnel/membership-pack/visit/",forms=[document.getElementById("contact-form"),document.getElementById("place-form")].filter(Boolean);
+if(!forms.length){return;}
+function store(v){try{if(v===undefined){return window.localStorage.getItem(KEY)||"";}window.localStorage.setItem(KEY,v);}catch(e){}return "";}
+function send(payload){
+return fetch(URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),credentials:"same-origin",keepalive:true})
+.then(function(r){if(r.status===404&&payload.op!=="begin"){store("");}return r.ok?r.json():null;}).catch(function(){return null;});
+}
+var ref=store(),ready=null;
+/* A buyer who came straight to the checkout has no visit yet: one is made first. */
+function visit(){
+if(ref){return Promise.resolve(ref);}
+if(!ready){ready=send({op:"begin",ref:""}).then(function(a){if(a&&typeof a.ref==="string"){ref=a.ref;store(ref);}ready=null;return ref;});}
+return ready;
+}
+forms.forEach(function(f){
+f.addEventListener("submit",function(){
+var h=f.querySelector('input[name="visitor_ref"]');
+if(!h){h=document.createElement("input");h.type="hidden";h.name="visitor_ref";f.appendChild(h);}
+h.value=ref||store();
+});
+});
+visit().then(function(r){if(r){send({op:"event",ref:r,event:"checkout"});}});
+var f=document.getElementById("contact-form");
+if(!f){return;}
+var names=["first_name","last_name","mobile","email"],last="";
+function field(n){return document.getElementById(n);}
+function save(){
+var first=field("first_name"),lastN=field("last_name"),m=field("mobile"),e=field("email");
+if(!first||!lastN||!m||!e){return;}
+var mobile=m.value.replace(/\D/g,"");
+var body={full_name:(first.value.trim()+" "+lastN.value.trim()).trim(),mobile:mobile,email:e.value.trim()};
+var key=JSON.stringify(body);
+if(key===last||(!body.full_name&&!body.mobile&&!body.email)){return;}
+last=key;
+visit().then(function(r){if(r){send({op:"contact",ref:r,full_name:body.full_name,mobile:body.mobile,email:body.email});}});
+}
+names.forEach(function(n){var el=field(n);if(el){el.addEventListener("blur",save);}});
+})();

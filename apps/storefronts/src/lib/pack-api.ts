@@ -119,6 +119,20 @@ export function checkoutContact(args: ContactArgs, c: Calls) {
   );
 }
 
+/* ---- the Membership Pack page visitor (ClickUp z8uq9mfw14): a ref, the video marks, the checkout contact ---------- */
+
+export function visitBegin(args: Base & { ref: string }, c: Calls) {
+  return packPost("visit", args, (b) => (record(b) && typeof b.ref === "string" ? { ref: b.ref } : null), c);
+}
+
+export function visitEvent(args: Base & { ref: string; event: string; percent?: number }, c: Calls) {
+  return packPost("visit/event", args, (b) => (record(b) && b.ok === true ? { ok: true } : null), c);
+}
+
+export function visitContact(args: Base & { ref: string; full_name: string; mobile: string; email: string }, c: Calls) {
+  return packPost("visit/contact", args, (b) => (record(b) && b.ok === true ? { ok: true } : null), c);
+}
+
 /** Field name -> first message, for the contact the buyer just finished typing. */
 export function checkoutCheck(args: Base & { mobile: string; email: string }, c: Calls) {
   return packPost(

@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // pdf.js, vendored unchanged for the Membership Terms popup (public/agreement-viewer/VERSION in TWCinc): not our code.
     "public/agreement-viewer/**",
+    // Player.js v0.0.11, vendored unchanged for the landing video marks (ClickUp z8uq9mfw14): not our code.
+    "public/assets/sante/js/player.min.js",
   ]),
 ]);
 

@@ -18,6 +18,7 @@
 .sf-field .pk-select-box { padding: 13px 40px 13px 14px; border-radius: 10px; }
 .sf-field .pk-select-input { border: 0; border-radius: 0; padding: 0; background: transparent; width: auto; font-size: 15px; }
 .pk-select.sf-field-invalid .pk-select-box { border-color: #C0392B; }
+.pk-select:has(> select.sf-field-invalid) .pk-select-box { border-color: #C0392B; }
 .pk-select-box .sf-field-check { right: 38px; }
 .pk-select-box.sf-field-ok { border-color: var(--green); }
 .sf-field-country .pk-select.is-disabled .pk-select-box { opacity: 1; cursor: default; }

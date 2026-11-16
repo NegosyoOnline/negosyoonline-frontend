@@ -31,7 +31,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "80d50155",
   "css/pack-select.css": "aac04c44",
-  "css/pack-shop.css": "bc0c601f", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
+  "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
   "img/bundle-1.webp": "79f1b43a",

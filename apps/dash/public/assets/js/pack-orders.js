@@ -90,7 +90,7 @@
   }
 
   /* ---- load ---- */
-  function show() { token++; S = fresh(); revokeAll(); tabsInit(); load(); }
+  function show() { token++; S = fresh(); wanted = null; revokeAll(); tabsInit(); load(); }
   function hide() { token++; if (closeDlg) closeDlg(false); revokeAll(); if (MR()) MR().reset(); if (REG()) REG().close(); }
   function revokeAll() { Object.keys(urls).forEach(function (k) { try { URL.revokeObjectURL(urls[k]); } catch (e) { /* ignore */ } }); urls = {}; }
   function load() {
@@ -111,6 +111,7 @@
       if (!r.ok) { if (!quiet) { S.listState = "error"; S.listMsg = r.status === 403 ? msg(r, "") : ""; render(); } return; } /* 403 billing_only: the API's own sentence */
       S.rows = Array.isArray(r.data.orders) ? r.data.orders : [];
       S.listState = S.rows.length ? "ok" : "empty"; render();
+      deepLink();
       if (MR()) MR().load(S.site, S.rows);
     });
   }
@@ -125,10 +126,25 @@
       render();
     });
   }
+  /* The Journey (journey.js) links here with ?order=<id>: open that order once, after the first load of the list. */
+  var wanted = null;
+  function deepLink() {
+    if (wanted === null) { var m = /[?&]order=([A-Za-z0-9_-]{1,64})(?:&|$)/.exec(location.search || ""); wanted = m ? m[1] : ""; }
+    var id = wanted; wanted = "";
+    if (!id || !find(id)) return;
+    if (S.open[id]) reveal(id); else toggle(id).then(function () { reveal(id); });
+  }
+  /* Scroll the linked order into view and put focus on its Details button (the page re-renders while the order loads, so this runs last). */
+  function reveal(id) {
+    var el = byId("pk-tk-" + id) || byId("pk-row-" + id); if (!el) return;
+    var calm = false; try { calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { /* ignore */ }
+    if (el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+    var b = el.querySelectorAll("button[aria-expanded]")[0]; if (b && b.focus) b.focus();
+  }
   function toggle(id) {
-    if (S.open[id]) { delete S.open[id]; render(); return; }
+    if (S.open[id]) { delete S.open[id]; render(); return Promise.resolve(); }
     S.open[id] = true; delete S.proofErr[id];
-    loadDetail(id).then(function () { loadProof(id); });
+    return loadDetail(id).then(function () { return loadProof(id); });
   }
 
   /* ---- proof: the stream is fetched with the session cookie and shown from a blob ---- */
@@ -287,6 +303,7 @@
     add(meta, pay, h("span", "", "Placed " + placed(o.created_at)));
     add(body, h("div", "mc-cust", o.buyer_name), h("div", "mc-items", "[1x] Membership Pack"), meta);
     actions(o).forEach(function (b) { acts.appendChild(b); }); acts.appendChild(toggler(o));
+    t.setAttribute("id", "pk-tk-" + o.id);
     add(t, stub, body, acts);
     if (S.open[o.id]) add(t, add(h("div", "mc-detail"), detailGrid(o)));
     return t;

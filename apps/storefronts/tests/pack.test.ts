@@ -171,3 +171,30 @@ test("the landing script is the one the page links, and holds the three behaviou
   for (const hook of ["[data-gallery]", "[data-selfcheck]", "[data-pp-sticky]"]) assert.ok(js.includes(hook), hook);
   assert.ok(page(PACK).includes("/assets/sante/js/pack-landing.js?v="));
 });
+
+test("the 40% member savings badge is one real element on the video, and the hero photo no longer carries it", () => {
+  const doc = page(PACK);
+  assert.equal((doc.match(/class="pp-hero-badge-top">Unlock</g) ?? []).length, 1);
+  assert.equal((doc.match(/pp-hero-badge-pct">40%</g) ?? []).length, 1);
+  assert.match(doc, /<div class="pp-hero-badge" role="img" aria-label="Unlock 40% member savings">/);
+  assert.match(doc, /Member<br>Savings/);
+  assert.doesNotMatch(doc, /member savings\. With stevia/i); // the photo's alt no longer repeats the badge
+  const hero = doc.slice(doc.indexOf('<section class="pp-hero'), doc.indexOf("</section>", doc.indexOf('<section class="pp-hero')));
+  assert.ok(hero.indexOf('class="pp-hero-video"') < hero.indexOf("pp-hero-badge"));
+  assert.ok(hero.indexOf("pp-hero-badge") < hero.indexOf("pp-hero-photo")); // inside the video block
+  assert.ok(hero.includes("img/hero-nz-tall-2000.webp") && hero.includes("img/hero-nz-tall-1400.webp"));
+  assert.doesNotMatch(hero, /40pct/);
+  for (const w of ["1400", "2000"]) assert.ok(existsSync(path.join("public/assets/sante/img", `hero-nz-tall-${w}.webp`)));
+});
+
+test("the phone hero order is set by CSS under 40rem: label, headline, video, line, button, certifications", () => {
+  const css = readFileSync("public/assets/sante/css/pack-focus.css", "utf8");
+  const phone = css.slice(css.indexOf("@media (max-width: 39.99rem) {\n  .pp-hero {"));
+  assert.match(phone, /\.pp-hero-body, \.pp-hero-copy \{ display: contents; \}/);
+  const order = (cls: string) => Number(phone.match(new RegExp(`\\.${cls} \\{[^}]*order: (\\d)`))?.[1]);
+  const seq = ["pp-hero-label", "pp-hero-h1", "pp-hero-video", "pp-hero-lede", "pp-hero-cta", "pp-hero-certs", "pp-hero-photo"].map(order);
+  assert.deepEqual(seq, [1, 2, 3, 4, 5, 6, 7]);
+  const doc = page(PACK);
+  for (const cls of ["pp-hero-label", "pp-hero-h1", "pp-hero-lede", "pp-hero-certs", "pp-hero-cta", "pp-hero-video", "pp-hero-photo"]) assert.equal((doc.match(new RegExp(`class="${cls}[ "]`, "g")) ?? []).length, 1, cls);
+  assert.equal((doc.match(/<iframe\b/g) ?? []).length, 1); // one player, no duplicated markup
+});

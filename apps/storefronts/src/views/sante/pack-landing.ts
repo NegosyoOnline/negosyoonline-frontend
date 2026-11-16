@@ -35,9 +35,9 @@ export function landingContent(c: PackCtx): Markup {
 <section class="pp-hero relative overflow-hidden bg-white pb-10 tab:pb-14 desk:grid desk:grid-cols-1 desk:pb-16">
   <div class="pp-hero-body relative z-10 mx-auto w-full max-w-6xl px-5 pt-8 tab:px-8 tab:pt-12 desk:[grid-area:1/1] desk:mx-0 desk:max-w-none desk:pl-[var(--pp-cl)] desk:flex desk:min-h-[min(44vw,48rem)] desk:flex-col desk:justify-center desk:pt-16 desk:pb-14">
     <div class="pp-hero-copy max-w-xl desk:max-w-[35rem]">
-      <p class="flex items-center gap-3 text-xs font-bold tracking-[0.06em] text-[#0b4f24] uppercase tab:text-sm"><svg viewBox="0 0 32 12" aria-hidden="true" class="h-3 w-8 shrink-0 text-[#157a38]"><path d="M2 2h28M2 10h28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>For Regular Barley Consumers</p>
-      <h1 class="mt-5 text-[2.125rem] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink-900 tab:text-[2.75rem] tab:mt-6 desk:text-[3.25rem]">Why Keep Paying the <span class="text-[#157a38]">Regular Price</span> for Your Barley?</h1>
-      <p class="mt-5 text-lg leading-8 text-[#1d5e33] tab:mt-6 tab:text-xl">Get 2 boxes of Santé Barley Powder from ${c.store_name} for <strong class="font-bold">only ${c.price}</strong> and unlock your <strong class="font-bold">Lifetime Membership</strong>.</p>
+      <p class="pp-hero-label flex items-center gap-3 text-xs font-bold tracking-[0.06em] text-[#0b4f24] uppercase tab:text-sm"><svg viewBox="0 0 32 12" aria-hidden="true" class="h-3 w-8 shrink-0 text-[#157a38]"><path d="M2 2h28M2 10h28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>For Regular Barley Consumers</p>
+      <h1 class="pp-hero-h1 mt-5 text-[2.125rem] leading-[1.1] font-extrabold tracking-[-0.01em] text-ink-900 tab:text-[2.75rem] tab:mt-6 desk:text-[3.25rem]">Why Keep Paying the <span class="text-[#157a38]">Regular Price</span> for Your Barley?</h1>
+      <p class="pp-hero-lede mt-5 text-lg leading-8 text-[#1d5e33] tab:mt-6 tab:text-xl">Get 2 boxes of Santé Barley Powder from ${c.store_name} for <strong class="font-bold">only ${c.price}</strong> and unlock your <strong class="font-bold">Lifetime Membership</strong>.</p>
 
       <ul class="pp-hero-certs">
         <li class="pp-cert"><img src="${asset("img/certifications/biogro-certified-organic.png")}" alt="" class="pp-cert-img" width="96" height="96"><span class="mt-2 text-center text-xs leading-snug font-medium text-ink-600">BioGro NZ Certified Organic</span></li>
@@ -64,11 +64,12 @@ export function landingContent(c: PackCtx): Markup {
     <div class="pp-hero-video-frame">
       <iframe class="absolute inset-0 h-full w-full" style="border:0" referrerpolicy="strict-origin-when-cross-origin" src="${c.video_url}" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture;fullscreen;" allowfullscreen="true" title="Santé Membership Pack video"></iframe>
     </div>
+    <div class="pp-hero-badge" role="img" aria-label="Unlock 40% member savings"><span class="pp-hero-badge-top">Unlock</span><strong class="pp-hero-badge-pct">40%</strong><span class="pp-hero-badge-bot">Member<br>Savings</span></div>
   </div>
 
   <div class="pp-hero-photo relative mt-10 desk:[grid-area:1/1] desk:mt-0">
-    <img src="${asset("img/hero-nz-tall-40pct-2000.webp")}" srcset="${asset("img/hero-nz-tall-40pct-1400.webp")} 1400w, ${asset("img/hero-nz-tall-40pct-2000.webp")} 2000w" sizes="(min-width: 64rem) min(125vw, 139rem), (min-width: 40rem) 130vw, 194vw" alt="Two boxes and two sachets of Santé Barley Powder with a glass of barley drink, in front of New Zealand mountains. Goodness from New Zealand. Unlock 40% member savings. With stevia." width="2000" height="1200" fetchpriority="high" class="block desk:absolute desk:h-[var(--pp-h)] desk:w-[var(--pp-w)]">
-    <span aria-hidden="true" class="pp-hero-blur hidden desk:block"><img src="${asset("img/hero-nz-tall-40pct-1400.webp")}" alt="" width="1400" height="840"></span>
+    <img src="${asset("img/hero-nz-tall-2000.webp")}" srcset="${asset("img/hero-nz-tall-1400.webp")} 1400w, ${asset("img/hero-nz-tall-2000.webp")} 2000w" sizes="(min-width: 64rem) min(125vw, 139rem), (min-width: 40rem) 130vw, 194vw" alt="Two boxes and two sachets of Santé Barley Powder with a glass of barley drink, in front of New Zealand mountains. Goodness from New Zealand. With stevia." width="2000" height="1200" fetchpriority="high" class="block desk:absolute desk:h-[var(--pp-h)] desk:w-[var(--pp-w)]">
+    <span aria-hidden="true" class="pp-hero-blur hidden desk:block"><img src="${asset("img/hero-nz-tall-1400.webp")}" alt="" width="1400" height="840"></span>
     <span aria-hidden="true" class="pp-hero-fade-l hidden desk:block"></span>
     <span aria-hidden="true" class="pp-hero-fade-r hidden desk:block"></span>
     <span aria-hidden="true" class="absolute inset-x-0 bottom-0 hidden h-1/3 bg-gradient-to-t from-white to-transparent desk:block"></span>

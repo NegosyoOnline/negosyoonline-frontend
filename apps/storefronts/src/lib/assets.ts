@@ -19,7 +19,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "718ef012", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "180c5ba0", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
@@ -40,8 +40,8 @@ const VERSIONS: Record<string, string> = {
   "img/certifications/biogro-certified-organic.png": "147c9dfc",
   "img/certifications/halal-idcp.png": "b6a42b13",
   "img/certifications/superbrands-philippines-choice.png": "03f8b26e",
-  "img/hero-nz-tall-40pct-1400.webp": "984af07f",
-  "img/hero-nz-tall-40pct-2000.webp": "fc680919",
+  "img/hero-nz-tall-1400.webp": "a226f118",
+  "img/hero-nz-tall-2000.webp": "5c9d7e5f",
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "3556a132",

@@ -716,6 +716,20 @@
     update();
   }
 
-  window.NOBilling = { show: show, hide: hide, util: { peso: peso, dateShort: dateShort, instant: instant, offersLine: offersLine, offerLines: offerLines,
+  /* Billing-only check for the dashboard shell (dashboard.js, ClickUp z8uq9mfvgn): reads the same GET /sites/{id}/billing/ and
+     calls onBillingOnly() only when the answer is a 200 with billing_only exactly true. Any other answer does nothing. */
+  function probe(onBillingOnly) {
+    D.call("GET", "/sites/", null, true).then(function (res) {
+      var sites = res && res.ok ? D.sitesOf(res) : [];
+      if (!sites.length) return;
+      var site = D.siteFromQuery(sites.map(function (x) { return x.id; }));
+      if (!site) return;
+      api("/sites/" + site + "/billing/").then(function (r) {
+        if (r && r.ok && r.data && r.data.billing_only === true) onBillingOnly();
+      });
+    });
+  }
+
+  window.NOBilling = { show: show, hide: hide, probe: probe, util: { peso: peso, dateShort: dateShort, instant: instant, offersLine: offersLine, offerLines: offerLines,
     consentText: consentText, amountText: amountText, localStamp: localStamp, manilaNow: manilaNow, validate: validate, refusal: refusal, routeOf: routeOf, urlFor: urlFor, sortOffers: sortOffers } };
 })();

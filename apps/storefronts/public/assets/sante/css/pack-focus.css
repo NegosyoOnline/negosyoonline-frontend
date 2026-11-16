@@ -71,8 +71,8 @@
    3) The hero's top and bottom space are equal: the smaller of the two, per width (phone 2rem, tablet 3rem, desktop 4rem). */
 .pp-hero-certs { margin-top: 1.125rem; }
 @media (min-width: 40rem) { .pp-hero-certs { margin-top: 1.25rem; } }
-.pp-hero-btn { padding-top: 1.25rem; padding-bottom: 1.25rem; font-size: 1.125rem; line-height: 1.75rem; }
-.pp-hero-btn svg { width: 1.5rem; height: 1.5rem; }
+.pp-hero-btn { padding-top: 1.25rem; padding-bottom: 1.25rem; font-size: 1rem; line-height: 1.5rem; }
+.pp-hero-btn svg { width: 1.375rem; height: 1.375rem; }
 @media (min-width: 40rem) { .pp-hero-btn { padding-left: 3rem; padding-right: 3rem; font-size: 1.5rem; line-height: 2rem; } .pp-hero-btn svg { width: 1.75rem; height: 1.75rem; } }
 .pp-hero { padding-bottom: 2rem; }
 @media (min-width: 40rem) { .pp-hero { padding-bottom: 3rem; } }

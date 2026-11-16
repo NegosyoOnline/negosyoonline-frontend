@@ -149,7 +149,7 @@ function placeForm(flow: Flow, token: string, text: Record<string, string>, proo
   form.append("visitor_ip", flow.visitor_ip);
   form.append("token", token);
   form.append("submit_key", key);
-  form.append("visitor_ref", (text.visitor_ref ?? "").slice(0, 32)); // the visit this buyer came from (src/lib/visit-route.ts); Django links it to the order
+  form.append("visitor_ref", (text.visitor_ref ?? "").slice(0, 32)); // the visit this buyer came from (src/app/funnel/membership-pack/visit/route.ts); Django links it to the order
   for (const name of TRANSFER_FIELDS) form.append(name, text[name] ?? "");
   /* The Meta identifiers (consent "1", _fbp, _fbc, user agent, page address) go only after Accept on a site with a
      Pixel; Django reads them only with the consent, and builds Purchase and AddPaymentInfo from the order itself. */

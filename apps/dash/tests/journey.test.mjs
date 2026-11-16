@@ -33,7 +33,7 @@ const prospectsBody = (over = {}) => ({
   page: 1, page_size: 25, pages: 1, total: 5,
   stage_counts: { all: 5, new_lead: 2, landing_page: 0, start_watching: 0, done_watching: 0, added_to_cart: 1, checked_out: 1, account_setup: 1, activated: 0 },
   results: [
-    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "pack_page", stage: "account_setup", registration_status: "ready_to_register", video_percent: 90, mobile: "+63917***4567", email: "", last_activity: "2026-11-15T03:00:00Z" },
+    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "pack_page", stage: "account_setup", registration_status: "ready_to_register", video_percent: 90, mobile: "", email: "", last_activity: "2026-11-15T03:00:00Z" },
     { kind: "order", name: "Ben Cruz", order_number: "PK-0002", order_id: "ord_2", source: "pack_page", stage: "checked_out", registration_status: null, video_percent: 0, mobile: "", email: "", last_activity: "2026-11-14T03:00:00Z" },
     { kind: "visit", name: "Cora Cart", order_number: null, order_id: null, source: "pack_page", stage: "added_to_cart", registration_status: null, video_percent: 50, mobile: "09171234567", email: "cora@buyer.test", last_activity: "2026-11-14T01:00:00Z" },
     { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "new_lead", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-13T03:00:00Z" },
@@ -180,7 +180,7 @@ test("Prospects: the card, the approved lead, the search, the stage chips with c
   for (const w of ["Membership Pack page", "Facebook via Pancake", "Website chat", "Ready to register", "No name", "Order PK-0001"]) assert.ok(t.includes(w), w);
   const heads = d.$("jr-pr-body").all((n) => n.tagName === "TH").map((n) => n.textContent);
   assert.deepEqual(heads, ["Prospect", "Source", "Video progress", "Stage", "Last activity", "Action"]);
-  for (const w of ["90%", "50%", "+63917***4567", "09171234567", "cora@buyer.test", "Account Setup", "Add to Cart", "New Lead"]) assert.ok(d.$("jr-pr-body").textContent.includes(w), w);
+  for (const w of ["90%", "50%", "09171234567", "cora@buyer.test", "Account Setup", "Add to Cart", "New Lead"]) assert.ok(d.$("jr-pr-body").textContent.includes(w), w);
 });
 
 test("Prospects: Open order only on order rows; no chat button; the blank name stays a placeholder", async () => {

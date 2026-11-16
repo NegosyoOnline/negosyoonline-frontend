@@ -118,7 +118,7 @@
 .pp-reels-btn:hover { background: #f2f8ef; }
 .pp-reels-btn:focus-visible { outline: 2px solid #6C8CFF; outline-offset: 2px; }
 .pp-reels-cap { min-width: 0; flex: 1 1 0; text-align: center; }
-.pp-reels-title { font-size: 1.125rem; line-height: 1.375; font-weight: 700; color: #13300a; }
+.pp-reels-title { font-size: 1.125rem; line-height: 1.375; font-weight: 700; min-height: 1.375em; color: #13300a; }
 @media (min-width: 40rem) { .pp-reels-title { font-size: 1.25rem; } }
 .pp-reels-count { margin-top: .25rem; font-size: .875rem; font-weight: 500; color: #4f4f4f; }
 
@@ -196,3 +196,17 @@
 .pp-about-panel p { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.65; color: rgba(255,255,255,.78); }
 @media (min-width: 40rem) { .pp-about-panel h3 { font-size: 1.625rem; line-height: 1.2; } .pp-about-panel p { font-size: 0.90625rem; line-height: 1.7; } }
 @media (min-width: 48rem) { .pp-about-panel h3 { margin-bottom: 1rem; font-size: 1.75rem; line-height: 1.3; } .pp-about-panel p { margin-bottom: 0.875rem; font-size: 0.9375rem; line-height: 1.8; } }
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16): a heartbeat on every "Get 2 Boxes & Unlock My Discount" order button (the hero button, the in-page
+   buttons and the phone order bar all carry data-pp-beat). A double beat in the first 0.8 s of a 1.8 s loop, then rest. Transform only, so
+   nothing shifts; the glow pulses lightly. It stops on hover and keyboard focus so the button's own hover lift works, and under reduced motion. */
+@keyframes pp-heartbeat {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+  14% { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(244, 172, 28, 0.28); }
+  28% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+  42% { transform: scale(1.04); box-shadow: 0 0 0 4px rgba(244, 172, 28, 0.2); }
+  56%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 172, 28, 0); }
+}
+[data-pp-beat] { animation: pp-heartbeat 1.8s ease-in-out infinite; }
+[data-pp-beat]:hover, [data-pp-beat]:focus-visible { animation: none; }
+@media (prefers-reduced-motion: reduce) { [data-pp-beat] { animation: none; } }

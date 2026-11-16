@@ -19,7 +19,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "6d0a0aa4", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-focus.css": "a76a757e", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
   "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
@@ -59,13 +59,11 @@ const VERSIONS: Record<string, string> = {
   "img/about/about-2.webp": "8d3ec232",
   "img/about/about-3.webp": "f4e28038",
   "img/about/about-4.webp": "bc975708",
+  "img/reels/reel-d7e40dca.jpg": "373da1c2",
+  "img/reels/reel-41271ba0.jpg": "f77bdf0e",
+  "img/reels/reel-d9de4a51.jpg": "69a5a925",
+  "img/reels/reel-54990aa4.jpg": "3b642baf",
   "img/reels/reel-1.jpg": "cf79141a",
-  "img/reels/reel-2.jpg": "83a7f8b4",
-  "img/reels/reel-3.jpg": "43aac9d7",
-  "img/reels/reel-4.jpg": "3b1c0a11",
-  "img/reels/reel-5.jpg": "4ba707d2",
-  "img/reels/reel-6.jpg": "10790ca5",
-  "img/reels/reel-7.jpg": "a979b622",
   "js/pack-landing.js": "682f627e", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",

@@ -12,7 +12,7 @@ const PUBLIC = path.join(import.meta.dirname, "..", "public");
 
 test("every listed file exists, and its version is the start of its SHA-256", () => {
   const versions = assetVersions();
-  assert.equal(Object.keys(versions).length, 91); // 80 + the seven "Watch Before You Buy" posters + the four "Barley Authority" photos
+  assert.equal(Object.keys(versions).length, 89); // 80 + the five "Watch Before You Buy" posters + the four "Barley Authority" photos
   for (const [file, version] of Object.entries(versions)) {
     const bytes = readFileSync(path.join(PUBLIC, ASSET_BASE, file));
     assert.equal(version, createHash("sha256").update(bytes).digest("hex").slice(0, 8), file);

@@ -127,11 +127,18 @@ test("the landing page carries the Watch Before You Buy reel carousel before the
   assert.ok(doc.indexOf("Recognized as the Philippines") < reels && reels < doc.indexOf('<section id="the-bundle"'));
   assert.match(doc, /<h2>Watch Before You Buy<\/h2>/);
   const section = doc.slice(reels, doc.indexOf("</section>", reels));
-  assert.equal((section.match(/data-reel-card/g) ?? []).length, 7);
+  assert.equal((section.match(/data-reel-card/g) ?? []).length, 5);
   const guids = [...section.matchAll(/embed\/744094\/([0-9a-f-]{36})\?/g)].map((m) => m[1]);
-  assert.deepEqual(guids, ["9466115c-2583-4570-8ce8-d4ccacae1cee", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8", "8218fd28-4d31-4418-84e6-068349c7c7df", "53d83f5a-771d-4250-a5c6-6a8d47290ebd", "bfa29211-334b-4e09-9f8d-0214da938616", "b9617923-49f4-42b6-9b37-f0a53fa2882e", "39f71444-5e52-4966-9ba3-2cee5a13590d"]);
-  for (const n of [1, 2, 3, 4, 5, 6, 7]) assert.ok(section.includes(`/assets/sante/img/reels/reel-${n}.jpg?v=`), String(n));
-  assert.match(section, /<span data-reel-count>1<\/span> \/ 7/);
+  assert.deepEqual(guids, ["d7e40dca-b2bf-4301-9051-7865ad6352f1", "41271ba0-6628-4655-8ff8-b5d5f02ea17b", "d9de4a51-3484-443a-a624-9bb9520b4a42", "54990aa4-775d-48c1-b85b-bfb50c63f85a", "ffba1527-534e-4c5a-83b0-3ef28f86e5d8"]);
+  for (const gone of ["d49a0f2e", "9466115c", "8218fd28", "53d83f5a", "bfa29211", "b9617923", "39f71444"]) assert.ok(!section.includes(gone), gone);
+  for (const n of ["d7e40dca", "41271ba0", "d9de4a51", "54990aa4", "1"]) assert.ok(section.includes(`/assets/sante/img/reels/reel-${n}.jpg?v=`), n);
+  for (const n of [2, 3, 4, 5, 6, 7]) assert.ok(!section.includes(`reel-${n}.jpg`), String(n));
+  assert.match(section, /<p data-reel-caption class="pp-reels-title"><\/p>/); // the first reel has no title
+  assert.equal((section.match(/data-reel-title=""/g) ?? []).length, 4);
+  assert.match(section, /data-reel-title="Open, mix, enjoy"/);
+  assert.ok(section.lastIndexOf("ffba1527") > section.lastIndexOf("54990aa4")); // Open, mix, enjoy last
+  assert.ok(section.includes('aria-label="Play video 1 with sound"') && section.includes('aria-label="Play video 5 with sound: Open, mix, enjoy"'));
+  assert.match(section, /<span data-reel-count>1<\/span> \/ 5/);
   assert.match(section, /data-reel-prev/);
   assert.match(section, /data-reel-next/);
   assert.match(section, /role="region" aria-roledescription="carousel"/);
@@ -247,4 +254,17 @@ test("round 7: the hero video has a white frame and a green play button (a real 
   const js = readFileSync("public/assets/sante/js/pack-landing.js", "utf8");
   for (const m of ["setCurrentTime", "unmute", "setVolume", "play"]) assert.ok(js.includes(`"${m}"`), m);
   assert.match(js, /e\.origin!==origin/);
+});
+
+test("every order button carries the heartbeat: double-beat keyframes, paused on hover and focus, none under reduced motion", () => {
+  const doc = page(PACK);
+  const buttons = doc.match(/<a href="[^"]*" [^>]*data-pp-beat/g) ?? [];
+  assert.equal(buttons.length, 7); // hero, five in-page, the phone order bar
+  assert.equal((doc.match(/Get 2 Boxes &amp; Unlock My Discount/g) ?? []).length, 7);
+  const css = readFileSync(path.join(import.meta.dirname, "../public/assets/sante/css/pack-focus.css"), "utf8");
+  const keyframes = css.slice(css.indexOf("@keyframes pp-heartbeat"), css.indexOf("[data-pp-beat] {"));
+  assert.deepEqual([...keyframes.matchAll(/transform: scale\(([\d.]+)\)/g)].map((m) => m[1]), ["1", "1.06", "1", "1.04", "1"]);
+  assert.match(css, /\[data-pp-beat\] \{ animation: pp-heartbeat 1\.8s ease-in-out infinite; \}/);
+  assert.match(css, /\[data-pp-beat\]:hover, \[data-pp-beat\]:focus-visible \{ animation: none; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \[data-pp-beat\] \{ animation: none; \} \}/);
 });

@@ -252,8 +252,9 @@ test("Prospects: paging, empty and error states", async () => {
   assert.ok(d.text().includes("No prospects yet."));
 });
 
-test("the card clears the dash's top-right buttons from 900px up, and the search is wide enough for its placeholder", () => {
-  assert.match(CSS, /@media \(min-width: 900px\) \{ \.jr-root \{ margin-top: 56px; \} \}/);
+test("the card clears the dash's top-right buttons (28px) from 900px up and the top bar under it, and the search is wide enough for its placeholder", () => {
+  assert.match(CSS, /@media \(min-width: 900px\) \{ \.jr-root \{ margin-top: 72px; \} \}/);
+  assert.match(CSS, /\*\/\n\.jr-root \{ margin-top: 12px; \}/);
   assert.match(CSS, /\.jr-pr-tools \{[^}]*width: min\(440px, 100%\)/);
 });
 

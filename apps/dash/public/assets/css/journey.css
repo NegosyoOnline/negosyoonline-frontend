@@ -20,8 +20,9 @@
 .jr-root .no-btn { min-height: 44px; }
 .jr-root .jr-ic { width: 18px; height: 18px; flex: 0 0 auto; }
 /* The dash's top-right buttons (quick search, theme, bell) are fixed over the content's first row from 900px up (top 32px, 44px high), and this page has no
-   heading block to leave that room, so the card starts below them. Under 900px they sit in the top bar, in flow. */
-@media (min-width: 900px) { .jr-root { margin-top: 56px; } }
+   heading block to leave that room, so the card starts below them. Under 900px they sit in the top bar, in flow. Gap to the buttons: 32 + 72 - (32 + 44) = 28px; under 900px the page's 16px top padding plus 12px = 28px below the top bar. */
+.jr-root { margin-top: 12px; }
+@media (min-width: 900px) { .jr-root { margin-top: 72px; } }
 @media (max-width: 640px) {
   .jr-root .jr-card { padding: 18px 16px; }
 }

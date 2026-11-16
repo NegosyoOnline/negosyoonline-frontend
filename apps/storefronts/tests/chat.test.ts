@@ -401,6 +401,8 @@ test("the styles: light blue focus, no gold, dark follows the page theme, a full
   assert.match(css, /html\[data-theme="dark"\] \.sw-root/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*\.sw-panel \{ inset: 0;/);
   assert.match(css, /@media \(max-width: 640px\) \{ \.sw-launcher \{[^}]*width: 56px[^}]*\} \.sw-launcher \.sw-lab \{ display: none; \}/);
+  assert.match(css, /\.sw-launcher \{[^}]*box-sizing: border-box; border: 2px solid #FFFFFF;[^}]*box-shadow: 0 0 0 1px rgba\(0,0,0,\.12\)/);
+  assert.match(css, /html\[data-theme="dark"\] \.sw-launcher \{[^}]*border: 2px solid #FFFFFF/);
 });
 
 test("the home links the widget's stylesheet and script, with the store name as an escaped data attribute", () => {

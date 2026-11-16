@@ -29,11 +29,11 @@ body.sw-on .footer { padding-bottom: 104px; }
 @media (max-width: 768px) { body.sw-on .footer { padding-bottom: 104px; } }
 
 /* launcher: "Chat with us" and the icon, bottom right; the icon alone on a phone */
-.sw-launcher { position: fixed; right: 20px; bottom: 20px; z-index: 900; display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 22px 0 18px; border: 0; border-radius: 999px; background: #007A3D; color: #fff; font: 700 15px/1 var(--font, system-ui, sans-serif); box-shadow: 0 8px 24px rgba(0,0,0,.28); cursor: pointer; }
+.sw-launcher { position: fixed; right: 20px; bottom: 20px; z-index: 900; display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 22px 0 18px; box-sizing: border-box; border: 2px solid #FFFFFF; border-radius: 999px; background: #007A3D; color: #fff; font: 700 15px/1 var(--font, system-ui, sans-serif); box-shadow: 0 0 0 1px rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.28); cursor: pointer; }
 .sw-launcher:hover { background: #005B2E; }
 .sw-launcher svg { width: 24px; height: 24px; flex: none; }
 .sw-launcher:focus-visible, .sw-close:focus-visible, .sw-send:focus-visible, .sw-link:focus-visible { outline: 3px solid #6C8CFF; outline-offset: 2px; }
-html[data-theme="dark"] .sw-launcher { background: #00703A; border: 1px solid #5FD39B; }
+html[data-theme="dark"] .sw-launcher { background: #00703A; border: 2px solid #FFFFFF; }
 @media (max-width: 640px) { .sw-launcher { right: 16px; bottom: 16px; width: 56px; padding: 0; justify-content: center; } .sw-launcher .sw-lab { display: none; } }
 
 /* panel: a floating card on a computer, a full-screen sheet on a phone */

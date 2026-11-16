@@ -56,3 +56,11 @@
   .pp-sticky > div > div > p + p { margin-top: 0; }
   .pp-sticky > div > a { flex: 1 1 100%; min-width: 0; white-space: nowrap; }
 }
+
+/* Task z8uq9mfw37 (Coach Ed 2026-11-16 22:19): the three certifications moved from their own section into the hero copy column, in the
+   place of the five benefit icons, which the three items under the button replace. A row that wraps and stays centred on a phone. */
+.pp-hero-certs { display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-start; gap: 1rem; list-style: none; padding: 0; }
+.pp-cert { display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; max-width: 7.5rem; }
+.pp-cert-img { display: block; width: 4.5rem; height: 4.5rem; object-fit: contain; }
+@media (min-width: 40rem) { .pp-hero-certs { justify-content: flex-start; gap: 2rem; } .pp-cert { flex: none; width: 8.5rem; max-width: none; } .pp-cert-img { width: 5rem; height: 5rem; } }
+.pp-hero-trust { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; column-gap: 1.75rem; row-gap: 0.5rem; list-style: none; padding: 0; }

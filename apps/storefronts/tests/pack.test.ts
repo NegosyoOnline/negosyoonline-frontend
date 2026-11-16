@@ -104,6 +104,17 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   assert.equal((doc.match(new RegExp(LABEL, "g")) ?? []).length, 7); // the hero button and the six _cta includes (the phone bar among them)
   assert.match(hero, /data-pp-hero-cta class="[^"]*\bbg-accent-400 text-primary-950 shadow-\[var\(--shadow-cta\)\] hover:bg-accent-300\b/); // the hero button keeps the gold look
   assert.doesNotMatch(doc, /pp-hero-cta-green/);
+  // fix round 4: the certifications sit in the hero copy column, the five benefit icons are gone, three items sit under the button
+  for (const f of ["biogro-certified-organic.png", "halal-idcp.png", "superbrands-philippines-choice.png"]) {
+    assert.equal((doc.match(new RegExp(`img/certifications/${f}`, "g")) ?? []).length, 1, f);
+    assert.ok(hero.includes(`img/certifications/${f}`), f);
+  }
+  for (const cap of ["BioGro NZ Certified Organic", "Halal &mdash; IDCP Philippines", "Superbrands Philippines&rsquo; Choice"]) assert.ok(hero.includes(cap), cap);
+  for (const gone of ["One qualifying purchase", "Lifetime membership<", "No renewal fees", "No monthly quotas", "No maintenance purchases"]) assert.ok(!hero.includes(gone), gone);
+  assert.doesNotMatch(doc, /Certifications carried by/);
+  assert.ok(hero.indexOf("pp-hero-certs") < hero.indexOf("pp-hero-cta ")); // phone order: copy with the certifications, the button row, the video, the photo
+  const trust = hero.slice(hero.indexOf("pp-hero-trust"), hero.indexOf("</ul>", hero.indexOf("pp-hero-trust")));
+  for (const label of ["Free Shipping Nationwide", "One-Time Purchase", "Lifetime Membership"]) assert.ok(trust.includes(label), label);
 });
 
 test("the landing page, order button off: only the message, no link, no phone bar", () => {

@@ -211,7 +211,7 @@ ${e.error_message && !Object.keys(fe).length ? html`<div class="note bad" role="
 <input type="hidden" name="submit_key" value="${posted.submit_key ?? ""}">
 <div class="pk-grid">
 <div class="fld"><label for="pk-acct">Account you paid to</label>
-<select id="pk-acct" class="inp${bad(fe, "account_id")}" name="account_id"${aria(fe, "account_id", "pk-acct")}>
+<select id="pk-acct" class="inp${bad(fe, "account_id")}" name="account_id" data-pk-select data-placeholder="Choose an account"${aria(fe, "account_id", "pk-acct")}>
 <option value="">Choose an account</option>
 ${lock.accounts.map((a) => html`<option value="${a.id}"${posted.account_id === a.id ? html` selected` : ""}>${a.provider_name} · ${a.account_name}</option>`)}
 </select>

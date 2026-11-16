@@ -153,5 +153,5 @@
   .pp-hero-lede { order: 4; }
   .pp-hero-cta { order: 5; }
   .pp-hero-certs { order: 6; }
-  .pp-hero-photo { order: 7; }
+  .pp-hero-photo { display: none; } /* fix round 6: no photo on a phone (its <picture> also gives phones an empty source, so it is not downloaded) */
 }

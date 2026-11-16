@@ -192,8 +192,12 @@ test("the phone hero order is set by CSS under 40rem: label, headline, video, li
   const phone = css.slice(css.indexOf("@media (max-width: 39.99rem) {\n  .pp-hero {"));
   assert.match(phone, /\.pp-hero-body, \.pp-hero-copy \{ display: contents; \}/);
   const order = (cls: string) => Number(phone.match(new RegExp(`\\.${cls} \\{[^}]*order: (\\d)`))?.[1]);
-  const seq = ["pp-hero-label", "pp-hero-h1", "pp-hero-video", "pp-hero-lede", "pp-hero-cta", "pp-hero-certs", "pp-hero-photo"].map(order);
-  assert.deepEqual(seq, [1, 2, 3, 4, 5, 6, 7]);
+  const seq = ["pp-hero-label", "pp-hero-h1", "pp-hero-video", "pp-hero-lede", "pp-hero-cta", "pp-hero-certs"].map(order);
+  assert.deepEqual(seq, [1, 2, 3, 4, 5, 6]);
+  assert.match(phone, /\.pp-hero-photo \{ display: none;/); // round 6: the photo block is gone on a phone
+  const hero = page(PACK);
+  assert.match(hero, /<picture><source media="\(max-width: 39\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img src="[^"]*hero-nz-tall-2000\.webp[^"]*" srcset="[^"]*1400w[^"]*2000w"[^>]*fetchpriority="high"[^>]*><\/picture>/);
+  assert.match(hero, /<span aria-hidden="true" class="pp-hero-blur hidden desk:block"><picture><source media="\(max-width: 63\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img [^>]*loading="lazy"><\/picture><\/span>/);
   const doc = page(PACK);
   for (const cls of ["pp-hero-label", "pp-hero-h1", "pp-hero-lede", "pp-hero-certs", "pp-hero-cta", "pp-hero-video", "pp-hero-photo"]) assert.equal((doc.match(new RegExp(`class="${cls}[ "]`, "g")) ?? []).length, 1, cls);
   assert.equal((doc.match(/<iframe\b/g) ?? []).length, 1); // one player, no duplicated markup

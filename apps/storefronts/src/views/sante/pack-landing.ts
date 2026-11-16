@@ -68,8 +68,8 @@ export function landingContent(c: PackCtx): Markup {
   </div>
 
   <div class="pp-hero-photo relative mt-10 desk:[grid-area:1/1] desk:mt-0">
-    <img src="${asset("img/hero-nz-tall-2000.webp")}" srcset="${asset("img/hero-nz-tall-1400.webp")} 1400w, ${asset("img/hero-nz-tall-2000.webp")} 2000w" sizes="(min-width: 64rem) min(125vw, 139rem), (min-width: 40rem) 130vw, 194vw" alt="Two boxes and two sachets of Santé Barley Powder with a glass of barley drink, in front of New Zealand mountains. Goodness from New Zealand. With stevia." width="2000" height="1200" fetchpriority="high" class="block desk:absolute desk:h-[var(--pp-h)] desk:w-[var(--pp-w)]">
-    <span aria-hidden="true" class="pp-hero-blur hidden desk:block"><img src="${asset("img/hero-nz-tall-1400.webp")}" alt="" width="1400" height="840"></span>
+    <picture><source media="(max-width: 39.99rem)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img src="${asset("img/hero-nz-tall-2000.webp")}" srcset="${asset("img/hero-nz-tall-1400.webp")} 1400w, ${asset("img/hero-nz-tall-2000.webp")} 2000w" sizes="(min-width: 64rem) min(125vw, 139rem), (min-width: 40rem) 130vw, 194vw" alt="Two boxes and two sachets of Santé Barley Powder with a glass of barley drink, in front of New Zealand mountains. Goodness from New Zealand. With stevia." width="2000" height="1200" fetchpriority="high" class="block desk:absolute desk:h-[var(--pp-h)] desk:w-[var(--pp-w)]"></picture>
+    <span aria-hidden="true" class="pp-hero-blur hidden desk:block"><picture><source media="(max-width: 63.99rem)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"><img src="${asset("img/hero-nz-tall-1400.webp")}" alt="" width="1400" height="840" loading="lazy"></picture></span>
     <span aria-hidden="true" class="pp-hero-fade-l hidden desk:block"></span>
     <span aria-hidden="true" class="pp-hero-fade-r hidden desk:block"></span>
     <span aria-hidden="true" class="absolute inset-x-0 bottom-0 hidden h-1/3 bg-gradient-to-t from-white to-transparent desk:block"></span>

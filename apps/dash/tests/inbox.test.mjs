@@ -20,6 +20,15 @@ const REF2 = "104829384756123_7000000000002";
 const FAKE_TOKEN = "fake-token-0000000000000000000000";
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
+/* A fixed clock for this whole file (task z8uq9mfvx7): the page shows "today, H:MM" or a date form depending on the Manila time of day,
+   so a real clock made tests fail in the evening. Date() and Date.now() answer 10:00 Manila (02:00 UTC) on 2026-11-16 unless
+   INBOX_TEST_NOW (an ISO instant) moves it, which is how the evening case is checked. Every test file runs in its own process. */
+const FIXED_NOW = Date.parse(process.env.INBOX_TEST_NOW || "2026-11-16T02:00:00Z");
+const RealDate = Date;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0) super(FIXED_NOW); else super(...a); }
+  static now() { return FIXED_NOW; }
+};
 const iso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60000).toISOString();
 
 const CONN_NONE = { provider: "pancake", status: "unset", page_id: "", label: "", token_set: false, last_test: null };

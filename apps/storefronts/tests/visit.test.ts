@@ -41,6 +41,7 @@ test("visitBegin, visitEvent and visitContact post to their Django routes and re
 test("the landing page carries the one visitor script, and no Meta or third-party call is made from it", () => {
   const page = landingDocument(packContext(SITE, { price_centavos: 148800, currency: "PHP", available: true, agreement: null, payment_accounts: [] } as never, new Date())).value;
   assert.equal([...page.matchAll(/src="\/assets\/sante\/js\/pack-visit\.js\?v=[0-9a-f]{8}"/g)].length, 1);
+  assert.match(page, /<iframe[^>]*src="https:\/\/player\.mediadelivery\.net\//, "the merged hero still has the video the visit script finds");
   const visit = readFileSync(path.join(JS, "pack-visit.js"), "utf8");
   assert.ok(visit.includes("/funnel/membership-pack/visit/") && visit.includes("localStorage") && !/document\.cookie|fbq|facebook/.test(visit));
   assert.ok(visit.includes('iframe[src*="mediadelivery.net"]'), "the video is found by its address, not its place");

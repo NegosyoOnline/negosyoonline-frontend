@@ -21,6 +21,7 @@ import type { Markup } from "./html.ts";
 export const ORDER_ID = /^mol_[A-Za-z0-9_-]{1,60}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const NOT_SAVED = "Your order could not be saved. Please try again shortly.";
+const PAYMENTS: string[] = ["cod", "prepaid"];
 const FULL = "Your log is full.";
 
 const manilaDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -54,8 +55,8 @@ async function gate(d: Dash): Promise<Gate> {
   return { name: s.member.full_name };
 }
 
-function page(d: Dash, name: string, title: string, content: Markup, status = 200, form = false): Response {
-  const select = form ? { scripts: ["js/pack-select.js"], styles: ["css/pack-select.css"] } : { scripts: [], styles: [] };
+function page(d: Dash, name: string, title: string, content: Markup, status = 200): Response {
+  const select = { scripts: ["js/pack-select.js"], styles: ["css/pack-select.css"] };
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title, member: name, current: "orders", content, ...select }), status);
 }
 
@@ -80,7 +81,7 @@ export async function ordersPage(d: Dash): Promise<Response> {
 
 function formPage(d: Dash, name: string, p: Partial<FormPage> & { id: string | null; values: OrderFields }, status = 200): Response {
   const full: FormPage = { field_errors: {}, error_message: "", today: todayOf(d), ...p };
-  return page(d, name, p.id === null ? "Add order" : "Edit order", orderFormContent(full), status, true);
+  return page(d, name, p.id === null ? "Add order" : "Edit order", orderFormContent(full), status);
 }
 
 /** The typed values, as typed (trimmed): they go back into the form on an error and to the backend on a save. */
@@ -102,10 +103,20 @@ function refusedForm(d: Dash, name: string, id: string | null, values: OrderFiel
   return formPage(d, name, { id, values, field_errors: known, error_message: message }, r.status === 429 ? 429 : r.status === 409 && r.code === "order_log_full" ? 409 : 400);
 }
 
+/** Payment and Status must be chosen: an empty choice is answered here with a plain message, with no call to the backend. */
+function unchosen(values: OrderFields): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!PAYMENTS.includes(values.payment)) out.payment = "Choose a payment.";
+  if (!(STATUSES as readonly string[]).includes(values.status)) out.status = "Choose a status.";
+  return out;
+}
+
 export async function orderAddPost(d: Dash, text: Record<string, string>): Promise<Response> {
   const g = await gate(d);
   if ("response" in g) return g.response;
   const values = typed(text);
+  const missing = unchosen(values);
+  if (Object.keys(missing).length) return formPage(d, g.name, { id: null, values, field_errors: missing, error_message: MSG_CHECK_FIELDS }, 400);
   const r = await memberOrderCreate({ ...who(d), fields: values }, d.calls);
   if (r.state === "ok") return redirect(`${ORDERS_PATH}?saved=added`);
   if (r.state === "unavailable") return neutralNotFound();
@@ -128,6 +139,8 @@ export async function orderEditPost(d: Dash, id: string, text: Record<string, st
   const g = await gate(d);
   if ("response" in g) return g.response;
   const values = typed(text);
+  const missing = unchosen(values);
+  if (Object.keys(missing).length) return formPage(d, g.name, { id, values, field_errors: missing, error_message: MSG_CHECK_FIELDS }, 400);
   const r = await memberOrderUpdate({ ...who(d), id, fields: values }, d.calls);
   if (r.state === "ok") return redirect(`${ORDERS_PATH}?saved=updated`);
   if (r.state === "unavailable") return neutralNotFound(); // missing, or not this member's: the same answer

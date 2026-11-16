@@ -174,8 +174,8 @@ function toolbar(p: ListPage): Markup {
   <form method="get" action="${ORDERS_PATH}" role="search">
     ${f.status ? html`<input type="hidden" name="status" value="${f.status}">` : ""}
     <div class="fld mo-q"><label for="mo-q">Search</label><input id="mo-q" class="inp" type="search" name="q" maxlength="60" value="${f.q ?? ""}" placeholder="PH number or customer first name"></div>
-    <div class="fld"><label for="mo-from">From</label><input id="mo-from" class="inp" type="date" name="from" value="${f.date_from ?? ""}"></div>
-    <div class="fld"><label for="mo-to">To</label><input id="mo-to" class="inp" type="date" name="to" value="${f.date_to ?? ""}"></div>
+    <div class="fld"><label for="mo-from">From</label><input id="mo-from" class="inp" type="date" name="from" value="${f.date_from ?? ""}" data-pk-date data-placeholder="From date"></div>
+    <div class="fld"><label for="mo-to">To</label><input id="mo-to" class="inp" type="date" name="to" value="${f.date_to ?? ""}" data-pk-date data-placeholder="To date"></div>
     <button class="btn ghost" type="submit">Search</button>
   </form>
   <div class="mo-actions">
@@ -249,7 +249,7 @@ export type FormPage = {
   today: string;
 };
 
-export const EMPTY_ORDER = (today: string): OrderFields => ({ order_number: "", ordered_on: today, customer_first_name: "", city: "", payment: "cod", total: "", status: "for_approval" });
+export const EMPTY_ORDER = (today: string): OrderFields => ({ order_number: "", ordered_on: today, customer_first_name: "", city: "", payment: "", total: "", status: "" });
 
 const OPTIONS = {
   payment: [["cod", "COD"], ["prepaid", "Prepaid"]],
@@ -269,7 +269,8 @@ function select(p: FormPage, name: "payment" | "status", label: string): Markup 
   const msg = p.field_errors[name];
   const id = `mo-${name}`;
   return html`<div class="fld"><label for="${id}">${label}</label>
-<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select data-pk-select-nofilter required${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
+<select id="${id}" class="inp${msg ? " bad" : ""}" name="${name}" data-pk-select data-pk-select-nofilter data-placeholder="${label}"${msg ? html` aria-invalid="true" aria-describedby="${id}-msg"` : ""}>
+<option value="">${label}</option>
 ${OPTIONS[name].map(([v, l]) => html`<option value="${v}"${p.values[name] === v ? safe(" selected") : ""}>${l}</option>`)}
 </select>
 ${msg ? html`<p class="err" id="${id}-msg">${msg}</p>` : ""}</div>`;
@@ -283,7 +284,7 @@ export function orderFormContent(p: FormPage): Markup {
 ${p.error_message ? html`<div class="note bad" role="alert">${p.error_message}</div>` : ""}
 <form method="post" action="${action}">
 ${input(p, "order_number", "PH #", html` maxlength="32" autocapitalize="characters" autocomplete="off" placeholder="PH-000123"`)}
-${input(p, "ordered_on", "Order date", html` type="date" min="2007-01-01" max="${p.today}"`)}
+${input(p, "ordered_on", "Order date", html` type="date" min="2007-01-01" max="${p.today}" data-pk-date data-placeholder="Order date"`)}
 ${input(p, "customer_first_name", "Customer first name", html` maxlength="60" autocomplete="off"`)}
 ${input(p, "city", "City", html` maxlength="80" autocomplete="off"`)}
 ${select(p, "payment", "Payment")}

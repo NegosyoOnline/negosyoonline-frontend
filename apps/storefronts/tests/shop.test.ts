@@ -368,6 +368,19 @@ test("a guest's payment step: the store's account, the amount to send, the proof
   assert.match(page, /Landmark: Near the church/);
 });
 
+test("two accounts: 'Account you paid to' is the house dropdown, restores the posted value and shows its error", async () => {
+  const acc2 = { ...ACCOUNT, id: "acc_2", provider_name: "GCash", kind: "ewallet", account_name: "Demo Store 2" };
+  const b = backend({ accounts: [ACCOUNT, acc2] });
+  const page = await text((await checkoutPost(shop(b, `no_cart=${P1.id}.2`), { ...ADDR, action: "address" }, null)) as Response);
+  assert.match(page, /<select id="sfProofAccount" name="account_id" data-pk-select data-placeholder="Choose an account">/);
+  assert.match(page, /<option value="">Choose an account<\/option>/);
+  assert.doesNotMatch(page, /<option value="acc_\d"[^>]* selected/);
+  const placed = await text((await checkoutPost(shop(backend({ accounts: [ACCOUNT, acc2], placeStatus: 400, placeBody: { error: { code: "invalid", message: "Nope.", fields: { account_id: "Choose the account you paid to." } } } }), `no_cart=${P1.id}.2`), { ...ADDR, action: "place", fingerprint: "x", submit_key: "k", account_id: "acc_2", reference_number: "R", amount_sent: "1" }, null)) as Response);
+  assert.match(placed, /<option value="acc_2" selected>/);
+  assert.match(placed, /data-placeholder="Choose an account" class="sf-field-invalid"/);
+  assert.match(placed, /Choose the account you paid to\./);
+});
+
 test("placing sends ids, mode, address and the proof, no price; success sets the order cookie, clears the cart and goes to done", async () => {
   const b = backend();
   const proof = new File([new Uint8Array([1, 2, 3])], "proof.png", { type: "image/png" });

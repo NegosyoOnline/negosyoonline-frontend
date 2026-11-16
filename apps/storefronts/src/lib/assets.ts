@@ -19,8 +19,8 @@ const VERSIONS: Record<string, string> = {
   "css/pack-dashboard.css": "877a70b1",
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
-  "css/pack-focus.css": "9ad9af0d", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
-  "css/pack-member-bar.css": "112cd323", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "css/pack-focus.css": "bbc3d1a0", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
+  "css/pack-member-bar.css": "d70cb34c", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
@@ -31,7 +31,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "80d50155",
   "css/pack-select.css": "aac04c44",
-  "css/pack-shop.css": "bc0c601f", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
+  "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
   "img/bundle-1.webp": "79f1b43a",
@@ -40,11 +40,11 @@ const VERSIONS: Record<string, string> = {
   "img/certifications/biogro-certified-organic.png": "147c9dfc",
   "img/certifications/halal-idcp.png": "b6a42b13",
   "img/certifications/superbrands-philippines-choice.png": "03f8b26e",
-  "img/hero-nz-tall-40pct-1400.webp": "984af07f",
-  "img/hero-nz-tall-40pct-2000.webp": "fc680919",
+  "img/hero-nz-clean-1400.webp": "116d1c9c",
+  "img/hero-nz-clean-2000.webp": "ff4d3e4b",
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
-  "js/pack-select.js": "3556a132",
+  "js/pack-select.js": "31a2768f",
   "js/pack-checkout.js": "cbfb3795", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",
@@ -55,9 +55,19 @@ const VERSIONS: Record<string, string> = {
   "data/barangays.json": "4f4439a8",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
+  "img/about/about-1.webp": "7bebaeeb",
+  "img/about/about-2.webp": "8d3ec232",
+  "img/about/about-3.webp": "f4e28038",
+  "img/about/about-4.webp": "bc975708",
+  "img/reels/reel-d49a0f2e.jpg": "b34a294d",
+  "img/reels/reel-d7e40dca.jpg": "373da1c2",
+  "img/reels/reel-41271ba0.jpg": "f77bdf0e",
+  "img/reels/reel-d9de4a51.jpg": "69a5a925",
+  "img/reels/reel-54990aa4.jpg": "3b642baf",
+  "img/reels/reel-1.jpg": "cf79141a",
   "js/pack-visit.js": "3b49b61a", // this storefront's own file: the landing page visitor ref and the video marks (ClickUp z8uq9mfw14)
   "js/player.min.js": "48c4f991", // Player.js v0.0.11 (embedly, MIT), the copy TWCinc ships, self-hosted so script-src stays 'self'
-  "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
+  "js/pack-landing.js": "625c300d", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
   "img/fda-philippines.png": "ee97c331",

@@ -74,9 +74,9 @@ function render(
   const posted = { ...(over.posted ?? {}), submit_key: randomBytes(12).toString("base64url") };
   const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted, terms, order });
   const locked = !!pack?.lock;
-  const scripts = [...(locked ? HOME_SCRIPTS : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
+  const scripts = [...(locked ? ["js/pack-select.js", ...HOME_SCRIPTS] : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
   const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${pack ? panels : noPurchaseCard()}</div>`;
-  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Purchases", member: member.full_name, current: "purchases", content, scripts }), status);
+  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Purchases", member: member.full_name, current: "purchases", content, scripts, styles: locked ? ["css/pack-select.css"] : [] }), status);
 }
 
 /** The Home: the hero, the Announcements & promos panel (nothing when there are none) and the slots M3 fills. A member whose order

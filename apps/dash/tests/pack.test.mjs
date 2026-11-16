@@ -44,7 +44,7 @@ function poDocument() {
   return doc;
 }
 
-function boot({ rows = ROWS, listStatus = 200, detail = DETAIL, proofStatus = 200, decideStatus = 200, decideBody, search = "" } = {}) {
+function boot({ rows = ROWS, listStatus = 200, listBody, detail = DETAIL, proofStatus = 200, decideStatus = 200, decideBody, search = "" } = {}) {
   const doc = poDocument(), calls = [], toasts = [], opened = [];
   const page = doc.body.appendChild(doc.createElement("div"));
   const tabs = doc.createElement("nav"); tabs.setAttribute("id", "orders-tabs"); page.appendChild(tabs);
@@ -58,7 +58,7 @@ function boot({ rows = ROWS, listStatus = 200, detail = DETAIL, proofStatus = 20
     const m = /^\/sites\/site_[0-9a-z]{20}\/pack\/orders\/(?:([a-z0-9_]+)\/(?:(approve|reject|shipment\/correct|shipment|delivery)\/|proofs\/([a-z0-9_]+)\/)?)?(?:\?filter=(\w+))?$/.exec(p);
     if (p === "/sites/") return res(200, { items: [{ id: A, template: "sante" }], next_cursor: null });
     if (!m) return res(404, { error: { code: "not_found", message: "Not found." } });
-    if (!m[1]) return res(listStatus, listStatus === 200 ? { orders: state.rows } : { error: { code: "x", message: "Broken." } });
+    if (!m[1]) return res(listStatus, listStatus === 200 ? { orders: state.rows } : listBody || { error: { code: "x", message: "Broken." } });
     if (m[3]) return proofStatus === 200 ? res(200, {}) : res(proofStatus, {});
     if (m[2]) {
       if (decideStatus !== 200) return res(decideStatus, decideBody || { error: { code: "stale", message: "Stale." } });
@@ -157,9 +157,18 @@ test("states: empty (also a site with no package: 404), error with Try again, an
   await broken.show();
   assert.ok(broken.body.textContent.includes("We could not load your orders"));
   assert.equal(broken.cls(broken.body, "po-err")[0].getAttribute("role"), "alert");
+  assert.ok(broken.body.textContent.includes("Check your connection, then try again."), "a plain failure keeps the connection text");
   broken.press(broken.body, "Try again").fire("click");
   await settle();
   assert.equal(broken.calls.filter((c) => c.path === "/sites/").length, 2, "Try again reads again");
+
+  /* Billing-only (G4, z8uq9mfvgn): the API's 403 sentence is shown instead of the connection text. */
+  const SENTENCE = "Your site is limited to Billing right now. Open Billing to see what is needed.";
+  const only = boot({ listStatus: 403, listBody: { error: { code: "billing_only", message: SENTENCE } } });
+  await only.show();
+  assert.ok(only.body.textContent.includes("We could not load your orders"));
+  assert.ok(only.body.textContent.includes(SENTENCE), "the API's Billing sentence is shown");
+  assert.ok(!only.body.textContent.includes("Check your connection"), "not the connection advice");
 
   const d = boot();
   await d.show();

@@ -85,6 +85,11 @@ test("the bar's files are listed assets, the script has no inline form, and the 
   assert.match(css, /max-width: min\(1600px, calc\(50vw \+ 620px\)\)/);
   assert.match(css, /padding: 24px 15px 40px/);
   assert.match(css, /html\[data-theme="dark"\]/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-box \{ background: #17201B/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-panel/);
+  assert.match(css, /\.e4 \.pk-date-box \{ background: #fff; border: 1\.5px solid #dee2e6/);
+  assert.match(css, /html\[data-theme="dark"\] \.e4 \.pk-date-cell\.is-disabled/);
+  assert.match(css, /\.e4 \.pk-date-cell\.is-disabled/);
   assert.match(js, /no-member-theme/);
   assert.match(js, /localStorage/);
   assert.match(js, /\/dashboard\/notifications\/read-all\//);
@@ -143,6 +148,19 @@ test("My Purchases holds the Membership Pack payment card, and the rejected orde
   assert.match(lock, /<dialog class="pk-dlg" id="pk-lock" open/);
   const gone = await (await home({ "member/me": [ME], "member/pack": [ok({ pack, registration: null })], "member/notices": [ok({ notices: [] })] })).text();
   assert.doesNotMatch(gone, /SP-1001|Membership Pack/);
+});
+
+test("The rejected-payment dialog has a dark rule for its card and contents, before and after resubmit", async () => {
+  const resub = ok({ pack: { ...(LOCKED.body as { pack: Record<string, unknown> }).pack, lock: { reason_label: "Amount does not match", other_text: "", resubmitted: true, accounts: [] } }, registration: null });
+  for (const reply of [LOCKED, resub]) {
+    const body = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [reply] })))).text();
+    assert.match(body, /<dialog class="pk-dlg" id="pk-lock" open/);
+    assert.match(body, /\.pk-dlg\{[^}]*background:#fff/); // light mode unchanged
+    assert.match(body, /html\[data-theme="dark"\] \.pk-dlg\{background:#17201B;color:#E6EDE9/);
+    for (const sel of [".pk-dlg-head", ".pk-dlg .pk-reason", ".pk-dlg .note.info", ".pk-dlg .pk-file", ".pk-dlg .pk-linkbtn", ".pk-dlg .pk-select-box", ".pk-dlg .pk-select-panel"]) {
+      assert.ok(body.includes(`html[data-theme="dark"] ${sel}`), `dark rule for ${sel}`);
+    }
+  }
 });
 
 test("My Purchases: a member with no pack sees the empty-state sentence, a member with a pack does not", async () => {

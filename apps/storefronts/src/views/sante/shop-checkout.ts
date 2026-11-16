@@ -354,7 +354,7 @@ function paymentPanel(m: CheckoutModel, total: number): Markup {
               ${many ? html`
               <div class="sf-field">
                 <label for="sfProofAccount">Account you paid to *</label>
-                <select id="sfProofAccount" name="account_id"${m.field_errors.account_id ? html` class="sf-field-invalid"` : ""}>
+                <select id="sfProofAccount" name="account_id" data-pk-select data-placeholder="Choose an account"${m.field_errors.account_id ? html` class="sf-field-invalid"` : ""}>
                   <option value="">Choose an account</option>
                   ${accounts.map((a) => html`<option value="${a.id}"${p.account_id === a.id ? html` selected` : ""}>${a.provider_name}${a.kind === "bank" && typeLabel(a) ? ` (${typeLabel(a)})` : ""} &middot; ${a.account_name}</option>`)}
                 </select>

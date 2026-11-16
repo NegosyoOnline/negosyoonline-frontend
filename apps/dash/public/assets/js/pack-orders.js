@@ -21,7 +21,7 @@
   function MR() { return window.NOMemberRecovery || null; } /* member-recovery.js loads after this file (ClickUp z8uq9mek5y) */
   function REG() { return window.NORegistrations || null; } /* registrations.js (ClickUp z8uq9meyqj) */
 
-  function fresh() { return { site: null, tab: "pack", filter: null, q: "", draft: "", rows: [], listState: "loading", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
+  function fresh() { return { site: null, tab: "pack", filter: null, q: "", draft: "", rows: [], listState: "loading", listMsg: "", open: {}, details: {}, proofSel: {}, proofErr: {}, price: {}, dlg: null, busy: false }; }
   S = fresh();
 
   function byId(id) { return document.getElementById(id); }
@@ -108,7 +108,7 @@
     return D.call("GET", base() + "?filter=all", null, true).then(function (r) {
       if (mine !== token || r.status === 401) return;
       if (r.status === 404) { S.rows = []; S.listState = "empty"; render(); return; } /* not a Santé site, or the package is off: nothing to review */
-      if (!r.ok) { if (!quiet) { S.listState = "error"; render(); } return; }
+      if (!r.ok) { if (!quiet) { S.listState = "error"; S.listMsg = r.status === 403 ? msg(r, "") : ""; render(); } return; } /* 403 billing_only: the API's own sentence */
       S.rows = Array.isArray(r.data.orders) ? r.data.orders : [];
       S.listState = S.rows.length ? "ok" : "empty"; render();
       deepLink();
@@ -401,7 +401,7 @@
       cb2.addEventListener("click", function () { S.q = ""; S.draft = ""; render(); }); root.appendChild(add(cl2, cb2));
     }
     if (S.listState === "loading") { root.appendChild(skel(3, 4)); return; }
-    if (S.listState === "error") { root.appendChild(errBox("We could not load your orders", "Check your connection, then try again.", load)); return; }
+    if (S.listState === "error") { root.appendChild(errBox("We could not load your orders", S.listMsg || "Check your connection, then try again.", load)); return; }
     var queue = ok ? S.rows.filter(function (o) { return keyOf(o) === "review" && matches(o, S.q); }) : [];
     if (queue.length) {
       root.appendChild(add(h("div", "mc-queue-head"), h("span", "mc-queue-title", "Payment review queue"), h("span", "mc-queue-sub", "newest proof first")));

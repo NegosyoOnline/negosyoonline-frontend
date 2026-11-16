@@ -95,8 +95,10 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   assert.ok(hero.includes(iframes[0]));
   assert.ok(hero.indexOf("pp-hero-video") > hero.indexOf("data-pp-hero-cta") && hero.indexOf("pp-hero-video") < hero.indexOf("pp-hero-photo")); // phone: text and button, video, photo
   assert.doesNotMatch(doc, /From Nature to a Healthier You|Pure\. Natural\. Trusted\./);
-  assert.match(hero, /<div class="mt-10 tab:mt-12 text-center">\s*<div class="flex flex-col items-center tab:inline-flex">\s*<a href="\/funnel\/membership-pack\/checkout\/" data-pp-hero-cta[^>]*>Get the Membership Pack/);
+  assert.match(hero, /<div class="mt-10 tab:mt-12 text-center">\s*<div class="flex flex-col items-center tab:inline-flex">\s*<a href="\/funnel\/membership-pack\/checkout\/" data-pp-hero-cta[^>]*>Get 2 Boxes &amp; Unlock My Discount<svg/);
   assert.match(hero, /Free Shipping Nationwide/);
+  assert.doesNotMatch(hero, /Get the Membership Pack/); // the hero button has its own label; the six _cta buttons keep theirs
+  assert.equal((doc.match(/Get the Membership Pack/g) ?? []).length, 6); // the six _cta includes (the phone bar among them)
 });
 
 test("the landing page, order button off: only the message, no link, no phone bar", () => {

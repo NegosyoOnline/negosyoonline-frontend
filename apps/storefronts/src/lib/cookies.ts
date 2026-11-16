@@ -7,6 +7,7 @@
    no_checkout     the checkout token, 2 hours, sliding (set by the checkout slice; the name and lifetime live here)
    no_cart         the shop basket: product id and quantity only ("id.qty~id.qty"), 7 days, sliding (src/lib/shop-cart.ts)
    no_order        the placing buyer's key to the order-done page ("orderid.token"), 2 hours (src/lib/shop-flow.ts)
+   no_chat         the website chat visitor's secret (43 characters), 30 days idle: every chat answer sets it again (src/lib/chat-flow.ts)
 
    The raw value goes to Django as data, which stores only its SHA-256. Reading is by exact name: a name that
    arrives twice is refused (a sibling host could have set the second), and so is a value of the wrong shape. */
@@ -18,12 +19,14 @@ export const CHECKOUT = "no_checkout";
 
 export const CART = "no_cart";
 export const ORDER = "no_order";
+export const CHAT = "no_chat";
 
 export const MEMBER_MAX_AGE = 30 * 24 * 3600;
 export const MEMBER_PRE_MAX_AGE = 600;
 export const CHECKOUT_MAX_AGE = 2 * 3600;
 export const CART_MAX_AGE = 7 * 24 * 3600;
 export const ORDER_MAX_AGE = 2 * 3600;
+export const CHAT_MAX_AGE = 30 * 24 * 3600;
 
 const VALUE = /^[A-Za-z0-9_-]{16,200}$/; // what Django accepts as a binding, and what the tokens look like
 

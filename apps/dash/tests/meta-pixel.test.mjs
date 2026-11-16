@@ -87,10 +87,16 @@ test("not connected: the empty form, a disabled Test button, an empty events lis
   assert.equal(root.getAttribute("aria-busy"), null);
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Meta Pixel and Conversions API", "Last events"]);
   assert.equal(d.all(root, "chip")[0].textContent, "Not connected");
-  assert.deepEqual(d.all(root, "pm-label").map((l) => l.textContent), ["Pixel ID", "Access token", "Test event code"]);
+  assert.deepEqual(d.all(root, "pm-label").map((l) => l.textContent), ["Pixel ID", "Test event code", "Access token"]);
   assert.equal(d.$("mp-access_token").getAttribute("type"), "password");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Save", "Test connection"]);
+  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["?", "Save", "Test connection"]);
   assert.equal(d.press(root, "Test connection").disabled, true);
+  const TIP = "From the Test events tab in Events Manager. The connection test sends one event with this code, so it never touches your live numbers.";
+  const q = d.press(root, "?");
+  assert.equal(q.getAttribute("data-tip"), TIP);
+  assert.equal(q.getAttribute("type"), "button");
+  assert.ok(!root.textContent.includes("The test needs a saved Pixel ID"));
+  assert.ok(!root.textContent.includes(TIP));
   assert.ok(root.textContent.includes("No events yet."));
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false]);
 });
@@ -110,7 +116,7 @@ test("saving sends the three values once, empties the token box, and shows Saved
   assert.ok(root.textContent.includes("Saved"));
   assert.ok(!root.textContent.includes(FAKE_TOKEN), "the token is not on the page");
   assert.equal(d.$("mp-access_token"), null, "no token box while a token is saved");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Replace", "Remove", "Save", "Test connection"]);
+  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["?", "Replace", "Remove", "Save", "Test connection"]);
   assert.equal(d.press(root, "Test connection").disabled, false, "all three are saved, so the test is open");
   assert.deepEqual(d.toasts, ["Saved: Your Meta Pixel settings were saved."]);
 });
@@ -192,7 +198,7 @@ test("Replace opens a new token box, Cancel puts the saved row back; Remove asks
   const d = boot({ conn: FULL });
   await d.open();
   await d.click(d.press(d.$("mp-root"), "Replace"));
-  assert.deepEqual(d.all(d.$("mp-root"), "pm-label").map((l) => l.textContent), ["Pixel ID", "New access token", "Test event code"]);
+  assert.deepEqual(d.all(d.$("mp-root"), "pm-label").map((l) => l.textContent), ["Pixel ID", "Test event code", "New access token"]);
   await d.click(d.press(d.$("mp-root"), "Cancel"));
   assert.equal(d.$("mp-access_token"), null);
   const remove = d.press(d.$("mp-root"), "Remove");

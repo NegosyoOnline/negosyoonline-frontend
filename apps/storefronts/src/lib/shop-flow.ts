@@ -127,7 +127,7 @@ export async function productsGet(s: Shop): Promise<Response> {
   const category = CATEGORIES.some((c) => c.value === asked) ? asked : "";
   const b = await basketOf(s, readCart(s.request), products[0] ?? null);
   const shown = category ? products.filter((p) => p.category === category) : products;
-  return page(s, b, products, { title: "Products", content: productsContent({ products: shown, category, members: b.members, message: "", app: appOf(s, b) }) });
+  return page(s, b, products, { title: "Products", chat: true, content: productsContent({ products: shown, category, members: b.members, message: "", app: appOf(s, b) }) });
 }
 
 /** One product by its code (the list is 18 rows, so there is no second route: plan R2). */
@@ -148,7 +148,7 @@ export async function productGet(s: Shop, code: string): Promise<Response> {
   const pages = Number.isInteger(asked) ? Math.min(MAX_REVIEW_PAGES, Math.max(1, asked)) : 1;
   const reviews = await reviewsOf(s, product.id, pages);
   return page(s, b, products, {
-    title: product.name, css: [REVIEWS_CSS],
+    title: product.name, css: [REVIEWS_CSS], chat: true,
     content: productContent({ product, related, members: b.members, packOn: pack !== null, app: appOf(s, b), reviews: reviews?.page ?? null, moreHref: `/products/${encodeURIComponent(product.code)}/?reviews=${(reviews?.loaded ?? 1) + 1}#reviews` }),
   });
 }

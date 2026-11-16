@@ -7,6 +7,7 @@ import { localMediaOrigin } from "../../lib/local-media.ts";
 import type { CartLine } from "../../lib/shop-cart.ts";
 import { countOf } from "../../lib/shop-cart.ts";
 import type { Quote } from "../../lib/shop-api.ts";
+import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
 import { storeDrawer, storeFooter, storeNav } from "./home.ts";
 import type { HomeModel } from "./model.ts";
 export { APP_NOTICE, APP_NOTICE_TEXT, appNotice } from "./shop-app-notice.ts";
@@ -93,6 +94,8 @@ export type ShopPage = {
   content: Markup;
   css?: string[];
   scripts?: string[];
+  /** The website chat widget (its stylesheet and script); only the products pages ask for it. */
+  chat?: boolean;
   /** Markup placed after the footer and before the drawer (the checkout's modals). */
   afterContent?: Markup;
 };
@@ -111,6 +114,7 @@ export function shopDocument(v: HomeModel, p: ShopPage): Markup {
   <link rel="stylesheet" href="${asset("css/pack-home.css")}">
   <link rel="stylesheet" href="${asset("css/pack-storefront.css")}">
   ${(p.css ?? []).map((c) => html`<link rel="stylesheet" href="${asset(c)}">`)}
+  ${p.chat ? chatWidgetCss() : ""}
 </head>
 <body>
 <a class="sf-skip" href="#main-content">Skip to content</a>
@@ -125,6 +129,7 @@ ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>
 ${(p.scripts ?? []).map((s) => html`<script src="${asset(s)}"></script>`)}
+${p.chat ? chatWidgetScript(v.store_name) : ""}
 </body>
 </html>
 `;

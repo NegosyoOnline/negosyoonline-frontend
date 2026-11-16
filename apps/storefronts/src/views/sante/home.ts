@@ -22,6 +22,7 @@ import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import { cookieSettingsItem } from "../../lib/meta.ts";
 import type { HomeModel } from "./model.ts";
+import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
 import { appNotice } from "./shop-app-notice.ts";
 
 export function storeNav(v: HomeModel): Markup {
@@ -176,6 +177,7 @@ function homeTop(v: HomeModel): Markup {
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap">
   <link rel="stylesheet" href="${asset("css/pack-home.css")}">
   <link rel="stylesheet" href="${asset("css/pack-storefront.css")}">
+  ${chatWidgetCss()}
 </head>
 <body>
 <a class="sf-skip" href="#main-content">Skip to content</a>
@@ -847,6 +849,7 @@ ${storeDrawer(v)}
 <script src="${asset("js/pack-home.js")}"></script>
 <script src="${asset("js/pack-store.js")}"></script>
 <script src="${asset("js/contact-form.js")}"></script>
+${chatWidgetScript(v.store_name)}
 ${v.tracking ?? ""}
 </body>
 </html>

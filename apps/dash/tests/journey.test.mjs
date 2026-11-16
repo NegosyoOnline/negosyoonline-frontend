@@ -144,3 +144,13 @@ test("the dropdown focus is the light blue, never gold", () => {
   assert.ok(!/#f2d99b|#c59a3b|#e8c16a|var\(--gold\)|var\(--cat\)/i.test(CSS));
   assert.match(CSS, /\.jr-combo-box:focus-within \{ border-color: var\(--link\)/);
 });
+
+test("the Steps reached lead and the Checkout started hint are plain and accurate", async () => {
+  for (const period of ["30d", "all"]) {
+    const d = boot({ answer: () => ({ status: 200, body: payload({ period }) }) }); await d.open();
+    const t = d.text();
+    assert.ok(t.includes("How many reached each step in the period you chose. Each step is counted on its own, so a later step can be larger or smaller than the one before it."));
+    assert.ok(!/in last 30 days|in all time/.test(t));
+    assert.ok(t.includes("Checkouts started on your Membership Pack page") && !t.includes("People who began checking out"));
+  }
+});

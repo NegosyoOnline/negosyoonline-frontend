@@ -9,7 +9,7 @@
   var D = window.NODash;
   var token = 0, S = null;
   var PERIODS = [["7d", "Last 7 days"], ["30d", "Last 30 days"], ["all", "All time"]];
-  var STAGES = [["checkout_started", "Checkout started", "People who began checking out"], ["order_placed", "Order placed", "Orders placed for the Membership Pack"],
+  var STAGES = [["checkout_started", "Checkout started", "Checkouts started on your Membership Pack page"], ["order_placed", "Order placed", "Orders placed for the Membership Pack"],
     ["proof_submitted", "Payment proof submitted", "Orders with a proof of payment sent in"], ["payment_verified", "Payment verified", "Orders whose payment you approved"],
     ["onboarding", "Registration", "Paid members by registration status"], ["dashboard_access", "Member dashboard access", "Members who signed in to the member dashboard"]];
   var PAY = { pending_review: ["warn", "Under review"], rejected: ["danger", "Needs attention"], verified: ["ok", "Verified"] };
@@ -202,7 +202,7 @@
   }
 
   function stagesCard(d) {
-    var c = card("steps", "Steps reached", "How many reached each step in " + labelOf(PERIODS, S.period).toLowerCase() + ". Each step is counted on its own, so a later step can be larger or smaller than the one before it."), list = h("ol", "jr-steps");
+    var c = card("steps", "Steps reached", "How many reached each step in the period you chose. Each step is counted on its own, so a later step can be larger or smaller than the one before it."), list = h("ol", "jr-steps");
     var rows = orderStages(d.stages);
     if (!rows.length) { add(c, h("p", "jr-empty", "Nothing to show for this period yet.")); return c; }
     rows.forEach(function (s) {

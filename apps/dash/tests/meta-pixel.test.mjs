@@ -116,7 +116,7 @@ test("saving sends the three values once, empties the token box, and shows Saved
   assert.ok(root.textContent.includes("Saved"));
   assert.ok(!root.textContent.includes(FAKE_TOKEN), "the token is not on the page");
   assert.equal(d.$("mp-access_token"), null, "no token box while a token is saved");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Replace", "Remove", "Save", "Test connection"]);
+  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["?", "Replace", "Remove", "Save", "Test connection"]);
   assert.equal(d.press(root, "Test connection").disabled, false, "all three are saved, so the test is open");
   assert.deepEqual(d.toasts, ["Saved: Your Meta Pixel settings were saved."]);
 });

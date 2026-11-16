@@ -52,10 +52,34 @@
   /* The path is only a key into ROUTES; it never reaches a selector, HTML markup or a URL. Hosting rewrites every
      dashboard path to index.html (vercel.json). An unknown path falls back to Overview and the address bar is reset to "/". */
   function currentPath() { var p = location.pathname || "/"; return p.slice(-1) === "/" ? p : p + "/"; }
+  /* Billing-only (G4, ClickUp z8uq9mfvgn): when the site's billing position says billing_only (a suspended site, or one cancelled
+     after its service ended), only sign-in and the Billing screen work. The sidebar and phone tabs show only Billing, the quick
+     search, Account Settings and Help Center links go, and every other address lands on Billing. Sign out and the theme toggle stay.
+     The flag comes from billing.js's probe, which reads the billing position it already reads (GET /sites/{id}/billing/); a missing or failed answer
+     leaves the dashboard as it was (the API refuses operational calls for a billing-only site either way). */
+  var billingOnly = false, BILLING_PATH = "/settings/billing/";
+  function eachNode(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
+  function applyBillingOnly() {
+    eachNode("#side .side-nav > a:not([data-billing-only-nav]), #side .side-nav > .side-sep-nav, #tabs > *:not([data-billing-only-nav]), .qs, .acct-menu [data-menu-link]", function (n) { n.hidden = true; });
+    eachNode("[data-billing-only-nav]", function (n) { n.hidden = false; });
+    eachNode(".acct-menu .menu-actions", function (n) { var d = n.previousElementSibling; if (d && /\bmenu-div\b/.test(d.className || "")) d.hidden = true; });
+    var tabs = $("tabs"); if (tabs && tabs.style) tabs.style.gridTemplateColumns = "1fr";
+    var setTabs = $("set-tabs"); if (setTabs) setTabs.hidden = true;
+  }
+  function checkBillingOnly() {
+    var B = window.NOBilling; /* billing.js loads after this file; its probe reads the billing position */
+    if (!B || !B.probe) return;
+    B.probe(function () {
+      billingOnly = true;
+      applyBillingOnly();
+      if (currentPath() !== BILLING_PATH) route(false); /* lands on Billing; route() redirects while billingOnly */
+    });
+  }
   var shownView = null;
   function route(initial) {
     var p = currentPath();
     if (has(MOVED, p)) p = MOVED[p]; /* the replaceState below puts the new address, with its query string, in the bar */
+    if (billingOnly && p !== BILLING_PATH) { p = BILLING_PATH; if (typeof history !== "undefined" && history.replaceState) { try { history.replaceState(null, "", BILLING_PATH); } catch (e) { /* ignore */ } } } /* any other address lands on Billing */
     var known = has(ROUTES, p);
     var r = known ? ROUTES[p] : ROUTES["/"];
     if (r.view !== "overview" && dlgClose()) OB.reopen = true; /* CR-2 11.2 item 7(c): the popup never outlives "/" */
@@ -69,7 +93,7 @@
     var more = $("tab-more");
     if (more) { if (TAB_VIEWS.indexOf(r.view) < 0) more.setAttribute("aria-current", "page"); else more.removeAttribute("aria-current"); }
     var inSettings = r.view.indexOf("settings-") === 0, group = $("settings-link"), setTabs = $("set-tabs");
-    if (setTabs) setTabs.hidden = !inSettings;
+    if (setTabs) setTabs.hidden = !inSettings || billingOnly;
     if (group) { if (inSettings) group.setAttribute("aria-current", "page"); else group.removeAttribute("aria-current"); }
     document.title = r.title;
     var B = window.NOBilling; /* billing.js loads after this file; entering and leaving the Billing view only */
@@ -1367,6 +1391,7 @@
         e.stopPropagation(); e.preventDefault(); go("/orders/products/");
       }, true);
       load();
+      checkBillingOnly();
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */

@@ -19,6 +19,9 @@
 .jr-root a.no-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .jr-root .no-btn { min-height: 44px; }
 .jr-root .jr-ic { width: 18px; height: 18px; flex: 0 0 auto; }
+/* The dash's top-right buttons (quick search, theme, bell) are fixed over the content's first row from 900px up (top 32px, 44px high), and this page has no
+   heading block to leave that room, so the card starts below them. Under 900px they sit in the top bar, in flow. */
+@media (min-width: 900px) { .jr-root { margin-top: 56px; } }
 @media (max-width: 640px) {
   .jr-root .jr-card { padding: 18px 16px; }
 }
@@ -31,7 +34,7 @@
 .jr-root .jr-pr-lead { margin: 0; font-size: 15px; line-height: 1.5; color: #fff; }
 .jr-root .jr-pr-main { padding: 18px 24px 22px; }
 /* The search: the look of the top-right quick search (.qs-field in dash.css), a magnifier inside the box, on the blue band. */
-.jr-root .jr-pr-tools { position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: min(340px, 100%); height: 44px; padding: 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
+.jr-root .jr-pr-tools { position: relative; display: flex; align-items: center; gap: 10px; box-sizing: border-box; width: min(440px, 100%); height: 44px; padding: 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
 .jr-root .jr-pr-tools:focus-within { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 .jr-root .jr-pr-tools .jr-ic { width: 20px; height: 20px; }
 .jr-root .jr-pr-q { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; }

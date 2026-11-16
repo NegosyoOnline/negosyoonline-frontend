@@ -246,6 +246,11 @@ test("Prospects: paging, empty and error states", async () => {
   assert.ok(d.text().includes("No prospects yet."));
 });
 
+test("the card clears the dash's top-right buttons from 900px up, and the search is wide enough for its placeholder", () => {
+  assert.match(CSS, /@media \(min-width: 900px\) \{ \.jr-root \{ margin-top: 56px; \} \}/);
+  assert.match(CSS, /\.jr-pr-tools \{[^}]*width: min\(440px, 100%\)/);
+});
+
 test("the CSS: light blue focus, no gold, the segmented bar scrolls on a phone, popups use dash tokens", () => {
   assert.match(CSS, /\.jr-pr-tools:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.match(CSS, /\.jr-pr-chips \{[^}]*overflow-x: auto/);

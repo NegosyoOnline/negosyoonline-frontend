@@ -112,6 +112,9 @@ test("the landing hero holds the video, the From Nature card is gone, the button
   for (const cap of ["BioGro NZ Certified Organic", "Halal &mdash; IDCP Philippines", "Superbrands Philippines&rsquo; Choice"]) assert.ok(hero.includes(cap), cap);
   for (const gone of ["One qualifying purchase", "Lifetime membership<", "No renewal fees", "No monthly quotas", "No maintenance purchases"]) assert.ok(!hero.includes(gone), gone);
   assert.doesNotMatch(doc, /Certifications carried by/);
+  const orderCtas = doc.match(/<a href="\/funnel\/membership-pack\/checkout\/"[^>]*>/g) ?? [];
+  assert.equal(orderCtas.length, 7);
+  for (const a of orderCtas) { assert.doesNotMatch(a, /bg-primary-/); assert.match(a, /\bbg-accent-[45]00\b/); assert.match(a, /text-primary-950/); } // all gold, none green
   assert.ok(hero.indexOf("pp-hero-certs") < hero.indexOf("pp-hero-cta ")); // phone order: copy with the certifications, the button row, the video, the photo
   const trust = hero.slice(hero.indexOf("pp-hero-trust"), hero.indexOf("</ul>", hero.indexOf("pp-hero-trust")));
   for (const label of ["Free Shipping Nationwide", "One-Time Purchase", "Lifetime Membership"]) assert.ok(trust.includes(label), label);

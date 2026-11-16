@@ -117,3 +117,39 @@ window.addEventListener("resize",rlayout);
 rlayout();
 }
 })();
+
+/* "We are the Barley Authority" tabs. Written from TWCinc's membership-pack-landing.min.js (data-about-tab / data-about-panel), as proper ARIA
+   tabs: aria-selected, one tab in the tab order, Left/Right/Home/End move and select. The 4-second rotation is TWCinc's; it stops for good at the
+   first click, key or focus on a tab, and never runs under reduced motion. */
+(function(){
+var tabs=Array.prototype.slice.call(document.querySelectorAll("[data-about-tab]"));
+if(!tabs.length){return;}
+var current=0,timer=null;
+var still=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function show(i,focus){
+current=(i+tabs.length)%tabs.length;
+tabs.forEach(function(t,j){
+var on=j===current;
+t.setAttribute("aria-selected",on?"true":"false");
+t.tabIndex=on?0:-1;
+var panel=document.getElementById(t.getAttribute("data-about-tab"));
+if(panel){panel.hidden=!on;}
+});
+if(focus){tabs[current].focus();}
+}
+function stop(){if(timer){clearInterval(timer);timer=null;}}
+tabs.forEach(function(t,i){
+t.addEventListener("click",function(){stop();show(i,false);});
+t.addEventListener("focus",stop);
+t.addEventListener("keydown",function(e){
+var k=e.key,next=null;
+if(k==="ArrowRight"){next=i+1;}
+else if(k==="ArrowLeft"){next=i-1;}
+else if(k==="Home"){next=0;}
+else if(k==="End"){next=tabs.length-1;}
+else if(k==="Enter"||k===" "){e.preventDefault();stop();show(i,false);return;}
+if(next!==null){e.preventDefault();stop();show(next,true);}
+});
+});
+if(!still){timer=setInterval(function(){show(current+1,false);},4000);}
+})();

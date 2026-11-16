@@ -202,3 +202,33 @@ test("the phone hero order is set by CSS under 40rem: label, headline, video, li
   for (const cls of ["pp-hero-label", "pp-hero-h1", "pp-hero-lede", "pp-hero-certs", "pp-hero-cta", "pp-hero-video", "pp-hero-photo"]) assert.equal((doc.match(new RegExp(`class="${cls}[ "]`, "g")) ?? []).length, 1, cls);
   assert.equal((doc.match(/<iframe\b/g) ?? []).length, 1); // one player, no duplicated markup
 });
+
+test("the landing page carries We are the Barley Authority between the IQVIA strip and the reels, as four ARIA tabs", () => {
+  const doc = page(PACK);
+  const iqvia = doc.indexOf("Recognized as the Philippines");
+  const about = doc.indexOf('<section id="about"');
+  const reels = doc.indexOf('<section id="reels"');
+  assert.ok(iqvia > 0 && iqvia < about && about < reels);
+  const section = doc.slice(about, doc.indexOf("</section>", about));
+  assert.match(section, /<h2>We are the <span>Barley Authority<\/span><\/h2>/);
+  assert.equal((doc.match(/We are the <span>/g) ?? []).length, 1);
+  assert.match(section, /<div role="tablist"/);
+  const tabs = section.match(/<button [^>]*role="tab"[^>]*>[^<]*/g) ?? [];
+  assert.equal(tabs.length, 4);
+  assert.deepEqual(tabs.map((t) => t.replace(/^[^>]*>/, "")), ["Our Story", "Trusted Since 2007", "Biogro New Zealand", "Global Standard"]);
+  assert.match(tabs[0], /aria-selected="true"[^>]*tabindex="0"/);
+  for (const t of tabs.slice(1)) assert.match(t, /aria-selected="false"[^>]*tabindex="-1"/);
+  const panels = section.match(/<div id="tab-[a-z-]+" role="tabpanel"[^>]*>/g) ?? [];
+  assert.equal(panels.length, 4);
+  assert.ok(!/hidden/.test(panels[0]));
+  for (const p of panels.slice(1)) assert.match(p, / hidden /);
+  for (const id of ["tab-our-story", "tab-trusted", "tab-biogro", "tab-global"]) {
+    assert.match(section, new RegExp(`aria-controls="${id}"`));
+    assert.match(section, new RegExp(`id="${id}" role="tabpanel" aria-labelledby="${id}-tab"`));
+  }
+  assert.match(section, /More Than a Wellness Brand/);
+  assert.match(section, /Global Standard, Local Impact/);
+  assert.match(section, /Santé International was built on one simple idea/);
+  for (const n of [1, 2, 3, 4]) assert.ok(section.includes(`/assets/sante/img/about/about-${n}.webp?v=`), String(n));
+  assert.ok(existsSync(path.join("public/assets/sante/img/about", "about-bg.webp")));
+});

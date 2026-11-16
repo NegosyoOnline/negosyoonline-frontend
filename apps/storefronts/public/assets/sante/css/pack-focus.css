@@ -155,3 +155,42 @@
   .pp-hero-certs { order: 6; }
   .pp-hero-photo { display: none; } /* fix round 6: no photo on a phone (its <picture> also gives phones an empty source, so it is not downloaded) */
 }
+
+/* Task z8uq9mfw37, fix round 6: "We are the Barley Authority" (TWCinc components/_about.html), between the IQVIA strip and "Watch Before You Buy".
+   The template's Tailwind utilities are written out here so this page needs no other sheet. Colours as the template: the deep #0f2000 wash with
+   the lime glow, lime-400 #93f814 for the accent, primary-600 #217900 for the active-tab bar, primary-700 #1a6207 for the active-tab text.
+   Phone: the tabs sit two to a row and wrap, each panel stacks with the image on top. 48rem and up: tabs in a centred row, image left, text right. */
+.pp-about { position: relative; padding: 3.5rem 0; color: #fff; background-size: cover; background-position: center; background-repeat: no-repeat;
+  background-image: radial-gradient(circle at 84% 6%, rgba(77,238,19,.16) 0, transparent 48%), radial-gradient(circle at 4% 92%, rgba(33,121,0,.55) 0, transparent 50%), linear-gradient(rgba(15,32,0,.86), rgba(15,32,0,.92)), url(../img/about/about-bg.webp); }
+@media (min-width: 40rem) { .pp-about { padding: 4rem 0; } }
+@media (min-width: 48rem) { .pp-about { padding: 5.5rem 0; } }
+.pp-about-in { margin: 0 auto; width: 100%; max-width: 75rem; padding: 0 1.125rem; }
+@media (min-width: 40rem) { .pp-about-in { padding: 0 1.25rem; } }
+@media (min-width: 48rem) { .pp-about-in { padding: 0 2.5rem; } }
+.pp-about h2 { margin: 0 0 1.5rem; text-align: center; font-size: 2.125rem; line-height: 1.15; font-weight: 800; color: #fff; }
+.pp-about h2 span { color: #93f814; }
+@media (min-width: 40rem) { .pp-about h2 { margin-bottom: 1.75rem; font-size: 2.375rem; } }
+@media (min-width: 48rem) { .pp-about h2 { margin-bottom: 2rem; font-size: 2.625rem; line-height: 1.2; } }
+.pp-about-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem; margin-bottom: 1.625rem; }
+@media (min-width: 40rem) { .pp-about-tabs { gap: 0.75rem; margin-bottom: 2rem; } }
+@media (min-width: 48rem) { .pp-about-tabs { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 2.5rem; } }
+.pp-about-tab { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 2.625rem; padding: 0.5625rem 0.625rem; overflow: hidden;
+  border: 1.5px solid rgba(255,255,255,.3); border-radius: 9999px; background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); font: inherit; font-size: 0.78125rem; font-weight: 600; text-align: center; cursor: pointer; transition: all .2s; }
+@media (min-width: 40rem) { .pp-about-tab { min-height: 2.75rem; padding: 0.625rem 0.75rem; font-size: 0.8125rem; } }
+@media (min-width: 48rem) { .pp-about-tab { width: auto; min-height: 0; padding: 0.5625rem 1.25rem; font-size: 0.875rem; } }
+.pp-about-tab[aria-selected="false"]:hover { border-color: #fff; background: rgba(255,255,255,.15); color: #fff; }
+.pp-about-tab[aria-selected="true"] { border-color: #fff; background: #fff; color: #1a6207; }
+.pp-about-tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; bottom: -1px; height: 3px; width: 100%; border-radius: 9999px; background: #217900; }
+.pp-about-tab:focus-visible { outline: 2px solid #93f814; outline-offset: 2px; }
+.pp-about-panel { display: flex; flex-direction: column; gap: 1.125rem; padding: 1.125rem; border: 1px solid rgba(255,255,255,.12); border-radius: 1.125rem; background: rgba(255,255,255,.08); }
+.pp-about-panel[hidden] { display: none; }
+@media (min-width: 40rem) { .pp-about-panel { gap: 1.375rem; padding: 1.375rem; border-radius: 1.25rem; } }
+@media (min-width: 48rem) { .pp-about-panel { display: grid; grid-template-columns: 1fr 1.2fr; align-items: center; gap: 3rem; padding: 2.5rem; border-radius: 1.5rem; }
+  .pp-about-panel[hidden] { display: none; } }
+.pp-about-img { overflow: hidden; border-radius: 1rem; }
+.pp-about-img img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 1rem; height: auto; }
+@media (min-width: 48rem) { .pp-about-img img { aspect-ratio: auto; height: 20rem; } }
+.pp-about-panel h3 { margin: 0 0 0.875rem; font-size: 1.5rem; line-height: 1.18; font-weight: 800; color: #fff; }
+.pp-about-panel p { margin: 0 0 0.75rem; font-size: 0.875rem; line-height: 1.65; color: rgba(255,255,255,.78); }
+@media (min-width: 40rem) { .pp-about-panel h3 { font-size: 1.625rem; line-height: 1.2; } .pp-about-panel p { font-size: 0.90625rem; line-height: 1.7; } }
+@media (min-width: 48rem) { .pp-about-panel h3 { margin-bottom: 1rem; font-size: 1.75rem; line-height: 1.3; } .pp-about-panel p { margin-bottom: 0.875rem; font-size: 0.9375rem; line-height: 1.8; } }

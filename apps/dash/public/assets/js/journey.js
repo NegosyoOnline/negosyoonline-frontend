@@ -1,4 +1,4 @@
-/* Prospect List (ClickUp z8uq9meyqk and z8uq9mfw14; the address is still /journey/, the page was called "Journey"): the Santé owner's list of the
+/* Prospect List (ClickUp z8uq9meyqk and z8uq9mfw14; the address is /prospect-list/; /journey/ moves here (MOVED in dashboard.js)): the Santé owner's list of the
    people who visited the Membership Pack page, ordered, or messaged the site, newest activity first. Reads GET /sites/{id}/pack/journey/prospects/
    ?stage=&q=&page= (apps/pack/api_journey.py): this site only (layout adapted from TWCinc partnership.js, _section_prospects.html and partnership.css).
    Coach Ed, 2026-11-16: the Steps reached, Events sent to Meta and Recent orders cards are gone and the page is this list alone.
@@ -24,7 +24,8 @@
     mail: "M3 6h18v12H3zM3 7l9 7 9-7",
     sms: "M4 5h16v11H9l-5 4z",
     order: "M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6",
-    close: "M6 6l12 12M18 6L6 18"
+    close: "M6 6l12 12M18 6L6 18",
+    search: "M11 4a7 7 0 1 0 .01 0zM20 20l-3.5-3.5"
   };
 
   function byId(id) { return document.getElementById(id); }
@@ -191,9 +192,9 @@
   /* ---------- the prospects card ---------- */
 
   function prospectsCard() {
-    var c = h("section", "jr-card jr-pr-card"), head = h("div", "jr-pr-head"), t = h("h2", "jr-pr-title", "Prospects"), tb = h("div", "jr-pr-tools"), main = h("div", "jr-pr-main");
+    var c = h("section", "jr-card jr-pr-card"), head = h("div", "jr-pr-head"), t = h("h2", "jr-pr-title", "Prospects"), tb = h("div", "jr-pr-tools"), main = h("div", "jr-pr-main"), txt = h("div", "jr-pr-headtxt");
     c.setAttribute("aria-labelledby", "jr-h-prospects"); t.setAttribute("id", "jr-h-prospects");
-    add(head, t, h("p", "jr-pr-lead", "People who visited your Membership Pack page, ordered, or messaged your site, newest activity first."));
+    add(txt, t, h("p", "jr-pr-lead", "People who visited your Membership Pack page"));
     var lab = D.el("label", { "for": "jr-pr-q", "class": "jr-sr" }, "Search by name, order number, mobile or email");
     var inp = D.el("input", { id: "jr-pr-q", type: "search", "class": "jr-pr-q", placeholder: "Search by name, order number, mobile or email", autocomplete: "off", maxlength: "120" });
     inp.addEventListener("input", function () {
@@ -201,10 +202,11 @@
       if (pr.timer) clearTimeout(pr.timer);
       pr.timer = setTimeout(function () { pr.timer = null; var v = inp.value.trim(); if (v !== pr.q) { pr.q = v; pr.page = 1; prRead(); } }, 300);
     });
-    add(tb, lab, inp);
+    /* The same field as the top-right quick search (dash.css .qs-field): a magnifier inside the box. */
+    var mag = icon("search"); add(tb, lab, mag, inp); add(head, txt, tb);
     var chips = h("div", "jr-pr-chips"); chips.setAttribute("id", "jr-pr-chips"); chips.setAttribute("role", "group"); chips.setAttribute("aria-label", "Filter prospects by stage");
     var body = h("div", "jr-pr-body"); body.setAttribute("id", "jr-pr-body");
-    add(main, tb, chips, body); add(c, head, main);
+    add(main, chips, body); add(c, head, main);
     prChips(); prBody();
     return c;
   }

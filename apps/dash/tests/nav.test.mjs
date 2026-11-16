@@ -162,7 +162,7 @@ test("the first route waits for DOMContentLoaded while the document is loading, 
    Site Type only). The pages below are out of ROUTES and out of every menu, tab row, sheet and quick-link list. */
 const HIDDEN = ["/orders/new/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/referral/",
   "/settings/plans/", "/settings/shipping/", "/settings/domain/", "/settings/automation/", "/settings/notification/"];
-const KEPT = ["/", "/orders/", "/products/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/", "/training/", "/training/course/", "/training/live/", "/media/", "/journey/"];
+const KEPT = ["/", "/orders/", "/products/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/", "/training/", "/training/course/", "/training/live/", "/media/", "/prospect-list/"];
 const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
 const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
 
@@ -189,11 +189,11 @@ test("no link in the page and no quick link reaches a hidden page", () => {
   for (const t of hiddenMedia) assert.ok(/data-media-nav/.test(t) && /\bhidden\b/.test(t), "hidden Media Library link: " + t);
   assert.deepEqual(links(MORE).filter(([href]) => href === "/media/"), [["/media/", "Media Library"]], "the More sheet has a Media Library tile");
   assert.ok(MORE.indexOf('href="/media/"') < MORE.indexOf('<h3 class="sheet-label">Settings</h3>'), "the Media Library group comes before Settings in the More sheet");
-  /* Prospect List, once the Journey (z8uq9meyqk; the address is still /journey/): after Media Library, hidden until the journey probe answers 200 (journey.js). */
-  const hiddenJourney = [...HTML.matchAll(/<a\b[^>]*href="\/journey\/"[^>]*>/g)].map((m) => m[0]);
+  /* Prospect List, once the Journey (z8uq9meyqk; the address is /prospect-list/, /journey/ moves there): after Media Library, hidden until the journey probe answers 200 (journey.js). */
+  const hiddenJourney = [...HTML.matchAll(/<a\b[^>]*href="\/prospect-list\/"[^>]*>/g)].map((m) => m[0]);
   assert.equal(hiddenJourney.length, 2);
   for (const t of hiddenJourney) assert.ok(/data-journey-nav/.test(t) && /\bhidden\b/.test(t), "hidden Journey link: " + t);
-  assert.deepEqual(links(MORE).filter(([href]) => href === "/journey/"), [["/journey/", "Prospect List"]], "the More sheet has a Prospect List tile (the address is still /journey/)");
+  assert.deepEqual(links(MORE).filter(([href]) => href === "/prospect-list/"), [["/prospect-list/", "Prospect List"]], "the More sheet has a Prospect List tile ");
   assert.deepEqual(links(TABS).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox"], "the bottom tabs are Overview, Orders, Products and the Inbox link (hidden until the API opens the inbox), with no Add order button");
   assert.ok(!/data-route="(orders-new|earnings|people|usage|referral|storefront|media-library)"/.test(HTML));
 });

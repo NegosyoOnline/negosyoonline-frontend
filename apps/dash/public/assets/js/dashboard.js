@@ -28,11 +28,11 @@
     "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
     "/training/live/": { view: "training-live", nav: "training", title: "Live trainings | Training | NegosyoOnline" },
     "/media/": { view: "media", title: "Media Library | NegosyoOnline" }, /* Media Library editor (z8uq9mezdk): its links show only while the API says the Media Library is open (media.js probe) */
-    "/journey/": { view: "journey", title: "Prospect List | NegosyoOnline" } /* Santé Prospect List, once the Journey (z8uq9meyqk); the /journey/ address is kept so old links work: its links show only while the API says the Journey is open (journey.js probe) */
+    "/prospect-list/": { view: "journey", title: "Prospect List | NegosyoOnline" } /* Santé Prospect List (z8uq9meyqk, z8uq9mfw14), once the Journey at /journey/ (see MOVED): its links show only while the API says it is open (journey.js probe) */
   };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
-  var MOVED = { "/settings/sante/": "/settings/business/" };
+  var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/" };
   var has = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
 
   function messageOf(res, fallback) {

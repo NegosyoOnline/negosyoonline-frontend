@@ -1,4 +1,4 @@
-/* The Santé Prospect List (ClickUp z8uq9meyqk and z8uq9mfw14, journey.js: /journey/). Driven like media.test.mjs: the real scripts run in a vm with the
+/* The Santé Prospect List (ClickUp z8uq9meyqk and z8uq9mfw14, journey.js: /prospect-list/). Driven like media.test.mjs: the real scripts run in a vm with the
    stand-in document from dom.mjs and a recorded fetch that plays GET /sites/{id}/pack/journey/prospects/. Fake data only. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -60,16 +60,18 @@ const press = (doc, key, extra = {}) => doc.fire("keydown", { key, ...extra });
 test("index.html: the Prospect List view, root, script and stylesheet are in the page, every link starts hidden and is named Prospect List", () => {
   for (const id of ["view-journey", "h-journey", "jr-root", "jr-live"]) assert.ok(HTML.includes(`id="${id}"`), id);
   assert.ok(HTML.includes("/assets/js/journey.js") && HTML.includes("/assets/css/journey.css"));
-  const links = [...HTML.matchAll(/<a\b[^>]*href="\/journey\/"[^>]*>[^<]*(?:<svg[\s\S]*?<\/svg>)?([^<]*)<\/a>/g)];
+  const links = [...HTML.matchAll(/<a\b[^>]*href="\/prospect-list\/"[^>]*>[^<]*(?:<svg[\s\S]*?<\/svg>)?([^<]*)<\/a>/g)];
   assert.equal(links.length, 2);
   for (const l of links) { assert.ok(/data-journey-nav/.test(l[0]) && /\bhidden\b/.test(l[0]), l[0]); assert.equal(l[1], "Prospect List"); }
-  assert.ok(/<h1 id="h-journey"[^>]*>Prospect List<\/h1>/.test(HTML));
+  assert.ok(/<h1 class="bl-sr" id="h-journey"[^>]*>Prospect List<\/h1>/.test(HTML), "a visually hidden h1 keeps the page heading");
+  assert.ok(!/<header class="view-head">[^]*?Membership Pack<\/p><h1 id="h-journey"/.test(HTML), "no heading block");
   assert.ok(!/Journey/.test(HTML.slice(HTML.indexOf('id="view-journey"'), HTML.indexOf('id="view-settings-shipping"'))), "no old name on the page");
 });
 
 test("dashboard.js: the route (the old /journey/ address still opens the page), its title, the hooks and the probe", () => {
   const dash = read("dashboard.js");
-  assert.match(dash, /"\/journey\/": \{ view: "journey", title: "Prospect List \| NegosyoOnline"/);
+  assert.match(dash, /"\/prospect-list\/": \{ view: "journey", title: "Prospect List \| NegosyoOnline"/);
+  assert.match(dash, /var MOVED = \{[^}]*"\/journey\/": "\/prospect-list\/"/, "the old address moves to the new one");
   assert.match(dash, /"media", "journey"/);
   assert.match(dash, /JY\.show\(\)/);
   assert.match(dash, /JY\.hide\(\)/);
@@ -101,11 +103,16 @@ test("probe shows the links only on a 200", async () => {
   assert.ok(e.nav.every((n) => n.hidden === true));
 });
 
-test("Prospects: the royal blue header, the approved lead, the search, the segmented stage bar and the table head", async () => {
+test("Prospects: the royal blue header with the search inside it at the right, the approved lead, the segmented stage bar and the table head", async () => {
   const d = boot(); await d.open();
   const t = d.text();
-  assert.ok(t.includes("Prospects") && t.includes("People who visited your Membership Pack page, ordered, or messaged your site, newest activity first."));
+  assert.ok(t.includes("Prospects") && t.includes("People who visited your Membership Pack page") && !t.includes("newest activity first"));
   assert.ok(d.$("jr-pr-q") && d.$("jr-pr-q").getAttribute("placeholder") === "Search by name, order number, mobile or email");
+  const head = d.root().all((n) => n.classList && n.classList.contains("jr-pr-head"))[0];
+  assert.ok(head.all((n) => n.id === "jr-pr-q").length === 1, "the search is in the header band");
+  assert.ok(head.all((n) => n.classList && n.classList.contains("jr-pr-tools"))[0].all((n) => (n.tagName || "").toUpperCase() === "SVG").length === 1, "a magnifier inside the field");
+  assert.match(CSS, /\.jr-pr-head \{[^}]*justify-content: space-between/);
+  assert.match(CSS, /@media \(max-width: 640px\) \{[^@]*\.jr-pr-tools \{ width: 100%/);
   const chips = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON");
   assert.deepEqual(chips.map((b) => b.textContent), ["All", "New Lead", "Landing Page", "Start Watching", "Done Watching", "Add to Cart", "Checked Out", "Account Setup", "Activated"]);
   assert.equal(chips[1].getAttribute("title"), "New Lead, 2 people");
@@ -240,7 +247,7 @@ test("Prospects: paging, empty and error states", async () => {
 });
 
 test("the CSS: light blue focus, no gold, the segmented bar scrolls on a phone, popups use dash tokens", () => {
-  assert.match(CSS, /\.jr-pr-q:focus[^}]*border-color: var\(--link\)/);
+  assert.match(CSS, /\.jr-pr-tools:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.match(CSS, /\.jr-pr-chips \{[^}]*overflow-x: auto/);
   assert.ok(!/#f2d99b|#c59a3b|#e8c16a|var\(--gold\)|var\(--cat\)/i.test(CSS));
   assert.match(CSS, /\.jr-dialog \{[^}]*background: var\(--card\)/);

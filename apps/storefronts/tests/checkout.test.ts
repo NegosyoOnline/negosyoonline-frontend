@@ -274,3 +274,12 @@ test("the receipt's mobile_not_verified sends a returning buyer to the code step
   const page = await body(r!);
   assert.ok(page.includes("Confirm Your Mobile Number") && page.includes("Verify your mobile number first."));
 });
+
+test("the visit's ref goes to Django with the order, cut to 32 characters; an order with no ref sends an empty one", async () => {
+  const withRef = fake({ "checkout/place": [ok({ order_number: "PK-4", replay: false })] });
+  await checkoutPost(flowOf(withRef, { token: TOKEN }), { action: "place", submit_key: "k".repeat(16), account_id: "acct_1", visitor_ref: "R".repeat(60) }, PROOF());
+  assert.equal((withRef.calls[0].body as FormData).get("visitor_ref"), "R".repeat(32));
+  const without = fake({ "checkout/place": [ok({ order_number: "PK-5", replay: false })] });
+  await checkoutPost(flowOf(without, { token: TOKEN }), { action: "place", submit_key: "k".repeat(16), account_id: "acct_1" }, PROOF());
+  assert.equal((without.calls[0].body as FormData).get("visitor_ref"), "");
+});

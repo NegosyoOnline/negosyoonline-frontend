@@ -45,7 +45,7 @@ const VERSIONS: Record<string, string> = {
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "3556a132",
-  "js/pack-checkout.js": "4027ca6d", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "js/pack-checkout.js": "cbfb3795", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",
   "js/pack-details-gate.js": "e52d9e8d",
@@ -55,6 +55,8 @@ const VERSIONS: Record<string, string> = {
   "data/barangays.json": "4f4439a8",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
+  "js/pack-visit.js": "3ee8e73c", // this storefront's own file: the landing page visitor ref and the video marks (ClickUp z8uq9mfw14)
+  "js/player.min.js": "48c4f991", // Player.js v0.0.11 (embedly, MIT), the copy TWCinc ships, self-hosted so script-src stays 'self'
   "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",

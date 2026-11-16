@@ -311,6 +311,6 @@ export function landingDocument(c: PackCtx): Markup {
     title: "Membership Pack",
     content: landingContent(c),
     afterShell: landingAfterShell(c),
-    scripts: ["js/pack-landing.js"],
+    scripts: ["js/pack-visit.js", "js/pack-landing.js"],
   });
 }

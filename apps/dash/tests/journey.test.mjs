@@ -30,13 +30,14 @@ const payload = (over = {}) => ({
 });
 
 const prospectsBody = (over = {}) => ({
-  page: 1, page_size: 25, pages: 1, total: 4,
-  stage_counts: { all: 4, order_placed: 1, proof_submitted: 0, payment_verified: 0, registration: 1, dashboard_access: 0, message: 2 },
+  page: 1, page_size: 25, pages: 1, total: 5,
+  stage_counts: { all: 5, new_lead: 2, landing_page: 0, start_watching: 0, done_watching: 0, added_to_cart: 1, checked_out: 1, account_setup: 1, activated: 0 },
   results: [
-    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "order", stage: "registration", registration_status: "ready_to_register", last_activity: "2026-11-15T03:00:00Z" },
-    { kind: "order", name: "Ben Cruz", order_number: "PK-0002", order_id: "ord_2", source: "order", stage: "order_placed", registration_status: null, last_activity: "2026-11-14T03:00:00Z" },
-    { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "message", registration_status: null, last_activity: "2026-11-13T03:00:00Z" },
-    { kind: "inquiry", name: "", order_number: null, order_id: null, source: "facebook", stage: "message", registration_status: null, last_activity: "2026-11-12T03:00:00Z" },
+    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "pack_page", stage: "account_setup", registration_status: "ready_to_register", video_percent: 90, mobile: "+63917***4567", email: "", last_activity: "2026-11-15T03:00:00Z" },
+    { kind: "order", name: "Ben Cruz", order_number: "PK-0002", order_id: "ord_2", source: "pack_page", stage: "checked_out", registration_status: null, video_percent: 0, mobile: "", email: "", last_activity: "2026-11-14T03:00:00Z" },
+    { kind: "visit", name: "Cora Cart", order_number: null, order_id: null, source: "pack_page", stage: "added_to_cart", registration_status: null, video_percent: 50, mobile: "09171234567", email: "cora@buyer.test", last_activity: "2026-11-14T01:00:00Z" },
+    { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "new_lead", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-13T03:00:00Z" },
+    { kind: "inquiry", name: "", order_number: null, order_id: null, source: "facebook", stage: "new_lead", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-12T03:00:00Z" },
   ],
   ...over,
 });
@@ -175,9 +176,11 @@ test("Prospects: the card, the approved lead, the search, the stage chips with c
   assert.ok(t.includes("Prospects") && t.includes("People with a Membership Pack order or a message to your site, newest activity first."));
   assert.ok(d.$("jr-pr-q") && d.$("jr-pr-q").getAttribute("placeholder") === "Search by name or order number");
   const chips = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").map((b) => b.textContent);
-  assert.deepEqual(chips, ["All4", "Order placed1", "Payment proof submitted0", "Payment verified0", "Registration1", "Member dashboard access0", "Message2"]);
+  assert.deepEqual(chips, ["All5", "New Lead2", "Landing Page0", "Start Watching0", "Done Watching0", "Add to Cart1", "Checked Out1", "Account Setup1", "Activated0"]);
   for (const w of ["Membership Pack page", "Facebook via Pancake", "Website chat", "Ready to register", "No name", "Order PK-0001"]) assert.ok(t.includes(w), w);
-  assert.ok(!/video|watch|landing/i.test(d.$("jr-pr-body").textContent), "no video or landing column");
+  const heads = d.$("jr-pr-body").all((n) => n.tagName === "TH").map((n) => n.textContent);
+  assert.deepEqual(heads, ["Prospect", "Source", "Video progress", "Stage", "Last activity", "Action"]);
+  for (const w of ["90%", "50%", "+63917***4567", "09171234567", "cora@buyer.test", "Account Setup", "Add to Cart", "New Lead"]) assert.ok(d.$("jr-pr-body").textContent.includes(w), w);
 });
 
 test("Prospects: Open order only on order rows; no chat button; the blank name stays a placeholder", async () => {
@@ -191,13 +194,13 @@ test("Prospects: Open order only on order rows; no chat button; the blank name s
 
 test("Prospects: a stage chip re-reads with that stage; search re-reads after a pause with q and page 1", async () => {
   const d = boot(); await d.open();
-  const chip = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("Message"));
+  const chip = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("New Lead"));
   chip.fire("click"); await settle();
-  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=message`));
-  assert.equal(d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("Message")).getAttribute("aria-pressed"), "true");
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=new_lead`));
+  assert.equal(d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent.startsWith("New Lead")).getAttribute("aria-pressed"), "true");
   const q = d.$("jr-pr-q"); q.value = "  PK-0001 "; q.fire("input");
   await new Promise((r) => setTimeout(r, 400)); await settle();
-  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=message&q=PK-0001`));
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=new_lead&q=PK-0001`));
 });
 
 test("Prospects: paging, empty and error states; the period change does not reload them", async () => {

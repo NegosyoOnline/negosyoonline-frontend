@@ -18,9 +18,11 @@
   var PAY = { pending_review: ["warn", "Under review"], rejected: ["danger", "Needs attention"], verified: ["ok", "Verified"] };
   var REG = { ready_to_register: "Ready to register", in_registration: "In registration", registered: "Registered" };
 
-  var PR_STAGES = [["order_placed", "Order placed"], ["proof_submitted", "Payment proof submitted"], ["payment_verified", "Payment verified"], ["registration", "Registration"], ["dashboard_access", "Member dashboard access"], ["message", "Message"]];
-  var PR_SOURCES = { order: "Membership Pack page", facebook: "Facebook via Pancake", webchat: "Website chat", email: "Email" };
-  var PR_TONE = { order_placed: "neutral", proof_submitted: "warn", payment_verified: "info", registration: "info", dashboard_access: "ok", message: "neutral" };
+  /* TWCinc's eight stages (partnership/stages.py), in funnel order: a row reports the furthest it reached. */
+  var PR_STAGES = [["new_lead", "New Lead"], ["landing_page", "Landing Page"], ["start_watching", "Start Watching"], ["done_watching", "Done Watching"],
+    ["added_to_cart", "Add to Cart"], ["checked_out", "Checked Out"], ["account_setup", "Account Setup"], ["activated", "Activated"]];
+  var PR_SOURCES = { pack_page: "Membership Pack page", facebook: "Facebook via Pancake", webchat: "Website chat", email: "Email" };
+  var PR_TONE = { new_lead: "neutral", landing_page: "neutral", start_watching: "info", done_watching: "info", added_to_cart: "warn", checked_out: "info", account_setup: "warn", activated: "ok" };
   var NO_NAME = "No name";
 
   function byId(id) { return document.getElementById(id); }
@@ -323,15 +325,24 @@
     var tr = h("tr"), name = typeof r.name === "string" ? r.name.trim() : "", order = r.kind === "order";
     var who = h("div", "jr-pr-who"), av = h("span", "jr-pr-av jr-pr-av-" + tone(name), initials(name)); av.setAttribute("aria-hidden", "true");
     var txt = h("span", "jr-pr-id");
-    add(txt, h("span", "jr-pr-name" + (name ? "" : " is-blank"), name || NO_NAME), order && r.order_number ? h("span", "jr-pr-sub", "Order " + r.order_number) : null);
+    add(txt, h("span", "jr-pr-name" + (name ? "" : " is-blank"), name || NO_NAME), order && r.order_number ? h("span", "jr-pr-sub", "Order " + r.order_number) : null,
+      typeof r.mobile === "string" && r.mobile ? h("span", "jr-pr-sub", r.mobile) : null, typeof r.email === "string" && r.email ? h("span", "jr-pr-sub", r.email) : null);
     add(who, av, txt);
     var st = prStage(r.stage), stage = h("span", "chip chip-" + (PR_TONE[r.stage] || "neutral"), st);
-    var reg = r.stage === "registration" && r.registration_status ? h("span", "jr-pr-reg", REG[r.registration_status] || human(r.registration_status)) : null;
+    var reg = r.registration_status ? h("span", "jr-pr-reg", REG[r.registration_status] || human(r.registration_status)) : null;
     var link = order ? D.el("a", { "class": "jr-pr-open", href: orderLink(r.order_id) }, "Open order") : null;
     if (link) link.setAttribute("aria-label", "Open order " + (r.order_number || ""));
-    [["jr-pr-c-who", who], ["jr-pr-c-src", h("span", "", prSource(r.source))], ["jr-pr-c-stage", add(h("div", "jr-pr-stage"), stage, reg)],
+    [["jr-pr-c-who", who], ["jr-pr-c-src", h("span", "", prSource(r.source))], ["jr-pr-c-video", videoBar(r.video_percent)], ["jr-pr-c-stage", add(h("div", "jr-pr-stage"), stage, reg)],
       ["jr-pr-c-when", h("span", "", stamp(r.last_activity))], ["jr-pr-c-act", link]].forEach(function (x) { add(tr, add(h("td", x[0]), x[1])); });
     return tr;
+  }
+  /* The video progress: a bar and the percent. A message has no video, so it shows a dash. */
+  function videoBar(v) {
+    if (typeof v !== "number" || !isFinite(v)) return h("span", "jr-pr-none", "\u2013");
+    var pct = Math.max(0, Math.min(100, Math.floor(v))), w = h("span", "jr-pr-video"), track = h("span", "jr-pr-track"), fill = h("span", "jr-pr-fill");
+    fill.style.width = pct + "%"; add(track, fill);
+    add(w, track, h("span", "jr-pr-pct", pct + "%"));
+    return w;
   }
   function prBody() {
     var box = byId("jr-pr-body"); if (!box || !S) return;
@@ -348,7 +359,7 @@
       add(box, h("p", "jr-empty", all ? "No one matches this search or stage." : "No prospects yet.")); return;
     }
     var t = h("table", "jr-table jr-pr-table"), hd = h("thead"), tr = h("tr"), tbd = h("tbody");
-    ["Prospect", "Source", "Stage", "Last activity", ""].forEach(function (x) {
+    ["Prospect", "Source", "Video progress", "Stage", "Last activity", ""].forEach(function (x) {
       var th = h("th", x ? "" : "jr-sr", x || "Action"); th.setAttribute("scope", "col"); add(tr, th);
     });
     rows.forEach(function (r) { add(tbd, prRow(r)); });
@@ -366,5 +377,5 @@
     add(box, foot);
   }
 
-  window.NOJourney = { show: show, hide: hide, probe: probe, util: { initials: initials, prPath: prPath, orderStages: orderStages, count: count, human: human, periodOf: periodOf, orderLink: orderLink, PERIODS: PERIODS } };
+  window.NOJourney = { show: show, hide: hide, probe: probe, util: { initials: initials, videoBar: videoBar, prPath: prPath, orderStages: orderStages, count: count, human: human, periodOf: periodOf, orderLink: orderLink, PERIODS: PERIODS } };
 })();

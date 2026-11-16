@@ -74,6 +74,11 @@
 .jr-root .jr-pr-stage { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .jr-root .jr-pr-table td { vertical-align: middle; }
 .jr-root .jr-pr-c-when, .jr-root .jr-pr-c-src { color: var(--text-2); }
+.jr-root .jr-pr-video { display: inline-flex; align-items: center; gap: 8px; }
+.jr-root .jr-pr-track { display: inline-block; width: 72px; height: 8px; border-radius: 999px; background: var(--chip-neutral-bg); overflow: hidden; }
+.jr-root .jr-pr-fill { display: block; height: 100%; border-radius: 999px; background: var(--link); }
+.jr-root .jr-pr-pct { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--text-2); }
+.jr-root .jr-pr-none { color: var(--meta); }
 .jr-root .jr-pr-open { min-height: 44px; display: inline-flex; align-items: center; color: var(--link); font-weight: 700; text-decoration: none; white-space: nowrap; }
 .jr-root .jr-pr-open:hover { text-decoration: underline; }
 .jr-root .jr-pr-open:focus-visible { outline: none; border-radius: 4px; box-shadow: 0 0 0 2px var(--link); }
@@ -87,7 +92,7 @@
   .jr-root .jr-pr-table tr { padding: 12px 0; border-top: 1px solid var(--card-line); }
   .jr-root .jr-pr-table tbody tr:first-child { border-top: 0; padding-top: 0; }
   .jr-root .jr-pr-table td { padding: 2px 0; border: 0; }
-  .jr-root .jr-pr-table .jr-pr-c-src, .jr-root .jr-pr-table .jr-pr-c-when { display: inline-block; margin-right: 12px; font-size: 14px; }
+  .jr-root .jr-pr-table .jr-pr-c-src, .jr-root .jr-pr-table .jr-pr-c-when, .jr-root .jr-pr-table .jr-pr-c-video { display: inline-block; margin-right: 12px; font-size: 14px; }
   .jr-root .jr-pr-table .jr-pr-c-who { padding-bottom: 6px; }
   .jr-root .jr-pr-table .jr-pr-c-stage { padding: 4px 0; }
 }

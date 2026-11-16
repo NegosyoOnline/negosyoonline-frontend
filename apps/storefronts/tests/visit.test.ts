@@ -52,3 +52,65 @@ test("the checkout script saves the contact on blur, sends the ref with the orde
   assert.ok(js.includes('op:"contact"') && js.includes('addEventListener("blur",save)') && js.includes('name="visitor_ref"'));
   assert.ok(!/document\.cookie/.test(js));
 });
+
+/* Run the visitor script against a fake Player.js: only time watched with sound counts (the hero autoplays muted and loops). */
+function runVisitScript(opts: { muted: () => boolean | "throw" }) {
+  const events: unknown[] = [];
+  const handlers: Record<string, (d?: unknown) => void> = {};
+  let now = 1_000_000;
+  const player = {
+    on: (n: string, f: (d?: unknown) => void) => { handlers[n] = f; },
+    getDuration: (cb: (d: number) => void) => cb(100),
+    getPaused: (cb: (p: boolean) => void) => cb(false),
+    getMuted: (cb: (m: boolean) => void) => { const m = opts.muted(); if (m === "throw") throw new Error("no"); cb(m); },
+  };
+  const doc = {
+    querySelector: () => ({}),
+    head: { appendChild: (s: { onload: () => void }) => s.onload() },
+    createElement: () => ({}),
+  };
+  const win = { localStorage: { getItem: () => "ref1", setItem: () => {} }, playerjs: { Player: function () { return player; } } };
+  const fetchStub = (_u: string, init: { body: string }) => {
+    const b = JSON.parse(init.body);
+    if (b.op === "event") events.push(b.event === "start" ? "start" : b.percent);
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ref: "ref1" }) });
+  };
+  const code = readFileSync(path.join(JS, "pack-visit.js"), "utf8");
+  new Function("window", "document", "fetch", "playerjs", "setTimeout", "Date", code)(
+    win, doc, fetchStub, win.playerjs, () => 0, { now: () => now });
+  return {
+    events,
+    tick: (seconds: number) => { now += 1100; handlers.timeupdate?.({ seconds, duration: 100 }); },
+    ready: () => handlers.ready?.(),
+    ended: () => handlers.ended?.(),
+  };
+}
+
+test("the visit script counts only time watched with sound, and survives the loop wrapping round", () => {
+  let muted = true;
+  const v = runVisitScript({ muted: () => muted });
+  v.ready();
+  for (let s = 0; s <= 100; s += 5) v.tick(s % 100);
+  assert.deepEqual(v.events, [], "a muted autoplay loop sends nothing");
+  muted = false;
+  for (let s = 1; s <= 30; s += 1) v.tick(s);
+  assert.deepEqual(v.events, ["start", 25]);
+  muted = true;
+  for (let s = 31; s <= 95; s += 2) v.tick(s);
+  assert.deepEqual(v.events, ["start", 25], "muted seconds never count");
+  v.tick(2); v.tick(3);
+  assert.deepEqual(v.events, ["start", 25], "the wrap-around resets and re-sends nothing");
+  muted = false;
+  for (let s = 4; s <= 51; s += 1) v.tick(s);
+  assert.deepEqual(v.events, ["start", 25, 50]);
+  v.ended();
+  assert.equal(v.events.at(-1), 100);
+});
+
+test("the visit script sends nothing when the player cannot say whether it is muted", () => {
+  const v = runVisitScript({ muted: () => "throw" });
+  v.ready();
+  for (let s = 0; s <= 100; s += 1) v.tick(s);
+  v.ended();
+  assert.deepEqual(v.events, []);
+});

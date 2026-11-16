@@ -55,7 +55,7 @@ const VERSIONS: Record<string, string> = {
   "data/barangays.json": "4f4439a8",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
-  "js/pack-visit.js": "3ee8e73c", // this storefront's own file: the landing page visitor ref and the video marks (ClickUp z8uq9mfw14)
+  "js/pack-visit.js": "3b49b61a", // this storefront's own file: the landing page visitor ref and the video marks (ClickUp z8uq9mfw14)
   "js/player.min.js": "48c4f991", // Player.js v0.0.11 (embedly, MIT), the copy TWCinc ships, self-hosted so script-src stays 'self'
   "js/pack-landing.js": "58741466", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",

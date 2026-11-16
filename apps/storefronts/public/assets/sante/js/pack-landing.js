@@ -156,7 +156,7 @@ if(!still){timer=setInterval(function(){show(current+1,false);},4000);}
 /* Hero video: the green play button. The video autoplays muted; one click or tap restarts it from 0:00 with sound. Bunny's embed speaks the
    player.js postMessage protocol, so raw messages go to the iframe (targetOrigin = the iframe's own origin, no library). If the player has not
    announced "ready" by click time the messages could be dropped, so the fallback reloads the same URL with muted=false, which also starts at 0:00
-   with sound. Then the button goes, so Bunny's own controls take over. */
+   with sound. Neither path loops: the URL has loop=false and the player is told setLoop false before play (Coach Ed, 2026-11-16). Then the button goes, so Bunny's own controls take over. */
 (function(){
 var btn=document.querySelector("[data-hero-play]");
 var fr=document.querySelector(".pp-hero-video iframe");
@@ -179,9 +179,9 @@ fr.addEventListener("load",listen);
 listen();
 btn.addEventListener("click",function(){
 if(ready){
-send("setCurrentTime",0);send("unmute");send("setVolume",100);send("play");
+send("setLoop",false);send("setCurrentTime",0);send("unmute");send("setVolume",100);send("play");
 }else{
-var u=new URL(fr.src);u.searchParams.set("muted","false");u.searchParams.set("autoplay","true");
+var u=new URL(fr.src);u.searchParams.set("muted","false");u.searchParams.set("autoplay","true");u.searchParams.set("loop","false");
 fr.src=u.toString();
 }
 btn.hidden=true;btn.remove();

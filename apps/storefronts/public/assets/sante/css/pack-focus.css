@@ -124,7 +124,7 @@
 
 /* Task z8uq9mfw37, fix round 5 additions (Coach Ed 2026-11-16 22:37).
    1) The "Unlock 40% Member Savings" badge is a real element on the hero video's top-right corner, no longer painted into the hero
-      photo (img/hero-nz-tall-*.webp are the photo with the badge removed). Colours sampled from the old image: circle #054d27, "40%" #ebd74c.
+      photo (img/hero-nz-clean-*.webp are the photo with the badge and the painted "Goodness from New Zealand" text removed). Colours sampled from the old image: circle #054d27, "40%" #ebd74c.
       It never takes the pointer, so the player's controls stay clickable; it sits on the corner, well away from the play button.
    2) Phone order, under 40rem: label, headline, the video (with the badge), the "Get 2 boxes" line, the button with the three trust items
       under it, then the certifications. The body and copy wrappers drop out of the layout (display: contents) so the section's own

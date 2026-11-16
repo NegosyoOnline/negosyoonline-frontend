@@ -189,9 +189,9 @@ test("the 40% member savings badge is one real element on the video, and the her
   const hero = doc.slice(doc.indexOf('<section class="pp-hero'), doc.indexOf("</section>", doc.indexOf('<section class="pp-hero')));
   assert.ok(hero.indexOf('class="pp-hero-video"') < hero.indexOf("pp-hero-badge"));
   assert.ok(hero.indexOf("pp-hero-badge") < hero.indexOf("pp-hero-photo")); // inside the video block
-  assert.ok(hero.includes("img/hero-nz-tall-2000.webp") && hero.includes("img/hero-nz-tall-1400.webp"));
+  assert.ok(hero.includes("img/hero-nz-clean-2000.webp") && hero.includes("img/hero-nz-clean-1400.webp"));
   assert.doesNotMatch(hero, /40pct/);
-  for (const w of ["1400", "2000"]) assert.ok(existsSync(path.join("public/assets/sante/img", `hero-nz-tall-${w}.webp`)));
+  for (const w of ["1400", "2000"]) assert.ok(existsSync(path.join("public/assets/sante/img", `hero-nz-clean-${w}.webp`)));
 });
 
 test("the phone hero order is set by CSS under 40rem: label, headline, video, line, button, certifications", () => {
@@ -203,7 +203,7 @@ test("the phone hero order is set by CSS under 40rem: label, headline, video, li
   assert.deepEqual(seq, [1, 2, 3, 4, 5, 6]);
   assert.match(phone, /\.pp-hero-photo \{ display: none;/); // round 6: the photo block is gone on a phone
   const hero = page(PACK);
-  assert.match(hero, /<picture><source media="\(max-width: 39\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img src="[^"]*hero-nz-tall-2000\.webp[^"]*" srcset="[^"]*1400w[^"]*2000w"[^>]*fetchpriority="high"[^>]*><\/picture>/);
+  assert.match(hero, /<picture><source media="\(max-width: 39\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img src="[^"]*hero-nz-clean-2000\.webp[^"]*" srcset="[^"]*1400w[^"]*2000w"[^>]*fetchpriority="high"[^>]*><\/picture>/);
   assert.match(hero, /<span aria-hidden="true" class="pp-hero-blur hidden desk:block"><picture><source media="\(max-width: 63\.99rem\)" srcset="data:image\/gif;base64,[^"]+"><img [^>]*loading="lazy"><\/picture><\/span>/);
   const doc = page(PACK);
   for (const cls of ["pp-hero-label", "pp-hero-h1", "pp-hero-lede", "pp-hero-certs", "pp-hero-cta", "pp-hero-video", "pp-hero-photo"]) assert.equal((doc.match(new RegExp(`class="${cls}[ "]`, "g")) ?? []).length, 1, cls);
@@ -254,6 +254,17 @@ test("round 7: the hero video has a white frame and a green play button (a real 
   const js = readFileSync("public/assets/sante/js/pack-landing.js", "utf8");
   for (const m of ["setCurrentTime", "unmute", "setVolume", "play"]) assert.ok(js.includes(`"${m}"`), m);
   assert.match(js, /e\.origin!==origin/);
+});
+
+test("no video loops: the hero embed says loop=false, the play click turns looping off, nothing restarts a video on 'ended' (Coach Ed, 2026-11-16)", () => {
+  assert.match(VIDEO_EMBED_URL, /[?&]loop=false(&|$)/);
+  assert.doesNotMatch(VIDEO_EMBED_URL, /loop=true/);
+  const hero = page(PACK).match(/<iframe\b[^>]*pp-hero[^>]*>|<iframe\b[^>]*>/)![0];
+  assert.match(hero, /loop=false/);
+  const js = readFileSync("public/assets/sante/js/pack-landing.js", "utf8");
+  assert.match(js, /send\("setLoop",false\);send\("setCurrentTime",0\)/);
+  assert.match(js, /searchParams\.set\("loop","false"\)/);
+  assert.doesNotMatch(js, /loop=true|["']ended["']/);
 });
 
 test("every order button carries the heartbeat: double-beat keyframes, paused on hover and focus, none under reduced motion", () => {

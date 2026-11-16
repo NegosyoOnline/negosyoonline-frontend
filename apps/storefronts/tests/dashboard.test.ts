@@ -115,6 +115,11 @@ test("a rejected order opens the dialog with the reason, the accounts and the re
   assert.match(body, /Reason from the store<\/b>Amount does not match/);
   assert.match(body, /action="\/dashboard\/pack\/resubmit\/"/);
   assert.match(body, /<option value="a1">BDO · Santé Store<\/option>/);
+  assert.match(body, /<select id="pk-acct" class="inp" name="account_id" data-pk-select data-placeholder="Choose an account"/);
+  assert.match(body, /<option value="">Choose an account<\/option>/);
+  assert.doesNotMatch(body, /<option value="a1" selected>/);
+  assert.match(body, /js\/pack-select\.js/);
+  assert.match(body, /css\/pack-select\.css/);
   assert.match(body, /up to 4 MB/);
   assert.match(body, /pack-lock\.js/);
   assert.match(body, /name="submit_key" value="[A-Za-z0-9_-]{16}"/);
@@ -163,9 +168,11 @@ test("a refused resubmit shows the field messages in the dialog and keeps what w
   });
   const form = new FormData();
   form.append("sender_bank", "BDO");
+  form.append("account_id", "a1");
   const r = await resubmitPost(dashOf(f), form);
   assert.equal(r.status, 200);
   const body = await r.text();
+  assert.match(body, /<option value="a1" selected>/);
   assert.match(body, /Enter the amount you sent\./);
   assert.match(body, /value="BDO"/);
 });

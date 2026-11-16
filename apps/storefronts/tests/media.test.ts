@@ -361,7 +361,7 @@ test("text sizes match the owner dashboard (apps/dash dash.css): body 16, labels
 });
 test("the Orders form selects are pk-select without the typing filter", async () => {
   const src = readFileSync(new URL("../src/views/sante/member-orders.ts", import.meta.url), "utf8");
-  assert.match(src, /name="\$\{name\}" data-pk-select data-pk-select-nofilter required/);
+  assert.match(src, /name="\$\{name\}" data-pk-select data-pk-select-nofilter data-placeholder="\$\{label\}"/);
 });
 
 test("the sort box stays clear in dark mode, so the pill's rounded border shows", () => {

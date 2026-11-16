@@ -180,15 +180,43 @@ test("the list page answers the GET only", async () => {
 
 /* ---- add and edit ------------------------------------------------------------------------------------------------ */
 
-test("the add form has the seven fields, today as the date's latest, and defaults COD and For approval", async () => {
+test("the add form has the seven fields, today as the date's latest, and chooses nothing for Payment and Status", async () => {
   const body = await (await orderAddGet(dashOf(setup({})))).text();
   for (const name of ["order_number", "ordered_on", "customer_first_name", "city", "payment", "total", "status"]) assert.match(body, new RegExp(`name="${name}"`));
   assert.match(body, /type="date" min="2007-01-01" max="2026-11-15"/);
-  assert.match(body, /<option value="cod" selected>/);
-  assert.match(body, /<option value="for_approval" selected>/);
+  assert.match(body, /<select id="mo-payment"[^>]*data-pk-select data-pk-select-nofilter data-placeholder="Payment"/);
+  assert.match(body, /<select id="mo-status"[^>]*data-pk-select data-pk-select-nofilter data-placeholder="Status"/);
+  assert.match(body, /<option value="">Payment<\/option>/);
+  assert.match(body, /<option value="">Status<\/option>/);
+  assert.doesNotMatch(body, /<option value="[a-z_]+" selected>/);
+  assert.doesNotMatch(body, /<select[^>]*\brequired\b/);
+  assert.match(body, /js\/pack-select\.js/);
   assert.match(body, /<form method="post" action="\/dashboard\/orders\/add\/">/);
   assert.doesNotMatch(body, /data-mo="delete"/);
   assert.doesNotMatch(mainOf(body), /tracking|phone|address|note/i);
+});
+
+test("an add with Payment and Status unchosen shows plain field errors and makes no backend call", async () => {
+  const f = setup({});
+  const r = await orderAddPost(dashOf(f), { ...FORM, payment: "", status: "" });
+  assert.equal(r.status, 400);
+  const body = await r.text();
+  assert.match(body, /<p class="err" id="mo-payment-msg">Choose a payment\.<\/p>/);
+  assert.match(body, /<p class="err" id="mo-status-msg">Choose a status\.<\/p>/);
+  assert.match(body, /id="mo-payment" class="inp bad"[^>]*aria-invalid="true" aria-describedby="mo-payment-msg"/);
+  assert.doesNotMatch(body, /<option value="[a-z_]+" selected>/);
+  assert.equal(f.calls.some((c) => c.path === "member/order-log/create"), false);
+});
+
+test("an edit with Status unchosen is refused the same way, without a backend call", async () => {
+  const f = setup({});
+  const r = await orderEditPost(dashOf(f), "mol_1", { ...FORM, status: "" });
+  assert.equal(r.status, 400);
+  const body = await r.text();
+  assert.match(body, /id="mo-status-msg">Choose a status\.</);
+  assert.doesNotMatch(body, /mo-payment-msg/);
+  assert.match(body, /<option value="prepaid" selected>/);
+  assert.equal(f.calls.some((c) => c.path.includes("order-log/update")), false);
 });
 
 test("a good add sends exactly the contract's keys and redirects to the list with a notice", async () => {

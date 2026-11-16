@@ -321,7 +321,8 @@ const ASSETS = path.join(import.meta.dirname, "..", "public", "assets", "sante")
 const widget = createRequire(import.meta.url)(path.join(ASSETS, "js", "chat-widget.js")) as {
   pollDelay(ms: number): number; errorKind(status: number, body: unknown): string; emailOk(v: string): boolean;
   mergeReplies(log: { items: { who: string; id: number; text: string; at: string }[]; last: number }, replies: unknown[]): boolean;
-  readLog(storage: unknown): { items: unknown[]; last: number }; writeLog(storage: unknown, log: unknown): void;
+  readLog(storage: unknown, now?: number): { items: unknown[]; last: number }; writeLog(storage: unknown, log: unknown, now?: number): void;
+  migrateLog(local: unknown, session: unknown): void; LOG_TTL_MS: number;
   readProbe(storage: unknown, host: string, now: number): { available: boolean; state: string } | null;
   writeProbe(storage: unknown, host: string, now: number, available: boolean, state: string): void; PROBE_KEY: string;
   start(doc: unknown, win: unknown): void;
@@ -434,11 +435,11 @@ test("the availability answer is remembered for 60 s per host, and only for that
 });
 
 /* A bare page for the script: just enough document and window to run start() and count the polls. */
-function page(session: ReturnType<typeof memory>, answer: { status: number; body: unknown }) {
+function page(session: ReturnType<typeof memory>, answer: { status: number; body: unknown }, local: ReturnType<typeof memory> = memory()) {
   const calls: string[] = [];
   const el = (): Record<string, unknown> => ({ classList: { add() {} }, appendChild() {}, setAttribute() {}, addEventListener() {}, style: {} });
   const doc = { currentScript: null, querySelector: () => null, createElement: el, createElementNS: el, body: el(), documentElement: el(), addEventListener() {}, hidden: false };
-  const win = { sessionStorage: session, location: { host: "demo.test" }, setTimeout, clearTimeout, AbortController,
+  const win = { sessionStorage: session, localStorage: local, location: { host: "demo.test" }, setTimeout, clearTimeout, AbortController,
     fetch: (url: string) => { calls.push(url); return Promise.resolve({ status: answer.status, json: () => Promise.resolve(answer.body) }); } };
   return { calls, doc, win };
 }
@@ -470,8 +471,39 @@ test("browsing several pages costs one probe poll a minute: the second page read
   assert.equal(d.calls.length, 1, "a failure is not remembered");
 });
 
-test("the conversation and the probe are in sessionStorage, never localStorage", () => {
+test("the conversation is in localStorage and the probe stays in sessionStorage", async () => {
   const code = readFileSync(path.join(ASSETS, "js", "chat-widget.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.match(code, /win\.sessionStorage/);
-  assert.doesNotMatch(code, /localStorage/);
+  assert.match(code, /win\.localStorage/);
+  assert.match(code, /readProbe\(session,/);
+  const session = memory(), local = memory();
+  const p = page(session, { status: 200, body: { ok: true, state: "none", available: true, messages: [] } }, local);
+  widget.start(p.doc, p.win);
+  await tick();
+  assert.ok(session.m.has(widget.PROBE_KEY), "probe in sessionStorage");
+  assert.ok(!local.m.has(widget.PROBE_KEY), "probe not in localStorage");
+});
+
+test("a kept conversation is dropped 30 days after its last write, not before", () => {
+  const st = memory(), t = 5_000_000_000, log = { items: [{ who: "me", id: 0, text: "Hi", at: "2026-11-16T08:00:00Z" }], last: 0 };
+  assert.equal(widget.LOG_TTL_MS, 30 * 24 * 3600 * 1000);
+  widget.writeLog(st, log, t);
+  assert.equal(JSON.parse(st.m.get(widget.LOG_KEY)!).saved_at, t);
+  assert.deepEqual(widget.readLog(st, t + widget.LOG_TTL_MS), log, "still there on day 30");
+  assert.deepEqual(widget.readLog(st, t + widget.LOG_TTL_MS + 1), { items: [], last: 0 }, "gone after 30 days");
+  assert.ok(!st.m.has(widget.LOG_KEY), "and removed");
+});
+
+test("a log an older version kept in sessionStorage moves to localStorage once", () => {
+  const raw = JSON.stringify({ items: [{ who: "me", id: 0, text: "Hi", at: "2026-11-16T08:00:00Z" }], last: 0 });
+  const session = memory(), local = memory();
+  session.m.set(widget.LOG_KEY, raw);
+  widget.migrateLog(local, session);
+  assert.equal(widget.readLog(local, Date.now()).items.length, 1);
+  assert.ok(!session.m.has(widget.LOG_KEY), "old copy removed");
+  const s2 = memory(), l2 = memory();
+  s2.m.set(widget.LOG_KEY, raw);
+  l2.m.set(widget.LOG_KEY, JSON.stringify({ items: [{ who: "me", id: 0, text: "New", at: "2026-11-16T09:00:00Z" }], last: 0, saved_at: Date.now() }));
+  widget.migrateLog(l2, s2);
+  assert.equal((widget.readLog(l2, Date.now()).items[0] as { text: string }).text, "New", "localStorage log wins");
+  assert.ok(!s2.m.has(widget.LOG_KEY));
 });

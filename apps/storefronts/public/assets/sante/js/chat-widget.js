@@ -11,10 +11,13 @@
    Polling: every 20 s while the panel is open, every 60 s after 10 minutes without the visitor doing anything, and not at all after
    30 minutes without. Writing, or opening the panel again, starts it again. A page that is hidden is not polled.
 
-   The conversation as the visitor sees it (their own messages and the store's replies) is kept in this tab's sessionStorage under
-   "no-chat-log", so a reload keeps it and closing the tab drops it (safer on a shared phone); Django only returns the store's replies.
-   It is also dropped when the server no longer knows the visitor. A browser that blocks storage keeps the conversation in memory for
-   the page only.
+   The conversation as the visitor sees it (their own messages and the store's replies) is kept in this browser's localStorage under
+   "no-chat-log" (per store host, as localStorage is per origin), so a reload, a closed tab or a later visit still shows the earlier
+   messages next to the store's replies (Coach Ed's ruling Db); Django only returns the store's replies. It holds only message texts,
+   ids, times and sides, no name or email. It is dropped 30 days after its last write (the chat cookie's own lifetime), or sooner when
+   the server no longer knows the visitor. On a shared device the earlier messages show until those 30 days pass or the server forgets
+   the visitor. A log an older version kept in sessionStorage is moved over once. A browser that blocks storage keeps the conversation
+   in memory for the page only.
 
    The first poll (is chat available here?) is remembered in sessionStorage under "no-chat-probe" for 60 s per host, so a visitor
    moving between pages costs one poll a minute, not one per page. An open panel still polls on its own 20 s / 60 s schedule. */
@@ -27,7 +30,7 @@
 
   var MAX = 1000;
   var FAST_MS = 20000, SLOW_MS = 60000, SLOW_AFTER_MS = 10 * 60000, STOP_AFTER_MS = 30 * 60000;
-  var LOG_KEY = "no-chat-log", LOG_MAX = 80;
+  var LOG_KEY = "no-chat-log", LOG_MAX = 80, LOG_TTL_MS = 30 * 24 * 3600 * 1000; // 30 days = CHAT_MAX_AGE of the chat cookie
   var PROBE_KEY = "no-chat-probe", PROBE_MS = 60000;
   var CONTACT_HREF = "/#contact-form";
   var TEXT = {
@@ -103,13 +106,14 @@
     return added;
   }
 
-  function readLog(storage) {
+  function readLog(storage, now) {
     var empty = { items: [], last: 0 };
     try {
       var raw = storage && storage.getItem(LOG_KEY);
       if (!raw) return empty;
       var data = JSON.parse(raw);
       if (!data || !Array.isArray(data.items)) return empty;
+      if (typeof data.saved_at === "number" && typeof now === "number" && now - data.saved_at > LOG_TTL_MS) { try { storage.removeItem(LOG_KEY); } catch { /* ignore */ } return empty; }
       var items = [];
       data.items.forEach(function (m) {
         if (m && (m.who === "me" || m.who === "store") && typeof m.text === "string" && typeof m.at === "string") {
@@ -120,12 +124,25 @@
     } catch { return empty; }
   }
 
-  function writeLog(storage, log) {
+  function writeLog(storage, log, now) {
     try {
       if (!storage) return;
       if (!log.items.length) storage.removeItem(LOG_KEY);
-      else storage.setItem(LOG_KEY, JSON.stringify(log));
+      else storage.setItem(LOG_KEY, JSON.stringify({ items: log.items, last: log.last, saved_at: typeof now === "number" ? now : Date.now() }));
     } catch { /* blocked or full: the conversation stays in memory for this page */ }
+  }
+
+  /** One-time move of a log an older version kept in sessionStorage: copied only when localStorage has none; the old copy always goes. */
+  function migrateLog(local, session) {
+    try {
+      if (!session) return;
+      var old = session.getItem(LOG_KEY);
+      if (old && local && !local.getItem(LOG_KEY)) {
+        var data = JSON.parse(old);
+        if (data && Array.isArray(data.items)) local.setItem(LOG_KEY, JSON.stringify({ items: data.items, last: data.last, saved_at: Date.now() }));
+      }
+      session.removeItem(LOG_KEY);
+    } catch { /* blocked: nothing to move */ }
   }
 
   /** The remembered answer to "is chat available on this host?", or null when there is none, it is older than 60 s, or it is for another host. */
@@ -164,9 +181,11 @@
   function start(doc, win) {
     var script = doc.currentScript || doc.querySelector("script[data-chat-widget]");
     var store = script && script.getAttribute ? String(script.getAttribute("data-store") || "").slice(0, 80) : "";
-    var storage = null;
-    try { storage = win.sessionStorage; } catch { storage = null; }
-    var log = readLog(storage);
+    var storage = null, session = null; // storage keeps the conversation (localStorage); session keeps the probe
+    try { storage = win.localStorage; } catch { storage = null; }
+    try { session = win.sessionStorage; } catch { session = null; }
+    migrateLog(storage, session);
+    var log = readLog(storage, Date.now());
 
     var S = { open: false, view: "form", state: "none", sending: false, error: "", draft: { text: "", name: "", email: "" },
       openedAt: "", lastAction: Date.now(), timer: 0, polling: false };
@@ -460,21 +479,21 @@
     });
 
     var host = win.location && win.location.host ? win.location.host : "";
-    var known = readProbe(storage, host, Date.now());
+    var known = readProbe(session, host, Date.now());
     if (known) {
       if (known.available) { S.state = known.state; S.view = viewFor(); build(); }
       return;
     }
     poll().then(function (r) {
       if (!r) return;
-      if (r.status === 404) { writeProbe(storage, host, Date.now(), false, "none"); return; } // chat is off here: remembered too
+      if (r.status === 404) { writeProbe(session, host, Date.now(), false, "none"); return; } // chat is off here: remembered too
       if (r.status !== 200 || !r.body || r.body.ok !== true) return; // a failure is not remembered: the next page asks again
       var ok = r.body.available !== false;
-      writeProbe(storage, host, Date.now(), ok, S.state);
+      writeProbe(session, host, Date.now(), ok, S.state);
       if (ok) build(); // not available: nothing is drawn
     });
   }
 
-  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, readProbe: readProbe, writeProbe: writeProbe,
+  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, migrateLog: migrateLog, LOG_TTL_MS: LOG_TTL_MS, readProbe: readProbe, writeProbe: writeProbe,
     TEXT: TEXT, ERRORS: ERRORS, LOG_KEY: LOG_KEY, PROBE_KEY: PROBE_KEY };
 });

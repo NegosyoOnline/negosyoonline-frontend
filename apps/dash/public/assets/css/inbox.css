@@ -28,11 +28,13 @@
 }
 
 /* ---- inbox: header, split, list ---- */
-body.dash-app .ib-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
-body.dash-app .ib-refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
-body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
+#view-inbox .ib-lhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+#view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
 #view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; height: 100%; }
+#view-inbox .ib-rcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+#view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; }
+#view-inbox .ib-tools-host { flex: none; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -91,16 +93,17 @@ body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; he
 #view-inbox .ib-reply .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 899px) {
-  #view-inbox .ib-split { display: block; }
-  #view-inbox .ib-split > .ib-pane { height: 100%; }
+  /* a phone: the toolbar over the list (it filters the list; it goes while a conversation is open), then one card; the right column dissolves */
+  #view-inbox .ib-split { display: flex; flex-direction: column; gap: 10px; }
+  #view-inbox .ib-rcol { display: contents; }
+  #view-inbox .ib-tools-host { order: -1; }
+  #view-inbox .ib-split > .ib-pane, #view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; min-height: 0; height: auto; }
   #view-inbox .ib-split .is-hide-phone { display: none; }
   #view-inbox .ib-pane { border-radius: 14px; }
   #view-inbox .ib-back { display: inline-flex; flex: 0 0 100%; margin-left: -6px; }
   #view-inbox .ib-thead { gap: 10px; }
   #view-inbox .ib-msgs { padding: 14px; }
   #view-inbox .ib-msg { max-width: 88%; }
-  .ib-viewhead { align-items: flex-start; }
-  .ib-refresh { width: 100%; justify-content: space-between; }
   #view-inbox .ib-open { flex: 0 0 100%; justify-content: center; }
   #view-inbox .ib-tname { min-width: 150px; }
   #view-inbox .ib-tname .chip { white-space: nowrap; }
@@ -124,8 +127,6 @@ body.dash-app .ib-long { white-space: normal !important; text-align: left; borde
 #view-inbox .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
 
 /* the Channel filter above the list */
-body.dash-app .ib-tools { padding: 12px 18px; border-bottom: 1px solid var(--card-line); display: flex; flex-direction: column; gap: 6px; }
-body.dash-app .ib-tools .pm-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
 body.dash-app .ib-empty-filter { margin: 0; padding: 24px 18px; color: var(--text-2); text-align: center; }
 
 /* banners above the list, and the notes under a thread's head */
@@ -203,7 +204,7 @@ body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .
 /* U4: a group of bubbles from one side sits tighter (the 10 px gap of the column is 4 px inside a group) */
 #view-inbox .ib-msg.ib-grp { margin-bottom: -6px; }
 
-/* U3: the reply window note above the box */
+/* U3: the reply window note above the box (open window: under 2 hours left; closed window: the 24-hour sentence) */
 #view-inbox .ib-reply .ib-note { margin: 0; }
 
 /* U5: the unread count on the Inbox nav links */
@@ -214,30 +215,42 @@ body.dash-app .tabs a { position: relative; }
 body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
 @media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
 
-/* U5: the search box: the house text field, the light-blue focus border (never gold), a clear button */
-#view-inbox .ib-tools { gap: 10px; }
-#view-inbox .ib-search { display: flex; flex-direction: column; gap: 6px; }
-#view-inbox .ib-search .pm-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
-#view-inbox .ib-sbox { position: relative; }
-#view-inbox .pm-input.ib-sin { display: block; width: 100%; min-height: 44px; padding: 0 44px 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
-#view-inbox .pm-input.ib-sin::placeholder { color: var(--meta); opacity: 1; }
-#view-inbox .pm-input.ib-sin::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
-#view-inbox .pm-input.ib-sin:focus, #view-inbox .pm-input.ib-sin:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
-#view-inbox .ib-sclear { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--meta); cursor: pointer; }
+/* The filter toolbar (Coach Ed 2026-11-17, built like the Products toolbar): a row ABOVE the open-conversation card, in the right column
+   (.ib-rcol). [Search: the magnifier inside, live, no button] [Channel] [All status] [Refresh: an outlined button]. The dropdowns are the
+   plain house dropdown. Not a container query (its containment would trap the fixed dropdown panel). */
+#view-inbox .ib-trow { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+#view-inbox .ib-trow > .ib-search { flex: 1 1 220px; min-width: 0; }
+#view-inbox .ib-trow > .ib-fld { flex: 0 0 170px; min-width: 0; }
+#view-inbox .ib-trow > .ib-rf { flex: 0 0 auto; min-height: 44px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
+#view-inbox .ib-tools.is-lite .ib-trow { justify-content: flex-end; }
+#view-inbox .ib-tools .ib-combo-input { text-overflow: ellipsis; }
+#view-inbox .ib-tools-host:empty { display: none; }
+/* the search box: the Products one (pr-qs): magnifier inside, a light-blue border on focus (never gold), a clear button */
+#view-inbox .ib-qs { display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 44px; padding: 0 4px 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
+#view-inbox .ib-qs:focus-within { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-qs .ib-si { flex: none; width: 20px; height: 20px; }
+#view-inbox .ib-sin { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
+#view-inbox .ib-sin:focus, #view-inbox .ib-sin:focus-visible { outline: none; box-shadow: none; }
+#view-inbox .ib-sin::placeholder { color: var(--meta); opacity: 1; }
+#view-inbox .ib-sin::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+#view-inbox .ib-sclear { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--meta); cursor: pointer; }
 #view-inbox .ib-sclear[hidden] { display: none; }
 #view-inbox .ib-sclear:hover { color: var(--text); }
 #view-inbox .ib-sclear:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
 #view-inbox .ib-sclear svg { width: 18px; height: 18px; }
-/* phone: a tighter header and toolbar, so the list gets the room (the labels stay for screen readers) */
+/* phone: a tighter header and a wrapped toolbar (search on its own line, then the two dropdowns and Refresh; the words stay for screen readers) */
 @media (max-width: 899px) {
-  body.dash-app.ib-fixed #view-inbox .dash-eyebrow { display: none; }
-  body.dash-app.ib-fixed #view-inbox > .view-head { gap: 8px; }
   body.dash-app.ib-fixed #view-inbox .ib-pane-head { padding: 10px 16px; }
-  #view-inbox .ib-tools { padding: 10px 12px; gap: 8px; }
-  #view-inbox .ib-tools .pm-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  #view-inbox .ib-trow { gap: 8px; }
+  #view-inbox .ib-trow > .ib-search { flex: 1 1 100%; }
+  #view-inbox .ib-trow > .ib-fld { flex: 1 1 0; }
+  #view-inbox .ib-tools:not(.is-lite) .ib-trow > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
+  #view-inbox .ib-tools:not(.is-lite) .ib-rf-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
 @media (max-width: 899px) {
-  body.dash-app.ib-fixed.ib-thread #view-inbox > .view-head { display: none; }
+  /* Finding 1: the cards reach the bottom bar. The dash keeps 96 px under every page for the bar; here only the bar itself (4 + 56 + 4 + 1 px, plus the
+     home-indicator inset) and a small gap stay free, so the list and the thread fill the screen and the reply box sits at the bottom. */
+  body.dash-app.ib-fixed .col { padding-bottom: calc(65px + 12px + env(safe-area-inset-bottom)); }
   #view-inbox .ib-thead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "back back act" "av name name"; align-items: center; padding: 4px 12px 10px; gap: 2px 10px; }
   #view-inbox .ib-back { grid-area: back; justify-self: start; min-height: 40px; }
   #view-inbox .ib-thead .ib-open { grid-area: act; min-height: 36px; padding: 0 12px; margin: 0; }

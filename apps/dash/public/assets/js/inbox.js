@@ -358,15 +358,15 @@
       badgeArm();
     });
   }
-  /* The unread_total of a list read (never of a search, which may count only its matches). Old answers without it leave the badge alone. */
-  function takeUnread(data) { if (S && !S.q && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
+  /* The unread_total of a list read (never of a search or an Open/Closed filter, which may count only their matches). Old answers without it leave the badge alone. */
+  function takeUnread(data) { if (S && !S.q && !S.status && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
 
   /* ---------- state ---------- */
 
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], updated: null, more: false, filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      q: "", qText: "", qTimer: null };
+      q: "", qText: "", qTimer: null, status: "" };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -411,14 +411,15 @@
 
   /* ---------- load ---------- */
 
-  /* The list's address: the stored cursor and the search text (INBOX-UI U5) when there are any. */
+  /* The list's address: the stored cursor, the search text (INBOX-UI U5) and the Open/Closed filter when there are any. */
   function listUrl(cursor) {
     var qs = [];
     if (cursor) qs.push("stored_cursor=" + encodeURIComponent(cursor));
     if (S.q) qs.push("q=" + encodeURIComponent(S.q));
+    if (S.status) qs.push("status=" + S.status); /* "open" or "closed"; All conversations sends nothing */
     return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
   }
-  function stateFor(items) { return items.length || S.q ? "ready" : "empty"; }
+  function stateFor(items) { return items.length || S.q || S.status ? "ready" : "empty"; }
   function load(refresh) {
     var mine = ++token;
     if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
@@ -723,11 +724,10 @@
   /* After a list read: redraw only the list when the two panes are up, the whole body when the layout changes. */
   function redraw() { if (byId("ib-listbody") && !singlePane()) { drawList(); drawUpdated(); } else drawBody(); }
   function drawUpdated() {
-    var u = byId("ib-upd"), box = byId("ib-refresh");
-    if (!u || !box || !S) return;
+    var u = byId("ib-upd");
+    if (!u || !S) return;
     var f = S.fail, soft = S.state === "failed" && !!f && f.kind === "down";
-    box.hidden = !(S.state === "ready" || S.state === "empty" || soft);
-    u.textContent = S.updated && !box.hidden ? (soft ? "Last updated " : "Updated ") + whenText(S.updated.toISOString(), new Date()) : "";
+    u.textContent = S.updated && (S.state === "ready" || S.state === "empty" || soft) ? (soft ? "Last updated " : "Updated ") + whenText(S.updated.toISOString(), new Date()) : "";
   }
   function stateBox(iconPath, title, text, actions, err) {
     var box = h("div", "ib-state" + (err ? " ib-err" : "")); if (err) box.setAttribute("role", "alert");
@@ -750,22 +750,24 @@
       else one.appendChild(stateBox(ICON.warn, "The inbox is not open for you", f.message, null, true));
       wrap.appendChild(one); return;
     }
-    var split = h("div", "ib-split");
-    add(split, listPane(), threadPane());
+    var split = h("div", "ib-split"), right = h("div", "ib-rcol");
+    var host = h("div", "ib-tools-host" + (S.sel ? " is-hide-phone" : "")); host.setAttribute("id", "ib-tools-host");
+    add(right, host, threadPane()); /* the right column: the filter toolbar over the open-conversation card */
+    add(split, listPane(), right);
     wrap.appendChild(split);
     if (S.sel) drawThread();
   }
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (S.sel ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
-    var head = h("div", "ib-pane-head"); head.appendChild(h("h2", "ib-h", "Conversations")); p.appendChild(head);
+    var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
+    var upd = h("span", "ib-upd"); upd.setAttribute("id", "ib-upd"); head.appendChild(upd); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
     fillList(body);
     return p;
   }
-  /* onlyResults: a search changed the rows; the toolbar (and the cursor in the search box) stays. */
-  function fillList(body, onlyResults) {
-    var tools = onlyResults && S.state === "ready" && body.querySelector ? body.querySelector(".ib-tools") : null;
-    if (tools) { Array.prototype.slice.call(body.childNodes).forEach(function (n) { if (n !== tools) body.removeChild(n); }); } else clear(body);
+  function fillList(body) {
+    clear(body);
+    syncTools();
     if (S.state === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Loading your conversations…")); return; }
     if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer messages your Facebook Page, writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again.")); return; }
     if (S.state === "failed") {
@@ -774,11 +776,10 @@
         [btn("Try again", "primary", function (b) { busy(b, true); load(false); }, ICON.refresh)], true));
       return;
     }
-    if (!tools) body.appendChild(toolbar());
     var banners = bannerBox(); if (banners) body.appendChild(banners);
     var shown = filterItems(S.items, S.filter);
     if (!shown.length) {
-      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status ? "No conversations match." : "No conversations in this channel yet."); none.setAttribute("role", "status");
       body.appendChild(none);
       if (S.stNext) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
@@ -814,26 +815,71 @@
     b.appendChild(document.createTextNode(c.label));
     return b;
   }
+  var STATUSES = [["all", "All status"], ["open", "Open"], ["closed", "Closed"]];
+  /* The filter toolbar (Coach Ed 2026-11-17, built like the Products toolbar): a row ABOVE the open-conversation card, in the right column,
+     [Search] [Channel] [Open/Closed] [Refresh]. It filters the list on the left. On a phone it sits above the list and goes while a
+     conversation is open. It is one self-contained block (toolbar()) that syncTools() puts into #ib-tools-host, so it can move with
+     one change. lite: Refresh alone, for a list with nothing to filter yet. It is rebuilt only when that mode changes, so the cursor
+     stays in the search box while the rows change. */
+  function syncTools() {
+    var host = byId("ib-tools-host"); if (!host || !S) return;
+    var mode = S.state === "ready" ? "full" : S.state === "empty" ? "lite" : "none";
+    if (host.getAttribute("data-mode") === mode) return;
+    clear(host); host.setAttribute("data-mode", mode);
+    if (mode !== "none") host.appendChild(toolbar(mode === "lite"));
+  }
+  function toolbar(lite) {
+    var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow");
+    box.appendChild(row);
+    if (!lite) {
+      row.appendChild(searchBox());
+      row.appendChild(channelField());
+      row.appendChild(statusField());
+    }
+    row.appendChild(refreshButton());
+    return box;
+  }
   /* The Channel filter: the house dropdown, showing its real default "All channels". */
-  function toolbar() {
-    var box = h("div", "ib-tools");
-    box.appendChild(searchBox());
-    var lab = h("label", "pm-label", "Channel"); lab.setAttribute("for", "ib-filter");
+  function channelField() {
+    var fld = h("div", "ib-fld ib-fld-ch");
+    var lab = h("label", "pm-label sr-only", "Channel"); lab.setAttribute("for", "ib-filter");
     var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
     FILTERS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
     sel.value = S.filter;
     sel.addEventListener("change", function () { S.filter = sel.value; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); });
-    add(box, lab, sel);
+    add(fld, lab, sel);
     combo(sel, "Channel");
-    return box;
+    return fld;
+  }
+  /* The Open/Closed filter: the same house dropdown. Open and Closed ask the API (?status=); All status sends nothing. */
+  function statusField() {
+    var fld = h("div", "ib-fld ib-fld-st");
+    var lab = h("label", "pm-label sr-only", "Status"); lab.setAttribute("for", "ib-status");
+    var sel = D.el("select", { "class": "ib-input", id: "ib-status" });
+    var cur = S.status || "all";
+    STATUSES.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === cur) op.selected = true; sel.appendChild(op); });
+    sel.value = cur;
+    sel.addEventListener("change", function () {
+      var v = sel.value === "open" || sel.value === "closed" ? sel.value : "";
+      if (S && v !== S.status) applyQuery(S.q, v, sel);
+    });
+    add(fld, lab, sel);
+    combo(sel, "Status");
+    return fld;
+  }
+  function refreshButton() {
+    var b = h("button", "no-btn no-btn-ghost ib-rf"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
+    b.appendChild(icon(ICON.refresh)); b.appendChild(h("span", "ib-rf-t", "Refresh"));
+    b.addEventListener("click", function () { if (S) refreshAll(b); });
+    return b;
   }
   /* INBOX-UI U5: the search box above the list. 300 ms after the last key; fewer than 2 characters is the normal list; works with the
      Channel filter (that one only narrows the rows shown). The house text-field look and the light-blue focus border (inbox.css). */
   function searchBox() {
     var wrap = h("div", "ib-search");
-    var lab = h("label", "pm-label", "Search"); lab.setAttribute("for", "ib-q");
-    var row = h("div", "ib-sbox");
-    var inp = D.el("input", { "class": "pm-input ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });
+    var lab = h("label", "pm-label sr-only", "Search"); lab.setAttribute("for", "ib-q");
+    var row = h("div", "ib-sbox ib-qs"), mag = icon(ICON.search, "ib-si"); /* the Products search box: the magnifier inside, no button */
+    var inp = D.el("input", { "class": "ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });
     inp.value = S.qText;
     var x = h("button", "ib-sclear"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Clear search"); x.appendChild(icon(ICON.x)); x.hidden = !S.qText;
     var st = S;
@@ -845,7 +891,7 @@
     });
     function wipe() { st.qText = ""; inp.value = ""; x.hidden = true; searchNow(); try { inp.focus(); } catch (e) { /* gone */ } }
     x.addEventListener("click", wipe);
-    add(row, inp, x); add(wrap, lab, row);
+    add(row, mag, inp, x); add(wrap, lab, row);
     return wrap;
   }
   function searchNow() {
@@ -853,18 +899,26 @@
     if (S.qTimer !== null) { clearTimeout(S.qTimer); S.qTimer = null; }
     var v = S.qText.trim(), q = v.length >= 2 ? v.slice(0, 80) : "";
     if (q === S.q) return;
-    var mine = ++token, st = S, was = S.q;
-    S.q = q; var url = listUrl(); S.q = was; /* S.q changes only when the read worked */
+    applyQuery(q, S.status, null);
+  }
+  /* A new search text or status: one read of the list; S.q and S.status change only when the read worked (else the Status box goes back). */
+  function applyQuery(q, status, box) {
+    var mine = ++token, st = S, wasQ = S.q, wasS = S.status;
+    S.q = q; S.status = status; var url = listUrl(); S.q = wasQ; S.status = wasS;
     D.call("GET", url, null, true).then(function (res) {
       if (mine !== token || S !== st || res.status === 401) return;
-      if (!res.ok) { D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error"); return; }
-      S.q = q;
+      if (!res.ok) {
+        D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error");
+        if (box) { box.value = wasS || "all"; if (box.ibSync) box.ibSync(); }
+        return;
+      }
+      S.q = q; S.status = status;
       S.items = Array.isArray(res.data.items) ? res.data.items : [];
       S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
       S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
       takeUnread(res.data);
-      fillList(byId("ib-listbody"), true); drawUpdated();
-      say(!q ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+      fillList(byId("ib-listbody")); drawUpdated();
+      say(!q && !status ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */
@@ -895,6 +949,7 @@
     fillList(body);
     if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
     if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
+    var th = byId("ib-tools-host"); if (th) { if (S.sel) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
   }
@@ -1037,9 +1092,10 @@
     if (open && windowOff) {
       /* Messenger: the 24-hour window is over. The box is off and the reason is said (the account's plain rule, not an error). */
       ta.disabled = true; ta.setAttribute("aria-describedby", "ib-rn");
-      var win = h("p", "ib-closed-t", NOTE_WINDOW); win.setAttribute("id", "ib-rn");
+      /* Finding 2: the sentence sits above the box, like the open-window notice (U3). */
+      var win = h("p", "ib-note ib-note-info ib-wclosed"); win.setAttribute("id", "ib-rn"); win.appendChild(icon(ICON.chat)); win.appendChild(h("span", "", NOTE_WINDOW));
       var sendOff1 = btn("Send", "primary"); sendOff1.disabled = true; sendOff1.setAttribute("aria-disabled", "true");
-      add(wrap, lab, ta, win, add(foot, count, sendOff1));
+      add(wrap, win, lab, ta, add(foot, count, sendOff1));
       wrap.classList.add("is-closed");
       return wrap;
     }
@@ -1079,10 +1135,8 @@
     return wrap;
   }
 
-  /* The Refresh button belongs to the page header in index.html. */
+  /* The Refresh button is part of the filter row (refreshButton). */
   (function wire() {
-    var b = byId("ib-refresh-btn");
-    if (b) b.addEventListener("click", function () { if (S) refreshAll(b); });
     if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
     if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (document.hidden) badgeStop(); else if (!S) badgeRead(); });
     if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); if (S) streamOpen(); });

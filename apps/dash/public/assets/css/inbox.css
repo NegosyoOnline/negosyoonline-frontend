@@ -45,7 +45,7 @@ body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
 #view-inbox .ib-av { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tile); color: var(--tile-ink); font-size: 14px; font-weight: 700; }
 #view-inbox .ib-it { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 #view-inbox .ib-top { display: flex; justify-content: space-between; gap: 8px; }
-#view-inbox .ib-name { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+#view-inbox .ib-name { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
 #view-inbox .ib-time { color: var(--meta); font-size: 13px; flex: none; }
 #view-inbox .ib-snip { color: var(--text-2); font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 #view-inbox .ib-mini { min-height: 22px; padding: 0 10px; font-size: 12px; align-self: flex-start; margin-top: 4px; }
@@ -117,7 +117,9 @@ body.dash-app .ib-ch svg { width: 13px; height: 13px; flex: none; }
 body.dash-app .ib-badges { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
 body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 body.dash-app .ib-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--link); margin-right: 6px; vertical-align: middle; }
-body.dash-app .ib-unread .ib-name { font-weight: 800; }
+body.dash-app .ib-unread .ib-name { font-weight: 700; }
+body.dash-app .ib-unread .ib-time { color: var(--link); font-weight: 600; }
+body.dash-app .ib-item.is-sel .ib-ch { border-color: color-mix(in srgb, var(--link) 40%, transparent); }
 body.dash-app .ib-unread .ib-snip { color: var(--text); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
@@ -187,8 +189,8 @@ body.dash-app.ib-fixed .app { height: 100vh; height: 100dvh; min-height: 0; over
 body.dash-app.ib-fixed .col { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 body.dash-app.ib-fixed .col-main { flex: 1 1 0; min-height: 0; }
 body.dash-app.ib-fixed #view-inbox:not([hidden]) { flex: 1 1 0; min-height: 0; }
-/* F1: on a desktop the dash top-bar buttons (quick-links search, theme, bell: .desk-switch / .notif-col, 44 px tall, absolute at 32 px from the top of the column) float over the content. With no page header the Inbox would start under them, so it reserves that row (44 px + 16 px gap) like the other views do with their header. */
-@media (min-width: 900px) { body.dash-app.ib-fixed #view-inbox:not([hidden]) { padding-top: 60px; } }
+/* F1: on a desktop the dash top-bar buttons (quick-links search, theme, bell: .desk-switch / .notif-col, 44 px tall, absolute at 32 px from the top of the column) float over the content. With no page header the Inbox would start under them, so it reserves that row (44 px + 28 px gap) like the other views do with their header. */
+@media (min-width: 900px) { body.dash-app.ib-fixed #view-inbox:not([hidden]) { padding-top: 72px; } }
 body.dash-app.ib-fixed #ib-root { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .ib-pane { flex: 1 1 0; min-height: 280px; }

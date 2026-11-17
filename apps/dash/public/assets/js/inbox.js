@@ -358,15 +358,15 @@
       badgeArm();
     });
   }
-  /* The unread_total of a list read (never of a search or an Open/Closed filter, which may count only their matches). Old answers without it leave the badge alone. */
-  function takeUnread(data) { if (S && !S.q && !S.status && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
+  /* The unread_total of a list read (never of a search, an Open/Closed or a Read/Unread filter, which may count only their matches). Old answers without it leave the badge alone. */
+  function takeUnread(data) { if (S && !S.q && !S.status && !S.unread && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
 
   /* ---------- state ---------- */
 
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], updated: null, more: false, filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      q: "", qText: "", qTimer: null, status: "" };
+      q: "", qText: "", qTimer: null, status: "", unread: "" };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -417,9 +417,10 @@
     if (cursor) qs.push("stored_cursor=" + encodeURIComponent(cursor));
     if (S.q) qs.push("q=" + encodeURIComponent(S.q));
     if (S.status) qs.push("status=" + S.status); /* "open" or "closed"; All conversations sends nothing */
+    if (S.unread) qs.push("unread=" + S.unread); /* "1" unread only, "0" read only; All messages sends nothing */
     return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
   }
-  function stateFor(items) { return items.length || S.q || S.status ? "ready" : "empty"; }
+  function stateFor(items) { return items.length || S.q || S.status || S.unread ? "ready" : "empty"; }
   function load(refresh) {
     var mine = ++token;
     if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
@@ -779,7 +780,7 @@
     var banners = bannerBox(); if (banners) body.appendChild(banners);
     var shown = filterItems(S.items, S.filter);
     if (!shown.length) {
-      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status ? "No conversations match." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread ? "No conversations match." : "No conversations in this channel yet."); none.setAttribute("role", "status");
       body.appendChild(none);
       if (S.stNext) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
@@ -835,6 +836,7 @@
       row.appendChild(searchBox());
       row.appendChild(channelField());
       row.appendChild(statusField());
+      row.appendChild(readField());
     }
     row.appendChild(refreshButton());
     return box;
@@ -861,10 +863,27 @@
     sel.value = cur;
     sel.addEventListener("change", function () {
       var v = sel.value === "open" || sel.value === "closed" ? sel.value : "";
-      if (S && v !== S.status) applyQuery(S.q, v, sel);
+      if (S && v !== S.status) applyQuery(S.q, v, S.unread, sel);
     });
     add(fld, lab, sel);
     combo(sel, "Status");
+    return fld;
+  }
+  /* The Read/Unread filter: the same house dropdown. Unread sends unread=1, Read sends unread=0; All messages sends nothing. */
+  var READS = [["all", "All messages"], ["unread", "Unread"], ["read", "Read"]];
+  function readField() {
+    var fld = h("div", "ib-fld ib-fld-rd");
+    var lab = h("label", "pm-label sr-only", "Read"); lab.setAttribute("for", "ib-read");
+    var sel = D.el("select", { "class": "ib-input", id: "ib-read" });
+    var cur = S.unread === "1" ? "unread" : S.unread === "0" ? "read" : "all";
+    READS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === cur) op.selected = true; sel.appendChild(op); });
+    sel.value = cur;
+    sel.addEventListener("change", function () {
+      var v = sel.value === "unread" ? "1" : sel.value === "read" ? "0" : "";
+      if (S && v !== S.unread) applyQuery(S.q, S.status, v, sel);
+    });
+    add(fld, lab, sel);
+    combo(sel, "Read");
     return fld;
   }
   function refreshButton() {
@@ -899,26 +918,26 @@
     if (S.qTimer !== null) { clearTimeout(S.qTimer); S.qTimer = null; }
     var v = S.qText.trim(), q = v.length >= 2 ? v.slice(0, 80) : "";
     if (q === S.q) return;
-    applyQuery(q, S.status, null);
+    applyQuery(q, S.status, S.unread, null);
   }
   /* A new search text or status: one read of the list; S.q and S.status change only when the read worked (else the Status box goes back). */
-  function applyQuery(q, status, box) {
-    var mine = ++token, st = S, wasQ = S.q, wasS = S.status;
-    S.q = q; S.status = status; var url = listUrl(); S.q = wasQ; S.status = wasS;
+  function applyQuery(q, status, unread, box) {
+    var mine = ++token, st = S, wasQ = S.q, wasS = S.status, wasU = S.unread;
+    S.q = q; S.status = status; S.unread = unread; var url = listUrl(); S.q = wasQ; S.status = wasS; S.unread = wasU;
     D.call("GET", url, null, true).then(function (res) {
       if (mine !== token || S !== st || res.status === 401) return;
       if (!res.ok) {
         D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error");
-        if (box) { box.value = wasS || "all"; if (box.ibSync) box.ibSync(); }
+        if (box) { box.value = box.id === "ib-read" ? (wasU === "1" ? "unread" : wasU === "0" ? "read" : "all") : (wasS || "all"); if (box.ibSync) box.ibSync(); }
         return;
       }
-      S.q = q; S.status = status;
+      S.q = q; S.status = status; S.unread = unread;
       S.items = Array.isArray(res.data.items) ? res.data.items : [];
       S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
       S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
       takeUnread(res.data);
       fillList(byId("ib-listbody")); drawUpdated();
-      say(!q && !status ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+      say(!q && !status && !unread ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */

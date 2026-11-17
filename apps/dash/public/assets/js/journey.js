@@ -16,7 +16,7 @@
   /* TWCinc's eight stages (partnership/stages.py), in funnel order: a row reports the furthest it reached. */
   var PR_STAGES = [["new_lead", "New Lead"], ["landing_page", "Landing Page"], ["start_watching", "Start Watching"], ["done_watching", "Done Watching"],
     ["added_to_cart", "Add to Cart"], ["checked_out", "Checked Out"], ["account_setup", "Account Setup"], ["activated", "Activated"]];
-  var PR_SOURCES = { pack_page: "Membership Pack page", facebook: "Facebook via Pancake", webchat: "Website chat", email: "Email" };
+  var PR_SOURCES = { pack_page: "Membership Pack page", webchat: "Website chat", email: "Email" };
   var PR_TONE = { new_lead: "neutral", landing_page: "neutral", start_watching: "info", done_watching: "info", added_to_cart: "warn", checked_out: "info", account_setup: "warn", activated: "ok" };
   var NO_NAME = "No name";
   var ICONS = {

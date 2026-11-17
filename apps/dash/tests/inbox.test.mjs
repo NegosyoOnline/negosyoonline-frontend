@@ -120,7 +120,7 @@ test("settings shows the channel cards and the how-it-works card, and asks only 
   const root = d.$("ibs-root");
   assert.equal(root.getAttribute("aria-busy"), null);
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
-  assert.equal(d.all(root, "mk-list")[0].children.length, 3);
+  assert.equal(d.all(root, "mk-list")[0].children.length, 4);
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false], "the API answered, so the Inbox links show");
 });
 

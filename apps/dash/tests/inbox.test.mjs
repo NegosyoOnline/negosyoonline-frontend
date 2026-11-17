@@ -1,7 +1,7 @@
-/* The Inbox screens (ClickUp z8uq9md3n6, G2 Unified Inbox, frontend F1): /settings/inbox/ (inbox-settings.js, mockups a1 to a3)
-   and /inbox/ (inbox.js, mockups b1 to b3 and c1 to c3). Driven like payments.test.mjs: the real scripts run in a vm with the small
-   stand-in document from dom.mjs and a recorded fetch that plays the API of apps/inquiries (api_owner.py). Fake data only: no
-   Pancake token, no provider, no real message. */
+/* The Inbox screens (ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox): /settings/inbox/ (inbox-settings.js, the channel cards)
+   and /inbox/ (inbox.js, the list, the thread and the reply of the stored channels: website chat and email). Driven like
+   payments.test.mjs: the real scripts run in a vm with the small stand-in document from dom.mjs and a recorded fetch that plays
+   the API of apps/inquiries (api_owner.py). Fake data only: no provider, no real message. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -15,9 +15,9 @@ const read = (f) => fs.readFileSync(path.join(JS, f), "utf8");
 const HTML = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
 const A = "site_aaaaaaaaaaaaaaaaaaaa";
 const BASE = `/sites/${A}/inquiries/`;
-const REF = "104829384756123_7000000000001";
-const REF2 = "104829384756123_7000000000002";
-const FAKE_TOKEN = "fake-token-0000000000000000000000";
+const WC = "wc_aaaaaaaaaaaaaaaaaaaaaaaa", WC2 = "wc_bbbbbbbbbbbbbbbbbbbbbbbb", EM = "em_cccccccccccccccccccccccc";
+const REF = WC;
+const REF2 = WC2;
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
 /* A fixed clock for this whole file (task z8uq9mfvx7): the page shows "today, H:MM" or a date form depending on the Manila time of day,
@@ -31,28 +31,24 @@ globalThis.Date = class extends RealDate {
 };
 const iso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60000).toISOString();
 
-const CONN_NONE = { provider: "pancake", status: "unset", page_id: "", label: "", token_set: false, last_test: null };
-const CONN_OK = { provider: "pancake", status: "active", page_id: "104829384756123", label: "", token_set: true, last_test: { at: iso(5), outcome: "ok" } };
-const CONN_BAD = { provider: "pancake", status: "invalid", page_id: "104829384756123", label: "", token_set: true, last_test: { at: iso(5), outcome: "invalid_credentials" } };
-
 function thread(over = {}) {
-  return { ref: REF, display_name: "Maria Santos", provider_url: null, next_cursor: null, replies: [],
-    reply: { open: true, reason: "provider_open" },
+  return { ref: REF, display_name: "Maria Santos", channel: "webchat", source: "stored", status: "open", unread: false, contact_email: "maria@example.test", replies: [],
+    reply: { open: true, reason: "" },
     messages: [
-      { id: "m2", direction: "out", sender_kind: "page", text: "Hello Maria!", attachments: [], at: iso(2) },
-      { id: "m1", direction: "in", sender_kind: "customer", text: "Hi po, available pa ba?", attachments: [], at: iso(3) },
-      { id: "m3", direction: "in", sender_kind: "customer", text: "", attachments: ["image"], at: iso(1) }
+      { id: "m2", direction: "out", sender_kind: "owner", text: "Hello Maria!", attachments: [], at: iso(2), delivery_state: "" },
+      { id: "m1", direction: "in", sender_kind: "customer", text: "Hi po, available pa ba?", attachments: [], at: iso(3), delivery_state: "" },
+      { id: "m3", direction: "in", sender_kind: "customer", text: "", attachments: ["image"], at: iso(1), delivery_state: "" }
     ], ...over };
 }
 function list(over = {}) {
   return { items: [
-    { ref: REF, display_name: "Maria Santos", snippet: "Hi po, available pa ba?", updated_at: iso(10), channel: "facebook" },
-    { ref: REF2, display_name: "Jun Dela Cruz", snippet: "Magkano po?", updated_at: iso(60 * 30), channel: "facebook" }
-  ], next_cursor: null, ...over };
+    { ref: REF, display_name: "Maria Santos", snippet: "Hi po, available pa ba?", updated_at: iso(10), channel: "webchat", source: "stored", status: "open", unread: false },
+    { ref: REF2, display_name: "Jun Dela Cruz", snippet: "Magkano po?", updated_at: iso(60 * 30), channel: "webchat", source: "stored", status: "open", unread: false }
+  ], stored_next_cursor: null, ...over };
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ conn = CONN_NONE, listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null } = {}) {
+function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
@@ -63,7 +59,7 @@ function boot({ conn = CONN_NONE, listing = list(), reading = thread(), reply = 
   const refreshBtn = doc.createElement("button"); refreshBtn.setAttribute("id", "ib-refresh-btn"); refresh.appendChild(refreshBtn);
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : []);
-  const s = { conn: { ...conn }, listing, reading, reply, off, putAnswer: null, listAnswer: null, threadAnswer: null, replyAnswer: null, testOutcome: "ok",
+  const s = { listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
     channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null };
   const fetch = (url, opts) => {
     const p = url.replace("http://api.test/v1", ""), body = opts.body ? JSON.parse(opts.body) : null;
@@ -81,22 +77,9 @@ function boot({ conn = CONN_NONE, listing = list(), reading = thread(), reply = 
       const kind = /\/(close|reopen|read)\/$/.exec(p)[1], ref = /conversations\/([^/]+)\//.exec(p)[1];
       a = s.statusAnswer || { status: 200, body: { ref, status: kind === "close" ? "closed" : "open", unread: kind === "read" ? false : false } };
     }
-    else if (p === BASE + "connection/" && opts.method === "GET") a = { status: 200, body: s.conn };
-    else if (p === BASE + "connection/" && opts.method === "PUT") {
-      if (s.putAnswer) a = s.putAnswer;
-      else {
-        if (body.page_id !== undefined) s.conn.page_id = body.page_id;
-        if (body.access_token) { s.conn.token_set = true; s.conn.status = "active"; s.conn.last_test = null; }
-        a = { status: 200, body: { ...s.conn } };
-      }
-    } else if (p === BASE + "connection/" && opts.method === "DELETE") { s.conn = { ...s.conn, token_set: false, status: "unset", last_test: null }; a = { status: 200, body: { ...s.conn } }; }
-    else if (p === BASE + "connection/test/" && opts.method === "POST") {
-      s.conn.last_test = { at: iso(0), outcome: s.testOutcome };
-      if (s.testOutcome === "ok") s.conn.status = "active";
-      a = { status: 200, body: { outcome: s.testOutcome } };
-    } else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?cursor=\d+)?$/.test(p) && opts.method === "GET") a = s.listAnswer || { status: 200, body: s.listing };
+    else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?stored_cursor=[^/]+)?$/.test(p) && opts.method === "GET") a = s.listAnswer || { status: 200, body: s.listing };
     else if (/\/reply\/$/.test(p) && opts.method === "POST") a = s.replyAnswer || { status: 200, body: s.reply };
-    else if (/\/conversations\/[^/]+\/(\?cursor=\d+)?$/.test(p) && opts.method === "GET") a = s.threadAnswer || { status: 200, body: s.reading };
+    else if (/\/conversations\/[^/]+\/$/.test(p) && opts.method === "GET") a = s.threadAnswer || { status: 200, body: s.reading };
     if (a.status === 0) return Promise.reject(new Error("offline"));
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
   };
@@ -124,156 +107,42 @@ function boot({ conn = CONN_NONE, listing = list(), reading = thread(), reply = 
 
 /* ---------- /settings/inbox/ ---------- */
 
-test("a1: not connected shows the empty form, a disabled Test button and the how-it-works card", async () => {
-  const d = boot();
+test("settings shows the channel cards and the how-it-works card, and asks only for the sites and the channels", async () => {
+  const d = boot({ channels: CH_OFF });
   await d.openSettings();
-  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "connection/", "GET " + BASE + "channels/"]);
+  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "channels/"]);
   const root = d.$("ibs-root");
   assert.equal(root.getAttribute("aria-busy"), null);
-  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Facebook Messenger through Pancake", "How the inbox works"]);
-  assert.equal(d.all(root, "chip")[0].textContent, "Not connected");
-  assert.deepEqual(d.all(root, "pm-label").map((l) => l.textContent), ["Pancake page ID", "Page token"]);
-  assert.equal(d.$("ibs-access_token").getAttribute("type"), "password");
-  assert.equal(d.$("ibs-page_id").getAttribute("placeholder"), "For example 104829384756123");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Save and connect", "Test connection"]);
-  assert.equal(d.press(root, "Test connection").disabled, true);
+  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
   assert.equal(d.all(root, "mk-list")[0].children.length, 3);
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false], "the API answered, so the Inbox links show");
 });
 
-test("saving sends the page ID and token once, empties the token box, and shows the connected card without the token anywhere", async () => {
-  const d = boot();
+test("the settings page makes no request to /inquiries/connection/, not on load and not after a switch", async () => {
+  const d = boot({ channels: { ...CHANNELS_ON } });
   await d.openSettings();
-  d.$("ibs-page_id").value = " 104829384756123 ";
-  d.$("ibs-access_token").value = FAKE_TOKEN;
-  await d.click(d.press(d.$("ibs-root"), "Save and connect"));
-  const put = d.calls.filter((c) => c.method === "PUT");
-  assert.equal(put.length, 1);
-  assert.deepEqual(put[0].body, { page_id: "104829384756123", access_token: FAKE_TOKEN });
-  const root = d.$("ibs-root");
-  assert.equal(d.all(root, "chip")[0].textContent, "Connected");
-  assert.ok(root.textContent.includes("Token saved"));
-  assert.ok(root.textContent.includes("The token is never shown again."));
-  assert.ok(!root.textContent.includes(FAKE_TOKEN), "the token is not on the page");
-  assert.equal(d.$("ibs-access_token"), null, "no token box while a token is saved");
-  assert.equal(d.$("ibs-page_id").value, "104829384756123");
-  assert.deepEqual(d.toasts, ["Saved: Your Pancake connection was saved."]);
-  assert.ok(!JSON.stringify(d.calls.slice(2)).includes("page_id\":\"\""), "no empty value was sent");
+  await d.click(switchOf(d, "ibs-sw-chat"));
+  assert.ok(d.calls.length >= 3);
+  assert.ok(d.calls.every((c) => !c.path.includes("connection")), d.list().join("\n"));
+  assert.ok(!/connection\//.test(read("inbox-settings.js")), "the script holds no connection route");
 });
 
-test("a page ID or token that cannot be right is refused on the page, before any request", async () => {
-  const d = boot();
-  await d.openSettings();
-  await d.click(d.press(d.$("ibs-root"), "Save and connect"));
-  assert.equal(d.text("ibs-page_id-err"), "Enter your Pancake page ID.");
-  assert.equal(d.$("ibs-page_id").getAttribute("aria-invalid"), "true");
-  assert.equal(d.doc.activeElement, d.$("ibs-page_id"));
-  d.$("ibs-page_id").value = "104829384756123";
-  d.$("ibs-access_token").value = "short token";
-  await d.click(d.press(d.$("ibs-root"), "Save and connect"));
-  assert.equal(d.$("ibs-page_id").getAttribute("aria-invalid"), null);
-  assert.equal(d.text("ibs-access_token-err"), "That token does not look right. Copy it again from Pancake.");
-  assert.equal(d.calls.filter((c) => c.method === "PUT").length, 0);
-});
-
-test("a field the API refuses is shown next to its box and the toast stays quiet", async () => {
-  const d = boot();
-  d.s.putAnswer = { status: 422, body: { error: { code: "invalid", message: "Bad", fields: { page_id: ["That page ID does not look right."] } } } };
-  await d.openSettings();
-  d.$("ibs-page_id").value = "104829384756123";
-  d.$("ibs-access_token").value = FAKE_TOKEN;
-  await d.click(d.press(d.$("ibs-root"), "Save and connect"));
-  assert.equal(d.text("ibs-page_id-err"), "That page ID does not look right.");
-  assert.equal(d.toasts.length, 0);
-  assert.equal(d.$("ibs-access_token").value, "", "the token box is emptied even when the save is refused");
-});
-
-test("a2: connected shows the saved token row, a passed test and Test connection / Disconnect; Test runs the API test and reads again", async () => {
-  const d = boot({ conn: CONN_OK });
-  await d.openSettings();
-  const root = d.$("ibs-root");
-  assert.equal(d.all(root, "chip")[0].textContent, "Connected");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Replace token", "Test connection", "Save page ID", "Disconnect"]);
-  assert.equal(d.press(root, "Save page ID").hidden, true, "the page-ID save shows only after an edit");
-  const block = d.all(root, "mk-test")[0];
-  assert.equal(block.getAttribute("role"), "status");
-  assert.ok(block.textContent.startsWith("Test passed" + "Pancake answered for this page. Last checked today, "), block.textContent);
-  d.s.testOutcome = "provider_down";
-  await d.click(d.press(root, "Test connection"));
-  assert.deepEqual(d.list().slice(-3), ["POST " + BASE + "connection/test/", "GET " + BASE + "connection/", "GET " + BASE + "channels/"]);
-  const bad = d.all(d.$("ibs-root"), "mk-test")[0];
-  assert.equal(bad.getAttribute("role"), "alert");
-  assert.ok(bad.textContent.startsWith("Test failedPancake did not answer. Try again in a moment."), bad.textContent);
-  assert.equal(d.$("ibs-live").textContent, "Test failed.");
-});
-
-test("editing the saved page ID shows Save page ID, which sends the page ID alone", async () => {
-  const d = boot({ conn: CONN_OK });
-  await d.openSettings();
-  const page = d.$("ibs-page_id");
-  page.value = "104829384756999";
-  page.fire("input");
-  const save = d.press(d.$("ibs-root"), "Save page ID");
-  assert.equal(save.hidden, false);
-  await d.click(save);
-  assert.deepEqual(d.calls.filter((c) => c.method === "PUT").map((c) => c.body), [{ page_id: "104829384756999" }]);
-});
-
-test("Replace token opens a new token box; Cancel puts the saved row back", async () => {
-  const d = boot({ conn: CONN_OK });
-  await d.openSettings();
-  await d.click(d.press(d.$("ibs-root"), "Replace token"));
-  assert.deepEqual(d.all(d.$("ibs-root"), "pm-label").map((l) => l.textContent), ["Pancake page ID", "New page token"]);
-  assert.deepEqual(d.buttons(d.$("ibs-root")).map((b) => b.textContent), ["Save new token", "Cancel"]);
-  await d.click(d.press(d.$("ibs-root"), "Cancel"));
-  assert.ok(d.press(d.$("ibs-root"), "Replace token"));
-  assert.equal(d.$("ibs-access_token"), null);
-});
-
-test("a3: a token the provider refused pauses the inbox, asks for a new token and still allows Test and Disconnect", async () => {
-  const d = boot({ conn: CONN_BAD });
-  await d.openSettings();
-  const root = d.$("ibs-root");
-  assert.equal(d.all(root, "chip")[0].textContent, "Token not accepted");
-  assert.equal(d.all(root, "chip")[0].attrs["class"], "chip chip-danger");
-  assert.equal(d.all(root, "pm-warn")[0].textContent, "Your inbox is paused. Messages cannot be read or sent until the token is replaced.");
-  assert.deepEqual(d.all(root, "pm-label").map((l) => l.textContent), ["Pancake page ID", "New page token"]);
-  assert.equal(d.text("ibs-access_token-err"), "The saved token no longer works. Paste a new one to reconnect.");
-  assert.equal(d.$("ibs-access_token").getAttribute("aria-invalid"), "true");
-  assert.deepEqual(d.buttons(root).map((b) => b.textContent), ["Save new token", "Test connection", "Disconnect"]);
-  assert.ok(d.all(root, "mk-test")[0].textContent.startsWith("Test failedPancake did not accept the saved token."));
-  d.$("ibs-access_token").value = FAKE_TOKEN;
-  await d.click(d.press(root, "Save new token"));
-  assert.deepEqual(d.calls.filter((c) => c.method === "PUT").map((c) => c.body), [{ page_id: "104829384756123", access_token: FAKE_TOKEN }]);
-  assert.equal(d.all(d.$("ibs-root"), "chip")[0].textContent, "Connected");
-});
-
-test("Disconnect asks once more, then sends DELETE and shows the empty form again", async () => {
-  const d = boot({ conn: CONN_OK });
-  await d.openSettings();
-  const b = d.press(d.$("ibs-root"), "Disconnect");
-  await d.click(b);
-  assert.equal(b.textContent, "Confirm disconnect");
-  assert.equal(d.calls.filter((c) => c.method === "DELETE").length, 0);
-  await d.click(b);
-  assert.equal(d.calls.filter((c) => c.method === "DELETE").length, 1);
-  assert.equal(d.all(d.$("ibs-root"), "chip")[0].textContent, "Not connected");
-  assert.equal(d.$("ibs-page_id").value, "104829384756123", "the page ID stays so it need not be typed again");
-});
-
-test("settings while the API answers 404 (switch off): a plain note, no form, the Inbox links stay hidden", async () => {
+test("settings while the API answers 404 (switch off): a plain note, no cards, the Inbox links stay hidden", async () => {
   const d = boot({ off: true });
   await d.openSettings();
   const root = d.$("ibs-root");
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["The inbox is not available yet"]);
   assert.equal(root.all((n) => n.tagName === "INPUT").length, 0);
   assert.deepEqual(d.nav.map((n) => n.hidden), [true, true, true]);
+  const none = boot();
+  await none.openSettings();
+  assert.deepEqual(none.$("ibs-root").all((n) => n.tagName === "H2").map((n) => n.textContent), ["The inbox is not available yet"], "no channels route: the same note");
 });
 
 /* ---------- /inbox/ ---------- */
 
-test("b1: the list shows each customer with a snippet and time; no chip unless a row says reply_open is false", async () => {
-  const d = boot({ conn: CONN_OK });
+test("b1: the list shows each customer with a snippet and time, a channel badge, and no chip on an open conversation", async () => {
+  const d = boot();
   await d.openInbox();
   assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "conversations/", "GET " + BASE + "channels/"]);
   const rows = d.all(d.$("ib-list"), "ib-item");
@@ -282,7 +151,7 @@ test("b1: the list shows each customer with a snippet and time; no chip unless a
   assert.deepEqual(d.all(rows[0], "ib-snip").map((n) => n.textContent), ["Hi po, available pa ba?"]);
   assert.equal(d.all(rows[0], "ib-av")[0].textContent, "MS");
   assert.equal(d.all(rows[0], "ib-time")[0].textContent.length > 0, true);
-  assert.equal(d.all(d.$("ib-list"), "ib-mini").length, 0, "no Reply time ended chip without reply_open");
+  assert.equal(d.all(d.$("ib-list"), "ib-mini").length, 0, "no chip on an open conversation");
   assert.equal(d.refresh.hidden, false);
   assert.ok(d.text("ib-upd").startsWith("Updated today, "), d.text("ib-upd"));
   assert.equal(d.$("ib-threadpane").classList.contains("is-hide-phone"), true, "on a phone the list shows first");
@@ -290,40 +159,32 @@ test("b1: the list shows each customer with a snippet and time; no chip unless a
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false]);
 });
 
-test("the Reply time ended chip appears only on a row that says reply_open is false", async () => {
-  const items = list().items.map((i, n) => (n === 1 ? { ...i, reply_open: false } : { ...i, reply_open: true }));
-  const d = boot({ listing: list({ items }) });
-  await d.openInbox();
-  const chips = d.all(d.$("ib-list"), "ib-mini");
-  assert.equal(chips.length, 1);
-  assert.equal(chips[0].textContent, "Reply time ended");
-});
-
-test("b2: an empty list says so; Show more conversations appears only with a next cursor and appends", async () => {
-  const empty = boot({ listing: { items: [], next_cursor: null } });
+test("b2: an empty list says so; Show more conversations appears only with a stored cursor and appends", async () => {
+  const empty = boot({ listing: { items: [], stored_next_cursor: null } });
   await empty.openInbox();
   assert.ok(empty.$("ib-listbody").textContent.includes("No messages yet"));
   assert.ok(empty.$("ib-listbody").textContent.includes("Press Refresh to check again."));
+  assert.ok(!empty.$("ib-listbody").textContent.includes("Facebook"));
 
-  const d = boot({ listing: list({ next_cursor: "30" }) });
+  const d = boot({ listing: list({ stored_next_cursor: "30" }) });
   await d.openInbox();
-  d.s.listing = { items: [{ ref: "104829384756123_7000000000003", display_name: "Liza R.", snippet: "Thanks", updated_at: iso(90), channel: "facebook" }], next_cursor: null };
+  d.s.listing = { items: [{ ref: "wc_dddddddddddddddddddddddd", display_name: "Liza R.", snippet: "Thanks", updated_at: iso(90), channel: "webchat", source: "stored", status: "open", unread: false }], stored_next_cursor: null };
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
-  assert.ok(d.list().includes("GET " + BASE + "conversations/?cursor=30"));
+  assert.ok(d.list().includes("GET " + BASE + "conversations/?stored_cursor=30"));
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 3);
   assert.equal(d.press(d.$("ib-listbody"), "Show more conversations"), undefined);
 });
 
-test("b3: when Pancake does not answer the list says so, keeps the last update time and Try again reads again", async () => {
+test("b3: when the list cannot be read it says so, keeps the last update time and Try again reads again", async () => {
   const d = boot();
   await d.openInbox();
-  d.s.listAnswer = { status: 502, body: { error: { code: "provider_down", message: "Pancake is not answering right now. Please try again later." } } };
+  d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
   await d.click(d.$("ib-refresh-btn"));
   const body = d.$("ib-listbody");
-  assert.ok(body.textContent.includes("We couldn't reach Pancake"));
+  assert.ok(body.textContent.includes("We couldn't load your conversations"));
   assert.equal(d.all(body, "ib-err")[0].getAttribute("role"), "alert");
   assert.deepEqual(d.buttons(body).map((b) => b.textContent), ["Try again"]);
-  assert.deepEqual(d.links(body).map((a) => [a.getAttribute("href"), a.textContent]), [["/settings/inbox/", "Check connection"]]);
+  assert.deepEqual(d.links(body), []);
   assert.ok(d.text("ib-upd").startsWith("Last updated today, "), d.text("ib-upd"));
   assert.equal(d.refresh.hidden, false);
   d.s.listAnswer = null;
@@ -332,28 +193,24 @@ test("b3: when Pancake does not answer the list says so, keeps the last update t
   assert.ok(d.text("ib-upd").startsWith("Updated today, "), d.text("ib-upd"));
 });
 
-test("not connected, a token that was refused and the switch being off each get their own panel", async () => {
-  const connect = boot();
-  connect.s.listAnswer = { status: 409, body: { error: { code: "not_connected", message: "Connect your Pancake page first." } } };
-  await connect.openInbox();
-  assert.ok(connect.$("ib-wrap").textContent.includes("Connect your Pancake page"));
-  assert.deepEqual(connect.links(connect.$("ib-wrap")).map((a) => a.getAttribute("href")), ["/settings/inbox/"]);
-  assert.equal(connect.refresh.hidden, true);
-
-  const bad = boot();
-  bad.s.listAnswer = { status: 409, body: { error: { code: "reconnect", message: "Pancake did not accept the saved token. Save a new one." } } };
-  await bad.openInbox();
-  assert.ok(bad.$("ib-wrap").textContent.includes("Your inbox is paused"));
-  assert.ok(bad.$("ib-wrap").textContent.includes("Pancake did not accept the saved token. Save a new one."));
-
+test("the switch being off gets its own panel, and a response with only the stored source is normal", async () => {
   const off = boot({ off: true });
   await off.openInbox();
   assert.ok(off.$("ib-wrap").textContent.includes("The inbox is not available yet"));
   assert.equal(off.refresh.hidden, true);
   assert.deepEqual(off.nav.map((n) => n.hidden), [true, true, true]);
+
+  for (const sources of [{ stored: "ok" }, undefined]) {
+    const listing = list(); if (sources) listing.sources = sources;
+    const ok = boot({ listing });
+    await ok.openInbox();
+    assert.equal(ok.all(ok.$("ib-list"), "ib-item").length, 2);
+    assert.equal(ok.all(ok.$("ib-listbody"), "ib-banner").length, 0);
+    assert.equal(ok.all(ok.$("ib-listbody"), "ib-err").length, 0);
+  }
 });
 
-test("c1: opening a conversation shows the messages oldest first with a day heading, an attachment placeholder and no reply-until chip without expires_at", async () => {
+test("c1: opening a conversation shows the messages oldest first with a day heading and an attachment placeholder", async () => {
   const d = boot();
   await d.openInbox();
   await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
@@ -362,52 +219,15 @@ test("c1: opening a conversation shows the messages oldest first with a day head
   assert.equal(pane.classList.contains("is-hide-phone"), false);
   assert.equal(d.$("ib-listpane").classList.contains("is-hide-phone"), true);
   assert.equal(d.all(pane, "ib-tname")[0].children[0].textContent, "Maria Santos");
-  assert.equal(d.all(pane, "chip").length, 0, "no chip: the thread carries no expires_at");
+  assert.deepEqual(d.all(pane, "chip").map((c) => c.textContent), ["Open"]);
   assert.deepEqual(d.all(pane, "ib-bub").map((b) => b.textContent), ["Hi po, available pa ba?", "Hello Maria!", "[Photo]"]);
   assert.deepEqual(d.all(pane, "ib-msg").map((m) => m.classList.contains("ib-msg-out")), [false, true, false]);
   assert.equal(d.all(pane, "ib-day").map((x) => x.textContent).pop(), "Today");
-  assert.equal(d.links(pane).length, 0, "no Open in Pancake link without a verified provider_url");
+  assert.equal(d.links(pane).length, 0, "no link in a thread");
   assert.equal(d.$("ib-list").children[0].children[0].getAttribute("aria-current"), "true");
 });
 
-test("the reply-until chip shows only when reply.expires_at is present; the Open in Pancake link only for an https address", async () => {
-  const soon = new Date(Date.now() + 5 * 3600000).toISOString();
-  const d = boot({ reading: thread({ reply: { open: true, reason: "provider_open", expires_at: soon }, provider_url: "https://pancake.test/c/1" }) });
-  await d.openInbox();
-  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
-  const pane = d.$("ib-threadpane");
-  const chip = d.all(pane, "chip")[0];
-  assert.ok(chip.textContent.startsWith("You can reply until "), chip.textContent);
-  assert.equal(chip.attrs["class"], "chip chip-info");
-  const a = d.links(pane)[0];
-  assert.equal(a.getAttribute("href"), "https://pancake.test/c/1");
-  assert.equal(a.getAttribute("target"), "_blank");
-  assert.equal(a.getAttribute("rel"), "noopener noreferrer");
-
-  const unsafe = boot({ reading: thread({ provider_url: "javascript:alert(1)" }) });
-  await unsafe.openInbox();
-  await unsafe.click(unsafe.all(unsafe.$("ib-list"), "ib-item")[0]);
-  assert.equal(unsafe.links(unsafe.$("ib-threadpane")).length, 0);
-});
-
-test("c2: a closed window disables the box, explains why, and offers Open in Pancake when there is a link", async () => {
-  const d = boot({ reading: thread({ reply: { open: false, reason: "provider_closed" }, provider_url: "https://pancake.test/c/1" }) });
-  await d.openInbox();
-  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
-  const pane = d.$("ib-threadpane");
-  assert.equal(d.all(pane, "chip")[0].textContent, "Reply time ended");
-  const box = d.all(pane, "ib-reply")[0];
-  assert.equal(box.classList.contains("is-closed"), true);
-  assert.equal(d.all(box, "ib-closed-t")[0].textContent, "You can't reply here anymore. Facebook only allows a reply for a limited time after the customer's last message, and that time has ended.");
-  assert.equal(d.all(box, "ib-closed-s")[0].textContent, "You can still answer this customer in Pancake.");
-  assert.equal(d.$("ib-rb").disabled, true);
-  assert.equal(d.$("ib-rb").getAttribute("placeholder"), "Replying is closed for this conversation");
-  assert.equal(d.press(box, "Send").disabled, true);
-  assert.equal(d.all(box, "ib-count")[0].textContent, "0 / 2000");
-  assert.equal(d.links(box).map((a) => a.textContent).join(), "Open in Pancake");
-});
-
-test("c1: Send is off for an empty box, the counter follows the text, and a sent reply posts text and a valid idempotency key, clears the box and shows a Sent bubble", async () => {
+test("c1: Send is off for an empty box, the counter follows the text, and a sent reply posts text and a valid idempotency key, clears the box and reads the thread again", async () => {
   const d = boot();
   await d.openInbox();
   await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
@@ -417,21 +237,19 @@ test("c1: Send is off for an empty box, the counter follows the text, and a sent
   assert.equal(d.text("ib-rc"), "30 / 2000");
   assert.equal(send.disabled, false);
   await d.click(send);
-  const post = d.calls.filter((c) => c.method === "POST");
+  const post = d.calls.filter((c) => c.method === "POST" && c.path.endsWith("/reply/"));
   assert.equal(post.length, 1);
   assert.equal(post[0].path, BASE + `conversations/${REF}/reply/`);
   assert.equal(post[0].body.text, "Ang total po ay PHP 2,450.");
   assert.match(post[0].body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.deepEqual(Object.keys(post[0].body).sort(), ["idempotency_key", "text"]);
   assert.equal(d.$("ib-rb").value, "");
-  const bubbles = d.all(d.$("ib-threadpane"), "ib-bub").map((b) => b.textContent);
-  assert.equal(bubbles[bubbles.length - 1], "Ang total po ay PHP 2,450.");
-  assert.ok(d.all(d.$("ib-threadpane"), "chip-ok").some((c) => c.textContent === "Sent"));
+  assert.equal(d.list().filter((c) => c === "GET " + BASE + `conversations/${REF}/`).length, 2, "the thread is read again after a sent reply");
   assert.equal(d.$("ib-live").textContent, "Reply sent.");
 });
 
-test("c3: a reply the provider failed keeps the text, shows a Failed chip and notice, and Try again uses a new key", async () => {
-  const d = boot({ reply: { state: "failed", error_code: "provider_down", created_at: iso(0) } });
+test("c3: a reply that failed keeps the text, shows the fixed notice, and Try again uses a new key", async () => {
+  const d = boot({ reply: { state: "failed", error_code: "email_failed", created_at: iso(0) } });
   await d.openInbox();
   await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
   d.$("ib-rb").value = "Ang total po ay PHP 2,450."; d.$("ib-rb").fire("input");
@@ -439,17 +257,15 @@ test("c3: a reply the provider failed keeps the text, shows a Failed chip and no
   const pane = d.$("ib-threadpane");
   const fail = d.all(pane, "ib-fail")[0];
   assert.equal(fail.getAttribute("role"), "alert");
-  assert.equal(fail.textContent, "Your reply was not sent. Pancake did not answer. Nothing reached the customer. Your text is still in the box. Press Try again to send it again.");
+  assert.equal(fail.textContent, "Your reply was not sent. The email could not be sent. Please try again shortly. Your text is still in the box.");
   assert.equal(d.$("ib-rb").value, "Ang total po ay PHP 2,450.");
-  assert.ok(d.all(pane, "chip-danger").some((c) => c.textContent === "Failed: Pancake did not answer"));
   assert.ok(d.press(pane, "Try again"));
   d.s.reply = { state: "sent", error_code: "", created_at: iso(0) };
   await d.click(d.press(pane, "Try again"));
-  const keys = d.calls.filter((c) => c.method === "POST").map((c) => c.body.idempotency_key);
+  const keys = d.calls.filter((c) => c.method === "POST" && c.path.endsWith("/reply/")).map((c) => c.body.idempotency_key);
   assert.equal(keys.length, 2);
   assert.notEqual(keys[0], keys[1], "the first attempt is on record as failed, so a retry is a new reply");
   assert.equal(d.all(d.$("ib-threadpane"), "ib-fail").length, 0);
-  assert.equal(d.all(d.$("ib-threadpane"), "chip-danger").length, 0, "the failed bubble is gone after a good retry");
   assert.equal(d.$("ib-rb").value, "");
 });
 
@@ -463,34 +279,19 @@ test("a reply whose answer was lost is retried with the same key, so nothing can
   assert.ok(d.all(d.$("ib-threadpane"), "ib-fail")[0].textContent.includes("it will not be sent twice"));
   d.s.replyAnswer = null;
   await d.click(d.press(d.$("ib-threadpane"), "Try again"));
-  const keys = d.calls.filter((c) => c.method === "POST").map((c) => c.body.idempotency_key);
+  const keys = d.calls.filter((c) => c.method === "POST" && c.path.endsWith("/reply/")).map((c) => c.body.idempotency_key);
   assert.equal(keys[0], keys[1]);
 });
 
-test("a reply the API refuses shows the API's own sentence and keeps the text; blocked_window turns the box into the closed panel", async () => {
+test("a reply the API refuses shows the API's own sentence and keeps the text", async () => {
   const d = boot();
   await d.openInbox();
   await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
   d.$("ib-rb").value = "Hello"; d.$("ib-rb").fire("input");
-  d.s.replyAnswer = { status: 409, body: { error: { code: "reconnect", message: "Pancake did not accept the saved token. Save a new one." } } };
+  d.s.replyAnswer = { status: 422, body: { error: { code: "invalid", message: "That reply is not allowed." } } };
   await d.click(d.press(d.$("ib-threadpane"), "Send"));
-  assert.ok(d.all(d.$("ib-threadpane"), "ib-fail")[0].textContent.includes("Pancake did not accept the saved token. Save a new one. Nothing reached the customer."));
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-fail")[0].textContent, "Your reply was not sent. That reply is not allowed. Your text is still in the box.");
   assert.equal(d.$("ib-rb").value, "Hello");
-  d.s.replyAnswer = { status: 200, body: { state: "blocked_window", error_code: "window_closed", created_at: iso(0) } };
-  await d.click(d.press(d.$("ib-threadpane"), "Try again"));
-  assert.equal(d.all(d.$("ib-threadpane"), "ib-reply")[0].classList.contains("is-closed"), true);
-  assert.equal(d.$("ib-rb").disabled, true);
-});
-
-test("Show earlier messages loads the older page and puts it above", async () => {
-  const d = boot({ reading: thread({ next_cursor: "3" }) });
-  await d.openInbox();
-  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
-  d.s.threadAnswer = { status: 200, body: thread({ messages: [{ id: "m0", direction: "in", sender_kind: "customer", text: "Earlier hello", attachments: [], at: iso(50) }], next_cursor: null }) };
-  await d.click(d.press(d.$("ib-threadpane"), "Show earlier messages"));
-  assert.ok(d.list().includes("GET " + BASE + `conversations/${REF}/?cursor=3`));
-  assert.equal(d.all(d.$("ib-threadpane"), "ib-bub")[0].textContent, "Earlier hello");
-  assert.equal(d.press(d.$("ib-threadpane"), "Show earlier messages"), undefined);
 });
 
 test("the back link returns to the list on a phone; a thread that cannot be opened offers Try again", async () => {
@@ -512,7 +313,7 @@ test("the back link returns to the list on a phone; a thread that cannot be open
 test("a customer's name, message and link reach the page as text only", async () => {
   const evil = "<img src=x onerror=alert(1)>";
   const d = boot({
-    listing: list({ items: [{ ref: REF, display_name: evil, snippet: evil, updated_at: iso(1), channel: "facebook" }] }),
+    listing: list({ items: [{ ref: REF, display_name: evil, snippet: evil, updated_at: iso(1), channel: "webchat", source: "stored", status: "open", unread: false }] }),
     reading: thread({ display_name: evil, messages: [{ id: "x", direction: "in", sender_kind: "customer", text: evil, attachments: [], at: iso(1) }] })
   });
   await d.openInbox();
@@ -551,8 +352,12 @@ test("helpers: days in Manila time, initials, key shape and failure text", async
   assert.equal(u.initialsOf(""), "?");
   for (let i = 0; i < 5; i++) assert.match(u.newKey(), /^[A-Za-z0-9_-]{8,64}$/);
   assert.notEqual(u.newKey(), u.newKey());
-  assert.equal(u.reasonOf("provider_down"), "Pancake did not answer");
-  assert.equal(u.reasonOf("something_new"), "Pancake could not send it");
+  assert.equal(u.channelOf({ channel: "email" }), "email");
+  assert.equal(u.channelOf({ ref: "wc_abc" }), "webchat");
+  assert.equal(u.channelOf({ ref: "em_abc" }), "email");
+  assert.equal(u.channelOf({ ref: "104829384756123_7000000000001" }), "", "a ref that names no stored channel has no channel");
+  assert.equal(u.failure({ status: 404 }).kind, "gone");
+  assert.equal(u.failure({ status: 502 }).kind, "down");
   assert.deepEqual(u.ordered([{ at: "2026-11-14T02:00:00Z", id: 2 }, { at: "2026-11-14T01:00:00Z", id: 1 }]).map((m) => m.id), [1, 2]);
   assert.deepEqual(u.ordered([{ at: null, id: 2 }, { at: "2026-11-14T01:00:00Z", id: 1 }]).map((m) => m.id), [2, 1], "no time on one message keeps the order given");
 });
@@ -580,30 +385,28 @@ test("the router knows both addresses and calls the pages' show and hide", () =>
   assert.ok(DASH.includes("window.NOInbox.probe()"));
 });
 
-test("the probe shows the Inbox links only when the connection read is not a 404", async () => {
-  const on = boot();
+test("the probe shows the Inbox links only when the channels read is not a 404", async () => {
+  const on = boot({ channels: CHANNELS_ON });
   on.window.NOInbox.probe(); await settle();
   assert.deepEqual(on.nav.map((n) => n.hidden), [false, false, false]);
-  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "connection/"]);
-  const off = boot({ off: true });
+  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "channels/"]);
+  const off = boot({ off: true, channels: CHANNELS_ON });
   off.window.NOInbox.probe(); await settle();
   assert.deepEqual(off.nav.map((n) => n.hidden), [true, true, true]);
 });
 
-/* ---------- G3 PR3 (ClickUp z8uq9mfj12): website chat and email next to Facebook. Mockups d1 to d7. ---------- */
+/* ---------- G3 PR3 (ClickUp z8uq9mfj12): website chat and email. Mockups d1 to d7. ---------- */
 
-const WC = "wc_aaaaaaaaaaaaaaaaaaaaaaaa", WC2 = "wc_bbbbbbbbbbbbbbbbbbbbbbbb", EM = "em_cccccccccccccccccccccccc";
 const MIXED = () => ({
   items: [
     { ref: WC, display_name: "Ana Reyes (test)", snippet: "Hi! Do you ship to Cebu?", updated_at: iso(5), channel: "webchat", source: "stored", status: "open", unread: true },
-    { ref: REF, display_name: "Maria S. (test)", snippet: "Hi po, available pa ba?", updated_at: iso(8), channel: "facebook" },
     { ref: EM, display_name: "Jun Dela Cruz (test)", snippet: "Order #1042 (test)", updated_at: iso(60), channel: "email", source: "stored", status: "open", unread: false },
     { ref: WC2, display_name: "Liza R. (test)", snippet: "Thank you!", updated_at: iso(60 * 30), channel: "webchat", source: "stored", status: "closed", unread: false }
-  ], next_cursor: null, stored_next_cursor: null, sources: { pancake: "ok", stored: "ok" }
+  ], stored_next_cursor: null, sources: { stored: "ok" }
 });
 const CHANNELS_ON = { webchat_enabled: true, paused_until: null, chat_limit_reached: false, webchat_available: true };
 const sthread = (over = {}) => ({
-  ref: WC, display_name: "Ana Reyes (test)", channel: "webchat", source: "stored", status: "open", unread: true, contact_email: "", provider_url: null, next_cursor: null,
+  ref: WC, display_name: "Ana Reyes (test)", channel: "webchat", source: "stored", status: "open", unread: true, contact_email: "",
   reply: { open: true, reason: "" }, replies: [],
   messages: [
     { id: "1", direction: "in", sender_kind: "customer", text: "Hi! Do you ship to Cebu?", attachments: [], at: iso(10), delivery_state: "" },
@@ -617,21 +420,21 @@ const comboRows = (d, id) => d.$(id).parentNode.all((n) => n.classList.contains(
 const rowsOf = (d) => d.all(d.$("ib-list"), "ib-item");
 
 test("d1: every row has a neutral channel badge (icon and words); an unread row has a dot with its own words; a closed one has a Closed chip", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
   await d.openInbox();
   const rows = rowsOf(d);
-  assert.equal(rows.length, 4);
-  assert.deepEqual(rows.map((r) => d.all(r, "ib-ch")[0].textContent), ["Website chat", "Facebook via Pancake", "Email", "Website chat"]);
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows.map((r) => d.all(r, "ib-ch")[0].textContent), ["Website chat", "Email", "Website chat"]);
   assert.ok(rows.every((r) => d.all(r, "ib-ch")[0].all((n) => n.tagName === "SVG").length === 1), "an icon in every badge");
   assert.ok(rows[0].classList.contains("ib-unread"));
   assert.equal(d.all(rows[0], "ib-dot")[0].textContent, "Unread. ");
-  assert.equal(d.all(rows[1], "ib-dot").length, 0, "a Facebook row has no unread flag");
-  assert.deepEqual(rows.map((r) => d.all(r, "chip").map((c) => c.textContent)), [[], [], [], ["Closed"]]);
-  assert.match(d.$("ib-wrap").textContent, /Facebook, Instagram, website chat and email|Conversations/);
+  assert.equal(d.all(rows[1], "ib-dot").length, 0, "a read row has no unread flag");
+  assert.deepEqual(rows.map((r) => d.all(r, "chip").map((c) => c.textContent)), [[], [], ["Closed"]]);
+  assert.match(d.$("ib-wrap").textContent, /Conversations/);
 });
 
 test("d1: the Channel filter is the house dropdown showing All channels; Email shows only email; typing filters the options", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
   await d.openInbox();
   const sel = d.$("ib-filter");
   assert.ok(sel.parentNode.classList.contains("ib-combo"));
@@ -641,7 +444,7 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
   assert.equal(comboInput(d, "ib-filter").value, "All channels", "a filter with a real default shows its value");
   assert.equal(d.all(d.$("ib-listbody"), "pm-label")[0].textContent, "Channel");
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Facebook via Pancake", "Website chat", "Email"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email"]);
   const input = comboInput(d, "ib-filter");
   input.value = "web"; input.fire("input");
   assert.deepEqual(comboRows(d, "ib-filter"), ["Website chat"]);
@@ -657,7 +460,7 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
 
 test("d1: a channel with no conversations says so, and Escape leaves the dropdown without choosing", async () => {
   const only = MIXED(); only.items = only.items.filter((i) => i.channel !== "email");
-  const d = boot({ conn: CONN_OK, listing: only, channels: CHANNELS_ON });
+  const d = boot({ listing: only, channels: CHANNELS_ON });
   await d.openInbox();
   comboBox(d, "ib-filter").fire("click");
   comboInput(d, "ib-filter").fire("keydown", { key: "Escape", stopPropagation() {} });
@@ -668,25 +471,20 @@ test("d1: a channel with no conversations says so, and Escape leaves the dropdow
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations in this channel yet."));
 });
 
-test("d1: Pancake not reachable shows a warning with Try again while the stored channels still list; no banner for an unconnected Pancake", async () => {
-  const down = MIXED(); down.sources = { pancake: "provider_down", stored: "ok" }; down.items = down.items.filter((i) => i.channel !== "facebook");
-  const d = boot({ conn: CONN_OK, listing: down, channels: CHANNELS_ON });
-  await d.openInbox();
-  const banners = d.all(d.$("ib-listbody"), "ib-banner");
-  assert.equal(banners.length, 1);
-  assert.ok(banners[0].textContent.startsWith("Pancake is not reachable right now. Facebook conversations may be missing. Website chat and email conversations still show below."), banners[0].textContent);
-  assert.equal(rowsOf(d).length, 3, "the stored conversations are still listed");
-  await d.click(d.press(banners[0], "Try again"));
-  assert.equal(d.list().filter((c) => c === "GET " + BASE + "conversations/").length, 2);
-  const off = MIXED(); off.sources = { pancake: "not_configured", stored: "ok" };
-  const e = boot({ listing: off, channels: CHANNELS_ON });
-  await e.openInbox();
-  assert.equal(e.all(e.$("ib-listbody"), "ib-banner").length, 0);
+test("d1: a list response with only the stored source, or none, shows no warning and no error", async () => {
+  for (const sources of [{ stored: "ok" }, undefined]) {
+    const listing = MIXED(); if (sources) listing.sources = sources; else delete listing.sources;
+    const d = boot({ listing, channels: CHANNELS_ON });
+    await d.openInbox();
+    assert.equal(d.all(d.$("ib-listbody"), "ib-banner").length, 0, JSON.stringify(sources));
+    assert.equal(d.all(d.$("ib-listbody"), "ib-err").length, 0);
+    assert.equal(rowsOf(d).length, 3, "the stored conversations are listed");
+  }
 });
 
 test("d5: paused and limit reached are one banner at a time, the limit first; none when chat is off, not live, or the pause is over", async () => {
   const until = new Date(Date.now() + 3 * 3600000).toISOString();
-  const banners = async (channels) => { const d = boot({ conn: CONN_OK, listing: MIXED(), channels }); await d.openInbox(); return { d, list: d.all(d.$("ib-listbody"), "ib-banner") }; };
+  const banners = async (channels) => { const d = boot({ listing: MIXED(), channels }); await d.openInbox(); return { d, list: d.all(d.$("ib-listbody"), "ib-banner") }; };
   const both = await banners({ ...CHANNELS_ON, paused_until: until, chat_limit_reached: true });
   assert.equal(both.list.length, 1);
   assert.ok(both.list[0].textContent.startsWith("Today's chat limit was reached. Visitors see that chat is not available. Website chat opens again tomorrow."));
@@ -704,7 +502,7 @@ test("d5: paused and limit reached are one banner at a time, the limit first; no
 });
 
 test("a website chat thread: badge, Open chip, Close conversation, the no-email note, and the chat delivery chip on the owner's message", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
   await d.openInbox();
   await d.click(rowsOf(d)[0]);
   const pane = d.$("ib-threadpane");
@@ -720,28 +518,20 @@ test("a website chat thread: badge, Open chip, Close conversation, the no-email 
   assert.ok(!rowsOf(d)[0].classList.contains("ib-unread"), "and the dot goes");
 });
 
-test("a chat visitor who gave an email has no no-email note; a Facebook thread has no Close button and no stored-channel note", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread({ contact_email: "ana@example.test" }), channels: CHANNELS_ON });
+test("a chat visitor who gave an email has no no-email note", async () => {
+  const d = boot({ listing: MIXED(), reading: sthread({ contact_email: "ana@example.test" }), channels: CHANNELS_ON });
   await d.openInbox();
   await d.click(rowsOf(d)[0]);
   assert.equal(d.all(d.$("ib-threadpane"), "ib-note").length, 0);
-  const f = boot({ conn: CONN_OK, listing: MIXED(), reading: thread(), channels: CHANNELS_ON });
-  await f.openInbox();
-  await f.click(rowsOf(f)[1]);
-  const pane = f.$("ib-threadpane");
-  assert.equal(f.press(pane, "Close conversation"), undefined);
-  assert.equal(f.all(pane, "ib-note").length, 0);
-  assert.equal(f.all(pane, "ib-chrow")[0].all((n) => n.classList.contains("ib-ch"))[0].textContent, "Facebook via Pancake");
-  assert.ok(!f.list().some((c) => c.endsWith("/read/")), "a Facebook row is never marked read");
 });
 
 test("d3: an email thread shows the address, the unverified-sender note as a note only, and the Sent to the mail server chip", async () => {
   const reading = emailThread({ messages: [
     { id: "1", direction: "in", sender_kind: "customer", text: "Subject: Order #1042 (test)\n\nNo tracking number.", attachments: [], at: iso(30), delivery_state: "" },
     { id: "2", direction: "out", sender_kind: "owner", text: "Shipped yesterday.", attachments: [], at: iso(20), delivery_state: "sent" }] });
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading, channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), reading, channels: CHANNELS_ON });
   await d.openInbox();
-  await d.click(rowsOf(d)[2]);
+  await d.click(rowsOf(d)[1]);
   const pane = d.$("ib-threadpane");
   assert.equal(d.all(pane, "ib-sub")[0].textContent, "jun.delacruz@example.test");
   assert.equal(d.all(pane, "ib-note")[0].textContent, "This address was typed into your contact form and has not been confirmed.");
@@ -751,8 +541,8 @@ test("d3: an email thread shows the address, the unverified-sender note as a not
   assert.equal(d.press(pane, "Send").disabled, true, "replying needs no extra confirm click, only text (P1)");
   const ta = d.$("ib-rb"); ta.value = "More text"; ta.fire("input");
   assert.equal(d.press(pane, "Send").disabled, false);
-  const verified = boot({ conn: CONN_OK, listing: MIXED(), reading: emailThread({ auth_flag: "" }), channels: CHANNELS_ON });
-  await verified.openInbox(); await verified.click(rowsOf(verified)[2]);
+  const verified = boot({ listing: MIXED(), reading: emailThread({ auth_flag: "" }), channels: CHANNELS_ON });
+  await verified.openInbox(); await verified.click(rowsOf(verified)[1]);
   assert.equal(verified.all(verified.$("ib-threadpane"), "ib-note").length, 0, "no note once the API says the sender is verified");
 });
 
@@ -766,10 +556,10 @@ test("d7: each reply failure code shows its fixed chip and its fixed notice, the
   for (const [code, text] of Object.entries(CODES)) {
     const failedThread = emailThread({ messages: [{ id: "9", direction: "out", sender_kind: "owner", text: "Typed reply", attachments: [], at: iso(1), delivery_state: "failed" }],
       replies: [{ state: code === "rate_limited" ? "blocked_rate" : "failed", error_code: code, created_at: iso(1), message: text }] });
-    const d = boot({ conn: CONN_OK, listing: MIXED(), reading: emailThread(), channels: CHANNELS_ON,
+    const d = boot({ listing: MIXED(), reading: emailThread(), channels: CHANNELS_ON,
       reply: { state: code === "rate_limited" ? "blocked_rate" : "failed", error_code: code, message: text, created_at: iso(0) } });
     await d.openInbox();
-    await d.click(rowsOf(d)[2]);
+    await d.click(rowsOf(d)[1]);
     const ta = d.$("ib-rb"); ta.value = "Typed reply"; ta.fire("input");
     d.s.reading = failedThread;
     await d.click(d.press(d.$("ib-threadpane"), "Send"));
@@ -793,7 +583,7 @@ test("d7: each reply failure code shows its fixed chip and its fixed notice, the
 
 test("a reply to website chat shows Delivered to chat; sent is recorded by reading the thread again", async () => {
   const sent = sthread({ messages: [...sthread().messages, { id: "3", direction: "out", sender_kind: "owner", text: "One more thing.", attachments: [], at: iso(0), delivery_state: "sent" }] });
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
   await d.openInbox(); await d.click(rowsOf(d)[0]);
   const ta = d.$("ib-rb"); ta.value = "One more thing."; ta.fire("input");
   d.s.reading = sent;
@@ -804,7 +594,7 @@ test("a reply to website chat shows Delivered to chat; sent is recorded by readi
 });
 
 test("d4: Close conversation closes it; the reply box is off with the reason, the chip says Closed and the button says Reopen conversation; Reopen turns it back", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
   await d.openInbox(); await d.click(rowsOf(d)[0]);
   await d.click(d.press(d.$("ib-threadpane"), "Close conversation"));
   assert.ok(d.list().includes("POST " + BASE + `conversations/${WC}/close/`));
@@ -825,8 +615,8 @@ test("d4: Close conversation closes it; the reply box is off with the reason, th
 });
 
 test("Reopen refused because the visitor has another open conversation: the API's line in a toast, the thread stays closed", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread({ status: "closed", reply: { open: false, reason: "closed" } }), channels: CHANNELS_ON });
-  await d.openInbox(); await d.click(rowsOf(d)[3]);
+  const d = boot({ listing: MIXED(), reading: sthread({ status: "closed", reply: { open: false, reason: "closed" } }), channels: CHANNELS_ON });
+  await d.openInbox(); await d.click(rowsOf(d)[2]);
   d.s.statusAnswer = { status: 409, body: { error: { code: "conflict", message: "That visitor already has another open conversation." } } };
   await d.click(d.press(d.$("ib-threadpane"), "Reopen conversation"));
   assert.deepEqual(d.toasts, ["That did not work: That visitor already has another open conversation."]);
@@ -835,7 +625,7 @@ test("Reopen refused because the visitor has another open conversation: the API'
 });
 
 test("a reply to a conversation closed meanwhile (409 closed) turns the thread to the closed view", async () => {
-  const d = boot({ conn: CONN_OK, listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  const d = boot({ listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
   await d.openInbox(); await d.click(rowsOf(d)[0]);
   const ta = d.$("ib-rb"); ta.value = "Late reply"; ta.fire("input");
   d.s.replyAnswer = { status: 409, body: { error: { code: "closed", message: "This conversation is closed. Reopen it to reply." } } };
@@ -847,7 +637,7 @@ test("a reply to a conversation closed meanwhile (409 closed) turns the thread t
 test("a stored channel's text and names reach the page as text only, never as markup or a link", async () => {
   const evil = '<img src=x onerror=alert(1)> https://evil.example/x';
   const listing = MIXED(); listing.items[0].display_name = evil; listing.items[0].snippet = evil;
-  const d = boot({ conn: CONN_OK, listing, reading: sthread({ display_name: evil, messages: [{ id: "1", direction: "in", sender_kind: "customer", text: evil, attachments: [], at: iso(1), delivery_state: "" }] }), channels: CHANNELS_ON });
+  const d = boot({ listing, reading: sthread({ display_name: evil, messages: [{ id: "1", direction: "in", sender_kind: "customer", text: evil, attachments: [], at: iso(1), delivery_state: "" }] }), channels: CHANNELS_ON });
   await d.openInbox(); await d.click(rowsOf(d)[0]);
   assert.ok(d.$("ib-threadpane").textContent.includes(evil));
   assert.equal(d.$("ib-threadpane").all((n) => n.tagName === "IMG").length, 0);
@@ -857,7 +647,7 @@ test("a stored channel's text and names reach the page as text only, never as ma
 
 test("the stored channels' own pages: Show more conversations follows stored_next_cursor", async () => {
   const listing = MIXED(); listing.stored_next_cursor = "1700000000000000_12";
-  const d = boot({ conn: CONN_OK, listing, channels: CHANNELS_ON });
+  const d = boot({ listing, channels: CHANNELS_ON });
   await d.openInbox();
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
   assert.ok(d.list().includes("GET " + BASE + "conversations/?stored_cursor=1700000000000000_12") || d.list().some((c) => c.includes("stored_cursor=")), d.list().join("\n"));
@@ -868,11 +658,11 @@ test("the stored channels' own pages: Show more conversations follows stored_nex
 const CH_OFF = { webchat_enabled: false, paused_until: null, chat_limit_reached: false, webchat_available: true };
 const switchOf = (d, id) => d.$(id);
 
-test("d6: the Inbox channels card, then Email, then the Pancake card; the web chat switch writes webchat_enabled", async () => {
-  const d = boot({ conn: CONN_OK, channels: CH_OFF });
+test("d6: the Inbox channels card, then Email, then How the inbox works; the web chat switch writes webchat_enabled", async () => {
+  const d = boot({ channels: CH_OFF });
   await d.openSettings();
   const root = d.$("ibs-root");
-  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "Facebook Messenger through Pancake", "How the inbox works"]);
+  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
   const sw = switchOf(d, "ibs-sw-chat");
   assert.equal(sw.getAttribute("role"), "switch");
   assert.equal(sw.getAttribute("aria-checked"), "false");
@@ -889,7 +679,7 @@ test("d6: the Inbox channels card, then Email, then the Pancake card; the web ch
 });
 
 test("d6: Pause for is the house dropdown with a grey placeholder, nothing selected, the visible label reads Pause chat until, typing filters; Pause chat sends the time; Resume clears it", async () => {
-  const d = boot({ conn: CONN_OK, channels: { ...CHANNELS_ON } });
+  const d = boot({ channels: { ...CHANNELS_ON } });
   await d.openSettings();
   const root = d.$("ibs-root");
   const sel = d.$("ibs-pause");
@@ -940,7 +730,7 @@ test("Pause for: each choice is a time the API accepts; Until tomorrow is 08:00 
 });
 
 test("a pause the API refuses shows its line in a toast and changes nothing on the page", async () => {
-  const d = boot({ conn: CONN_OK, channels: { ...CHANNELS_ON } });
+  const d = boot({ channels: { ...CHANNELS_ON } });
   await d.openSettings();
   d.s.channelsPut = { status: 422, body: { error: { code: "invalid", message: "Pick a time in the future, within 90 days.", fields: { paused_until: ["Pick a time in the future, within 90 days."] } } } };
   d.$("ibs-pause").value = "1h"; d.$("ibs-pause").fire("change");
@@ -950,7 +740,7 @@ test("a pause the API refuses shows its line in a toast and changes nothing on t
 });
 
 test("d6: Email card: the contact-form switch writes email_enabled and shows only when the API says contact_inbox_available; the help line sits under the coming-soon line only with the switch", async () => {
-  const d = boot({ conn: CONN_OK, channels: { ...CHANNELS_ON, contact_inbox_available: true, email_enabled: false } });
+  const d = boot({ channels: { ...CHANNELS_ON, contact_inbox_available: true, email_enabled: false } });
   await d.openSettings();
   const root = d.$("ibs-root");
   const sw = switchOf(d, "ibs-sw-form");
@@ -964,7 +754,7 @@ test("d6: Email card: the contact-form switch writes email_enabled and shows onl
   assert.ok(root.textContent.includes("Receiving email directly"));
   assert.ok(root.textContent.includes("Coming soon"));
   for (const without of [{ ...CHANNELS_ON }, { ...CHANNELS_ON, contact_inbox_available: false }]) {
-    const e = boot({ conn: CONN_OK, channels: without });
+    const e = boot({ channels: without });
     await e.openSettings();
     assert.equal(e.$("ibs-sw-form"), null, "no contact-form switch");
     assert.equal(e.$("ibs-root").textContent.match(/coming soon/gi).length, 1);
@@ -972,14 +762,8 @@ test("d6: Email card: the contact-form switch writes email_enabled and shows onl
   }
 });
 
-test("the channel cards stay away when the channels route is not there; the Pancake card still works", async () => {
-  const d = boot({ conn: CONN_OK });
-  await d.openSettings();
-  assert.deepEqual(d.$("ibs-root").all((n) => n.tagName === "H2").map((n) => n.textContent), ["Facebook Messenger through Pancake", "How the inbox works"]);
-});
-
 test("a switch the API refuses leaves it as it was and says so", async () => {
-  const d = boot({ conn: CONN_OK, channels: CH_OFF });
+  const d = boot({ channels: CH_OFF });
   await d.openSettings();
   d.s.channelsPut = { status: 429, body: { error: { code: "rate_limited", message: "Too many changes. Please wait a moment." } } };
   await d.click(switchOf(d, "ibs-sw-chat"));
@@ -992,6 +776,8 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261116g3/);
-  assert.match(HTML, /Facebook, Instagram, website chat and email/);
+  assert.match(HTML, /inbox\.js\?v=20261117pc1/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261117pc1/);
+  assert.match(HTML, /inbox\.css\?v=20261117pc1/);
+  assert.match(HTML, /Website chat and email/);
 });

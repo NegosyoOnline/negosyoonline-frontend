@@ -128,8 +128,9 @@ test("Prospects: the royal blue header with the search inside it at the right, t
 test("Prospects: line 1 the name with its initials, line 2 the source; no Source column; the order number is not on the row", async () => {
   const d = boot(); await d.open();
   const body = d.$("jr-pr-body"), t = body.textContent;
-  for (const w of ["Membership Pack page", "Website chat", "Facebook via Pancake", "Ready to register", "No name", "Ana Reyes"]) assert.ok(t.includes(w), w);
+  for (const w of ["Membership Pack page", "Website chat", "Facebook", "Ready to register", "No name", "Ana Reyes"]) assert.ok(t.includes(w), w);
   assert.ok(!t.includes("Order PK-0001"));
+  assert.ok(!/via/i.test(t), "an unknown source shows its own name, with no provider label");
   const ana = body.all((n) => n.tagName === "TR").find((r) => r.textContent.includes("Ana Reyes"));
   const who = ana.all((n) => n.classList && n.classList.contains("jr-pr-id"))[0];
   assert.deepEqual(who.children.map((c) => c.textContent), ["Ana Reyes", "Membership Pack page"]);

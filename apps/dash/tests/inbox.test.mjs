@@ -120,7 +120,7 @@ test("settings shows the channel cards and the how-it-works card, and asks only 
   const root = d.$("ibs-root");
   assert.equal(root.getAttribute("aria-busy"), null);
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
-  assert.equal(d.all(root, "mk-list")[0].children.length, 3);
+  assert.equal(d.all(root, "mk-list")[0].children.length, 4);
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false], "the API answered, so the Inbox links show");
 });
 
@@ -160,8 +160,8 @@ test("b2: an empty list says so; Show more conversations appears only with a sto
   const empty = boot({ listing: { items: [], stored_next_cursor: null } });
   await empty.openInbox();
   assert.ok(empty.$("ib-listbody").textContent.includes("No messages yet"));
+  assert.ok(empty.$("ib-listbody").textContent.includes("When a customer messages your Facebook Page, writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again."));
   assert.ok(empty.$("ib-listbody").textContent.includes("Press Refresh to check again."));
-  assert.ok(!empty.$("ib-listbody").textContent.includes("Facebook"));
 
   const d = boot({ listing: list({ stored_next_cursor: "30" }) });
   await d.openInbox();
@@ -660,6 +660,9 @@ test("d6: the Inbox channels card, then Email, then How the inbox works; the web
   await d.openSettings();
   const root = d.$("ibs-root");
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
+  const how = root.all((n) => n.tagName === "LI").map((n) => n.textContent);
+  assert.ok(how.includes("The inbox shows your Facebook Messenger, website chat and email conversations in one list."));
+  assert.ok(how.includes("You can reply to a Facebook Messenger conversation within 24 hours of the customer's last message."));
   const sw = switchOf(d, "ibs-sw-chat");
   assert.equal(sw.getAttribute("role"), "switch");
   assert.equal(sw.getAttribute("aria-checked"), "false");

@@ -37,7 +37,7 @@ export async function GET(request: Request): Promise<Response> {
     pack: flow.pack, checkout: true,
   });
   if (meta.send) await afterResponse(meta.send);
-  return checkoutGet({ ...flow, tracking: meta.markup });
+  return meta.finish(await checkoutGet({ ...flow, tracking: meta.markup }));
 }
 
 export async function POST(request: Request): Promise<Response> {

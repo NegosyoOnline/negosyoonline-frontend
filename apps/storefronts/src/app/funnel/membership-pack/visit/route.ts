@@ -3,11 +3,14 @@
      {op:"begin", ref?}                          -> {ref}
      {op:"event", ref, event, percent?}          -> {ok:true}     event: start | percent (25, 50, 75, 90, 100) | checkout
      {op:"contact", ref, full_name, mobile, email} -> {ok:true}   saved when a checkout field loses focus
-   This server holds the credential and the visitor's address; the browser holds only the ref. Nothing here is logged,
-   sent to Meta or kept in a cookie. Any refusal or failure answers a bare status the scripts ignore. */
+   This server holds the credential and the visitor's address; the browser holds the ref in localStorage. Nothing here is
+   logged or sent to Meta. The one cookie it writes is no_vid (ClickUp z8uq9mg7h3): a copy of the ref for the server's
+   Meta events, set on a successful answer only after the visitor pressed Accept, HttpOnly, SameSite=Lax, 180 days (see
+   src/lib/meta.ts). Without Accept nothing is set. Any refusal or failure answers a bare status the scripts ignore. */
 import { localMobile } from "../../../../lib/checkout-flow.ts";
 import { storefrontEnv } from "../../../../lib/env.ts";
 import { forbidden, postIsSameOrigin } from "../../../../lib/member.ts";
+import { setVisitorCookie } from "../../../../lib/meta.ts";
 import { visitBegin, visitContact, visitEvent } from "../../../../lib/pack-api.ts";
 import { requestHost, siteFor } from "../../../../lib/site.ts";
 import { visitorIp } from "../../../../lib/visitor.ts";
@@ -47,7 +50,10 @@ export async function POST(request: Request): Promise<Response> {
     );
   } else return Response.json({}, { status: 400, headers: HEADERS });
   if (answer.state === "ok") {
-    return Response.json(answer.state === "ok" && "ref" in answer ? { ref: answer.ref } : { ok: true }, { headers: HEADERS });
+    const issued = "ref" in answer ? answer.ref : ref;
+    const response = Response.json("ref" in answer ? { ref: answer.ref } : { ok: true }, { headers: HEADERS });
+    setVisitorCookie(response, request, issued); // only after Accept, only a well-shaped ref
+    return response;
   }
   if (answer.state === "unavailable") return neutralNotFound();
   return Response.json({}, { status: answer.state === "refused" ? answer.status : 503, headers: HEADERS });

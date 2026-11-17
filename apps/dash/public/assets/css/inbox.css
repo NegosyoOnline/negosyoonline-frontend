@@ -28,11 +28,12 @@
 }
 
 /* ---- inbox: header, split, list ---- */
-body.dash-app .ib-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
-body.dash-app .ib-refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
-body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
-#view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; height: calc(100vh - 230px); min-height: 520px; }
+#view-inbox .ib-lhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
+#view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; height: 100%; }
+#view-inbox .ib-rcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
+#view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; }
+#view-inbox .ib-tools-host { flex: none; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -43,7 +44,7 @@ body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; he
 #view-inbox .ib-av { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tile); color: var(--tile-ink); font-size: 14px; font-weight: 700; }
 #view-inbox .ib-it { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 #view-inbox .ib-top { display: flex; justify-content: space-between; gap: 8px; }
-#view-inbox .ib-name { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+#view-inbox .ib-name { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
 #view-inbox .ib-time { color: var(--meta); font-size: 13px; flex: none; }
 #view-inbox .ib-snip { color: var(--text-2); font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 #view-inbox .ib-mini { min-height: 22px; padding: 0 10px; font-size: 12px; align-self: flex-start; margin-top: 4px; }
@@ -91,15 +92,17 @@ body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; he
 #view-inbox .ib-reply .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 899px) {
-  #view-inbox .ib-split { display: block; height: auto; min-height: 0; }
+  /* a phone: the toolbar over the list (it filters the list; it goes while a conversation is open), then one card; the right column dissolves */
+  #view-inbox .ib-split { display: flex; flex-direction: column; gap: 10px; }
+  #view-inbox .ib-rcol { display: contents; }
+  #view-inbox .ib-tools-host { order: -1; }
+  #view-inbox .ib-split > .ib-pane, #view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; min-height: 0; height: auto; }
   #view-inbox .ib-split .is-hide-phone { display: none; }
   #view-inbox .ib-pane { border-radius: 14px; }
   #view-inbox .ib-back { display: inline-flex; flex: 0 0 100%; margin-left: -6px; }
   #view-inbox .ib-thead { gap: 10px; }
-  #view-inbox .ib-msgs { max-height: none; overflow: visible; padding: 14px; }
+  #view-inbox .ib-msgs { padding: 14px; }
   #view-inbox .ib-msg { max-width: 88%; }
-  .ib-viewhead { align-items: flex-start; }
-  .ib-refresh { width: 100%; justify-content: space-between; }
   #view-inbox .ib-open { flex: 0 0 100%; justify-content: center; }
   #view-inbox .ib-tname { min-width: 150px; }
   #view-inbox .ib-tname .chip { white-space: nowrap; }
@@ -112,9 +115,25 @@ body.dash-app .ib-ch { display: inline-flex; align-items: center; gap: 5px; min-
 body.dash-app .ib-ch svg { width: 13px; height: 13px; flex: none; }
 body.dash-app .ib-badges { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
 body.dash-app .ib-badges .ib-mini { margin-top: 0; }
-body.dash-app .ib-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--link); margin-right: 6px; vertical-align: middle; }
-body.dash-app .ib-unread .ib-name { font-weight: 800; }
-body.dash-app .ib-unread .ib-snip { color: var(--text); }
+#view-inbox .ib-unread .ib-name { font-weight: 700; }
+#view-inbox .ib-unread .ib-time { color: var(--link); font-weight: 600; }
+#view-inbox .ib-item.is-sel .ib-ch { border-color: color-mix(in srgb, var(--link) 40%, transparent); }
+#view-inbox .ib-unread .ib-snip { color: var(--text); }
+/* R4-2: a 1px divider between the rows (the theme card-line token), none after the last */
+#view-inbox .ib-list > li + li { border-top: 1px solid var(--card-line); }
+/* R4-1: the time with the read state under it, at the right of every row. Unread: a filled closed envelope in --link. Read: an open envelope in --meta. */
+#view-inbox .ib-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+#view-inbox .ib-rs { display: inline-flex; line-height: 0; }
+#view-inbox .ib-rs svg { width: 18px; height: 18px; }
+#view-inbox .ib-rs-r { color: var(--meta); }
+#view-inbox .ib-rs-u { color: var(--link); }
+#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); }
+/* R4-4: the Read/Unread toggle in the Conversations header (All, Unread, Read); on, it shows the light-blue ring and fill like the house focus */
+#view-inbox .ib-rtog { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-rtog svg { width: 20px; height: 20px; }
+#view-inbox .ib-rtog:hover { background: var(--ghost-hover); }
+#view-inbox .ib-rtog.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-rtog:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
 body.dash-app .ib-sub { margin: 0; font-size: 14px; color: var(--meta); overflow-wrap: anywhere; }
@@ -123,8 +142,6 @@ body.dash-app .ib-long { white-space: normal !important; text-align: left; borde
 #view-inbox .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
 
 /* the Channel filter above the list */
-body.dash-app .ib-tools { padding: 12px 18px; border-bottom: 1px solid var(--card-line); display: flex; flex-direction: column; gap: 6px; }
-body.dash-app .ib-tools .pm-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
 body.dash-app .ib-empty-filter { margin: 0; padding: 24px 18px; color: var(--text-2); text-align: center; }
 
 /* banners above the list, and the notes under a thread's head */
@@ -177,3 +194,87 @@ body.dash-app .ib-combo-opt:hover, body.dash-app .ib-combo-opt.is-active { backg
 body.dash-app .ib-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
 body.dash-app .ib-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
 @media (prefers-reduced-motion: reduce) { body.dash-app .ib-combo-caret { transition: none; } }
+
+/* ---- INBOX-UI (ClickUp z8uq9mg7c7) ---- */
+/* U6: the Inbox fills the screen under its header. The page itself does not scroll; the list and the thread each scroll inside their pane.
+   On a phone one pane shows at a time and the reply box stays at the bottom of the thread. */
+body.dash-app.ib-fixed .app { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+body.dash-app.ib-fixed .col { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+body.dash-app.ib-fixed .col-main { flex: 1 1 0; min-height: 0; }
+body.dash-app.ib-fixed #view-inbox:not([hidden]) { flex: 1 1 0; min-height: 0; }
+/* F1: on a desktop the dash top-bar buttons (quick-links search, theme, bell: .desk-switch / .notif-col, 44 px tall, absolute at 32 px from the top of the column) float over the content. With no page header the Inbox would start under them, so it reserves that row (44 px + 28 px gap) like the other views do with their header. */
+@media (min-width: 900px) { body.dash-app.ib-fixed #view-inbox:not([hidden]) { padding-top: 72px; } }
+body.dash-app.ib-fixed #ib-root { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+body.dash-app.ib-fixed #ib-wrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .ib-pane { flex: 1 1 0; min-height: 280px; }
+#view-inbox .ib-listbody { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+#view-inbox .ib-listbody > * { flex: none; }
+#view-inbox .ib-listbody > .ib-list { flex: 1 1 0; }
+#view-inbox .ib-listbody > .ib-state { flex: 1 1 0; }
+#view-inbox .ib-reply { flex: none; }
+#view-inbox .ib-thead { flex: none; }
+
+/* U1: the photo over the initials */
+#view-inbox .ib-av { position: relative; overflow: hidden; }
+#view-inbox .ib-av .ib-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; background: var(--tile); }
+
+/* U4: a group of bubbles from one side sits tighter (the 10 px gap of the column is 4 px inside a group) */
+#view-inbox .ib-msg.ib-grp { margin-bottom: -6px; }
+
+/* U3: the reply window note above the box (open window: under 2 hours left; closed window: the 24-hour sentence) */
+#view-inbox .ib-reply .ib-note { margin: 0; }
+
+/* U5: the unread count on the Inbox nav links */
+body.dash-app .ib-nb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--link); color: #fff; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+body.dash-app .ib-nb[hidden] { display: none; }
+body.dash-app .side-nav a[aria-current="page"] .ib-nb { background: #fff; color: #2A50D0; }
+body.dash-app .tabs a { position: relative; }
+body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
+@media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
+
+/* The filter toolbar (Coach Ed 2026-11-17, built like the Products toolbar): a row ABOVE the open-conversation card, in the right column
+   (.ib-rcol). [Search: the magnifier inside, live, no button] [Channel] [All status] [Refresh: an outlined button]. The dropdowns are the
+   plain house dropdown. Not a container query (its containment would trap the fixed dropdown panel). */
+#view-inbox .ib-trow { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
+#view-inbox .ib-trow > .ib-search { flex: 1 1 220px; min-width: 0; }
+#view-inbox .ib-trow > .ib-fld { flex: 0 0 170px; min-width: 0; }
+#view-inbox .ib-trow > .ib-rf { flex: 0 0 auto; min-height: 44px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
+#view-inbox .ib-tools.is-lite .ib-trow { justify-content: flex-end; }
+#view-inbox .ib-tools .ib-combo-input { text-overflow: ellipsis; }
+#view-inbox .ib-tools-host:empty { display: none; }
+/* the search box: the Products one (pr-qs): magnifier inside, a light-blue border on focus (never gold), a clear button */
+#view-inbox .ib-qs { display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 44px; padding: 0 4px 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
+#view-inbox .ib-qs:focus-within { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-qs .ib-si { flex: none; width: 20px; height: 20px; }
+#view-inbox .ib-sin { flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
+#view-inbox .ib-sin:focus, #view-inbox .ib-sin:focus-visible { outline: none; box-shadow: none; }
+#view-inbox .ib-sin::placeholder { color: var(--meta); opacity: 1; }
+#view-inbox .ib-sin::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+#view-inbox .ib-sclear { flex: none; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--meta); cursor: pointer; }
+#view-inbox .ib-sclear[hidden] { display: none; }
+#view-inbox .ib-sclear:hover { color: var(--text); }
+#view-inbox .ib-sclear:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+#view-inbox .ib-sclear svg { width: 18px; height: 18px; }
+/* phone: a tighter header and a wrapped toolbar (search on its own line, then the two dropdowns and Refresh; the words stay for screen readers) */
+@media (max-width: 899px) {
+  body.dash-app.ib-fixed #view-inbox .ib-pane-head { padding: 10px 16px; }
+  #view-inbox .ib-trow { gap: 8px; }
+  #view-inbox .ib-trow > .ib-search { flex: 1 1 100%; }
+  #view-inbox .ib-trow > .ib-fld { flex: 1 1 0; }
+  #view-inbox .ib-tools:not(.is-lite) .ib-trow > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
+  #view-inbox .ib-tools:not(.is-lite) .ib-rf-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+}
+@media (max-width: 899px) {
+  /* Finding 1: the cards reach the bottom bar. The dash keeps 96 px under every page for the bar; here only the bar itself (4 + 56 + 4 + 1 px, plus the
+     home-indicator inset) and a small gap stay free, so the list and the thread fill the screen and the reply box sits at the bottom. */
+  body.dash-app.ib-fixed .col { padding-bottom: calc(65px + 12px + env(safe-area-inset-bottom)); }
+  /* F2: #main (.col-main) keeps its own 84 px bottom padding on phones (pack-orders.css); the Inbox gives it up, so the cards end 12 px above the bar */
+  body.dash-app.ib-fixed .col-main { padding-bottom: 0; }
+  #view-inbox .ib-thead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "back back act" "av name name"; align-items: center; padding: 4px 12px 10px; gap: 2px 10px; }
+  #view-inbox .ib-back { grid-area: back; justify-self: start; min-height: 40px; }
+  #view-inbox .ib-thead .ib-open { grid-area: act; min-height: 36px; padding: 0 12px; margin: 0; }
+  #view-inbox .ib-thead .ib-av { grid-area: av; }
+  #view-inbox .ib-thead .ib-tname { grid-area: name; min-width: 0; }
+  #view-inbox .ib-reply { padding: 10px 12px 12px; gap: 8px; }
+  #view-inbox .pm-input.ib-ta { min-height: 60px; }
+}

@@ -149,7 +149,7 @@ const privacy = (v: V): Markup => html`
 <li>Courier, shipping, tracking, and fulfillment providers.</li>
 <li>Hosting, infrastructure, security, and technology service providers.</li>
 <li>Customer support, messaging, email, and SMS service providers.</li>
-<li>Analytics and advertising providers, where applicable and lawfully enabled.</li>
+<li>Analytics and advertising providers, where applicable and lawfully enabled. When the store's Meta Pixel is connected and you accept the tracking notice, events are sent to Meta from your browser and from NegosyoOnline's servers. These events carry the order number and amount and, only in hashed form, a visitor ID, your email address and mobile number from checkout onward, and your name, city, province and postal code on payment and purchase events.</li>
 <li>Professional advisers and competent government authorities where legally justified or required.</li>
 <li>Santé International, only for purchases that include Santé membership enrollment. For those purchases we transfer your name, date of birth, desired username, mobile number, email address, and delivery address so that your membership can be registered and administered. Ordinary product purchases do not require this sharing.</li>
 </ul>

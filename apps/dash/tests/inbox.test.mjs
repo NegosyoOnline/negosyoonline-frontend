@@ -789,7 +789,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261117ui2/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261117ui2/);
+  assert.match(HTML, /inbox\.css\?v=20261117ui3/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */

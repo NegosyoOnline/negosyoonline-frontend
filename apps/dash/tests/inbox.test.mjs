@@ -48,8 +48,8 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null } = {}) {
-  const doc = makeDocument(), calls = [], toasts = [];
+function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "" } = {}) {
+  const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
@@ -60,7 +60,8 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : []);
   const s = { listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
-    channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null };
+    channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null,
+    messenger: messenger === null ? null : { ...messenger }, pages, pagesAnswer: null, connectAnswer: null, deleteAnswer: null };
   const fetch = (url, opts) => {
     const p = url.replace("http://api.test/v1", ""), body = opts.body ? JSON.parse(opts.body) : null;
     calls.push({ method: opts.method, path: p, body });
@@ -68,6 +69,10 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     const err = (status, code, message) => ({ status, body: { error: { code, message } } });
     if (opts.method === "GET" && p === "/sites/") a = { status: 200, body: { items: [{ id: A, template: "sante" }], next_cursor: null } };
     else if (s.off) a = err(404, "not_found", "Not found.");
+    else if (p === BASE + "messenger/connection/" && opts.method === "GET") a = s.messenger ? { status: 200, body: s.messenger } : err(404, "not_found", "Not found.");
+    else if (p === BASE + "messenger/pages/" && opts.method === "GET") a = s.pagesAnswer || (s.pages ? { status: 200, body: { items: s.pages } } : { status: 410, body: { error: { code: "pick_expired", message: "Gone." } } });
+    else if (p === BASE + "messenger/connect/" && opts.method === "POST") a = s.connectAnswer || { status: 200, body: { status: "active", page_id: body.page_id, page_name: (s.pages.find((x) => x.id === body.page_id) || {}).name, connected_at: iso(0), pick_pending: false } };
+    else if (p === BASE + "messenger/connection/" && opts.method === "DELETE") a = s.deleteAnswer || { status: 204, body: {} };
     else if (p === BASE + "channels/" && opts.method === "GET") a = s.channels ? { status: 200, body: s.channels } : err(404, "not_found", "Not found.");
     else if (p === BASE + "channels/" && opts.method === "PUT") {
       if (s.channelsPut) a = s.channelsPut;
@@ -83,9 +88,9 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     if (a.status === 0) return Promise.reject(new Error("offline"));
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
   };
-  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800 };
+  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800, history: { replaceState(_a, _b, url) { replaced.push(url); } } };
   const storage = { getItem: () => null, removeItem() {}, setItem() {} };
-  const location = { search, pathname: "/inbox/", replace() {}, assign() {} };
+  const location = { search: locSearch || search, pathname: "/inbox/", replace() {}, assign() {}, href: "" };
   const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Uint8Array, Date,
     localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
@@ -93,11 +98,12 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
   window.NODash.toast = (title, text) => toasts.push(title + ": " + text);
   const $ = (id) => doc.getElementById(id);
+  const where = location;
   const all = (n, c) => n.all((x) => x.classList.contains(c));
   const buttons = (n) => n.all((x) => x.tagName === "BUTTON");
   const press = (n, label) => buttons(n).find((b) => b.textContent === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, $, all, buttons, press, links, nav, window, page, refresh,
+  return { doc, calls, toasts, s, where, replaced, $, all, buttons, press, links, nav, window, page, refresh,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -110,21 +116,12 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
 test("settings shows the channel cards and the how-it-works card, and asks only for the sites and the channels", async () => {
   const d = boot({ channels: CH_OFF });
   await d.openSettings();
-  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "channels/"]);
+  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "channels/", "GET " + BASE + "messenger/connection/"]);
   const root = d.$("ibs-root");
   assert.equal(root.getAttribute("aria-busy"), null);
   assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
   assert.equal(d.all(root, "mk-list")[0].children.length, 3);
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false], "the API answered, so the Inbox links show");
-});
-
-test("the settings page makes no request to /inquiries/connection/, not on load and not after a switch", async () => {
-  const d = boot({ channels: { ...CHANNELS_ON } });
-  await d.openSettings();
-  await d.click(switchOf(d, "ibs-sw-chat"));
-  assert.ok(d.calls.length >= 3);
-  assert.ok(d.calls.every((c) => !c.path.includes("connection")), d.list().join("\n"));
-  assert.ok(!/connection\//.test(read("inbox-settings.js")), "the script holds no connection route");
 });
 
 test("settings while the API answers 404 (switch off): a plain note, no cards, the Inbox links stay hidden", async () => {
@@ -444,7 +441,7 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
   assert.equal(comboInput(d, "ib-filter").value, "All channels", "a filter with a real default shows its value");
   assert.equal(d.all(d.$("ib-listbody"), "pm-label")[0].textContent, "Channel");
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "Facebook Messenger"]);
   const input = comboInput(d, "ib-filter");
   input.value = "web"; input.fire("input");
   assert.deepEqual(comboRows(d, "ib-filter"), ["Website chat"]);
@@ -776,8 +773,181 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261117pc1/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261117pc1/);
+  assert.match(HTML, /inbox\.js\?v=20261117fm1/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
   assert.match(HTML, /inbox\.css\?v=20261117pc1/);
-  assert.match(HTML, /Website chat and email/);
+  assert.match(HTML, /Facebook Messenger, website chat and email/);
+});
+
+/* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
+
+const MBASE = BASE + "messenger/";
+const M_UNSET = { status: "unset", page_id: null, page_name: null, connected_at: null, pick_pending: false };
+const M_ACTIVE = { status: "active", page_id: "1001", page_name: "Santé Beauty", connected_at: iso(5), pick_pending: false };
+const PAGES = [{ id: "1001", name: "Santé Beauty" }, { id: "1002", name: "Santé Spa" }];
+const h2s = (d) => d.$("ibs-root").all((n) => n.tagName === "H2").map((n) => n.textContent);
+
+test("messenger card is hidden when connection/ answers 404", async () => {
+  const d = boot({ channels: CH_OFF });
+  await d.openSettings();
+  assert.ok(d.list().includes("GET " + MBASE + "connection/"));
+  assert.deepEqual(h2s(d), ["Inbox channels", "Email", "How the inbox works"]);
+});
+
+test("messenger unset: Connect Facebook Page navigates to start/ and makes no fetch to it", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_UNSET });
+  await d.openSettings();
+  assert.deepEqual(h2s(d), ["Inbox channels", "Facebook Messenger", "Email", "How the inbox works"]);
+  const b = d.press(d.$("ibs-root"), "Connect Facebook Page");
+  assert.ok(b);
+  await d.click(b);
+  assert.equal(d.where.href, "http://api.test/v1" + MBASE + "start/");
+  assert.ok(d.calls.every((c) => !c.path.includes("start/")));
+});
+
+test("messenger picker: ?messenger=pick lists the Pages in the house dropdown, then Connect posts the chosen id", async () => {
+  const d = boot({ channels: CH_OFF, messenger: { ...M_UNSET, pick_pending: true }, pages: PAGES, locSearch: "?messenger=pick" });
+  await d.openSettings();
+  assert.ok(d.list().includes("GET " + MBASE + "pages/"));
+  const sel = d.$("ibs-m-page-sel");
+  assert.ok(sel.parentNode.classList.contains("ib-combo"), "house dropdown, not native");
+  assert.equal(comboInput(d, "ibs-m-page-sel").getAttribute("placeholder"), "Facebook Page");
+  assert.equal(comboInput(d, "ibs-m-page-sel").value, "", "nothing selected on open");
+  assert.equal(d.$("ibs-m-go").disabled, true);
+  comboBox(d, "ibs-m-page-sel").fire("click");
+  assert.deepEqual(comboRows(d, "ibs-m-page-sel"), ["Santé Beauty", "Santé Spa"]);
+  const input = comboInput(d, "ibs-m-page-sel");
+  input.value = "spa"; input.fire("input");
+  assert.deepEqual(comboRows(d, "ibs-m-page-sel"), ["Santé Spa"], "typing filters");
+  d.all(d.$("ibs-m-page-sel").parentNode, "ib-combo-opt")[0].fire("click");
+  assert.equal(d.$("ibs-m-go").disabled, false);
+  await d.click(d.$("ibs-m-go"));
+  const post = d.calls.find((c) => c.method === "POST" && c.path === MBASE + "connect/");
+  assert.deepEqual(post.body, { page_id: "1002" });
+  assert.equal(d.$("ibs-m-page").textContent, "Santé Spa");
+});
+
+test("messenger picker: pick_pending without the query still shows the picker; an expired list says so", async () => {
+  const a = boot({ channels: CH_OFF, messenger: { ...M_UNSET, pick_pending: true }, pages: PAGES });
+  await a.openSettings();
+  assert.ok(a.$("ibs-m-page-sel"));
+  const b = boot({ channels: CH_OFF, messenger: { ...M_UNSET, pick_pending: true }, pages: null });
+  await b.openSettings();
+  assert.equal(b.$("ibs-m-page-sel"), null);
+  assert.match(b.text("ibs-m-err"), /Page list expired/);
+  assert.ok(b.press(b.$("ibs-root"), "Connect Facebook Page"));
+});
+
+test("messenger connect errors: page_taken is a plain line and the picker stays", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_UNSET, pages: PAGES, locSearch: "?messenger=pick" });
+  d.s.connectAnswer = { status: 409, body: { error: { code: "page_taken", message: "x" } } };
+  await d.openSettings();
+  d.$("ibs-m-page-sel").value = "1001"; d.$("ibs-m-page-sel").fire("change");
+  await d.click(d.$("ibs-m-go"));
+  assert.match(d.text("ibs-m-err"), /already connected to another site/);
+  assert.ok(d.$("ibs-m-page-sel"));
+});
+
+test("messenger active: Page name, Connected, Disconnect asks first, then DELETE", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_ACTIVE });
+  await d.openSettings();
+  assert.equal(d.$("ibs-m-page").textContent, "Santé Beauty");
+  assert.ok(d.$("ibs-root").all((n) => n.textContent === "Connected").length);
+  await d.click(d.$("ibs-m-disconnect"));
+  assert.ok(d.calls.every((c) => c.method !== "DELETE"), "asks first");
+  await d.click(d.$("ibs-m-no"));
+  assert.ok(d.$("ibs-m-disconnect"));
+  await d.click(d.$("ibs-m-disconnect"));
+  await d.click(d.$("ibs-m-yes"));
+  assert.ok(d.list().includes("DELETE " + MBASE + "connection/"));
+  assert.ok(d.$("ibs-m-connect"), "back to Connect Facebook Page");
+});
+
+test("messenger invalid: Reconnect goes to start/; ?messenger=error&code shows one plain line", async () => {
+  const d = boot({ channels: CH_OFF, messenger: { ...M_ACTIVE, status: "invalid" } });
+  await d.openSettings();
+  assert.equal(d.text("ibs-m-connect"), "Reconnect");
+  await d.click(d.$("ibs-m-connect"));
+  assert.equal(d.where.href, "http://api.test/v1" + MBASE + "start/");
+  for (const code of ["cancelled", "state_invalid", "provider_down", "no_pages", "permission_missing"]) {
+    const e = boot({ channels: CH_OFF, messenger: M_UNSET, locSearch: "?messenger=error&code=" + code });
+    await e.openSettings();
+    assert.equal(e.text("ibs-m-err"), e.window.NOInboxSettings.util.msgErrText(code));
+    assert.ok(e.$("ibs-m-connect"));
+  }
+});
+
+test("messenger: no token is ever in the script", () => {
+  assert.ok(!/access_token|page_token|\btoken_value/.test(read("inbox-settings.js")));
+});
+
+/* ---------- Inbox: Facebook Messenger ---------- */
+
+const FM = "fm_dddddddddddddddddddddddd";
+function msgrList() {
+  return { items: [
+    { ref: FM, display_name: "Ana Reyes", snippet: "Hello", updated_at: iso(5), provider: "messenger", status: "open", unread: false },
+    ...list().items ], stored_next_cursor: null };
+}
+function msgrThread(win) {
+  return thread({ ref: FM, display_name: "Ana Reyes", provider: "messenger", channel: undefined, contact_email: "", reply_window: win });
+}
+
+test("inbox: a messenger row has the Facebook Messenger badge, and the Channel filter has the option", async () => {
+  const d = boot({ listing: msgrList(), channels: CHANNELS_ON });
+  await d.openInbox();
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.equal(rows.length, 3);
+  assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => n.textContent), ["Facebook Messenger"]);
+  comboBox(d, "ib-filter").fire("click");
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "Facebook Messenger"]);
+  const u = d.window.NOInbox.util;
+  assert.equal(u.channelOf({ ref: FM }), "messenger");
+  assert.equal(u.filterItems(msgrList().items, "messenger").length, 1);
+});
+
+test("inbox: messenger thread with the window open has a live reply box", async () => {
+  const d = boot({ listing: msgrList(), reading: msgrThread({ open: true, closes_at: iso(-600) }), channels: CHANNELS_ON });
+  await d.openInbox();
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  assert.equal(d.$("ib-rb").disabled, false);
+  assert.ok(!d.$("ib-threadpane").all((n) => n.textContent === "You can reply within 24 hours of the customer's last message.").length);
+});
+
+test("inbox: messenger thread with the window closed turns the box off and says why", async () => {
+  const d = boot({ listing: msgrList(), reading: msgrThread({ open: false, closes_at: null }), channels: CHANNELS_ON });
+  await d.openInbox();
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  assert.equal(d.$("ib-rb").disabled, true);
+  assert.equal(d.text("ib-rn"), "You can reply within 24 hours of the customer's last message.");
+});
+
+test("inbox: window_closed and token_invalid outcomes use the reply error UI", async () => {
+  for (const [code, text] of [["window_closed", "You can reply within 24 hours of the customer's last message."], ["token_invalid", "Reconnect your Facebook Page in Settings > Inbox."]]) {
+    const d = boot({ listing: msgrList(), reading: msgrThread({ open: true, closes_at: iso(-60) }), reply: { state: "failed", error_code: code, created_at: iso(0) }, channels: CHANNELS_ON });
+    await d.openInbox();
+    await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+    const ta = d.$("ib-rb"); ta.value = "Hi"; ta.fire("input");
+    await d.click(d.press(d.$("ib-threadpane"), "Send"));
+    const alert = d.$("ib-threadpane").all((n) => n.getAttribute && n.getAttribute("role") === "alert")[0];
+    assert.ok(alert && alert.textContent.includes(text), code);
+  }
+});
+
+test("inbox eyebrow names Messenger", () => {
+  assert.ok(HTML.includes('<p class="dash-eyebrow">Facebook Messenger, website chat and email</p>'));
+});
+
+test("messenger return params are removed from the address once read, keeping the path and site", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_UNSET, locSearch: "?site=" + A + "&messenger=error&code=cancelled" });
+  await d.openSettings();
+  assert.deepEqual(d.replaced, ["/inbox/?site=" + A]);
+  assert.match(d.text("ibs-m-err"), /cancelled/);
+  const p = boot({ channels: CH_OFF, messenger: { ...M_UNSET, pick_pending: true }, pages: PAGES, locSearch: "?messenger=pick" });
+  await p.openSettings();
+  assert.deepEqual(p.replaced, ["/inbox/"]);
+  assert.ok(p.$("ibs-m-page-sel"));
+  const n = boot({ channels: CH_OFF, messenger: M_UNSET });
+  await n.openSettings();
+  assert.deepEqual(n.replaced, []);
 });

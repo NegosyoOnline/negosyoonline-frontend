@@ -4,11 +4,42 @@
    when the API says contact_inbox_available, and the one "coming soon" line for direct email). Fields the API does not send yet
    (email_enabled, contact_inbox_available) hide their part. Every status comes from the API; API strings reach the page through
    textContent or D.el only. While the API answers 404 (the INQUIRIES_ENABLED switch is off, or not a Santé site) the page says
-   the inbox is not available yet and the Inbox links stay hidden. Plain ES5. NOInboxSettings.util holds the pure helpers
+   the inbox is not available yet and the Inbox links stay hidden. The "Facebook Messenger" card (ClickUp z8uq9mg1qe) reads
+   GET .../inquiries/messenger/connection/ (a 404 hides the card): unset shows Connect Facebook Page, which NAVIGATES to
+   .../messenger/start/ (no fetch); back with ?messenger=pick (or pick_pending) it lists GET .../messenger/pages/ in the house
+   dropdown and POST .../messenger/connect/; active shows the Page and Disconnect (with a confirm, DELETE .../connection/);
+   invalid shows Reconnect; ?messenger=error&code=... is one plain line. No token is ever seen or entered here. Plain ES5. NOInboxSettings.util holds the pure helpers
    (tests/inbox.test.mjs). */
 (function () {
   var D = window.NODash;
   var token = 0, S = null;
+  /* One plain line for each return code of the Facebook callback, and for the connect errors. */
+  var MSG_ERR = {
+    cancelled: "The Facebook connection was cancelled. Nothing was changed.",
+    state_invalid: "That connection attempt expired. Please press Connect Facebook Page and try again.",
+    provider_down: "Facebook did not answer just now. Please try again in a moment.",
+    no_pages: "We found no Facebook Page that you manage. Make sure you are an admin of the Page, then try again.",
+    permission_missing: "Messenger needs all the permissions it asks for. Please connect again and allow them.",
+    not_in_pick_list: "That Page is not in your list. Please choose one from the list.",
+    page_taken: "That Facebook Page is already connected to another site.",
+    pick_expired: "The Page list expired. Please press Connect Facebook Page to start again."
+  };
+  function msgErrText(code) { return Object.prototype.hasOwnProperty.call(MSG_ERR, code) ? MSG_ERR[code] : "We could not connect your Facebook Page. Please try again."; }
+  /* Drop messenger and code from the address once read, keeping the path and the other parameters (site=), so a reload does not repeat it. */
+  function cleanAddress() {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (!q.has("messenger") && !q.has("code")) return;
+      q.delete("messenger"); q.delete("code");
+      var rest = q.toString();
+      window.history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + (location.hash || ""));
+    } catch (e) { /* the address stays; harmless */ }
+  }
+  /* The return of the callback, read from the address: {pick: bool, error: code|""}. */
+  function returnOf(search) {
+    var q = new URLSearchParams(search || ""), m = q.get("messenger");
+    return { pick: m === "pick", error: m === "error" ? (q.get("code") || "unknown") : "" };
+  }
   var DAY = 86400000;
 
   function byId(id) { return document.getElementById(id); }
@@ -61,7 +92,8 @@
   /* ---------- load ---------- */
 
   function show() {
-    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "" };
+    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "" };
+    cleanAddress();
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "pm-meta", "Loading your inbox settings…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -80,6 +112,29 @@
       if (res.status === 404) { unavailable(); return; }
       if (!res.ok || !res.data || typeof res.data !== "object") { failedPanel(res.status === 403 ? msgOf(res, "") : ""); return; }
       S.ch = res.data; setNav(true);
+      loadMessenger(mine);
+    });
+  }
+  function mBase() { return "/sites/" + S.site + "/inquiries/messenger/"; }
+  /* The Messenger connection; a 404 (its own switch is off) leaves the card out, any other failure leaves a short line with Try again. */
+  function loadMessenger(mine) {
+    D.call("GET", mBase() + "connection/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401) return;
+      S.err = "";
+      if (res.status === 404) { S.msg = null; render(); return; }
+      if (!res.ok || !res.data || typeof res.data !== "object") { S.msg = { down: true, pages: null }; render(); return; }
+      S.msg = { conn: res.data, pages: null };
+      if (S.back.error) S.err = msgErrText(S.back.error);
+      if (res.data.status !== "active" && (S.back.pick || res.data.pick_pending === true)) { loadPages(mine); return; }
+      render();
+    });
+  }
+  function loadPages(mine) {
+    D.call("GET", mBase() + "pages/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401) return;
+      if (res.status === 410) { S.err = msgErrText("pick_expired"); S.back.pick = false; render(); return; }
+      if (!res.ok || !res.data || !Array.isArray(res.data.items)) { S.err = "We could not load your Facebook Pages. Please try again."; render(); return; }
+      S.msg.pages = res.data.items.filter(function (p) { return p && typeof p.id === "string"; });
       render();
     });
   }
@@ -110,7 +165,7 @@
 
   function render() {
     var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
-    add(root, channelsCard(), emailCard(), howCard());
+    add(root, channelsCard(), messengerCard(), emailCard(), howCard());
   }
 
   /* ---------- the channel cards (d6) ---------- */
@@ -166,6 +221,93 @@
     if (window.NOInbox && window.NOInbox.combo) window.NOInbox.combo(sel, "Pause for", { blankEmpty: true });
     return s;
   }
+  /* ---------- the Facebook Messenger card ---------- */
+
+  function goConnect() { location.href = window.NO_CONFIG.apiBase + mBase() + "start/"; }
+  function errLine() {
+    if (!S.err) return null;
+    var p = h("p", "pm-hint", S.err); p.setAttribute("role", "alert"); p.setAttribute("id", "ibs-m-err");
+    return p;
+  }
+  function messengerCard() {
+    var m = S.msg; if (!m) return null;
+    var c = m.conn || {}, st = c.status;
+    var chip = m.down ? null : st === "active" ? ["ok", "Connected"] : st === "invalid" ? ["warn", "Needs reconnecting"] : m.pages ? null : ["neutral", "Not connected"];
+    var s = card("fm", "Facebook Messenger", chip);
+    if (m.down) {
+      add(s, h("p", "pm-lead", "We could not load your Facebook Messenger connection. Nothing was changed."), btn("Try again", "ghost", function (b) { busy(b, true); loadMessenger(token); }));
+      return s;
+    }
+    add(s, errLine());
+    if (st === "active") {
+      var nm = h("p", "pm-lead", "Connected Page: "); var pn = h("b", "", c.page_name || c.page_id || "Your Facebook Page"); pn.setAttribute("id", "ibs-m-page"); nm.appendChild(pn);
+      add(s, nm, h("p", "pm-hint", "Messages sent to this Page show in your Inbox as Facebook Messenger."));
+      var row = h("div", "mk-pause");
+      if (S.asking) {
+        add(s, h("p", "pm-lead", "Disconnect this Page? New Messenger messages will stop arriving in your Inbox. Your past conversations stay."));
+        var go = btn("Disconnect", "danger", function (b) { disconnect(b); }); go.setAttribute("id", "ibs-m-yes");
+        var no = btn("Keep connected", "ghost", function () { S.asking = false; render(); var d = byId("ibs-m-disconnect"); if (d) d.focus(); }); no.setAttribute("id", "ibs-m-no");
+        add(s, add(row, go, no));
+      } else {
+        var dis = btn("Disconnect", "ghost", function () { S.asking = true; render(); var y = byId("ibs-m-no"); if (y) y.focus(); }); dis.setAttribute("id", "ibs-m-disconnect");
+        add(s, add(row, dis));
+      }
+      return s;
+    }
+    if (m.pages) { pickerPart(s, m.pages); return s; }
+    if (st === "invalid") add(s, h("p", "pm-lead", "The connection to " + (c.page_name || "your Facebook Page") + " stopped working. Connect it again to receive and answer Messenger messages."));
+    else add(s, h("p", "pm-lead", "Connect your Facebook Page to receive and answer Messenger messages in your Inbox."));
+    var cb = btn(st === "invalid" ? "Reconnect" : "Connect Facebook Page", "primary", goConnect); cb.setAttribute("id", "ibs-m-connect");
+    add(s, cb);
+    return s;
+  }
+  function pickerPart(s, pages) {
+    add(s, h("p", "pm-lead", "Choose the Facebook Page to connect."));
+    var field = h("div", "pm-field");
+    var lab = h("label", "bl-sr", "Facebook Page"); lab.setAttribute("for", "ibs-m-page-sel");
+    var row = h("div", "mk-pause"), cell = h("div", "");
+    var sel = D.el("select", { "class": "ib-input", id: "ibs-m-page-sel" });
+    sel.appendChild(D.el("option", { value: "" }, "Facebook Page"));
+    pages.forEach(function (p) { sel.appendChild(D.el("option", { value: p.id }, p.name || p.id)); });
+    sel.value = S.pickId;
+    var go = btn("Connect", "primary", function (b) { connectPage(b, sel.value); }); go.setAttribute("id", "ibs-m-go"); go.disabled = !sel.value;
+    sel.addEventListener("change", function () { S.pickId = sel.value; go.disabled = !sel.value; });
+    add(cell, sel); add(row, cell, go); add(field, lab, row);
+    add(s, field);
+    if (!pages.length) add(s, h("p", "pm-hint", "No Pages were found."));
+    if (window.NOInbox && window.NOInbox.combo) window.NOInbox.combo(sel, "Facebook Page", { blankEmpty: true });
+  }
+  function connectPage(b, id) {
+    if (!id) return;
+    var mine = token; busy(b, true);
+    D.call("POST", mBase() + "connect/", { page_id: id }, true).then(function (res) {
+      if (res.status === 401 || mine !== token || !S) return;
+      if (!res.ok) {
+        busy(b, false);
+        if (res.status === 404) { S.msg = null; render(); return; }
+        var code = res.data && res.data.code;
+        S.err = msgErrText(code);
+        if (res.status === 410) { S.back.pick = false; S.msg.pages = null; S.msg.conn = { status: "unset", pick_pending: false }; }
+        render(); return;
+      }
+      S.err = ""; S.pickId = ""; S.back.pick = false;
+      S.msg = { conn: res.data, pages: null };
+      render(); say("Your Facebook Page is connected.");
+      var d = byId("ibs-m-disconnect"); if (d && d.focus) d.focus();
+    });
+  }
+  function disconnect(b) {
+    var mine = token; busy(b, true);
+    D.call("DELETE", mBase() + "connection/", null, true).then(function (res) {
+      if (res.status === 401 || mine !== token || !S) return;
+      busy(b, false);
+      if (!res.ok && res.status !== 404) { D.toast("That did not work", msgOf(res, "We could not disconnect the Page. Please try again."), "error"); return; }
+      S.asking = false; S.err = "";
+      S.msg = res.status === 404 ? null : { conn: { status: "unset", page_id: null, page_name: null, connected_at: null, pick_pending: false }, pages: null };
+      render(); say("Your Facebook Page is disconnected.");
+      var c = byId("ibs-m-connect"); if (c && c.focus) c.focus();
+    });
+  }
   function emailCard() {
     var ch = S.ch, s = card("em", "Email");
     if (ch.contact_inbox_available === true) {
@@ -202,5 +344,5 @@
     return add(s, ul);
   }
 
-  window.NOInboxSettings = { show: show, hide: hide, util: { whenText: whenText, pauseUntil: pauseUntil, chatStatus: chatStatus } };
+  window.NOInboxSettings = { show: show, hide: hide, util: { returnOf: returnOf, msgErrText: msgErrText, whenText: whenText, pauseUntil: pauseUntil, chatStatus: chatStatus } };
 })();

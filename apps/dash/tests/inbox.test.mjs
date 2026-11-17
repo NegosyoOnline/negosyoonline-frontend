@@ -48,7 +48,7 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "", clock = null } = {}) {
+function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "", clock = null, EventSource = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
@@ -100,7 +100,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const storage = { getItem: () => null, removeItem() {}, setItem() {} };
   const location = { search: locSearch || search, pathname: "/inbox/", replace() {}, assign() {}, href: "" };
   const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, Intl, Uint8Array, Date,
-    setTimeout: clock ? clock.setTimeout : inert, clearTimeout: clock ? clock.clearTimeout : inertClear, localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
+    setTimeout: clock ? clock.setTimeout : inert, clearTimeout: clock ? clock.clearTimeout : inertClear, localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch, ...(EventSource ? { EventSource } : {}) });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
@@ -1191,4 +1191,188 @@ test("poll: leaving the Inbox view stops it, and a read in flight is dropped", a
   assert.equal(d.calls.length, n, "coming back to the tab does nothing while the view is closed");
   await d.openInbox();
   assert.ok(clock.pending() > 0, "opening the view again starts the timers");
+});
+
+/* ---------- live push by server-sent events (z8uq9mg7ak) ---------- */
+
+/* A stand-in EventSource: the test plays the server with emit() and drop(). */
+function fakeES() {
+  const made = [];
+  class ES {
+    constructor(url, opts) { this.url = url; this.opts = opts; this.readyState = 0; this.closed = false; this.l = {}; made.push(this); }
+    addEventListener(t, f) { (this.l[t] = this.l[t] || []).push(f); }
+    close() { this.closed = true; this.readyState = 2; }
+    emit(t, data) { (this.l[t] || []).forEach((f) => f({ type: t, data: data === undefined ? "" : JSON.stringify(data) })); }
+    ready() { this.readyState = 1; this.emit("ready", { v: 1 }); }
+    /* the connection broke and the browser keeps trying (CONNECTING) */
+    blip() { this.readyState = 0; this.emit("error"); }
+    /* the browser gave up (an HTTP error answer): CLOSED */
+    dead() { this.readyState = 2; this.emit("error"); }
+  }
+  ES.made = made;
+  return ES;
+}
+async function live(opts = {}) {
+  const ES = fakeES(), r = await polling({ EventSource: ES, ...opts });
+  return { ...r, ES, es: () => ES.made[ES.made.length - 1] };
+}
+
+test("live: opens the stream with credentials once the site is known, and ready reads the list and thread once and slows the polls to 60 s", async () => {
+  const { d, clock, ES, es } = await live();
+  assert.equal(ES.made.length, 1);
+  assert.equal(es().url, "http://api.test/v1/sites/" + A + "/inquiries/stream/");
+  assert.equal(es().opts.withCredentials, true);
+  await openFirst(d);
+  const t0 = gets(d, THREAD_PATH), l0 = gets(d, LIST_PATH);
+  es().ready(); await settle();
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "one thread read at ready");
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "one list read at ready");
+  await clock.advance(59999);
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "no 5 s poll now");
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "no 15 s poll now");
+  await clock.advance(1);
+  assert.equal(gets(d, THREAD_PATH), t0 + 2);
+  assert.equal(gets(d, LIST_PATH), l0 + 2);
+  assert.deepEqual(d.toasts, []);
+});
+
+test("live: an event for the open conversation reads the thread now and the list after 300 ms; the new message shows without a draft wipe", async () => {
+  const { d, clock, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  const ta = d.$("ib-rb"); ta.value = "Opo, meron po"; ta.fire("input"); ta.focus();
+  d.s.reading = more();
+  const t0 = gets(d, THREAD_PATH), l0 = gets(d, LIST_PATH);
+  es().emit("conversation_updated", { ref: REF, last_message_at: null, kind: "message" }); await settle();
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "the thread at once");
+  assert.equal(gets(d, LIST_PATH), l0, "the list waits");
+  assert.ok(d.$("ib-threadpane").textContent.includes("Meron pa po?"));
+  assert.equal(d.$("ib-rb").value, "Opo, meron po", "the draft is kept");
+  assert.equal(d.doc.activeElement, d.$("ib-rb"), "the focus stays");
+  await clock.advance(299);
+  assert.equal(gets(d, LIST_PATH), l0);
+  await clock.advance(1);
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "the list after the debounce");
+  assert.deepEqual(d.toasts, []);
+});
+
+test("live: events for another conversation read only the list, and a burst makes one list read", async () => {
+  const { d, clock, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  const t0 = gets(d, THREAD_PATH), l0 = gets(d, LIST_PATH);
+  es().emit("conversation_updated", { ref: REF2, kind: "message" });
+  es().emit("message_status", { ref: REF2 });
+  es().emit("conversation_updated", { ref: REF2, kind: "status" });
+  await clock.advance(300);
+  assert.equal(gets(d, THREAD_PATH), t0, "no thread read");
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "one list read for the burst");
+  es().emit("message_status", { ref: REF }); await settle();
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "message_status for the open ref reads the thread");
+});
+
+test("live: an event that comes while a read runs makes one more read after it", async () => {
+  const { d, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  let release; d.s.hold = { re: /conversations\/wc_a+\/$/, used: false, promise: new Promise((r) => { release = r; }) };
+  const t0 = gets(d, THREAD_PATH);
+  es().emit("conversation_updated", { ref: REF }); await settle();
+  es().emit("conversation_updated", { ref: REF }); await settle();
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "no overlap");
+  release(); await settle();
+  assert.equal(gets(d, THREAD_PATH), t0 + 2, "one more read once the first ended");
+});
+
+test("live: an error (the browser reconnects) puts the 5 s / 15 s polls back until the next ready", async () => {
+  const { d, clock, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  es().blip();
+  const t0 = gets(d, THREAD_PATH), l0 = gets(d, LIST_PATH);
+  await clock.advance(15000);
+  assert.equal(gets(d, THREAD_PATH), t0 + 3, "5 s thread polls");
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "15 s list poll");
+  es().ready(); await settle();
+  const t1 = gets(d, THREAD_PATH);
+  await clock.advance(30000);
+  assert.equal(gets(d, THREAD_PATH), t1, "slow again after ready");
+  assert.deepEqual(d.toasts, []);
+});
+
+test("live: CLOSED means polling only; the stream is tried again every 60 s, and the reopened stream works", async () => {
+  const { d, clock, ES, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  es().dead(); await settle();
+  assert.ok(es().closed, "the dead stream is closed");
+  assert.equal(ES.made.length, 1);
+  const t0 = gets(d, THREAD_PATH);
+  await clock.advance(5000);
+  assert.equal(gets(d, THREAD_PATH), t0 + 1, "polls at 5 s");
+  await clock.advance(54999);
+  assert.equal(ES.made.length, 1, "not before 60 s");
+  await clock.advance(1);
+  assert.equal(ES.made.length, 2, "tried again at 60 s");
+  es().dead(); await settle();
+  await clock.advance(60000);
+  assert.equal(ES.made.length, 3, "and again 60 s later, never faster");
+  es().ready(); await settle();
+  const t1 = gets(d, THREAD_PATH);
+  await clock.advance(30000);
+  assert.equal(gets(d, THREAD_PATH), t1, "healthy again");
+});
+
+test("live: after a 401 the stream is never tried again", async () => {
+  const { d, clock, ES, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  d.s.listAnswer = { status: 401, body: { error: { code: "not_authenticated", message: "Sign in." } } };
+  es().dead(); await settle();
+  await clock.advance(600000);
+  assert.equal(ES.made.length, 1, "no retry");
+  d.doc.hidden = true; d.doc.fire("visibilitychange"); d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  d.winListeners.focus.forEach((f) => f()); await clock.advance(120000);
+  assert.equal(ES.made.length, 1, "not on visible or focus either");
+});
+
+test("live: a hidden tab closes the stream and reads nothing; visible opens a new one; focus does not open a second", async () => {
+  const { d, clock, ES, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  const first = es();
+  d.doc.hidden = true; d.doc.fire("visibilitychange");
+  assert.ok(first.closed, "closed when hidden");
+  const n = d.calls.length;
+  await clock.advance(120000);
+  assert.equal(d.calls.length, n);
+  assert.equal(clock.pending(), 0);
+  d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  assert.equal(ES.made.length, 2, "reopened when visible");
+  d.winListeners.focus.forEach((f) => f()); await settle();
+  assert.equal(ES.made.length, 2, "focus does not open another");
+  first.emit("conversation_updated", { ref: REF });
+  const m = d.calls.length; await clock.advance(300);
+  assert.equal(d.calls.length, m, "a closed stream's late event is ignored");
+});
+
+test("live: leaving the Inbox closes the stream and drops a pending list read; opening it again opens a new one", async () => {
+  const { d, clock, ES, es } = await live();
+  await openFirst(d); es().ready(); await settle();
+  const first = es();
+  first.emit("conversation_updated", { ref: REF2 });
+  d.window.NOInbox.hide();
+  assert.ok(first.closed);
+  const n = d.calls.length;
+  await clock.advance(120000);
+  assert.equal(d.calls.length, n, "nothing after leaving");
+  await d.openInbox();
+  assert.equal(ES.made.length, 2);
+  assert.ok(!es().closed);
+});
+
+test("live: no EventSource in the browser, or a 404 answer from the stream, leaves the polls as they were", async () => {
+  const { d, clock } = await polling();
+  const t0 = gets(d, LIST_PATH);
+  await clock.advance(15000);
+  assert.equal(gets(d, LIST_PATH), t0 + 1);
+  const r = await live(); await openFirst(r.d);
+  r.es().dead(); await settle();
+  const l0 = gets(r.d, LIST_PATH);
+  await r.clock.advance(15000);
+  assert.ok(gets(r.d, LIST_PATH) > l0, "the 15 s poll still runs");
+  assert.deepEqual(r.d.toasts, []);
 });

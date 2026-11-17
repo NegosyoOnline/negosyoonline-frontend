@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { apexOfWww, homeRedirectTarget, onCustomHost, wwwRedirectTarget } from "../src/lib/custom-host.ts";
+import { apexOfWww, onCustomHost, wwwRedirectTarget } from "../src/lib/custom-host.ts";
 import { cleanHost, lookupHost, parseAliases } from "../src/lib/host.ts";
 import { fetchSite, isSite } from "../src/lib/django.ts";
+import { GET as homeGet } from "../src/app/route.ts";
 import { SITE } from "./site.ts";
 
 const CUSTOM = { ...SITE, custom_host: "shop.example.test" };
@@ -77,11 +78,34 @@ test("onCustomHost: only the site's own custom hostname, never a platform host",
   assert.equal(onCustomHost({} as typeof SITE, "shop.example.test"), false); // a site object with no key at all
 });
 
-test("/ on a custom host goes to the landing with the query kept; on a platform host it stays the shop home", () => {
-  assert.equal(homeRedirectTarget(CUSTOM, "shop.example.test", "?fbclid=abc&utm_source=x"), "/funnel/membership-pack/landing-page/?fbclid=abc&utm_source=x");
-  assert.equal(homeRedirectTarget(CUSTOM, "shop.example.test", ""), "/funnel/membership-pack/landing-page/");
-  assert.equal(homeRedirectTarget(CUSTOM, "demo.platform.test", ""), null);
-  assert.equal(homeRedirectTarget(SITE, "demo.platform.test", ""), null);
+test("/ on a custom host is the shop home, exactly as on a platform host: 200 HTML, no redirect, query ignored", async () => {
+  const names = ["STOREFRONT_API_BASE", "STOREFRONT_SERVER_SECRET", "STOREFRONT_HOST_ALIASES", "VERCEL"];
+  const before = { fetch: globalThis.fetch, env: names.map((name) => process.env[name]) };
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    if (!url.pathname.startsWith("/storefront/v1/site/")) return Response.json({ error: {} }, { status: 404 });
+    const host = url.searchParams.get("host");
+    if (host === "shop.example.test") return Response.json(CUSTOM);
+    if (host === "demo.platform.test") return Response.json(SITE);
+    return Response.json({ error: {} }, { status: 404 });
+  }) as typeof fetch;
+  Object.assign(process.env, { STOREFRONT_API_BASE: "http://api.test", STOREFRONT_SERVER_SECRET: "s".repeat(40), STOREFRONT_HOST_ALIASES: "", VERCEL: "" });
+  try {
+    const get = (host: string, search = "") => homeGet(new Request(`https://${host}/${search}`, { headers: { host } }));
+    for (const [host, search] of [["shop.example.test", ""], ["shop.example.test", "?fbclid=abc&utm_source=x"], ["demo.platform.test", ""]] as const) {
+      const answer = await get(host, search);
+      assert.equal(answer.status, 200, `${host}${search}`);
+      assert.equal(answer.headers.get("location"), null, `${host}${search}`);
+      assert.match(answer.headers.get("content-type") ?? "", /text\/html/);
+      assert.match(await answer.text(), /^<!DOCTYPE html>/);
+    }
+  } finally {
+    globalThis.fetch = before.fetch;
+    names.forEach((name, i) => {
+      if (before.env[i] === undefined) delete process.env[name];
+      else process.env[name] = before.env[i];
+    });
+  }
 });
 
 test("custom_host is optional in Django's answer and a wrong type is a wrong shape", async () => {

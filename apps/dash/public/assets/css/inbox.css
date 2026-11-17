@@ -1,5 +1,5 @@
-/* Inbox (ClickUp z8uq9md3n6, G2 Unified Inbox, frontend F1). Two screens: /inbox/ (#view-inbox: conversation list and thread)
-   and /settings/inbox/ (#view-settings-inbox: the Pancake connection). Built to the approved mockups; colours come from the
+/* Inbox (ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox). Two screens: /inbox/ (#view-inbox: conversation list and thread)
+   and /settings/inbox/ (#view-settings-inbox: the inbox channels). Built to the approved mockups; colours come from the
    dash tokens in dash.css. The settings card repeats the Payments card look, scoped to its own view id. */
 
 /* ---- settings tab: the Payments card look ---- */
@@ -12,7 +12,6 @@
 #view-settings-inbox .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
 #view-settings-inbox .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
 #view-settings-inbox .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
-#view-settings-inbox .pm-warn { margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); font-size: 15px; font-weight: 600; }
 #view-settings-inbox .chip { min-height: 26px; }
 #view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
 #view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
@@ -20,46 +19,19 @@
 #view-settings-inbox .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
 #view-settings-inbox .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
 #view-settings-inbox .pm-input:focus, #view-settings-inbox .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
-#view-settings-inbox .pm-input.pm-invalid { border-color: var(--err-line); }
-#view-settings-inbox .pm-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
-#view-settings-inbox .pm-error[hidden] { display: none; }
-#view-settings-inbox .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
-#view-settings-inbox .pm-actions .no-btn { min-height: 44px; }
 #view-settings-inbox .pm-danger { color: var(--err-h); }
-#view-settings-inbox .pm-secret { position: relative; }
-#view-settings-inbox .mk-saved { display: flex; flex-wrap: nowrap; align-items: stretch; min-height: 44px; }
-#view-settings-inbox .mk-saved-text { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 44px; padding: 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px 0 0 8px; background: var(--bl-select-bg); font-weight: 600; color: var(--text); }
-#view-settings-inbox .mk-saved-text svg { width: 18px; height: 18px; color: var(--meta); }
-#view-settings-inbox .mk-saved-actions { display: inline-flex; flex: 0 0 auto; }
-#view-settings-inbox .mk-saved .no-btn.mk-small { min-height: 44px !important; padding: 0 16px !important; font-size: 14px; border-radius: 0 !important; margin: 0 0 0 -1px; white-space: nowrap; flex: none; border: 1px solid var(--bl-select-line); }
-#view-settings-inbox .mk-saved .no-btn.mk-small:last-child { border-radius: 0 8px 8px 0 !important; }
-#view-settings-inbox .mk-saved .no-btn.mk-small:focus-visible { position: relative; z-index: 1; outline: none; box-shadow: 0 0 0 2px var(--link); }
-@media (max-width: 340px) {
-#view-settings-inbox .mk-saved { flex-wrap: wrap; }
-#view-settings-inbox .mk-saved-text { flex: 1 1 100%; border-radius: 8px 8px 0 0; }
-#view-settings-inbox .mk-saved-actions { display: flex; flex: 1 1 100%; margin-top: -1px; }
-#view-settings-inbox .mk-saved .no-btn.mk-small { flex: 1 1 0; margin-left: 0; }
-#view-settings-inbox .mk-saved .no-btn.mk-small + .no-btn.mk-small { margin-left: -1px; }
-#view-settings-inbox .mk-saved .no-btn.mk-small:first-child:not(:last-child) { border-radius: 0 0 0 8px !important; }
-#view-settings-inbox .mk-saved .no-btn.mk-small:last-child { border-radius: 0 0 8px 0 !important; }
-#view-settings-inbox .mk-saved .no-btn.mk-small:first-child:last-child { border-radius: 0 0 8px 8px !important; }
-}
 #view-settings-inbox .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
-#view-settings-inbox .mk-test { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 2px 0 16px; padding: 12px 14px; border-radius: 12px; font-size: 15px; color: var(--text-2); }
-#view-settings-inbox .mk-test-ok { background: var(--chip-ok-bg); }
-#view-settings-inbox .mk-test-bad { background: var(--bl-chip-danger-bg); }
 #view-settings-inbox .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
 #view-settings-inbox .mk-list li { margin-bottom: 6px; }
 @media (max-width: 640px) {
   #view-settings-inbox .pm-card { padding: 18px 16px; }
-  #view-settings-inbox .pm-actions .no-btn { width: 100%; }
 }
 
 /* ---- inbox: header, split, list ---- */
 body.dash-app .ib-viewhead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 body.dash-app .ib-refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
-body.dash-app .ib-refresh .no-btn svg, body.dash-app .ib-open svg, #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
+body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
 #view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; height: calc(100vh - 230px); min-height: 520px; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
@@ -113,7 +85,7 @@ body.dash-app .ib-refresh .no-btn svg, body.dash-app .ib-open svg, #view-inbox .
 #view-inbox .ib-fail svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--err-h); }
 #view-inbox .ib-fail strong { color: var(--err-h); }
 #view-inbox .ib-reply.is-closed { background: color-mix(in srgb, var(--card-line) 25%, transparent); }
-#view-inbox .ib-closed-t, #view-inbox .ib-closed-s { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-2); }
+#view-inbox .ib-closed-t { margin: 0; font-size: 15px; line-height: 1.5; color: var(--text-2); }
 #view-inbox .ib-closed-t strong { color: var(--text); }
 #view-inbox .ib-reply.is-closed .ib-ta, #view-inbox .ib-reply.is-closed .ib-rfoot { opacity: .9; }
 #view-inbox .ib-reply .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; }

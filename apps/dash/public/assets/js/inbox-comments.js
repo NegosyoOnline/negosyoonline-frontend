@@ -520,7 +520,7 @@
       var fb = h("div", ""); add(fb, h("strong", "", T.notSent), document.createTextNode(" " + C.notice + T.keepText)); fail.appendChild(fb); wrap.appendChild(fail);
     }
     var lab = h("label", "pm-label sr-only", mode === "private" ? T.priv : T.reply); lab.setAttribute("for", "cm-rb");
-    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "cm-rb"); ta.setAttribute("rows", "3"); ta.setAttribute("aria-describedby", "cm-rc");
+    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "cm-rb"); ta.setAttribute("rows", "2"); ta.setAttribute("aria-describedby", "cm-rc");
     ta.setAttribute("maxlength", String(MAX[mode]));
     var count = h("span", "ib-count", "0 / " + MAX[mode]); count.setAttribute("id", "cm-rc");
     var foot = h("div", "ib-rfoot");

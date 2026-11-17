@@ -1,5 +1,6 @@
 /* Inbox (/inbox/, ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox): one list of the conversations of the owner's stored channels,
-   website chat, email (the contact form) and Facebook Messenger, a thread view and a human reply. Built to the approved mockups (b1 to b3 list, c1 to c3
+   website chat, email (the contact form), Facebook Messenger and Facebook comments (channel "FB Comment", ClickUp z8uq9mg9ph; the detail,
+   reply, private reply and Hide are in inbox-comments.js), a thread view and a human reply. Built to the approved mockups (b1 to b3 list, c1 to c3
    thread, d1 to d7 the stored channels). Reads GET /sites/{id}/inquiries/conversations/ (paged by stored_cursor), GET
    .../conversations/{ref}/ and sends POST .../conversations/{ref}/reply/ {text, idempotency_key}, POST .../close/, .../reopen/ and
    .../read/. A customer's name and message reach the page through textContent only, and nothing is stored in the browser: a draft
@@ -43,7 +44,8 @@
     x: "M6 6l12 12M18 6L6 18",
     search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3",
     mailOpen: "M3 10l9-6 9 6v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10l9 6 9-6",
-    stack: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1 3h6l1-3h5"
+    stack: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1 3h6l1-3h5",
+    comment: "M4 4h16v12H9l-5 4zM8 8.5h8M8 11.5h5"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -129,18 +131,84 @@
   var CHANNEL = {
     webchat: { label: "Website chat", icon: "globe" },
     email: { label: "Email", icon: "mail" },
-    messenger: { label: "FB Messenger", full: "Facebook Messenger", icon: "chat" }
+    messenger: { label: "FB Messenger", full: "Facebook Messenger", icon: "chat" },
+    fbcomment: { label: "FB Comment", full: "Facebook comment", icon: "comment" }
   };
-  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"]];
-  /* A conversation's channel: what the API says, else what its ref says; "" when neither names a stored channel. */
+  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"], ["fbcomment", "FB Comment"]];
+  /* A row's channel: what the API says, else what its ref says (cm_ is a Facebook comment); "" when neither names one. */
   function channelOf(x) {
     var c = x && x.channel;
     if (c === "webchat" || c === "email" || c === "messenger") return c;
     if (x && x.provider === "messenger") return "messenger";
     var ref = x && typeof x.ref === "string" ? x.ref : "";
-    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : ref.indexOf("fm_") === 0 ? "messenger" : "";
+    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : ref.indexOf("fm_") === 0 ? "messenger" : ref.indexOf("cm_") === 0 ? "fbcomment" : "";
   }
+  function isCommentRef(ref) { return typeof ref === "string" && ref.indexOf("cm_") === 0; }
   function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email" || c === "messenger"; }
+  function isComment(x) { return channelOf(x) === "fbcomment"; }
+  function srcOf(x) { return isComment(x) ? "cm" : "conv"; }
+  /* ---------- one list from two newest-first sources (ClickUp z8uq9mg9ph) ----------
+     The conversations API (stored_cursor) and the comments API (cursor) each give their items newest first. The page merges them by time.
+     A source that has a next page may still hold items older than its last loaded one, so nothing older than the NEWER of the two last
+     loaded items is shown while both have a next page: it is held back until the lagging source loads its next page. A source with no
+     next page does not limit. A later page therefore never puts a row above rows already shown, and the shown list has no gap. */
+  function timeOf(x) { var d = validDate(x && (isComment(x) ? x.created_at : x.updated_at)); return d ? d.getTime() : 0; }
+  function sortNewest(items) {
+    var rows = items.map(function (m, i) { return { m: m, i: i, t: timeOf(m) }; });
+    rows.sort(function (a, b) { return b.t - a.t || a.i - b.i; });
+    return rows.map(function (r) { return r.m; });
+  }
+  /* The oldest loaded time of a source, or null when it has none loaded. */
+  function oldestOf(pool, src) {
+    var t = null;
+    pool.forEach(function (i) { if (srcOf(i) === src) { var x = timeOf(i); if (t === null || x < t) t = x; } });
+    return t;
+  }
+  /* more: { conv: bool, cm: bool }, whether that source has a next page. Items older than the returned time are held back. */
+  function horizonOf(pool, more) {
+    var hz = -Infinity;
+    ["conv", "cm"].forEach(function (src) { if (more && more[src]) { var o = oldestOf(pool, src); if (o !== null && o > hz) hz = o; } });
+    return hz;
+  }
+  function visibleOf(pool, more) {
+    var hz = horizonOf(pool, more);
+    return sortNewest(pool).filter(function (i) { return timeOf(i) >= hz; });
+  }
+  /* Which source's next page to read: of the sources that have one, the one whose oldest loaded item is newer (it lags; one with nothing loaded first). */
+  function nextSource(pool, more) {
+    var best = "", bt = null;
+    ["conv", "cm"].forEach(function (src) {
+      if (!more || !more[src]) return;
+      var o = oldestOf(pool, src), t = o === null ? Infinity : o;
+      if (best === "" || t > bt) { best = src; bt = t; }
+    });
+    return best;
+  }
+  /* A fresh page of one source into the pool: replaces the source's items, or (keepOld) only updates and adds to them. */
+  function mergeSource(pool, src, fresh, keepOld) {
+    var seen = {}, out = [];
+    fresh.forEach(function (i) { seen[i.ref] = true; out.push(i); });
+    pool.forEach(function (i) { if (srcOf(i) !== src || (keepOld && !seen[i.ref])) out.push(i); });
+    return out;
+  }
+  /* The sources a filter combination reads: Channel "FB Comment" reads only comments, the other channels only conversations, All both.
+     Comments have no closed state, so Closed reads no comments. */
+  function sourcesFor(filter, status) {
+    return { conv: filter !== "fbcomment", cm: (!filter || filter === "all" || filter === "fbcomment") && status !== "closed" };
+  }
+  /* The comments list address: search text, Read/Unread (unread=1 or 0), cursor. */
+  function commentQuery(q, unread, cursor) {
+    var qs = [];
+    if (q) qs.push("q=" + encodeURIComponent(q));
+    if (unread === "1" || unread === "0") qs.push("unread=" + unread);
+    if (cursor) qs.push("cursor=" + encodeURIComponent(cursor));
+    return qs.length ? "?" + qs.join("&") : "";
+  }
+  /* The Inbox unread total: conversations plus comments. */
+  function unreadSum(a, b) {
+    function ok(n) { return typeof n === "number" && isFinite(n) && n > 0 ? Math.floor(n) : 0; }
+    return ok(a) + ok(b);
+  }
   /* A Messenger thread's 24-hour reply window (reply_window.open); only a Messenger thread can have it closed. */
   var NOTE_WINDOW = "You can reply within 24 hours of the customer's last message.";
   function windowClosed(channel, t) { return channel === "messenger" && !!t && !!t.reply_window && t.reply_window.open === false; }
@@ -331,7 +399,7 @@
 
   /* ---------- the unread badge on the Inbox nav links (INBOX-UI U5) ----------
      Inbox reads carry unread_total; on every other view GET .../inquiries/unread/ is read every 60 s while the tab is visible. */
-  var NB = { site: null, t: null, n: 0, seq: 0 };
+  var NB = { site: null, t: null, n: 0, seq: 0, cn: 0, cm: 0, cmOff: false }; /* cn: unread conversations, cm: unread comments; the badge is their sum */
   function setBadge(n) {
     if (typeof n !== "number" || !isFinite(n) || n < 0) return;
     n = Math.floor(n); NB.n = n;
@@ -343,6 +411,7 @@
       if (n > 0) a.setAttribute("aria-label", "Inbox, " + n + " unread"); else a.removeAttribute("aria-label");
     });
   }
+  function badgeSum() { setBadge(unreadSum(NB.cn, NB.cm)); }
   function badgeStop() { NB.seq++; if (NB.t !== null) { clearTimeout(NB.t); NB.t = null; } }
   function badgeOn() { return !S && !!NB.site && !document.hidden; }
   function badgeArm() {
@@ -355,20 +424,29 @@
     var seq = ++NB.seq;
     D.call("GET", "/sites/" + NB.site + "/inquiries/unread/", null, true).then(function (res) {
       if (seq !== NB.seq || res.status === 401) return;
-      if (res.ok && res.data && typeof res.data.count === "number") setBadge(res.data.count);
-      else if (res.status === 404) setBadge(0);
-      badgeArm();
+      if (res.ok && res.data && typeof res.data.count === "number") NB.cn = Math.max(0, Math.floor(res.data.count));
+      else if (res.status === 404) NB.cn = 0;
+      if (NB.cmOff || !window.NOInboxComments) { badgeSum(); badgeArm(); return; }
+      /* there is no count route for comments: their list says unread_total, whatever the filter (one unread page, read quietly) */
+      D.call("GET", "/sites/" + NB.site + "/inquiries/comments/" + commentQuery("", "1", ""), null, true).then(function (r2) {
+        if (seq !== NB.seq || r2.status === 401) return;
+        if (r2.status === 404) { NB.cmOff = true; NB.cm = 0; }
+        else if (r2.ok && r2.data && typeof r2.data.unread_total === "number") NB.cm = Math.max(0, Math.floor(r2.data.unread_total));
+        badgeSum(); badgeArm();
+      });
     });
   }
   /* The unread_total of a list read (never of a search, an Open/Closed or a Read/Unread filter, which may count only their matches). Old answers without it leave the badge alone. */
-  function takeUnread(data) { if (S && !S.q && !S.status && !S.unread && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
+  function takeUnread(data) { if (S && !S.q && !S.status && !S.unread && data && typeof data.unread_total === "number") { NB.cn = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
+  /* The comments list's unread_total is the site's whole count and is never filtered, so every comments read may feed the badge. */
+  function takeCmUnread(data) { if (data && typeof data.unread_total === "number") { NB.cm = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
 
   /* ---------- state ---------- */
 
   function fresh() {
-    return { site: null, state: "loading", fail: null, items: [], more: false, filter: "all", stNext: null, chat: null,
+    return { site: null, state: "loading", fail: null, items: [], filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      q: "", qText: "", qTimer: null, status: "", unread: "", view: "chats", cm: false, cmCount: 0, cmProbed: false };
+      q: "", qText: "", qTimer: null, status: "", unread: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -414,38 +492,79 @@
 
   /* ---------- load ---------- */
 
-  /* The list's address: the stored cursor, the search text (INBOX-UI U5) and the Open/Closed filter when there are any. */
-  function listUrl(cursor) {
+  /* The conversations address: the stored cursor, the search text (INBOX-UI U5) and the Open/Closed filter when there are any.
+     o: { q, status, unread } (default: the screen's own). */
+  function listUrl(cursor, o) {
+    o = o || S;
     var qs = [];
     if (cursor) qs.push("stored_cursor=" + encodeURIComponent(cursor));
-    if (S.q) qs.push("q=" + encodeURIComponent(S.q));
-    if (S.status) qs.push("status=" + S.status); /* "open" or "closed"; All conversations sends nothing */
-    if (S.unread) qs.push("unread=" + S.unread); /* "1" unread only, "0" read only; All messages sends nothing */
+    if (o.q) qs.push("q=" + encodeURIComponent(o.q));
+    if (o.status) qs.push("status=" + o.status); /* "open" or "closed"; All conversations sends nothing */
+    if (o.unread) qs.push("unread=" + o.unread); /* "1" unread only, "0" read only; All messages sends nothing */
     return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
   }
-  function stateFor(items) { return items.length || S.q || S.status || S.unread ? "ready" : "empty"; }
+  function commentsUrl(cursor, o) { o = o || S; return base() + "comments/" + commentQuery(o.q, o.unread, cursor); }
+  function stateFor(items) { return items.length || S.q || S.status || S.unread || S.filter !== "all" ? "ready" : "empty"; }
+  function cursorOf(data, key) { return data && typeof data[key] === "string" && data[key] ? data[key] : null; }
+  /* Reads the first page of each source a filter combination needs, both at once. Resolves { unauth, ok, fail, conv, cm, src }:
+     conv and cm are the answers' data (null when that source was not read or gave nothing). A comments 404 means the switch is off:
+     no comments, no error, and they are not asked for again. Any other comments failure is no comments this time, unless they are the
+     only source read. `fail` is the answer that failed the read. */
+  function readFirst(src, o) {
+    var useCm = src.cm && !NB.cmOff && !!window.NOInboxComments;
+    var pc = src.conv ? D.call("GET", listUrl("", o), null, true) : Promise.resolve(null);
+    var pm = useCm ? D.call("GET", commentsUrl("", o), null, true) : Promise.resolve(null);
+    return Promise.all([pc, pm]).then(function (rr) {
+      var c = rr[0], m = rr[1], out = { unauth: false, ok: true, fail: null, conv: null, cm: null, src: { conv: !!src.conv, cm: useCm } };
+      if ((c && c.status === 401) || (m && m.status === 401)) { out.unauth = true; return out; }
+      if (m && m.status === 404) { NB.cmOff = true; NB.cm = 0; out.src.cm = false; m = null; badgeSum(); }
+      if (c) { if (c.ok && c.data) out.conv = c.data; else { out.ok = false; out.fail = c; } }
+      if (m) { if (m.ok && m.data) out.cm = m.data; else if (!src.conv) { out.ok = false; out.fail = m; } }
+      return out;
+    });
+  }
+  /* Puts a first-page answer into the pool. keep: a background read, which updates and adds to the pages already loaded. */
+  function ingest(r, keep) {
+    var pool = keep ? S.pool : [];
+    if (!keep) { S.stNext = null; S.cmNext = null; S.ex = { conv: false, cm: false }; }
+    if (r.conv) {
+      var keepC = keep && S.ex.conv;
+      pool = mergeSource(pool, "conv", Array.isArray(r.conv.items) ? r.conv.items : [], keepC);
+      if (!keepC) S.stNext = cursorOf(r.conv, "stored_next_cursor");
+    }
+    if (r.cm) {
+      var keepM = keep && S.ex.cm;
+      pool = mergeSource(pool, "cm", Array.isArray(r.cm.items) ? r.cm.items : [], keepM);
+      if (!keepM) S.cmNext = cursorOf(r.cm, "next_cursor");
+      takeCmUnread(r.cm);
+    }
+    S.pool = pool; rebuild();
+  }
+  function sigNow() { return sigOf([S.pool, S.stNext, S.cmNext]); }
+  /* S.items is what the list shows: the pool, newest first, without what is held back. */
+  function rebuild() {
+    S.more = { conv: !!S.stNext, cm: !!S.cmNext };
+    S.items = visibleOf(S.pool, S.more);
+  }
   function load(refresh) {
     var mine = ++token;
-    if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
+    if (!refresh) { S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
       streamOpen();
-      commentsProbe();
-      D.call("GET", listUrl(), null, true).then(function (res) {
-        if (mine !== token || !S || res.status === 401) return;
-        if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
-        S.items = Array.isArray(res.data.items) ? res.data.items : [];
-        S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
+      readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
+        if (mine !== token || !S || r.unauth) return;
+        if (!r.ok) { reveal404(r.fail); S.state = "failed"; S.fail = failure(r.fail); redraw(); return; }
+        ingest(r, false); S.lsig = sigNow();
         S.state = stateFor(S.items); S.fail = null;
-        S.extra = false; S.lsig = sigOf([S.items, S.stNext]);
-        takeUnread(res.data);
+        if (r.conv) takeUnread(r.conv);
         reveal(true);
         redraw();
         say(S.items.length ? "Conversations loaded." : "No conversations yet.");
-        loadChat(mine);
+        if (r.src.conv) loadChat(mine);
       });
     }, mine);
   }
-  function reveal404(res) { if (res.status === 404) reveal(false); }
+  function reveal404(res) { if (res && res.status === 404) reveal(false); }
   /* The chat's pause and limit, for the two banners. A site without the stored channels answers 404: no banner, nothing wrong. */
   function loadChat(mine) {
     D.call("GET", base() + "channels/", null, true).then(function (res) {
@@ -454,35 +573,62 @@
       if (byId("ib-listbody")) drawList();
     });
   }
+  /* Show more: reads the next page of the source that lags (the one whose last loaded item is newer), and again while that shows nothing new. */
   function loadMore(b) {
-    if (!S.stNext) return;
-    var mine = token; busy(b, true);
-    D.call("GET", listUrl(S.stNext), null, true).then(function (res) {
-      if (mine !== token || !S || res.status === 401) return;
-      busy(b, false);
-      if (!res.ok) { D.toast("That did not work", msgOf(res, "We could not load more conversations. Please try again."), "error"); return; }
-      var seen = {}; S.items.forEach(function (i) { seen[i.ref] = true; });
-      (Array.isArray(res.data.items) ? res.data.items : []).forEach(function (i) { if (!seen[i.ref]) S.items.push(i); });
-      S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-      S.items.sort(function (a, b) { var x = validDate(a.updated_at), y = validDate(b.updated_at); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
-      S.extra = true; S.lsig = "";
-      drawList();
-    });
+    if (!nextSource(S.pool, S.more)) return;
+    var mine = token, st = S; busy(b, true);
+    function step(n) {
+      var src = nextSource(S.pool, S.more), before = S.items.length;
+      if (!src) { done(); return; }
+      var url = src === "cm" ? commentsUrl(S.cmNext) : listUrl(S.stNext);
+      D.call("GET", url, null, true).then(function (res) {
+        if (mine !== token || S !== st || res.status === 401) return;
+        if (!res.ok) { busy(b, false); D.toast("That did not work", msgOf(res, "We could not load more. Please try again."), "error"); return; }
+        var items = Array.isArray(res.data.items) ? res.data.items : [];
+        S.pool = mergeSource(S.pool, src, items, true);
+        if (src === "cm") { S.cmNext = cursorOf(res.data, "next_cursor"); takeCmUnread(res.data); } else S.stNext = cursorOf(res.data, "stored_next_cursor");
+        S.ex[src] = true; rebuild();
+        if (S.items.length <= before && nextSource(S.pool, S.more) && n < 4) { step(n + 1); return; }
+        done();
+      });
+    }
+    function done() { busy(b, false); S.lsig = ""; drawList(); }
+    step(0);
+  }
+  function itemOf(ref) { var f = null; S.pool.forEach(function (i) { if (i.ref === ref) f = i; }); return f; }
+  function cmHooks() {
+    return { site: function () { return S ? S.site : ""; }, pane: function () { return byId("ib-threadpane"); }, item: itemOf,
+      head: function (name, chips) { return threadHead(name, { channel: "fbcomment", chips: chips }); }, listChanged: function () { if (S) drawList(); } };
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;
+    var CM = window.NOInboxComments, it = itemOf(ref);
+    if (it && isComment(it) && CM) {
+      if (S.sel === ref && CM.isOpen(ref)) return;
+      S.sel = ref; S.selName = name || ""; S.thread = null; S.tstate = ""; S.tfail = null; S.notice = null; S.key = null; tload++;
+      drawList();
+      CM.select(cmHooks(), it);
+      markRead(ref);
+      return;
+    }
+    if (CM) CM.deselect();
     S.sel = ref; S.selName = name || ""; S.thread = null; S.tstate = "loading"; S.tfail = null; S.notice = null; S.key = null;
     drawList(); drawThread();
     fetchThread(false);
     markRead(ref);
     var back = byId("ib-back"); if (back) back.focus();
   }
-  /* Opening an unread stored conversation marks it read; the dot goes at once, and the server has the record. */
+  /* Opening an unread conversation or comment marks it read; the dot goes at once, the count drops, and the server has the record. */
   function markRead(ref) {
-    var item = null;
-    S.items.forEach(function (i) { if (i.ref === ref) item = i; });
-    if (!item || item.unread !== true || !isStored(item)) return;
-    item.unread = false; setBadge(Math.max(0, NB.n - 1)); drawList();
+    var item = itemOf(ref);
+    if (!item || item.unread !== true) return;
+    if (isComment(item)) {
+      item.unread = false; NB.cm = Math.max(0, NB.cm - 1); badgeSum(); drawList();
+      D.call("POST", base() + "comments/" + encodeURIComponent(ref) + "/read/", null, true);
+      return;
+    }
+    if (!isStored(item)) return;
+    item.unread = false; NB.cn = Math.max(0, NB.cn - 1); badgeSum(); drawList();
     D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/read/", null, true);
   }
   function fetchThread(silent) {
@@ -556,27 +702,21 @@
     });
     return true;
   }
-  /* The list. A first page that comes back replaces the first page only when no "Show more" page is loaded; otherwise it is merged in. */
+  /* The list. A first page that comes back replaces a source's first page only when no "Show more" page of that source is loaded; otherwise it is merged in. */
   function pollList(done) {
     if (S.state !== "ready" && S.state !== "empty") return false;
     var st = S, mine = token;
-    D.call("GET", listUrl(), null, true).then(function (res) {
-      if (S !== st || mine !== token || res.status === 401) { done("skip"); return; }
-      if (!res.ok) { done("fail"); return; }
-      takeUnread(res.data);
-      var items = Array.isArray(res.data.items) ? res.data.items : [];
-      var next = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-      if (S.extra) {
-        var seen = {}; items.forEach(function (i) { seen[i.ref] = true; });
-        S.items.forEach(function (i) { if (!seen[i.ref]) items.push(i); });
-        items.sort(function (a, b) { var x = validDate(a.updated_at), y = validDate(b.updated_at); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
-        next = S.stNext;
-      }
-      var sig = sigOf([items, next]);
+    readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
+      if (S !== st || mine !== token || r.unauth) { done("skip"); return; }
+      if (!r.ok) { done("fail"); return; }
+      if (r.conv) takeUnread(r.conv);
+      var wasPool = S.pool, wasSt = S.stNext, wasCm = S.cmNext;
+      ingest(r, true);
+      var sig = sigNow();
       if (sig !== S.lsig) {
         var keep = listKeep();
-        if (keep === null) { done("skip"); return; } /* the Channel filter is in use: apply it on the next read */
-        S.items = items; S.stNext = next; S.lsig = sig; S.state = stateFor(items); S.fail = null;
+        if (keep === null) { S.pool = wasPool; S.stNext = wasSt; S.cmNext = wasCm; rebuild(); done("skip"); return; } /* the Channel filter is in use: apply it on the next read */
+        S.lsig = sig; S.state = stateFor(S.items); S.fail = null;
         redraw(); listRestore(keep);
         if (S.sel && S.tstate === "ready") markRead(S.sel);
       }
@@ -668,7 +808,7 @@
   function refreshAll(b) {
     busy(b, true);
     load(true);
-    if (S.sel) fetchThread(true);
+    if (S.sel) { if (isCommentRef(S.sel) && window.NOInboxComments) window.NOInboxComments.reload(); else fetchThread(true); }
     setTimeout(function () { busy(b, false); }, 600);
   }
 
@@ -715,61 +855,9 @@
 
   function draw() {
     var root = clear(byId("ib-root"));
-    var tabs = h("div", "ib-tabs"); tabs.setAttribute("id", "ib-tabs"); tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Inbox"); tabs.hidden = true;
     var wrap = h("div", "ib-wrap"); wrap.setAttribute("id", "ib-wrap");
-    var cwrap = h("div", "ib-wrap"); cwrap.setAttribute("id", "ib-cwrap"); cwrap.hidden = true;
-    add(root, tabs, wrap, cwrap);
+    root.appendChild(wrap);
     drawBody();
-  }
-
-  /* ---------- the Comments tab (ClickUp z8uq9mg9ph; inbox-comments.js) ----------
-     Shown only when GET .../comments/status/ says comments are open (a 404 means the switch is off). Conversations and Comments are two
-     tabs over two hosts; the comments view lives in #ib-cwrap and is driven by NOInboxComments. */
-  function commentsProbe() {
-    var CM = window.NOInboxComments;
-    if (!CM || S.cmProbed) return;
-    S.cmProbed = true;
-    var st = S;
-    CM.probe(S.site, function (ok, status) {
-      if (S !== st) return;
-      if (!ok) { S.cm = false; drawTabs(); return; }
-      S.cm = true;
-      CM.start(S.site, byId("ib-cwrap"), {
-        onCount: function (n) { if (S === st) { S.cmCount = n; drawTabs(); } },
-        onDetail: function (open) { if (S === st && S.view === "comments") phoneThread(open); },
-        onGone: function () { if (S === st) { CM.stop(); S.cm = false; S.cmCount = 0; if (S.view === "comments") setView("chats"); else drawTabs(); } }
-      }, status);
-      drawTabs();
-    });
-  }
-  function phoneThread(open) {
-    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!open);
-    var tb = byId("ib-tabs"); if (tb) { if (open) tb.classList.add("is-hide-phone"); else tb.classList.remove("is-hide-phone"); }
-  }
-  function setView(v) {
-    var CM = window.NOInboxComments;
-    if (!S || (v === "comments" && !S.cm)) v = "chats";
-    if (S.view === v) return;
-    S.view = v;
-    var w = byId("ib-wrap"), c = byId("ib-cwrap");
-    if (w) w.hidden = v === "comments"; if (c) c.hidden = v !== "comments";
-    if (CM) { if (v === "comments") CM.open(); else CM.close(); }
-    if (v === "comments") say("Comments."); else { phoneThread(!!S.sel); say("Conversations."); }
-    drawTabs();
-  }
-  function drawTabs() {
-    var tabs = byId("ib-tabs"); if (!tabs || !S) return;
-    clear(tabs);
-    tabs.hidden = !S.cm;
-    if (!S.cm) return;
-    [["chats", "Conversations", 0], ["comments", "Comments", S.cmCount || 0]].forEach(function (t) {
-      var on = S.view === t[0], b = h("button", "ib-tab" + (on ? " is-on" : "")); b.setAttribute("type", "button");
-      b.setAttribute("role", "tab"); b.setAttribute("aria-selected", on ? "true" : "false"); b.setAttribute("id", "ib-tab-" + t[0]);
-      b.appendChild(document.createTextNode(t[1]));
-      if (t[2] > 0) { var n = h("span", "ib-tabn", badgeText(t[2])); n.setAttribute("aria-label", t[2] + " unread"); b.appendChild(n); }
-      b.addEventListener("click", function () { setView(t[0]); });
-      tabs.appendChild(b);
-    });
   }
   function singlePane() {
     var f = S.fail;
@@ -824,11 +912,11 @@
       return;
     }
     var banners = bannerBox(); if (banners) body.appendChild(banners);
-    var shown = filterItems(S.items, S.filter);
+    var shown = filterItems(S.items, S.filter), canMore = !!nextSource(S.pool, S.more);
     if (!shown.length) {
-      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread ? "No conversations match." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread ? "No conversations match." : S.filter === "fbcomment" ? "No comments yet." : "No conversations in this channel yet."); none.setAttribute("role", "status");
       body.appendChild(none);
-      if (S.stNext) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
+      if (canMore) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
     }
     var ul = h("ul", "ib-list"); ul.setAttribute("id", "ib-list");
@@ -837,25 +925,29 @@
       var li = h("li", ""), sel = S.sel === it.ref, unread = it.unread === true;
       var b = h("button", "ib-item" + (sel ? " is-sel" : "") + (unread ? " ib-unread" : "")); b.setAttribute("type", "button");
       if (sel) b.setAttribute("aria-current", "true");
-      var av = avatarNode(it.display_name, it.avatar_url);
+      /* a Facebook comment is one row like the others; its post line and chips come from inbox-comments.js */
+      var cmRow = isComment(it) && window.NOInboxComments ? window.NOInboxComments.row(it) : null;
+      var rowName = cmRow ? cmRow.name : nameOf(it.display_name);
+      var av = cmRow ? avatarNode(rowName, null) : avatarNode(it.display_name, it.avatar_url);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
-      nm.appendChild(document.createTextNode(nameOf(it.display_name)));
+      nm.appendChild(document.createTextNode(rowName));
       var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: closed envelope unread, open envelope read */
       rs.setAttribute("role", "img"); rs.setAttribute("aria-label", unread ? "Unread" : "Read"); rs.setAttribute("title", unread ? "Unread" : "Read");
       rs.appendChild(icon(unread ? ICON.mail : ICON.mailOpen));
-      add(side, h("span", "ib-time", listTime(it.updated_at, now)), rs);
+      add(side, h("span", "ib-time", listTime(cmRow ? it.created_at : it.updated_at, now)), rs);
       top.appendChild(nm);
       var badges = h("span", "ib-badges");
       add(badges, channelBadge(channelOf(it)));
+      if (cmRow) cmRow.chips.forEach(function (c) { badges.appendChild(c); });
       if (it.status === "closed") badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed"));
-      add(text, top, h("span", "ib-snip", it.snippet || ""), badges);
+      add(text, top, h("span", "ib-snip", cmRow ? it.text || "" : it.snippet || ""), cmRow ? cmRow.line : null, badges);
       add(b, av, text, side);
       b.setAttribute("data-ref", it.ref);
-      b.addEventListener("click", function () { openThread(it.ref, nameOf(it.display_name)); });
+      b.addEventListener("click", function () { openThread(it.ref, rowName); });
       li.appendChild(b); ul.appendChild(li);
     });
     body.appendChild(ul);
-    if (S.stNext) { var more = btn("Show more conversations", "ghost", loadMore); more.classList.add("ib-more"); body.appendChild(more); }
+    if (canMore) { var more = btn("Show more conversations", "ghost", loadMore); more.classList.add("ib-more"); body.appendChild(more); }
   }
   /* A neutral outlined pill with an icon and words, so the channel never depends on colour (P2). */
   function channelBadge(channel) {
@@ -897,7 +989,13 @@
     var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
     FILTERS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
     sel.value = S.filter;
-    sel.addEventListener("change", function () { S.filter = sel.value; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); });
+    sel.addEventListener("change", function () {
+      if (!S || sel.value === S.filter) return;
+      var a = sourcesFor(S.filter, S.status), b = sourcesFor(sel.value, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
+      if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
+      /* FB Comment reads only comments, the other channels only conversations, All both: a change between those asks the APIs again */
+      applyQuery({ q: S.q, status: S.status, unread: S.unread, filter: sel.value }, sel, S.filter);
+    });
     add(fld, lab, sel);
     combo(sel, "Channel");
     return fld;
@@ -912,7 +1010,7 @@
     sel.value = cur;
     sel.addEventListener("change", function () {
       var v = sel.value === "open" || sel.value === "closed" ? sel.value : "";
-      if (S && v !== S.status) applyQuery(S.q, v, S.unread, sel);
+      if (S && v !== S.status) applyQuery({ q: S.q, status: v, unread: S.unread, filter: S.filter }, sel, S.status || "all");
     });
     add(fld, lab, sel);
     combo(sel, "Status");
@@ -927,7 +1025,7 @@
       if (!S) return;
       var v = READS[S.unread || ""].next;
       syncRead(v); /* the new state shows at once; applyQuery puts it back when the read fails */
-      applyQuery(S.q, S.status, v, null);
+      applyQuery({ q: S.q, status: S.status, unread: v, filter: S.filter }, null, "");
     });
     paintRead(b, S.unread || "");
     return b;
@@ -972,27 +1070,28 @@
     if (S.qTimer !== null) { clearTimeout(S.qTimer); S.qTimer = null; }
     var v = S.qText.trim(), q = v.length >= 2 ? v.slice(0, 80) : "";
     if (q === S.q) return;
-    applyQuery(q, S.status, S.unread, null);
+    applyQuery({ q: q, status: S.status, unread: S.unread, filter: S.filter }, null, "");
   }
-  /* A new search text or status: one read of the list; S.q and S.status change only when the read worked (else the Status box goes back). */
-  function applyQuery(q, status, unread, box) {
-    var mine = ++token, st = S, wasQ = S.q, wasS = S.status, wasU = S.unread;
-    S.q = q; S.status = status; S.unread = unread; var url = listUrl(); S.q = wasQ; S.status = wasS; S.unread = wasU;
-    D.call("GET", url, null, true).then(function (res) {
-      if (mine !== token || S !== st || res.status === 401) return;
-      if (!res.ok) {
-        D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error");
-        if (box) { box.value = wasS || "all"; if (box.ibSync) box.ibSync(); }
+  /* A new search text, status, Read/Unread or Channel: one read of the first page of the sources it needs; S changes only when the read worked
+     (else `box`, the dropdown, goes back to `revert`). The search goes to both APIs, Read/Unread maps to the comments' unread=1/0, and
+     Closed reads no comments (they have no closed state). */
+  function applyQuery(next, box, revert) {
+    var mine = ++token, st = S;
+    readFirst(sourcesFor(next.filter, next.status), next).then(function (r) {
+      if (mine !== token || S !== st || r.unauth) return;
+      if (!r.ok) {
+        D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");
+        if (box) { box.value = revert || "all"; if (box.ibSync) box.ibSync(); }
         syncRead();
         return;
       }
-      S.q = q; S.status = status; S.unread = unread;
-      S.items = Array.isArray(res.data.items) ? res.data.items : [];
-      S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-      S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null;
-      takeUnread(res.data);
+      S.q = next.q; S.status = next.status; S.unread = next.unread; S.filter = next.filter;
+      ingest(r, false); S.lsig = sigNow();
+      S.state = stateFor(S.items); S.fail = null;
+      if (r.conv) takeUnread(r.conv);
       fillList(byId("ib-listbody")); syncRead();
-      say(!q && !status && !unread ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+      var again = byId("ib-filter"); if (box && again && again.ibFocus) again.ibFocus();
+      say(!next.q && !next.status && !next.unread && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */
@@ -1021,10 +1120,9 @@
     var body = byId("ib-listbody"), p = byId("ib-listpane");
     if (!body || !S) return;
     fillList(body);
-    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel && S.view === "chats"); /* phone: the page heading gives its room to the open thread */
+    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
     if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
     var th = byId("ib-tools-host"); if (th) { if (S.sel) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
-    var tb = byId("ib-tabs"); if (tb && S.view === "chats") { if (S.sel) tb.classList.add("is-hide-phone"); else tb.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
   }
@@ -1042,13 +1140,14 @@
     var head = h("div", "ib-thead");
     var back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
     back.appendChild(icon(ICON.back)); back.appendChild(h("span", "", "Inbox"));
-    back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.")); } });
+    back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.")); } });
     var av = avatarNode(name, o.avatar);
     var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name)));
     if (o.channel) {
       var row = h("div", "ib-chrow"); add(row, channelBadge(o.channel));
       if (o.status) row.appendChild(h("span", "chip ib-mini " + (o.status === "closed" ? "chip-neutral" : "chip-ok"), o.status === "closed" ? "Closed" : "Open"));
       if (o.chip) row.appendChild(o.chip);
+      (o.chips || []).forEach(function (c) { row.appendChild(c); });
       nm.appendChild(row);
     } else if (o.chip) nm.appendChild(o.chip);
     if (o.sub) nm.appendChild(h("p", "ib-sub", o.sub));
@@ -1088,6 +1187,7 @@
   /* keepView: a background read. Gives back the text of the reply box (it lives in S.drafts), the focus and the scroll. */
   function drawThread(focusBox, keepView) {
     var p = byId("ib-threadpane"); if (!p || !S || !S.sel) return;
+    if (isCommentRef(S.sel)) { if (window.NOInboxComments) window.NOInboxComments.draw(); return; }
     var keep = null;
     if (keepView) {
       var om = p.querySelector ? p.querySelector(".ib-msgs") : null, ae = document.activeElement;
@@ -1221,6 +1321,8 @@
     util: { dayKey: dayKey, listTime: listTime, dayLabel: dayLabel, whenText: whenText, initialsOf: initialsOf, ordered: ordered, bubbleText: bubbleText,
       newKey: newKey, failure: failure, channelOf: channelOf, filterItems: filterItems, chipFor: chipFor,
       failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, windowClosed: windowClosed,
-      grouped: grouped, windowNotice: windowNotice, badgeText: badgeText },
+      grouped: grouped, windowNotice: windowNotice, badgeText: badgeText,
+      timeOf: timeOf, sortNewest: sortNewest, horizonOf: horizonOf, visibleOf: visibleOf, nextSource: nextSource, mergeSource: mergeSource,
+      sourcesFor: sourcesFor, commentQuery: commentQuery, unreadSum: unreadSum },
     combo: combo };
 })();

@@ -451,7 +451,7 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
   assert.equal(comboInput(d, "ib-filter").value, "All channels", "a filter with a real default shows its value");
   assert.deepEqual(d.all(d.$("ib-tools-host"), "pm-label").map((l) => l.textContent), ["Search", "Channel", "Status"]);
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger", "FB Comment"]);
   const input = comboInput(d, "ib-filter");
   input.value = "web"; input.fire("input");
   assert.deepEqual(comboRows(d, "ib-filter"), ["Website chat"]);
@@ -786,10 +786,10 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261118cm3/);
+  assert.match(HTML, /inbox\.js\?v=20261118cm4/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm3/);
-  assert.match(HTML, /inbox-comments\.js\?v=20261118cm3/);
+  assert.match(HTML, /inbox\.css\?v=20261118cm4/);
+  assert.match(HTML, /inbox-comments\.js\?v=20261118cm4/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
@@ -914,7 +914,7 @@ test("inbox: a messenger row has the FB Messenger badge (full name in aria-label
   assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => n.textContent), ["FB Messenger"]);
   assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => [n.getAttribute("aria-label"), n.getAttribute("title")]), [["Facebook Messenger", "Facebook Messenger"]]);
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger", "FB Comment"]);
   const u = d.window.NOInbox.util;
   assert.equal(u.channelOf({ ref: FM }), "messenger");
   assert.equal(u.filterItems(msgrList().items, "messenger").length, 1);

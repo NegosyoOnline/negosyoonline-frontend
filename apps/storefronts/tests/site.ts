@@ -7,7 +7,7 @@ export const SITE: Site = {
   business: { registered_name: "", tin: "", dti_business_number: "", contact_email: "", contact_mobile: "",
     has_seal: false },
   distributor: { name: "Demo Store", mobile: "", has_photo: false },
-  policy_links: [], free_shipping_banner: false, meta_pixel_id: "",
+  policy_links: [], free_shipping_banner: false, meta_pixel_id: "", custom_host: "",
 };
 
 export const FILLED: Site = {

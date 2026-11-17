@@ -32,7 +32,7 @@ body.dash-app .ib-viewhead { display: flex; flex-wrap: wrap; align-items: flex-e
 body.dash-app .ib-refresh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
 body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
-#view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; height: calc(100vh - 230px); min-height: 520px; }
+#view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; height: 100%; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -91,12 +91,13 @@ body.dash-app .ib-refresh .no-btn svg, #view-inbox .no-btn svg { width: 18px; he
 #view-inbox .ib-reply .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 899px) {
-  #view-inbox .ib-split { display: block; height: auto; min-height: 0; }
+  #view-inbox .ib-split { display: block; }
+  #view-inbox .ib-split > .ib-pane { height: 100%; }
   #view-inbox .ib-split .is-hide-phone { display: none; }
   #view-inbox .ib-pane { border-radius: 14px; }
   #view-inbox .ib-back { display: inline-flex; flex: 0 0 100%; margin-left: -6px; }
   #view-inbox .ib-thead { gap: 10px; }
-  #view-inbox .ib-msgs { max-height: none; overflow: visible; padding: 14px; }
+  #view-inbox .ib-msgs { padding: 14px; }
   #view-inbox .ib-msg { max-width: 88%; }
   .ib-viewhead { align-items: flex-start; }
   .ib-refresh { width: 100%; justify-content: space-between; }
@@ -177,3 +178,71 @@ body.dash-app .ib-combo-opt:hover, body.dash-app .ib-combo-opt.is-active { backg
 body.dash-app .ib-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
 body.dash-app .ib-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
 @media (prefers-reduced-motion: reduce) { body.dash-app .ib-combo-caret { transition: none; } }
+
+/* ---- INBOX-UI (ClickUp z8uq9mg7c7) ---- */
+/* U6: the Inbox fills the screen under its header. The page itself does not scroll; the list and the thread each scroll inside their pane.
+   On a phone one pane shows at a time and the reply box stays at the bottom of the thread. */
+body.dash-app.ib-fixed .app { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+body.dash-app.ib-fixed .col { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+body.dash-app.ib-fixed .col-main { flex: 1 1 0; min-height: 0; }
+body.dash-app.ib-fixed #view-inbox:not([hidden]) { flex: 1 1 0; min-height: 0; }
+body.dash-app.ib-fixed #ib-root { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+body.dash-app.ib-fixed #ib-wrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .ib-pane { flex: 1 1 0; min-height: 280px; }
+#view-inbox .ib-listbody { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0; }
+#view-inbox .ib-listbody > * { flex: none; }
+#view-inbox .ib-listbody > .ib-list { flex: 1 1 0; }
+#view-inbox .ib-listbody > .ib-state { flex: 1 1 0; }
+#view-inbox .ib-reply { flex: none; }
+#view-inbox .ib-thead { flex: none; }
+
+/* U1: the photo over the initials */
+#view-inbox .ib-av { position: relative; overflow: hidden; }
+#view-inbox .ib-av .ib-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; background: var(--tile); }
+
+/* U4: a group of bubbles from one side sits tighter (the 10 px gap of the column is 4 px inside a group) */
+#view-inbox .ib-msg.ib-grp { margin-bottom: -6px; }
+
+/* U3: the reply window note above the box */
+#view-inbox .ib-reply .ib-note { margin: 0; }
+
+/* U5: the unread count on the Inbox nav links */
+body.dash-app .ib-nb { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 20px; height: 20px; margin-left: auto; padding: 0 6px; border-radius: 999px; background: var(--link); color: #fff; font-size: 12px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+body.dash-app .ib-nb[hidden] { display: none; }
+body.dash-app .side-nav a[aria-current="page"] .ib-nb { background: #fff; color: #2A50D0; }
+body.dash-app .tabs a { position: relative; }
+body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
+@media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
+
+/* U5: the search box: the house text field, the light-blue focus border (never gold), a clear button */
+#view-inbox .ib-tools { gap: 10px; }
+#view-inbox .ib-search { display: flex; flex-direction: column; gap: 6px; }
+#view-inbox .ib-search .pm-label { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+#view-inbox .ib-sbox { position: relative; }
+#view-inbox .pm-input.ib-sin { display: block; width: 100%; min-height: 44px; padding: 0 44px 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; -webkit-appearance: none; appearance: none; }
+#view-inbox .pm-input.ib-sin::placeholder { color: var(--meta); opacity: 1; }
+#view-inbox .pm-input.ib-sin::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+#view-inbox .pm-input.ib-sin:focus, #view-inbox .pm-input.ib-sin:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-sclear { position: absolute; top: 0; right: 0; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--meta); cursor: pointer; }
+#view-inbox .ib-sclear[hidden] { display: none; }
+#view-inbox .ib-sclear:hover { color: var(--text); }
+#view-inbox .ib-sclear:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+#view-inbox .ib-sclear svg { width: 18px; height: 18px; }
+/* phone: a tighter header and toolbar, so the list gets the room (the labels stay for screen readers) */
+@media (max-width: 899px) {
+  body.dash-app.ib-fixed #view-inbox .dash-eyebrow { display: none; }
+  body.dash-app.ib-fixed #view-inbox > .view-head { gap: 8px; }
+  body.dash-app.ib-fixed #view-inbox .ib-pane-head { padding: 10px 16px; }
+  #view-inbox .ib-tools { padding: 10px 12px; gap: 8px; }
+  #view-inbox .ib-tools .pm-label { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+}
+@media (max-width: 899px) {
+  body.dash-app.ib-fixed.ib-thread #view-inbox > .view-head { display: none; }
+  #view-inbox .ib-thead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "back back act" "av name name"; align-items: center; padding: 4px 12px 10px; gap: 2px 10px; }
+  #view-inbox .ib-back { grid-area: back; justify-self: start; min-height: 40px; }
+  #view-inbox .ib-thead .ib-open { grid-area: act; min-height: 36px; padding: 0 12px; margin: 0; }
+  #view-inbox .ib-thead .ib-av { grid-area: av; }
+  #view-inbox .ib-thead .ib-tname { grid-area: name; min-width: 0; }
+  #view-inbox .ib-reply { padding: 10px 12px 12px; gap: 8px; }
+  #view-inbox .pm-input.ib-ta { min-height: 60px; }
+}

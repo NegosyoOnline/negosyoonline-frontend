@@ -82,7 +82,11 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
       const kind = /\/(close|reopen|read)\/$/.exec(p)[1], ref = /conversations\/([^/]+)\//.exec(p)[1];
       a = s.statusAnswer || { status: 200, body: { ref, status: kind === "close" ? "closed" : "open", unread: kind === "read" ? false : false } };
     }
-    else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?stored_cursor=[^/]+)?$/.test(p) && opts.method === "GET") a = s.listAnswer || { status: 200, body: s.listing };
+    else if (p === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
+    else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
+      const q = /[?&]q=([^&]*)/.exec(p);
+      a = s.listAnswer || { status: 200, body: q && s.searcher ? s.searcher(decodeURIComponent(q[1])) : s.listing };
+    }
     else if (/\/reply\/$/.test(p) && opts.method === "POST") a = s.replyAnswer || { status: 200, body: s.reply };
     else if (/\/conversations\/[^/]+\/$/.test(p) && opts.method === "GET") a = s.threadAnswer || { status: 200, body: s.reading };
     const out = () => {
@@ -394,7 +398,7 @@ test("the probe shows the Inbox links only when the channels read is not a 404",
   const on = boot({ channels: CHANNELS_ON });
   on.window.NOInbox.probe(); await settle();
   assert.deepEqual(on.nav.map((n) => n.hidden), [false, false, false]);
-  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "channels/"]);
+  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "channels/", "GET " + BASE + "unread/"], "and the Inbox count is read once (INBOX-UI U5)");
   const off = boot({ off: true, channels: CHANNELS_ON });
   off.window.NOInbox.probe(); await settle();
   assert.deepEqual(off.nav.map((n) => n.hidden), [true, true, true]);
@@ -447,7 +451,7 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
   assert.equal(sel.getAttribute("aria-hidden"), "true");
   assert.equal(comboInput(d, "ib-filter").getAttribute("role"), "combobox");
   assert.equal(comboInput(d, "ib-filter").value, "All channels", "a filter with a real default shows its value");
-  assert.equal(d.all(d.$("ib-listbody"), "pm-label")[0].textContent, "Channel");
+  assert.deepEqual(d.all(d.$("ib-listbody"), "pm-label").map((l) => l.textContent), ["Search", "Channel"]);
   comboBox(d, "ib-filter").fire("click");
   assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "Facebook Messenger"]);
   const input = comboInput(d, "ib-filter");
@@ -784,9 +788,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261117fm1/);
+  assert.match(HTML, /inbox\.js\?v=20261117ui1/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261117pc1/);
+  assert.match(HTML, /inbox\.css\?v=20261117ui1/);
   assert.match(HTML, /Facebook Messenger, website chat and email/);
 });
 
@@ -1184,11 +1188,12 @@ test("poll: leaving the Inbox view stops it, and a read in flight is dropped", a
   d.window.NOInbox.hide();
   assert.equal(clock.pending(), 0, "every timer is cleared");
   release(); await settle();
-  const n = d.calls.length;
+  const quiet = () => d.calls.filter((c) => !c.path.endsWith("/unread/")).length; /* the nav count (U5) is read on leaving, then every 60 s */
+  const n = quiet();
   await clock.advance(300000);
-  assert.equal(d.calls.length, n, "no request after leaving");
+  assert.equal(quiet(), n, "no thread or list request after leaving");
   d.doc.fire("visibilitychange"); d.winListeners.focus.forEach((f) => f()); await settle();
-  assert.equal(d.calls.length, n, "coming back to the tab does nothing while the view is closed");
+  assert.equal(quiet(), n, "coming back to the tab does nothing while the view is closed");
   await d.openInbox();
   assert.ok(clock.pending() > 0, "opening the view again starts the timers");
 });
@@ -1375,4 +1380,267 @@ test("live: no EventSource in the browser, or a 404 answer from the stream, leav
   await r.clock.advance(15000);
   assert.ok(gets(r.d, LIST_PATH) > l0, "the 15 s poll still runs");
   assert.deepEqual(r.d.toasts, []);
+});
+
+/* ---------- INBOX-UI (z8uq9mg7c7): photo, states, window notice, Enter-send, grouping, unread badge, search, layout ---------- */
+
+const PIC = "https://platform-lookaside.fbsbx.com/platform/profilepic/?psid=1";
+const out = (id, state, minutesAgo, extra = {}) => ({ id, direction: "out", sender_kind: "owner", text: "Reply " + id, attachments: [], at: iso(minutesAgo), delivery_state: state, ...extra });
+const inn = (id, minutesAgo, extra = {}) => ({ id, direction: "in", sender_kind: "customer", text: "Msg " + id, attachments: [], at: iso(minutesAgo), delivery_state: "", ...extra });
+const mThread = (messages, win = { open: true, closes_at: iso(-600) }, extra = {}) => ({ ...msgrThread(win), messages, ...extra });
+const mList = (extra = {}) => ({ items: [{ ref: FM, display_name: "Ana Reyes", snippet: "Hello", updated_at: iso(5), provider: "messenger", status: "open", unread: false, ...extra }], stored_next_cursor: null });
+const imgs = (n) => n.all((x) => x.tagName === "IMG");
+const navNb = (d) => d.nav.map((a) => a.all((x) => x.classList.contains("ib-nb"))[0]);
+const asInbox = (d) => d.nav.forEach((a) => a.setAttribute("data-route", "inbox"));
+
+test("U1: a Messenger row and the thread head show the photo (no-referrer, empty alt); no address or a broken image leaves the initials", async () => {
+  const d = boot({ listing: mList({ avatar_url: PIC }), reading: mThread([inn("a", 3)], undefined, { avatar_url: PIC }), channels: CHANNELS_ON });
+  await d.openInbox();
+  const row = d.all(d.$("ib-list"), "ib-item")[0], av = d.all(row, "ib-av")[0], img = imgs(av)[0];
+  assert.equal(img.getAttribute("src"), PIC);
+  assert.equal(img.getAttribute("alt"), "");
+  assert.equal(img.getAttribute("referrerpolicy"), "no-referrer");
+  assert.equal(av.textContent, "AR", "the initials stay under the photo");
+  assert.equal(av.getAttribute("aria-hidden"), "true");
+  await d.click(row);
+  const head = d.all(d.$("ib-threadpane"), "ib-av")[0];
+  assert.equal(imgs(head)[0].getAttribute("src"), PIC);
+  img.fire("error");
+  assert.equal(imgs(av).length, 0, "an image that fails to load is taken away");
+  assert.equal(av.textContent, "AR");
+  const none = boot({ listing: mList({ avatar_url: null }), channels: CHANNELS_ON });
+  await none.openInbox();
+  assert.equal(imgs(none.$("ib-list")).length, 0, "null: initials only");
+  const odd = boot({ listing: mList({ avatar_url: "http://x.test/a.png" }), channels: CHANNELS_ON });
+  await odd.openInbox();
+  assert.equal(imgs(odd.$("ib-list")).length, 0, "only an https address is used");
+  const old = boot({ channels: CHANNELS_ON });
+  await old.openInbox();
+  assert.equal(imgs(old.$("ib-list")).length, 0, "an answer without the field still renders");
+});
+
+test("U1: the CSP allows the two Facebook picture hosts and nothing else new", () => {
+  const cfg = fs.readFileSync(path.join(JS, "..", "..", "..", "next.config.ts"), "utf8");
+  const line = cfg.split("\n").find((l) => l.includes("img-src"));
+  assert.match(line, /https:\/\/platform-lookaside\.fbsbx\.com https:\/\/\*\.fbcdn\.net`/);
+  assert.equal((line.match(/https:\/\/[^\s`]+/g) || []).length, 2);
+});
+
+test("U2: Messenger bubbles say Sent, Delivered or Seen (Seen on the latest seen one only); failed keeps its text; other channels are unchanged", async () => {
+  const msgs = [out("o1", "seen", 50), out("o2", "seen", 40), out("o3", "delivered", 30), out("o4", "sent", 20), out("o5", "failed", 10)];
+  const d = boot({ listing: mList(), reading: mThread(msgs), channels: CHANNELS_ON });
+  await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  const chips = d.all(d.$("ib-threadpane"), "ib-long").map((c) => c.textContent);
+  assert.deepEqual(chips, ["Seen", "Delivered", "Sent", "Failed: The email could not be sent. Please try again shortly."], "the older seen bubble shows nothing");
+  const seen = boot({ listing: mList(), reading: mThread([out("o1", "seen", 50), out("o2", "seen", 40)]), channels: CHANNELS_ON });
+  await seen.openInbox(); await seen.click(seen.all(seen.$("ib-list"), "ib-item")[0]);
+  assert.deepEqual(seen.all(seen.$("ib-threadpane"), "ib-long").map((c) => c.textContent), ["Seen"]);
+  const u = d.window.NOInbox.util;
+  assert.equal(u.chipFor("messenger", out("x", "sent", 1), "", false).join(), "ok,Sent");
+  assert.equal(u.chipFor("messenger", out("x", "seen", 1), "", false), null);
+  assert.equal(u.chipFor("webchat", out("x", "sent", 1))[1], "Delivered to chat when the visitor is online");
+  assert.equal(u.chipFor("email", out("x", "sent", 1))[1], "Sent to the mail server");
+  assert.equal(u.chipFor("webchat", out("x", "seen", 1)), null);
+});
+
+test("U3: with under 2 hours left the thread says until when; more time says nothing; a closed window locks the box", async () => {
+  const soon = boot({ listing: mList(), reading: mThread([inn("a", 3)], { open: true, closes_at: iso(-90) }), channels: CHANNELS_ON });
+  await soon.openInbox(); await soon.click(soon.all(soon.$("ib-list"), "ib-item")[0]);
+  assert.equal(soon.all(soon.$("ib-threadpane"), "ib-wnote")[0].textContent, "You can reply until 11:30 AM, today.");
+  assert.equal(soon.$("ib-rb").disabled, false);
+  const u = soon.window.NOInbox.util, now = new Date();
+  assert.equal(u.windowNotice({ reply_window: { open: true, closes_at: iso(-150) } }, now), "", "2 h 30 min: no notice");
+  assert.equal(u.windowNotice({ reply_window: { open: true, closes_at: iso(-60 * 15) } }, now), "");
+  assert.equal(u.windowNotice({ reply_window: { open: true } }, now), "", "an old answer without closes_at");
+  assert.equal(u.windowNotice({ reply_window: { open: true, closes_at: iso(-110) } }, now).endsWith(", today."), true);
+  const late = new Date("2026-11-16T15:30:00Z"); /* 23:30 Manila; the window ends 00:30 tomorrow */
+  assert.equal(u.windowNotice({ reply_window: { open: true, closes_at: "2026-11-16T16:30:00Z" } }, late), "You can reply until 12:30 AM, tomorrow.");
+  const closed = boot({ listing: mList(), reading: mThread([inn("a", 3)], { open: false, closes_at: iso(60) }), channels: CHANNELS_ON });
+  await closed.openInbox(); await closed.click(closed.all(closed.$("ib-list"), "ib-item")[0]);
+  assert.equal(closed.$("ib-rb").disabled, true);
+  assert.equal(closed.press(closed.$("ib-threadpane"), "Send").disabled, true);
+  assert.ok(closed.$("ib-threadpane").textContent.includes("You can reply within 24 hours of the customer's last message."));
+  assert.equal(closed.all(closed.$("ib-threadpane"), "ib-wnote").length, 0);
+});
+
+test("U4: Enter sends, Shift+Enter does not, an IME composition does not, and on a touch screen Enter is a new line", async () => {
+  const key = (d, extra) => { const e = d.$("ib-rb").fire("keydown", { key: "Enter", ...extra }); return e.prevented; };
+  const d = boot({});
+  await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  const box = d.$("ib-rb"), posts = () => d.calls.filter((c) => c.path.endsWith("/reply/")).length;
+  box.value = "Hello po"; box.fire("input");
+  assert.equal(key(d, { shiftKey: true }), false); await settle(); assert.equal(posts(), 0, "Shift+Enter is a new line");
+  assert.equal(key(d, { isComposing: true }), false); await settle(); assert.equal(posts(), 0, "no send while an IME composes");
+  assert.equal(key(d, { keyCode: 229 }), false); await settle(); assert.equal(posts(), 0);
+  d.window.matchMedia = (q) => ({ matches: q === "(pointer: coarse)" });
+  assert.equal(key(d, {}), false); await settle(); assert.equal(posts(), 0, "a phone: Enter is a new line");
+  delete d.window.matchMedia;
+  assert.equal(key(d, {}), true); await settle(); assert.equal(posts(), 1, "Enter sends");
+  assert.equal(d.calls.find((c) => c.path.endsWith("/reply/")).body.text, "Hello po");
+  d.$("ib-rb").value = ""; d.$("ib-rb").fire("input");
+  key(d, {}); await settle(); assert.equal(posts(), 1, "an empty box sends nothing");
+});
+
+test("U4: bubbles of one sender within 5 minutes group (one time at the end, tight rows); a longer gap, another sender or another day breaks it; day dividers", async () => {
+  const msgs = [inn("a", 600), inn("b", 598), inn("c", 596), out("d", "", 595), inn("e", 500), inn("f", 30 * 60 + 20), inn("g", 30 * 60 + 19)]; /* oldest first: f g (yesterday), a b c d e */
+  const d = boot({ reading: thread({ messages: msgs }) });
+  await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  const rows = d.all(d.$("ib-threadpane"), "ib-msg");
+  assert.deepEqual(rows.map((r) => r.classList.contains("ib-grp")), [true, false, true, true, false, false, false]);
+  assert.deepEqual(rows.map((r) => d.all(r, "ib-meta").length), [0, 1, 0, 0, 1, 1, 1], "one time stamp per group, under its last bubble");
+  const days = d.all(d.$("ib-threadpane"), "ib-day").map((x) => x.textContent);
+  assert.equal(days[days.length - 1], "Today");
+  assert.ok(days.length >= 2, "a divider per day: " + days);
+  const u = d.window.NOInbox.util;
+  assert.equal(u.grouped({ out: true, at: iso(10) }, { out: true, at: iso(5.1) }), true);
+  assert.equal(u.grouped({ out: true, at: iso(10) }, { out: true, at: iso(4.9) }), false);
+  assert.equal(u.grouped({ out: true, at: iso(10) }, { out: false, at: iso(9) }), false);
+  assert.equal(u.grouped({ out: true, at: "" }, { out: true, at: iso(9) }), false);
+});
+
+test("U4: the thread opens at the newest message and moves to it after a send", async () => {
+  const { d } = await polling();
+  await openFirst(d);
+  const msgs = d.all(d.$("ib-threadpane"), "ib-msgs")[0];
+  assert.equal(msgs.scrollTop, 1000, "opened at the bottom");
+  msgs.scrollTop = 100;
+  d.$("ib-rb").value = "Ok po"; d.$("ib-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-msgs")[0].scrollTop, 1000, "after sending");
+});
+
+test("U5: the Inbox links show the unread count from an Inbox read: hidden at 0, 99+ above 99, with an aria-label", async () => {
+  const d = boot({ listing: { ...list(), unread_total: 7 }, channels: CHANNELS_ON });
+  asInbox(d);
+  await d.openInbox();
+  const nb = navNb(d);
+  assert.deepEqual(nb.map((n) => n.textContent), ["7", "7", "7"]);
+  assert.deepEqual(nb.map((n) => n.hidden), [false, false, false]);
+  assert.deepEqual(d.nav.map((a) => a.getAttribute("aria-label")), ["Inbox, 7 unread", "Inbox, 7 unread", "Inbox, 7 unread"]);
+  d.s.listing = { ...list(), unread_total: 0 };
+  await d.click(d.$("ib-refresh-btn"));
+  assert.deepEqual(navNb(d).map((n) => n.hidden), [true, true, true]);
+  assert.equal(d.nav[0].getAttribute("aria-label"), null);
+  d.s.listing = { ...list(), unread_total: 250 };
+  await d.click(d.$("ib-refresh-btn"));
+  assert.equal(navNb(d)[0].textContent, "99+");
+  assert.equal(d.nav[0].getAttribute("aria-label"), "Inbox, 250 unread");
+  const u = d.window.NOInbox.util;
+  assert.deepEqual([0, 1, 99, 100, null, "x"].map(u.badgeText), ["", "1", "99", "99+", "", ""]);
+  const old = boot({ channels: CHANNELS_ON });
+  asInbox(old); await old.openInbox();
+  assert.deepEqual(navNb(old), [undefined, undefined, undefined], "an old answer without unread_total leaves the nav alone");
+});
+
+test("U5: opening an unread conversation takes one off the count", async () => {
+  const items = list().items.map((i, n) => ({ ...i, unread: n === 0 }));
+  const d = boot({ listing: { items, stored_next_cursor: null, unread_total: 3 }, channels: CHANNELS_ON });
+  asInbox(d); await d.openInbox();
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  assert.equal(navNb(d)[0].textContent, "2");
+});
+
+test("U5: on other views the count is read at once and every 60 s while the tab is visible; the Inbox view reads it from the list instead", async () => {
+  const clock = makeClock(), d = boot({ clock, channels: CHANNELS_ON });
+  asInbox(d); d.s.unread = 4;
+  d.window.NOInbox.probe(); await settle();
+  const reads = () => d.calls.filter((c) => c.path === BASE + "unread/").length;
+  assert.equal(reads(), 1);
+  assert.equal(navNb(d)[0].textContent, "4");
+  d.s.unread = 5;
+  await clock.advance(59999); assert.equal(reads(), 1);
+  await clock.advance(1); assert.equal(reads(), 2);
+  assert.equal(navNb(d)[0].textContent, "5");
+  d.doc.hidden = true; d.doc.fire("visibilitychange");
+  await clock.advance(300000); assert.equal(reads(), 2, "paused while the tab is hidden");
+  d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  assert.equal(reads(), 3, "read again when it comes back");
+  await d.openInbox();
+  const n = reads(); await clock.advance(600000);
+  assert.equal(reads(), n, "not while the Inbox view is open");
+  d.window.NOInbox.hide(); await settle();
+  assert.equal(reads(), n + 1, "read again on leaving it");
+  d.s.unreadAnswer = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
+  await clock.advance(60000);
+  assert.equal(navNb(d)[0].hidden, true, "a 404 clears it");
+});
+
+test("U5: a LIVE event while on the Inbox refreshes the count with the list", async () => {
+  const { d, es, clock } = await live({ listing: { ...list(), unread_total: 1 }, channels: CHANNELS_ON });
+  asInbox(d); es().ready(); await settle();
+  d.s.listing = { ...list(), unread_total: 6 };
+  es().emit("conversation_updated", { ref: REF2 });
+  await clock.advance(300);
+  assert.equal(navNb(d)[0].textContent, "6");
+});
+
+test("U5: search asks the API 300 ms after the last key, needs 2 characters, shows 'No conversations match', and clears", async () => {
+  const clock = makeClock(), d = boot({ clock, listing: list({ unread_total: 9 }), channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.searcher = (q) => ({ items: q === "zzz" ? [] : [list().items[1]], stored_next_cursor: null, unread_total: 1 });
+  await d.openInbox();
+  const inp = d.$("ib-q"), qCalls = () => d.calls.filter((c) => c.path.includes("?q=") || c.path.includes("&q="));
+  assert.equal(inp.getAttribute("type"), "search");
+  assert.equal(inp.getAttribute("maxlength"), "80");
+  assert.equal(d.all(d.$("ib-listbody"), "pm-label").map((l) => l.textContent)[0], "Search");
+  inp.value = "J"; inp.fire("input"); await clock.advance(400);
+  assert.equal(qCalls().length, 0, "one character is not a search");
+  inp.value = "Ju"; inp.fire("input"); await clock.advance(299);
+  assert.equal(qCalls().length, 0, "debounced");
+  inp.value = "Jun"; inp.fire("input"); await clock.advance(299); assert.equal(qCalls().length, 0);
+  await clock.advance(1);
+  assert.deepEqual(qCalls().map((c) => c.path), [LIST_PATH + "?q=Jun"], "one request, with the last text");
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.equal(rows.length, 1);
+  assert.equal(d.$("ib-q"), inp, "the box and its cursor stay while the rows change");
+  assert.equal(navNb(d)[0].textContent, "9", "a search answer does not change the nav count");
+  inp.value = "zzz"; inp.fire("input"); await clock.advance(300);
+  assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"));
+  const clear = d.all(d.$("ib-listbody"), "ib-sclear")[0];
+  assert.equal(clear.hidden, false);
+  await d.click(clear);
+  assert.equal(inp.value, ""); assert.equal(clear.hidden, true);
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "the normal list is back");
+  assert.equal(qCalls().length, 2);
+});
+
+test("U5: search works with the Channel filter and keeps its text through a background list read", async () => {
+  const clock = makeClock(), d = boot({ clock, listing: MIXED(), channels: CHANNELS_ON });
+  d.s.searcher = () => MIXED();
+  scrollable(d);
+  await d.openInbox();
+  const inp = d.$("ib-q");
+  inp.value = "an"; inp.fire("input"); await clock.advance(300);
+  const sel = d.$("ib-filter"); sel.value = "email"; sel.fire("change"); await settle();
+  const shown = d.all(d.$("ib-list"), "ib-item").length;
+  assert.ok(shown >= 1 && shown < MIXED().items.length, "the filter narrows the search rows");
+  const n = d.calls.filter((c) => c.path.includes("q=an")).length;
+  await clock.advance(15000);
+  assert.ok(d.calls.filter((c) => c.path.includes("q=an")).length > n, "the list poll keeps asking with the search text");
+  assert.equal(d.$("ib-q").value, "an");
+});
+
+test("U6: the Inbox is a fixed-height view; the list and thread scroll inside their panes; one pane at a time on a phone", async () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /body\.dash-app\.ib-fixed \.app \{[^}]*height: 100dvh;[^}]*overflow: hidden/);
+  assert.match(css, /#view-inbox \.ib-split \{[^}]*flex: 1 1 0;[^}]*min-height: 0/);
+  assert.match(css, /#view-inbox \.ib-msgs \{[^}]*overflow-y: auto/);
+  assert.match(css, /#view-inbox \.ib-listbody > \.ib-list \{ flex: 1 1 0; \}/);
+  const phone = css.slice(css.indexOf("@media (max-width: 899px)"), css.indexOf("/* ---- G3 PR3"));
+  assert.match(phone, /\.ib-split \.is-hide-phone \{ display: none/);
+  assert.doesNotMatch(phone, /ib-msgs \{[^}]*overflow: visible/, "the thread scrolls in its pane on a phone too");
+  assert.match(css, /#view-inbox \.ib-reply \{ flex: none; \}/, "the reply box stays at the bottom");
+  const d = boot();
+  d.doc.body.classList.remove("ib-fixed");
+  await d.openInbox();
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), true);
+  d.window.NOInbox.hide();
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), false);
+  assert.equal(d.$("ib-threadpane"), null);
+});
+
+test("INBOX-UI: the new focus borders are light blue, never gold, and the search box uses the house field look", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.match(css, /\.pm-input\.ib-sin:focus[^{]*\{[^}]*border-color: var\(--link/);
+  assert.doesNotMatch(css.slice(css.indexOf("INBOX-UI (ClickUp")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
 });

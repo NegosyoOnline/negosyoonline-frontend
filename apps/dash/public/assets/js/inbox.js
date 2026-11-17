@@ -8,7 +8,7 @@
    dropdown, an unread dot, Close and Reopen, the delivery chips and fixed failure texts of a reply (sent, failed, rate_limited; chat
    "Delivered to chat when the visitor is online"), the unverified-sender and no-email notes, a closed conversation with its reply box
    off, and the chat banners (paused, or the daily limit reached; one at a time, the limit first) fed by GET .../channels/. NOInbox.util
-   holds the pure helpers (tests/inbox.test.mjs). Plain ES5. Every word that came from the API or a visitor still reaches the page
+   holds the pure helpers (tests/inbox.test.mjs). INBOX-UI (z8uq9mg7c7): a Messenger photo on the row and the thread head, Sent/Delivered/Seen, the reply-window notice, Enter to send, grouped bubbles, the unread count on the Inbox nav links, search, and a fixed-height layout. Plain ES5. Every word that came from the API or a visitor still reaches the page
    through textContent only. */
 (function () {
   var D = window.NODash;
@@ -39,7 +39,9 @@
     refresh: "M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4",
     back: "M15 6l-6 6 6 6",
     globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
-    mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6"
+    mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6",
+    x: "M6 6l12 12M18 6L6 18",
+    search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -153,17 +155,41 @@
     token_invalid: "Reconnect your Facebook Page in Settings > Inbox."
   };
   function failTextOf(code) { return Object.prototype.hasOwnProperty.call(FAIL, code) ? FAIL[code] : FAIL.email_failed; }
-  var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server", CHIP_MSGR = "Sent through Facebook Messenger";
+  var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server";
   var NOTE_NO_EMAIL = "No email address was given. Your reply shows in the chat only while the visitor's browser keeps it.";
   var NOTE_UNVERIFIED = "This address was typed into your contact form and has not been confirmed.";
   var BANNER_LIMIT = ["Today's chat limit was reached.", " Visitors see that chat is not available. Website chat opens again tomorrow."];
   /* The delivery chip of an owner message in a stored thread: [colour, text] or null. `code` is the failure code paired to it. */
-  function chipFor(channel, m, code) {
+  function chipFor(channel, m, code, latestSeen) {
     if (!m || m.direction !== "out") return null;
     if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code)];
+    if (channel === "messenger") {
+      /* INBOX-UI U2: Sent, Delivered, and Seen on the latest seen message only (Messenger style); an older seen one shows nothing. */
+      if (m.delivery_state === "seen") return latestSeen === true ? ["info", "Seen"] : null;
+      if (m.delivery_state === "delivered") return ["ok", "Delivered"];
+      return m.delivery_state === "sent" ? ["ok", "Sent"] : null;
+    }
     if (m.delivery_state !== "sent") return null;
-    return channel === "email" ? ["ok", CHIP_MAIL] : channel === "messenger" ? ["ok", CHIP_MSGR] : ["info", CHIP_CHAT];
+    return channel === "email" ? ["ok", CHIP_MAIL] : ["info", CHIP_CHAT];
   }
+  /* INBOX-UI U4: two bubbles belong to one group when the same side sent both, on the same day, at most 5 minutes apart. */
+  function grouped(a, b) {
+    if (!a || !b || a.out !== b.out) return false;
+    var x = validDate(a.at), y = validDate(b.at);
+    return !!x && !!y && dayKey(x) === dayKey(y) && y.getTime() >= x.getTime() && y.getTime() - x.getTime() <= 300000;
+  }
+  /* INBOX-UI U3: with less than 2 hours left of a Messenger thread's 24-hour window, "You can reply until 3:05 PM, today."; else "". */
+  function windowNotice(t, now) {
+    var rw = t && t.reply_window;
+    if (!rw || rw.open === false) return "";
+    var d = validDate(rw.closes_at); if (!d) return "";
+    var left = d.getTime() - now.getTime();
+    if (left <= 0 || left >= 7200000) return "";
+    return "You can reply until " + clock(d) + ", " + (relDay(d, now) || monthDay(d, yearOf(d) !== yearOf(now))) + ".";
+  }
+  /* The Inbox count in the nav: nothing at 0, "99+" above 99. */
+  function badgeText(n) { return typeof n !== "number" || !isFinite(n) || n <= 0 ? "" : n > 99 ? "99+" : String(Math.floor(n)); }
+  function coarse() { try { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); } catch (e) { return false; } }
   /* The thread's messages do not carry the failure code; the replies list does (newest first). The failed owner messages, newest
      first, are matched to the failed replies in the same order. A message with no match gets the generic email_failed text. */
   function failCodes(messages, replies) {
@@ -288,11 +314,59 @@
     input.value = chosen();
   }
 
+  /* INBOX-UI U1: the initials circle, with the customer's photo over it when the API gave an https address. A photo that does not load
+     is taken away, so the initials show. The address is only ever an img src (no-referrer); nothing else is read from it. */
+  function avatarNode(name, url) {
+    var av = h("span", "ib-av", initialsOf(name)); av.setAttribute("aria-hidden", "true");
+    if (typeof url === "string" && /^https:\/\//.test(url)) {
+      var img = D.el("img", { "class": "ib-av-img", src: url, alt: "", referrerpolicy: "no-referrer", loading: "lazy", decoding: "async" });
+      img.addEventListener("error", function () { if (img.parentNode) img.parentNode.removeChild(img); });
+      av.appendChild(img);
+    }
+    return av;
+  }
+  function avatarOfRef(ref) { var u = null; if (S) S.items.forEach(function (i) { if (i.ref === ref && typeof i.avatar_url === "string") u = i.avatar_url; }); return u; }
+
+  /* ---------- the unread badge on the Inbox nav links (INBOX-UI U5) ----------
+     Inbox reads carry unread_total; on every other view GET .../inquiries/unread/ is read every 60 s while the tab is visible. */
+  var NB = { site: null, t: null, n: 0, seq: 0 };
+  function setBadge(n) {
+    if (typeof n !== "number" || !isFinite(n) || n < 0) return;
+    n = Math.floor(n); NB.n = n;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (a) {
+      if (a.getAttribute("data-route") !== "inbox") return;
+      var b = a.querySelector ? a.querySelector(".ib-nb") : null;
+      if (!b) { b = h("span", "ib-nb"); b.setAttribute("aria-hidden", "true"); a.appendChild(b); }
+      b.hidden = n <= 0; b.textContent = badgeText(n);
+      if (n > 0) a.setAttribute("aria-label", "Inbox, " + n + " unread"); else a.removeAttribute("aria-label");
+    });
+  }
+  function badgeStop() { NB.seq++; if (NB.t !== null) { clearTimeout(NB.t); NB.t = null; } }
+  function badgeOn() { return !S && !!NB.site && !document.hidden; }
+  function badgeArm() {
+    if (NB.t !== null) { clearTimeout(NB.t); NB.t = null; }
+    if (!badgeOn()) return;
+    NB.t = setTimeout(function () { NB.t = null; badgeRead(); }, 60000);
+  }
+  function badgeRead() {
+    if (!badgeOn()) return;
+    var seq = ++NB.seq;
+    D.call("GET", "/sites/" + NB.site + "/inquiries/unread/", null, true).then(function (res) {
+      if (seq !== NB.seq || res.status === 401) return;
+      if (res.ok && res.data && typeof res.data.count === "number") setBadge(res.data.count);
+      else if (res.status === 404) setBadge(0);
+      badgeArm();
+    });
+  }
+  /* The unread_total of a list read (never of a search, which may count only its matches). Old answers without it leave the badge alone. */
+  function takeUnread(data) { if (S && !S.q && data && typeof data.unread_total === "number") setBadge(data.unread_total); }
+
   /* ---------- state ---------- */
 
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], updated: null, more: false, filter: "all", stNext: null, chat: null,
-      closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false };
+      closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
+      q: "", qText: "", qTimer: null };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -303,7 +377,7 @@
       if (mine !== token || res.status === 401) return;
       var sites = res.ok ? D.sitesOf(res) : [];
       if (!sites.length) { S.state = "failed"; S.fail = { kind: res.ok ? "gone" : "down" }; redraw(); return; }
-      S.site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
+      S.site = D.siteFromQuery(sites.map(function (s) { return s.id; })); NB.site = NB.site || S.site;
       then();
     });
   }
@@ -315,12 +389,14 @@
       var sites = res.ok ? D.sitesOf(res) : [];
       if (!sites.length) return;
       var site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
-      D.call("GET", "/sites/" + site + "/inquiries/channels/", null, true).then(function (r) { if (r.ok) reveal(true); });
+      D.call("GET", "/sites/" + site + "/inquiries/channels/", null, true).then(function (r) { if (r.ok) { reveal(true); NB.site = site; badgeRead(); } });
     });
   }
 
   function show() {
     S = fresh(); token++; tload++;
+    badgeStop();
+    if (document.body && document.body.classList) document.body.classList.add("ib-fixed");
     draw();
     load(false);
     L.noRetry = false;
@@ -328,23 +404,34 @@
   }
   function hide() {
     streamClose(); pollStop(); token++; tload++; S = null; say("");
+    if (document.body && document.body.classList) document.body.classList.remove("ib-fixed"); if (document.body.classList.remove) document.body.classList.remove("ib-thread");
     var root = byId("ib-root"); if (root) clear(root);
+    badgeRead();
   }
 
   /* ---------- load ---------- */
 
+  /* The list's address: the stored cursor and the search text (INBOX-UI U5) when there are any. */
+  function listUrl(cursor) {
+    var qs = [];
+    if (cursor) qs.push("stored_cursor=" + encodeURIComponent(cursor));
+    if (S.q) qs.push("q=" + encodeURIComponent(S.q));
+    return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
+  }
+  function stateFor(items) { return items.length || S.q ? "ready" : "empty"; }
   function load(refresh) {
     var mine = ++token;
     if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
     withSite(function () {
       streamOpen();
-      D.call("GET", base() + "conversations/", null, true).then(function (res) {
+      D.call("GET", listUrl(), null, true).then(function (res) {
         if (mine !== token || !S || res.status === 401) return;
         if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
         S.items = Array.isArray(res.data.items) ? res.data.items : [];
         S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-        S.state = S.items.length ? "ready" : "empty"; S.fail = null; S.updated = new Date();
+        S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
         S.extra = false; S.lsig = sigOf([S.items, S.stNext]);
+        takeUnread(res.data);
         reveal(true);
         redraw();
         say(S.items.length ? "Conversations loaded." : "No conversations yet.");
@@ -364,7 +451,7 @@
   function loadMore(b) {
     if (!S.stNext) return;
     var mine = token; busy(b, true);
-    D.call("GET", base() + "conversations/?stored_cursor=" + encodeURIComponent(S.stNext), null, true).then(function (res) {
+    D.call("GET", listUrl(S.stNext), null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
       busy(b, false);
       if (!res.ok) { D.toast("That did not work", msgOf(res, "We could not load more conversations. Please try again."), "error"); return; }
@@ -389,7 +476,7 @@
     var item = null;
     S.items.forEach(function (i) { if (i.ref === ref) item = i; });
     if (!item || item.unread !== true || !isStored(item)) return;
-    item.unread = false; drawList();
+    item.unread = false; setBadge(Math.max(0, NB.n - 1)); drawList();
     D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/read/", null, true);
   }
   function fetchThread(silent) {
@@ -469,9 +556,10 @@
   function pollList(done) {
     if (S.state !== "ready" && S.state !== "empty") return false;
     var st = S, mine = token;
-    D.call("GET", base() + "conversations/", null, true).then(function (res) {
+    D.call("GET", listUrl(), null, true).then(function (res) {
       if (S !== st || mine !== token || res.status === 401) { done("skip"); return; }
       if (!res.ok) { done("fail"); return; }
+      takeUnread(res.data);
       var items = Array.isArray(res.data.items) ? res.data.items : [];
       var next = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
       if (S.extra) {
@@ -484,7 +572,7 @@
       if (sig !== S.lsig) {
         var keep = listKeep();
         if (keep === null) { done("skip"); return; } /* the Channel filter is in use: apply it on the next read */
-        S.items = items; S.stNext = next; S.lsig = sig; S.state = items.length ? "ready" : "empty"; S.fail = null;
+        S.items = items; S.stNext = next; S.lsig = sig; S.state = stateFor(items); S.fail = null;
         redraw(); listRestore(keep);
         if (S.sel && S.tstate === "ready") markRead(S.sel);
       }
@@ -674,8 +762,10 @@
     fillList(body);
     return p;
   }
-  function fillList(body) {
-    clear(body);
+  /* onlyResults: a search changed the rows; the toolbar (and the cursor in the search box) stays. */
+  function fillList(body, onlyResults) {
+    var tools = onlyResults && S.state === "ready" && body.querySelector ? body.querySelector(".ib-tools") : null;
+    if (tools) { Array.prototype.slice.call(body.childNodes).forEach(function (n) { if (n !== tools) body.removeChild(n); }); } else clear(body);
     if (S.state === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Loading your conversations…")); return; }
     if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer messages your Facebook Page, writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again.")); return; }
     if (S.state === "failed") {
@@ -684,11 +774,12 @@
         [btn("Try again", "primary", function (b) { busy(b, true); load(false); }, ICON.refresh)], true));
       return;
     }
-    body.appendChild(toolbar());
+    if (!tools) body.appendChild(toolbar());
     var banners = bannerBox(); if (banners) body.appendChild(banners);
     var shown = filterItems(S.items, S.filter);
     if (!shown.length) {
-      body.appendChild(h("p", "ib-empty-filter", "No conversations in this channel yet."));
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      body.appendChild(none);
       if (S.stNext) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
     }
@@ -698,7 +789,7 @@
       var li = h("li", ""), sel = S.sel === it.ref, unread = it.unread === true;
       var b = h("button", "ib-item" + (sel ? " is-sel" : "") + (unread ? " ib-unread" : "")); b.setAttribute("type", "button");
       if (sel) b.setAttribute("aria-current", "true");
-      var av = h("span", "ib-av", initialsOf(it.display_name)); av.setAttribute("aria-hidden", "true");
+      var av = avatarNode(it.display_name, it.avatar_url);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
       if (unread) { var dot = h("span", "ib-dot"); dot.appendChild(h("span", "sr-only", "Unread. ")); nm.appendChild(dot); }
       nm.appendChild(document.createTextNode(nameOf(it.display_name)));
@@ -726,6 +817,7 @@
   /* The Channel filter: the house dropdown, showing its real default "All channels". */
   function toolbar() {
     var box = h("div", "ib-tools");
+    box.appendChild(searchBox());
     var lab = h("label", "pm-label", "Channel"); lab.setAttribute("for", "ib-filter");
     var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
     FILTERS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
@@ -734,6 +826,46 @@
     add(box, lab, sel);
     combo(sel, "Channel");
     return box;
+  }
+  /* INBOX-UI U5: the search box above the list. 300 ms after the last key; fewer than 2 characters is the normal list; works with the
+     Channel filter (that one only narrows the rows shown). The house text-field look and the light-blue focus border (inbox.css). */
+  function searchBox() {
+    var wrap = h("div", "ib-search");
+    var lab = h("label", "pm-label", "Search"); lab.setAttribute("for", "ib-q");
+    var row = h("div", "ib-sbox");
+    var inp = D.el("input", { "class": "pm-input ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });
+    inp.value = S.qText;
+    var x = h("button", "ib-sclear"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Clear search"); x.appendChild(icon(ICON.x)); x.hidden = !S.qText;
+    var st = S;
+    function later() { if (st.qTimer !== null) clearTimeout(st.qTimer); st.qTimer = setTimeout(function () { st.qTimer = null; if (S === st) searchNow(); }, 300); }
+    inp.addEventListener("input", function () { st.qText = inp.value; x.hidden = !inp.value; later(); });
+    inp.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); searchNow(); }
+      else if (e.key === "Escape" && inp.value) { e.preventDefault(); e.stopPropagation(); wipe(); }
+    });
+    function wipe() { st.qText = ""; inp.value = ""; x.hidden = true; searchNow(); try { inp.focus(); } catch (e) { /* gone */ } }
+    x.addEventListener("click", wipe);
+    add(row, inp, x); add(wrap, lab, row);
+    return wrap;
+  }
+  function searchNow() {
+    if (!S) return;
+    if (S.qTimer !== null) { clearTimeout(S.qTimer); S.qTimer = null; }
+    var v = S.qText.trim(), q = v.length >= 2 ? v.slice(0, 80) : "";
+    if (q === S.q) return;
+    var mine = ++token, st = S, was = S.q;
+    S.q = q; var url = listUrl(); S.q = was; /* S.q changes only when the read worked */
+    D.call("GET", url, null, true).then(function (res) {
+      if (mine !== token || S !== st || res.status === 401) return;
+      if (!res.ok) { D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error"); return; }
+      S.q = q;
+      S.items = Array.isArray(res.data.items) ? res.data.items : [];
+      S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
+      S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
+      takeUnread(res.data);
+      fillList(byId("ib-listbody"), true); drawUpdated();
+      say(!q ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+    });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */
   function bannerBox() {
@@ -761,6 +893,7 @@
     var body = byId("ib-listbody"), p = byId("ib-listpane");
     if (!body || !S) return;
     fillList(body);
+    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
     if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
@@ -780,7 +913,7 @@
     var back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
     back.appendChild(icon(ICON.back)); back.appendChild(h("span", "", "Inbox"));
     back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.")); } });
-    var av = h("span", "ib-av", initialsOf(name)); av.setAttribute("aria-hidden", "true");
+    var av = avatarNode(name, o.avatar);
     var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name)));
     if (o.channel) {
       var row = h("div", "ib-chrow"); add(row, channelBadge(o.channel));
@@ -836,7 +969,7 @@
     p.setAttribute("aria-label", "Conversation with " + (t && t.display_name ? t.display_name : S.selName || "customer"));
     p.classList.remove("is-hide-phone");
     if (S.tstate === "loading" || !t) {
-      p.appendChild(threadHead(S.selName, { channel: channelOf({ ref: S.sel }) }));
+      p.appendChild(threadHead(S.selName, { channel: channelOf({ ref: S.sel }), avatar: avatarOfRef(S.sel) }));
       if (S.tstate === "failed") {
         var f = S.tfail || { kind: "down" }, text = f.kind === "gone" ? "This conversation is no longer available." : f.kind === "down" ? "We could not load this conversation just now. Wait a moment, then try again." : f.message || "Please try again.";
         p.appendChild(stateBox(ICON.warn, "We couldn't open this conversation", text, [btn("Try again", "primary", function (b) { busy(b, true); S.tstate = "loading"; drawThread(); fetchThread(false); }, ICON.refresh)], true));
@@ -846,29 +979,33 @@
     var name = nameOf(t.display_name || S.selName), now = new Date();
     var channel = channelOf(t.channel ? t : { ref: S.sel });
     var closed = t.status === "closed";
-    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: channel === "email" ? t.contact_email : "", action: statusButton(closed) }));
+    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: channel === "email" ? t.contact_email : "", action: statusButton(closed), avatar: typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) }));
     var note = noteFor(channel, t);
     if (note) p.appendChild(note);
     /* messages */
     var msgs = h("div", "ib-msgs"); msgs.setAttribute("tabindex", "0"); msgs.setAttribute("aria-label", "Messages");
     var codes = failCodes(Array.isArray(t.messages) ? t.messages : [], t.replies);
-    var list = ordered(Array.isArray(t.messages) ? t.messages : []).map(function (m) {
-      return { out: m.direction === "out", text: bubbleText(m), at: m.at, chip: chipFor(channel, m, codes[m.id]), tag: channel === "email" && m.direction === "in" && /^Subject: /.test(m.text || "") ? "Contact form" : "" };
+    var ord = ordered(Array.isArray(t.messages) ? t.messages : []), seenMsg = null;
+    ord.forEach(function (m) { if (m.direction === "out" && m.delivery_state === "seen") seenMsg = m; });
+    var list = ord.map(function (m) {
+      return { out: m.direction === "out", text: bubbleText(m), at: m.at, chip: chipFor(channel, m, codes[m.id], m === seenMsg), tag: channel === "email" && m.direction === "in" && /^Subject: /.test(m.text || "") ? "Contact form" : "" };
     });
     var lastDay = "";
-    list.forEach(function (m) {
+    list.forEach(function (m, idx) {
       var d = validDate(m.at), key = d ? dayKey(d) : "";
       if (key && key !== lastDay) { lastDay = key; msgs.appendChild(h("div", "ib-day", dayLabel(m.at, now))); }
-      var row = h("div", "ib-msg " + (m.out ? "ib-msg-out" : "ib-msg-in"));
-      var meta = h("span", "ib-meta", d ? clock(d) : "");
+      /* U4: bubbles of one sender within 5 minutes make a group: tight spacing, and the time only under the last of them */
+      var same = grouped(m, list[idx + 1]);
+      var row = h("div", "ib-msg " + (m.out ? "ib-msg-out" : "ib-msg-in") + (same ? " ib-grp" : ""));
+      var meta = h("span", "ib-meta", d && !same ? clock(d) : "");
       if (m.tag) { meta.appendChild(document.createTextNode(" ")); var tag = h("span", "ib-ch"); tag.appendChild(icon(ICON.mail)); tag.appendChild(document.createTextNode(m.tag)); meta.appendChild(tag); }
       if (m.chip) meta.appendChild(h("span", "chip chip-" + m.chip[0] + " ib-mini ib-long", m.chip[1]));
-      add(row, h("p", "ib-bub", m.text), meta);
+      add(row, h("p", "ib-bub", m.text), same && !m.tag && !m.chip ? null : meta);
       msgs.appendChild(row);
     });
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
-    p.appendChild(replyBox(name, !closed, focusBox, windowClosed(channel, t)));
+    p.appendChild(replyBox(name, !closed, focusBox, windowClosed(channel, t), channel === "messenger" ? windowNotice(t, now) : ""));
     if (keep && !keep.bottom) msgs.scrollTop = keep.top; else msgs.scrollTop = msgs.scrollHeight;
     if (keep) {
       var back = null;
@@ -891,7 +1028,7 @@
     var n = h("p", "ib-note" + (info ? " ib-note-info" : "")); n.appendChild(icon(info ? ICON.chat : ICON.warn)); n.appendChild(h("span", "", text));
     return n;
   }
-  function replyBox(name, open, focusBox, windowOff) {
+  function replyBox(name, open, focusBox, windowOff, winNote) {
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc");
@@ -923,12 +1060,19 @@
     ta.setAttribute("maxlength", String(MAX));
     ta.value = draftOf();
     var go = btn(S.notice ? "Try again" : "Send", "primary", function (b) { send(b, ta); });
+    /* U4: Enter sends, Shift+Enter is a new line, never while an IME is composing; on a phone Enter is a new line and Send is the button */
+    ta.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229 || coarse()) return;
+      e.preventDefault();
+      if (!go.disabled) send(go, ta);
+    });
     function sync() {
       S.drafts[S.sel] = ta.value;
       count.textContent = ta.value.length + " / " + MAX;
       go.disabled = !ta.value.trim() || S.sending;
     }
     ta.addEventListener("input", sync);
+    if (winNote) { var wn = h("p", "ib-note ib-note-info ib-wnote"); wn.setAttribute("role", "status"); wn.appendChild(icon(ICON.chat)); wn.appendChild(h("span", "", winNote)); wrap.insertBefore ? wrap.insertBefore(wn, wrap.firstChild) : wrap.appendChild(wn); }
     add(wrap, lab, ta, add(foot, count, go));
     sync();
     if (focusBox) setTimeout(function () { ta.focus(); }, 0);
@@ -940,12 +1084,14 @@
     var b = byId("ib-refresh-btn");
     if (b) b.addEventListener("click", function () { if (S) refreshAll(b); });
     if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
+    if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (document.hidden) badgeStop(); else if (!S) badgeRead(); });
     if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); if (S) streamOpen(); });
   })();
 
   window.NOInbox = { show: show, hide: hide, probe: probe,
     util: { dayKey: dayKey, listTime: listTime, dayLabel: dayLabel, whenText: whenText, initialsOf: initialsOf, ordered: ordered, bubbleText: bubbleText,
       newKey: newKey, failure: failure, channelOf: channelOf, filterItems: filterItems, chipFor: chipFor,
-      failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, windowClosed: windowClosed },
+      failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, windowClosed: windowClosed,
+      grouped: grouped, windowNotice: windowNotice, badgeText: badgeText },
     combo: combo };
 })();

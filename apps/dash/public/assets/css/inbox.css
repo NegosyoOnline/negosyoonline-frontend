@@ -264,6 +264,42 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
   #view-inbox .ib-tools:not(.is-lite) .ib-trow > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
   #view-inbox .ib-tools:not(.is-lite) .ib-rf-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
+/* ---- COMMENTS C3 (ClickUp z8uq9mg9ph): the Conversations | Comments tabs and the comments view. The rows, toolbar, panes and house dropdown
+   are the Inbox's own classes; only what is new is here. Colours are the dash tokens, so light and dark follow the theme. ---- */
+body.dash-app #ib-tabs[hidden], body.dash-app #ib-wrap[hidden], body.dash-app #ib-cwrap[hidden] { display: none !important; }
+#view-inbox .ib-tabs { display: flex; flex: none; gap: 8px; margin: 0 0 12px; }
+#view-inbox .ib-tab { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--card); color: var(--text-2); font: inherit; font-weight: 600; cursor: pointer; }
+#view-inbox .ib-tab:hover { background: var(--ghost-hover); }
+#view-inbox .ib-tab.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-tab:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-tabn { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--link); color: var(--card); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+body.dash-app.ib-fixed #ib-cwrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+body.dash-app.ib-fixed #ib-cwrap > .ib-split { flex: 1 1 0; min-height: 280px; }
+#view-inbox .cm-post { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--meta); font-size: 13px; }
+#view-inbox .cm-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#view-inbox .cm-ad { color: var(--link); border-color: color-mix(in srgb, var(--link) 45%, transparent); flex: none; }
+#view-inbox .cm-postcard { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: 12px; font-size: 14px; color: var(--text-2); }
+#view-inbox .cm-on { flex: none; color: var(--meta); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#view-inbox .cm-pl { min-width: 0; color: var(--link); text-decoration: none; }
+#view-inbox .cm-pl:hover { text-decoration: underline; }
+#view-inbox .cm-pl:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+#view-inbox .cm-rname { margin: 0; color: var(--meta); font-size: 12px; font-weight: 600; }
+#view-inbox .cm-modes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#view-inbox .cm-modes .no-btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+#view-inbox .cm-mode.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .cm-mode.is-off { opacity: .6; }
+#view-inbox .cm-hide { margin-left: auto; }
+#view-inbox .cm-hide:disabled { opacity: .55; cursor: not-allowed; }
+#view-inbox .cm-confirm { margin: 0; flex-direction: column; align-items: flex-start; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-inbox .cm-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#view-inbox .cm-confirm-actions .no-btn { min-height: 38px; padding: 0 14px; font-size: 14px; }
+@media (max-width: 899px) {
+  #view-inbox .ib-tabs { margin-bottom: 10px; }
+  #view-inbox .ib-tab { flex: 1 1 0; padding: 0 10px; }
+  #view-inbox .ib-tabs.is-hide-phone { display: none; }
+  #view-inbox .cm-hide { margin-left: 0; }
+}
+
 @media (max-width: 899px) {
   /* Finding 1: the cards reach the bottom bar. The dash keeps 96 px under every page for the bar; here only the bar itself (4 + 56 + 4 + 1 px, plus the
      home-indicator inset) and a small gap stay free, so the list and the thread fill the screen and the reply box sits at the bottom. */

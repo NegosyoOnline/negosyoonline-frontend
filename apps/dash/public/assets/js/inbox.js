@@ -368,7 +368,7 @@
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], more: false, filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      q: "", qText: "", qTimer: null, status: "", unread: "" };
+      q: "", qText: "", qTimer: null, status: "", unread: "", view: "chats", cm: false, cmCount: 0, cmProbed: false };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -406,6 +406,7 @@
   }
   function hide() {
     streamClose(); pollStop(); token++; tload++; S = null; say("");
+    if (window.NOInboxComments) window.NOInboxComments.stop();
     if (document.body && document.body.classList) document.body.classList.remove("ib-fixed"); if (document.body.classList.remove) document.body.classList.remove("ib-thread");
     var root = byId("ib-root"); if (root) clear(root);
     badgeRead();
@@ -428,6 +429,7 @@
     if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
     withSite(function () {
       streamOpen();
+      commentsProbe();
       D.call("GET", listUrl(), null, true).then(function (res) {
         if (mine !== token || !S || res.status === 401) return;
         if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
@@ -713,9 +715,61 @@
 
   function draw() {
     var root = clear(byId("ib-root"));
+    var tabs = h("div", "ib-tabs"); tabs.setAttribute("id", "ib-tabs"); tabs.setAttribute("role", "tablist"); tabs.setAttribute("aria-label", "Inbox"); tabs.hidden = true;
     var wrap = h("div", "ib-wrap"); wrap.setAttribute("id", "ib-wrap");
-    root.appendChild(wrap);
+    var cwrap = h("div", "ib-wrap"); cwrap.setAttribute("id", "ib-cwrap"); cwrap.hidden = true;
+    add(root, tabs, wrap, cwrap);
     drawBody();
+  }
+
+  /* ---------- the Comments tab (ClickUp z8uq9mg9ph; inbox-comments.js) ----------
+     Shown only when GET .../comments/status/ says comments are open (a 404 means the switch is off). Conversations and Comments are two
+     tabs over two hosts; the comments view lives in #ib-cwrap and is driven by NOInboxComments. */
+  function commentsProbe() {
+    var CM = window.NOInboxComments;
+    if (!CM || S.cmProbed) return;
+    S.cmProbed = true;
+    var st = S;
+    CM.probe(S.site, function (ok, status) {
+      if (S !== st) return;
+      if (!ok) { S.cm = false; drawTabs(); return; }
+      S.cm = true;
+      CM.start(S.site, byId("ib-cwrap"), {
+        onCount: function (n) { if (S === st) { S.cmCount = n; drawTabs(); } },
+        onDetail: function (open) { if (S === st && S.view === "comments") phoneThread(open); },
+        onGone: function () { if (S === st) { CM.stop(); S.cm = false; S.cmCount = 0; if (S.view === "comments") setView("chats"); else drawTabs(); } }
+      }, status);
+      drawTabs();
+    });
+  }
+  function phoneThread(open) {
+    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!open);
+    var tb = byId("ib-tabs"); if (tb) { if (open) tb.classList.add("is-hide-phone"); else tb.classList.remove("is-hide-phone"); }
+  }
+  function setView(v) {
+    var CM = window.NOInboxComments;
+    if (!S || (v === "comments" && !S.cm)) v = "chats";
+    if (S.view === v) return;
+    S.view = v;
+    var w = byId("ib-wrap"), c = byId("ib-cwrap");
+    if (w) w.hidden = v === "comments"; if (c) c.hidden = v !== "comments";
+    if (CM) { if (v === "comments") CM.open(); else CM.close(); }
+    if (v === "comments") say("Comments."); else { phoneThread(!!S.sel); say("Conversations."); }
+    drawTabs();
+  }
+  function drawTabs() {
+    var tabs = byId("ib-tabs"); if (!tabs || !S) return;
+    clear(tabs);
+    tabs.hidden = !S.cm;
+    if (!S.cm) return;
+    [["chats", "Conversations", 0], ["comments", "Comments", S.cmCount || 0]].forEach(function (t) {
+      var on = S.view === t[0], b = h("button", "ib-tab" + (on ? " is-on" : "")); b.setAttribute("type", "button");
+      b.setAttribute("role", "tab"); b.setAttribute("aria-selected", on ? "true" : "false"); b.setAttribute("id", "ib-tab-" + t[0]);
+      b.appendChild(document.createTextNode(t[1]));
+      if (t[2] > 0) { var n = h("span", "ib-tabn", badgeText(t[2])); n.setAttribute("aria-label", t[2] + " unread"); b.appendChild(n); }
+      b.addEventListener("click", function () { setView(t[0]); });
+      tabs.appendChild(b);
+    });
   }
   function singlePane() {
     var f = S.fail;
@@ -967,9 +1021,10 @@
     var body = byId("ib-listbody"), p = byId("ib-listpane");
     if (!body || !S) return;
     fillList(body);
-    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
+    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel && S.view === "chats"); /* phone: the page heading gives its room to the open thread */
     if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
     var th = byId("ib-tools-host"); if (th) { if (S.sel) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
+    var tb = byId("ib-tabs"); if (tb && S.view === "chats") { if (S.sel) tb.classList.add("is-hide-phone"); else tb.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
   }

@@ -1,5 +1,5 @@
 /* Inbox (/inbox/, ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox): one list of the conversations of the owner's stored channels,
-   website chat and email (the contact form), a thread view and a human reply. Built to the approved mockups (b1 to b3 list, c1 to c3
+   website chat, email (the contact form) and Facebook Messenger, a thread view and a human reply. Built to the approved mockups (b1 to b3 list, c1 to c3
    thread, d1 to d7 the stored channels). Reads GET /sites/{id}/inquiries/conversations/ (paged by stored_cursor), GET
    .../conversations/{ref}/ and sends POST .../conversations/{ref}/reply/ {text, idempotency_key}, POST .../close/, .../reopen/ and
    .../read/. A customer's name and message reach the page through textContent only, and nothing is stored in the browser: a draft
@@ -124,17 +124,22 @@
 
   var CHANNEL = {
     webchat: { label: "Website chat", icon: "globe" },
-    email: { label: "Email", icon: "mail" }
+    email: { label: "Email", icon: "mail" },
+    messenger: { label: "Facebook Messenger", icon: "chat" }
   };
-  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"]];
+  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "Facebook Messenger"]];
   /* A conversation's channel: what the API says, else what its ref says; "" when neither names a stored channel. */
   function channelOf(x) {
     var c = x && x.channel;
-    if (c === "webchat" || c === "email") return c;
+    if (c === "webchat" || c === "email" || c === "messenger") return c;
+    if (x && x.provider === "messenger") return "messenger";
     var ref = x && typeof x.ref === "string" ? x.ref : "";
-    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : "";
+    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : ref.indexOf("fm_") === 0 ? "messenger" : "";
   }
-  function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email"; }
+  function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email" || c === "messenger"; }
+  /* A Messenger thread's 24-hour reply window (reply_window.open); only a Messenger thread can have it closed. */
+  var NOTE_WINDOW = "You can reply within 24 hours of the customer's last message.";
+  function windowClosed(channel, t) { return channel === "messenger" && !!t && !!t.reply_window && t.reply_window.open === false; }
   function filterItems(items, filter) {
     return filter && filter !== "all" ? items.filter(function (i) { return channelOf(i) === filter; }) : items;
   }
@@ -143,10 +148,12 @@
     sender_not_ready: "Email replies are not set up for this store.",
     no_recipient: "This conversation has no email address to reply to.",
     email_failed: "The email could not be sent. Please try again shortly.",
-    rate_limited: "Too many emails have been sent from this store. Please wait and try again."
+    rate_limited: "Too many emails have been sent from this store. Please wait and try again.",
+    window_closed: NOTE_WINDOW,
+    token_invalid: "Reconnect your Facebook Page in Settings > Inbox."
   };
   function failTextOf(code) { return Object.prototype.hasOwnProperty.call(FAIL, code) ? FAIL[code] : FAIL.email_failed; }
-  var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server";
+  var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server", CHIP_MSGR = "Sent through Facebook Messenger";
   var NOTE_NO_EMAIL = "No email address was given. Your reply shows in the chat only while the visitor's browser keeps it.";
   var NOTE_UNVERIFIED = "This address was typed into your contact form and has not been confirmed.";
   var BANNER_LIMIT = ["Today's chat limit was reached.", " Visitors see that chat is not available. Website chat opens again tomorrow."];
@@ -155,7 +162,7 @@
     if (!m || m.direction !== "out") return null;
     if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code)];
     if (m.delivery_state !== "sent") return null;
-    return channel === "email" ? ["ok", CHIP_MAIL] : ["info", CHIP_CHAT];
+    return channel === "email" ? ["ok", CHIP_MAIL] : channel === "messenger" ? ["ok", CHIP_MSGR] : ["info", CHIP_CHAT];
   }
   /* The thread's messages do not carry the failure code; the replies list does (newest first). The failed owner messages, newest
      first, are matched to the failed replies in the same order. A message with no match gets the generic email_failed text. */
@@ -420,9 +427,10 @@
           S.items.forEach(function (i) { if (i.ref === ref) i.status = "closed"; });
           S.notice = null; drawList(); drawThread(); return;
         }
+        var bad = codeOf(res);
         S.notice = res.status === 0
           ? "We could not confirm it was sent. Press Try again: it will not be sent twice."
-          : msgOf(res, "The reply could not be sent.");
+          : bad === "window_closed" || bad === "token_invalid" ? failTextOf(bad) : msgOf(res, "The reply could not be sent.");
         drawThread(true); return;
       }
       S.key = null;
@@ -677,7 +685,7 @@
     });
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
-    p.appendChild(replyBox(name, !closed, focusBox));
+    p.appendChild(replyBox(name, !closed, focusBox, windowClosed(channel, t)));
     msgs.scrollTop = msgs.scrollHeight;
   }
   /* The note under a stored thread's head: no email given (chat), or the contact-form address nobody confirmed (email). A note only (P1). */
@@ -690,12 +698,21 @@
     var n = h("p", "ib-note" + (info ? " ib-note-info" : "")); n.appendChild(icon(info ? ICON.chat : ICON.warn)); n.appendChild(h("span", "", text));
     return n;
   }
-  function replyBox(name, open, focusBox) {
+  function replyBox(name, open, focusBox, windowOff) {
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc");
     var count = h("span", "ib-count", "0 / " + MAX); count.setAttribute("id", "ib-rc");
     var foot = h("div", "ib-rfoot");
+    if (open && windowOff) {
+      /* Messenger: the 24-hour window is over. The box is off and the reason is said (the account's plain rule, not an error). */
+      ta.disabled = true; ta.setAttribute("aria-describedby", "ib-rn");
+      var win = h("p", "ib-closed-t", NOTE_WINDOW); win.setAttribute("id", "ib-rn");
+      var sendOff1 = btn("Send", "primary"); sendOff1.disabled = true; sendOff1.setAttribute("aria-disabled", "true");
+      add(wrap, lab, ta, win, add(foot, count, sendOff1));
+      wrap.classList.add("is-closed");
+      return wrap;
+    }
     if (!open) {
       /* d4: a closed conversation. The box is off and the reason is said. */
       ta.disabled = true; ta.setAttribute("aria-describedby", "ib-rn");
@@ -734,6 +751,6 @@
   window.NOInbox = { show: show, hide: hide, probe: probe,
     util: { dayKey: dayKey, listTime: listTime, dayLabel: dayLabel, whenText: whenText, initialsOf: initialsOf, ordered: ordered, bubbleText: bubbleText,
       newKey: newKey, failure: failure, channelOf: channelOf, filterItems: filterItems, chipFor: chipFor,
-      failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner },
+      failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, windowClosed: windowClosed },
     combo: combo };
 })();

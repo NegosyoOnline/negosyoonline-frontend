@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
     request, site, host: requestHost(request), env: storefrontEnv(), events: ["PageView", "ViewContent"], pack,
   });
   if (meta.send) await afterResponse(meta.send);
-  return htmlResponse(landingDocument({ ...packContext(site, pack), tracking: meta.markup }));
+  return meta.finish(htmlResponse(landingDocument({ ...packContext(site, pack), tracking: meta.markup })));
 }
 
 export {

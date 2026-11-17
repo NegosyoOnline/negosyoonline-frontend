@@ -6,10 +6,11 @@
       it. Accept or Decline writes the one first-party choice cookie and loads the
       page again (without ?cookie-settings=1, the footer link that reopens this notice, so a choice made there takes
       effect on a clean page: after Decline nothing more goes to Meta). Nothing of Meta's loads before Accept.
-   2. After Accept the page carries the JSON data block #no-meta ({pixel_id, checkout, page_view, events:[{name,id,data}]}).
-      This file loads Meta's fbevents.js, initialises the Pixel, tracks PageView when page_view is true (browser only: no
-      eventID, the server sends none; as TWCinc's eco funnel twc_facebook.js loadEcoPixel does) and tracks each listed
-      event with its eventID, the same id the server sent to Django, so Meta pairs the browser and the server event.
+   2. After Accept the page carries the JSON data block #no-meta ({pixel_id, checkout, events:[{name,id,data}]}).
+      This file loads Meta's fbevents.js, turns Meta's automatic configuration off (autoConfig, on every Pixel page),
+      initialises the Pixel and tracks each listed event (PageView, ViewContent, InitiateCheckout, Purchase) with its
+      eventID, the same id the server sent to Django, so Meta pairs the browser and the server event. PageView is
+      deduplicated like the rest (Coach Ed, 2026-11-17; it was browser-only from 2026-11-15).
       Purchase appears only on the onboarding verify page, once per order, when Django said it was the first time
       (src/lib/meta.ts onboardingPurchase). */
 (function () {
@@ -99,16 +100,16 @@
   loader.src = "https://connect.facebook.net/en_US/fbevents.js";
   document.head.appendChild(loader);
 
-  /* On the checkout page Meta's automatic form reading stays off, so the typed email and mobile are never scraped. */
-  if (data.checkout === true) fbq("set", "autoConfig", false, data.pixel_id);
+  /* Meta's automatic configuration (button clicks, microdata, form reading) is off on every Pixel page: on the checkout
+     page it keeps the typed email and mobile from being scraped, and elsewhere it keeps the events we send the only ones. */
+  fbq("set", "autoConfig", false, data.pixel_id);
   fbq("init", data.pixel_id);
-  if (data.page_view === true) fbq("track", "PageView");
 
   var events = data.events instanceof Array ? data.events : [];
   for (var j = 0; j < events.length; j++) {
     var item = events[j];
     if (!item || typeof item.name !== "string" || typeof item.id !== "string") continue;
-    if (item.name !== "ViewContent" && item.name !== "InitiateCheckout" && item.name !== "Purchase") continue;
+    if (item.name !== "PageView" && item.name !== "ViewContent" && item.name !== "InitiateCheckout" && item.name !== "Purchase") continue;
     fbq("track", item.name, item.data && typeof item.data === "object" ? item.data : {}, { eventID: item.id });
   }
 })();

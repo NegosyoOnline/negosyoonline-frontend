@@ -49,7 +49,7 @@ function list(over = {}) {
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
 function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "" } = {}) {
-  const doc = makeDocument(), calls = [], toasts = [];
+  const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
@@ -88,7 +88,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     if (a.status === 0) return Promise.reject(new Error("offline"));
     return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
   };
-  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800 };
+  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800, history: { replaceState(_a, _b, url) { replaced.push(url); } } };
   const storage = { getItem: () => null, removeItem() {}, setItem() {} };
   const location = { search: locSearch || search, pathname: "/inbox/", replace() {}, assign() {}, href: "" };
   const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Uint8Array, Date,
@@ -103,7 +103,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const buttons = (n) => n.all((x) => x.tagName === "BUTTON");
   const press = (n, label) => buttons(n).find((b) => b.textContent === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, $, all, buttons, press, links, nav, window, page, refresh,
+  return { doc, calls, toasts, s, where, replaced, $, all, buttons, press, links, nav, window, page, refresh,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -774,7 +774,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261117fm1/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261117fm1/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
   assert.match(HTML, /inbox\.css\?v=20261117pc1/);
   assert.match(HTML, /Facebook Messenger, website chat and email/);
 });
@@ -936,4 +936,18 @@ test("inbox: window_closed and token_invalid outcomes use the reply error UI", a
 
 test("inbox eyebrow names Messenger", () => {
   assert.ok(HTML.includes('<p class="dash-eyebrow">Facebook Messenger, website chat and email</p>'));
+});
+
+test("messenger return params are removed from the address once read, keeping the path and site", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_UNSET, locSearch: "?site=" + A + "&messenger=error&code=cancelled" });
+  await d.openSettings();
+  assert.deepEqual(d.replaced, ["/inbox/?site=" + A]);
+  assert.match(d.text("ibs-m-err"), /cancelled/);
+  const p = boot({ channels: CH_OFF, messenger: { ...M_UNSET, pick_pending: true }, pages: PAGES, locSearch: "?messenger=pick" });
+  await p.openSettings();
+  assert.deepEqual(p.replaced, ["/inbox/"]);
+  assert.ok(p.$("ibs-m-page-sel"));
+  const n = boot({ channels: CH_OFF, messenger: M_UNSET });
+  await n.openSettings();
+  assert.deepEqual(n.replaced, []);
 });

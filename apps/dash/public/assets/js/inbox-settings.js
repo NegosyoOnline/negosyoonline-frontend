@@ -25,6 +25,16 @@
     pick_expired: "The Page list expired. Please press Connect Facebook Page to start again."
   };
   function msgErrText(code) { return Object.prototype.hasOwnProperty.call(MSG_ERR, code) ? MSG_ERR[code] : "We could not connect your Facebook Page. Please try again."; }
+  /* Drop messenger and code from the address once read, keeping the path and the other parameters (site=), so a reload does not repeat it. */
+  function cleanAddress() {
+    try {
+      var q = new URLSearchParams(location.search);
+      if (!q.has("messenger") && !q.has("code")) return;
+      q.delete("messenger"); q.delete("code");
+      var rest = q.toString();
+      window.history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + (location.hash || ""));
+    } catch (e) { /* the address stays; harmless */ }
+  }
   /* The return of the callback, read from the address: {pick: bool, error: code|""}. */
   function returnOf(search) {
     var q = new URLSearchParams(search || ""), m = q.get("messenger");
@@ -83,6 +93,7 @@
 
   function show() {
     var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "" };
+    cleanAddress();
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "pm-meta", "Loading your inbox settings…"));
     D.call("GET", "/sites/", null, true).then(function (res) {

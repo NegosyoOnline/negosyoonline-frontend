@@ -338,8 +338,9 @@
   }
   function howCard() {
     var s = card("how", "How the inbox works"), ul = h("ul", "mk-list");
-    ["The inbox shows your website chat and email conversations in one list.",
+    ["The inbox shows your Facebook Messenger, website chat and email conversations in one list.",
       "Press Refresh to see new messages.",
+      "You can reply to a Facebook Messenger conversation within 24 hours of the customer's last message.",
       "Answer a website chat or an email from the conversation. A closed conversation can be reopened."].forEach(function (t) { ul.appendChild(h("li", "", t)); });
     return add(s, ul);
   }

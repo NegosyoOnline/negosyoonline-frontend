@@ -613,7 +613,7 @@
   function fillList(body) {
     clear(body);
     if (S.state === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Loading your conversations…")); return; }
-    if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again.")); return; }
+    if (S.state === "empty") { body.appendChild(stateBox(ICON.chat, "No messages yet", "When a customer messages your Facebook Page, writes in your website chat or sends your contact form, the conversation will show up here. Press Refresh to check again.")); return; }
     if (S.state === "failed") {
       body.appendChild(stateBox(ICON.warn, "We couldn't load your conversations",
         "Your messages are safe. The inbox did not answer just now. Wait a moment, then press Refresh.",

@@ -1809,3 +1809,21 @@ test("the toolbar CSS: Products-style row; phone: search on its own line, then t
   assert.match(css, /\.ib-qs:focus-within \{[^}]*border-color: var\(--link/, "light-blue focus");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
 });
+
+test("Fix round F1: on a desktop the Inbox reserves the row of the dash top-bar buttons (no page header any more)", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(css, /@media \(min-width: 900px\) \{ body\.dash-app\.ib-fixed #view-inbox:not\(\[hidden\]\) \{ padding-top: 60px; \} \}/);
+  /* the floating buttons: 44 px tall, 32 px from the top of the column; 60 px = 44 + 16 gap */
+  assert.match(dash, /body\.dash-app \.notif-col:not\(\[hidden\]\) \{[^}]*position: absolute; top: 32px/);
+  assert.match(dash, /body\.dash-app \.notif-btn \{[^}]*height: 44px/);
+});
+
+test("Fix round F2: on a phone the Inbox drops the 84 px #main bottom padding, for the Inbox only", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const phone = css.slice(css.lastIndexOf("@media (max-width: 899px) {"));
+  assert.match(phone, /body\.dash-app\.ib-fixed \.col-main \{ padding-bottom: 0; \}/);
+  assert.doesNotMatch(css.replace(phone, ""), /\.col-main \{ padding-bottom/, "nothing outside the phone block / ib-fixed");
+  const pack = fs.readFileSync(path.join(JS, "..", "css", "pack-orders.css"), "utf8");
+  assert.match(pack, /body\.dash-app \.col-main\{padding-bottom:84px\}/, "other views keep their spacing");
+});

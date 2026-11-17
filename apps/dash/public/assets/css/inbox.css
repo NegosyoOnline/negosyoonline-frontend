@@ -187,6 +187,8 @@ body.dash-app.ib-fixed .app { height: 100vh; height: 100dvh; min-height: 0; over
 body.dash-app.ib-fixed .col { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 body.dash-app.ib-fixed .col-main { flex: 1 1 0; min-height: 0; }
 body.dash-app.ib-fixed #view-inbox:not([hidden]) { flex: 1 1 0; min-height: 0; }
+/* F1: on a desktop the dash top-bar buttons (quick-links search, theme, bell: .desk-switch / .notif-col, 44 px tall, absolute at 32 px from the top of the column) float over the content. With no page header the Inbox would start under them, so it reserves that row (44 px + 16 px gap) like the other views do with their header. */
+@media (min-width: 900px) { body.dash-app.ib-fixed #view-inbox:not([hidden]) { padding-top: 60px; } }
 body.dash-app.ib-fixed #ib-root { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .ib-pane { flex: 1 1 0; min-height: 280px; }
@@ -251,6 +253,8 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
   /* Finding 1: the cards reach the bottom bar. The dash keeps 96 px under every page for the bar; here only the bar itself (4 + 56 + 4 + 1 px, plus the
      home-indicator inset) and a small gap stay free, so the list and the thread fill the screen and the reply box sits at the bottom. */
   body.dash-app.ib-fixed .col { padding-bottom: calc(65px + 12px + env(safe-area-inset-bottom)); }
+  /* F2: #main (.col-main) keeps its own 84 px bottom padding on phones (pack-orders.css); the Inbox gives it up, so the cards end 12 px above the bar */
+  body.dash-app.ib-fixed .col-main { padding-bottom: 0; }
   #view-inbox .ib-thead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "back back act" "av name name"; align-items: center; padding: 4px 12px 10px; gap: 2px 10px; }
   #view-inbox .ib-back { grid-area: back; justify-self: start; min-height: 40px; }
   #view-inbox .ib-thead .ib-open { grid-area: act; min-height: 36px; padding: 0 12px; margin: 0; }

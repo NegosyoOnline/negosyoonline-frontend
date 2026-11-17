@@ -48,7 +48,7 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "" } = {}) {
+function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "", clock = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
@@ -85,14 +85,22 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?stored_cursor=[^/]+)?$/.test(p) && opts.method === "GET") a = s.listAnswer || { status: 200, body: s.listing };
     else if (/\/reply\/$/.test(p) && opts.method === "POST") a = s.replyAnswer || { status: 200, body: s.reply };
     else if (/\/conversations\/[^/]+\/$/.test(p) && opts.method === "GET") a = s.threadAnswer || { status: 200, body: s.reading };
-    if (a.status === 0) return Promise.reject(new Error("offline"));
-    return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
+    const out = () => {
+      if (a.status === 0) return Promise.reject(new Error("offline"));
+      return Promise.resolve({ ok: a.status >= 200 && a.status < 300, status: a.status, json: () => Promise.resolve(a.body) });
+    };
+    /* s.hold = { re, promise }: the first GET matching `re` answers only when `promise` is done (a slow API). */
+    if (s.hold && !s.hold.used && opts.method === "GET" && s.hold.re.test(p)) { s.hold.used = true; return s.hold.promise.then(out); }
+    return out();
   };
-  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener() {}, removeEventListener() {}, innerHeight: 800, history: { replaceState(_a, _b, url) { replaced.push(url); } } };
+  const winListeners = {};
+  /* The page now polls (z8uq9mg799). Without a fake `clock` a timer of 5 s or more never fires, so the older tests see no background read. */
+  const inert = (fn, ms) => (ms >= 5000 ? 0 : setTimeout(fn, ms)), inertClear = (t) => { if (t) clearTimeout(t); };
+  const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener(t, f) { (winListeners[t] = winListeners[t] || []).push(f); }, removeEventListener() {}, innerHeight: 800, history: { replaceState(_a, _b, url) { replaced.push(url); } } };
   const storage = { getItem: () => null, removeItem() {}, setItem() {} };
   const location = { search: locSearch || search, pathname: "/inbox/", replace() {}, assign() {}, href: "" };
-  const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Uint8Array, Date,
-    localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
+  const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, Intl, Uint8Array, Date,
+    setTimeout: clock ? clock.setTimeout : inert, clearTimeout: clock ? clock.clearTimeout : inertClear, localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
@@ -103,7 +111,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const buttons = (n) => n.all((x) => x.tagName === "BUTTON");
   const press = (n, label) => buttons(n).find((b) => b.textContent === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, replaced, $, all, buttons, press, links, nav, window, page, refresh,
+  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, window, page, refresh,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -953,4 +961,234 @@ test("messenger return params are removed from the address once read, keeping th
   const n = boot({ channels: CH_OFF, messenger: M_UNSET });
   await n.openSettings();
   assert.deepEqual(n.replaced, []);
+});
+
+/* ---------- auto-refresh by polling (z8uq9mg799) ---------- */
+
+/* A fake clock: timers fire only when advance() moves it, and the stand-in API answers between steps. */
+function makeClock() {
+  let now = 0, seq = 0, timers = [];
+  const c = {
+    setTimeout(fn, ms) { const id = ++seq; timers.push({ id, at: now + (ms || 0), fn }); return id; },
+    clearTimeout(id) { timers = timers.filter((t) => t.id !== id); },
+    pending: () => timers.length,
+    async advance(ms) {
+      const end = now + ms;
+      for (;;) {
+        const next = timers.filter((t) => t.at <= end).sort((x, y) => x.at - y.at || x.id - y.id)[0];
+        if (!next) break;
+        timers = timers.filter((t) => t !== next); now = next.at; next.fn(); await settle();
+      }
+      now = end; await settle();
+    }
+  };
+  return c;
+}
+const THREAD_PATH = BASE + "conversations/" + REF + "/", LIST_PATH = BASE + "conversations/";
+const gets = (d, p) => d.calls.filter((c) => c.method === "GET" && c.path === p).length;
+/* Give every stand-in node the scroll numbers a browser has (a 300 px box over 1000 px of messages). */
+function scrollable(d) {
+  const make = d.doc.createElement;
+  d.doc.createElement = (tag) => { const n = make(tag); n.scrollHeight = 1000; n.clientHeight = 300; n.scrollTop = 0; return n; };
+}
+async function polling(opts = {}) {
+  const clock = makeClock(), d = boot({ clock, ...opts });
+  scrollable(d);
+  await d.openInbox();
+  return { d, clock };
+}
+async function openFirst(d) { await d.click(d.all(d.$("ib-list"), "ib-item")[0]); }
+const more = (extra) => thread({ messages: [...thread().messages, { id: "m9", direction: "in", sender_kind: "customer", text: "Meron pa po?", attachments: [], at: iso(0), delivery_state: "", ...extra }] });
+
+test("poll: the open conversation is read every 5 s and the list every 15 s", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  const t0 = gets(d, THREAD_PATH), l0 = gets(d, LIST_PATH);
+  await clock.advance(4999);
+  assert.equal(gets(d, THREAD_PATH), t0, "not before 5 s");
+  await clock.advance(1);
+  assert.equal(gets(d, THREAD_PATH), t0 + 1);
+  assert.equal(gets(d, LIST_PATH), l0);
+  await clock.advance(10000);
+  assert.equal(gets(d, THREAD_PATH), t0 + 3, "5, 10, 15 s");
+  assert.equal(gets(d, LIST_PATH), l0 + 1, "the list at 15 s");
+  await clock.advance(15000);
+  assert.equal(gets(d, LIST_PATH), l0 + 2);
+  assert.ok(d.text("ib-upd").startsWith("Updated today, "));
+  assert.deepEqual(d.toasts, []);
+});
+
+test("poll: no conversation open means only the list is read", async () => {
+  const { d, clock } = await polling();
+  const t = d.calls.length;
+  await clock.advance(15000);
+  assert.deepEqual(d.calls.slice(t).map((c) => c.method + " " + c.path), ["GET " + LIST_PATH]);
+});
+
+test("poll: a hidden tab reads nothing; coming back (visibilitychange or focus) reads at once, then the timers run again", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  d.doc.hidden = true; d.doc.fire("visibilitychange");
+  const n = d.calls.length;
+  await clock.advance(120000);
+  assert.equal(d.calls.length, n, "nothing while hidden");
+  assert.equal(clock.pending(), 0, "no timer left running while hidden");
+  d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  assert.deepEqual(d.calls.slice(n).map((c) => c.method + " " + c.path).sort(), ["GET " + LIST_PATH, "GET " + THREAD_PATH].sort(), "one read of each at once");
+  const t = gets(d, THREAD_PATH);
+  await clock.advance(5000);
+  assert.equal(gets(d, THREAD_PATH), t + 1, "the 5 s timer runs again");
+  /* window focus does the same */
+  d.doc.hidden = true; d.doc.fire("visibilitychange"); await clock.advance(30000);
+  d.doc.hidden = false; const m = d.calls.length;
+  d.winListeners.focus.forEach((f) => f()); await settle();
+  assert.ok(d.calls.length > m, "focus reads at once");
+  assert.deepEqual(d.toasts, []);
+});
+
+test("poll: a new message shows without Refresh, and the typed draft, the box and the focus stay", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  const ta = d.$("ib-rb"); ta.value = "Opo, meron po"; ta.fire("input"); ta.focus();
+  d.s.reading = more();
+  const before = d.all(d.$("ib-threadpane"), "ib-msg").length;
+  await clock.advance(5000);
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-msg").length, before + 1, "the new bubble is there");
+  assert.ok(d.$("ib-threadpane").textContent.includes("Meron pa po?"));
+  const now = d.$("ib-rb");
+  assert.equal(now.value, "Opo, meron po", "the draft is kept");
+  assert.equal(d.doc.activeElement, now, "the focus stays in the reply box");
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-count")[0].textContent, "13 / 2000");
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-loading").length, 0, "no loading state");
+  assert.deepEqual(d.toasts, []);
+  /* nothing changed: nothing is drawn again */
+  const pane = d.all(d.$("ib-threadpane"), "ib-msgs")[0];
+  await clock.advance(5000);
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-msgs")[0], pane);
+});
+
+test("poll: a thread scrolled up stays where it was; a thread at the bottom follows the new message", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  let msgs = d.all(d.$("ib-threadpane"), "ib-msgs")[0];
+  msgs.scrollTop = 120; /* 1000 - 120 - 300 is far from the bottom */
+  d.s.reading = more();
+  await clock.advance(5000);
+  msgs = d.all(d.$("ib-threadpane"), "ib-msgs")[0];
+  assert.equal(msgs.scrollTop, 120, "the user's place is kept");
+  msgs.scrollTop = 700; /* the bottom */
+  d.s.reading = more({ id: "m10", text: "Hello?" });
+  await clock.advance(5000);
+  msgs = d.all(d.$("ib-threadpane"), "ib-msgs")[0];
+  assert.equal(msgs.scrollTop, 1000, "at the bottom, it stays at the bottom");
+});
+
+test("poll: the selected conversation, the Show more pages and the open thread survive a list read", async () => {
+  const { d, clock } = await polling({ listing: list({ stored_next_cursor: "30" }) });
+  d.s.listing = { items: [{ ref: "wc_dddddddddddddddddddddddd", display_name: "Liza R.", snippet: "Thanks", updated_at: iso(90), channel: "webchat", source: "stored", status: "open", unread: false }], stored_next_cursor: null };
+  await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 3);
+  await openFirst(d);
+  d.s.listing = list({ stored_next_cursor: "30" });
+  d.s.listing.items.unshift({ ref: EM, display_name: "Pat Reyes", snippet: "Order?", updated_at: iso(1), channel: "email", source: "stored", status: "open", unread: false });
+  const n = d.calls.length;
+  await clock.advance(15000);
+  assert.ok(d.calls.slice(n).some((c) => c.path === LIST_PATH), "the list was read again");
+  assert.ok(!d.calls.slice(n).some((c) => c.path.includes("stored_cursor")), "the first page only");
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.equal(rows.length, 4, "the new one, the first page and the loaded page");
+  assert.equal(d.all(rows[0], "ib-name")[0].textContent, "Pat Reyes");
+  assert.equal(d.press(d.$("ib-listbody"), "Show more conversations"), undefined, "the loaded pages ended the cursor, and it stays ended");
+  assert.equal(d.all(d.$("ib-list"), "is-sel").length, 1, "the selection stays");
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-msg").length, 3, "the open thread is still there");
+  assert.equal(d.all(d.$("ib-listbody"), "ib-loading").length, 0);
+  assert.deepEqual(d.toasts, []);
+});
+
+test("poll: an error is silent and backs off 5, 10, 20, 40, 60, 60 s, and one success resets it", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  d.s.threadAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
+  const base = gets(d, THREAD_PATH);
+  let at = 0;
+  for (const [i, wait] of [5, 10, 20, 40, 60, 60].entries()) {
+    await clock.advance(wait * 1000 - 1 - (i === 0 ? 0 : 0));
+    at += wait * 1000;
+    assert.equal(gets(d, THREAD_PATH), base + i, "not before " + wait + " s (read " + i + ")");
+    await clock.advance(1);
+    assert.equal(gets(d, THREAD_PATH), base + i + 1, "read " + (i + 1) + " at " + at / 1000 + " s");
+  }
+  assert.deepEqual(d.toasts, [], "no toast");
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-err").length, 0, "no error banner");
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-msg").length, 3, "the thread is still shown");
+  d.s.threadAnswer = null;
+  await clock.advance(60000);
+  const after = gets(d, THREAD_PATH);
+  assert.equal(after, base + 7, "one success");
+  await clock.advance(5000);
+  assert.equal(gets(d, THREAD_PATH), after + 1, "back to every 5 s");
+});
+
+test("poll: a list error is silent, keeps the list, and backs off 15, 30, 60 s", async () => {
+  const { d, clock } = await polling();
+  d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
+  const base = gets(d, LIST_PATH);
+  await clock.advance(15000); assert.equal(gets(d, LIST_PATH), base + 1);
+  await clock.advance(29999); assert.equal(gets(d, LIST_PATH), base + 1);
+  await clock.advance(1); assert.equal(gets(d, LIST_PATH), base + 2);
+  await clock.advance(59999); assert.equal(gets(d, LIST_PATH), base + 2);
+  await clock.advance(1); assert.equal(gets(d, LIST_PATH), base + 3);
+  await clock.advance(60000); assert.equal(gets(d, LIST_PATH), base + 4, "60 s at most");
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2);
+  assert.ok(!d.$("ib-listbody").textContent.includes("couldn't load"));
+  assert.deepEqual(d.toasts, []);
+  /* the manual Refresh still shows the error */
+  await d.click(d.$("ib-refresh-btn"));
+  assert.ok(d.$("ib-listbody").textContent.includes("We couldn't load your conversations"));
+});
+
+test("poll: a read still running blocks the next one of its kind, however often the tab comes back", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  let release; d.s.hold = { re: /conversations\/wc_a+\/$/, promise: new Promise((r) => { release = r; }) };
+  const t = gets(d, THREAD_PATH);
+  await clock.advance(5000);
+  assert.equal(gets(d, THREAD_PATH), t + 1);
+  await clock.advance(60000);
+  d.doc.fire("visibilitychange"); d.winListeners.focus.forEach((f) => f()); await settle();
+  assert.equal(gets(d, THREAD_PATH), t + 1, "still one, nothing overlaps");
+  release(); await settle();
+  await clock.advance(5000);
+  assert.equal(gets(d, THREAD_PATH), t + 2, "the next one starts after the first ended");
+});
+
+test("poll: an answer for a conversation the user has left is ignored", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  d.s.reading = thread({ messages: [{ id: "x1", direction: "in", sender_kind: "customer", text: "STALE reply", attachments: [], at: iso(0), delivery_state: "" }] });
+  let release; d.s.hold = { re: /conversations\/wc_a+\/$/, promise: new Promise((r) => { release = r; }) };
+  await clock.advance(5000); /* the read of Maria's thread is held */
+  d.s.reading = thread({ ref: REF2, display_name: "Jun Dela Cruz", messages: [{ id: "j1", direction: "in", sender_kind: "customer", text: "Magkano po?", attachments: [], at: iso(1), delivery_state: "" }] });
+  await d.click(d.all(d.$("ib-list"), "ib-item")[1]);
+  assert.ok(d.$("ib-threadpane").textContent.includes("Magkano po?"));
+  release(); await settle();
+  assert.ok(!d.$("ib-threadpane").textContent.includes("STALE reply"), "the late answer is dropped");
+  assert.ok(d.$("ib-threadpane").textContent.includes("Magkano po?"));
+});
+
+test("poll: leaving the Inbox view stops it, and a read in flight is dropped", async () => {
+  const { d, clock } = await polling();
+  await openFirst(d);
+  let release; d.s.hold = { re: /conversations\/wc_a+\/$/, promise: new Promise((r) => { release = r; }) };
+  await clock.advance(5000);
+  d.window.NOInbox.hide();
+  assert.equal(clock.pending(), 0, "every timer is cleared");
+  release(); await settle();
+  const n = d.calls.length;
+  await clock.advance(300000);
+  assert.equal(d.calls.length, n, "no request after leaving");
+  d.doc.fire("visibilitychange"); d.winListeners.focus.forEach((f) => f()); await settle();
+  assert.equal(d.calls.length, n, "coming back to the tab does nothing while the view is closed");
+  await d.openInbox();
+  assert.ok(clock.pending() > 0, "opening the view again starts the timers");
 });

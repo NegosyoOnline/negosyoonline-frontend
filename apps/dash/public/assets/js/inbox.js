@@ -323,9 +323,10 @@
     S = fresh(); token++; tload++;
     draw();
     load(false);
+    pollStart();
   }
   function hide() {
-    token++; tload++; S = null; say("");
+    pollStop(); token++; tload++; S = null; say("");
     var root = byId("ib-root"); if (root) clear(root);
   }
 
@@ -341,6 +342,7 @@
         S.items = Array.isArray(res.data.items) ? res.data.items : [];
         S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
         S.state = S.items.length ? "ready" : "empty"; S.fail = null; S.updated = new Date();
+        S.extra = false; S.lsig = sigOf([S.items, S.stNext]);
         reveal(true);
         redraw();
         say(S.items.length ? "Conversations loaded." : "No conversations yet.");
@@ -368,6 +370,7 @@
       (Array.isArray(res.data.items) ? res.data.items : []).forEach(function (i) { if (!seen[i.ref]) S.items.push(i); });
       S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
       S.items.sort(function (a, b) { var x = validDate(a.updated_at), y = validDate(b.updated_at); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
+      S.extra = true; S.lsig = "";
       drawList();
     });
   }
@@ -395,10 +398,118 @@
         if (silent && S.thread) { D.toast("That did not work", msgOf(res, "We could not refresh this conversation."), "error"); return; }
         S.tstate = "failed"; S.tfail = failure(res); drawThread(); return;
       }
-      S.thread = res.data; S.tstate = "ready"; S.tfail = null;
+      S.thread = res.data; S.tstate = "ready"; S.tfail = null; S.tsig = sigOf(res.data);
       drawThread();
     });
   }
+
+  /* ---------- auto-refresh (ClickUp z8uq9mg799) ----------
+     While the Inbox view is shown and the tab is visible, the open conversation is read again every 5 s and the list every 15 s, so a
+     customer's new message shows without pressing Refresh. Plain polling: one timer per kind (P.thread, P.list), armed only after the
+     last request of that kind has ended, so two never overlap. Hidden tab or leaving the view stops both; coming back (visibilitychange,
+     window focus) reads at once and starts them again. An error doubles the wait (5, 10, 20, 40, 60 s at most; the list 15, 30, 60) and a
+     success resets it. A background read is silent: no loading state, no error banner, no toast. It redraws only when the data changed,
+     and then keeps the reply box's text, the focus, the thread's scroll (the bottom only if it was at the bottom) and the list's scroll.
+     The selection, the Channel filter and the pages of "Show more" are never reset (the list read merges the first page into them). */
+  var EVERY = { thread: 5000, list: 15000 }, CAP = 60000;
+  var P = { epoch: 0, thread: { t: null, fails: 0, busy: false }, list: { t: null, fails: 0, busy: false } };
+  function sigOf(x) { try { return JSON.stringify(x); } catch (e) { return ""; } }
+  function pollOn() { return !!S && !document.hidden; }
+  function pollClear(kind) { var p = P[kind]; if (p.t !== null) { clearTimeout(p.t); p.t = null; } }
+  function pollArm(kind) {
+    var p = P[kind]; pollClear(kind);
+    if (!pollOn()) return;
+    var wait = Math.min(CAP, EVERY[kind] * Math.pow(2, p.fails));
+    p.t = setTimeout(function () { p.t = null; pollRun(kind); }, wait);
+  }
+  function pollStart() { P.epoch++; ["thread", "list"].forEach(function (k) { pollClear(k); P[k].fails = 0; P[k].busy = false; pollArm(k); }); }
+  function pollStop() { P.epoch++; ["thread", "list"].forEach(function (k) { pollClear(k); P[k].busy = false; }); }
+  /* Read at once (the tab came back); a request already running will arm the next one itself. */
+  function pollKick() {
+    if (!pollOn()) return;
+    ["thread", "list"].forEach(function (k) { pollClear(k); P[k].fails = 0; pollRun(k); });
+  }
+  function pollRun(kind) {
+    var p = P[kind];
+    if (!pollOn()) return;
+    if (p.busy) return;
+    var epoch = P.epoch, started = false;
+    function done(result) {
+      if (epoch !== P.epoch) return; /* the view was left or opened again meanwhile */
+      p.busy = false;
+      if (result === "ok") p.fails = 0; else if (result === "fail") p.fails++;
+      pollArm(kind);
+    }
+    p.busy = true;
+    started = kind === "thread" ? pollThread(done) : pollList(done);
+    if (started === false) done("skip");
+  }
+  function pollTouched() { S.updated = new Date(); drawUpdated(); }
+  /* The open conversation. Returns false when there is nothing to read. */
+  function pollThread(done) {
+    if (!S.sel || S.tstate !== "ready" || !S.thread || S.sending) return false;
+    var st = S, ref = S.sel, seq = tload;
+    D.call("GET", base() + "conversations/" + encodeURIComponent(ref) + "/", null, true).then(function (res) {
+      if (S !== st || seq !== tload || S.sel !== ref || res.status === 401) { done("skip"); return; }
+      if (!res.ok) { done("fail"); return; }
+      var sig = sigOf(res.data);
+      if (sig !== S.tsig) {
+        S.thread = res.data; S.tfail = null; S.tsig = sig;
+        drawThread(false, true);
+      }
+      pollTouched();
+      done("ok");
+    });
+    return true;
+  }
+  /* The list. A first page that comes back replaces the first page only when no "Show more" page is loaded; otherwise it is merged in. */
+  function pollList(done) {
+    if (S.state !== "ready" && S.state !== "empty") return false;
+    var st = S, mine = token;
+    D.call("GET", base() + "conversations/", null, true).then(function (res) {
+      if (S !== st || mine !== token || res.status === 401) { done("skip"); return; }
+      if (!res.ok) { done("fail"); return; }
+      var items = Array.isArray(res.data.items) ? res.data.items : [];
+      var next = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
+      if (S.extra) {
+        var seen = {}; items.forEach(function (i) { seen[i.ref] = true; });
+        S.items.forEach(function (i) { if (!seen[i.ref]) items.push(i); });
+        items.sort(function (a, b) { var x = validDate(a.updated_at), y = validDate(b.updated_at); return (y ? y.getTime() : 0) - (x ? x.getTime() : 0); });
+        next = S.stNext;
+      }
+      var sig = sigOf([items, next]);
+      if (sig !== S.lsig) {
+        var keep = listKeep();
+        if (keep === null) { done("skip"); return; } /* the Channel filter is in use: apply it on the next read */
+        S.items = items; S.stNext = next; S.lsig = sig; S.state = items.length ? "ready" : "empty"; S.fail = null;
+        redraw(); listRestore(keep);
+        if (S.sel && S.tstate === "ready") markRead(S.sel);
+      }
+      pollTouched();
+      done("ok");
+    });
+    return true;
+  }
+  /* What the list redraw must give back: its scroll, and the focused conversation or Show more button. null: do not redraw now. */
+  function within(root, node) { for (var n = node; n; n = n.parentNode) { if (n === root) return true; } return false; }
+  function listKeep() {
+    var body = byId("ib-listbody"), ul = body && body.querySelector ? body.querySelector(".ib-list") : null, ae = document.activeElement, keep = { top: ul ? ul.scrollTop : 0, ref: "", more: false };
+    if (!ae || !body || !within(body, ae)) return keep;
+    if (ae.closest && ae.closest(".ib-tools")) return null;
+    if (ae.hasAttribute && ae.hasAttribute("data-ref")) keep.ref = ae.getAttribute("data-ref");
+    else if (ae.classList && ae.classList.contains("ib-more")) keep.more = true;
+    return keep;
+  }
+  function listRestore(keep) {
+    var body = byId("ib-listbody"); if (!body) return;
+    var ul = body.querySelector ? body.querySelector(".ib-list") : null;
+    if (ul && keep.top) ul.scrollTop = keep.top;
+    var target = null;
+    if (keep.ref) { var rows = body.querySelectorAll ? body.querySelectorAll("button") : []; for (var i = 0; i < rows.length; i++) { if (rows[i].getAttribute("data-ref") === keep.ref) target = rows[i]; } }
+    else if (keep.more) target = body.querySelector(".ib-more");
+    if (target && target.focus) { try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); } }
+  }
+  function onVisible() { if (document.hidden) pollStop(); else pollKick(); }
   function refreshAll(b) {
     busy(b, true);
     load(true);
@@ -533,6 +644,7 @@
       if (it.status === "closed") badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed"));
       add(text, top, h("span", "ib-snip", it.snippet || ""), badges);
       add(b, av, text);
+      b.setAttribute("data-ref", it.ref);
       b.addEventListener("click", function () { openThread(it.ref, nameOf(it.display_name)); });
       li.appendChild(b); ul.appendChild(li);
     });
@@ -646,8 +758,15 @@
     return b;
   }
 
-  function drawThread(focusBox) {
+  /* keepView: a background read. Gives back the text of the reply box (it lives in S.drafts), the focus and the scroll. */
+  function drawThread(focusBox, keepView) {
     var p = byId("ib-threadpane"); if (!p || !S || !S.sel) return;
+    var keep = null;
+    if (keepView) {
+      var om = p.querySelector ? p.querySelector(".ib-msgs") : null, ae = document.activeElement;
+      keep = { top: om ? om.scrollTop : 0, bottom: !om || om.scrollHeight - om.scrollTop - om.clientHeight <= 24, ta: !!ae && ae.id === "ib-rb", msgs: !!om && ae === om, s: null, e: null };
+      if (keep.ta) { keep.s = ae.selectionStart; keep.e = ae.selectionEnd; }
+    }
     clear(p);
     var t = S.thread;
     p.setAttribute("aria-label", "Conversation with " + (t && t.display_name ? t.display_name : S.selName || "customer"));
@@ -686,7 +805,17 @@
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
     p.appendChild(replyBox(name, !closed, focusBox, windowClosed(channel, t)));
-    msgs.scrollTop = msgs.scrollHeight;
+    if (keep && !keep.bottom) msgs.scrollTop = keep.top; else msgs.scrollTop = msgs.scrollHeight;
+    if (keep) {
+      var back = null;
+      if (keep.ta) { back = byId("ib-rb"); if (back && back.disabled) back = null; }
+      else if (keep.msgs) back = msgs;
+      if (back) {
+        try { back.focus({ preventScroll: true }); } catch (e1) { back.focus(); }
+        if (keep.ta && keep.s !== null && back.setSelectionRange) { try { back.setSelectionRange(keep.s, keep.e); } catch (e2) { /* not a text box now */ } }
+        if (!keep.bottom) msgs.scrollTop = keep.top;
+      }
+    }
   }
   /* The note under a stored thread's head: no email given (chat), or the contact-form address nobody confirmed (email). A note only (P1). */
   function noteFor(channel, t) {
@@ -746,6 +875,8 @@
   (function wire() {
     var b = byId("ib-refresh-btn");
     if (b) b.addEventListener("click", function () { if (S) refreshAll(b); });
+    if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
+    if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); });
   })();
 
   window.NOInbox = { show: show, hide: hide, probe: probe,

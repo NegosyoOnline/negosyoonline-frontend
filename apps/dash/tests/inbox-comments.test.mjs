@@ -283,6 +283,26 @@ test("Show more with two cursors: the lagging source is read, nothing older than
   assert.equal(d.press(d.$("ib-listbody"), "Show more conversations"), undefined, "both sources done: no button");
 });
 
+test("the list keeps its scroll on a row click, a read mark, Show more and Back (phone), and goes to the top for a new filter", async () => {
+  const d = boot();
+  Object.assign(d.s, pages());
+  await d.openInbox();
+  const scrollTo = (y) => { const ul = d.$("ib-list"); ul.scrollTop = y; ul.fire("scroll"); };
+  scrollTo(420);
+  await d.openRow(2);
+  assert.equal(d.$("ib-list").scrollTop, 420, "a row click does not move the list");
+  /* the phone hides the list while the thread is open: the browser reads 0 there and fires no scroll event */
+  d.$("ib-list").scrollTop = 0;
+  await d.click(d.$("ib-back"));
+  assert.equal(d.$("ib-list").scrollTop, 420, "back to the list at the same spot");
+  await d.openRow(1);
+  assert.equal(d.$("ib-list").scrollTop, 420);
+  await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
+  assert.equal(d.$("ib-list").scrollTop, 420, "Show more appends below without a jump");
+  await d.pick("ib-status", "open");
+  assert.equal(d.$("ib-list").scrollTop || 0, 0, "a new filter starts at the top");
+});
+
 function inboxUtil() {
   const w = {};
   const doc = makeDocument();
@@ -473,7 +493,8 @@ test("a public reply posts text with an idempotency key, then clears the box and
   const ta = d.$("cm-rb");
   ta.value = "  It is 150 pesos.  "; ta.fire("input");
   assert.equal(d.$("cm-rc").textContent, "20 / 500");
-  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(d.press(d.$("ib-threadpane"), "Message privately"), undefined, "no Reply / Message privately toggle");
+  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
   const call = d.calls.find((c) => c.method === "POST" && c.path === CB + R1 + "/reply/");
   assert.equal(call.body.text, "It is 150 pesos.");
   assert.match(call.body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
@@ -488,7 +509,7 @@ test("a reply that Facebook refused shows a fixed text, keeps the text, and a re
   await d.openRow(0);
   d.$("cm-rb").value = "Hello"; d.$("cm-rb").fire("input");
   d.s.replyAnswer = { status: 200, body: { state: "failed", error_code: "rate_limited", created_at: iso(0), comment: item() } };
-  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
   assert.ok(text(d.$("ib-threadpane")).includes("Facebook is limiting replies right now. Try again in a few minutes."));
   assert.equal(d.$("cm-rb").value, "Hello");
   assert.ok(d.press(d.$("ib-threadpane"), "Try again"));
@@ -504,7 +525,7 @@ test("a lost answer keeps the idempotency key so the retry cannot send twice", a
   await d.openRow(0);
   d.$("cm-rb").value = "Hello"; d.$("cm-rb").fire("input");
   d.s.replyAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
-  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
   assert.ok(text(d.$("ib-threadpane")).includes("Oops."));
   const keys = [];
   d.s.replyAnswer = null;
@@ -514,32 +535,33 @@ test("a lost answer keeps the idempotency key so the retry cannot send twice", a
   assert.notEqual(keys[0], keys[1], "an answered error is final: the next attempt is a new request");
 });
 
-test("Message privately switches the box and posts to private-reply with a 1000 character limit", async () => {
+test("Send private message posts to private-reply with a 1000 character limit; the counter shows the smaller limit while both are possible", async () => {
   const d = boot();
   await d.openInbox();
   await d.openRow(0);
-  await d.click(d.press(d.$("ib-threadpane"), "Message privately"));
-  assert.equal(d.$("cm-rc").textContent, "0 / 1000");
-  assert.equal(d.press(d.$("ib-threadpane"), "Message privately").getAttribute("aria-pressed"), "true");
+  assert.equal(d.$("cm-rc").textContent, "0 / 500");
+  d.$("cm-rb").value = "Hi Maria, the medium is 150. " + "x".repeat(600); d.$("cm-rb").fire("input");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send reply").disabled, true, "over 500: the public reply is off");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send private message").disabled, false);
   d.$("cm-rb").value = "Hi Maria, the medium is 150."; d.$("cm-rb").fire("input");
-  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
   const call = d.calls.find((c) => c.method === "POST" && c.path === CB + R1 + "/private-reply/");
   assert.equal(call.body.text, "Hi Maria, the medium is 150.");
   assert.match(call.body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(!d.calls.some((c) => c.path === CB + R1 + "/reply/"), "not sent as a public reply");
 });
 
-test("private reply after 7 days: the mode is off with the plain note, and the public reply still works", async () => {
+test("private reply after 7 days: Send private message is off with the plain note, and the public reply still works", async () => {
   const d = boot();
   d.s.detail = detail({ private_reply: { available: false, reason: "window_closed", replied_at: null, expires_at: iso(60) } });
   await d.openInbox();
   await d.openRow(0);
   const det = d.$("ib-threadpane");
   assert.ok(text(det).includes("Private reply is only possible within 7 days of the comment."));
-  assert.equal(d.press(det, "Message privately").getAttribute("aria-disabled"), "true");
-  assert.equal(d.$("cm-rb").disabled, false, "the public box is open");
-  await d.click(d.press(det, "Message privately"));
-  assert.equal(d.press(d.$("ib-threadpane"), "Message privately").getAttribute("aria-pressed"), "false", "the disabled mode does not open");
+  d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
+  assert.equal(d.press(det, "Send private message").disabled, true, "Send private message is off");
+  assert.equal(d.press(det, "Send reply").disabled, false, "the public reply still works");
+  assert.equal(d.$("cm-rb").disabled, false);
 });
 
 test("a private message already sent: off with its note", async () => {
@@ -550,7 +572,7 @@ test("a private message already sent: off with its note", async () => {
   assert.ok(text(d.$("ib-threadpane")).includes("A private message was already sent for this comment."));
 });
 
-test("a comment that only allows a private reply opens in that mode, and with nothing allowed the box is off with the reason", async () => {
+test("a comment that only allows a private reply shows only the private limit, and with nothing allowed the box is off with the reason", async () => {
   const d = boot();
   d.s.listing = listing({ items: [item({ public_reply: { available: false, reason: "reconnect" } })] });
   d.s.detail = detail({ public_reply: { available: false, reason: "reconnect" } });
@@ -571,12 +593,11 @@ test("a 409 window_closed on a send shows the note and reads the comment again",
   const d = boot();
   await d.openInbox();
   await d.openRow(0);
-  await d.click(d.press(d.$("ib-threadpane"), "Message privately"));
   d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
   d.s.privateAnswer = { status: 409, body: { error: { code: "window_closed", message: "Meta words" } } };
   d.s.detail = detail({ private_reply: { available: false, reason: "window_closed", replied_at: null, expires_at: iso(1) } });
   const reads = d.paths().filter((p) => p === "GET " + CB + R1 + "/").length;
-  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
   const det = text(d.$("ib-threadpane"));
   assert.ok(det.includes("Private reply is only possible within 7 days of the comment."));
   assert.ok(!det.includes("Meta words"));

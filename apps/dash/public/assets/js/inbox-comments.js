@@ -17,7 +17,7 @@
      Approved by the Supervisor (2026-11-18): the texts below. All of them live in this block. */
   var T = {
     ad: "Ad", answered: "Answered", unanswered: "Unanswered", hidden: "Hidden",
-    reply: "Reply", priv: "Message privately", hide: "Hide", send: "Send", cancel: "Cancel",
+    reply: "Reply", priv: "Message privately", hide: "Hide", send: "Send", sendPub: "Send reply", sendPriv: "Send private message", cancel: "Cancel",
     opening: "Opening the comment…",
     gone: "This comment is no longer available.", reopenFail: "We could not load this comment just now. Wait a moment, then try again.",
     notSent: "Your reply was not sent.", keepText: " Your text is still in the box.",
@@ -140,7 +140,7 @@
     C.mode = availableMode(it);
     draw();
     fetchThread(false);
-    var back = byId("ib-back"); if (back) back.focus();
+    var back = byId("ib-back"); if (back) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
   }
   function deselect() { if (C) { C.tload++; C.ref = null; C.thread = null; C.tstate = ""; C.tfail = null; C.notice = null; C.confirm = false; } }
   function reload() { if (C && C.ref) fetchThread(true); }
@@ -225,21 +225,16 @@
 
   /* ---------- reply, message privately, hide ---------- */
 
-  function draftKey() { return C.ref + ":" + C.mode; }
+  /* One text box for the comment; the two send buttons choose where it goes. The draft is per comment, not per button. */
+  function draftKey() { return C.ref; }
   function draftOf() { return has(C.drafts, draftKey()) ? C.drafts[draftKey()] : ""; }
   function modeAction(c, mode) { return mode === "private" ? c.private_reply : c.public_reply; }
   function composer(c) {
     var wrap = h("div", "ib-reply cm-compose");
-    var mode = C.mode, act = modeAction(c, mode), off = !act || act.available === false;
-    /* Reply and Message privately choose where the text goes; Hide asks first (there is no unhide in C1). A disabled one says why, below. */
-    var modes = h("div", "cm-modes"); modes.setAttribute("role", "group"); modes.setAttribute("aria-label", "How to answer");
-    [["public", T.reply, c.public_reply], ["private", T.priv, c.private_reply]].forEach(function (m) {
-      var b = btn(m[1], "ghost", function () { if (C.mode === m[0] || (m[2] && m[2].available === false)) return; C.mode = m[0]; C.notice = null; draw(); });
-      b.classList.add("cm-mode"); b.setAttribute("aria-pressed", m[0] === mode ? "true" : "false");
-      if (m[0] === mode) b.classList.add("is-on");
-      if (m[2] && m[2].available === false) { b.setAttribute("aria-disabled", "true"); b.classList.add("is-off"); }
-      modes.appendChild(b);
-    });
+    var pubOff = !c.public_reply || c.public_reply.available === false, privOff = !c.private_reply || c.private_reply.available === false;
+    var allOff = pubOff && privOff;
+    /* Hide asks first (there is no unhide in C1). A disabled action says why, in a note below. */
+    var modes = h("div", "cm-modes");
     var hideB = btn(T.hide, "ghost", function () { C.confirm = true; draw(); var y = byId("cm-hide-yes"); if (y) y.focus(); });
     hideB.classList.add("cm-hide"); hideB.setAttribute("id", "cm-hide-btn");
     if (!c.hide || c.hide.available === false) { hideB.disabled = true; hideB.setAttribute("aria-disabled", "true"); }
@@ -260,35 +255,53 @@
       var fail = h("div", "ib-fail"); fail.setAttribute("role", "alert"); fail.appendChild(icon(ICON.warn));
       var fb = h("div", ""); add(fb, h("strong", "", T.notSent), document.createTextNode(" " + C.notice + T.keepText)); fail.appendChild(fb); wrap.appendChild(fail);
     }
-    var lab = h("label", "pm-label sr-only", mode === "private" ? T.priv : T.reply); lab.setAttribute("for", "cm-rb");
+    /* The counter shows the smaller limit while both sends are possible (500), else the limit of the one that is. */
+    var limit = pubOff ? MAX["private"] : MAX["public"];
+    var lab = h("label", "pm-label sr-only", T.reply); lab.setAttribute("for", "cm-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "cm-rb"); ta.setAttribute("rows", "2"); ta.setAttribute("aria-describedby", "cm-rc");
-    ta.setAttribute("maxlength", String(MAX[mode]));
-    var count = h("span", "ib-count", "0 / " + MAX[mode]); count.setAttribute("id", "cm-rc");
-    var foot = h("div", "ib-rfoot");
-    if (off) {
+    ta.setAttribute("maxlength", String(privOff ? MAX["public"] : MAX["private"]));
+    var count = h("span", "ib-count", "0 / " + limit); count.setAttribute("id", "cm-rc");
+    var foot = h("div", "ib-rfoot"), btns = h("div", "cm-sends");
+    function mk(mode) {
+      var label = mode === "private" ? T.sendPriv : T.sendPub;
+      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) { send(x, ta, mode); });
+      b.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); b.setAttribute("aria-label", label);
+      return b;
+    }
+    var goPub = mk("public"), goPriv = mk("private");
+    if (allOff) {
       ta.disabled = true; wrap.classList.add("is-closed");
-      var goOff = btn(T.send, "primary"); goOff.disabled = true; goOff.setAttribute("aria-disabled", "true");
-      add(wrap, lab, ta, add(foot, count, goOff));
+      [goPub, goPriv].forEach(function (g) { g.disabled = true; g.setAttribute("aria-disabled", "true"); });
+      add(btns, goPub, goPriv);
+      add(wrap, lab, ta, add(foot, count, btns));
       return wrap;
     }
     ta.value = draftOf();
-    var go = btn(C.notice ? "Try again" : T.send, "primary", function (b) { send(b, ta); });
+    function sync() {
+      C.drafts[draftKey()] = ta.value; count.textContent = ta.value.length + " / " + limit;
+      var empty = !ta.value.trim();
+      goPub.disabled = empty || C.sending || pubOff || ta.value.trim().length > MAX["public"];
+      goPriv.disabled = empty || C.sending || privOff || ta.value.trim().length > MAX["private"];
+      goPub.setAttribute("aria-disabled", goPub.disabled ? "true" : "false"); goPriv.setAttribute("aria-disabled", goPriv.disabled ? "true" : "false");
+    }
     ta.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
       e.preventDefault();
-      if (!go.disabled) send(go, ta);
+      var m = pubOff ? "private" : "public", g = m === "private" ? goPriv : goPub; /* Enter sends the public reply; the private one only by its button */
+      if (!g.disabled) send(g, ta, m);
     });
-    function sync() { C.drafts[draftKey()] = ta.value; count.textContent = ta.value.length + " / " + MAX[mode]; go.disabled = !ta.value.trim() || C.sending; }
     ta.addEventListener("input", sync);
-    add(wrap, lab, ta, add(foot, count, go));
+    add(btns, goPub, goPriv);
+    add(wrap, lab, ta, add(foot, count, btns));
     sync();
     return wrap;
   }
-  function send(b, ta) {
+  function send(b, ta, mode) {
     if (C.sending) return;
-    var mode = C.mode, text = ta.value.trim();
+    var text = ta.value.trim();
     if (!text || text.length > MAX[mode]) return;
+    C.mode = mode;
     var st = C, ref = C.ref, mine = C.tload, kk = ref + ":" + mode, key = C.keys[kk] || (C.keys[kk] = U.newKey());
     C.sending = true; busy(b, true);
     D.call("POST", base() + encodeURIComponent(ref) + "/" + (mode === "private" ? "private-reply" : "reply") + "/", { text: text, idempotency_key: key }, true).then(function (res) {
@@ -305,9 +318,8 @@
       }
       delete C.keys[kk];
       merge(res.data && res.data.comment);
-      if (res.data && res.data.state === "sent") { C.drafts[kk] = ""; C.notice = null; say(T.sent); }
+      if (res.data && res.data.state === "sent") { C.drafts[ref] = ""; C.notice = null; say(T.sent); }
       else C.notice = failTextOf(res.data && res.data.error_code);
-      if (mode === "private" && !privAvailable() && C.thread && C.thread.public_reply && C.thread.public_reply.available !== false) C.mode = "public";
       listChanged(); draw(true);
       fetchThread(true);
     });

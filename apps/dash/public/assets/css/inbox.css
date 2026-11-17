@@ -277,6 +277,8 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 #view-inbox .cm-rname { margin: 0; color: var(--meta); font-size: 12px; font-weight: 600; }
 #view-inbox .cm-modes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 #view-inbox .cm-modes .no-btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+#view-inbox .cm-sends { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+#view-inbox .cm-sends .no-btn { min-width: 0; }
 #view-inbox .cm-mode.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 #view-inbox .cm-mode.is-off { opacity: .6; }
 #view-inbox .cm-hide { margin-left: auto; }
@@ -285,6 +287,7 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 #view-inbox .cm-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 #view-inbox .cm-msgs { min-height: 120px; }
 #view-inbox .cm-compose { gap: 8px; }
+#view-inbox .cm-compose .ib-rfoot { flex-wrap: wrap; }
 #view-inbox .cm-compose .pm-input.ib-ta { min-height: 64px; }
 #view-inbox .cm-confirm-actions .no-btn { min-height: 38px; padding: 0 14px; font-size: 14px; }
 @media (max-width: 899px) {

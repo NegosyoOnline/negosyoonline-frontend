@@ -548,7 +548,7 @@
   }
   function load(refresh) {
     var mine = ++token;
-    if (!refresh) { S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
+    if (!refresh) { S.listTop = 0; S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
       streamOpen();
       readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
@@ -616,7 +616,7 @@
     drawList(); drawThread();
     fetchThread(false);
     markRead(ref);
-    var back = byId("ib-back"); if (back) back.focus();
+    var back = byId("ib-back"); if (back) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
   }
   /* Opening an unread conversation or comment marks it read; the dot goes at once, the count drops, and the server has the record. */
   function markRead(ref) {
@@ -920,6 +920,8 @@
       return;
     }
     var ul = h("ul", "ib-list"); ul.setAttribute("id", "ib-list");
+    /* The list's scroll is remembered as it moves (a hidden phone list reads 0, so it is not trusted then); drawList() gives it back. */
+    ul.addEventListener("scroll", function () { if (ul.clientHeight === 0) return; if (S) S.listTop = ul.scrollTop || 0; });
     var now = new Date();
     shown.forEach(function (it) {
       var li = h("li", ""), sel = S.sel === it.ref, unread = it.unread === true;
@@ -992,7 +994,7 @@
     sel.addEventListener("change", function () {
       if (!S || sel.value === S.filter) return;
       var a = sourcesFor(S.filter, S.status), b = sourcesFor(sel.value, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
-      if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
+      if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; S.listTop = 0; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
       /* FB Comment reads only comments, the other channels only conversations, All both: a change between those asks the APIs again */
       applyQuery({ q: S.q, status: S.status, unread: S.unread, filter: sel.value }, sel, S.filter);
     });
@@ -1085,7 +1087,7 @@
         syncRead();
         return;
       }
-      S.q = next.q; S.status = next.status; S.unread = next.unread; S.filter = next.filter;
+      S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
@@ -1119,12 +1121,15 @@
   function drawList() {
     var body = byId("ib-listbody"), p = byId("ib-listpane");
     if (!body || !S) return;
+    var top = S.listTop || 0; /* a click, a read mark, a poll or a chip change redraws the rows, never moves the list */
     fillList(body);
     if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
     if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
     var th = byId("ib-tools-host"); if (th) { if (S.sel) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
+    var nul = body.querySelector ? body.querySelector(".ib-list") : null;
+    if (nul && top) nul.scrollTop = top; /* on the phone the list is hidden while a thread is open: its drawList on "< Inbox" restores it */
   }
   function threadPane() {
     var p = pane(S.sel ? "Conversation with " + (S.selName || "customer") : "Conversation", "ib-threadpane" + (S.sel ? "" : " is-hide-phone"));

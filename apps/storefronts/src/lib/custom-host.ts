@@ -6,7 +6,6 @@ import type { Site } from "./django.ts";
 import { cleanHost, lookupHost } from "./host.ts";
 
 const WWW = "www.";
-const LANDING_PATH = "/funnel/membership-pack/landing-page/";
 
 function bare(host: string): string {
   return host.replace(/:\d+$/, "");
@@ -50,10 +49,4 @@ export async function wwwRedirectTarget(args: {
     return null;
   }
   return `${args.secure ? "https" : "http"}://${apex}${parsed.pathname}${parsed.search}`;
-}
-
-/** Where `/` goes on a custom hostname: the existing membership landing, with the query string kept (campaign and click ids). A
-    platform host keeps its shop home. */
-export function homeRedirectTarget(site: Pick<Site, "custom_host">, requestLookupHost: string, search: string): string | null {
-  return onCustomHost(site, requestLookupHost) ? `${LANDING_PATH}${search}` : null;
 }

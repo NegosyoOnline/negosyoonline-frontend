@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
   /* The Meta Pixel: the notice, or after Accept the data block, with the server events sent after the response. */
   const meta = metaPage({ request, site, host: requestHost(request), env: storefrontEnv(), events: ["PageView"] });
   if (meta.send) await afterResponse(meta.send);
-  return htmlResponse(homeDocument({ ...model, drawer: await homeDrawer(request, site), tracking: meta.markup })); // the basket's badge and rows are the visitor's own
+  return meta.finish(htmlResponse(homeDocument({ ...model, drawer: await homeDrawer(request, site), tracking: meta.markup }))); // the basket's badge and rows are the visitor's own
 }
 
 export {

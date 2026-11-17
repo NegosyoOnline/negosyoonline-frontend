@@ -24,10 +24,18 @@
      - the first-party script js/meta-pixel.js (no inline code).
    The server call never delays or breaks a page: it runs after the response (the route passes `send` to Next's
    after()), has a 2 second timeout and swallows every failure. AddPaymentInfo is never made here, and Purchase only
-   as onboardingPurchase says: Django builds both from an order. */
+   as onboardingPurchase says: Django builds both from an order.
+
+   The visitor cookie (ClickUp z8uq9mg7h3, Coach Ed 2026-11-17, "EMQ-1 yes"): one first-party cookie, no_vid, holds the
+   visit's visitor_ref (the server-issued id the page visitor script keeps in localStorage) so the server events call can
+   carry it as external_id. It is written only by the visit route (src/app/funnel/membership-pack/visit/route.ts), only
+   after Accept, HttpOnly, SameSite=Lax, Path=/, Secure with the __Host- prefix on https, for the same 180 days as the
+   consent cookie. It is sent only with the server events, and only while the choice is Accept and the value has the
+   ref's shape; every Meta page response clears it when the choice is Decline, unset or being reopened. The browser
+   Pixel never sees it, and it is never logged. */
 import { randomBytes } from "node:crypto";
 import { asset } from "./assets.ts";
-import { cookieName, isSecure, readCookieShaped } from "./cookies.ts";
+import { clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import { SECRET_MIN_LENGTH, type Pack, type Site } from "./django.ts";
 import type { StorefrontEnv } from "./env.ts";
 import { html, safe, type Markup } from "./html.ts";
@@ -35,6 +43,9 @@ import { visitorIp } from "./visitor.ts";
 
 export const CONSENT = "no_meta_consent";
 export const CONSENT_MAX_AGE = 180 * 24 * 3600;
+
+export const VISITOR = "no_vid";
+export const VISITOR_REF = /^[A-Za-z0-9_-]{16,32}$/; // backend apps/pack/visits.py REF_RE
 
 /** The footer's "Cookie settings" link: the home page with this query reopens the notice (withdrawing consent, Privacy
     Policy section 12). The home page is the one place every store page can reach that carries the Pixel script, so
@@ -95,6 +106,23 @@ export function consentChoice(request: Request): "accepted" | "declined" | "unse
 /** True only after Accept. */
 export function consentGiven(request: Request): boolean {
   return consentChoice(request) === "accepted";
+}
+
+/** The visit's ref from the visitor cookie, only after Accept and only with the ref's shape; otherwise "". */
+export function visitorRef(request: Request): string {
+  if (!consentGiven(request)) return "";
+  return readCookieShaped(request.headers.get("cookie"), cookieName(VISITOR, isSecure(request)), VISITOR_REF);
+}
+
+/** Writes the visitor cookie on a response: only after Accept and only for a ref of the right shape. */
+export function setVisitorCookie(response: Response, request: Request, ref: string): void {
+  if (!consentGiven(request) || !VISITOR_REF.test(ref)) return;
+  setCookie(response, request, VISITOR, ref, CONSENT_MAX_AGE);
+}
+
+/** True when the request carries a cookie of this name, whatever its value. */
+function hasCookie(request: Request, name: string): boolean {
+  return (request.headers.get("cookie") ?? "").split(";").some((part) => part.trim().startsWith(`${name}=`));
 }
 
 /** The Pixel's own cookies, read from the request (first-party: the Pixel writes them on this host). A value of the
@@ -186,9 +214,11 @@ export type MetaPage = {
   markup: Markup;
   /** The server events call, to run after the response (Next's after()), or null when nothing is to be sent. */
   send: (() => Promise<void>) | null;
+  /** Adds the visitor-cookie clearing to the response when the choice is not Accept (or is being reopened) and the cookie is there. */
+  finish: (response: Response) => Response;
 };
 
-const NONE: MetaPage = { markup: safe(""), send: null };
+const keep = (response: Response) => response;
 
 export type MetaPageArgs = {
   request: Request;
@@ -215,14 +245,16 @@ function reopenRequested(request: Request): boolean {
 }
 
 export function metaPage(a: MetaPageArgs): MetaPage {
-  if (!PIXEL_ID.test(a.site.meta_pixel_id)) return NONE;
   const choice = consentChoice(a.request);
+  const stale = (choice !== "accepted" || reopenRequested(a.request)) && hasCookie(a.request, cookieName(VISITOR, isSecure(a.request)));
+  const finish = stale ? (response: Response) => { clearCookie(response, a.request, VISITOR); return response; } : keep;
+  if (!PIXEL_ID.test(a.site.meta_pixel_id)) return { markup: safe(""), send: null, finish };
   /* "?cookie-settings=1": the visitor asked to choose again. Only the notice is drawn, whatever the cookie says, with no
      data block, no Pixel and no server call, so nothing goes to Meta from this page; the notice's script then writes
      the new answer and loads the page without the query. */
-  if (reopenRequested(a.request)) return { markup: notice(a.request), send: null };
-  if (choice === "declined") return NONE;
-  if (choice === "unset") return { markup: notice(a.request), send: null };
+  if (reopenRequested(a.request)) return { markup: notice(a.request), send: null, finish };
+  if (choice === "declined") return { markup: safe(""), send: null, finish };
+  if (choice === "unset") return { markup: notice(a.request), send: null, finish };
   const events = a.events.map((name) => {
     const id = metaEventId(name);
     const data = !a.pack || name === "PageView"
@@ -236,6 +268,7 @@ export function metaPage(a: MetaPageArgs): MetaPage {
   const block = dataBlock({ pixel_id: a.site.meta_pixel_id, checkout: a.checkout === true, events });
   const markup = html`${block}<script src="${asset("js/meta-pixel.js")}"></script>`;
   const cookies = metaCookies(a.request, a.now);
+  const ref = visitorRef(a.request);
   const body = {
     host: a.host,
     events: events.map(({ name, id }) => ({ name, id })),
@@ -245,8 +278,9 @@ export function metaPage(a: MetaPageArgs): MetaPage {
     ip: visitorIp(a.request.headers),
     user_agent: (a.request.headers.get("user-agent") ?? "").slice(0, 400),
     consent: true,
+    ...(ref ? { visitor_ref: ref } : {}),
   };
-  return { markup, send: events.length === 0 ? null : () => sendEvents(body, a.env, a.fetchImpl, a.log) };
+  return { markup, send: events.length === 0 ? null : () => sendEvents(body, a.env, a.fetchImpl, a.log), finish };
 }
 
 /** Runs the server events call after the response is sent (Next's after()). Next is imported here, not at the top,

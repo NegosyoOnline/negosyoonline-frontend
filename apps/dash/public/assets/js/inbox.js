@@ -5,7 +5,7 @@
    .../read/. A customer's name and message reach the page through textContent only, and nothing is stored in the browser: a draft
    lives in memory until the page is left. While the API answers 404 (the INQUIRIES_ENABLED switch is off, or not a Santé site) the
    page says so and the Inbox links stay hidden. A neutral channel badge on every conversation, a Channel filter in the house
-   dropdown, an unread dot, Close and Reopen, the delivery chips and fixed failure texts of a reply (sent, failed, rate_limited; chat
+   dropdown, Close and Reopen, the delivery chips and fixed failure texts of a reply (sent, failed, rate_limited; chat
    "Delivered to chat when the visitor is online"), the unverified-sender and no-email notes, a closed conversation with its reply box
    off, and the chat banners (paused, or the daily limit reached; one at a time, the limit first) fed by GET .../channels/. NOInbox.util
    holds the pure helpers (tests/inbox.test.mjs). INBOX-UI (z8uq9mg7c7): a Messenger photo on the row and the thread head, Sent/Delivered/Seen, the reply-window notice, Enter to send, grouped bubbles, the unread count on the Inbox nav links, search, and a fixed-height layout. Plain ES5. Every word that came from the API or a visitor still reaches the page
@@ -41,7 +41,9 @@
     globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
     mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6",
     x: "M6 6l12 12M18 6L6 18",
-    search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3"
+    search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3",
+    mailOpen: "M3 10l9-6 9 6v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10l9 6 9-6",
+    stack: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1 3h6l1-3h5"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -127,9 +129,9 @@
   var CHANNEL = {
     webchat: { label: "Website chat", icon: "globe" },
     email: { label: "Email", icon: "mail" },
-    messenger: { label: "Facebook Messenger", icon: "chat" }
+    messenger: { label: "FB Messenger", full: "Facebook Messenger", icon: "chat" }
   };
-  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "Facebook Messenger"]];
+  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"]];
   /* A conversation's channel: what the API says, else what its ref says; "" when neither names a stored channel. */
   function channelOf(x) {
     var c = x && x.channel;
@@ -364,7 +366,7 @@
   /* ---------- state ---------- */
 
   function fresh() {
-    return { site: null, state: "loading", fail: null, items: [], updated: null, more: false, filter: "all", stNext: null, chat: null,
+    return { site: null, state: "loading", fail: null, items: [], more: false, filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
       q: "", qText: "", qTimer: null, status: "", unread: "" };
   }
@@ -431,7 +433,7 @@
         if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
         S.items = Array.isArray(res.data.items) ? res.data.items : [];
         S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-        S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
+        S.state = stateFor(S.items); S.fail = null;
         S.extra = false; S.lsig = sigOf([S.items, S.stNext]);
         takeUnread(res.data);
         reveal(true);
@@ -536,7 +538,6 @@
     started = kind === "thread" ? pollThread(done) : pollList(done);
     if (started === false) done("skip");
   }
-  function pollTouched() { S.updated = new Date(); drawUpdated(); }
   /* The open conversation. Returns false when there is nothing to read. */
   function pollThread(done) {
     if (!S.sel || S.tstate !== "ready" || !S.thread || S.sending) return false;
@@ -549,7 +550,6 @@
         S.thread = res.data; S.tfail = null; S.tsig = sig;
         drawThread(false, true);
       }
-      pollTouched();
       done("ok");
     });
     return true;
@@ -578,7 +578,6 @@
         redraw(); listRestore(keep);
         if (S.sel && S.tstate === "ready") markRead(S.sel);
       }
-      pollTouched();
       done("ok");
     });
     return true;
@@ -723,13 +722,7 @@
     return S.state === "failed" && !!f && (f.kind === "gone" || f.kind === "limited");
   }
   /* After a list read: redraw only the list when the two panes are up, the whole body when the layout changes. */
-  function redraw() { if (byId("ib-listbody") && !singlePane()) { drawList(); drawUpdated(); } else drawBody(); }
-  function drawUpdated() {
-    var u = byId("ib-upd");
-    if (!u || !S) return;
-    var f = S.fail, soft = S.state === "failed" && !!f && f.kind === "down";
-    u.textContent = S.updated && (S.state === "ready" || S.state === "empty" || soft) ? (soft ? "Last updated " : "Updated ") + whenText(S.updated.toISOString(), new Date()) : "";
-  }
+  function redraw() { if (byId("ib-listbody") && !singlePane()) drawList(); else drawBody(); }
   function stateBox(iconPath, title, text, actions, err) {
     var box = h("div", "ib-state" + (err ? " ib-err" : "")); if (err) box.setAttribute("role", "alert");
     var tile = h("span", err ? "ib-tile ib-tile-err" : "icon-tile ib-tile"); tile.setAttribute("aria-hidden", "true"); tile.appendChild(icon(iconPath));
@@ -742,7 +735,6 @@
   function drawBody() {
     var wrap = byId("ib-wrap"); if (!wrap || !S) return;
     clear(wrap);
-    drawUpdated();
     var f = S.fail;
     if (singlePane()) {
       var one = pane("Inbox", ""), pb = h("div", "ib-pane-head"); pb.appendChild(h("h2", "ib-h", "Conversations"));
@@ -761,7 +753,7 @@
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (S.sel ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
     var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
-    var upd = h("span", "ib-upd"); upd.setAttribute("id", "ib-upd"); head.appendChild(upd); p.appendChild(head);
+    head.appendChild(readToggle()); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
     fillList(body);
     return p;
@@ -793,14 +785,17 @@
       if (sel) b.setAttribute("aria-current", "true");
       var av = avatarNode(it.display_name, it.avatar_url);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
-      if (unread) { var dot = h("span", "ib-dot"); dot.appendChild(h("span", "sr-only", "Unread. ")); nm.appendChild(dot); }
       nm.appendChild(document.createTextNode(nameOf(it.display_name)));
-      add(top, nm, h("span", "ib-time", listTime(it.updated_at, now)));
+      var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: closed envelope unread, open envelope read */
+      rs.setAttribute("role", "img"); rs.setAttribute("aria-label", unread ? "Unread" : "Read"); rs.setAttribute("title", unread ? "Unread" : "Read");
+      rs.appendChild(icon(unread ? ICON.mail : ICON.mailOpen));
+      add(side, h("span", "ib-time", listTime(it.updated_at, now)), rs);
+      top.appendChild(nm);
       var badges = h("span", "ib-badges");
       add(badges, channelBadge(channelOf(it)));
       if (it.status === "closed") badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed"));
       add(text, top, h("span", "ib-snip", it.snippet || ""), badges);
-      add(b, av, text);
+      add(b, av, text, side);
       b.setAttribute("data-ref", it.ref);
       b.addEventListener("click", function () { openThread(it.ref, nameOf(it.display_name)); });
       li.appendChild(b); ul.appendChild(li);
@@ -814,6 +809,7 @@
     var b = h("span", "ib-ch");
     b.appendChild(icon(ICON[c.icon]));
     b.appendChild(document.createTextNode(c.label));
+    if (c.full) { b.setAttribute("aria-label", c.full); b.setAttribute("title", c.full); } /* the short label is shown; the full name stays for screen readers and the tooltip */
     return b;
   }
   var STATUSES = [["all", "All status"], ["open", "Open"], ["closed", "Closed"]];
@@ -836,7 +832,6 @@
       row.appendChild(searchBox());
       row.appendChild(channelField());
       row.appendChild(statusField());
-      row.appendChild(readField());
     }
     row.appendChild(refreshButton());
     return box;
@@ -869,23 +864,28 @@
     combo(sel, "Status");
     return fld;
   }
-  /* The Read/Unread filter: the same house dropdown. Unread sends unread=1, Read sends unread=0; All messages sends nothing. */
-  var READS = [["all", "All messages"], ["unread", "Unread"], ["read", "Read"]];
-  function readField() {
-    var fld = h("div", "ib-fld ib-fld-rd");
-    var lab = h("label", "pm-label sr-only", "Read"); lab.setAttribute("for", "ib-read");
-    var sel = D.el("select", { "class": "ib-input", id: "ib-read" });
-    var cur = S.unread === "1" ? "unread" : S.unread === "0" ? "read" : "all";
-    READS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === cur) op.selected = true; sel.appendChild(op); });
-    sel.value = cur;
-    sel.addEventListener("change", function () {
-      var v = sel.value === "unread" ? "1" : sel.value === "read" ? "0" : "";
-      if (S && v !== S.unread) applyQuery(S.q, S.status, v, sel);
+  /* The Read/Unread filter (Coach Ed 2026-11-17): one icon toggle in the Conversations header, All -> Unread -> Read -> All. Unread sends
+     unread=1, Read sends unread=0; All sends nothing. S.unread is "" | "1" | "0". */
+  var READS = { "": { icon: "stack", text: "Showing all messages", next: "1" }, "1": { icon: "mail", text: "Showing unread", next: "0" }, "0": { icon: "mailOpen", text: "Showing read", next: "" } };
+  function readToggle() {
+    var b = h("button", "ib-rtog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-rtog");
+    b.addEventListener("click", function () {
+      if (!S) return;
+      var v = READS[S.unread || ""].next;
+      syncRead(v); /* the new state shows at once; applyQuery puts it back when the read fails */
+      applyQuery(S.q, S.status, v, null);
     });
-    add(fld, lab, sel);
-    combo(sel, "Read");
-    return fld;
+    paintRead(b, S.unread || "");
+    return b;
   }
+  function paintRead(b, v) {
+    var r = READS[v] || READS[""];
+    clear(b); b.appendChild(icon(ICON[r.icon]));
+    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
+    b.classList.toggle("is-on", !!v);
+  }
+  /* Shows v on the toggle, or the real S.unread when v is left out. */
+  function syncRead(v) { var b = byId("ib-rtog"); if (b && S) paintRead(b, v === undefined ? S.unread || "" : v); }
   function refreshButton() {
     var b = h("button", "no-btn no-btn-ghost ib-rf"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
     b.appendChild(icon(ICON.refresh)); b.appendChild(h("span", "ib-rf-t", "Refresh"));
@@ -928,15 +928,16 @@
       if (mine !== token || S !== st || res.status === 401) return;
       if (!res.ok) {
         D.toast("That did not work", msgOf(res, "We could not search. Please try again."), "error");
-        if (box) { box.value = box.id === "ib-read" ? (wasU === "1" ? "unread" : wasU === "0" ? "read" : "all") : (wasS || "all"); if (box.ibSync) box.ibSync(); }
+        if (box) { box.value = wasS || "all"; if (box.ibSync) box.ibSync(); }
+        syncRead();
         return;
       }
       S.q = q; S.status = status; S.unread = unread;
       S.items = Array.isArray(res.data.items) ? res.data.items : [];
       S.stNext = typeof res.data.stored_next_cursor === "string" && res.data.stored_next_cursor ? res.data.stored_next_cursor : null;
-      S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null; S.updated = new Date();
+      S.extra = false; S.lsig = sigOf([S.items, S.stNext]); S.state = stateFor(S.items); S.fail = null;
       takeUnread(res.data);
-      fillList(byId("ib-listbody")); drawUpdated();
+      fillList(byId("ib-listbody")); syncRead();
       say(!q && !status && !unread ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }

@@ -28,8 +28,7 @@
 }
 
 /* ---- inbox: header, split, list ---- */
-body.dash-app .ib-upd { color: var(--meta); font-size: 14px; }
-#view-inbox .ib-lhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; }
+#view-inbox .ib-lhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
 #view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; height: 100%; }
 #view-inbox .ib-rcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
@@ -116,11 +115,25 @@ body.dash-app .ib-ch { display: inline-flex; align-items: center; gap: 5px; min-
 body.dash-app .ib-ch svg { width: 13px; height: 13px; flex: none; }
 body.dash-app .ib-badges { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
 body.dash-app .ib-badges .ib-mini { margin-top: 0; }
-body.dash-app .ib-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--link); margin-right: 6px; vertical-align: middle; }
 #view-inbox .ib-unread .ib-name { font-weight: 700; }
 #view-inbox .ib-unread .ib-time { color: var(--link); font-weight: 600; }
 #view-inbox .ib-item.is-sel .ib-ch { border-color: color-mix(in srgb, var(--link) 40%, transparent); }
 #view-inbox .ib-unread .ib-snip { color: var(--text); }
+/* R4-2: a 1px divider between the rows (the theme card-line token), none after the last */
+#view-inbox .ib-list > li + li { border-top: 1px solid var(--card-line); }
+/* R4-1: the time with the read state under it, at the right of every row. Unread: a filled closed envelope in --link. Read: an open envelope in --meta. */
+#view-inbox .ib-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+#view-inbox .ib-rs { display: inline-flex; line-height: 0; }
+#view-inbox .ib-rs svg { width: 18px; height: 18px; }
+#view-inbox .ib-rs-r { color: var(--meta); }
+#view-inbox .ib-rs-u { color: var(--link); }
+#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); }
+/* R4-4: the Read/Unread toggle in the Conversations header (All, Unread, Read); on, it shows the light-blue ring and fill like the house focus */
+#view-inbox .ib-rtog { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-rtog svg { width: 20px; height: 20px; }
+#view-inbox .ib-rtog:hover { background: var(--ghost-hover); }
+#view-inbox .ib-rtog.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-rtog:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
 body.dash-app .ib-sub { margin: 0; font-size: 14px; color: var(--meta); overflow-wrap: anywhere; }

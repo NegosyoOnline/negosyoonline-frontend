@@ -161,7 +161,7 @@ test("b1: the list shows each customer with a snippet and time, a channel badge,
   assert.equal(d.all(rows[0], "ib-time")[0].textContent.length > 0, true);
   assert.equal(d.all(d.$("ib-list"), "ib-mini").length, 0, "no chip on an open conversation");
   assert.ok(d.$("ib-refresh-btn"), "Refresh is in the filter row");
-  assert.ok(d.text("ib-upd").startsWith("Updated today, "), d.text("ib-upd"));
+  assert.equal(d.$("ib-upd"), null, "the Updated text is gone");
   assert.equal(d.$("ib-threadpane").classList.contains("is-hide-phone"), true, "on a phone the list shows first");
   assert.ok(d.$("ib-threadpane").textContent.includes("Choose a conversation"));
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false]);
@@ -193,12 +193,10 @@ test("b3: when the list cannot be read it says so, keeps the last update time an
   assert.equal(d.all(body, "ib-err")[0].getAttribute("role"), "alert");
   assert.deepEqual(d.buttons(body).map((b) => b.textContent), ["Try again"]);
   assert.deepEqual(d.links(body), []);
-  assert.ok(d.text("ib-upd").startsWith("Last updated today, "), d.text("ib-upd"));
   assert.equal(d.$("ib-refresh-btn"), null, "a failed list offers Try again only");
   d.s.listAnswer = null;
   await d.click(d.press(body, "Try again"));
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2);
-  assert.ok(d.text("ib-upd").startsWith("Updated today, "), d.text("ib-upd"));
 });
 
 test("the switch being off gets its own panel, and a response with only the stored source is normal", async () => {
@@ -435,8 +433,9 @@ test("d1: every row has a neutral channel badge (icon and words); an unread row 
   assert.deepEqual(rows.map((r) => d.all(r, "ib-ch")[0].textContent), ["Website chat", "Email", "Website chat"]);
   assert.ok(rows.every((r) => d.all(r, "ib-ch")[0].all((n) => n.tagName === "SVG").length === 1), "an icon in every badge");
   assert.ok(rows[0].classList.contains("ib-unread"));
-  assert.equal(d.all(rows[0], "ib-dot")[0].textContent, "Unread. ");
-  assert.equal(d.all(rows[1], "ib-dot").length, 0, "a read row has no unread flag");
+  assert.equal(d.all(rows[0], "ib-dot").length, 0, "the blue dot is gone");
+  assert.equal(d.all(rows[0], "ib-rs")[0].getAttribute("aria-label"), "Unread");
+  assert.equal(d.all(rows[1], "ib-rs")[0].getAttribute("aria-label"), "Read");
   assert.deepEqual(rows.map((r) => d.all(r, "chip").map((c) => c.textContent)), [[], [], ["Closed"]]);
   assert.match(d.$("ib-wrap").textContent, /Conversations/);
 });
@@ -450,9 +449,9 @@ test("d1: the Channel filter is the house dropdown showing All channels; Email s
   assert.equal(sel.getAttribute("aria-hidden"), "true");
   assert.equal(comboInput(d, "ib-filter").getAttribute("role"), "combobox");
   assert.equal(comboInput(d, "ib-filter").value, "All channels", "a filter with a real default shows its value");
-  assert.deepEqual(d.all(d.$("ib-tools-host"), "pm-label").map((l) => l.textContent), ["Search", "Channel", "Status", "Read"]);
+  assert.deepEqual(d.all(d.$("ib-tools-host"), "pm-label").map((l) => l.textContent), ["Search", "Channel", "Status"]);
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "Facebook Messenger"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger"]);
   const input = comboInput(d, "ib-filter");
   input.value = "web"; input.fire("input");
   assert.deepEqual(comboRows(d, "ib-filter"), ["Website chat"]);
@@ -787,9 +786,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261117ui4/);
+  assert.match(HTML, /inbox\.js\?v=20261117ui6/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261117ui5/);
+  assert.match(HTML, /inbox\.css\?v=20261117ui6/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
@@ -906,14 +905,15 @@ function msgrThread(win) {
   return thread({ ref: FM, display_name: "Ana Reyes", provider: "messenger", channel: undefined, contact_email: "", reply_window: win });
 }
 
-test("inbox: a messenger row has the Facebook Messenger badge, and the Channel filter has the option", async () => {
+test("inbox: a messenger row has the FB Messenger badge (full name in aria-label and title), and the Channel filter has the option", async () => {
   const d = boot({ listing: msgrList(), channels: CHANNELS_ON });
   await d.openInbox();
   const rows = d.all(d.$("ib-list"), "ib-item");
   assert.equal(rows.length, 3);
-  assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => n.textContent), ["Facebook Messenger"]);
+  assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => n.textContent), ["FB Messenger"]);
+  assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => [n.getAttribute("aria-label"), n.getAttribute("title")]), [["Facebook Messenger", "Facebook Messenger"]]);
   comboBox(d, "ib-filter").fire("click");
-  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "Facebook Messenger"]);
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger"]);
   const u = d.window.NOInbox.util;
   assert.equal(u.channelOf({ ref: FM }), "messenger");
   assert.equal(u.filterItems(msgrList().items, "messenger").length, 1);
@@ -1021,7 +1021,6 @@ test("poll: the open conversation is read every 5 s and the list every 15 s", as
   assert.equal(gets(d, LIST_PATH), l0 + 1, "the list at 15 s");
   await clock.advance(15000);
   assert.equal(gets(d, LIST_PATH), l0 + 2);
-  assert.ok(d.text("ib-upd").startsWith("Updated today, "));
   assert.deepEqual(d.toasts, []);
 });
 
@@ -1665,9 +1664,9 @@ test("C2: the filter toolbar is a row above the open-conversation card (right co
   assert.equal(d.all(d.$("ib-listpane"), "ib-tools").length, 0, "nothing of it inside the list card");
   const tools = d.all(d.$("ib-tools-host"), "ib-tools")[0];
   const parts = d.all(tools, "ib-trow")[0].children;
-  assert.deepEqual(parts.map((n) => n.classList.contains("ib-search") ? "search" : n.classList.contains("ib-fld-ch") ? "channel" : n.classList.contains("ib-fld-st") ? "status" : n.classList.contains("ib-fld-rd") ? "read" : n.id), ["search", "channel", "status", "read", "ib-refresh-btn"]);
-  assert.deepEqual(d.all(tools, "pm-label").map((l) => [l.textContent, l.getAttribute("for"), l.classList.contains("sr-only")]), [["Search", "ib-q", true], ["Channel", "ib-filter", true], ["Status", "ib-status", true], ["Read", "ib-read", true]]);
-  assert.equal(d.all(parts[4], "ib-rf-t")[0].textContent, "Refresh");
+  assert.deepEqual(parts.map((n) => n.classList.contains("ib-search") ? "search" : n.classList.contains("ib-fld-ch") ? "channel" : n.classList.contains("ib-fld-st") ? "status" : n.classList.contains("ib-fld-rd") ? "read" : n.id), ["search", "channel", "status", "ib-refresh-btn"]);
+  assert.deepEqual(d.all(tools, "pm-label").map((l) => [l.textContent, l.getAttribute("for"), l.classList.contains("sr-only")]), [["Search", "ib-q", true], ["Channel", "ib-filter", true], ["Status", "ib-status", true]]);
+  assert.equal(d.all(parts[3], "ib-rf-t")[0].textContent, "Refresh");
   assert.equal(d.all(parts[0], "ib-si").length, 1, "the Products-style magnifier inside the search box");
   assert.equal(d.all(parts[0], "ib-qs").length, 1);
   assert.equal(d.$("ib-q").getAttribute("placeholder"), "Name, email or message");
@@ -1749,17 +1748,16 @@ test("empty states: 'No conversations match' covers a status with no conversatio
   assert.equal(none.$("ib-status"), null);
 });
 
-test("C3: the Conversations card header shows 'Updated today, h:mm AM/PM' from the last successful load", async () => {
+test("R4-4: the Conversations card header has the Read toggle in place of the Updated text", async () => {
   const d = boot({ channels: CHANNELS_ON });
-  assert.equal(d.$("ib-upd"), null, "nothing in the page before the Inbox opens");
   await d.openInbox();
   const head = d.all(d.$("ib-listpane"), "ib-pane-head")[0];
-  assert.deepEqual(head.children.map((n) => n.id || n.tagName), ["H2", "ib-upd"]);
+  assert.deepEqual(head.children.map((n) => n.id || n.tagName), ["H2", "ib-rtog"]);
   assert.equal(head.children[0].textContent, "Conversations");
-  assert.equal(d.text("ib-upd"), "Updated today, 10:00 AM");
+  assert.equal(d.$("ib-upd"), null, "#ib-upd is gone");
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
   await d.click(d.$("ib-refresh-btn"));
-  assert.equal(d.text("ib-upd"), "Last updated today, 10:00 AM", "a failed read keeps the last good time");
+  assert.equal(d.$("ib-upd"), null);
 });
 
 test("Finding 2: a closed Messenger window puts the 24-hour sentence above the reply box, like the open-window notice", async () => {
@@ -1831,30 +1829,29 @@ test("Fix round F2: on a phone the Inbox drops the 84 px #main bottom padding, f
 /* ---------- Round 3: R1 space, R2 Read/Unread filter, R3 read vs unread, R4 selected chip ---------- */
 const cssText = () => fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
-test("R2: the Read/Unread house dropdown sits after Status and before Refresh, with the sr label Read", async () => {
+const rtog = (d) => d.$("ib-rtog");
+const rtogState = (d) => [rtog(d).getAttribute("aria-label"), rtog(d).getAttribute("title"), rtog(d).getAttribute("aria-pressed"), rtog(d).classList.contains("is-on")];
+
+test("R4-4: the Read dropdown is gone from the filter row; the toggle starts at All (not pressed)", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
-  const parts = d.all(d.all(d.$("ib-tools-host"), "ib-tools")[0], "ib-trow")[0].children;
-  assert.deepEqual(parts.map((n) => n.classList.contains("ib-search") ? "search" : n.classList.contains("ib-fld-ch") ? "channel" : n.classList.contains("ib-fld-st") ? "status" : n.classList.contains("ib-fld-rd") ? "read" : n.id), ["search", "channel", "status", "read", "ib-refresh-btn"]);
-  const lab = d.all(parts[3], "pm-label")[0];
-  assert.deepEqual([lab.textContent, lab.getAttribute("for"), lab.classList.contains("sr-only")], ["Read", "ib-read", true]);
-  assert.equal(comboInput(d, "ib-read").value, "All messages", "defaults to All messages");
-  comboBox(d, "ib-read").fire("click");
-  assert.deepEqual(comboRows(d, "ib-read"), ["All messages", "Unread", "Read"]);
-  assert.equal(d.$("ib-read").classList.contains("ib-combo-native"), true, "the house dropdown, never a native select");
+  assert.equal(d.$("ib-read"), null);
+  assert.equal(d.all(d.$("ib-tools-host"), "ib-fld-rd").length, 0);
+  assert.deepEqual(rtogState(d), ["Showing all messages", "Showing all messages", "false", false]);
+  assert.equal(rtog(d).tagName, "BUTTON");
 });
 
-test("R2: Unread sends unread=1, Read sends unread=0, All omits it; combined with q, status and the poll", async () => {
+test("R4-4: the toggle cycles All -> Unread -> Read -> All, sending unread=1 / unread=0 / nothing, with q, status and the poll", async () => {
   const clock = makeClock(), d = boot({ clock, channels: CHANNELS_ON });
   asInbox(d);
   d.s.statuser = (st, q, un) => (un === "0" ? { items: [], stored_next_cursor: null } : byStatus(st));
   await d.openInbox();
   const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
-  assert.equal(reads().at(-1), LIST_PATH, "All: no unread parameter");
   const pick = async (id, label) => { comboBox(d, id).fire("click"); d.$(id).parentNode.all((n) => n.classList.contains("ib-combo-opt")).find((n) => n.textContent === label).fire("click"); await settle(); };
-  await pick("ib-read", "Unread");
+  assert.equal(reads().at(-1), LIST_PATH, "All: no unread parameter");
+  await d.click(rtog(d)); await settle();
   assert.equal(reads().at(-1), LIST_PATH + "?unread=1");
-  assert.equal(comboInput(d, "ib-read").value, "Unread");
+  assert.deepEqual(rtogState(d), ["Showing unread", "Showing unread", "true", true]);
   await pick("ib-status", "Open");
   assert.equal(reads().at(-1), LIST_PATH + "?status=open&unread=1", "status and unread together");
   const inp = d.$("ib-q");
@@ -1862,29 +1859,29 @@ test("R2: Unread sends unread=1, Read sends unread=0, All omits it; combined wit
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=1", "search, status and unread together");
   await clock.advance(15000);
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=1", "the list poll keeps all three");
-  await pick("ib-read", "Read");
+  await d.click(rtog(d)); await settle();
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=0");
+  assert.deepEqual(rtogState(d), ["Showing read", "Showing read", "true", true]);
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"), "an empty filtered list says so");
-  await pick("ib-read", "All messages");
+  await d.click(rtog(d)); await settle();
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "back to All drops the parameter");
+  assert.deepEqual(rtogState(d), ["Showing all messages", "Showing all messages", "false", false]);
   assert.equal(d.calls.filter((c) => /unread=(all|invalid|true)/.test(c.path)).length, 0);
 });
 
-test("R2: an unread read that fails puts the box back; the nav count is never taken from an unread-filtered list", async () => {
+test("R4-4: a failed toggle read rolls the toggle back with a toast; the nav count is never taken from a filtered list", async () => {
   const d = boot({ channels: CHANNELS_ON, listing: list({ unread_total: 4 }) });
   asInbox(d);
   await d.openInbox();
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
-  const pick = async (id, label) => { comboBox(d, id).fire("click"); d.$(id).parentNode.all((n) => n.classList.contains("ib-combo-opt")).find((n) => n.textContent === label).fire("click"); await settle(); };
-  await pick("ib-read", "Unread");
+  await d.click(rtog(d)); await settle();
   assert.equal(d.toasts.length, 1);
-  assert.equal(d.$("ib-read").value, "all");
-  assert.equal(comboInput(d, "ib-read").value, "All messages");
+  assert.deepEqual(rtogState(d), ["Showing all messages", "Showing all messages", "false", false], "back to All");
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "the list is as it was");
   d.s.listAnswer = null; d.s.statuser = (st) => ({ ...byStatus(st), unread_total: 1 });
-  await pick("ib-read", "Unread");
+  await d.click(rtog(d)); await settle();
   assert.equal(navNb(d)[0].textContent, "4", "an unread-filtered answer does not change the nav count");
-  await pick("ib-read", "Read");
+  await d.click(rtog(d)); await settle();
   assert.equal(navNb(d)[0].textContent, "4", "nor a read-only one");
 });
 
@@ -1895,12 +1892,11 @@ test("R1: the desktop gap under the top-bar icon row is 28 px (padding-top 72 = 
   assert.match(css, /body\.dash-app\.ib-fixed \.col \{ padding-bottom: calc\(65px \+ 12px \+ env\(safe-area-inset-bottom\)\); \}/, "phone rule as before");
 });
 
-test("R3: unread rows are bold with a blue dot, snippet in --text and time in --link; read rows are lighter", async () => {
+test("R3: unread rows are bold, snippet in --text and time in --link; read rows are lighter", async () => {
   const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
   await d.openInbox();
   const rows = d.all(d.$("ib-list"), "ib-item");
-  assert.ok(rows.some((r) => r.classList.contains("ib-unread") && d.all(r, "ib-dot").length === 1), "an unread row has the dot");
-  assert.ok(rows.some((r) => !r.classList.contains("ib-unread") && d.all(r, "ib-dot").length === 0), "a read row has none");
+  assert.ok(rows.every((r) => d.all(r, "ib-dot").length === 0), "no blue dot any more");
   const css = cssText();
   assert.match(css, /#view-inbox \.ib-name \{ font-weight: 500;/, "read name 500");
   assert.match(css, /^#view-inbox \.ib-unread \.ib-name/m, "unread rules are #view-inbox-scoped so they beat the ID read rules");
@@ -1916,4 +1912,55 @@ test("R3: unread rows are bold with a blue dot, snippet in --text and time in --
 
 test("R4: the channel chip on the selected row has a visible border (--link at 40%)", () => {
   assert.match(cssText(), /\.ib-item\.is-sel \.ib-ch \{ border-color: color-mix\(in srgb, var\(--link\) 40%, transparent\); \}/);
+});
+
+/* ---------- Round 4: R4-1 read-state icon, R4-2 divider, R4-3 FB Messenger ---------- */
+test("R4-1: every row has a read-state icon under the time: unread = closed envelope in --link, read = open envelope in --meta", async () => {
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  await d.openInbox();
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.ok(rows.length > 2);
+  const paths = [];
+  rows.forEach((r) => {
+    const unread = r.classList.contains("ib-unread");
+    const side = d.all(r, "ib-side");
+    assert.equal(side.length, 1);
+    assert.deepEqual(side[0].children.map((n) => n.classList.contains("ib-time") ? "time" : "rs"), ["time", "rs"], "the icon is under the time");
+    const rs = d.all(r, "ib-rs")[0];
+    assert.equal(rs.getAttribute("role"), "img");
+    assert.equal(rs.getAttribute("aria-label"), unread ? "Unread" : "Read");
+    assert.equal(rs.getAttribute("title"), unread ? "Unread" : "Read");
+    assert.equal(rs.classList.contains(unread ? "ib-rs-u" : "ib-rs-r"), true);
+    const svg = rs.all((n) => n.tagName === "SVG"); assert.equal(svg.length, 1);
+    paths.push([unread, rs.all((n) => n.tagName.toLowerCase() === "path")[0].getAttribute("d")]);
+  });
+  const u = new Set(paths.filter((p) => p[0]).map((p) => p[1])), r = new Set(paths.filter((p) => !p[0]).map((p) => p[1]));
+  assert.equal(u.size, 1); assert.equal(r.size, 1); assert.notEqual([...u][0], [...r][0], "two different icons");
+  const css = cssText();
+  assert.match(css, /^#view-inbox \.ib-rs-u \{ color: var\(--link\); \}/m);
+  assert.match(css, /^#view-inbox \.ib-rs-r \{ color: var\(--meta\); \}/m);
+  assert.match(css, /^#view-inbox \.ib-rs-u svg \{ fill: currentColor;/m, "the unread envelope is filled");
+  assert.doesNotMatch(css, /ib-dot/);
+});
+
+test("R4-2: a 1px divider between the rows (theme token), none after the last", () => {
+  const css = cssText();
+  assert.match(css, /^#view-inbox \.ib-list > li \+ li \{ border-top: 1px solid var\(--card-line\); \}/m);
+  assert.doesNotMatch(css, /ib-list > li[^+]*\{[^}]*border-bottom/);
+});
+
+test("R4-3: Facebook Messenger shows as FB Messenger on the row chip, the thread head chip and the Channel option; full name kept", async () => {
+  const d = boot({ listing: msgrList(), reading: msgrThread({ open: true, closes_at: iso(600) }), channels: CHANNELS_ON });
+  await d.openInbox();
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.equal(d.all(rows[0], "ib-ch")[0].textContent, "FB Messenger");
+  assert.equal(d.all(rows[0], "ib-ch")[0].getAttribute("aria-label"), "Facebook Messenger");
+  await d.click(rows[0]); await settle();
+  const head = d.all(d.$("ib-threadpane"), "ib-chrow")[0];
+  const chip = d.all(head, "ib-ch")[0];
+  assert.equal(chip.textContent, "FB Messenger");
+  assert.deepEqual([chip.getAttribute("aria-label"), chip.getAttribute("title")], ["Facebook Messenger", "Facebook Messenger"]);
+  comboBox(d, "ib-filter").fire("click");
+  assert.equal(comboRows(d, "ib-filter").includes("FB Messenger"), true);
+  assert.equal(comboRows(d, "ib-filter").includes("Facebook Messenger"), false);
 });

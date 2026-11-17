@@ -323,10 +323,11 @@
     S = fresh(); token++; tload++;
     draw();
     load(false);
+    L.noRetry = false;
     pollStart();
   }
   function hide() {
-    pollStop(); token++; tload++; S = null; say("");
+    streamClose(); pollStop(); token++; tload++; S = null; say("");
     var root = byId("ib-root"); if (root) clear(root);
   }
 
@@ -336,6 +337,7 @@
     var mine = ++token;
     if (!refresh) { S.state = "loading"; S.items = []; S.stNext = null; redraw(); }
     withSite(function () {
+      streamOpen();
       D.call("GET", base() + "conversations/", null, true).then(function (res) {
         if (mine !== token || !S || res.status === 401) return;
         if (!res.ok) { reveal404(res); S.state = "failed"; S.fail = failure(res); redraw(); return; }
@@ -419,7 +421,7 @@
   function pollArm(kind) {
     var p = P[kind]; pollClear(kind);
     if (!pollOn()) return;
-    var wait = Math.min(CAP, EVERY[kind] * Math.pow(2, p.fails));
+    var wait = Math.min(CAP, (L.live ? HEALTHY : EVERY[kind]) * Math.pow(2, p.fails));
     p.t = setTimeout(function () { p.t = null; pollRun(kind); }, wait);
   }
   function pollStart() { P.epoch++; ["thread", "list"].forEach(function (k) { pollClear(k); P[k].fails = 0; P[k].busy = false; pollArm(k); }); }
@@ -438,6 +440,7 @@
       if (epoch !== P.epoch) return; /* the view was left or opened again meanwhile */
       p.busy = false;
       if (result === "ok") p.fails = 0; else if (result === "fail") p.fails++;
+      if (p.again) { p.again = false; pollClear(kind); pollRun(kind); return; } /* a push came while this read ran: read once more */
       pollArm(kind);
     }
     p.busy = true;
@@ -509,7 +512,68 @@
     else if (keep.more) target = body.querySelector(".ib-more");
     if (target && target.focus) { try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); } }
   }
-  function onVisible() { if (document.hidden) pollStop(); else pollKick(); }
+  /* ---------- live push (ClickUp z8uq9mg7ak) ----------
+     On top of the polls: an EventSource to .../sites/{site}/inquiries/stream/ (the session cookie rides along). While it is live
+     ("ready" came, no error since) the polls slow to HEALTHY (60 s) and a pushed event reads what changed at once: the open thread when the
+     event is for it, the list always (debounced 300 ms). Any error puts the 5 s / 15 s polls back until the next "ready". A stream the
+     browser gave up on (readyState CLOSED: 401, 403, 404, 429, 503, a dead proxy) leaves polling only and is tried again every 60 s,
+     never after a 401. EventSource cannot read the status, so on CLOSED one ordinary read of the list tells: a 401 there stops all retries
+     (the dashboard's own call also sends the user to sign in). The stream is closed when the tab is hidden or the view is left. */
+  var HEALTHY = 60000, RETRY = 60000, DEBOUNCE = 300;
+  var L = { es: null, live: false, retry: null, deb: null, noRetry: false };
+  function streamReads() { /* the polls re-armed from now with the current interval */
+    ["thread", "list"].forEach(function (k) { if (!P[k].busy) pollArm(k); else pollClear(k); });
+  }
+  /* Read one kind now; if one is running already, once more when it ends. */
+  function streamRead(kind) {
+    if (!pollOn()) return;
+    var p = P[kind];
+    if (p.busy) { p.again = true; return; }
+    pollClear(kind); p.fails = 0; pollRun(kind);
+  }
+  function streamClose() {
+    if (L.es) { try { L.es.close(); } catch (e) { /* closing a dead stream */ } }
+    L.es = null; L.live = false;
+    if (L.retry !== null) { clearTimeout(L.retry); L.retry = null; }
+    if (L.deb !== null) { clearTimeout(L.deb); L.deb = null; }
+  }
+  function streamOpen() {
+    if (L.es || L.retry !== null || L.noRetry || !pollOn() || !S.site || typeof EventSource === "undefined") return;
+    var es;
+    try { es = new EventSource(D.cfg.apiBase + base() + "stream/", { withCredentials: true }); } catch (e) { return; }
+    L.es = es; L.live = false;
+    es.addEventListener("ready", function () {
+      if (L.es !== es) return;
+      L.live = true;
+      streamRead("list"); streamRead("thread"); /* no replay: whatever came while the stream was down is read now */
+    });
+    function pushed(ev) {
+      if (L.es !== es || !pollOn()) return;
+      var ref = "";
+      try { var d = JSON.parse(ev && ev.data); ref = d && typeof d.ref === "string" ? d.ref : ""; } catch (e) { ref = ""; }
+      if (ref && S.sel === ref) streamRead("thread");
+      if (L.deb === null) L.deb = setTimeout(function () { L.deb = null; if (L.es === es) streamRead("list"); }, DEBOUNCE);
+    }
+    es.addEventListener("conversation_updated", pushed);
+    es.addEventListener("message_status", pushed);
+    es.addEventListener("error", function () {
+      if (L.es !== es) return;
+      L.live = false; streamReads(); /* the fast polls again until the next "ready" */
+      if (es.readyState !== 2) return; /* still CONNECTING: the browser retries by itself */
+      streamClose(); streamGaveUp();
+    });
+  }
+  /* The browser gave up: find out whether it was a 401, else try again in 60 s. Polling carries on meanwhile. */
+  function streamGaveUp() {
+    var epoch = P.epoch;
+    L.retry = -1; /* blocks an early reopen while the check runs */
+    D.call("GET", base() + "conversations/", null, true).then(function (res) {
+      if (epoch !== P.epoch || !S) return;
+      if (res.status === 401) { L.noRetry = true; L.retry = null; return; }
+      L.retry = setTimeout(function () { L.retry = null; streamOpen(); }, RETRY);
+    });
+  }
+  function onVisible() { if (document.hidden) { streamClose(); pollStop(); } else { pollKick(); streamOpen(); } }
   function refreshAll(b) {
     busy(b, true);
     load(true);
@@ -876,7 +940,7 @@
     var b = byId("ib-refresh-btn");
     if (b) b.addEventListener("click", function () { if (S) refreshAll(b); });
     if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
-    if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); });
+    if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); if (S) streamOpen(); });
   })();
 
   window.NOInbox = { show: show, hide: hide, probe: probe,

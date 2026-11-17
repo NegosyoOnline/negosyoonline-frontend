@@ -789,7 +789,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261117ui4/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261117ui4/);
+  assert.match(HTML, /inbox\.css\?v=20261117ui5/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
@@ -1903,6 +1903,10 @@ test("R3: unread rows are bold with a blue dot, snippet in --text and time in --
   assert.ok(rows.some((r) => !r.classList.contains("ib-unread") && d.all(r, "ib-dot").length === 0), "a read row has none");
   const css = cssText();
   assert.match(css, /#view-inbox \.ib-name \{ font-weight: 500;/, "read name 500");
+  assert.match(css, /^#view-inbox \.ib-unread \.ib-name/m, "unread rules are #view-inbox-scoped so they beat the ID read rules");
+  assert.match(css, /^#view-inbox \.ib-unread \.ib-snip/m);
+  assert.match(css, /^#view-inbox \.ib-unread \.ib-time/m);
+  assert.doesNotMatch(css, /^body\.dash-app \.ib-unread/m, "no lower-specificity unread rules");
   assert.match(css, /\.ib-unread \.ib-name \{ font-weight: 700; \}/, "unread name 700");
   assert.match(css, /\.ib-unread \.ib-snip \{ color: var\(--text\); \}/);
   assert.match(css, /#view-inbox \.ib-snip \{ color: var\(--text-2\);/, "read snippet --text-2");

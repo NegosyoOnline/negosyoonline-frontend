@@ -117,10 +117,10 @@ body.dash-app .ib-ch svg { width: 13px; height: 13px; flex: none; }
 body.dash-app .ib-badges { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
 body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 body.dash-app .ib-dot { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--link); margin-right: 6px; vertical-align: middle; }
-body.dash-app .ib-unread .ib-name { font-weight: 700; }
-body.dash-app .ib-unread .ib-time { color: var(--link); font-weight: 600; }
-body.dash-app .ib-item.is-sel .ib-ch { border-color: color-mix(in srgb, var(--link) 40%, transparent); }
-body.dash-app .ib-unread .ib-snip { color: var(--text); }
+#view-inbox .ib-unread .ib-name { font-weight: 700; }
+#view-inbox .ib-unread .ib-time { color: var(--link); font-weight: 600; }
+#view-inbox .ib-item.is-sel .ib-ch { border-color: color-mix(in srgb, var(--link) 40%, transparent); }
+#view-inbox .ib-unread .ib-snip { color: var(--text); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
 body.dash-app .ib-sub { margin: 0; font-size: 14px; color: var(--meta); overflow-wrap: anywhere; }

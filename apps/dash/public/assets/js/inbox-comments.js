@@ -120,6 +120,7 @@
     if (c && c.post && c.post.is_ad === true) out.push(h("span", "ib-ch cm-ad", T.ad));
     if (withState) out.push(chip(c && c.answered === true ? "chip-ok" : "chip-neutral", c && c.answered === true ? T.answered : T.unanswered));
     if (c && c.hidden === true) out.push(chip("chip-neutral", T.hidden));
+    if (c && c.auto_reply && typeof c.auto_reply.label === "string" && c.auto_reply.label) out.push(chip("chip-neutral", c.auto_reply.label)); /* the auto-reply's own label (the API words it) */
     return out;
   }
   /* What a list row needs of a comment: the name, the post line (the caption) and the badges that follow the channel badge. */

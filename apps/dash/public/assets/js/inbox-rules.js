@@ -119,6 +119,11 @@
     d.appendChild(h("span", "chip chip-neutral", counterLine("This hour", a.hour)));
     return d;
   }
+  function excerptNode(text) {
+    var n = h("span", "ibr-excerpt");
+    text.split(/(\{[^{}]*\})/).forEach(function (t, i) { if (t) n.appendChild(i % 2 ? h("code", "ibr-code", t) : document.createTextNode(t)); });
+    return n;
+  }
   function listNode() {
     var rules = R.data.rules, wrap = h("div", "ibr-list");
     if (!rules.length) { add(wrap, h("p", "pm-hint", "No rules yet.")); return wrap; }
@@ -127,7 +132,7 @@
       var row = h("div", "ibr-rule"); row.setAttribute("data-ref", r.ref);
       var t = h("div", "ibr-rule-t"), title = h("b", "", whenLine(r)), lid = "ibr-rl-" + i;
       title.setAttribute("id", lid);
-      add(t, title, h("span", "", "Where: " + whereLine(r)), h("span", "ibr-excerpt", r.public_text || ""));
+      add(t, title, h("span", "", "Where: " + whereLine(r)), excerptNode(r.public_text || ""));
       var sw = ui().swtch("ibr-sw-" + i, lid, r.enabled === true, function (b, next) {
         ui().busy(b, true);
         call("PUT", base() + r.ref + "/", { enabled: next }, function (res) {
@@ -189,10 +194,16 @@
     R.form = null; R.previewSeq++; R.postSeq++; render();
     focusId(f && f.ref ? editIdOf(f.ref) : "ibr-add");
   }
+  /* Hint text in pieces: the odd pieces are syntax samples, set in <code> (the | reads as a bar there, not as a capital I). */
+  function hintCode(parts) {
+    var p = h("p", "pm-hint");
+    parts.forEach(function (t, i) { p.appendChild(i % 2 ? h("code", "ibr-code", t) : document.createTextNode(t)); });
+    return p;
+  }
   function field(id, label, ctl, hint) {
     var f = h("div", "pm-field"); f.setAttribute("id", id + "-field");
     var l = h("label", "pm-label", label); l.setAttribute("for", id);
-    add(f, l, ctl, hint ? h("p", "pm-hint", hint) : null);
+    add(f, l, ctl, hint ? (typeof hint === "string" ? h("p", "pm-hint", hint) : hint) : null);
     return f;
   }
   function errNode(id) { var e = h("p", "pm-hint ibr-err"); e.setAttribute("id", id + "-err"); e.setAttribute("role", "alert"); e.hidden = true; return e; }
@@ -236,7 +247,7 @@
     add(d, fWhen, fKw, fWhere, fPosts);
 
     var pubPrev = h("div", "ibr-prev"); pubPrev.setAttribute("id", "ibr-public-prev"); pubPrev.setAttribute("aria-live", "polite");
-    var fPub = field("ibr-public", "Public reply", textarea("ibr-public", f.pub, "public"), "Use {Hi|Hello} for variants and {name} for the first name.");
+    var fPub = field("ibr-public", "Public reply", textarea("ibr-public", f.pub, "public"), hintCode(["Use ", "{Hi|Hello}", " for variants and ", "{name}", " for the first name."]));
     add(fPub, errNode("ibr-public"), pubPrev);
     var privPrev = h("div", "ibr-prev"); privPrev.setAttribute("id", "ibr-private-prev"); privPrev.setAttribute("aria-live", "polite");
     var fPriv = field("ibr-private", "Private reply (optional)", textarea("ibr-private", f.priv, "private"));
@@ -260,11 +271,19 @@
       if (nb && nb.combo) {
         if (byId("ibr-when")) nb.combo(byId("ibr-when"), "When", { blankEmpty: true, describedby: "ibr-when-err" });
         if (byId("ibr-where")) nb.combo(byId("ibr-where"), "Where", { blankEmpty: true, describedby: "ibr-where-err" });
-        var w = byId("ibr-when"); if (w && w.ibFocus && !f.ref) w.ibFocus();
       }
+      var w = byId("ibr-when"); if (w) { if (w.ibFocus) w.ibFocus(); else if (w.focus) w.focus(); }
+      scrollToForm();
       drawPicker();
     }, 0);
     return d;
+  }
+  /* The form can open far below the list (a phone): bring its top into view; no animation when the person asks for reduced motion. */
+  function scrollToForm() {
+    var n = byId("ibr-form"); if (!n || !n.scrollIntoView) return;
+    var calm = false;
+    try { calm = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { calm = false; }
+    n.scrollIntoView({ block: "start", behavior: calm ? "auto" : "smooth" });
   }
   function editIdOf(ref) { for (var i = 0; i < R.data.rules.length; i++) if (R.data.rules[i].ref === ref) return "ibr-edit-" + i; return "ibr-add"; }
 
@@ -380,11 +399,13 @@
         ui().busy(b, false);
         var fields = res.data && res.data.fields, first = "";
         if (res.status === 422 && fields) {
-          Object.keys(fields).forEach(function (k) { if (ERR_ID[k]) { f.errors[k] = fields[k]; if (!first) first = k; } });
+          Object.keys(fields).forEach(function (k) { if (ERR_ID[k]) f.errors[k] = fields[k]; });
+          for (var i = 0; i < FIELDS.length && !first; i++) if (f.errors[FIELDS[i]]) first = FIELDS[i];
         }
         if (first) {
           showErrors();
           var c = byId(ERR_ID[first]); if (c && c.ibFocus) c.ibFocus(); else focusId(ERR_ID[first]);
+          var fe = byId(ERR_ID[first] + "-field"); if (fe && fe.scrollIntoView) fe.scrollIntoView({ block: "center", behavior: "auto" });
           return;
         }
         f.general = msgOf(res, "We could not save the rule. Please try again."); showErrors(); return;

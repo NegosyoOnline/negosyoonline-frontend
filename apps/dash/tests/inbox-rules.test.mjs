@@ -190,6 +190,9 @@ test("API 422 messages show at the field, verbatim; the form stays open", async 
   assert.equal(d.$("ibr-public-err").hidden, false);
   assert.equal(d.$("ibr-public").getAttribute("aria-invalid"), "true");
   assert.equal(d.text("ibr-keywords-err"), "Add at least one word to look for.");
+  /* the first error in form order (Words, above Public) gets the focus and the view */
+  assert.equal(d.doc.activeElement.getAttribute("id"), "ibr-keywords");
+  assert.equal(d.doc.scrolled[d.doc.scrolled.length - 1].id, "ibr-keywords-field");
   assert.ok(d.$("ibr-form"));
   await d.type(d.$("ibr-public"), "see us");
   assert.equal(d.$("ibr-public-err").hidden, true);
@@ -239,4 +242,17 @@ test("pure helpers, script and style wiring, no innerHTML and no native select l
   assert.ok(!/innerHTML|insertAdjacentHTML|outerHTML/.test(read("inbox-rules.js")));
   assert.ok(!/gold|#d4a|#c9a/i.test(CSS.slice(CSS.indexOf("/* ---- Comment auto-replies"), CSS.indexOf("/* the house dropdown"))));
   assert.match(CSS, /#view-settings-inbox \[hidden\] \{ display: none !important; \}/);
+});
+
+test("Edit and Add rule move the focus to the form's first control and bring the form into view; spintax samples are set in code", async () => {
+  const d = boot();
+  await d.open();
+  const kids = (n) => n.children.filter((c) => c.tagName === "CODE").map((c) => c.textContent);
+  assert.deepEqual(kids(d.$("ibr-rl-0").parentNode.children.find((c) => c.attrs["class"] === "ibr-excerpt")), ["{Hi|Hello}", "{name}"]);
+  await d.click(d.$("ibr-edit-0")); await settle(); await sleep(5);
+  assert.equal(d.doc.activeElement.getAttribute("aria-label"), "When"); /* the When combo box */
+  assert.equal(d.doc.scrolled.filter((x) => x.id === "ibr-form").length, 1);
+  assert.equal(d.doc.scrolled.at(-1).o.block, "start");
+  assert.deepEqual(kids(d.$("ibr-public-field").children.find((c) => c.tagName === "P")), ["{Hi|Hello}", "{name}"]);
+  assert.match(CSS, /\.ibr-code \{[^}]*monospace/);
 });

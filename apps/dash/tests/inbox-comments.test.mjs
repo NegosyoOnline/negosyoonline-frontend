@@ -494,7 +494,7 @@ test("a public reply posts text with an idempotency key, then clears the box and
   ta.value = "  It is 150 pesos.  "; ta.fire("input");
   assert.equal(d.$("cm-rc").textContent, "20 / 500");
   assert.equal(d.press(d.$("ib-threadpane"), "Message privately"), undefined, "no Reply / Message privately toggle");
-  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
   const call = d.calls.find((c) => c.method === "POST" && c.path === CB + R1 + "/reply/");
   assert.equal(call.body.text, "It is 150 pesos.");
   assert.match(call.body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
@@ -509,7 +509,7 @@ test("a reply that Facebook refused shows a fixed text, keeps the text, and a re
   await d.openRow(0);
   d.$("cm-rb").value = "Hello"; d.$("cm-rb").fire("input");
   d.s.replyAnswer = { status: 200, body: { state: "failed", error_code: "rate_limited", created_at: iso(0), comment: item() } };
-  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
   assert.ok(text(d.$("ib-threadpane")).includes("Facebook is limiting replies right now. Try again in a few minutes."));
   assert.equal(d.$("cm-rb").value, "Hello");
   assert.ok(d.press(d.$("ib-threadpane"), "Try again"));
@@ -525,7 +525,7 @@ test("a lost answer keeps the idempotency key so the retry cannot send twice", a
   await d.openRow(0);
   d.$("cm-rb").value = "Hello"; d.$("cm-rb").fire("input");
   d.s.replyAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
-  await d.click(d.press(d.$("ib-threadpane"), "Send reply"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
   assert.ok(text(d.$("ib-threadpane")).includes("Oops."));
   const keys = [];
   d.s.replyAnswer = null;
@@ -541,7 +541,7 @@ test("Send private message posts to private-reply with a 1000 character limit; t
   await d.openRow(0);
   assert.equal(d.$("cm-rc").textContent, "0 / 500");
   d.$("cm-rb").value = "Hi Maria, the medium is 150. " + "x".repeat(600); d.$("cm-rb").fire("input");
-  assert.equal(d.press(d.$("ib-threadpane"), "Send reply").disabled, true, "over 500: the public reply is off");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send Comment Reply").disabled, true, "over 500: the public reply is off");
   assert.equal(d.press(d.$("ib-threadpane"), "Send private message").disabled, false);
   d.$("cm-rb").value = "Hi Maria, the medium is 150."; d.$("cm-rb").fire("input");
   await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
@@ -560,7 +560,7 @@ test("private reply after 7 days: Send private message is off with the plain not
   assert.ok(text(det).includes("Private reply is only possible within 7 days of the comment."));
   d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
   assert.equal(d.press(det, "Send private message").disabled, true, "Send private message is off");
-  assert.equal(d.press(det, "Send reply").disabled, false, "the public reply still works");
+  assert.equal(d.press(det, "Send Comment Reply").disabled, false, "the public reply still works");
   assert.equal(d.$("cm-rb").disabled, false);
 });
 
@@ -658,4 +658,77 @@ test("Refresh reads the list and the open comment again; leaving the Inbox stops
   const before = d.calls.length;
   await clock.advance(120000);
   assert.ok(d.calls.slice(before).every((c) => c.path.indexOf("/inquiries/unread/") >= 0 || c.path.indexOf(CB) >= 0), "only the quiet badge read may continue");
+});
+
+/* ---- r4: the owner's replies show in the thread, labelled ---- */
+const pane = (d) => text(d.$("ib-threadpane"));
+const count = (s, sub) => s.split(sub).length - 1;
+
+test("thread labels: comment reply, private message, blank name is You, customer reply unchanged", async () => {
+  const d = boot();
+  d.s.detail = detail({ replies: [
+    { ref: "cm_a", kind: "comment", is_page: true, author_name: "Ana Store Page", text: "Public answer", created_at: iso(30) },
+    { ref: "", kind: "private", is_page: true, author_name: "", text: "Private answer", created_at: iso(20) },
+    { ref: "cm_c", is_page: true, author_name: "", text: "Old style", created_at: iso(15) },
+    { ref: "cm_b", is_page: false, author_name: "", text: "Customer again", created_at: iso(10) },
+  ] });
+  await d.openInbox();
+  await d.openRow(0);
+  const t = d.$("ib-threadpane");
+  const kinds = d.all(t, "cm-kind");
+  assert.deepEqual(kinds.map((k) => k.textContent), ["Comment reply", "Private message", "Comment reply"]);
+  assert.ok(kinds[1].classList.contains("cm-kind-priv"));
+  assert.ok(!kinds[0].classList.contains("cm-kind-priv"));
+  const outs = d.all(t, "ib-msg-out");
+  assert.equal(outs.length, 3);
+  assert.ok(text(outs[1]).includes("You") && text(outs[1]).includes("Private answer"));
+  assert.ok(!text(outs[1]).includes("Facebook user"));
+  const ins = d.all(t, "ib-msg-in");
+  assert.ok(text(ins[ins.length - 1]).includes("Facebook user") && text(ins[ins.length - 1]).includes("Customer again"));
+  assert.equal(d.all(ins[ins.length - 1], "cm-kind").length, 0);
+});
+
+test("a sent comment reply and a sent private message show in the thread without a reload, once", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  // The refetch fails: the optimistic item stays on screen.
+  d.$("cm-rb").value = "On the way!"; d.$("cm-rb").fire("input");
+  const pre = d.calls.length;
+  d.s.detailAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
+  assert.equal(count(pane(d), "On the way!"), 1);
+  assert.equal(count(pane(d), "Comment reply"), 2, "the existing page reply and the new one");
+  d.s.detailAnswer = null;
+  // The refetch returns the saved thread: replaced, not duplicated.
+  d.s.detail = detail({ replies: [...detail().replies, { ref: "cm_n", kind: "comment", is_page: true, author_name: "Ana Store Page", text: "On the way!", created_at: iso(0) }] });
+  d.$("cm-rb").value = "Second"; d.$("cm-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
+  assert.equal(count(pane(d), "On the way!"), 1, "not duplicated after the refetch");
+  assert.equal(count(pane(d), "Second"), 0, "the refetched thread is the truth");
+  assert.ok(d.calls.length > pre);
+  // Private message: optimistic, then saved.
+  d.s.detailAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
+  d.$("cm-rb").value = "Pm text"; d.$("cm-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
+  assert.equal(count(pane(d), "Pm text"), 1);
+  assert.ok(pane(d).includes("Private message"));
+  d.s.detailAnswer = null;
+  d.s.detail = detail({ replies: [{ ref: "", kind: "private", is_page: true, author_name: "", text: "Pm text", created_at: iso(0) }] });
+  d.$("cm-rb").value = "x"; d.$("cm-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
+  assert.equal(count(pane(d), "Pm text"), 1);
+});
+
+test("a failed send adds nothing to the thread", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  d.$("cm-rb").value = "Nope"; d.$("cm-rb").fire("input");
+  d.s.replyAnswer = { status: 200, body: { state: "failed", error_code: "rate_limited", created_at: iso(0), comment: item() } };
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-bub").filter((b) => text(b) === "Nope").length, 0);
+  d.s.replyAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
+  await d.click(d.press(d.$("ib-threadpane"), "Try again"));
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-bub").filter((b) => text(b) === "Nope").length, 0);
 });

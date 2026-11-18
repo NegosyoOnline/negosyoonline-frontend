@@ -17,7 +17,7 @@
      Approved by the Supervisor (2026-11-18): the texts below. All of them live in this block. */
   var T = {
     ad: "Ad", answered: "Answered", unanswered: "Unanswered", hidden: "Hidden",
-    reply: "Reply", priv: "Message privately", hide: "Hide", send: "Send", sendPub: "Send reply", sendPriv: "Send private message", cancel: "Cancel",
+    reply: "Reply", priv: "Message privately", hide: "Hide", send: "Send", sendPub: "Send Comment Reply", sendPriv: "Send private message", kindPub: "Comment reply", kindPriv: "Private message", cancel: "Cancel",
     opening: "Opening the comment…",
     gone: "This comment is no longer available.", reopenFail: "We could not load this comment just now. Wait a moment, then try again.",
     notSent: "Your reply was not sent.", keepText: " Your text is still in the box.",
@@ -128,7 +128,7 @@
     return box;
   }
   function ensure(hooks) {
-    if (!C) C = { h: hooks, ref: null, name: "", thread: null, tstate: "", tfail: null, drafts: {}, keys: {}, mode: "public", notice: null, sending: false, hiding: false, confirm: false, tload: 0 };
+    if (!C) C = { h: hooks, ref: null, name: "", thread: null, tstate: "", tfail: null, drafts: {}, keys: {}, mode: "public", notice: null, sending: false, hiding: false, confirm: false, tload: 0, pending: [] };
     C.h = hooks;
   }
   function stop() { if (C) C.tload++; C = null; }
@@ -136,13 +136,13 @@
   /* Opens a comment in the thread pane: the loading state at once, the detail read, then the actions. inbox.js marks it read. */
   function select(hooks, it) {
     ensure(hooks);
-    C.ref = it.ref; C.name = nameOf(it.author_name); C.thread = null; C.tstate = "loading"; C.tfail = null; C.notice = null; C.confirm = false;
+    C.ref = it.ref; C.name = nameOf(it.author_name); C.thread = null; C.pending = []; C.tstate = "loading"; C.tfail = null; C.notice = null; C.confirm = false;
     C.mode = availableMode(it);
     draw();
     fetchThread(false);
     var back = byId("ib-back"); if (back) { try { back.focus({ preventScroll: true }); } catch (e) { back.focus(); } }
   }
-  function deselect() { if (C) { C.tload++; C.ref = null; C.thread = null; C.tstate = ""; C.tfail = null; C.notice = null; C.confirm = false; } }
+  function deselect() { if (C) { C.tload++; C.ref = null; C.thread = null; C.pending = []; C.tstate = ""; C.tfail = null; C.notice = null; C.confirm = false; } }
   function reload() { if (C && C.ref) fetchThread(true); }
   function itemOf(ref) { return C && C.h.item ? C.h.item(ref) : null; }
   function fetchThread(silent) {
@@ -153,7 +153,7 @@
         if (silent && C.thread) { D.toast("That did not work", msgOf(res, "We could not refresh this comment."), "error"); return; }
         C.tstate = "failed"; C.tfail = failure(res); draw(); return;
       }
-      C.thread = res.data; C.tstate = "ready"; C.tfail = null;
+      C.thread = res.data; C.pending = []; C.tstate = "ready"; C.tfail = null; /* the saved thread has the sent replies */
       var it = itemOf(ref); if (it) mergeInto(it, res.data);
       if (!silent) C.mode = C.mode === "private" && privAvailable() ? "private" : availableMode(C.thread);
       draw(silent);
@@ -210,9 +210,12 @@
     var rw = h("div", "ib-msg ib-msg-in"), when = U.whenText(c.created_at, now);
     add(rw, h("p", "ib-bub", c.text || ""), h("span", "ib-meta", when));
     msgs.appendChild(rw);
-    (Array.isArray(c.replies) ? c.replies : []).forEach(function (r) {
-      var out = r.is_page === true, rr = h("div", "ib-msg " + (out ? "ib-msg-out" : "ib-msg-in"));
-      add(rr, h("p", "cm-rname", nameOf(r.author_name)), h("p", "ib-bub", r.text || ""), h("span", "ib-meta", U.whenText(r.created_at, now)));
+    var items = (Array.isArray(c.replies) ? c.replies : []).concat(Array.isArray(C.pending) ? C.pending : []);
+    items.forEach(function (r) {
+      var out = r.is_page === true, rr = h("div", "ib-msg " + (out ? "ib-msg-out" : "ib-msg-in")), priv = out && r.kind === "private";
+      var who = out ? (String(r.author_name || "").trim() || "You") : nameOf(r.author_name);
+      if (out) rr.appendChild(h("span", "cm-kind" + (priv ? " cm-kind-priv" : ""), priv ? T.kindPriv : T.kindPub));
+      add(rr, h("p", "cm-rname", who), h("p", "ib-bub", r.text || ""), h("span", "ib-meta", U.whenText(r.created_at, now)));
       msgs.appendChild(rr);
     });
     p.appendChild(msgs);
@@ -318,7 +321,7 @@
       }
       delete C.keys[kk];
       merge(res.data && res.data.comment);
-      if (res.data && res.data.state === "sent") { C.drafts[ref] = ""; C.notice = null; say(T.sent); }
+      if (res.data && res.data.state === "sent") { C.drafts[ref] = ""; C.notice = null; say(T.sent); C.pending.push({ kind: mode === "private" ? "private" : "comment", is_page: true, author_name: "", text: text, created_at: new Date().toISOString() }); }
       else C.notice = failTextOf(res.data && res.data.error_code);
       listChanged(); draw(true);
       fetchThread(true);

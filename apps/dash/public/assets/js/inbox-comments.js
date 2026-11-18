@@ -41,6 +41,9 @@
     token_invalid: REASON.reconnect, forbidden_page: REASON.permission_missing, comment_removed: REASON.removed, not_found: REASON.removed,
     rate_limited: LIMIT, blocked_rate: LIMIT, provider_down: DOWN, bad_response: DOWN
   };
+  /* The tooltip line of a disabled "Send private message": the reason text, with its own wording for an already sent one. */
+  function privTipText(code) { return code === "already_sent" ? "Private message already sent for this comment." : reasonText(code); }
+  var tipClose = null; /* closes the one open tooltip */
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
   function reasonText(code) { return has(REASON, code) ? REASON[code] : ""; }
   function known(code) { return has(FAIL, code) || (has(REASON, code) && !!REASON[code]); }
@@ -81,12 +84,12 @@
 
   /* A post link only when it is an https facebook.com address; else "". */
   function safeLink(url) { return typeof url === "string" && /^https:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(url) ? url : ""; }
-  /* The disabled actions of a comment as [kind, text] notes, one line per distinct sentence ("already hidden" has no note: the chip says it; neither has a private message already sent). */
+  /* The disabled actions of a comment as [kind, text] notes, one line per distinct sentence ("already hidden" has no note: the chip says it; private reasons are a tooltip on the button). */
   function notesFor(c) {
     var out = [], seen = {};
     [["public", c && c.public_reply], ["private", c && c.private_reply], ["hide", c && c.hide]].forEach(function (p) {
       var a = p[1]; if (!a || a.available !== false) return;
-      if (p[0] === "private" && a.reason === "already_sent") return; /* Coach Ed: no note or card for it; the private button is simply off */
+      if (p[0] === "private") return; /* the private reasons are the tooltip of the disabled private button (privTip), not a note */
       var t = reasonText(a.reason); if (!t || seen[t]) return;
       seen[t] = true; out.push([p[0], t]);
     });
@@ -266,17 +269,36 @@
     ta.setAttribute("maxlength", String(privOff ? MAX["public"] : MAX["private"]));
     var count = h("span", "ib-count", "0 / " + limit); count.setAttribute("id", "cm-rc");
     var foot = h("div", "ib-rfoot"), btns = h("div", "cm-sends");
+    var tipText = privOff && c.private_reply ? privTipText(c.private_reply.reason) : "", privBlocked = !!tipText, tip = null;
+    function openTip(on) {
+      if (!tip) return;
+      if (tipClose && !on) { tipClose = null; }
+      if (on) { if (tipClose) tipClose(); tip.classList.add("is-open"); tipClose = function () { tip.classList.remove("is-open"); tipClose = null; if (document.removeEventListener) document.removeEventListener("click", outside); }; if (document.addEventListener) document.addEventListener("click", outside); }
+      else { tip.classList.remove("is-open"); if (document.removeEventListener) document.removeEventListener("click", outside); }
+    }
+    function outside(e) { var t = e && e.target; if (t && tip && (t === goPriv || (goPriv.contains && goPriv.contains(t)))) return; openTip(false); }
     function mk(mode) {
       var label = mode === "private" ? T.sendPriv : T.sendPub;
-      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) { send(x, ta, mode); });
+      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) { if (mode === "private" && privBlocked) { openTip(!tip.classList.contains("is-open")); return; } send(x, ta, mode); });
       b.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); b.setAttribute("aria-label", label);
       return b;
     }
-    var goPub = mk("public"), goPriv = mk("private");
+    var goPub = mk("public"), goPriv = mk("private"), privBox = goPriv;
+    if (privBlocked) {
+      /* Not natively disabled, so hover, focus and tap still reach it: aria-disabled plus a click that never sends. */
+      tip = h("div", "cm-tip", tipText); tip.setAttribute("id", "cm-priv-tip"); tip.setAttribute("role", "tooltip");
+      goPriv.setAttribute("aria-describedby", "cm-priv-tip"); goPriv.setAttribute("aria-disabled", "true"); goPriv.classList.add("cm-blocked");
+      goPriv.addEventListener("mouseenter", function () { openTip(true); });
+      goPriv.addEventListener("mouseleave", function () { if (!document.activeElement || document.activeElement !== goPriv) openTip(false); });
+      goPriv.addEventListener("focus", function () { openTip(true); });
+      goPriv.addEventListener("blur", function () { openTip(false); });
+      goPriv.addEventListener("keydown", function (e) { if (e.key === "Escape") openTip(false); });
+      privBox = h("span", "cm-tipwrap"); add(privBox, goPriv, tip);
+    }
     if (allOff) {
       ta.disabled = true; wrap.classList.add("is-closed");
-      [goPub, goPriv].forEach(function (g) { g.disabled = true; g.setAttribute("aria-disabled", "true"); });
-      add(btns, goPub, goPriv);
+      [goPub, goPriv].forEach(function (g) { if (g === goPriv && privBlocked) return; g.disabled = true; g.setAttribute("aria-disabled", "true"); });
+      add(btns, goPub, privBox);
       add(wrap, lab, ta, add(foot, count, btns));
       return wrap;
     }
@@ -285,18 +307,18 @@
       C.drafts[draftKey()] = ta.value; count.textContent = ta.value.length + " / " + limit;
       var empty = !ta.value.trim();
       goPub.disabled = empty || C.sending || pubOff || ta.value.trim().length > MAX["public"];
-      goPriv.disabled = empty || C.sending || privOff || ta.value.trim().length > MAX["private"];
-      goPub.setAttribute("aria-disabled", goPub.disabled ? "true" : "false"); goPriv.setAttribute("aria-disabled", goPriv.disabled ? "true" : "false");
+      goPriv.disabled = !privBlocked && (empty || C.sending || privOff || ta.value.trim().length > MAX["private"]);
+      goPub.setAttribute("aria-disabled", goPub.disabled ? "true" : "false"); goPriv.setAttribute("aria-disabled", goPriv.disabled || privBlocked ? "true" : "false");
     }
     ta.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
       e.preventDefault();
       var m = pubOff ? "private" : "public", g = m === "private" ? goPriv : goPub; /* Enter sends the public reply; the private one only by its button */
-      if (!g.disabled) send(g, ta, m);
+      if (!g.disabled && !(m === "private" && privBlocked)) send(g, ta, m);
     });
     ta.addEventListener("input", sync);
-    add(btns, goPub, goPriv);
+    add(btns, goPub, privBox);
     add(wrap, lab, ta, add(foot, count, btns));
     sync();
     return wrap;
@@ -351,5 +373,5 @@
   }
 
   window.NOInboxComments = { select: select, draw: draw, reload: reload, deselect: deselect, stop: stop, isOpen: isOpen, row: row,
-    util: { safeLink: safeLink, notesFor: notesFor, reasonText: reasonText, failTextOf: failTextOf, availableMode: availableMode } };
+    util: { safeLink: safeLink, notesFor: notesFor, reasonText: reasonText, failTextOf: failTextOf, privTipText: privTipText, availableMode: availableMode } };
 })();

@@ -551,34 +551,47 @@ test("Send private message posts to private-reply with a 1000 character limit; t
   assert.ok(!d.calls.some((c) => c.path === CB + R1 + "/reply/"), "not sent as a public reply");
 });
 
-test("private reply after 7 days: Send private message is off with the plain note, and the public reply still works", async () => {
-  const d = boot();
-  d.s.detail = detail({ private_reply: { available: false, reason: "window_closed", replied_at: null, expires_at: iso(60) } });
-  await d.openInbox();
-  await d.openRow(0);
-  const det = d.$("ib-threadpane");
-  assert.ok(text(det).includes("Private reply is only possible within 7 days of the comment."));
-  d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
-  assert.equal(d.press(det, "Send private message").disabled, true, "Send private message is off");
-  assert.equal(d.press(det, "Send Comment Reply").disabled, false, "the public reply still works");
-  assert.equal(d.$("cm-rb").disabled, false);
+test("private reasons are a tooltip on the aria-disabled private button, not a note; the public reply still works", async () => {
+  for (const [reason, tipText] of [["window_closed", "Private reply is only possible within 7 days of the comment."], ["already_sent", "Private message already sent for this comment."]]) {
+    const d = boot();
+    d.s.detail = detail({ private_reply: { available: false, reason, replied_at: null, expires_at: iso(60) } });
+    await d.openInbox();
+    await d.openRow(0);
+    const det = d.$("ib-threadpane");
+    assert.equal(d.all(det, "cm-note").length, 0, reason + ": no note in the composer");
+    assert.ok(!text(det).replace(text(d.$("cm-priv-tip")), "").includes("7 days") && !text(det).replace(text(d.$("cm-priv-tip")), "").includes("already sent"));
+    d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
+    const b = d.press(det, "Send private message");
+    assert.equal(b.disabled, false, "not natively disabled, so hover and focus fire");
+    assert.equal(b.getAttribute("aria-disabled"), "true");
+    assert.equal(b.getAttribute("aria-describedby"), "cm-priv-tip");
+    const tip = d.$("cm-priv-tip");
+    assert.equal(tip.getAttribute("role"), "tooltip");
+    assert.equal(text(tip), tipText);
+    assert.ok(!tip.classList.contains("is-open"));
+    b.fire("mouseenter"); assert.ok(tip.classList.contains("is-open"));
+    b.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
+    b.fire("focus"); assert.ok(tip.classList.contains("is-open"));
+    b.fire("blur"); assert.ok(!tip.classList.contains("is-open"));
+    await d.click(b); assert.ok(tip.classList.contains("is-open"), "tap opens");
+    b.fire("keydown", { key: "Escape" }); assert.ok(!tip.classList.contains("is-open"), "Escape closes");
+    await d.click(b); await d.click(b);
+    assert.ok(!d.calls.some((c) => c.method === "POST" && /reply\/$/.test(c.path)), "a click while aria-disabled sends nothing");
+    assert.equal(d.press(det, "Send Comment Reply").disabled, false, "the public reply still works");
+    assert.equal(d.$("cm-rb").disabled, false);
+  }
 });
 
-test("a private message already sent: no note and no card, the private button is off; the 7-day note stays", async () => {
+test("an allowed private reply: the button is enabled and has no tooltip", async () => {
   const d = boot();
-  d.s.detail = detail({ private_reply: { available: false, reason: "already_sent", replied_at: iso(5), expires_at: null } });
   await d.openInbox();
   await d.openRow(0);
-  assert.ok(!text(d.$("ib-threadpane")).includes("already sent"));
-  assert.equal(d.all(d.$("ib-threadpane"), "cm-note").length, 0);
+  d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
   const b = d.press(d.$("ib-threadpane"), "Send private message");
-  assert.equal(b.disabled, true);
-  assert.equal(b.getAttribute("aria-disabled"), "true");
-  assert.equal(d.press(d.$("ib-threadpane"), "Send Comment Reply").disabled, true, "empty box: off too");
-  assert.equal(NOUtil(d).notesFor({ private_reply: { available: false, reason: "already_sent" } }).length, 0);
-  d.s.detail = detail({ private_reply: { available: false, reason: "window_closed", replied_at: null, expires_at: iso(60) } });
-  await d.openRow(2);
-  assert.equal(d.all(d.$("ib-threadpane"), "cm-note").length, 1, "window_closed keeps its note");
+  assert.equal(b.disabled, false);
+  assert.equal(b.getAttribute("aria-disabled"), "false");
+  assert.equal(d.$("cm-priv-tip"), null);
+  assert.equal(NOUtil(d).notesFor({ private_reply: { available: false, reason: "reconnect" }, public_reply: { available: false, reason: "reconnect" } }).length, 1, "the public note stays once");
 });
 
 test("a comment that only allows a private reply shows only the private limit, and with nothing allowed the box is off with the reason", async () => {

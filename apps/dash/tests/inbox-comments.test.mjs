@@ -780,3 +780,10 @@ test("the gold comment-reply pill has readable colours in both themes", () => {
   assert.match(css, /data-theme="light"\] #view-inbox \.cm-kind-pub \{[^}]*#D9A21B[^}]*#fff8e6[^}]*#7A5A00/);
   assert.match(css, /\.cm-kind-priv \{[^}]*var\(--link\)/);
 });
+
+test("comment threads space their message blocks 24px apart; the shared .ib-msgs gap stays 10px", () => {
+  const css = fs.readFileSync(path.join(JS, "../css/inbox.css"), "utf8");
+  assert.match(css, /#view-inbox \.cm-msgs \{[^}]*gap: 24px/);
+  assert.match(css, /#view-inbox \.ib-msgs \{[^}]*gap: 10px/);
+  assert.match(css, /#view-inbox \.ib-msg \{[^}]*gap: 4px/);
+});

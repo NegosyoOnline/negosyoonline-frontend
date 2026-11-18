@@ -286,7 +286,8 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 #view-inbox .cm-hide:disabled { opacity: .55; cursor: not-allowed; }
 #view-inbox .cm-confirm { flex-direction: column; align-items: flex-start; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
 #view-inbox .cm-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-#view-inbox .cm-msgs { min-height: 120px; }
+#view-inbox .cm-msgs { min-height: 120px; gap: 24px; }
+#view-inbox .cm-msgs .cm-postcard { margin-bottom: -8px; }
 #view-inbox .cm-compose { gap: 8px; }
 #view-inbox .cm-compose .ib-rfoot { flex-wrap: wrap; }
 #view-inbox .cm-compose .pm-input.ib-ta { min-height: 64px; }

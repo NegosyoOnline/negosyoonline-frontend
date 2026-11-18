@@ -626,7 +626,7 @@
   function itemOf(ref) { var f = null; S.pool.forEach(function (i) { if (i.ref === ref) f = i; }); return f; }
   function cmHooks() {
     return { site: function () { return S ? S.site : ""; }, pane: function () { return byId("ib-threadpane"); }, item: itemOf,
-      head: function (name, chips, action) { return threadHead(name, { channel: "fbcomment", chips: chips, action: action }); }, listChanged: function () { if (S) drawList(); } };
+      head: function (name, chips, action, avatar) { return threadHead(name, { channel: "fbcomment", chips: chips, action: action, avatar: avatar }); }, listChanged: function () { if (S) drawList(); } };
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;
@@ -959,7 +959,7 @@
       /* a Facebook comment is one row like the others; its post line and chips come from inbox-comments.js */
       var cmRow = isComment(it) && window.NOInboxComments ? window.NOInboxComments.row(it) : null;
       var rowName = cmRow ? cmRow.name : nameOf(it.display_name);
-      var av = cmRow ? avatarNode(rowName, null) : avatarNode(it.display_name, it.avatar_url);
+      var av = cmRow ? avatarNode(rowName, it.avatar_url) : avatarNode(it.display_name, it.avatar_url);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
       nm.appendChild(document.createTextNode(rowName));
       var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: closed envelope unread, open envelope read */

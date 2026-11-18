@@ -269,7 +269,7 @@
     ta.setAttribute("maxlength", String(privOff ? MAX["public"] : MAX["private"]));
     var count = h("span", "ib-count", "0 / " + limit); count.setAttribute("id", "cm-rc");
     var foot = h("div", "ib-rfoot"), btns = h("div", "cm-sends");
-    var tipText = privOff && c.private_reply ? privTipText(c.private_reply.reason) : "", privBlocked = !!tipText, tip = null;
+    var touchTap = false, wasOpen = false, tipText = privOff && c.private_reply ? privTipText(c.private_reply.reason) : "", privBlocked = !!tipText, tip = null;
     function openTip(on) {
       if (!tip) return;
       if (tipClose && !on) { tipClose = null; }
@@ -279,7 +279,13 @@
     function outside(e) { var t = e && e.target; if (t && tip && (t === goPriv || (goPriv.contains && goPriv.contains(t)))) return; openTip(false); }
     function mk(mode) {
       var label = mode === "private" ? T.sendPriv : T.sendPub;
-      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) { if (mode === "private" && privBlocked) { openTip(!tip.classList.contains("is-open")); return; } send(x, ta, mode); });
+      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) {
+        if (mode === "private" && privBlocked) {
+          /* A touch tap fires focus and mouseenter first (they open it), then click: the click toggles from what it was before the tap. A mouse or key click never closes it. */
+          openTip(touchTap ? !wasOpen : true); touchTap = false; return;
+        }
+        send(x, ta, mode);
+      });
       b.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); b.setAttribute("aria-label", label);
       return b;
     }
@@ -288,6 +294,7 @@
       /* Not natively disabled, so hover, focus and tap still reach it: aria-disabled plus a click that never sends. */
       tip = h("div", "cm-tip", tipText); tip.setAttribute("id", "cm-priv-tip"); tip.setAttribute("role", "tooltip");
       goPriv.setAttribute("aria-describedby", "cm-priv-tip"); goPriv.setAttribute("aria-disabled", "true"); goPriv.classList.add("cm-blocked");
+      goPriv.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
       goPriv.addEventListener("mouseenter", function () { openTip(true); });
       goPriv.addEventListener("mouseleave", function () { if (!document.activeElement || document.activeElement !== goPriv) openTip(false); });
       goPriv.addEventListener("focus", function () { openTip(true); });

@@ -573,9 +573,15 @@ test("private reasons are a tooltip on the aria-disabled private button, not a n
     b.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
     b.fire("focus"); assert.ok(tip.classList.contains("is-open"));
     b.fire("blur"); assert.ok(!tip.classList.contains("is-open"));
-    await d.click(b); assert.ok(tip.classList.contains("is-open"), "tap opens");
+    await d.click(b); assert.ok(tip.classList.contains("is-open"), "a click opens it");
+    await d.click(b); assert.ok(tip.classList.contains("is-open"), "a mouse click does not flicker it shut");
     b.fire("keydown", { key: "Escape" }); assert.ok(!tip.classList.contains("is-open"), "Escape closes");
-    await d.click(b); await d.click(b);
+    const tap = async () => { b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter"); await d.click(b); };
+    b.fire("blur"); b.fire("mouseleave");
+    await tap(); assert.ok(tip.classList.contains("is-open"), "one touch tap opens it and it stays open");
+    await tap(); assert.ok(!tip.classList.contains("is-open"), "a second tap closes it");
+    await tap(); assert.ok(tip.classList.contains("is-open"));
+    b.fire("blur"); assert.ok(!tip.classList.contains("is-open"), "tapping elsewhere closes it");
     assert.ok(!d.calls.some((c) => c.method === "POST" && /reply\/$/.test(c.path)), "a click while aria-disabled sends nothing");
     assert.equal(d.press(det, "Send Comment Reply").disabled, false, "the public reply still works");
     assert.equal(d.$("cm-rb").disabled, false);

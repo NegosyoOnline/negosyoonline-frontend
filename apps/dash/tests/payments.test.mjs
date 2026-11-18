@@ -40,6 +40,7 @@ function pmDocument() {
       return /^[a-z]+(\s*,\s*[a-z]+)*$/.test(sel) ? n.querySelectorAll(sel)[0] || null : plain(sel);
     };
     n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; };
+    n.dispatchEvent = (e) => n.fire(e.type);
     Object.defineProperty(n, "options", { get: () => n.children.filter((c) => c.tagName === "OPTION") });
     return n;
   };
@@ -85,7 +86,7 @@ function boot({ accounts = [BDO], directOn = true, xendit = "live", src = SRC, p
   const URLs = { createObjectURL: () => "blob:test/1", revokeObjectURL() {} };
   window.Cropper = class { destroy() {} }; window.URL = URLs;
   const location = { search: "", pathname: "/settings/payments/", replace() {}, assign() {} };
-  const context = vm.createContext({ window, document: doc, location, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, FormData, URL: URLs, Uint8Array,
+  const context = vm.createContext({ Event: class { constructor(type) { this.type = type; } }, window, document: doc, location, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, FormData, URL: URLs, Uint8Array,
     localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(src, context, { filename: "payments.js" });
@@ -365,4 +366,34 @@ test("after a failed save focus goes to the first invalid field in the form's or
   assert.equal(save.getAttribute("aria-busy"), null);
   assert.equal(save.disabled, false);
   assert.deepEqual(e.d.toasts, ["That did not work: Something went wrong."]);
+});
+
+test("combo (r12): the text is never highlighted, the first key replaces the chosen label, and focus stays on the used combo", async () => {
+  const { d, form } = await openAdd();
+  const sels = form.all((n) => n.tagName === "SELECT");
+  let idx = 0; /* the stand-in select does not link value and selectedIndex */
+  Object.defineProperty(sels[0], "selectedIndex", { get: () => idx });
+  Object.defineProperty(sels[0], "value", { get: () => sels[0].options[idx].attrs.value, set: (v) => { idx = Math.max(0, sels[0].options.findIndex((o) => o.attrs.value === v)); } });
+  const wrap = sels[0].parentNode, input = wrap.all((n) => n.classList.contains("pm-combo-input"))[0];
+  const other = sels[1].parentNode.all((n) => n.classList.contains("pm-combo-input"))[0];
+  let selected = 0; input.select = () => { selected++; }; input.setSelectionRange = (a, b) => { input.sel = [a, b]; };
+  const pick = (label) => wrap.all((n) => n.classList.contains("pm-combo-opt")).find((n) => n.textContent === label).fire("click");
+  const box = wrap.all((n) => n.classList.contains("pm-combo-box"))[0];
+  box.getBoundingClientRect = () => ({ left: 0, right: 200, top: 0, bottom: 40, width: 200 });
+  box.fire("click");
+  pick("E-wallet");
+  await settle();
+  assert.equal(input.value, "E-wallet");
+  assert.equal(d.doc.activeElement, input, "focus stays on the combo that was used");
+  assert.notEqual(d.doc.activeElement, other);
+  input.fire("focus");
+  assert.equal(selected, 0, "focus never selects the text");
+  assert.deepEqual(input.sel, [8, 8], "the caret is at the end");
+  input.fire("keydown", { key: "b" });
+  assert.equal(input.value, "", "the first printable key starts a fresh query");
+  input.value = "b"; input.fire("input");
+  input.fire("keydown", { key: "a" });
+  assert.equal(input.value, "b", "later keys are left alone");
+  input.value = "E-wallet"; input.fire("keydown", { key: "ArrowDown" });
+  assert.equal(input.value, "E-wallet", "arrow keys do not clear it");
 });

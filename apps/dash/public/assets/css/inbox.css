@@ -125,11 +125,13 @@ body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 #view-inbox .ib-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
 #view-inbox .ib-rs { display: inline-flex; line-height: 0; }
 #view-inbox .ib-rs svg { width: 18px; height: 18px; }
-#view-inbox .ib-rs-r { color: var(--meta); }
+#view-inbox .ib-rs-r { color: var(--ov-green); }
 #view-inbox .ib-rs-u { color: var(--link); }
-#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); }
+#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); stroke-width: 2.4; }
+#view-inbox .ib-item.is-sel .ib-rs-u svg { stroke: color-mix(in srgb, var(--link) 16%, var(--card)); }
 /* R4-4: the Read/Unread toggle in the Conversations header (All, Unread, Read); on, it shows the light-blue ring and fill like the house focus */
 #view-inbox .ib-rtog { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-togs { display: inline-flex; align-items: center; gap: 8px; flex: none; }
 #view-inbox .ib-rtog svg { width: 20px; height: 20px; }
 #view-inbox .ib-rtog:hover { background: var(--ghost-hover); }
 #view-inbox .ib-rtog.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
@@ -264,6 +266,39 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
   #view-inbox .ib-tools:not(.is-lite) .ib-trow > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
   #view-inbox .ib-tools:not(.is-lite) .ib-rf-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
+/* ---- COMMENTS C3 (ClickUp z8uq9mg9ph): a Facebook comment is a row and a detail of the one Inbox list. The rows, toolbar, panes and house
+   dropdown are the Inbox's own classes; only what is new is here. Colours are the dash tokens, so light and dark follow the theme. ---- */
+#view-inbox .cm-post { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--meta); font-size: 13px; }
+#view-inbox .cm-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#view-inbox .cm-ad { color: var(--link); border-color: color-mix(in srgb, var(--link) 45%, transparent); flex: none; }
+#view-inbox .cm-postcard { display: flex; align-items: center; gap: 8px; align-self: stretch; min-width: 0; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: 12px; font-size: 14px; color: var(--text-2); }
+#view-inbox .cm-on { flex: none; color: var(--meta); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+#view-inbox .cm-pl { min-width: 0; color: var(--link); text-decoration: none; }
+#view-inbox .cm-pl:hover { text-decoration: underline; }
+#view-inbox .cm-pl:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+#view-inbox .cm-rname { margin: 0; color: var(--meta); font-size: 12px; font-weight: 600; }
+#view-inbox .cm-modes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#view-inbox .cm-modes .no-btn { min-height: 40px; padding: 0 14px; font-size: 14px; }
+#view-inbox .cm-sends { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+#view-inbox .cm-sends .no-btn { min-width: 0; }
+#view-inbox .cm-mode.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .cm-mode.is-off { opacity: .6; }
+#view-inbox .cm-hide { margin-left: auto; min-height: 40px; padding: 0 14px; font-size: 14px; }
+#view-inbox .cm-confirm { margin: 8px 16px 0; }
+#view-inbox .cm-hide:disabled { opacity: .55; cursor: not-allowed; }
+#view-inbox .cm-confirm { flex-direction: column; align-items: flex-start; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-inbox .cm-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#view-inbox .cm-msgs { min-height: 120px; gap: 24px; }
+#view-inbox .cm-msgs .cm-postcard { margin-bottom: -8px; }
+#view-inbox .cm-compose { gap: 8px; }
+#view-inbox .cm-compose .ib-rfoot { flex-wrap: wrap; }
+#view-inbox .cm-compose .pm-input.ib-ta { min-height: 64px; }
+#view-inbox .cm-confirm-actions .no-btn { min-height: 38px; padding: 0 14px; font-size: 14px; }
+@media (max-width: 899px) {
+  #view-inbox .cm-hide { margin-left: 0; grid-area: act; min-height: 36px; padding: 0 12px; }
+  #view-inbox .cm-confirm { margin: 8px 12px 0; }
+}
+
 @media (max-width: 899px) {
   /* Finding 1: the cards reach the bottom bar. The dash keeps 96 px under every page for the bar; here only the bar itself (4 + 56 + 4 + 1 px, plus the
      home-indicator inset) and a small gap stay free, so the list and the thread fill the screen and the reply box sits at the bottom. */
@@ -278,3 +313,31 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
   #view-inbox .ib-reply { padding: 10px 12px 12px; gap: 8px; }
   #view-inbox .pm-input.ib-ta { min-height: 60px; }
 }
+
+/* Comment thread: what kind of outgoing reply this is (a public comment reply or a private message). */
+#view-inbox .cm-kind { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: .02em; background: var(--tile); }
+#view-inbox .cm-kind-priv { border: 1px solid var(--link); color: var(--link); }
+#view-inbox .cm-kind-pub { border: 1px solid #F2D488; color: #F2D488; }
+html[data-theme="light"] #view-inbox .cm-kind-pub { border-color: #D9A21B; background: #fff8e6; color: #7A5A00; }
+@media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-kind-pub { border-color: #D9A21B; background: #fff8e6; color: #7A5A00; } }
+
+/* The disabled "Send private message" and "Send Comment Reply" keep its hover/focus: aria-disabled, not the native attribute, and a tooltip above it with the reason. */
+#view-inbox .cm-blocked[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+#view-inbox .cm-tipwrap { position: relative; display: inline-flex; }
+#view-inbox .cm-tip { position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(260px, calc(100vw - 56px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #F2F5FC; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: normal; opacity: 0; visibility: hidden; pointer-events: none; z-index: 5; }
+#view-inbox .cm-tip.cm-tip-l { left: 0; right: auto; }
+#view-inbox .cm-tip.is-open { opacity: 1; visibility: visible; }
+
+/* The answered state icon of a comment row, after the channel pill: green answered, light gold unanswered (3:1 on the row and on the selected row). */
+#view-inbox .cm-st { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; cursor: default; }
+#view-inbox .cm-st svg { width: 17px; height: 17px; }
+#view-inbox .cm-st:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--link); }
+#view-inbox .cm-st-ok { color: var(--ov-green); }
+#view-inbox .cm-st-no { color: #F2D488; }
+html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
+@media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-st-no { color: #A87A00; } }
+#view-inbox .cm-tip.cm-tip-b { position: fixed; right: auto; bottom: auto; white-space: nowrap; }
+/* A comment row's name line: the name shortens with an ellipsis before the icon, which never wraps or moves. */
+#view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
+#view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+#view-inbox .ib-top-cm .cm-st { flex: none; }

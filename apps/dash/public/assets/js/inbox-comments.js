@@ -81,11 +81,12 @@
 
   /* A post link only when it is an https facebook.com address; else "". */
   function safeLink(url) { return typeof url === "string" && /^https:\/\/([a-z0-9-]+\.)?facebook\.com\//i.test(url) ? url : ""; }
-  /* The disabled actions of a comment as [kind, text] notes, one line per distinct sentence ("already hidden" has no note: the chip says it). */
+  /* The disabled actions of a comment as [kind, text] notes, one line per distinct sentence ("already hidden" has no note: the chip says it; neither has a private message already sent). */
   function notesFor(c) {
     var out = [], seen = {};
     [["public", c && c.public_reply], ["private", c && c.private_reply], ["hide", c && c.hide]].forEach(function (p) {
       var a = p[1]; if (!a || a.available !== false) return;
+      if (p[0] === "private" && a.reason === "already_sent") return; /* Coach Ed: no note or card for it; the private button is simply off */
       var t = reasonText(a.reason); if (!t || seen[t]) return;
       seen[t] = true; out.push([p[0], t]);
     });

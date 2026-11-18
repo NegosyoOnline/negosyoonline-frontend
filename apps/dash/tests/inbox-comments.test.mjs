@@ -564,12 +564,21 @@ test("private reply after 7 days: Send private message is off with the plain not
   assert.equal(d.$("cm-rb").disabled, false);
 });
 
-test("a private message already sent: off with its note", async () => {
+test("a private message already sent: no note and no card, the private button is off; the 7-day note stays", async () => {
   const d = boot();
   d.s.detail = detail({ private_reply: { available: false, reason: "already_sent", replied_at: iso(5), expires_at: null } });
   await d.openInbox();
   await d.openRow(0);
-  assert.ok(text(d.$("ib-threadpane")).includes("A private message was already sent for this comment."));
+  assert.ok(!text(d.$("ib-threadpane")).includes("already sent"));
+  assert.equal(d.all(d.$("ib-threadpane"), "cm-note").length, 0);
+  const b = d.press(d.$("ib-threadpane"), "Send private message");
+  assert.equal(b.disabled, true);
+  assert.equal(b.getAttribute("aria-disabled"), "true");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send Comment Reply").disabled, true, "empty box: off too");
+  assert.equal(NOUtil(d).notesFor({ private_reply: { available: false, reason: "already_sent" } }).length, 0);
+  d.s.detail = detail({ private_reply: { available: false, reason: "window_closed", replied_at: null, expires_at: iso(60) } });
+  await d.openRow(2);
+  assert.equal(d.all(d.$("ib-threadpane"), "cm-note").length, 1, "window_closed keeps its note");
 });
 
 test("a comment that only allows a private reply shows only the private limit, and with nothing allowed the box is off with the reason", async () => {
@@ -787,3 +796,5 @@ test("comment threads space their message blocks 24px apart; the shared .ib-msgs
   assert.match(css, /#view-inbox \.ib-msgs \{[^}]*gap: 10px/);
   assert.match(css, /#view-inbox \.ib-msg \{[^}]*gap: 4px/);
 });
+
+function NOUtil(d) { return d.window.NOInboxComments.util; }

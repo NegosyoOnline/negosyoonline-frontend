@@ -226,6 +226,31 @@ test("Completed with a held registration shows its label and line, and the Order
   assert.match(body, /<dd>₱1,488\.00<\/dd>/);
 });
 
+test("the Order Summary payment line follows payment_method_label on Onboarding and Completed, with a transfer fallback", async () => {
+  const pay = /<dt>Payment<\/dt><dd>([^<]*)<\/dd>/;
+  const f = fake({
+    "onboarding/state": [
+      ok(state({ payment_method_label: "Pay online (Xendit)" })),
+      ok(state({ step: "done", payment_method_label: "Pay online (Xendit)" })),
+      ok(state({ payment_method_label: "Bank or e-wallet transfer" })),
+      ok(state({ step: "done", payment_method_label: "Bank or e-wallet transfer" })),
+      ok(state()),
+      ok(state({ step: "done" })),
+      ok(state({ payment_method_label: 5 })),
+    ],
+  });
+  const seen: (string | undefined)[] = [];
+  seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
+  seen.push((await text((await completedGet(flowOf(f)))!)).match(pay)?.[1]);
+  seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
+  seen.push((await text((await completedGet(flowOf(f)))!)).match(pay)?.[1]);
+  seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
+  seen.push((await text((await completedGet(flowOf(f)))!)).match(pay)?.[1]);
+  seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
+  const x = "Pay online (Xendit)", t = "Bank or e-wallet transfer";
+  assert.deepEqual(seen, [x, x, t, t, t, t, t]);
+});
+
 test("the access page: open, spent, renewable, and the redeem POST starts a fresh checkout cookie", async () => {
   const f = fake({
     "access/read": [ok({ link_open: true, renewable: true }), ok({ link_open: false, renewable: true }), ok({ link_open: false, renewable: false })],

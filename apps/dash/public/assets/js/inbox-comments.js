@@ -71,7 +71,8 @@
     var p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); s.appendChild(p);
     return s;
   }
-  var ICON = { chat: "M4 5h16v11H9l-5 4z", warn: "M12 3l10 18H2zM12 10v5M12 18h.01" };
+  var ICON = { chat: "M4 5h16v11H9l-5 4z", warn: "M12 3l10 18H2zM12 10v5M12 18h.01",
+    check: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6", unans: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16h.01" };
   function btn(label, kind, fn) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost")); b.setAttribute("type", "button");
     b.appendChild(document.createTextNode(label));
@@ -122,7 +123,38 @@
     return out;
   }
   /* What a list row needs of a comment: the name, the post line (the caption) and the badges that follow the channel badge. */
-  function row(it) { return { name: nameOf(it.author_name), line: postLine(it.post, false), chips: chips(it, false) }; }
+  /* The answered state of a list row, as an icon right after the channel pill: check-circle in green (answered), alert-circle in light gold
+     (unanswered). It is a focusable span with a one-line tooltip (hover, focus, tap) and an aria-label; its click stops here, so a tap on it
+     never opens the row. The tooltip opens below the icon (the list scrolls, so above the first row it would be cut off). */
+  function statusIcon(c) {
+    var on = !!c && c.answered === true, label = on ? T.answered : T.unanswered;
+    var wrap = h("span", "cm-st " + (on ? "cm-st-ok" : "cm-st-no")), tip = h("span", "cm-tip cm-tip-l cm-tip-b", label);
+    var touchTap = false, wasOpen = false, closeFn = null;
+    wrap.setAttribute("tabindex", "0"); wrap.setAttribute("role", "img"); wrap.setAttribute("aria-label", label); wrap.setAttribute("aria-describedby", "");
+    tip.setAttribute("role", "tooltip");
+    var id = "cm-st-" + (++stSeq); tip.setAttribute("id", id); wrap.setAttribute("aria-describedby", id);
+    wrap.appendChild(icon(on ? ICON.check : ICON.unans)); wrap.appendChild(tip);
+    function outside(e) { var t = e && e.target; if (t && (t === wrap || (wrap.contains && wrap.contains(t)))) return; open(false); }
+    function open(v) {
+      if (!v) { tip.classList.remove("is-open"); if (tipClose === closeFn) tipClose = null; if (document.removeEventListener) document.removeEventListener("click", outside); return; }
+      if (tipClose && tipClose !== closeFn) tipClose();
+      closeFn = function () { open(false); }; tip.classList.add("is-open"); tipClose = closeFn;
+      if (document.addEventListener) document.addEventListener("click", outside);
+    }
+    wrap.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
+    wrap.addEventListener("mouseenter", function () { open(true); });
+    wrap.addEventListener("mouseleave", function () { if (!document.activeElement || document.activeElement !== wrap) open(false); });
+    wrap.addEventListener("focus", function () { open(true); });
+    wrap.addEventListener("blur", function () { open(false); });
+    wrap.addEventListener("keydown", function (e) { if (e.key === "Escape") open(false); });
+    wrap.addEventListener("click", function (e) {
+      if (e && e.stopPropagation) e.stopPropagation(); /* the row is a button: a tap here must not open it */
+      open(touchTap ? !wasOpen : true); touchTap = false;
+    });
+    return wrap;
+  }
+  var stSeq = 0;
+  function row(it) { return { name: nameOf(it.author_name), line: postLine(it.post, false), chips: [statusIcon(it)].concat(chips(it, false)) }; }
 
   /* ---------- select, draw, reload ---------- */
 

@@ -154,7 +154,8 @@ test("a comment row has the avatar, name, comment, time, unread state, the post 
   assert.equal(d.all(rows[0], "ib-av").length, 1);
   assert.ok(rows[0].classList.contains("ib-unread"), "unread like the conversation rows");
   assert.ok(!rows[1].classList.contains("ib-unread"));
-  assert.ok(!text(rows[0]).includes("Unanswered") && !text(rows[1]).includes("Answered") && d.all(rows[0], "cm-ad").length === 0, "no Answered / Unanswered pill on the rows; no Ad badge on a plain post");
+  assert.equal(d.all(rows[0], "chip").filter((c) => /nswered/.test(text(c))).length, 0, "no Answered / Unanswered pill on the rows (r10: an icon instead)");
+  assert.ok(d.all(rows[0], "cm-ad").length === 0, "no Ad badge on a plain post");
   assert.ok(d.all(rows[1], "cm-ad").length === 1 && text(rows[1]).includes("Summer sale ad"));
   assert.ok(text(rows[2]).includes("Hidden"));
   assert.equal(d.all(rows[0], "ib-rs-u").length, 1);
@@ -850,7 +851,7 @@ test("r9: the read envelope is house green (--ov-green, defined for both themes)
 test("r9: the list rows carry no Answered / Unanswered pill; the thread header keeps its chip", async () => {
   const d = boot();
   await d.openInbox();
-  d.rows().forEach((r) => { assert.ok(!text(r).includes("nswered")); });
+  d.rows().forEach((r) => { assert.equal(d.all(r, "chip").filter((c) => /nswered/.test(text(c))).length, 0); });
   await d.openRow(1);
   assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
 });
@@ -981,4 +982,71 @@ test("r9: too long for the comment reply is a tooltip too; Enter never sends whi
 test("r9: the pub tooltip opens to the right of the button so it stays on screen on a phone", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.cm-tip\.cm-tip-l \{ left: 0; right: auto; \}/);
+});
+
+/* ---------- round 10: the answered state icon after the channel pill ---------- */
+
+test("r10: every FB Comment row has a status icon right after the channel pill (check = answered, alert = unanswered); other rows have none", async () => {
+  const d = boot({ convs: [conv(1, 5)] });
+  await d.openInbox();
+  const rows = d.rows();
+  assert.equal(d.all(rows[0], "cm-st").length, 0, "a conversation row has no status icon");
+  const kids = (r) => d.all(r, "ib-badges")[0].children;
+  const want = [[1, "Unanswered", "cm-st-no", "M12 7.5v5"], [2, "Answered", "cm-st-ok", "M8 12l3 3 5-6"], [3, "Unanswered", "cm-st-no", "M12 7.5v5"]];
+  for (const [i, label, cls, dpart] of want) {
+    const b = kids(rows[i]);
+    assert.ok(b[0].classList.contains("ib-ch") && text(b[0]) === "FB Comment", "the channel pill comes first");
+    const st = b[1];
+    assert.ok(st.classList.contains("cm-st") && st.classList.contains(cls), "the icon is right after it");
+    assert.equal(st.getAttribute("aria-label"), label);
+    assert.equal(st.getAttribute("tabindex"), "0");
+    const path = st.all((n) => n.tagName.toLowerCase() === "path")[0].getAttribute("d");
+    assert.ok(path.includes(dpart.slice(0, 8)));
+    assert.equal(text(d.$(st.getAttribute("aria-describedby"))), label);
+  }
+  assert.equal(d.all(rows[1], "cm-ad").length, 0);
+});
+
+test("r10: the status icon tooltip opens on hover, focus and tap; a tap or click on it never opens the row", async () => {
+  const d = boot();
+  await d.openInbox();
+  const st = d.all(d.rows()[0], "cm-st")[0], tip = d.$(st.getAttribute("aria-describedby"));
+  assert.equal(tip.getAttribute("role"), "tooltip");
+  assert.ok(!tip.classList.contains("is-open"));
+  st.fire("mouseenter"); assert.ok(tip.classList.contains("is-open"), "hover");
+  st.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
+  st.fire("focus"); assert.ok(tip.classList.contains("is-open"), "focus");
+  st.fire("keydown", { key: "Escape" }); assert.ok(!tip.classList.contains("is-open"), "Escape");
+  st.fire("blur");
+  let stopped = 0;
+  const tap = async () => { st.fire("pointerdown", { pointerType: "touch" }); st.fire("focus"); st.fire("mouseenter"); st.fire("click", { stopPropagation() { stopped++; } }); await settle(); };
+  await tap(); assert.ok(tip.classList.contains("is-open"), "one tap opens it and it stays open");
+  await tap(); assert.ok(!tip.classList.contains("is-open"), "a second tap closes it");
+  assert.equal(stopped, 2, "the click stops before it reaches the row button");
+  assert.ok(!d.calls.some((c) => c.method === "GET" && c.path === CB + R1 + "/"), "the row was not opened");
+  assert.equal(d.rows()[0].getAttribute("aria-current"), null);
+  /* only one tooltip at a time */
+  const st2 = d.all(d.rows()[1], "cm-st")[0], tip2 = d.$(st2.getAttribute("aria-describedby"));
+  st.fire("focus"); st2.fire("focus");
+  assert.ok(tip2.classList.contains("is-open") && !tip.classList.contains("is-open"));
+});
+
+test("r10: the status icon follows the answered state at once after a reply", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  d.$("cm-rb").value = "Yes"; d.$("cm-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send Comment Reply"));
+  const st = d.all(d.rows()[0], "cm-st")[0];
+  assert.equal(st.getAttribute("aria-label"), "Answered");
+  assert.ok(st.classList.contains("cm-st-ok"));
+});
+
+test("r10: icon colours: green --ov-green when answered, light gold #F2D488 dark / #A87A00 light when unanswered, tooltip below the icon", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /^#view-inbox \.cm-st-ok \{ color: var\(--ov-green\); \}/m);
+  assert.match(css, /^#view-inbox \.cm-st-no \{ color: #F2D488; \}/m);
+  assert.match(css, /html\[data-theme="light"\] #view-inbox \.cm-st-no \{ color: #A87A00; \}/);
+  assert.match(css, /prefers-color-scheme: light\) \{ html:not\(\[data-theme\]\) #view-inbox \.cm-st-no \{ color: #A87A00; \}/);
+  assert.match(css, /\.cm-tip\.cm-tip-b \{ bottom: auto; top: calc\(100% \+ 6px\);/);
 });

@@ -173,6 +173,7 @@ body.dash-app .ib-note-info { background: var(--chip-info-bg); color: var(--chip
 #view-settings-inbox .mk-line-t span { display: block; font-size: 14px; color: var(--text-2); margin-top: 2px; }
 #view-settings-inbox .mk-pause { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 #view-settings-inbox .mk-pause > div { flex: 0 1 260px; min-width: 200px; }
+#view-settings-inbox :is(.pm-hint, .pm-lead, .pm-field) + .mk-pause { margin-top: 12px; }
 #view-settings-inbox .mk-pause .no-btn { flex: 0 0 auto; }
 #view-settings-inbox .mk-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
 #view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }

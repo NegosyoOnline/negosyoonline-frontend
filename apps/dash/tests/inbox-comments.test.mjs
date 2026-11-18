@@ -1189,3 +1189,56 @@ test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row ico
   assert.ok(pt.classList.contains("cm-tip"));
   pb.fire("focus"); assert.ok(pt.classList.contains("is-open"));
 });
+
+test("failTextOf for the fbcomment channel uses the comment wording, not the email wording", async () => {
+  const d = boot();
+  await d.openInbox();
+  const f = d.window.NOInbox.util.failTextOf;
+  assert.equal(f("token_invalid", "fbcomment"), "Reconnect your Facebook Page to reply.");
+  assert.equal(f("forbidden_page", "fbcomment"), "Turn on comments for your Page to reply.");
+  assert.equal(f("rate_limited", "fbcomment"), "Facebook is limiting replies right now. Try again in a few minutes.");
+  assert.equal(f("email_failed", "fbcomment"), "Facebook did not answer. Try again.");
+});
+
+const PHOTO = "https://scontent.xx.fbcdn.net/v/t1.0-1/p50x50/a.jpg";
+
+test("added scope: a comment row and the thread head show the commenter's photo; no photo keeps the initials", async () => {
+  const d = boot({ convs: [] });
+  d.s.listing = listing({ items: [item({ avatar_url: PHOTO }), item({ ref: R2, avatar_url: null })] });
+  d.s.detail = detail({ avatar_url: PHOTO });
+  await d.openInbox();
+  const rows = d.rows();
+  const img = d.all(rows[0], "ib-av-img")[0];
+  assert.ok(img, "the row has the photo");
+  assert.equal(img.getAttribute("src"), PHOTO);
+  assert.equal(img.getAttribute("referrerpolicy"), "no-referrer");
+  assert.equal(d.all(rows[1], "ib-av-img").length, 0);
+  assert.equal(text(d.all(rows[1], "ib-av")[0]), "MS", "initials stay");
+  await d.openRow(0);
+  const head = d.all(d.$("ib-threadpane"), "ib-thead")[0];
+  assert.equal(d.all(head, "ib-av-img")[0].getAttribute("src"), PHOTO, "the thread head has the photo");
+});
+
+test("added scope: a photo address that is not https is never used", async () => {
+  const d = boot({ convs: [] });
+  d.s.listing = listing({ items: [item({ avatar_url: "http://scontent.xx.fbcdn.net/a.jpg" }), item({ ref: R2, avatar_url: "javascript:alert(1)" })] });
+  await d.openInbox();
+  assert.equal(d.all(d.rows()[0], "ib-av-img").length + d.all(d.rows()[1], "ib-av-img").length, 0);
+});
+
+test("added scope: the post card shows the caption as the link text; with no caption it says View the post on Facebook, not a bare Post", async () => {
+  const d = boot({ convs: [] });
+  d.s.detail = detail({ post: { id: "1_2", is_ad: false, permalink: "https://www.facebook.com/1_2", caption: "Fresh mangoes" } });
+  await d.openInbox();
+  await d.openRow(0);
+  const a = d.$("ib-threadpane").all((n) => n.tagName === "A")[0];
+  assert.equal(a.getAttribute("href"), "https://www.facebook.com/1_2");
+  assert.ok(text(a).includes("Fresh mangoes"));
+  d.s.detail = detail({ post: { id: "1_2", is_ad: false, permalink: "https://www.facebook.com/1_2", caption: "" } });
+  await d.openRow(2);
+  const b = d.$("ib-threadpane").all((n) => n.tagName === "A")[0];
+  assert.ok(text(b).includes("View the post on Facebook") && !/^\s*On Post/.test(text(d.all(d.$("ib-threadpane"), "cm-postcard")[0])));
+  d.s.detail = detail({ post: { id: "1_2", is_ad: false, permalink: null, caption: "" } });
+  await d.openRow(0);
+  assert.equal(d.$("ib-threadpane").all((n) => n.tagName === "A").length, 0, "no link when there is no permalink");
+});

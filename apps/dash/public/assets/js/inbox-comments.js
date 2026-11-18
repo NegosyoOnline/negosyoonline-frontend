@@ -24,7 +24,7 @@
     net: "We could not confirm it was sent. Press Try again: it will not be sent twice.",
     typeFirst: "Type a message first.", sendingTip: "Sending. Please wait.", tooLongPub: "A comment reply can be 500 characters at most.", tooLongPriv: "A private message can be 1000 characters at most.",
     pubOff: "A comment reply is not possible for this comment.", privOff: "A private message is not possible for this comment.",
-    sent: "Reply sent.", hid: "Comment hidden.", post: "Post", on: "On",
+    sent: "Reply sent.", hid: "Comment hidden.", post: "Post", viewPost: "View the post on Facebook", on: "On",
     confirmHide: "Hide this comment on Facebook? You cannot unhide it from here."
   };
   /* The fixed reason texts of a disabled action (the contract's `reason` codes), and of a send that did not go. Never Meta's words. */
@@ -108,10 +108,10 @@
 
   function chip(cls, text) { return h("span", "chip " + cls + " ib-mini", text); }
   /* The post line: an "Ad" badge for an ad (withAd), and the caption (a short snippet, may be empty). */
-  function postLine(post, withAd) {
+  function postLine(post, withAd, linked) {
     var line = h("span", "cm-post");
     if (withAd && post && post.is_ad === true) line.appendChild(h("span", "ib-ch cm-ad", T.ad));
-    line.appendChild(h("span", "cm-cap", post && post.caption ? post.caption : post && post.is_ad ? "" : T.post));
+    line.appendChild(h("span", "cm-cap", post && post.caption ? post.caption : post && post.is_ad ? "" : linked ? T.viewPost : T.post));
     return line;
   }
   /* The Ad badge, the Unanswered / Answered state and Hidden, as small badges. */
@@ -221,7 +221,7 @@
   function postCard(post) {
     var card = h("div", "cm-postcard"), link = post ? safeLink(post.permalink) : "";
     var label = h("span", "cm-on", T.on);
-    var line = postLine(post, true);
+    var line = postLine(post, true, !!link);
     if (link) {
       var a = D.el("a", { "class": "cm-pl", href: link, target: "_blank", rel: "noopener noreferrer" });
       a.appendChild(line); add(card, label, a);
@@ -242,7 +242,8 @@
     p.setAttribute("aria-label", "Comment from " + C.name);
     var c = C.thread;
     if (C.tstate === "loading" || C.tstate === "failed" || !c) {
-      p.appendChild(C.h.head(C.name, []));
+      var held = itemOf(C.ref);
+      p.appendChild(C.h.head(C.name, [], null, held ? held.avatar_url : null));
       if (C.tstate === "failed") {
         var f = C.tfail || { kind: "down" };
         p.appendChild(stateBox(ICON.warn, "We couldn't open this comment", f.kind === "gone" ? T.gone : T.reopenFail, [btn("Try again", "primary", function (b) { busy(b, true); C.tstate = "loading"; draw(); fetchThread(false); })], true));
@@ -252,7 +253,7 @@
     var hideB = btn(T.hide, "ghost", function () { C.confirm = true; draw(); var y = byId("cm-hide-yes"); if (y) y.focus(); });
     hideB.classList.add("cm-hide"); hideB.setAttribute("id", "cm-hide-btn");
     if (!c.hide || c.hide.available === false) { hideB.disabled = true; hideB.setAttribute("aria-disabled", "true"); }
-    p.appendChild(C.h.head(nameOf(c.author_name), chips(c, true), hideB));
+    p.appendChild(C.h.head(nameOf(c.author_name), chips(c, true), hideB, c.avatar_url));
     if (C.confirm && c.hide && c.hide.available !== false) p.appendChild(confirmBox());
     var now = new Date();
     var msgs = h("div", "ib-msgs cm-msgs"); msgs.setAttribute("tabindex", "0"); msgs.setAttribute("aria-label", "Comment");

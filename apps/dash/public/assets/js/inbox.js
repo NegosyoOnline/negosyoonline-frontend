@@ -227,7 +227,26 @@
     window_closed: NOTE_WINDOW,
     token_invalid: "Reconnect your Facebook Page in Settings > Inbox."
   };
-  function failTextOf(code) { return Object.prototype.hasOwnProperty.call(FAIL, code) ? FAIL[code] : FAIL.email_failed; }
+  /* A Facebook Messenger reply that did not go: the existing sentences (the 24-hour note, the Settings > Inbox reconnect line, and the
+     wording of inbox-settings.js and inbox-comments.js), never the email texts. Codes are the shared provider outcomes. */
+  var M_DOWN = "Facebook did not answer. Try again.", M_LIMIT = "Facebook is limiting replies right now. Try again in a few minutes.";
+  var M_FAIL = {
+    window_closed: NOTE_WINDOW,
+    token_invalid: FAIL.token_invalid, invalid_credentials: FAIL.token_invalid, expired_credentials: FAIL.token_invalid,
+    not_configured: "Connect your Facebook Page to reply.",
+    forbidden_page: "Messenger needs all the permissions it asks for. Please connect again and allow them.",
+    rate_limited: M_LIMIT, blocked_rate: M_LIMIT, provider_down: M_DOWN, bad_response: M_DOWN, not_found: M_DOWN
+  };
+  function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  /* `channel` is the thread's (webchat, email, messenger, fbcomment); without one the email and chat texts apply, as before. */
+  function failTextOf(code, channel) {
+    if (channel === "messenger") return has(M_FAIL, code) ? M_FAIL[code] : M_DOWN;
+    if (channel === "fbcomment") {
+      var cm = window.NOInboxComments && window.NOInboxComments.util;
+      return cm && cm.failTextOf ? cm.failTextOf(code) : M_DOWN;
+    }
+    return has(FAIL, code) ? FAIL[code] : FAIL.email_failed;
+  }
   var CHIP_CHAT = "Delivered to chat when the visitor is online", CHIP_MAIL = "Sent to the mail server";
   var NOTE_NO_EMAIL = "No email address was given. Your reply shows in the chat only while the visitor's browser keeps it.";
   var NOTE_UNVERIFIED = "This address was typed into your contact form and has not been confirmed.";
@@ -235,7 +254,7 @@
   /* The delivery chip of an owner message in a stored thread: [colour, text] or null. `code` is the failure code paired to it. */
   function chipFor(channel, m, code, latestSeen) {
     if (!m || m.direction !== "out") return null;
-    if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code)];
+    if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code, channel)];
     if (channel === "messenger") {
       /* INBOX-UI U2: Sent, Delivered, and Seen on the latest seen message only (Messenger style); an older seen one shows nothing. */
       if (m.delivery_state === "seen") return latestSeen === true ? ["info", "Seen"] : null;
@@ -607,7 +626,7 @@
   function itemOf(ref) { var f = null; S.pool.forEach(function (i) { if (i.ref === ref) f = i; }); return f; }
   function cmHooks() {
     return { site: function () { return S ? S.site : ""; }, pane: function () { return byId("ib-threadpane"); }, item: itemOf,
-      head: function (name, chips, action) { return threadHead(name, { channel: "fbcomment", chips: chips, action: action }); }, listChanged: function () { if (S) drawList(); } };
+      head: function (name, chips, action, avatar) { return threadHead(name, { channel: "fbcomment", chips: chips, action: action, avatar: avatar }); }, listChanged: function () { if (S) drawList(); } };
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;
@@ -846,7 +865,7 @@
         var bad = codeOf(res);
         S.notice = res.status === 0
           ? "We could not confirm it was sent. Press Try again: it will not be sent twice."
-          : bad === "window_closed" || bad === "token_invalid" ? failTextOf(bad) : msgOf(res, "The reply could not be sent.");
+          : bad === "window_closed" || bad === "token_invalid" ? failTextOf(bad, channelOf(S.thread || { ref: ref })) : msgOf(res, "The reply could not be sent.");
         drawThread(true); return;
       }
       S.key = null;
@@ -855,7 +874,7 @@
       var code = res.data && typeof res.data.error_code === "string" ? res.data.error_code : "";
       if (state === "sent") { S.drafts[ref] = ""; S.notice = null; say("Reply sent."); }
       else if (state === "sending") { S.notice = "Your reply is still being sent. Refresh in a moment to see it."; }
-      else { S.notice = failTextOf(code); S.drafts[ref] = text; }
+      else { S.notice = failTextOf(code, channelOf(S.thread || { ref: ref })); S.drafts[ref] = text; }
       drawThread(true);
       fetchThread(true);
     });
@@ -940,7 +959,7 @@
       /* a Facebook comment is one row like the others; its post line and chips come from inbox-comments.js */
       var cmRow = isComment(it) && window.NOInboxComments ? window.NOInboxComments.row(it) : null;
       var rowName = cmRow ? cmRow.name : nameOf(it.display_name);
-      var av = cmRow ? avatarNode(rowName, null) : avatarNode(it.display_name, it.avatar_url);
+      var av = cmRow ? avatarNode(rowName, it.avatar_url) : avatarNode(it.display_name, it.avatar_url);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
       nm.appendChild(document.createTextNode(rowName));
       var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: closed envelope unread, open envelope read */

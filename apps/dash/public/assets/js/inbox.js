@@ -655,7 +655,8 @@
   var EVERY = { thread: 5000, list: 15000 }, CAP = 60000;
   var P = { epoch: 0, thread: { t: null, fails: 0, busy: false }, list: { t: null, fails: 0, busy: false } };
   function sigOf(x) { try { return JSON.stringify(x); } catch (e) { return ""; } }
-  function pollOn() { return !!S && !document.hidden; }
+  function tabHidden() { return !!document.hidden || document.visibilityState === "hidden"; }
+  function pollOn() { return !!S && !tabHidden(); }
   function pollClear(kind) { var p = P[kind]; if (p.t !== null) { clearTimeout(p.t); p.t = null; } }
   function pollArm(kind) {
     var p = P[kind]; pollClear(kind);
@@ -804,7 +805,7 @@
       L.retry = setTimeout(function () { L.retry = null; streamOpen(); }, RETRY);
     });
   }
-  function onVisible() { if (document.hidden) { streamClose(); pollStop(); } else { pollKick(); streamOpen(); } }
+  function onVisible() { if (tabHidden()) { streamClose(); pollStop(); } else { pollKick(); streamOpen(); } }
   function refreshAll(b) {
     busy(b, true);
     load(true);
@@ -1318,7 +1319,7 @@
   /* The Refresh button is part of the filter row (refreshButton). */
   (function wire() {
     if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
-    if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (document.hidden) badgeStop(); else if (!S) badgeRead(); });
+    if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (tabHidden()) badgeStop(); else if (!S) badgeRead(); });
     if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); if (S) streamOpen(); });
   })();
 

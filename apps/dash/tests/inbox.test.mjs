@@ -786,10 +786,10 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261118cm13/);
+  assert.match(HTML, /inbox\.js\?v=20261118cm14/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm13/);
-  assert.match(HTML, /inbox-comments\.js\?v=20261118cm13/);
+  assert.match(HTML, /inbox\.css\?v=20261118cm14/);
+  assert.match(HTML, /inbox-comments\.js\?v=20261118cm14/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
@@ -1051,6 +1051,25 @@ test("poll: a hidden tab reads nothing; coming back (visibilitychange or focus) 
   d.winListeners.focus.forEach((f) => f()); await settle();
   assert.ok(d.calls.length > m, "focus reads at once");
   assert.deepEqual(d.toasts, []);
+});
+
+test("poll: document.visibilityState alone pauses the polls; one read per list on return; 3 hide/show cycles leave a single timer", async () => {
+  const { d, clock } = await polling();
+  const vis = (v) => { d.doc.visibilityState = v; d.doc.fire("visibilitychange"); };
+  const base = clock.pending();
+  for (let i = 0; i < 3; i++) {
+    vis("hidden");
+    const n = d.calls.length;
+    await clock.advance(120000);
+    assert.equal(d.calls.length, n, "no fetch while hidden, across several intervals");
+    assert.equal(clock.pending(), 0);
+    vis("visible"); await settle();
+    assert.deepEqual(d.calls.slice(n).map((c) => c.method + " " + c.path), ["GET " + LIST_PATH], "exactly one fetch per list on becoming visible, no catch-up burst");
+    assert.equal(clock.pending(), base, "one active timer, never stacked");
+  }
+  const l = gets(d, LIST_PATH);
+  await clock.advance(15000);
+  assert.equal(gets(d, LIST_PATH), l + 1, "then the 15 s timer, once");
 });
 
 test("poll: a new message shows without Refresh, and the typed draft, the box and the focus stay", async () => {

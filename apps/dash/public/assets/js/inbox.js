@@ -339,7 +339,7 @@
         var on = op.value === select.value && !(o.blankEmpty && op.value === "");
         var row = h("div", "ib-combo-opt" + (on ? " is-selected" : ""), op.textContent);
         row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(on));
-        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); });
+        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); picked(); });
         rows.push(row); panel.appendChild(row);
       });
       if (!rows.length) panel.appendChild(h("div", "ib-combo-opt is-disabled", "No matches"));
@@ -371,9 +371,14 @@
     select.addEventListener("change", function () { input.value = chosen(); });
     select.ibSync = function () { input.value = chosen(); };
     select.ibFocus = function () { input.focus(); };
-    input.addEventListener("focus", function () { if (input.select) input.select(); });
+    /* The text is never highlighted: focus puts the caret at the end. The first printable key typed while the box still shows the chosen label
+       starts a fresh query (the label is cleared before the key lands), so it never appends to "Website chat". */
+    function caretEnd() { var n = input.value.length; if (input.setSelectionRange) { try { input.setSelectionRange(n, n); } catch (e) { /* not selectable */ } } }
+    function picked() { input.focus(); caretEnd(); } /* after a pick the focus stays on the combo that was used */
+    input.addEventListener("focus", caretEnd);
     input.addEventListener("input", function () { show(); draw(input.value.trim().toLowerCase()); });
     input.addEventListener("keydown", function (e) {
+      if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && input.value !== "" && input.value === chosen()) input.value = "";
       if (e.key === "Tab") { shut(); return; }
       if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); shut(); return; }
       if (e.key === "Enter") { e.preventDefault(); if (active >= 0) { if (rows[active].fire) rows[active].fire("click"); else rows[active].click(); } else show(); return; }
@@ -900,7 +905,7 @@
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (S.sel ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
     var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
-    var togs = h("div", "ib-togs"); add(togs, answeredToggle(), readToggle()); head.appendChild(togs); p.appendChild(head);
+    var togs = h("div", "ib-togs"), at = answeredToggle(), rt = readToggle(); add(togs, at, rt); attachTip(at, togs); attachTip(rt, togs); head.appendChild(togs); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
     fillList(body);
     return p;
@@ -1028,6 +1033,40 @@
   }
   /* The Read/Unread filter (Coach Ed 2026-11-17): one icon toggle in the Conversations header, All -> Unread -> Read -> All. Unread sends
      unread=1, Read sends unread=0; All sends nothing. S.unread is "" | "1" | "0". */
+  /* The house tooltip for an icon button: dark, fixed under the button (so no scroll box clips it), opens on hover after about 120 ms, at once
+     on focus, and on tap (a touch tap toggles it from what it was before the tap, like the other Inbox tooltips). Its words are the button's
+     aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
+  var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
+  function attachTip(btnEl, host) {
+    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false;
+    tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id); host.appendChild(tip);
+    function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
+    function place() {
+      if (!btnEl.getBoundingClientRect) return;
+      var r = btnEl.getBoundingClientRect(), w = tip.offsetWidth || 160, vw = window.innerWidth || 375;
+      tip.style.top = Math.round(r.bottom + 6) + "px"; tip.style.left = Math.round(Math.max(8, Math.min(r.right - w, vw - w - 8))) + "px";
+    }
+    function shut() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      tip.classList.remove("is-open"); if (TIP.close === shut) TIP.close = null;
+      if (document.removeEventListener) { document.removeEventListener("click", outside); document.removeEventListener("scroll", shut, true); }
+    }
+    function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; shut(); }
+    function open() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (TIP.close && TIP.close !== shut) TIP.close();
+      refresh(); tip.classList.add("is-open"); TIP.close = shut; place();
+      if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", shut, true); }
+    }
+    btnEl.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
+    btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open") || timer) return; timer = setTimeout(function () { timer = null; open(); }, 120); });
+    btnEl.addEventListener("mouseleave", function () { if (timer) { clearTimeout(timer); timer = null; } if (!document.activeElement || document.activeElement !== btnEl) shut(); });
+    btnEl.addEventListener("focus", open);
+    btnEl.addEventListener("blur", shut);
+    btnEl.addEventListener("keydown", function (e) { if (e.key === "Escape") shut(); });
+    btnEl.addEventListener("click", function () { if (touchTap) { if (wasOpen) shut(); else open(); touchTap = false; } else if (tip.classList.contains("is-open")) refresh(); else open(); });
+    btnEl.ibTipRefresh = function () { if (tip.classList.contains("is-open")) { refresh(); place(); } };
+  }
   var READS = { "": { icon: "stack", text: "Showing all messages", next: "1" }, "1": { icon: "mail", text: "Showing unread", next: "0" }, "0": { icon: "mailOpen", text: "Showing read", next: "" } };
   function readToggle() {
     var b = h("button", "ib-rtog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-rtog");
@@ -1043,8 +1082,8 @@
   function paintRead(b, v) {
     var r = READS[v] || READS[""];
     clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
-    b.classList.toggle("is-on", !!v);
+    b.setAttribute("aria-label", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
+    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   /* Shows v on the toggle, or the real S.unread when v is left out. */
   function syncRead(v) { var b = byId("ib-rtog"); if (b && S) paintRead(b, v === undefined ? S.unread || "" : v); }
@@ -1066,8 +1105,8 @@
   function paintAns(b, v) {
     var r = ANSWERS[v] || ANSWERS[""];
     clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
-    b.classList.toggle("is-on", !!v);
+    b.setAttribute("aria-label", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
+    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   function syncAns(v) { var b = byId("ib-atog"); if (b && S) paintAns(b, v === undefined ? S.answered || "" : v); }
   function refreshButton() {
@@ -1122,7 +1161,7 @@
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
       fillList(byId("ib-listbody")); syncRead(); syncAns();
-      var again = byId("ib-filter"); if (box && again && again.ibFocus) again.ibFocus();
+      if (box && box.ibFocus) box.ibFocus(); /* focus stays on the combo that was used (the Channel or the Status one) */
       say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }

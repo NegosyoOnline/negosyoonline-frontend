@@ -324,7 +324,7 @@ html[data-theme="light"] #view-inbox .cm-kind-pub { border-color: #D9A21B; backg
 /* The disabled "Send private message" and "Send Comment Reply" keep its hover/focus: aria-disabled, not the native attribute, and a tooltip above it with the reason. */
 #view-inbox .cm-blocked[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
 #view-inbox .cm-tipwrap { position: relative; display: inline-flex; }
-#view-inbox .cm-tip { position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(260px, calc(100vw - 56px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: var(--text); color: var(--bg); border: 1px solid var(--card-line); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: normal; opacity: 0; visibility: hidden; pointer-events: none; z-index: 5; }
+#view-inbox .cm-tip { position: absolute; right: 0; bottom: calc(100% + 8px); width: max-content; max-width: min(260px, calc(100vw - 56px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #F2F5FC; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: normal; opacity: 0; visibility: hidden; pointer-events: none; z-index: 5; }
 #view-inbox .cm-tip.cm-tip-l { left: 0; right: auto; }
 #view-inbox .cm-tip.is-open { opacity: 1; visibility: visible; }
 

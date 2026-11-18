@@ -862,19 +862,19 @@ test("r12: the Answered toggle sits beside the Read toggle, cycles All > Answere
   const t = () => d.$("ib-atog"), st = () => [t().getAttribute("aria-label"), t().getAttribute("title"), t().getAttribute("aria-pressed"), t().classList.contains("is-on")];
   const api = (n) => d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort();
   assert.equal(t().tagName, "BUTTON");
-  assert.deepEqual(st(), ["Showing answered and unanswered", "Showing answered and unanswered", "false", false]);
+  assert.deepEqual(st(), ["Showing answered and unanswered", null, "false", false]);
   let n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing answered only", "Showing answered only", "true", true]);
+  assert.deepEqual(st(), ["Showing answered only", null, "true", true]);
   assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?answered=answered"], "both routes");
   assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
   n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing unanswered only", "Showing unanswered only", "true", true]);
+  assert.deepEqual(st(), ["Showing unanswered only", null, "true", true]);
   assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?answered=unanswered"]);
   n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing answered and unanswered", "Showing answered and unanswered", "false", false]);
+  assert.deepEqual(st(), ["Showing answered and unanswered", null, "false", false]);
   assert.deepEqual(api(n), ["GET " + CB, "GET " + CV]);
   /* it combines with Read/Unread and Open/Closed, and is not the status dropdown */
   await d.click(t());
@@ -1094,4 +1094,71 @@ test("r12: every channel's row has the status icon after the name from item.answ
   assert.equal(iconOf("Buyer 4"), null, "no field, no icon");
   assert.ok(d.all(rowOf("Commenter 1") || d.rows()[0], "cm-st").length >= 0);
   assert.equal(d.rows().filter((r) => d.all(r, "cm-st").length === 1).length, 3 + 3, "3 conversations with the field and the 3 comments");
+});
+
+/* ---------- round 12 addition 2: one dark house tooltip, on the title toggles too ---------- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("r12: the title toggles have no native title; they get the house tooltip: hover after ~120 ms, focus at once, tap toggles; aria-label kept", async () => {
+  const d = boot();
+  await d.openInbox();
+  for (const id of ["ib-atog", "ib-rtog"]) {
+    const b = d.$(id), tip = d.$(id + "-tip");
+    assert.equal(b.getAttribute("title"), null, id + ": no native title");
+    assert.ok(b.getAttribute("aria-label"), "aria-label kept");
+    assert.equal(b.getAttribute("aria-describedby"), id + "-tip");
+    assert.equal(tip.getAttribute("role"), "tooltip");
+    assert.ok(tip.classList.contains("cm-tip"), "the one shared tooltip class");
+    assert.ok(!tip.classList.contains("is-open"));
+    b.fire("mouseenter");
+    assert.ok(!tip.classList.contains("is-open"), "not at once on hover");
+    await sleep(160);
+    assert.ok(tip.classList.contains("is-open"), "open after ~120 ms");
+    assert.equal(text(tip), b.getAttribute("aria-label"));
+    b.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
+    b.fire("mouseenter"); b.fire("mouseleave"); await sleep(160);
+    assert.ok(!tip.classList.contains("is-open"), "leaving before the delay cancels it");
+    b.fire("focus"); assert.ok(tip.classList.contains("is-open"), "focus: at once");
+    b.fire("keydown", { key: "Escape" }); assert.ok(!tip.classList.contains("is-open"));
+    b.fire("blur");
+    const tap = () => { b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter"); b.fire("click"); };
+    tap(); assert.ok(tip.classList.contains("is-open"), "a tap opens it");
+    await sleep(160); assert.ok(tip.classList.contains("is-open"), "the touch mouseenter does not close or reopen it");
+    tap(); assert.ok(!tip.classList.contains("is-open"), "a second tap closes it");
+    b.fire("blur");
+  }
+});
+
+test("r12: the toggle tooltip text follows the state after a click", async () => {
+  const d = boot();
+  await d.openInbox();
+  const b = d.$("ib-rtog"), tip = d.$("ib-rtog-tip");
+  b.fire("focus");
+  assert.equal(text(tip), "Showing all messages");
+  await d.click(b);
+  assert.equal(b.getAttribute("aria-label"), "Showing unread");
+  assert.equal(text(tip), "Showing unread");
+});
+
+test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row icons, toggles), and only one open at a time", async () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = /^#view-inbox \.cm-tip \{([^}]*)\}/m.exec(css)[1];
+  assert.match(rule, /background: #1B2236; color: #F2F5FC;/, "dark background, light text, in both themes");
+  assert.doesNotMatch(css, /\.cm-tip[^{]*\{[^}]*var\(--text\)/, "no theme-inverted tooltip colours left");
+  assert.doesNotMatch(css, /html\[data-theme="light"\] #view-inbox \.cm-tip\b/);
+  /* contrast of #F2F5FC on #1B2236 */
+  const lum = (h) => { const c = [0, 2, 4].map((i) => parseInt(h.slice(1 + i, 3 + i), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (lum("#F2F5FC") + 0.05) / (lum("#1B2236") + 0.05);
+  assert.ok(ratio >= 4.5, "contrast " + ratio.toFixed(1));
+  const d = boot();
+  await d.openInbox();
+  const t1 = d.$("ib-atog-tip"), st = d.all(d.rows()[0], "cm-st")[0], t2 = d.$(st.getAttribute("aria-describedby"));
+  assert.ok(t2.classList.contains("cm-tip"));
+  d.$("ib-atog").fire("focus"); assert.ok(t1.classList.contains("is-open"));
+  st.fire("focus"); assert.ok(t2.classList.contains("is-open") && !t1.classList.contains("is-open"), "one at a time across toggles and row icons");
+  await d.openRow(0);
+  d.$("cm-rb").value = ""; d.$("cm-rb").fire("input");
+  const pb = d.press(d.$("ib-threadpane"), "Send private message"), pt = d.$("cm-priv-tip");
+  assert.ok(pt.classList.contains("cm-tip"));
+  pb.fire("focus"); assert.ok(pt.classList.contains("is-open"));
 });

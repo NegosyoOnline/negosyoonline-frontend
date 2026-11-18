@@ -45,7 +45,7 @@
   };
   /* The tooltip line of a disabled "Send private message": the reason text, with its own wording for an already sent one. */
   function privTipText(code) { return code === "already_sent" ? "Private message already sent for this comment." : reasonText(code); }
-  var tipClose = null; /* closes the one open tooltip */
+  var TIP = window.NOInboxTip = window.NOInboxTip || { close: null }; /* shared with inbox.js: closes the one open tooltip */
   function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
   function reasonText(code) { return has(REASON, code) ? REASON[code] : ""; }
   function known(code) { return has(FAIL, code) || (has(REASON, code) && !!REASON[code]); }
@@ -141,9 +141,9 @@
       tip.style.top = Math.round(r.bottom + 6) + "px"; tip.style.left = Math.round(Math.max(8, Math.min(r.left, vw - w - 8))) + "px";
     }
     function open(v) {
-      if (!v) { tip.classList.remove("is-open"); if (tipClose === closeFn) tipClose = null; if (document.removeEventListener) { document.removeEventListener("click", outside); if (closeFn) document.removeEventListener("scroll", closeFn, true); } return; }
-      if (tipClose && tipClose !== closeFn) tipClose();
-      closeFn = function () { open(false); }; tip.classList.add("is-open"); tipClose = closeFn;
+      if (!v) { tip.classList.remove("is-open"); if (TIP.close === closeFn) TIP.close = null; if (document.removeEventListener) { document.removeEventListener("click", outside); if (closeFn) document.removeEventListener("scroll", closeFn, true); } return; }
+      if (TIP.close && TIP.close !== closeFn) TIP.close();
+      closeFn = function () { open(false); }; tip.classList.add("is-open"); TIP.close = closeFn;
       if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", closeFn, true); }
       place();
     }
@@ -316,9 +316,9 @@
        too long, empty box. So the private message button's own reasons come before "Type a message first." */
     function openTip(o, on) {
       if (!o.tip) return;
-      if (!on) { o.tip.classList.remove("is-open"); if (tipClose === o.close) tipClose = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); return; }
-      if (tipClose && tipClose !== o.close) tipClose();
-      o.tip.classList.add("is-open"); tipClose = o.close;
+      if (!on) { o.tip.classList.remove("is-open"); if (TIP.close === o.close) TIP.close = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); return; }
+      if (TIP.close && TIP.close !== o.close) TIP.close();
+      o.tip.classList.add("is-open"); TIP.close = o.close;
       if (document.addEventListener) document.addEventListener("click", o.outside);
     }
     function reasonOf(mode) {
@@ -341,7 +341,7 @@
       });
       o.btn.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); o.btn.setAttribute("aria-label", label);
       o.box = h("span", "cm-tipwrap"); o.box.appendChild(o.btn);
-      o.close = function () { if (o.tip) o.tip.classList.remove("is-open"); if (tipClose === o.close) tipClose = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); };
+      o.close = function () { if (o.tip) o.tip.classList.remove("is-open"); if (TIP.close === o.close) TIP.close = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); };
       o.outside = function (e) { var t = e && e.target; if (t && (t === o.btn || (o.btn.contains && o.btn.contains(t)))) return; openTip(o, false); };
       o.btn.addEventListener("pointerdown", function (e) { o.touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); o.wasOpen = !!o.tip && o.tip.classList.contains("is-open"); });
       o.btn.addEventListener("mouseenter", function () { openTip(o, true); });

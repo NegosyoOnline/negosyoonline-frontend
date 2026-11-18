@@ -160,6 +160,8 @@
     return wrap;
   }
   var stSeq = 0;
+  /* For a conversation row: the same icon from item.answered (true|false); no icon when the API does not send it. */
+  function convStatus(it) { return it && typeof it.answered === "boolean" ? statusIcon(it) : null; }
   function row(it) { return { name: nameOf(it.author_name), line: postLine(it.post, false), status: statusIcon(it), chips: chips(it, false) }; }
 
   /* ---------- select, draw, reload ---------- */
@@ -437,6 +439,6 @@
     });
   }
 
-  window.NOInboxComments = { select: select, draw: draw, reload: reload, deselect: deselect, stop: stop, isOpen: isOpen, row: row,
+  window.NOInboxComments = { statusIcon: convStatus, select: select, draw: draw, reload: reload, deselect: deselect, stop: stop, isOpen: isOpen, row: row,
     util: { safeLink: safeLink, notesFor: notesFor, reasonText: reasonText, failTextOf: failTextOf, privTipText: privTipText, availableMode: availableMode } };
 })();

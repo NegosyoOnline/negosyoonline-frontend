@@ -195,9 +195,8 @@
   }
   /* The sources a filter combination reads: Channel "FB Comment" reads only comments, the other channels only conversations, All both.
      Comments have no closed state, so Closed reads no comments. */
-  function sourcesFor(filter, status, answered) {
-    /* An Answered/Unanswered filter belongs to comments only: while it is on, no conversation is read (they have no such state). */
-    return { conv: filter !== "fbcomment" && !answered, cm: (!filter || filter === "all" || filter === "fbcomment") && status !== "closed" };
+  function sourcesFor(filter, status) {
+    return { conv: filter !== "fbcomment", cm: (!filter || filter === "all" || filter === "fbcomment") && status !== "closed" };
   }
   /* The comments list address: search text, Read/Unread (unread=1 or 0), cursor. */
   function commentQuery(q, unread, cursor, answered) {
@@ -505,6 +504,7 @@
     if (o.q) qs.push("q=" + encodeURIComponent(o.q));
     if (o.status) qs.push("status=" + o.status); /* "open" or "closed"; All conversations sends nothing */
     if (o.unread) qs.push("unread=" + o.unread); /* "1" unread only, "0" read only; All messages sends nothing */
+    if (o.answered === "answered" || o.answered === "unanswered") qs.push("answered=" + o.answered); /* the same filter as the comments list */
     return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
   }
   function commentsUrl(cursor, o) { o = o || S; return base() + "comments/" + commentQuery(o.q, o.unread, cursor, o.answered); }
@@ -555,7 +555,7 @@
     if (!refresh) { S.listTop = 0; S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
       streamOpen();
-      readFirst(sourcesFor(S.filter, S.status, S.answered)).then(function (r) {
+      readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
         if (mine !== token || !S || r.unauth) return;
         if (!r.ok) { reveal404(r.fail); S.state = "failed"; S.fail = failure(r.fail); redraw(); return; }
         ingest(r, false); S.lsig = sigNow();
@@ -711,7 +711,7 @@
   function pollList(done) {
     if (S.state !== "ready" && S.state !== "empty") return false;
     var st = S, mine = token;
-    readFirst(sourcesFor(S.filter, S.status, S.answered)).then(function (r) {
+    readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
       if (S !== st || mine !== token || r.unauth) { done("skip"); return; }
       if (!r.ok) { done("fail"); return; }
       if (r.conv) takeUnread(r.conv);
@@ -943,7 +943,9 @@
       rs.appendChild(icon(unread ? ICON.mail : ICON.mailOpen));
       add(side, h("span", "ib-time", listTime(cmRow ? it.created_at : it.updated_at, now)), rs);
       top.appendChild(nm);
-      if (cmRow) { top.classList.add("ib-top-cm"); nm.classList.add("ib-name-cm"); top.appendChild(cmRow.status); } /* the answered state icon, right after the name */
+      /* the answered state icon, right after the name, on every channel: a comment has its own state, a conversation its item.answered (none when the API does not send it) */
+      var stIcon = cmRow ? cmRow.status : window.NOInboxComments ? window.NOInboxComments.statusIcon(it) : null;
+      if (stIcon) { top.classList.add("ib-top-cm"); nm.classList.add("ib-name-cm"); top.appendChild(stIcon); }
       var badges = h("span", "ib-badges");
       add(badges, channelBadge(channelOf(it)));
       if (cmRow) cmRow.chips.forEach(function (c) { badges.appendChild(c); });
@@ -999,7 +1001,7 @@
     sel.value = S.filter;
     sel.addEventListener("change", function () {
       if (!S || sel.value === S.filter) return;
-      var a = sourcesFor(S.filter, S.status, S.answered), b = sourcesFor(sel.value, S.status, S.answered), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
+      var a = sourcesFor(S.filter, S.status), b = sourcesFor(sel.value, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
       if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; S.listTop = 0; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
       /* FB Comment reads only comments, the other channels only conversations, All both: a change between those asks the APIs again */
       applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: sel.value }, sel, S.filter);
@@ -1047,9 +1049,9 @@
   /* Shows v on the toggle, or the real S.unread when v is left out. */
   function syncRead(v) { var b = byId("ib-rtog"); if (b && S) paintRead(b, v === undefined ? S.unread || "" : v); }
   /* The Answered/Unanswered filter (Coach Ed 2026-11-18): the same kind of icon toggle as Read/Unread, beside it in the Conversations header,
-     All -> Answered -> Unanswered -> All. It sends answered=answered|unanswered to the comments list; All sends nothing. It is not the Open/Closed
-     status. While it is on only comments are read (conversations have no answered state). S.answered is "" | "answered" | "unanswered". */
-  var ANSWERS = { "": { icon: "comment", text: "Showing all comments", next: "answered" }, answered: { icon: "check", text: "Showing answered comments", next: "unanswered" }, unanswered: { icon: "unans", text: "Showing unanswered comments", next: "" } };
+     All -> Answered -> Unanswered -> All. It sends answered=answered|unanswered to the conversations list and the comments list; All sends nothing.
+     It is not the Open/Closed status. S.answered is "" | "answered" | "unanswered". */
+  var ANSWERS = { "": { icon: "comment", text: "Showing answered and unanswered", next: "answered" }, answered: { icon: "check", text: "Showing answered only", next: "unanswered" }, unanswered: { icon: "unans", text: "Showing unanswered only", next: "" } };
   function answeredToggle() {
     var b = h("button", "ib-rtog ib-atog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-atog");
     b.addEventListener("click", function () {
@@ -1107,7 +1109,7 @@
      Closed reads no comments (they have no closed state). */
   function applyQuery(next, box, revert) {
     var mine = ++token, st = S;
-    readFirst(sourcesFor(next.filter, next.status, next.answered), next).then(function (r) {
+    readFirst(sourcesFor(next.filter, next.status), next).then(function (r) {
       if (mine !== token || S !== st || r.unauth) return;
       if (!r.ok) {
         D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");

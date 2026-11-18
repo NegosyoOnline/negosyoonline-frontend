@@ -856,39 +856,44 @@ test("r9: the list rows carry no Answered / Unanswered pill; the thread header k
   assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
 });
 
-test("r9: the Answered toggle sits beside the Read toggle, cycles All > Answered > Unanswered > All, and sends answered= to the comments list only", async () => {
-  const d = boot({ convs: [conv(1, 5)] });
+test("r12: the Answered toggle sits beside the Read toggle, cycles All > Answered > Unanswered > All, and sends answered= to the conversations and the comments routes", async () => {
+  const d = boot({ convs: [conv(1, 5, { answered: true })] });
   await d.openInbox();
   const t = () => d.$("ib-atog"), st = () => [t().getAttribute("aria-label"), t().getAttribute("title"), t().getAttribute("aria-pressed"), t().classList.contains("is-on")];
+  const api = (n) => d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort();
   assert.equal(t().tagName, "BUTTON");
-  assert.deepEqual(st(), ["Showing all comments", "Showing all comments", "false", false]);
+  assert.deepEqual(st(), ["Showing answered and unanswered", "Showing answered and unanswered", "false", false]);
   let n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing answered comments", "Showing answered comments", "true", true]);
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?answered=answered"], "only comments are read; no conversation call");
+  assert.deepEqual(st(), ["Showing answered only", "Showing answered only", "true", true]);
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?answered=answered"], "both routes");
+  assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
   n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing unanswered comments", "Showing unanswered comments", "true", true]);
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?answered=unanswered"]);
+  assert.deepEqual(st(), ["Showing unanswered only", "Showing unanswered only", "true", true]);
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?answered=unanswered"]);
   n = d.calls.length;
   await d.click(t());
-  assert.deepEqual(st(), ["Showing all comments", "Showing all comments", "false", false]);
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV]);
-  /* it combines with Read/Unread, and is not the Open/Closed status */
+  assert.deepEqual(st(), ["Showing answered and unanswered", "Showing answered and unanswered", "false", false]);
+  assert.deepEqual(api(n), ["GET " + CB, "GET " + CV]);
+  /* it combines with Read/Unread and Open/Closed, and is not the status dropdown */
   await d.click(t());
   n = d.calls.length;
   await d.click(d.$("ib-rtog"));
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?unread=1&answered=answered"]);
-  assert.equal(d.$("ib-status").value, "all", "the status dropdown is untouched");
-  assert.equal(d.rows().every((r) => text(r).includes("FB Comment")), true, "no conversation row while an answered filter is on");
+  assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?unread=1&answered=answered"]);
+  n = d.calls.length;
+  await d.pick("ib-status", "closed");
+  assert.deepEqual(api(n), ["GET " + CV + "?status=closed&unread=1&answered=answered"], "Closed reads no comments");
+  assert.equal(d.$("ib-atog").getAttribute("aria-pressed"), "true");
 });
 
 test("r9: a failed read puts the Answered toggle back", async () => {
   const d = boot();
   await d.openInbox();
+  await d.pick("ib-filter", "fbcomment"); /* comments are the only source, so their failure is a failed read */
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Try later." } } };
   await d.click(d.$("ib-atog"));
-  assert.equal(d.$("ib-atog").getAttribute("aria-label"), "Showing all comments");
+  assert.equal(d.$("ib-atog").getAttribute("aria-label"), "Showing answered and unanswered");
 });
 
 /* One check per disabled state of each send button: the button is aria-disabled (never natively), describedby its tooltip, shows the text on
@@ -1065,4 +1070,28 @@ test("r11: a long name shortens with an ellipsis before the icon; the icon never
   assert.match(css, /^#view-inbox \.ib-name-cm \{[^}]*min-width: 0;/m);
   assert.match(css, /^#view-inbox \.ib-top-cm \.cm-st \{ flex: none; \}/m);
   assert.match(css, /^#view-inbox \.ib-top-cm \{[^}]*min-width: 0;/m);
+});
+
+test("r12: every channel's row has the status icon after the name from item.answered; a missing field shows none", async () => {
+  const d = boot({ convs: [
+    conv(1, 5, { channel: "webchat", answered: true }),
+    conv(2, 6, { channel: "email", answered: false }),
+    conv(3, 7, { channel: "messenger", answered: false }),
+    conv(4, 8, { channel: "webchat" })] });
+  await d.openInbox();
+  const rowOf = (name) => d.rows().find((r) => d.all(r, "ib-name")[0].textContent === name);
+  const iconOf = (name) => d.all(rowOf(name), "ib-top")[0].children.filter((n) => n.classList.contains("cm-st"))[0] || null;
+  for (const [name, label, cls] of [["Buyer 1", "Answered", "cm-st-ok"], ["Buyer 2", "Unanswered", "cm-st-no"], ["Buyer 3", "Unanswered", "cm-st-no"]]) {
+    const st = iconOf(name);
+    assert.ok(st && st.classList.contains(cls), name);
+    assert.equal(st.getAttribute("aria-label"), label);
+    assert.equal(d.all(rowOf(name), "ib-top")[0].children[0].classList.contains("ib-name"), true, "right after the name");
+    assert.equal(d.all(d.all(rowOf(name), "ib-badges")[0], "cm-st").length, 0, "not in the pill line");
+    const tip = d.$(st.getAttribute("aria-describedby"));
+    st.fire("focus"); assert.ok(tip.classList.contains("is-open")); st.fire("blur");
+    let stopped = 0; st.fire("click", { stopPropagation() { stopped++; } }); assert.equal(stopped, 1, "a tap never opens the row");
+  }
+  assert.equal(iconOf("Buyer 4"), null, "no field, no icon");
+  assert.ok(d.all(rowOf("Commenter 1") || d.rows()[0], "cm-st").length >= 0);
+  assert.equal(d.rows().filter((r) => d.all(r, "cm-st").length === 1).length, 3 + 3, "3 conversations with the field and the 3 comments");
 });

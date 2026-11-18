@@ -336,4 +336,8 @@ html[data-theme="light"] #view-inbox .cm-kind-pub { border-color: #D9A21B; backg
 #view-inbox .cm-st-no { color: #F2D488; }
 html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 @media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-st-no { color: #A87A00; } }
-#view-inbox .cm-tip.cm-tip-b { bottom: auto; top: calc(100% + 6px); white-space: nowrap; }
+#view-inbox .cm-tip.cm-tip-b { position: fixed; right: auto; bottom: auto; white-space: nowrap; }
+/* A comment row's name line: the name shortens with an ellipsis before the icon, which never wraps or moves. */
+#view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
+#view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+#view-inbox .ib-top-cm .cm-st { flex: none; }

@@ -986,18 +986,19 @@ test("r9: the pub tooltip opens to the right of the button so it stays on screen
 
 /* ---------- round 10: the answered state icon after the channel pill ---------- */
 
-test("r10: every FB Comment row has a status icon right after the channel pill (check = answered, alert = unanswered); other rows have none", async () => {
+test("r11: every FB Comment row has a status icon right after the name (check = answered, alert = unanswered), not in the pill line; other rows have none", async () => {
   const d = boot({ convs: [conv(1, 5)] });
   await d.openInbox();
   const rows = d.rows();
   assert.equal(d.all(rows[0], "cm-st").length, 0, "a conversation row has no status icon");
-  const kids = (r) => d.all(r, "ib-badges")[0].children;
   const want = [[1, "Unanswered", "cm-st-no", "M12 7.5v5"], [2, "Answered", "cm-st-ok", "M8 12l3 3 5-6"], [3, "Unanswered", "cm-st-no", "M12 7.5v5"]];
   for (const [i, label, cls, dpart] of want) {
-    const b = kids(rows[i]);
-    assert.ok(b[0].classList.contains("ib-ch") && text(b[0]) === "FB Comment", "the channel pill comes first");
-    const st = b[1];
-    assert.ok(st.classList.contains("cm-st") && st.classList.contains(cls), "the icon is right after it");
+    const top = d.all(rows[i], "ib-top")[0], badges = d.all(rows[i], "ib-badges")[0];
+    assert.deepEqual(top.children.map((n) => n.classList.contains("ib-name") ? "name" : n.classList.contains("cm-st") ? "icon" : "?"), ["name", "icon"], "name, then the icon");
+    assert.equal(d.all(badges, "cm-st").length, 0, "not in the pill line");
+    assert.deepEqual(badges.children.map((n) => text(n)).slice(0, 1), ["FB Comment"]);
+    const st = top.children[1];
+    assert.ok(st.classList.contains(cls));
     assert.equal(st.getAttribute("aria-label"), label);
     assert.equal(st.getAttribute("tabindex"), "0");
     const path = st.all((n) => n.tagName.toLowerCase() === "path")[0].getAttribute("d");
@@ -1042,11 +1043,26 @@ test("r10: the status icon follows the answered state at once after a reply", as
   assert.ok(st.classList.contains("cm-st-ok"));
 });
 
-test("r10: icon colours: green --ov-green when answered, light gold #F2D488 dark / #A87A00 light when unanswered, tooltip below the icon", () => {
+test("r10: icon colours: green --ov-green when answered, light gold #F2D488 dark / #A87A00 light when unanswered, tooltip fixed so the list cannot clip it", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.match(css, /^#view-inbox \.cm-st-ok \{ color: var\(--ov-green\); \}/m);
   assert.match(css, /^#view-inbox \.cm-st-no \{ color: #F2D488; \}/m);
   assert.match(css, /html\[data-theme="light"\] #view-inbox \.cm-st-no \{ color: #A87A00; \}/);
   assert.match(css, /prefers-color-scheme: light\) \{ html:not\(\[data-theme\]\) #view-inbox \.cm-st-no \{ color: #A87A00; \}/);
-  assert.match(css, /\.cm-tip\.cm-tip-b \{ bottom: auto; top: calc\(100% \+ 6px\);/);
+  assert.match(css, /\.cm-tip\.cm-tip-b \{ position: fixed;/);
+});
+
+test("r11: a long name shortens with an ellipsis before the icon; the icon never wraps and the time stays in its own column", async () => {
+  const d = boot();
+  d.s.listing = listing({ items: [item({ author_name: "A very long commenter name that goes on and on ".repeat(4) })] });
+  await d.openInbox();
+  const r = d.rows()[0], top = d.all(r, "ib-top")[0];
+  assert.equal(top.children.length, 2);
+  assert.ok(top.children[0].classList.contains("ib-name-cm") && top.children[1].classList.contains("cm-st"));
+  assert.ok(d.all(r, "ib-side")[0].children.some((n) => n.classList.contains("ib-time")), "the time is in the side column, outside the name line");
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /^#view-inbox \.ib-name-cm \{[^}]*overflow: hidden; text-overflow: ellipsis; white-space: nowrap;/m);
+  assert.match(css, /^#view-inbox \.ib-name-cm \{[^}]*min-width: 0;/m);
+  assert.match(css, /^#view-inbox \.ib-top-cm \.cm-st \{ flex: none; \}/m);
+  assert.match(css, /^#view-inbox \.ib-top-cm \{[^}]*min-width: 0;/m);
 });

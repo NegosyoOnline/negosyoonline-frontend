@@ -943,6 +943,7 @@
       rs.appendChild(icon(unread ? ICON.mail : ICON.mailOpen));
       add(side, h("span", "ib-time", listTime(cmRow ? it.created_at : it.updated_at, now)), rs);
       top.appendChild(nm);
+      if (cmRow) { top.classList.add("ib-top-cm"); nm.classList.add("ib-name-cm"); top.appendChild(cmRow.status); } /* the answered state icon, right after the name */
       var badges = h("span", "ib-badges");
       add(badges, channelBadge(channelOf(it)));
       if (cmRow) cmRow.chips.forEach(function (c) { badges.appendChild(c); });

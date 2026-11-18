@@ -127,7 +127,8 @@ body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 #view-inbox .ib-rs svg { width: 18px; height: 18px; }
 #view-inbox .ib-rs-r { color: var(--meta); }
 #view-inbox .ib-rs-u { color: var(--link); }
-#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); }
+#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); stroke-width: 2.4; }
+#view-inbox .ib-item.is-sel .ib-rs-u svg { stroke: color-mix(in srgb, var(--link) 16%, var(--card)); }
 /* R4-4: the Read/Unread toggle in the Conversations header (All, Unread, Read); on, it shows the light-blue ring and fill like the house focus */
 #view-inbox .ib-rtog { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
 #view-inbox .ib-rtog svg { width: 20px; height: 20px; }

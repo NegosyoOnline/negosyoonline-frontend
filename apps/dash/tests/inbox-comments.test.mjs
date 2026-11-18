@@ -817,3 +817,21 @@ test("comment threads space their message blocks 24px apart; the shared .ib-msgs
 });
 
 function NOUtil(d) { return d.window.NOInboxComments.util; }
+
+test("read-state envelope: unread = closed, filled, accent, aria Unread; read = open, muted, aria Read; opening switches it at once", async () => {
+  const d = boot();
+  await d.openInbox();
+  const d0 = (row) => d.all(row, "ib-rs")[0].all((n) => n.tagName.toLowerCase() === "path")[0].getAttribute("d");
+  const u = d.all(d.rows()[0], "ib-rs")[0], closed = d0(d.rows()[0]);
+  assert.ok(u.classList.contains("ib-rs-u") && u.getAttribute("aria-label") === "Unread" && u.getAttribute("title") === "Unread");
+  const r = d.all(d.rows()[1], "ib-rs")[0];
+  assert.ok(r.classList.contains("ib-rs-r") && r.getAttribute("aria-label") === "Read");
+  assert.notEqual(d0(d.rows()[1]), closed, "the read one is the open envelope");
+  await d.openRow(0);
+  const now = d.all(d.rows()[0], "ib-rs")[0];
+  assert.ok(now.classList.contains("ib-rs-r") && now.getAttribute("aria-label") === "Read", "marked read by opening it");
+  assert.equal(d0(d.rows()[0]), d0(d.rows()[1]));
+  const css = fs.readFileSync(path.join(JS, "../css/inbox.css"), "utf8");
+  assert.match(css, /\.ib-rs-u svg \{[^}]*fill: currentColor/);
+  assert.match(css, /\.ib-item\.is-sel \.ib-rs-u svg \{[^}]*stroke:/, "the selected-row tint has its own envelope outline");
+});

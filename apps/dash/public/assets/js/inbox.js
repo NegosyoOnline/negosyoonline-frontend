@@ -1038,7 +1038,7 @@
      aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
   var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
   function attachTip(btnEl, host) {
-    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false;
+    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false, held = false, heldT = null;
     tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id); host.appendChild(tip);
     function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
     function place() {
@@ -1049,15 +1049,19 @@
     function shut() {
       if (timer) { clearTimeout(timer); timer = null; }
       tip.classList.remove("is-open"); if (TIP.close === shut) TIP.close = null;
-      if (document.removeEventListener) { document.removeEventListener("click", outside); document.removeEventListener("scroll", shut, true); }
+      if (document.removeEventListener) { document.removeEventListener("click", outside); document.removeEventListener("scroll", onScroll, true); }
     }
-    function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; shut(); }
+    /* A toggle repaints its icon inside its own click, so the click target is already out of the page when the click reaches the document: that
+       is not an outside click. The list reload and its scroll reset (held by ibTipHold) are not a user scroll either. */
+    function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; if (t && document.contains && !document.contains(t)) return; shut(); }
+    function onScroll() { if (held) return; shut(); }
     function open() {
       if (timer) { clearTimeout(timer); timer = null; }
       if (TIP.close && TIP.close !== shut) TIP.close();
       refresh(); tip.classList.add("is-open"); TIP.close = shut; place();
-      if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", shut, true); }
+      if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", onScroll, true); }
     }
+    btnEl.ibTipHold = function (on) { if (heldT) { clearTimeout(heldT); heldT = null; } if (on) held = true; else heldT = setTimeout(function () { held = false; heldT = null; }, 250); };
     btnEl.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
     btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open") || timer) return; timer = setTimeout(function () { timer = null; open(); }, 120); });
     btnEl.addEventListener("mouseleave", function () { if (timer) { clearTimeout(timer); timer = null; } if (!document.activeElement || document.activeElement !== btnEl) shut(); });
@@ -1074,6 +1078,7 @@
       if (!S) return;
       var v = READS[S.unread || ""].next;
       syncRead(v); /* the new state shows at once; applyQuery puts it back when the read fails */
+      if (b.ibTipHold) b.ibTipHold(true);
       applyQuery({ q: S.q, status: S.status, unread: v, answered: S.answered, filter: S.filter }, null, "");
     });
     paintRead(b, S.unread || "");
@@ -1097,6 +1102,7 @@
       if (!S) return;
       var v = ANSWERS[S.answered || ""].next;
       paintAns(b, v); /* the new state shows at once; applyQuery puts it back when the read fails */
+      if (b.ibTipHold) b.ibTipHold(true);
       applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: v, filter: S.filter }, null, "");
     });
     paintAns(b, S.answered || "");
@@ -1146,6 +1152,7 @@
   /* A new search text, status, Read/Unread or Channel: one read of the first page of the sources it needs; S changes only when the read worked
      (else `box`, the dropdown, goes back to `revert`). The search goes to both APIs, Read/Unread maps to the comments' unread=1/0, and
      Closed reads no comments (they have no closed state). */
+  function holdOff() { ["ib-rtog", "ib-atog"].forEach(function (i) { var b = byId(i); if (b && b.ibTipHold) b.ibTipHold(false); }); }
   function applyQuery(next, box, revert) {
     var mine = ++token, st = S;
     readFirst(sourcesFor(next.filter, next.status), next).then(function (r) {
@@ -1153,14 +1160,14 @@
       if (!r.ok) {
         D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");
         if (box) { box.value = revert || "all"; if (box.ibSync) box.ibSync(); }
-        syncRead(); syncAns();
+        syncRead(); syncAns(); holdOff();
         return;
       }
       S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.answered = next.answered || ""; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
-      fillList(byId("ib-listbody")); syncRead(); syncAns();
+      fillList(byId("ib-listbody")); syncRead(); syncAns(); holdOff();
       if (box && box.ibFocus) box.ibFocus(); /* focus stays on the combo that was used (the Channel or the Status one) */
       say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });

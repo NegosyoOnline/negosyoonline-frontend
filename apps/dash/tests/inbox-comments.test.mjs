@@ -1129,6 +1129,33 @@ test("r12: the title toggles have no native title; they get the house tooltip: h
   }
 });
 
+test("r12: a phone tap on a title toggle applies the filter AND keeps the tooltip open with the NEW state through the reload, until a scroll, Escape, blur or outside click", async () => {
+  for (const id of ["ib-rtog", "ib-atog"]) {
+    const d = boot();
+    await d.openInbox();
+    const b = d.$(id), tip = d.$(id + "-tip"), before = b.getAttribute("aria-label");
+    const fireDoc = (type, e) => (d.doc.listeners[type] || []).slice().forEach((fn) => fn(e));
+    const reloads = d.paths().length;
+    b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter");
+    /* the icon is repainted inside the click, so the click target is gone from the page when the click reaches the document */
+    const gone = d.doc.createElement("span"); d.doc.contains = (n) => n !== gone;
+    b.fire("click"); fireDoc("click", { target: gone });
+    await settle();
+    assert.ok(d.paths().length > reloads, id + ": the filter was applied (list read again)");
+    assert.notEqual(b.getAttribute("aria-label"), before);
+    assert.ok(tip.classList.contains("is-open"), id + ": tooltip open after the reload resolved");
+    assert.equal(text(tip), b.getAttribute("aria-label"), "it shows the NEW state");
+    fireDoc("scroll", { target: d.doc.body }); /* the list's own scroll reset while the reload settles */
+    assert.ok(tip.classList.contains("is-open"), "the reload's scroll reset does not close it");
+    await sleep(300);
+    fireDoc("scroll", { target: d.doc.body }); /* a user scroll later may close it */
+    assert.ok(!tip.classList.contains("is-open"), "a user scroll closes it");
+    b.fire("pointerdown", { pointerType: "touch" }); b.fire("click"); await settle();
+    assert.ok(tip.classList.contains("is-open"));
+    fireDoc("click", { target: d.doc.body }); assert.ok(!tip.classList.contains("is-open"), "an outside click closes it");
+  }
+});
+
 test("r12: the toggle tooltip text follows the state after a click", async () => {
   const d = boot();
   await d.openInbox();

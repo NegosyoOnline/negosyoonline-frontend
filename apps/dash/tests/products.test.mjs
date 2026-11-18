@@ -680,7 +680,7 @@ test("the Products page has no visible title above the list, and the cache-bust 
   assert.match(CSS, /\.pr-sr \{ position: absolute/);
   assert.equal((html.match(/dash-eyebrow">Orders</g) || []).length >= 1, true, "the other pages keep theirs");
   assert.match(html, /products\.css\?v=20261114prod14/);
-  assert.match(html, /products\.js\?v=20261114prod14/);
+  assert.match(html, /products\.js\?v=20261118cm19/);
 });
 
 const openAdd = async (opts) => { const d = boot({ products: [], ...(opts || {}) }); await d.show(); d.buttons("Add product")[0].fire("click"); return d; };
@@ -1582,4 +1582,25 @@ test("Category FAQs: a failed read offers Try again; a read-only refusal on save
   faqBtn(d, "pr-faq-add").fire("click"); faqSet(d, "pr-faq-q-0", "Q"); faqSet(d, "pr-faq-a-0", "A");
   d.form().fire("submit"); await settle();
   assert.match(d.all("pr-topmsg")[0].textContent, /Only the catalog owner site can change the shared catalog\./);
+});
+
+test("combo (r12): the text is never highlighted, the first key replaces the chosen label, and focus stays on the used combo", async () => {
+  const d = boot({ products: [product("1", { category: "barley" }), product("2", { category: "drinks", is_active: false })] });
+  await d.show();
+  const inputOf = (id) => comboOf(d, id).all((n) => n.classList.contains("pr-combo-input"))[0];
+  const st = inputOf("pr-status"), cat = inputOf("pr-category");
+  for (const i of [st, cat]) { i.selected = 0; i.select = () => { i.selected++; }; i.setSelectionRange = (a, b) => { i.sel = [a, b]; }; }
+  comboOf(d, "pr-status").all((n) => n.classList.contains("pr-combo-box"))[0].getBoundingClientRect = () => ({ left: 0, right: 100, top: 0, bottom: 20, width: 100 });
+  pickRow(d, "pr-status", "Hidden");
+  assert.equal(st.value, "Hidden");
+  assert.equal(d.doc.activeElement, st, "focus stays on the combo that was used");
+  assert.notEqual(d.doc.activeElement, cat);
+  st.fire("focus");
+  assert.equal(st.selected, 0);
+  assert.deepEqual(st.sel, [6, 6]);
+  st.fire("keydown", { key: "l" });
+  assert.equal(st.value, "", "the first key starts a fresh query");
+  st.value = "l"; st.fire("input");
+  st.fire("keydown", { key: "i" });
+  assert.equal(st.value, "l");
 });

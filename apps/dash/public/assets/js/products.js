@@ -458,7 +458,7 @@
         var on = op.value === select.value;
         var row = h("div", "pr-combo-opt" + (on ? " is-selected" : ""), op.textContent);
         row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(on));
-        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); });
+        row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); picked(); });
         rows.push(row); panel.appendChild(row);
       });
       if (!rows.length) panel.appendChild(h("div", "pr-combo-opt is-disabled", "No matches"));
@@ -489,9 +489,14 @@
     select.addEventListener("focus", function () { input.focus(); }); /* a label click or a server error lands on the native select */
     select.addEventListener("change", function () { input.value = chosen(); });
     select.prSync = function () { input.value = chosen(); };
-    input.addEventListener("focus", function () { if (input.select) input.select(); });
+    /* The text is never highlighted: focus puts the caret at the end. The first printable key typed while the box still shows the chosen label
+       starts a fresh query (the label is cleared before the key lands), so it never appends to "Website chat". */
+    function caretEnd() { var n = input.value.length; if (input.setSelectionRange) { try { input.setSelectionRange(n, n); } catch (e) { /* not selectable */ } } }
+    function picked() { input.focus(); caretEnd(); } /* after a pick the focus stays on the combo that was used */
+    input.addEventListener("focus", caretEnd);
     input.addEventListener("input", function () { show(); draw(input.value.trim().toLowerCase()); });
     input.addEventListener("keydown", function (e) {
+      if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && input.value !== "" && input.value === chosen()) input.value = "";
       if (e.key === "Tab") { shut(); return; }
       if (e.key === "Escape" && isOpen()) { e.preventDefault(); e.stopPropagation(); shut(); return; } /* the popup stays open */
       if (e.key === "Enter") { e.preventDefault(); if (active >= 0) rows[active].fire ? rows[active].fire("click") : rows[active].click(); else show(); return; }

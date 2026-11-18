@@ -4,7 +4,8 @@
    Rules are unlayered on purpose: they win over the compiled sheet's layers for the classes they define. */
 .pp-pack { margin: 0; font-family: "Open Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--color-ink-700, #333); background: #fff; -webkit-text-size-adjust: 100%; }
 .pp-shell { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
-.pp-main { flex: 1 0 auto; min-width: 0; }
+.pp-main { flex: 1 0 auto; min-width: 0; display: flex; flex-direction: column; }
+.pp-main > .pp-co { flex: 1 0 auto; }  /* the paper background runs down to the footer on a short page */
 .pp-brandlink { color: #fff; text-decoration: none; min-width: 0; }
 .pp-storename { font-size: 15px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; padding-left: 12px; border-left: 1px solid rgb(255 255 255 / .35); }
 .pp-signin { color: #fff; text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
@@ -169,7 +170,7 @@ select.inp { min-height: 48px; }
 /* Checkout progress */
 .pp-co-track { margin: 20px 0 0; }
 .pp-co-track ol { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 46rem; margin: 0 auto; padding: 0; list-style: none; }
-.pp-co-track li { position: relative; display: flex; flex-direction: column; gap: 10px; align-items: center; color: var(--color-ink-500, #686868); font-size: 12px; overflow-wrap: anywhere; font-weight: 600; line-height: 1.3; text-align: center; }
+.pp-co-track li { position: relative; display: flex; flex-direction: column; gap: 10px; align-items: center; color: var(--color-ink-500, #686868); font-size: 11px; overflow-wrap: normal; word-break: keep-all; min-width: 0; font-weight: 600; line-height: 1.3; text-align: center; }
 .pp-co-track li + li::before { content: ""; position: absolute; top: 17px; right: calc(50% + 24px); left: calc(-50% + 24px); height: 3px; border-radius: 999px; background: var(--color-paper-300, #dee2e6); }
 .pp-co-track li.is-done + li::before { background: var(--color-primary-600, #217900); }
 .pp-co-track-dot { display: flex; flex: none; align-items: center; justify-content: center; width: 36px; height: 36px; box-sizing: border-box; border: 2px solid var(--color-paper-300, #dee2e6); border-radius: 999px; background: #fff; font-size: 15px; font-weight: 700; }
@@ -178,6 +179,7 @@ select.inp { min-height: 48px; }
 .pp-co-track li.is-current { color: var(--color-ink-900, #000); font-weight: 700; }
 .pp-co-track li.is-current .pp-co-track-dot { border-color: var(--color-accent-500, #f4ac1c); background: var(--color-accent-500, #f4ac1c); box-shadow: 0 0 0 5px var(--color-accent-100, #fff3d4); color: var(--color-primary-950, #0f2000); }
 .pp-co-track p { margin: 14px 0 0; color: var(--color-ink-600, #4f4f4f); font-size: 14px; line-height: 1.4; text-align: center; }
+@media (max-width: 22.5rem) { .pp-co-track li { font-size: 10px; } }
 @media (min-width: 40rem) {
   .pp-co-track li { font-size: 15px; }
   .pp-co-track li + li::before { top: 19px; right: calc(50% + 27px); left: calc(-50% + 27px); }

@@ -3,7 +3,8 @@
    Transcribed from TWCinc's negosyoonline_sante_pack/checkout.html with _checkout_steps.html, _transfer_proof.html and
    _agreement_dialog.html (includes expanded). Markup, class names, text and order are the templates'. Different from
    them, on purpose:
-   - no Xendit: this site takes bank or e-wallet transfer only, so the payment method is the one card and no "Pay Online";
+   - Xendit (ClickUp z8uq9mgkp1, Coach Ed 2026-11-18): "Pay online (Xendit)" is a second card when the site offers it, and the
+     transfer card and proof fields are left out when the site does not offer transfer (the API's pack.methods);
    - no CSRF token or hidden "action" field: a post is checked for its origin (src/lib/cookies.ts sameOriginPost), and
      the step is the button (name="action");
    - the receipt hint says "up to 4 MB" (TWCinc said 10 MB): a Vercel Function body is capped at 4.5 MB;
@@ -26,6 +27,9 @@ export const ENROLLMENT_AUTHORIZATION =
 export const MSG_ENROLLMENT_REQUIRED = "Please tick this box to continue.";
 export const MSG_CHECKOUT_EXPIRED = "This checkout has expired. Please start again.";
 export const MSG_PAYMENT_UNAVAILABLE = "Payment is not available right now.";
+export const PAY_ONLINE_LABEL = "Pay online (Xendit)";
+export const PAY_ONLINE_HINT = "You'll be redirected to our secure payment provider powered by Xendit.";
+export const PAY_ONLINE_STEP_HINT = "You will finish paying on Xendit's secure page. Your order is placed when you continue.";
 export const VERIFY_FIRST = "Verify your mobile number first.";
 export const AGREE_ERROR = "Please agree to the Website Terms & Conditions to continue.";
 export const EMAIL_ERROR = "Enter a valid email address.";
@@ -55,13 +59,15 @@ export type CheckoutModel = {
   mobile: string;
   enrollment_held: boolean;
   accounts: CheckoutAccount[];
+  /** The methods this site offers buyers now (the API's pack.methods). */
+  methods: { direct: boolean; xendit: boolean };
 };
 
 export function checkoutModel(over: Partial<CheckoutModel> & { accounts: CheckoutAccount[] }): CheckoutModel {
   return {
     step: "contact", submit_key: "", error_code: "", error_message: "", field_errors: {}, posted: {},
     first_name: "", last_name: "", email: "", mobile: "",
-    enrollment_held: false,
+    enrollment_held: false, methods: { direct: true, xendit: false },
     ...over,
   };
 }
@@ -88,6 +94,44 @@ const invalid = (on: boolean): Markup => (on ? html` is-invalid` : html``);
 
 const SUBMIT_CLASS =
   "pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px tab:px-6 tab:text-lg";
+
+/** The method the page opens on: the buyer's own pick if the site still offers it, else transfer, else online. */
+export function chosenMethod(m: CheckoutModel): "direct" | "xendit" {
+  const posted = m.posted.pay_method;
+  if (posted === "xendit" && m.methods.xendit) return "xendit";
+  if (posted === "direct" && m.methods.direct) return "direct";
+  return m.methods.direct ? "direct" : "xendit";
+}
+
+/** The payment cards (one radio each, name pay_method) and, under the transfer card, the transfer sheet. */
+function payCards(c: PackCtx, m: CheckoutModel, extra: Markup): Markup {
+  const chosen = chosenMethod(m);
+  return html`
+          <div class="pp-co-pay-list space-y-3">
+          ${m.methods.xendit ? html`
+          <label class="pp-co-pay-card pp-co-pay-opt flex items-start gap-3 rounded-xl p-4">
+            <input class="sr" type="radio" name="pay_method" value="xendit"${checked(chosen === "xendit")}>
+            <span class="pp-co-pay-dot mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full">${icon("check", "h-3 w-3")}</span>
+            <span class="pp-co-pay-body">
+              <span class="pp-co-pay-head"><strong class="block text-base text-ink-900">${PAY_ONLINE_LABEL}</strong><span class="pp-co-secure">${icon("lock", "h-3.5 w-3.5 shrink-0")}Secure Payment</span></span>
+              <span class="mt-0.5 block text-sm text-ink-600">${PAY_ONLINE_HINT}</span>
+            </span>
+          </label>
+          ` : ""}
+          ${m.methods.direct ? html`
+          <label class="pp-co-pay-card pp-co-pay-opt flex items-start gap-3 rounded-xl p-4">
+            <input class="sr" type="radio" name="pay_method" value="direct"${checked(chosen === "direct")}>
+            <span class="pp-co-pay-dot mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full">${icon("check", "h-3 w-3")}</span>
+            <span class="pp-co-pay-body">
+              <span class="pp-co-pay-head"><strong class="block text-base text-ink-900">Bank or e-wallet transfer</strong></span>
+              <span class="mt-0.5 block text-sm text-ink-600">Send ${c.total} to one of the store's accounts, then upload your proof.</span>
+            </span>
+          </label>
+          ${transferProof(c, m, chosen !== "direct")}
+          ` : ""}
+          ${extra}
+          </div>`;
+}
 
 function steps(step: CheckoutStep): Markup {
   const done = (label: string): Markup => html`<li class="is-done"><span class="pp-co-track-dot">${icon("check", "h-4 w-4")}</span>${label}</li>`;
@@ -225,17 +269,7 @@ function contactStep(c: PackCtx, m: CheckoutModel): Markup {
 
         <div class="pp-co-card"><fieldset class="pp-co-block min-w-0">
           <legend class="pp-co-legend">Select Payment Method</legend>
-          <div class="pp-co-pay-list space-y-3">
-          <label class="pp-co-pay-card pp-co-pay-opt flex items-start gap-3 rounded-xl p-4">
-            <input class="sr" type="radio" name="pay_method" value="direct" checked>
-            <span class="pp-co-pay-dot mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full">${icon("check", "h-3 w-3")}</span>
-            <span class="pp-co-pay-body">
-              <span class="pp-co-pay-head"><strong class="block text-base text-ink-900">Bank or e-wallet transfer</strong></span>
-              <span class="mt-0.5 block text-sm text-ink-600">Send ${c.total} to one of the store's accounts, then upload your proof.</span>
-            </span>
-          </label>
-          ${transferProof(c, m, false)}
-          </div>
+          ${payCards(c, m, html``)}
           <label class="pp-co-agree mt-4" for="enrollment_authorized">
             <input type="checkbox" id="enrollment_authorized" name="enrollment_authorized" value="1"${checked(!!m.posted.enrollment_authorized || m.enrollment_held)}>
             <span>${ENROLLMENT_AUTHORIZATION}</span>
@@ -249,7 +283,7 @@ function contactStep(c: PackCtx, m: CheckoutModel): Markup {
           <p class="pp-co-error" id="agree-msg"${fe.agree ? html`` : html` hidden`}>${AGREE_ERROR}</p>
 
           <button type="submit" id="contact-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg">
-            <span class="pp-co-submit-label" id="contact-btn-label" data-direct="Place Order — ${c.total}">Place Order &mdash; ${c.total}</span>
+            <span class="pp-co-submit-label" id="contact-btn-label" data-direct="Place Order — ${c.total}"${m.methods.xendit ? html` data-xendit="Continue to Payment — ${c.total}"` : html``}>${chosenMethod(m) === "direct" ? "Place Order" : "Continue to Payment"} &mdash; ${c.total}</span>
           </button>
           <p class="pp-co-footnote mt-3 text-center text-xs leading-snug text-ink-500">${icon("lock", "mr-1 inline-block h-3.5 w-3.5 -translate-y-px align-middle")}We never ask for card details on this page. No recurring charges are set up.</p>
         </fieldset></div>
@@ -306,7 +340,7 @@ function paymentStep(c: PackCtx, m: CheckoutModel): Markup {
         <form method="post" action="${CHECKOUT_PATH}"><input type="hidden" name="action" value="change_number"><button class="btn ghost" type="submit">Change your details</button></form>
 `;
   }
-  if (m.accounts.length === 0) return html`
+  if (!m.methods.xendit && (!m.methods.direct || m.accounts.length === 0)) return html`
         <div class="pp-co-banner is-warn" role="status">${MSG_PAYMENT_UNAVAILABLE}</div>
 `;
   return html`
@@ -316,9 +350,8 @@ function paymentStep(c: PackCtx, m: CheckoutModel): Markup {
 
         <div class="pp-co-card"><fieldset class="pp-co-block min-w-0">
           <legend class="pp-co-legend">Select Payment Method</legend>
-          <input type="hidden" name="method" value="direct">
-          ${transferProof(c, m, false)}
-          <button type="submit" id="place-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg">Place order</button>
+          ${payCards(c, m, m.methods.xendit ? html`<p id="xendit-panel" class="pp-co-hint"${chosenMethod(m) === "xendit" ? html`` : html` hidden`}>${PAY_ONLINE_STEP_HINT}</p>` : html``)}
+          <button type="submit" id="place-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg" data-direct="Place order"${m.methods.xendit ? html` data-xendit="Pay with Xendit"` : html``}>${chosenMethod(m) === "direct" ? "Place order" : "Pay with Xendit"}</button>
           <p class="pp-co-footnote mt-3 text-center text-xs leading-snug text-ink-500">${icon("lock", "mr-1 inline-block h-3.5 w-3.5 -translate-y-px align-middle")}We never ask for card details on this page. No recurring charges are set up.</p>
         </fieldset></div>
         </form>

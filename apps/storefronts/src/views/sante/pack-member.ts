@@ -3,7 +3,8 @@
    Transcribed from TWCinc's negosyoonline_sante_pack/_pack_panel.html (C7 panel, C9 dialog), _registration_panel.html,
    _details_form.html and _mobile_confirm.html. Text, class names and order are the templates'. Different from them, on purpose:
    - no CSRF field: every POST is checked by its Origin / Sec-Fetch-Site (src/lib/cookies.ts);
-   - the Xendit states (awaiting_xendit, xendit_mismatch, retry) are not here: bank transfer with proof is the only method;
+   - the Xendit states (awaiting_xendit, xendit_mismatch, xendit_expired) are here (ClickUp z8uq9mgkp1); no invoice yet shows "try again in a moment" with
+     no button (the member may not hold the checkout cookie; the API expires an invoice-less order, then a new checkout is offered);
    - the price is the order's own (price_centavos), not a written figure;
    - the proof hint says "up to 4 MB" (TWCinc said 10 MB): a Vercel Function body is capped at 4.5 MB;
    - the dialog's script and the date field's showPicker handler are the external js/pack-lock.js (the policy allows no inline script);
@@ -12,6 +13,8 @@
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { MemberPack, MobileCheck, OrderCard, RegistrationCard } from "../../lib/pack-api.ts";
 import { shortDate } from "./pack-orders.ts";
+import { CHECKOUT_PATH } from "./pack-page.ts";
+import { MSG_NOT_AVAILABLE_NOW } from "./pack-pay.ts";
 import { termsDialog, termsField } from "./pack-terms.ts";
 
 export const RESUBMIT_PATH = "/dashboard/pack/resubmit/";
@@ -211,14 +214,34 @@ function shipmentLine(card: OrderCard | null): Markup {
   return html`The store will let you know when it ships`;
 }
 
+/** TWCinc _pack_panel.html: the three Xendit states of the payment card (each replaces the Payment and Shipment rows). */
+function xenditBody(p: MemberPack): Markup {
+  if (p.payment_status === "awaiting_xendit") {
+    return html`
+<div class="row"><div>Payment</div><span>${p.method_label} · ${pesos(p.price_centavos)}</span></div>
+${p.pay_url ? html`
+<p style="margin-top:12px">Finish your payment to turn on your membership benefits.</p>
+<a class="btn inline" href="${p.pay_url}" rel="noopener">Continue to payment</a>` : html`
+<div class="note bad" role="alert" style="margin:12px 0">${MSG_NOT_AVAILABLE_NOW}</div>
+<p>Your order is saved. Try again in a moment.</p>`}`;
+  }
+  if (p.payment_status === "xendit_mismatch") {
+    return html`<p style="margin-top:12px">The payment we received does not match ${pesos(p.price_centavos)}. The store is checking it and will contact you.</p>`;
+  }
+  return html`<p style="margin-top:12px">This order was not paid. Start a new order to turn on your membership benefits.</p>
+<a class="btn inline" href="${CHECKOUT_PATH}">Try again</a>`;
+}
+
 function packCard(p: MemberPack, card: OrderCard | null = null): Markup {
   const paid = p.payment_status === "verified";
+  const xendit = p.payment_status === "awaiting_xendit" || p.payment_status === "xendit_mismatch" || p.payment_status === "xendit_expired";
   return html`<section class="pk-card" aria-labelledby="pk-pack-title">
 <div class="pk-top"><h2 id="pk-pack-title">Membership Pack</h2><span class="pk-chip ${p.tone}">${p.payment_label}</span></div>
 <div class="row"><div>Order number</div><b>${p.order_number}</b></div>
+${xendit ? xenditBody(p) : html`
 <div class="row"><div>Payment</div><span>${p.method_label} · ${pesos(p.price_centavos)}</span></div>
 ${paid ? html`<div class="row"><div>Shipment</div><span>${shipmentLine(card)}</span></div>`
-  : html`<div class="row"><div>Shipment</div><span>Ships after the store verifies your payment</span></div>`}
+  : html`<div class="row"><div>Shipment</div><span>Ships after the store verifies your payment</span></div>`}`}
 </section>`;
 }
 

@@ -105,7 +105,7 @@ function track(step: "onboarding" | "completed"): Markup {
 `;
 }
 
-function paidSummary(c: PackCtx): Markup {
+function paidSummary(c: PackCtx, paymentLabel: string): Markup {
   return html`
 <section class="pp-co-card pp-co-summary" aria-label="Order summary">
   <h2 class="text-lg !leading-snug">Order Summary</h2>
@@ -114,14 +114,14 @@ function paidSummary(c: PackCtx): Markup {
   <dl class="pp-co-totals mt-4 space-y-1.5 border-t border-paper-300 pt-4 text-sm">
     <div class="flex justify-between gap-3"><dt>Subtotal</dt><dd>${c.price}</dd></div>
     <div class="flex justify-between gap-3"><dt>Shipping</dt><dd class="font-semibold text-primary-700">FREE</dd></div>
-    <div class="flex justify-between gap-3"><dt>Payment</dt><dd>Bank or e-wallet transfer</dd></div>
+    <div class="flex justify-between gap-3"><dt>Payment</dt><dd>${paymentLabel || "Bank or e-wallet transfer"}</dd></div>
     <div class="pp-co-total flex justify-between gap-3 border-t border-paper-300 pt-2 text-lg font-bold text-ink-900"><dt>Total</dt><dd>${c.total}</dd></div>
   </dl>
 </section>
 `;
 }
 
-function frame(c: PackCtx, step: "onboarding" | "completed", card: Markup): Markup {
+function frame(c: PackCtx, step: "onboarding" | "completed", card: Markup, paymentLabel: string): Markup {
   return html`
 <div class="pp-co bg-paper-100 text-ink-700">
   <div class="mx-auto max-w-6xl px-4 pt-5 pb-8 tab:px-8 desk:pt-8 desk:pb-14">
@@ -131,7 +131,7 @@ function frame(c: PackCtx, step: "onboarding" | "completed", card: Markup): Mark
         ${card}
       </div>
       <aside class="space-y-5 desk:sticky desk:top-6" aria-label="Your order">
-        ${paidSummary(c)}
+        ${paidSummary(c, paymentLabel)}
       </aside>
     </div>
   </div>
@@ -334,7 +334,7 @@ export function onboardingDocument(c: PackCtx, v: ObView, termsVersion: number |
   scripts.push("js/pack-busy.js");
   return packDocument(c, {
     title: "Onboarding",
-    content: frame(c, "onboarding", card),
+    content: frame(c, "onboarding", card, v.state.payment_method_label),
     head: html`<link rel="stylesheet" href="${asset("css/pack-verify.css")}">
 <script src="${asset("js/pack-select.js")}" defer></script>`,
     scripts,
@@ -365,16 +365,16 @@ export function completedDocument(c: PackCtx, s: OnboardingState): Markup {
             </li>
             <li>
               <span class="pp-done-ic">${icon("shield", "h-5 w-5")}</span>
-              <div><h3>The store verifies your payment</h3><p>Your Lifetime Membership then turns on, with 40% member savings on eligible Santé products.</p></div>
+              <div>${s.payment_verified ? html`<h3>Your payment is verified</h3><p>Your Lifetime Membership is on, with 40% member savings on eligible Santé products.</p>` : html`<h3>The store verifies your payment</h3><p>Your Lifetime Membership then turns on, with 40% member savings on eligible Santé products.</p>`}</div>
             </li>
             <li>
               <span class="pp-done-ic">${icon("truck", "h-5 w-5")}</span>
-              <div><h3>Membership Package Delivery</h3><p>It ships once your membership is registered and your payment is verified${where}.</p></div>
+              <div><h3>Membership Package Delivery</h3><p>${s.payment_verified ? html`It ships once your membership is registered${where}.` : html`It ships once your membership is registered and your payment is verified${where}.`}</p></div>
             </li>
           </ol>`}
           <form method="post" action="${COMPLETED_PATH}" data-pp-busy-msg="Taking you to your dashboard…"><button class="btn inline pp-done-cta" type="submit" data-pp-busy-label="Taking you to your dashboard&hellip;">Go to my dashboard<span class="pp-ob-cta-arrow" aria-hidden="true">&rarr;</span></button></form>
         </section>`;
-  return packDocument(c, { title: "Completed", content: frame(c, "completed", card), scripts: ["js/pack-busy.js"] });
+  return packDocument(c, { title: "Completed", content: frame(c, "completed", card, s.payment_method_label), scripts: ["js/pack-busy.js"] });
 }
 
 /* ---- the secure order-access link ------------------------------------------------------------------------------ */

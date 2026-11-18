@@ -371,7 +371,15 @@ export type Pack = {
   available: boolean;
   agreement: { id: number; label: string; effective_date: string } | null;
   payment_accounts: Record<string, unknown>[];
+  /** The payment methods the site offers at checkout (its owner's switches AND set up). Absent in an older API answer:
+      then transfer only, as before Xendit. */
+  methods?: { direct: boolean; xendit: boolean };
 };
+
+/** The methods a pack offers, with the answer of an API that does not send them read as transfer only. */
+export function packMethods(pack: Pick<Pack, "methods">): { direct: boolean; xendit: boolean } {
+  return pack.methods ?? { direct: true, xendit: false };
+}
 
 function isPack(value: unknown): value is Pack {
   return (
@@ -383,7 +391,8 @@ function isPack(value: unknown): value is Pack {
     typeof value.available === "boolean" &&
     (value.agreement === null || (record(value.agreement) && typeof value.agreement.id === "number" && has(value.agreement, ["label", "effective_date"], []))) &&
     Array.isArray(value.payment_accounts) &&
-    value.payment_accounts.every(record)
+    value.payment_accounts.every(record) &&
+    (value.methods === undefined || (record(value.methods) && typeof value.methods.direct === "boolean" && typeof value.methods.xendit === "boolean"))
   );
 }
 

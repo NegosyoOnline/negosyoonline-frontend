@@ -786,10 +786,10 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261118cm14/);
+  assert.match(HTML, /inbox\.js\?v=20261118cm15/);
   assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm14/);
-  assert.match(HTML, /inbox-comments\.js\?v=20261118cm14/);
+  assert.match(HTML, /inbox\.css\?v=20261118cm15/);
+  assert.match(HTML, /inbox-comments\.js\?v=20261118cm15/);
 });
 
 /* ---------- Facebook Messenger (z8uq9mg1qe) ---------- */
@@ -1772,7 +1772,9 @@ test("R4-4: the Conversations card header has the Read toggle in place of the Up
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const head = d.all(d.$("ib-listpane"), "ib-pane-head")[0];
-  assert.deepEqual(head.children.map((n) => n.id || n.tagName), ["H2", "ib-rtog"]);
+  assert.deepEqual(head.children.map((n) => n.id || n.tagName), ["H2", "DIV"]);
+  assert.ok(head.children[1].classList.contains("ib-togs"));
+  assert.deepEqual(head.children[1].children.map((n) => n.id), ["ib-atog", "ib-rtog"], "the Answered toggle sits beside the Read toggle");
   assert.equal(head.children[0].textContent, "Conversations");
   assert.equal(d.$("ib-upd"), null, "#ib-upd is gone");
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
@@ -1935,7 +1937,7 @@ test("R4: the channel chip on the selected row has a visible border (--link at 4
 });
 
 /* ---------- Round 4: R4-1 read-state icon, R4-2 divider, R4-3 FB Messenger ---------- */
-test("R4-1: every row has a read-state icon under the time: unread = closed envelope in --link, read = open envelope in --meta", async () => {
+test("R4-1: every row has a read-state icon under the time: unread = closed envelope in --link, read = open envelope in --ov-green", async () => {
   const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
   await d.openInbox();
   const rows = d.all(d.$("ib-list"), "ib-item");
@@ -1958,7 +1960,7 @@ test("R4-1: every row has a read-state icon under the time: unread = closed enve
   assert.equal(u.size, 1); assert.equal(r.size, 1); assert.notEqual([...u][0], [...r][0], "two different icons");
   const css = cssText();
   assert.match(css, /^#view-inbox \.ib-rs-u \{ color: var\(--link\); \}/m);
-  assert.match(css, /^#view-inbox \.ib-rs-r \{ color: var\(--meta\); \}/m);
+  assert.match(css, /^#view-inbox \.ib-rs-r \{ color: var\(--ov-green\); \}/m);
   assert.match(css, /^#view-inbox \.ib-rs-u svg \{ fill: currentColor;/m, "the unread envelope is filled");
   assert.doesNotMatch(css, /ib-dot/);
 });

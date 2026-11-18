@@ -22,6 +22,8 @@
     gone: "This comment is no longer available.", reopenFail: "We could not load this comment just now. Wait a moment, then try again.",
     notSent: "Your reply was not sent.", keepText: " Your text is still in the box.",
     net: "We could not confirm it was sent. Press Try again: it will not be sent twice.",
+    typeFirst: "Type a message first.", sendingTip: "Sending. Please wait.", tooLongPub: "A comment reply can be 500 characters at most.", tooLongPriv: "A private message can be 1000 characters at most.",
+    pubOff: "A comment reply is not possible for this comment.", privOff: "A private message is not possible for this comment.",
     sent: "Reply sent.", hid: "Comment hidden.", post: "Post", on: "On",
     confirmHide: "Hide this comment on Facebook? You cannot unhide it from here."
   };
@@ -112,15 +114,15 @@
     return line;
   }
   /* The Ad badge, the Unanswered / Answered state and Hidden, as small badges. */
-  function chips(c) {
+  function chips(c, withState) {
     var out = [];
     if (c && c.post && c.post.is_ad === true) out.push(h("span", "ib-ch cm-ad", T.ad));
-    out.push(chip(c && c.answered === true ? "chip-ok" : "chip-neutral", c && c.answered === true ? T.answered : T.unanswered));
+    if (withState) out.push(chip(c && c.answered === true ? "chip-ok" : "chip-neutral", c && c.answered === true ? T.answered : T.unanswered));
     if (c && c.hidden === true) out.push(chip("chip-neutral", T.hidden));
     return out;
   }
   /* What a list row needs of a comment: the name, the post line (the caption) and the badges that follow the channel badge. */
-  function row(it) { return { name: nameOf(it.author_name), line: postLine(it.post, false), chips: chips(it) }; }
+  function row(it) { return { name: nameOf(it.author_name), line: postLine(it.post, false), chips: chips(it, false) }; }
 
   /* ---------- select, draw, reload ---------- */
 
@@ -210,7 +212,7 @@
     var hideB = btn(T.hide, "ghost", function () { C.confirm = true; draw(); var y = byId("cm-hide-yes"); if (y) y.focus(); });
     hideB.classList.add("cm-hide"); hideB.setAttribute("id", "cm-hide-btn");
     if (!c.hide || c.hide.available === false) { hideB.disabled = true; hideB.setAttribute("aria-disabled", "true"); }
-    p.appendChild(C.h.head(nameOf(c.author_name), chips(c), hideB));
+    p.appendChild(C.h.head(nameOf(c.author_name), chips(c, true), hideB));
     if (C.confirm && c.hide && c.hide.available !== false) p.appendChild(confirmBox());
     var now = new Date();
     var msgs = h("div", "ib-msgs cm-msgs"); msgs.setAttribute("tabindex", "0"); msgs.setAttribute("aria-label", "Comment");
@@ -269,63 +271,81 @@
     ta.setAttribute("maxlength", String(privOff ? MAX["public"] : MAX["private"]));
     var count = h("span", "ib-count", "0 / " + limit); count.setAttribute("id", "cm-rc");
     var foot = h("div", "ib-rfoot"), btns = h("div", "cm-sends");
-    var touchTap = false, wasOpen = false, tipText = privOff && c.private_reply ? privTipText(c.private_reply.reason) : "", privBlocked = !!tipText, tip = null;
-    function openTip(on) {
-      if (!tip) return;
-      if (tipClose && !on) { tipClose = null; }
-      if (on) { if (tipClose) tipClose(); tip.classList.add("is-open"); tipClose = function () { tip.classList.remove("is-open"); tipClose = null; if (document.removeEventListener) document.removeEventListener("click", outside); }; if (document.addEventListener) document.addEventListener("click", outside); }
-      else { tip.classList.remove("is-open"); if (document.removeEventListener) document.removeEventListener("click", outside); }
+    /* Each send button is never natively disabled: it is aria-disabled with a one-line reason tooltip (hover, focus, tap), and a click while
+       it has a reason never sends. reasonOf() says why, in this order: the action is not available (its own sentence), a send is running,
+       too long, empty box. So the private message button's own reasons come before "Type a message first." */
+    function openTip(o, on) {
+      if (!o.tip) return;
+      if (!on) { o.tip.classList.remove("is-open"); if (tipClose === o.close) tipClose = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); return; }
+      if (tipClose && tipClose !== o.close) tipClose();
+      o.tip.classList.add("is-open"); tipClose = o.close;
+      if (document.addEventListener) document.addEventListener("click", o.outside);
     }
-    function outside(e) { var t = e && e.target; if (t && tip && (t === goPriv || (goPriv.contains && goPriv.contains(t)))) return; openTip(false); }
-    function mk(mode) {
-      var label = mode === "private" ? T.sendPriv : T.sendPub;
-      var b = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) {
-        if (mode === "private" && privBlocked) {
+    function reasonOf(mode) {
+      var off = mode === "private" ? privOff : pubOff, act = modeAction(c, mode);
+      if (off) return mode === "private" ? privTipText(act && act.reason) || T.privOff : reasonText(act && act.reason) || T.pubOff;
+      if (C.sending) return T.sendingTip;
+      var t = ta.value.trim();
+      if (t.length > MAX[mode]) return mode === "private" ? T.tooLongPriv : T.tooLongPub;
+      return t ? "" : T.typeFirst;
+    }
+    function sendBtn(mode) {
+      var label = mode === "private" ? T.sendPriv : T.sendPub, o = { mode: mode, reason: "", tip: null, touchTap: false, wasOpen: false };
+      o.btn = btn(C.notice && C.mode === mode ? "Try again" : label, mode === "private" ? "ghost" : "primary", function (x) {
+        refresh();
+        if (o.reason) {
           /* A touch tap fires focus and mouseenter first (they open it), then click: the click toggles from what it was before the tap. A mouse or key click never closes it. */
-          openTip(touchTap ? !wasOpen : true); touchTap = false; return;
+          openTip(o, o.touchTap ? !o.wasOpen : true); o.touchTap = false; return;
         }
         send(x, ta, mode);
       });
-      b.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); b.setAttribute("aria-label", label);
-      return b;
+      o.btn.classList.add(mode === "private" ? "cm-send-priv" : "cm-send-pub"); o.btn.setAttribute("aria-label", label);
+      o.box = h("span", "cm-tipwrap"); o.box.appendChild(o.btn);
+      o.close = function () { if (o.tip) o.tip.classList.remove("is-open"); if (tipClose === o.close) tipClose = null; if (document.removeEventListener) document.removeEventListener("click", o.outside); };
+      o.outside = function (e) { var t = e && e.target; if (t && (t === o.btn || (o.btn.contains && o.btn.contains(t)))) return; openTip(o, false); };
+      o.btn.addEventListener("pointerdown", function (e) { o.touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); o.wasOpen = !!o.tip && o.tip.classList.contains("is-open"); });
+      o.btn.addEventListener("mouseenter", function () { openTip(o, true); });
+      o.btn.addEventListener("mouseleave", function () { if (!document.activeElement || document.activeElement !== o.btn) openTip(o, false); });
+      o.btn.addEventListener("focus", function () { openTip(o, true); });
+      o.btn.addEventListener("blur", function () { openTip(o, false); });
+      o.btn.addEventListener("keydown", function (e) { if (e.key === "Escape") openTip(o, false); });
+      return o;
     }
-    var goPub = mk("public"), goPriv = mk("private"), privBox = goPriv;
-    if (privBlocked) {
-      /* Not natively disabled, so hover, focus and tap still reach it: aria-disabled plus a click that never sends. */
-      tip = h("div", "cm-tip", tipText); tip.setAttribute("id", "cm-priv-tip"); tip.setAttribute("role", "tooltip");
-      goPriv.setAttribute("aria-describedby", "cm-priv-tip"); goPriv.setAttribute("aria-disabled", "true"); goPriv.classList.add("cm-blocked");
-      goPriv.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
-      goPriv.addEventListener("mouseenter", function () { openTip(true); });
-      goPriv.addEventListener("mouseleave", function () { if (!document.activeElement || document.activeElement !== goPriv) openTip(false); });
-      goPriv.addEventListener("focus", function () { openTip(true); });
-      goPriv.addEventListener("blur", function () { openTip(false); });
-      goPriv.addEventListener("keydown", function (e) { if (e.key === "Escape") openTip(false); });
-      privBox = h("span", "cm-tipwrap"); add(privBox, goPriv, tip);
+    function setReason(o, reason) {
+      o.reason = reason;
+      if (reason) {
+        if (!o.tip) { o.tip = h("div", "cm-tip" + (o.mode === "private" ? "" : " cm-tip-l")); o.tip.setAttribute("id", o.mode === "private" ? "cm-priv-tip" : "cm-pub-tip"); o.tip.setAttribute("role", "tooltip"); o.box.appendChild(o.tip); }
+        o.tip.textContent = reason;
+        o.btn.setAttribute("aria-describedby", o.tip.getAttribute("id")); o.btn.setAttribute("aria-disabled", "true"); o.btn.classList.add("cm-blocked");
+      } else {
+        if (o.tip) { openTip(o, false); o.box.removeChild(o.tip); o.tip = null; }
+        o.btn.removeAttribute("aria-describedby"); o.btn.setAttribute("aria-disabled", "false"); o.btn.classList.remove("cm-blocked");
+      }
     }
+    var pub = sendBtn("public"), priv = sendBtn("private");
+    function refresh() { setReason(pub, reasonOf("public")); setReason(priv, reasonOf("private")); }
     if (allOff) {
       ta.disabled = true; wrap.classList.add("is-closed");
-      [goPub, goPriv].forEach(function (g) { if (g === goPriv && privBlocked) return; g.disabled = true; g.setAttribute("aria-disabled", "true"); });
-      add(btns, goPub, privBox);
+      refresh();
+      add(btns, pub.box, priv.box);
       add(wrap, lab, ta, add(foot, count, btns));
       return wrap;
     }
     ta.value = draftOf();
     function sync() {
       C.drafts[draftKey()] = ta.value; count.textContent = ta.value.length + " / " + limit;
-      var empty = !ta.value.trim();
-      goPub.disabled = empty || C.sending || pubOff || ta.value.trim().length > MAX["public"];
-      goPriv.disabled = !privBlocked && (empty || C.sending || privOff || ta.value.trim().length > MAX["private"]);
-      goPub.setAttribute("aria-disabled", goPub.disabled ? "true" : "false"); goPriv.setAttribute("aria-disabled", goPriv.disabled || privBlocked ? "true" : "false");
+      refresh();
     }
     ta.addEventListener("keydown", function (e) {
       if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229) return;
       if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
       e.preventDefault();
-      var m = pubOff ? "private" : "public", g = m === "private" ? goPriv : goPub; /* Enter sends the public reply; the private one only by its button */
-      if (!g.disabled && !(m === "private" && privBlocked)) send(g, ta, m);
+      var m = pubOff ? "private" : "public", o = m === "private" ? priv : pub; /* Enter sends the public reply; the private one only by its button */
+      refresh();
+      if (!o.reason) send(o.btn, ta, m);
     });
     ta.addEventListener("input", sync);
-    add(btns, goPub, privBox);
+    add(btns, pub.box, priv.box);
     add(wrap, lab, ta, add(foot, count, btns));
     sync();
     return wrap;

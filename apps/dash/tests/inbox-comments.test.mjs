@@ -154,8 +154,8 @@ test("a comment row has the avatar, name, comment, time, unread state, the post 
   assert.equal(d.all(rows[0], "ib-av").length, 1);
   assert.ok(rows[0].classList.contains("ib-unread"), "unread like the conversation rows");
   assert.ok(!rows[1].classList.contains("ib-unread"));
-  assert.ok(text(rows[0]).includes("Unanswered") && d.all(rows[0], "cm-ad").length === 0, "no Ad badge on a plain post");
-  assert.ok(text(rows[1]).includes("Answered") && d.all(rows[1], "cm-ad").length === 1 && text(rows[1]).includes("Summer sale ad"));
+  assert.ok(!text(rows[0]).includes("Unanswered") && !text(rows[1]).includes("Answered") && d.all(rows[0], "cm-ad").length === 0, "no Answered / Unanswered pill on the rows; no Ad badge on a plain post");
+  assert.ok(d.all(rows[1], "cm-ad").length === 1 && text(rows[1]).includes("Summer sale ad"));
   assert.ok(text(rows[2]).includes("Hidden"));
   assert.equal(d.all(rows[0], "ib-rs-u").length, 1);
   assert.equal(d.all(rows[1], "ib-rs-r").length, 1);
@@ -499,7 +499,7 @@ test("a public reply posts text with an idempotency key, then clears the box and
   assert.equal(call.body.text, "It is 150 pesos.");
   assert.match(call.body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.equal(d.$("cm-rb").value, "");
-  assert.ok(text(d.rows()[0]).includes("Answered"));
+  assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Answered"), "the thread header chip shows Answered");
   assert.ok(d.paths().filter((p) => p === "GET " + CB + R1 + "/").length >= 2, "the detail is read again for the new reply");
 });
 
@@ -541,8 +541,8 @@ test("Send private message posts to private-reply with a 1000 character limit; t
   await d.openRow(0);
   assert.equal(d.$("cm-rc").textContent, "0 / 500");
   d.$("cm-rb").value = "Hi Maria, the medium is 150. " + "x".repeat(600); d.$("cm-rb").fire("input");
-  assert.equal(d.press(d.$("ib-threadpane"), "Send Comment Reply").disabled, true, "over 500: the public reply is off");
-  assert.equal(d.press(d.$("ib-threadpane"), "Send private message").disabled, false);
+  assert.equal(d.press(d.$("ib-threadpane"), "Send Comment Reply").getAttribute("aria-disabled"), "true", "over 500: the public reply is off");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send private message").getAttribute("aria-disabled"), "false");
   d.$("cm-rb").value = "Hi Maria, the medium is 150."; d.$("cm-rb").fire("input");
   await d.click(d.press(d.$("ib-threadpane"), "Send private message"));
   const call = d.calls.find((c) => c.method === "POST" && c.path === CB + R1 + "/private-reply/");
@@ -834,4 +834,151 @@ test("read-state envelope: unread = closed, filled, accent, aria Unread; read = 
   const css = fs.readFileSync(path.join(JS, "../css/inbox.css"), "utf8");
   assert.match(css, /\.ib-rs-u svg \{[^}]*fill: currentColor/);
   assert.match(css, /\.ib-item\.is-sel \.ib-rs-u svg \{[^}]*stroke:/, "the selected-row tint has its own envelope outline");
+});
+
+/* ---------- round 9: envelope colours, Answered toggle, tooltips on every disabled send button ---------- */
+
+test("r9: the read envelope is house green (--ov-green, defined for both themes), the unread one stays accent blue", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /^#view-inbox \.ib-rs-r \{ color: var\(--ov-green\); \}/m);
+  assert.match(css, /^#view-inbox \.ib-rs-u \{ color: var\(--link\); \}/m);
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(dash, /^body\.dash-app \{ --ov-green: #5FD3A2;/m, "dark");
+  assert.match(dash, /html\[data-theme="light"\] body\.dash-app \{ --ov-green: #1F8A5B;/, "light");
+});
+
+test("r9: the list rows carry no Answered / Unanswered pill; the thread header keeps its chip", async () => {
+  const d = boot();
+  await d.openInbox();
+  d.rows().forEach((r) => { assert.ok(!text(r).includes("nswered")); });
+  await d.openRow(1);
+  assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
+});
+
+test("r9: the Answered toggle sits beside the Read toggle, cycles All > Answered > Unanswered > All, and sends answered= to the comments list only", async () => {
+  const d = boot({ convs: [conv(1, 5)] });
+  await d.openInbox();
+  const t = () => d.$("ib-atog"), st = () => [t().getAttribute("aria-label"), t().getAttribute("title"), t().getAttribute("aria-pressed"), t().classList.contains("is-on")];
+  assert.equal(t().tagName, "BUTTON");
+  assert.deepEqual(st(), ["Showing all comments", "Showing all comments", "false", false]);
+  let n = d.calls.length;
+  await d.click(t());
+  assert.deepEqual(st(), ["Showing answered comments", "Showing answered comments", "true", true]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?answered=answered"], "only comments are read; no conversation call");
+  n = d.calls.length;
+  await d.click(t());
+  assert.deepEqual(st(), ["Showing unanswered comments", "Showing unanswered comments", "true", true]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?answered=unanswered"]);
+  n = d.calls.length;
+  await d.click(t());
+  assert.deepEqual(st(), ["Showing all comments", "Showing all comments", "false", false]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV]);
+  /* it combines with Read/Unread, and is not the Open/Closed status */
+  await d.click(t());
+  n = d.calls.length;
+  await d.click(d.$("ib-rtog"));
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB + "?unread=1&answered=answered"]);
+  assert.equal(d.$("ib-status").value, "all", "the status dropdown is untouched");
+  assert.equal(d.rows().every((r) => text(r).includes("FB Comment")), true, "no conversation row while an answered filter is on");
+});
+
+test("r9: a failed read puts the Answered toggle back", async () => {
+  const d = boot();
+  await d.openInbox();
+  d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Try later." } } };
+  await d.click(d.$("ib-atog"));
+  assert.equal(d.$("ib-atog").getAttribute("aria-label"), "Showing all comments");
+});
+
+/* One check per disabled state of each send button: the button is aria-disabled (never natively), describedby its tooltip, shows the text on
+   hover, focus and tap, and a click sends nothing. */
+async function tipCheck(d, label, tipId, expected) {
+  const det = d.$("ib-threadpane"), b = d.press(det, label);
+  assert.equal(b.disabled, false, label + ": not natively disabled (" + expected + ")");
+  assert.equal(b.getAttribute("aria-disabled"), "true");
+  assert.equal(b.getAttribute("aria-describedby"), tipId);
+  const tip = d.$(tipId);
+  assert.equal(tip.getAttribute("role"), "tooltip");
+  assert.equal(text(tip), expected);
+  b.fire("mouseenter"); assert.ok(tip.classList.contains("is-open"), "hover");
+  b.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
+  b.fire("focus"); assert.ok(tip.classList.contains("is-open"), "focus");
+  b.fire("blur"); assert.ok(!tip.classList.contains("is-open"));
+  b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter"); await d.click(b);
+  assert.ok(tip.classList.contains("is-open"), "tap");
+  b.fire("blur"); b.fire("mouseleave");
+  const before = d.calls.length;
+  await d.click(b);
+  assert.ok(!d.since(before).some((x) => x.startsWith("POST ")), "a click while disabled sends nothing");
+}
+
+test("r9: empty box: both send buttons are aria-disabled with \"Type a message first.\"; typing enables them and removes the tooltips", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  await tipCheck(d, "Send Comment Reply", "cm-pub-tip", "Type a message first.");
+  await tipCheck(d, "Send private message", "cm-priv-tip", "Type a message first.");
+  d.$("cm-rb").value = "   "; d.$("cm-rb").fire("input");
+  assert.equal(text(d.$("cm-pub-tip")), "Type a message first.", "spaces only is still empty");
+  d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
+  assert.equal(d.$("cm-pub-tip"), null); assert.equal(d.$("cm-priv-tip"), null);
+  for (const l of ["Send Comment Reply", "Send private message"]) {
+    const b = d.press(d.$("ib-threadpane"), l);
+    assert.equal(b.getAttribute("aria-disabled"), "false"); assert.equal(b.getAttribute("aria-describedby"), null);
+  }
+});
+
+test("r9: private-message reasons come before the empty-box reason", async () => {
+  for (const [reason, tipText] of [["window_closed", "Private reply is only possible within 7 days of the comment."], ["already_sent", "Private message already sent for this comment."], ["reconnect", "Reconnect your Facebook Page to reply."], ["removed", "This comment was deleted on Facebook."]]) {
+    const d = boot();
+    d.s.detail = detail({ private_reply: { available: false, reason, replied_at: null, expires_at: iso(60) } });
+    await d.openInbox();
+    await d.openRow(0);
+    await tipCheck(d, "Send private message", "cm-priv-tip", tipText); /* the box is empty here, and the reason is still the PM one */
+    await tipCheck(d, "Send Comment Reply", "cm-pub-tip", "Type a message first.");
+    d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
+    assert.equal(text(d.$("cm-priv-tip")), tipText, "typing does not change it");
+    assert.equal(d.$("cm-pub-tip"), null, "the public reply is enabled");
+  }
+});
+
+test("r9: public reply reasons, a missing reason falls back to a sentence, and both off", async () => {
+  const d = boot();
+  d.s.detail = detail({ public_reply: { available: false, reason: "own_comment", replied_at: null } });
+  await d.openInbox();
+  await d.openRow(0);
+  d.$("cm-rb").value = "Hi"; d.$("cm-rb").fire("input");
+  await tipCheck(d, "Send Comment Reply", "cm-pub-tip", "This is your Page's own comment.");
+  assert.equal(d.$("cm-priv-tip"), null);
+  const e = boot();
+  e.s.detail = detail({ public_reply: { available: false, reason: "" }, private_reply: { available: false, reason: "" } });
+  await e.openInbox();
+  await e.openRow(0);
+  assert.equal(e.$("cm-rb").disabled, true);
+  await tipCheck(e, "Send Comment Reply", "cm-pub-tip", "A comment reply is not possible for this comment.");
+  await tipCheck(e, "Send private message", "cm-priv-tip", "A private message is not possible for this comment.");
+  const f = boot();
+  f.s.detail = detail({ public_reply: { available: false, reason: "not_connected" }, private_reply: { available: false, reason: "not_connected" } });
+  await f.openInbox();
+  await f.openRow(0);
+  await tipCheck(f, "Send Comment Reply", "cm-pub-tip", "Connect your Facebook Page to reply.");
+  await tipCheck(f, "Send private message", "cm-priv-tip", "Connect your Facebook Page to reply.");
+});
+
+test("r9: too long for the comment reply is a tooltip too; Enter never sends while the reply has a reason", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  d.$("cm-rb").value = "x".repeat(600); d.$("cm-rb").fire("input");
+  await tipCheck(d, "Send Comment Reply", "cm-pub-tip", "A comment reply can be 500 characters at most.");
+  assert.equal(d.$("cm-priv-tip"), null, "600 is fine for a private message");
+  d.$("cm-rb").value = ""; d.$("cm-rb").fire("input");
+  const before = d.calls.length;
+  d.$("cm-rb").fire("keydown", { key: "Enter" }); await settle();
+  assert.ok(!d.since(before).some((x) => x.startsWith("POST ")), "Enter on an empty box sends nothing");
+});
+
+test("r9: the pub tooltip opens to the right of the button so it stays on screen on a phone", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.match(css, /\.cm-tip\.cm-tip-l \{ left: 0; right: auto; \}/);
 });

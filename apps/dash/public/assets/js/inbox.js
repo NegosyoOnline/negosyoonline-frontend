@@ -45,7 +45,9 @@
     search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4.3-4.3",
     mailOpen: "M3 10l9-6 9 6v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10l9 6 9-6",
     stack: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1 3h6l1-3h5",
-    comment: "M4 4h16v12H9l-5 4zM8 8.5h8M8 11.5h5"
+    comment: "M4 4h16v12H9l-5 4zM8 8.5h8M8 11.5h5",
+    check: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6",
+    unans: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16h.01"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -193,14 +195,16 @@
   }
   /* The sources a filter combination reads: Channel "FB Comment" reads only comments, the other channels only conversations, All both.
      Comments have no closed state, so Closed reads no comments. */
-  function sourcesFor(filter, status) {
-    return { conv: filter !== "fbcomment", cm: (!filter || filter === "all" || filter === "fbcomment") && status !== "closed" };
+  function sourcesFor(filter, status, answered) {
+    /* An Answered/Unanswered filter belongs to comments only: while it is on, no conversation is read (they have no such state). */
+    return { conv: filter !== "fbcomment" && !answered, cm: (!filter || filter === "all" || filter === "fbcomment") && status !== "closed" };
   }
   /* The comments list address: search text, Read/Unread (unread=1 or 0), cursor. */
-  function commentQuery(q, unread, cursor) {
+  function commentQuery(q, unread, cursor, answered) {
     var qs = [];
     if (q) qs.push("q=" + encodeURIComponent(q));
     if (unread === "1" || unread === "0") qs.push("unread=" + unread);
+    if (answered === "answered" || answered === "unanswered") qs.push("answered=" + answered);
     if (cursor) qs.push("cursor=" + encodeURIComponent(cursor));
     return qs.length ? "?" + qs.join("&") : "";
   }
@@ -446,7 +450,7 @@
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      q: "", qText: "", qTimer: null, status: "", unread: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
+      q: "", qText: "", qTimer: null, status: "", unread: "", answered: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -503,8 +507,8 @@
     if (o.unread) qs.push("unread=" + o.unread); /* "1" unread only, "0" read only; All messages sends nothing */
     return base() + "conversations/" + (qs.length ? "?" + qs.join("&") : "");
   }
-  function commentsUrl(cursor, o) { o = o || S; return base() + "comments/" + commentQuery(o.q, o.unread, cursor); }
-  function stateFor(items) { return items.length || S.q || S.status || S.unread || S.filter !== "all" ? "ready" : "empty"; }
+  function commentsUrl(cursor, o) { o = o || S; return base() + "comments/" + commentQuery(o.q, o.unread, cursor, o.answered); }
+  function stateFor(items) { return items.length || S.q || S.status || S.unread || S.answered || S.filter !== "all" ? "ready" : "empty"; }
   function cursorOf(data, key) { return data && typeof data[key] === "string" && data[key] ? data[key] : null; }
   /* Reads the first page of each source a filter combination needs, both at once. Resolves { unauth, ok, fail, conv, cm, src }:
      conv and cm are the answers' data (null when that source was not read or gave nothing). A comments 404 means the switch is off:
@@ -551,7 +555,7 @@
     if (!refresh) { S.listTop = 0; S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
       streamOpen();
-      readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
+      readFirst(sourcesFor(S.filter, S.status, S.answered)).then(function (r) {
         if (mine !== token || !S || r.unauth) return;
         if (!r.ok) { reveal404(r.fail); S.state = "failed"; S.fail = failure(r.fail); redraw(); return; }
         ingest(r, false); S.lsig = sigNow();
@@ -707,7 +711,7 @@
   function pollList(done) {
     if (S.state !== "ready" && S.state !== "empty") return false;
     var st = S, mine = token;
-    readFirst(sourcesFor(S.filter, S.status)).then(function (r) {
+    readFirst(sourcesFor(S.filter, S.status, S.answered)).then(function (r) {
       if (S !== st || mine !== token || r.unauth) { done("skip"); return; }
       if (!r.ok) { done("fail"); return; }
       if (r.conv) takeUnread(r.conv);
@@ -896,7 +900,7 @@
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (S.sel ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
     var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
-    head.appendChild(readToggle()); p.appendChild(head);
+    var togs = h("div", "ib-togs"); add(togs, answeredToggle(), readToggle()); head.appendChild(togs); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
     fillList(body);
     return p;
@@ -915,7 +919,7 @@
     var banners = bannerBox(); if (banners) body.appendChild(banners);
     var shown = filterItems(S.items, S.filter), canMore = !!nextSource(S.pool, S.more);
     if (!shown.length) {
-      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread ? "No conversations match." : S.filter === "fbcomment" ? "No comments yet." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread || S.answered ? "No conversations match." : S.filter === "fbcomment" ? "No comments yet." : "No conversations in this channel yet."); none.setAttribute("role", "status");
       body.appendChild(none);
       if (canMore) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
@@ -994,10 +998,10 @@
     sel.value = S.filter;
     sel.addEventListener("change", function () {
       if (!S || sel.value === S.filter) return;
-      var a = sourcesFor(S.filter, S.status), b = sourcesFor(sel.value, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
+      var a = sourcesFor(S.filter, S.status, S.answered), b = sourcesFor(sel.value, S.status, S.answered), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
       if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; S.listTop = 0; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
       /* FB Comment reads only comments, the other channels only conversations, All both: a change between those asks the APIs again */
-      applyQuery({ q: S.q, status: S.status, unread: S.unread, filter: sel.value }, sel, S.filter);
+      applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: sel.value }, sel, S.filter);
     });
     add(fld, lab, sel);
     combo(sel, "Channel");
@@ -1013,7 +1017,7 @@
     sel.value = cur;
     sel.addEventListener("change", function () {
       var v = sel.value === "open" || sel.value === "closed" ? sel.value : "";
-      if (S && v !== S.status) applyQuery({ q: S.q, status: v, unread: S.unread, filter: S.filter }, sel, S.status || "all");
+      if (S && v !== S.status) applyQuery({ q: S.q, status: v, unread: S.unread, answered: S.answered, filter: S.filter }, sel, S.status || "all");
     });
     add(fld, lab, sel);
     combo(sel, "Status");
@@ -1028,7 +1032,7 @@
       if (!S) return;
       var v = READS[S.unread || ""].next;
       syncRead(v); /* the new state shows at once; applyQuery puts it back when the read fails */
-      applyQuery({ q: S.q, status: S.status, unread: v, filter: S.filter }, null, "");
+      applyQuery({ q: S.q, status: S.status, unread: v, answered: S.answered, filter: S.filter }, null, "");
     });
     paintRead(b, S.unread || "");
     return b;
@@ -1041,6 +1045,28 @@
   }
   /* Shows v on the toggle, or the real S.unread when v is left out. */
   function syncRead(v) { var b = byId("ib-rtog"); if (b && S) paintRead(b, v === undefined ? S.unread || "" : v); }
+  /* The Answered/Unanswered filter (Coach Ed 2026-11-18): the same kind of icon toggle as Read/Unread, beside it in the Conversations header,
+     All -> Answered -> Unanswered -> All. It sends answered=answered|unanswered to the comments list; All sends nothing. It is not the Open/Closed
+     status. While it is on only comments are read (conversations have no answered state). S.answered is "" | "answered" | "unanswered". */
+  var ANSWERS = { "": { icon: "comment", text: "Showing all comments", next: "answered" }, answered: { icon: "check", text: "Showing answered comments", next: "unanswered" }, unanswered: { icon: "unans", text: "Showing unanswered comments", next: "" } };
+  function answeredToggle() {
+    var b = h("button", "ib-rtog ib-atog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-atog");
+    b.addEventListener("click", function () {
+      if (!S) return;
+      var v = ANSWERS[S.answered || ""].next;
+      paintAns(b, v); /* the new state shows at once; applyQuery puts it back when the read fails */
+      applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: v, filter: S.filter }, null, "");
+    });
+    paintAns(b, S.answered || "");
+    return b;
+  }
+  function paintAns(b, v) {
+    var r = ANSWERS[v] || ANSWERS[""];
+    clear(b); b.appendChild(icon(ICON[r.icon]));
+    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
+    b.classList.toggle("is-on", !!v);
+  }
+  function syncAns(v) { var b = byId("ib-atog"); if (b && S) paintAns(b, v === undefined ? S.answered || "" : v); }
   function refreshButton() {
     var b = h("button", "no-btn no-btn-ghost ib-rf"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
     b.appendChild(icon(ICON.refresh)); b.appendChild(h("span", "ib-rf-t", "Refresh"));
@@ -1073,28 +1099,28 @@
     if (S.qTimer !== null) { clearTimeout(S.qTimer); S.qTimer = null; }
     var v = S.qText.trim(), q = v.length >= 2 ? v.slice(0, 80) : "";
     if (q === S.q) return;
-    applyQuery({ q: q, status: S.status, unread: S.unread, filter: S.filter }, null, "");
+    applyQuery({ q: q, status: S.status, unread: S.unread, answered: S.answered, filter: S.filter }, null, "");
   }
   /* A new search text, status, Read/Unread or Channel: one read of the first page of the sources it needs; S changes only when the read worked
      (else `box`, the dropdown, goes back to `revert`). The search goes to both APIs, Read/Unread maps to the comments' unread=1/0, and
      Closed reads no comments (they have no closed state). */
   function applyQuery(next, box, revert) {
     var mine = ++token, st = S;
-    readFirst(sourcesFor(next.filter, next.status), next).then(function (r) {
+    readFirst(sourcesFor(next.filter, next.status, next.answered), next).then(function (r) {
       if (mine !== token || S !== st || r.unauth) return;
       if (!r.ok) {
         D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");
         if (box) { box.value = revert || "all"; if (box.ibSync) box.ibSync(); }
-        syncRead();
+        syncRead(); syncAns();
         return;
       }
-      S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.filter = next.filter;
+      S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.answered = next.answered || ""; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
-      fillList(byId("ib-listbody")); syncRead();
+      fillList(byId("ib-listbody")); syncRead(); syncAns();
       var again = byId("ib-filter"); if (box && again && again.ibFocus) again.ibFocus();
-      say(!next.q && !next.status && !next.unread && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+      say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */

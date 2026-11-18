@@ -252,6 +252,38 @@ test("the Home fills both slots from the same data, and hides them when there is
   }
 });
 
+/* ---- Start your training and the quick links (ClickUp z8uq9mgmjg) ------------------------------------------------- */
+
+const COURSES4 = ["crs_a", "crs_b", "crs_c", "crs_d"].map((id, i) => COURSE({ id, title: `Course ${id}`, percent: 0, completed_lessons: 0, order: i }));
+const homeText = async (courses: Reply, live: Reply = ok({ live: null })) =>
+  text(await homePage(dashOf(fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [live], "member/training/courses": [courses] }))));
+
+test("Home: without a resume, up to three startable courses show in the API's order, then See all training", async () => {
+  const out = await homeText(ok({ courses: [SOON, ...COURSES4], resume: null }));
+  assert.match(out, /Start your training/);
+  const ids = [...out.slice(out.indexOf('data-tr="start-training"')).matchAll(/data-course="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ["crs_a", "crs_b", "crs_c"]);
+  assert.match(out, /<a class="tr-btn" href="\/dashboard\/training\/">See all training<\/a>/);
+});
+
+test("Home: a resume, only Coming Soon courses, no courses or a failed read draw no Start your training", async () => {
+  for (const reply of [ok({ courses: COURSES4, resume: RESUME }), ok({ courses: [SOON], resume: null }), ok({ courses: [], resume: null }), err(500), err(404)]) {
+    const out = await homeText(reply);
+    assert.doesNotMatch(out, /Start your training|See all training/);
+    assert.match(out, /Explore your dashboard/); // the page is still fine
+  }
+});
+
+test("Home: the Explore your dashboard card always carries Training, Media Library and Affiliate Hub", async () => {
+  for (const reply of [ok({ courses: COURSES4, resume: RESUME }), err(500)]) {
+    const out = await homeText(reply);
+    const card = out.slice(out.indexOf('data-md-page="quick-links"'));
+    assert.match(card, /Explore your dashboard/);
+    assert.deepEqual([...card.matchAll(/<a class="tr-btn" href="([^"]+)">([^<]+)<\/a>/g)].map((m) => `${m[2]} ${m[1]}`),
+      ["Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/"]);
+  }
+});
+
 /* ---- small helpers and the page policy --------------------------------------------------------------------------- */
 
 test("durations and times read in plain words, in Philippine time", () => {

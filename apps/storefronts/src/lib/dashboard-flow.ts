@@ -22,7 +22,7 @@ import { memberCourses, memberLive } from "./training-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
-import { appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero } from "../views/sante/member-dash.ts";
+import { appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero, quickLinks } from "../views/sante/member-dash.ts";
 import { homeSlots } from "../views/sante/training.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
@@ -94,7 +94,7 @@ export async function homePage(d: Dash): Promise<Response> {
   // Training the same way: the next live card and "pick up where you left off" are hidden when empty or when the read fails.
   const [live, courses] = await Promise.all([memberLive(args(d), d.calls), memberCourses(args(d), d.calls)]);
   if ((live.state === "refused" && live.status === 401) || (courses.state === "refused" && courses.status === 401)) return signedOut(d);
-  const body = html`${n.state === "ok" ? noticesPanel(n.notices) : ""}${homeSlots(live.state === "ok" ? live.live : null, courses.state === "ok" ? courses.resume : null, courses.state === "ok" ? courses.courses : [], d.now)}`;
+  const body = html`${n.state === "ok" ? noticesPanel(n.notices) : ""}${homeSlots(live.state === "ok" ? live.live : null, courses.state === "ok" ? courses.resume : null, courses.state === "ok" ? courses.courses : [], d.now)}${quickLinks()}`;
   return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, body));
 }
 

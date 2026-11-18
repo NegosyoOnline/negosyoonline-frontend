@@ -2,6 +2,7 @@
    (Media Library, Affiliate Hub, Orders) and the My Purchases heading. Plain markup, no script. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { Notice } from "../../lib/notices-api.ts";
+import { SECTIONS } from "./member.ts";
 import { safeImage } from "./shop-shell.ts";
 
 const manila = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" });
@@ -69,4 +70,13 @@ export function noPurchaseCard(): Markup {
 
 export function purchasesHero(): Markup {
   return pageHero("My Purchases", "Your Membership Pack payment and registration.");
+}
+
+const QUICK_KEYS = ["training", "media", "affiliate"];
+
+/** "Explore your dashboard": the bottom of the Home, always. Labels and addresses come from the menu. */
+export function quickLinks(): Markup {
+  const links = SECTIONS.filter((s) => QUICK_KEYS.includes(s.key) && s.built);
+  return html`<section class="md-card md-quick" data-md-page="quick-links" aria-labelledby="md-quick-h"><h2 id="md-quick-h">Explore your dashboard</h2>
+  <p class="md-quick-row">${links.map((l) => html`<a class="tr-btn" href="${l.path}">${l.label}</a>`)}</p></section>`;
 }

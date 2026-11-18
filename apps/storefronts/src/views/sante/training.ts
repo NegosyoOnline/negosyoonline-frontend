@@ -96,12 +96,25 @@ export function resumeCard(resume: Resume | null, courses: Course[] = []): Marku
 </section>`;
 }
 
-/** The two slots of the Home. Each keeps its marker; each is empty when there is nothing to show. */
-export function homeSlots(live: Live | null, resume: Resume | null, courses: Course[] = [], now: Date = new Date()): Markup {
-  return html`<div data-slot="next-live-training">${liveCard(live, now)}</div><div data-slot="pick-up-where-you-left-off">${resumeCard(resume, courses)}</div>`;
+export const START_COURSES_MAX = 3;
+
+/** "Start your training": up to three of the store's courses that are not Coming Soon, as the Training course cards, in the order
+    the API returns them, with a link to all training. Nothing while a course is in progress (the resume card) or when none can start. */
+export function startTraining(resume: Resume | null, courses: Course[] = []): Markup {
+  if (resume) return html``;
+  const startable = courses.filter((c) => !c.coming_soon).slice(0, START_COURSES_MAX);
+  if (startable.length === 0) return html``;
+  return html`<section class="tr-start" data-tr="start-training" aria-labelledby="tr-start-h"><div class="tr-sect"><h2 id="tr-start-h" class="tr-h2">Start your training</h2></div>
+  <div class="tr-grid">${startable.map(courseCard)}</div>
+  <p class="tr-start-more"><a class="tr-btn" href="${TRAINING_PATH}">See all training</a></p></section>`;
 }
 
-function courseCard(c: Course, i: number): Markup {
+/** The slots of the Home. Each keeps its marker; each is empty when there is nothing to show. */
+export function homeSlots(live: Live | null, resume: Resume | null, courses: Course[] = [], now: Date = new Date()): Markup {
+  return html`<div data-slot="next-live-training">${liveCard(live, now)}</div><div data-slot="pick-up-where-you-left-off">${resumeCard(resume, courses)}</div>${startTraining(resume, courses)}`;
+}
+
+export function courseCard(c: Course, i: number): Markup {
   const image = safeImage(c.image_url);
   const done = c.total_lessons > 0 && c.percent >= 100;
   const thumb = html`<div class="tr-thumb ${gradient(i)}">${image ? html`<img src="${image}" alt="" loading="lazy">` : html`<span class="tr-thumb-title">${c.title}</span>`}

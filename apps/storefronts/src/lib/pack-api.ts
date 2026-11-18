@@ -189,12 +189,27 @@ export function checkoutPlace(form: FormData, c: Calls) {
 export type PayState = "none" | "waiting" | "no_invoice" | "paid" | "expired" | "mismatch" | "under_review" | "needs_attention";
 const PAY_STATES: readonly string[] = ["none", "waiting", "no_invoice", "paid", "expired", "mismatch", "under_review", "needs_attention"];
 
-/** Where the buyer may be sent to pay: only Xendit's own https address; anything else reads as no address. */
+/** Local preview only: the one origin of the backend's fake Xendit, STOREFRONT_XENDIT_FAKE_ORIGIN (for example
+    http://127.0.0.1:8000). Never read when NODE_ENV is production, which is every Vercel build, previews included. */
+function fakeXenditUrl(u: URL): string {
+  const raw = process.env.NODE_ENV !== "production" ? process.env.STOREFRONT_XENDIT_FAKE_ORIGIN : "";
+  if (!raw) return "";
+  try {
+    const origin = new URL(raw);
+    if (origin.protocol !== "http:" || origin.origin !== raw.replace(/\/+$/, "")) return "";
+    return u.origin === origin.origin && !u.username && !u.password && u.pathname.startsWith("/fake-xendit/invoice/") ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Where the buyer may be sent to pay: only Xendit's own https address (and, in local preview only, the fake's); anything else reads as no address. */
 export function xenditPayUrl(raw: unknown): string {
   if (typeof raw !== "string") return "";
   try {
     const u = new URL(raw);
-    return u.protocol === "https:" && (u.hostname === "xendit.co" || u.hostname.endsWith(".xendit.co")) && !u.username && !u.password ? u.href : "";
+    if (u.protocol === "https:" && (u.hostname === "xendit.co" || u.hostname.endsWith(".xendit.co")) && !u.username && !u.password) return u.href;
+    return fakeXenditUrl(u);
   } catch {
     return "";
   }

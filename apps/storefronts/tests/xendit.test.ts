@@ -122,6 +122,28 @@ test("a Xendit address is only ever Xendit's https address", () => {
   for (const bad of ["http://checkout.xendit.co/x", "https://evil.example/x", "https://xendit.co.evil.example/x", "https://u:p@checkout.xendit.co/x", "javascript:alert(1)", "", null, 5]) assert.equal(xenditPayUrl(bad), "", String(bad));
 });
 
+test("local preview: the fake Xendit origin is accepted in dev only, for its invoice path only", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const was = { env: env.NODE_ENV, fake: env.STOREFRONT_XENDIT_FAKE_ORIGIN };
+  const fakeUrl = "http://127.0.0.1:8000/fake-xendit/invoice/abc/";
+  try {
+    env.STOREFRONT_XENDIT_FAKE_ORIGIN = "http://127.0.0.1:8000";
+    env.NODE_ENV = "development";
+    assert.equal(xenditPayUrl(fakeUrl), fakeUrl);
+    for (const bad of ["http://127.0.0.1:8001/fake-xendit/invoice/abc/", "http://localhost:8000/fake-xendit/invoice/abc/", "http://127.0.0.1:8000/other/", "http://127.0.0.1:8000/fake-xendit/", "https://127.0.0.1:8000/fake-xendit/invoice/abc/", "http://u:p@127.0.0.1:8000/fake-xendit/invoice/abc/"]) assert.equal(xenditPayUrl(bad), "", bad);
+    env.NODE_ENV = "production";
+    assert.equal(xenditPayUrl(fakeUrl), "");
+    env.NODE_ENV = "development";
+    delete env.STOREFRONT_XENDIT_FAKE_ORIGIN;
+    assert.equal(xenditPayUrl(fakeUrl), "");
+    env.STOREFRONT_XENDIT_FAKE_ORIGIN = "http://127.0.0.1:8000/fake-xendit";
+    assert.equal(xenditPayUrl(fakeUrl), "");
+  } finally {
+    env.NODE_ENV = was.env;
+    if (was.fake === undefined) delete env.STOREFRONT_XENDIT_FAKE_ORIGIN; else env.STOREFRONT_XENDIT_FAKE_ORIGIN = was.fake;
+  }
+});
+
 test("pay page: opens the invoice from this host; no cookie starts over; paid and bank orders go to onboarding", async () => {
   const r = await payGet(obOf(fake({ "checkout/payment-status": [status("waiting", INVOICE)] })));
   const page = await r!.text();

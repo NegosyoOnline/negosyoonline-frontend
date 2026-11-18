@@ -17,7 +17,7 @@
      Approved by the Supervisor (2026-11-18): the texts below. All of them live in this block. */
   var T = {
     ad: "Ad", answered: "Answered", unanswered: "Unanswered", hidden: "Hidden",
-    reply: "Reply", priv: "Message privately", hide: "Hide", send: "Send", sendPub: "Send Comment Reply", sendPriv: "Send private message", kindPub: "Comment reply", kindPriv: "Private message", cancel: "Cancel",
+    reply: "Reply", priv: "Message privately", hide: "Hide Comment", send: "Send", sendPub: "Send Comment Reply", sendPriv: "Send private message", kindPub: "Comment reply", kindPriv: "Private message", cancel: "Cancel",
     opening: "Opening the comment…",
     gone: "This comment is no longer available.", reopenFail: "We could not load this comment just now. Wait a moment, then try again.",
     notSent: "Your reply was not sent.", keepText: " Your text is still in the box.",
@@ -203,7 +203,11 @@
       } else p.appendChild(h("p", "pm-meta ib-loading", T.opening));
       return;
     }
-    p.appendChild(C.h.head(nameOf(c.author_name), chips(c)));
+    var hideB = btn(T.hide, "ghost", function () { C.confirm = true; draw(); var y = byId("cm-hide-yes"); if (y) y.focus(); });
+    hideB.classList.add("cm-hide"); hideB.setAttribute("id", "cm-hide-btn");
+    if (!c.hide || c.hide.available === false) { hideB.disabled = true; hideB.setAttribute("aria-disabled", "true"); }
+    p.appendChild(C.h.head(nameOf(c.author_name), chips(c), hideB));
+    if (C.confirm && c.hide && c.hide.available !== false) p.appendChild(confirmBox());
     var now = new Date();
     var msgs = h("div", "ib-msgs cm-msgs"); msgs.setAttribute("tabindex", "0"); msgs.setAttribute("aria-label", "Comment");
     msgs.appendChild(postCard(c.post));
@@ -213,9 +217,11 @@
     var items = (Array.isArray(c.replies) ? c.replies : []).concat(Array.isArray(C.pending) ? C.pending : []);
     items.forEach(function (r) {
       var out = r.is_page === true, rr = h("div", "ib-msg " + (out ? "ib-msg-out" : "ib-msg-in")), priv = out && r.kind === "private";
-      var who = out ? (String(r.author_name || "").trim() || "You") : nameOf(r.author_name);
-      if (out) rr.appendChild(h("span", "cm-kind" + (priv ? " cm-kind-priv" : ""), priv ? T.kindPriv : T.kindPub));
-      add(rr, h("p", "cm-rname", who), h("p", "ib-bub", r.text || ""), h("span", "ib-meta", U.whenText(r.created_at, now)));
+      var meta = h("span", "ib-meta");
+      if (out) meta.appendChild(h("span", "cm-kind " + (priv ? "cm-kind-priv" : "cm-kind-pub"), priv ? T.kindPriv : T.kindPub));
+      meta.appendChild(document.createTextNode(U.whenText(r.created_at, now)));
+      if (!out) rr.appendChild(h("p", "cm-rname", nameOf(r.author_name)));
+      add(rr, h("p", "ib-bub", r.text || ""), meta);
       msgs.appendChild(rr);
     });
     p.appendChild(msgs);
@@ -232,25 +238,19 @@
   function draftKey() { return C.ref; }
   function draftOf() { return has(C.drafts, draftKey()) ? C.drafts[draftKey()] : ""; }
   function modeAction(c, mode) { return mode === "private" ? c.private_reply : c.public_reply; }
+  /* Hide asks first (there is no unhide in C1). The button is in the thread header; the question sits just under it. */
+  function confirmBox() {
+    var cf = h("div", "ib-note cm-confirm"); cf.setAttribute("role", "alertdialog"); cf.setAttribute("aria-label", T.confirmHide);
+    var yes = btn(T.hide, "primary", function (b) { doHide(b); }); yes.setAttribute("id", "cm-hide-yes");
+    var no = btn(T.cancel, "ghost", function () { C.confirm = false; draw(); var hb = byId("cm-hide-btn"); if (hb) hb.focus(); });
+    var acts = h("div", "cm-confirm-actions"); add(acts, yes, no);
+    add(cf, h("span", "", T.confirmHide), acts);
+    return cf;
+  }
   function composer(c) {
     var wrap = h("div", "ib-reply cm-compose");
     var pubOff = !c.public_reply || c.public_reply.available === false, privOff = !c.private_reply || c.private_reply.available === false;
     var allOff = pubOff && privOff;
-    /* Hide asks first (there is no unhide in C1). A disabled action says why, in a note below. */
-    var modes = h("div", "cm-modes");
-    var hideB = btn(T.hide, "ghost", function () { C.confirm = true; draw(); var y = byId("cm-hide-yes"); if (y) y.focus(); });
-    hideB.classList.add("cm-hide"); hideB.setAttribute("id", "cm-hide-btn");
-    if (!c.hide || c.hide.available === false) { hideB.disabled = true; hideB.setAttribute("aria-disabled", "true"); }
-    modes.appendChild(hideB);
-    wrap.appendChild(modes);
-    if (C.confirm && c.hide && c.hide.available !== false) {
-      var cf = h("div", "ib-note cm-confirm"); cf.setAttribute("role", "alertdialog"); cf.setAttribute("aria-label", T.confirmHide);
-      var yes = btn(T.hide, "primary", function (b) { doHide(b); }); yes.setAttribute("id", "cm-hide-yes");
-      var no = btn(T.cancel, "ghost", function () { C.confirm = false; draw(); var hb = byId("cm-hide-btn"); if (hb) hb.focus(); });
-      var acts = h("div", "cm-confirm-actions"); add(acts, yes, no);
-      add(cf, h("span", "", T.confirmHide), acts);
-      wrap.appendChild(cf);
-    }
     notesFor(c).forEach(function (n) {
       var el = h("p", "ib-note ib-note-info cm-note"); el.appendChild(icon(ICON.chat)); el.appendChild(h("span", "", n[1])); wrap.appendChild(el);
     });

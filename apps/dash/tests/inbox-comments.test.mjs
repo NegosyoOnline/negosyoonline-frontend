@@ -664,7 +664,7 @@ test("Refresh reads the list and the open comment again; leaving the Inbox stops
 const pane = (d) => text(d.$("ib-threadpane"));
 const count = (s, sub) => s.split(sub).length - 1;
 
-test("thread labels: comment reply, private message, blank name is You, customer reply unchanged", async () => {
+test("thread labels: comment reply, private message, no owner name line, customer reply unchanged", async () => {
   const d = boot();
   d.s.detail = detail({ replies: [
     { ref: "cm_a", kind: "comment", is_page: true, author_name: "Ana Store Page", text: "Public answer", created_at: iso(30) },
@@ -681,7 +681,7 @@ test("thread labels: comment reply, private message, blank name is You, customer
   assert.ok(!kinds[0].classList.contains("cm-kind-priv"));
   const outs = d.all(t, "ib-msg-out");
   assert.equal(outs.length, 3);
-  assert.ok(text(outs[1]).includes("You") && text(outs[1]).includes("Private answer"));
+  assert.ok(text(outs[1]).includes("Private answer") && !text(outs[1]).includes("You"), "no name line for the owner");
   assert.ok(!text(outs[1]).includes("Facebook user"));
   const ins = d.all(t, "ib-msg-in");
   assert.ok(text(ins[ins.length - 1]).includes("Facebook user") && text(ins[ins.length - 1]).includes("Customer again"));
@@ -731,4 +731,52 @@ test("a failed send adds nothing to the thread", async () => {
   d.s.replyAnswer = { status: 500, body: { error: { code: "server", message: "Oops." } } };
   await d.click(d.press(d.$("ib-threadpane"), "Try again"));
   assert.equal(d.all(d.$("ib-threadpane"), "ib-bub").filter((b) => text(b) === "Nope").length, 0);
+});
+
+/* ---- r5: no Page-name line, pill in the meta line, gold comment-reply pill, Hide Comment in the header ---- */
+test("owner messages have no name line; the pill sits in the meta line before the time; customer keeps its name", async () => {
+  const d = boot();
+  d.s.detail = detail({ replies: [
+    { ref: "cm_a", kind: "comment", is_page: true, author_name: "Ana Store Page", text: "Public answer", created_at: iso(30) },
+    { ref: "", kind: "private", is_page: true, author_name: "", text: "Private answer", created_at: iso(20) },
+    { ref: "cm_b", is_page: false, author_name: "Joe", text: "Thanks", created_at: iso(10) },
+  ] });
+  await d.openInbox();
+  await d.openRow(0);
+  const outs = d.all(d.$("ib-threadpane"), "ib-msg-out");
+  assert.equal(outs.length, 2);
+  outs.forEach((o) => { assert.equal(d.all(o, "cm-rname").length, 0); });
+  assert.ok(!pane(d).includes("Ana Store Page") && !pane(d).includes("You"));
+  const metas = outs.map((o) => d.all(o, "ib-meta")[0]);
+  assert.equal(d.all(metas[0], "cm-kind")[0].textContent, "Comment reply");
+  assert.ok(d.all(metas[0], "cm-kind")[0].classList.contains("cm-kind-pub"));
+  assert.equal(d.all(metas[1], "cm-kind")[0].textContent, "Private message");
+  assert.ok(d.all(metas[1], "cm-kind")[0].classList.contains("cm-kind-priv"));
+  assert.equal(metas[0].children[0].classList.contains("cm-kind"), true, "the pill comes before the time");
+  const ins = d.all(d.$("ib-threadpane"), "ib-msg-in");
+  assert.ok(text(ins[ins.length - 1]).includes("Joe"));
+});
+
+test("Hide Comment is a button in the thread header and the old row above the composer is gone", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.openRow(0);
+  const hb = d.$("cm-hide-btn");
+  assert.equal(hb.textContent, "Hide Comment");
+  const head = d.all(d.$("ib-threadpane"), "ib-thead")[0];
+  assert.ok(d.all(head, "cm-hide").includes(hb), "inside the header");
+  assert.equal(d.all(d.$("ib-threadpane"), "cm-modes").length, 0);
+  await d.click(hb);
+  const yes = d.$("cm-hide-yes");
+  assert.equal(yes.textContent, "Hide Comment");
+  assert.ok(d.all(d.$("ib-threadpane"), "cm-confirm").length === 1);
+  await d.click(d.press(d.$("ib-threadpane"), "Cancel"));
+  assert.equal(d.$("cm-hide-yes"), null);
+});
+
+test("the gold comment-reply pill has readable colours in both themes", () => {
+  const css = fs.readFileSync(path.join(JS, "../css/inbox.css"), "utf8");
+  assert.match(css, /\.cm-kind-pub \{[^}]*#F2D488[^}]*#F2D488/);
+  assert.match(css, /data-theme="light"\] #view-inbox \.cm-kind-pub \{[^}]*#D9A21B[^}]*#fff8e6[^}]*#7A5A00/);
+  assert.match(css, /\.cm-kind-priv \{[^}]*var\(--link\)/);
 });

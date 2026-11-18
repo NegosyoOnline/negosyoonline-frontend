@@ -598,7 +598,7 @@
   function itemOf(ref) { var f = null; S.pool.forEach(function (i) { if (i.ref === ref) f = i; }); return f; }
   function cmHooks() {
     return { site: function () { return S ? S.site : ""; }, pane: function () { return byId("ib-threadpane"); }, item: itemOf,
-      head: function (name, chips) { return threadHead(name, { channel: "fbcomment", chips: chips }); }, listChanged: function () { if (S) drawList(); } };
+      head: function (name, chips, action) { return threadHead(name, { channel: "fbcomment", chips: chips, action: action }); }, listChanged: function () { if (S) drawList(); } };
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;

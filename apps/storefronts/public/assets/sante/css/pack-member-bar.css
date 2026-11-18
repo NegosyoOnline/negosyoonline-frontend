@@ -116,7 +116,7 @@ html[data-theme="dark"] .md-notices h2, html[data-theme="dark"] .md-notice-dates
 .tr-sect span { color: #5B6B63; font-size: 14px; }
 .tr-start { margin: 0 0 16px; }
 .tr-start .tr-sect { margin-top: 8px; }
-.tr-start-more { margin: 16px 0 0; }
+.tr-start .tr-start-more { margin: 18px 0 22px; }
 .md-quick h2 { margin: 0 0 14px; font-size: 20px; }
 .md-quick .md-quick-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; }
 @media (max-width: 600px) { .md-quick .md-quick-row { flex-direction: column; } .md-quick .tr-btn, .tr-start-more .tr-btn { width: 100%; } }

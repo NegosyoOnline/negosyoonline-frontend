@@ -365,11 +365,11 @@ export function completedDocument(c: PackCtx, s: OnboardingState): Markup {
             </li>
             <li>
               <span class="pp-done-ic">${icon("shield", "h-5 w-5")}</span>
-              <div><h3>The store verifies your payment</h3><p>Your Lifetime Membership then turns on, with 40% member savings on eligible Santé products.</p></div>
+              <div>${s.payment_verified ? html`<h3>Your payment is verified</h3><p>Your Lifetime Membership is on, with 40% member savings on eligible Santé products.</p>` : html`<h3>The store verifies your payment</h3><p>Your Lifetime Membership then turns on, with 40% member savings on eligible Santé products.</p>`}</div>
             </li>
             <li>
               <span class="pp-done-ic">${icon("truck", "h-5 w-5")}</span>
-              <div><h3>Membership Package Delivery</h3><p>It ships once your membership is registered and your payment is verified${where}.</p></div>
+              <div><h3>Membership Package Delivery</h3><p>${s.payment_verified ? html`It ships once your membership is registered${where}.` : html`It ships once your membership is registered and your payment is verified${where}.`}</p></div>
             </li>
           </ol>`}
           <form method="post" action="${COMPLETED_PATH}" data-pp-busy-msg="Taking you to your dashboard…"><button class="btn inline pp-done-cta" type="submit" data-pp-busy-label="Taking you to your dashboard&hellip;">Go to my dashboard<span class="pp-ob-cta-arrow" aria-hidden="true">&rarr;</span></button></form>

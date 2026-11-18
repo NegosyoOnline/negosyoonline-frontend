@@ -327,6 +327,7 @@ export type OnboardingState = {
   address: { country: string; receiver_name: string; receiver_mobile: string; line: string; barangay: string; city: string; province: string; zip: string; landmark: string };
   details_erased: boolean;
   payment_method_label: string;
+  payment_verified: boolean;
   registration_held: { label: string; line: string } | null;
   expires_at: string;
 };
@@ -361,6 +362,7 @@ export function parseOnboardingState(b: unknown): OnboardingState | null {
     },
     details_erased: b.details_erased === true,
     payment_method_label: str(b.payment_method_label),
+    payment_verified: b.payment_verified === true,
     registration_held: held,
     expires_at: str(b.expires_at),
   };

@@ -251,6 +251,19 @@ test("the Order Summary payment line follows payment_method_label on Onboarding 
   assert.deepEqual(seen, [x, x, t, t, t, t, t]);
 });
 
+test("Completed wording follows payment_verified, with the unverified text when it is false or missing", async () => {
+  const f = fake({ "onboarding/state": [ok(state({ step: "done", payment_verified: true })), ok(state({ step: "done", payment_verified: false })), ok(state({ step: "done" }))] });
+  const paid = await text((await completedGet(flowOf(f)))!);
+  assert.match(paid, /<h3>Your payment is verified<\/h3><p>Your Lifetime Membership is on, with 40% member savings on eligible Santé products\.<\/p>/);
+  assert.match(paid, /It ships once your membership is registered\./);
+  assert.doesNotMatch(paid, /The store verifies your payment|and your payment is verified/);
+  for (let i = 0; i < 2; i++) {
+    const unpaid = await text((await completedGet(flowOf(f)))!);
+    assert.match(unpaid, /<h3>The store verifies your payment<\/h3><p>Your Lifetime Membership then turns on, with 40% member savings on eligible Santé products\.<\/p>/);
+    assert.match(unpaid, /It ships once your membership is registered and your payment is verified\./);
+  }
+});
+
 test("the access page: open, spent, renewable, and the redeem POST starts a fresh checkout cookie", async () => {
   const f = fake({
     "access/read": [ok({ link_open: true, renewable: true }), ok({ link_open: false, renewable: true }), ok({ link_open: false, renewable: false })],

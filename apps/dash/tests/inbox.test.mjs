@@ -788,8 +788,8 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261118cm21/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261118cm21/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm20/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261118cm22/);
+  assert.match(HTML, /inbox\.css\?v=20261118cm21/);
   assert.match(HTML, /inbox-comments\.js\?v=20261118cm20/);
 });
 
@@ -920,6 +920,16 @@ test("connected with permission_missing: Settings offers the same reconnect; rea
   const none = boot({ channels: CH_OFF, messenger: M_ACTIVE });
   await none.openSettings();
   assert.equal(none.$("ibs-m-cm-connect"), null);
+});
+
+test("connected with permission_missing: Reconnect and Disconnect share one action row, hint above it", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_ACTIVE, cmStatus: CM_NOT_READY });
+  await d.openSettings();
+  const row = d.$("ibs-m-cm-connect").parentNode;
+  assert.ok(row.classList.contains("mk-pause"));
+  assert.equal(d.$("ibs-m-disconnect").parentNode, row);
+  assert.equal(row.parentNode.children[row.parentNode.children.indexOf(row) - 1], d.$("ibs-m-cm-hint"));
+  assert.match(fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8"), /:is\(\.pm-hint, \.pm-lead, \.pm-field\) \+ \.mk-pause \{ margin-top: 12px/);
 });
 
 test("messenger: no token is ever in the script", () => {

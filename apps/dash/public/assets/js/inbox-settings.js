@@ -253,20 +253,21 @@
     if (st === "active") {
       var nm = h("p", "pm-lead", "Connected Page: "); var pn = h("b", "", c.page_name || c.page_id || "Your Facebook Page"); pn.setAttribute("id", "ibs-m-page"); nm.appendChild(pn);
       add(s, nm, h("p", "pm-hint", "Messages sent to this Page show in your Inbox as Facebook Messenger."));
+      var row = h("div", "mk-pause"), cc = null;
       if (S.cm && S.cm.reason === "permission_missing") {
-        var ch = h("p", "pm-hint", "Turn on comments for your Page to reply."); ch.setAttribute("id", "ibs-m-cm-hint");
-        var cc = btn("Reconnect", "ghost", goConnect); cc.setAttribute("id", "ibs-m-cm-connect");
-        add(s, ch, add(h("div", "mk-pause"), cc));
+        add(s, (function () { var ch = h("p", "pm-hint", "Turn on comments for your Page to reply."); ch.setAttribute("id", "ibs-m-cm-hint"); return ch; })());
+        cc = btn("Reconnect", "ghost", goConnect); cc.setAttribute("id", "ibs-m-cm-connect");
       }
-      var row = h("div", "mk-pause");
       if (S.asking) {
+        /* The reconnect button keeps its own row above the question; Disconnect and Keep connected share one row below it. */
+        if (cc) add(s, add(h("div", "mk-pause"), cc));
         add(s, h("p", "pm-lead", "Disconnect this Page? New Messenger messages will stop arriving in your Inbox. Your past conversations stay."));
         var go = btn("Disconnect", "danger", function (b) { disconnect(b); }); go.setAttribute("id", "ibs-m-yes");
         var no = btn("Keep connected", "ghost", function () { S.asking = false; render(); var d = byId("ibs-m-disconnect"); if (d) d.focus(); }); no.setAttribute("id", "ibs-m-no");
         add(s, add(row, go, no));
       } else {
         var dis = btn("Disconnect", "ghost", function () { S.asking = true; render(); var y = byId("ibs-m-no"); if (y) y.focus(); }); dis.setAttribute("id", "ibs-m-disconnect");
-        add(s, add(row, dis));
+        add(s, add(row, cc, dis));
       }
       return s;
     }

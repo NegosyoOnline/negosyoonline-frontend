@@ -311,3 +311,11 @@ test("every order button carries the heartbeat: double-beat keyframes, paused on
   assert.match(css, /\[data-pp-beat\]:hover, \[data-pp-beat\]:focus-visible \{ animation: none; \}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \[data-pp-beat\] \{ animation: none; \} \}/);
 });
+
+test("pack funnel CSS: a short page keeps the paper background to the footer; the step tracker never breaks a word", () => {
+  const css = readFileSync(path.join(PUBLIC, "assets/sante/css/pack-forms.css"), "utf8");
+  assert.match(css, /\.pp-main\s*\{[^}]*display:\s*flex;[^}]*flex-direction:\s*column/);
+  assert.match(css, /\.pp-main > \.pp-co\s*\{[^}]*flex:\s*1 0 auto/);
+  const li = css.match(/\.pp-co-track li\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.ok(li && !/anywhere|break-word/.test(li), "no mid-word breaking on the tracker labels");
+});

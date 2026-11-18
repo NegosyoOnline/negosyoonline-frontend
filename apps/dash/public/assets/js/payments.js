@@ -4,15 +4,18 @@
    webhook token, write-only). Every status comes from the API: a method shows at checkout only while it is on AND set
    up (`available`). API strings reach the page through textContent or D.el only. Secrets are never kept or shown.
 
-   The Xendit section is hidden (Coach Ed 2026-11-11, ClickUp z8uq9me4hq: bank transfer is the payment method for
-   launch until a payment gateway is approved). While XENDIT_SECTION_ENABLED is false the page draws no Xendit row or
-   card, sends nothing to .../xendit/ and does not read the `xendit` block, which the API may leave out. */
+   The Xendit section is on again for the Santé funnel (Coach Ed 2026-11-18, ClickUp z8uq9mgkk2: "we will activate xendit
+   in our sante membership funnel"). The page draws the Xendit row and card only when the API's read says `xendit.offered === true`
+   (a Santé site and the platform switch on; true even before a key is saved), never on the block merely being there. Otherwise
+   it draws no Xendit row or card and sends nothing to .../xendit/. `available.xendit` is the
+   method being live (on AND a working key), as for the transfer. XENDIT_SECTION_ENABLED false hides it everywhere. */
 (function () {
   var D = window.NODash;
-  /* Off = the Xendit row, card, key form and webhook block are not drawn. Set it to true to bring them back. */
-  var XENDIT_SECTION_ENABLED = false;
+  /* Off = the Xendit row, card, key form and webhook block are never drawn. On = drawn when the API offers Xendit (xOn). */
+  var XENDIT_SECTION_ENABLED = true;
   var token = 0, site = null, data = null, closeDialog = null;
 
+  function xOn() { return XENDIT_SECTION_ENABLED && !!data && !!data.xendit && data.xendit.offered === true; }
   function byId(id) { return document.getElementById(id); }
   function h(tag, cls, text) { return D.el(tag, cls ? { "class": cls } : {}, text); }
   function add(parent) { for (var i = 1; i < arguments.length; i++) { if (arguments[i]) parent.appendChild(arguments[i]); } return parent; }
@@ -95,7 +98,7 @@
   /* ---- render ---- */
   function render() {
     var root = clear(byId("pm-root")); root.removeAttribute("aria-busy");
-    add(root, methodsCard(), accountsCard(), XENDIT_SECTION_ENABLED ? xenditCard() : null);
+    add(root, methodsCard(), accountsCard(), xOn() ? xenditCard() : null);
   }
 
   /* One row per method: name, what it needs, status chip and the on/off switch. */
@@ -128,8 +131,8 @@
     var s = card("methods", "Payment methods at checkout");
     s.setAttribute("id", "pm-methods");
     add(s, methodRow("direct", "Bank or e-wallet transfer", "Buyers send the amount to one of your accounts and upload their proof. You verify each payment."),
-      XENDIT_SECTION_ENABLED ? methodRow("xendit", "Pay Online with Xendit", "Buyers pay on Xendit’s secure page. Needs your own Xendit account.") : null);
-    if (!data.available.direct && !(XENDIT_SECTION_ENABLED && data.available.xendit)) add(s, h("p", "pm-warn", "No payment method is showing, so buyers cannot check out."));
+      xOn() ? methodRow("xendit", "Pay Online with Xendit", "Buyers pay on Xendit’s secure page. Needs your own Xendit account.") : null);
+    if (!data.available.direct && !(xOn() && data.available.xendit)) add(s, h("p", "pm-warn", "No payment method is showing, so buyers cannot check out."));
     return s;
   }
   function refreshMethods() { var old = byId("pm-methods"); if (old) old.parentNode.replaceChild(methodsCard(), old); }
@@ -251,7 +254,7 @@
   function accountsCard() {
     var n = data.accounts.length, st = n ? ["ok", n === 1 ? "1 account added" : n + " accounts added"] : ["danger", "No account added yet"];
     var s = card("accounts", "Bank and e-wallet accounts", "Add the accounts where buyers send their payment. Buyers who choose transfer see these accounts in full at checkout, then upload their proof for you to verify.", st);
-    if (XENDIT_SECTION_ENABLED) s.classList.add("pm-half"); /* half width beside the Xendit card; full width while it is hidden */
+    if (xOn()) s.classList.add("pm-half"); /* half width beside the Xendit card; full width while it is hidden */
     var list = h("ul", "pm-list");
     data.accounts.forEach(function (a) {
       var li = h("li", "pm-acct"), info = h("div", "pm-acct-text");
@@ -403,7 +406,7 @@
     });
   }
 
-  /* ---- Xendit: reached only while XENDIT_SECTION_ENABLED is true ---- */
+  /* ---- Xendit: reached only while xOn() is true ---- */
   // navigator.clipboard exists only on https or localhost, so plain http copies through a hidden textarea.
   function copyText(text, button, done) {
     if (navigator.clipboard) { navigator.clipboard.writeText(text).then(done); return; }

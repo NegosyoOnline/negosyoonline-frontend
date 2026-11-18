@@ -1,7 +1,7 @@
 /* The checkout page's script (TWCinc's checkout.html and _transfer_proof.html carried it as inline blocks; this server's
    policy allows no inline script, so it is one external file). Only the values the templates printed into the script
-   (the check address and the email message) are read from data- attributes on the form instead. The Xendit branches are
-   not here: this site takes bank or e-wallet transfer only. */
+   (the check address and the email message) are read from data- attributes on the form instead. The Xendit branch is the
+   second pay_method card (ClickUp z8uq9mgkp1): it closes the transfer sheet and renames the button. */
 /* A tap on a saved QR code opens it large in one shared dialog. A browser without <dialog> opens the image itself. */
 /* The transfer sheet slides open and shut (.pp-co-slide): the class drives the animation, aria-hidden the readers. */
 function setSlide(el,open){
@@ -215,7 +215,8 @@ var pay=f.querySelectorAll('input[name=pay_method]'),panel=document.getElementBy
 function syncPay(){
 var v="";for(var i=0;i<pay.length;i++){if(pay[i].checked){v=pay[i].value;}}
 setSlide(panel,v==="direct");
-if(v==="direct"&&label.dataset.direct){label.textContent=label.dataset.direct;}
+var t=v==="xendit"?label.dataset.xendit:label.dataset.direct;
+if(t){label.textContent=t;}
 }
 for(var p=0;p<pay.length;p++){pay[p].addEventListener("change",syncPay);}
 bindCopy(f);bindQrZoom(f);
@@ -224,12 +225,21 @@ window.addEventListener("pageshow",function(){b.disabled=false;if(isGood(m)||isG
 (function(){
 var f=document.getElementById("place-form"),b=document.getElementById("place-btn");
 if(!f){return;}
-var d=document.getElementById("direct-panel");
-setSlide(d,true);
+var d=document.getElementById("direct-panel"),x=document.getElementById("xendit-panel"),radios=f.querySelectorAll('input[type=radio][name=pay_method]');
+function chosen(){var v="";for(var i=0;i<radios.length;i++){if(radios[i].checked){v=radios[i].value;}}return v;}
+function sync(){
+var v=chosen();
+if(!radios.length){setSlide(d,true);return;}
+setSlide(d,v==="direct");
+if(x){x.hidden=v!=="xendit";}
+b.textContent=(v==="xendit"?b.dataset.xendit:b.dataset.direct)||b.textContent;
+}
+for(var r=0;r<radios.length;r++){radios[r].addEventListener("change",sync);}
+sync();
 bindCopy(f);bindQrZoom(f);
 f.addEventListener("submit",function(){
 b.setAttribute("aria-busy","true");
-b.textContent="Placing order…";
+b.textContent=chosen()==="xendit"?"Continuing…":"Placing order…";
 setTimeout(function(){b.disabled=true;},0);
 });
 })();

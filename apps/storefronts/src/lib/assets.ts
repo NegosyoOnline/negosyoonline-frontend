@@ -29,7 +29,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-dashboard.js": "582e7cca",
   "js/pack-lock.js": "ca426504", // this storefront's own file: the rejection dialog's script, inline in TWCinc
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
-  "css/pack-forms.css": "80d50155",
+  "css/pack-forms.css": "19dbb659",
   "css/pack-select.css": "aac04c44",
   "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
@@ -45,7 +45,9 @@ const VERSIONS: Record<string, string> = {
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "31a2768f",
-  "js/pack-checkout.js": "cbfb3795", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "js/pack-pay.js": "90cd387b", // the pay page opens the Xendit invoice (ClickUp z8uq9mgkp1)
+  "js/pack-return.js": "15ab7bbb", // the return page polls the payment (ClickUp z8uq9mgkp1)
+  "js/pack-checkout.js": "0de08ac6", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",
   "js/pack-details-gate.js": "e52d9e8d",

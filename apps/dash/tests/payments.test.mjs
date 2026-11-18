@@ -1,7 +1,7 @@
-/* The Payments page with its Xendit section hidden (ClickUp z8uq9me4hq; Coach Ed 2026-11-11: "Hide Xendit", bank
-   transfer is the payment method for launch). The page draws the methods card with the transfer row only and the bank
-   and e-wallet accounts card: no Xendit card, text or request, whether or not the API read carries a Xendit block.
-   The Xendit code stays in payments.js behind one constant that is off. Driven like sante.test.mjs: a small stand-in
+/* The Payments page with its Xendit section on for the Santé funnel (ClickUp z8uq9mgkp1; Coach Ed 2026-11-18). The
+   Xendit row and card show only when the API read says `xendit.offered === true` (Santé sites with the platform switch on).
+   A read with no block, or today's not-set-up block without `offered`, draws the methods card with the transfer row only and the accounts card: no Xendit card, text
+   or request. Driven like sante.test.mjs: a small stand-in
    document (dom.mjs) and a recorded fetch. */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -17,13 +17,14 @@ const SRC = read("payments.js");
 const HTML = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
 const A = "site_aaaaaaaaaaaaaaaaaaaa";
 const BASE = `/sites/${A}/payment-methods/`;
-const SWITCH_OFF = "var XENDIT_SECTION_ENABLED = false;";
+const SWITCH_ON = "var XENDIT_SECTION_ENABLED = true;";
 const BDO = { id: 7, kind: "bank", account_type: "savings", provider_name: "BDO", account_name: "Nena Santos", account_number: "001234567890", account_number_last4: "7890", has_qr: false };
 const GCASH = { id: 8, kind: "ewallet", account_type: "ewallet", provider_name: "GCash", account_name: "Nena Santos", account_number: "09175550142", account_number_last4: "0142", has_qr: true };
 const XENDIT_BLOCKS = {
-  unset: { configured: false, key_failed: false, key_mode: "", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
-  live: { configured: true, key_failed: false, key_mode: "live", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
-  failed: { configured: true, key_failed: true, key_mode: "live", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
+  unset: { offered: true, configured: false, key_failed: false, key_mode: "", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
+  live: { offered: true, configured: true, key_failed: false, key_mode: "live", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
+  notOffered: { configured: false, key_failed: false, key_mode: "", webhook_url: "" },
+  failed: { offered: true, configured: true, key_failed: true, key_mode: "live", webhook_url: "https://api.test/v1/webhooks/xendit/abc/" },
 };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const settle = async () => { for (let i = 0; i < 6; i++) await tick(); };
@@ -59,7 +60,7 @@ function reading(state) {
   return body;
 }
 
-function boot({ accounts = [BDO], directOn = true, xendit = "live", src = SRC, postAnswer = null } = {}) {
+function boot({ accounts = [BDO], directOn = true, xendit = null, src = SRC, postAnswer = null } = {}) {
   const doc = pmDocument(), calls = [], toasts = [];
   const page = doc.body.appendChild(doc.createElement("div"));
   for (const id of ["pm-root", "pm-dialog-slot", "pm-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
@@ -114,8 +115,8 @@ function assertNoXendit(d) {
   assert.deepEqual(d.calls.filter((c) => /xendit/i.test(c.path) || /xendit/i.test(JSON.stringify(c.body))), []);
 }
 
-for (const xendit of ["live", "unset", "failed", null]) {
-  test(`a read ${xendit ? "with a Xendit block (" + xendit + ")" : "with no Xendit block"}: the methods card with the transfer row only and the accounts card; no Xendit card, text or request`, async () => {
+for (const xendit of [null, "notOffered"]) {
+  test(`a read with ${xendit ? "today's not-set-up block (no offered key)" : "no Xendit block"}: the methods card with the transfer row only and the accounts card; no Xendit card, text or request`, async () => {
     const d = boot({ xendit, accounts: [BDO, GCASH] });
     await d.show();
     assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE]);
@@ -153,7 +154,7 @@ test("the transfer row and the accounts card are as before, the card now full wi
 
   /* No account yet: the switch cannot be turned on and the page says buyers cannot check out, with a Xendit block
      that is set up and with none. */
-  for (const xendit of ["live", null]) {
+  for (const xendit of [null]) {
     const none = boot({ accounts: [], xendit });
     await none.show();
     const r = none.has(none.root, "pm-method")[0];
@@ -175,7 +176,7 @@ test("the transfer row and the accounts card are as before, the card now full wi
 });
 
 test("the transfer switch sends the same PATCH as before and nothing about Xendit", async () => {
-  for (const xendit of ["live", null]) {
+  for (const xendit of [null]) {
     const d = boot({ xendit });
     await d.show();
     const sw = d.$("pm-sw-direct");
@@ -191,7 +192,7 @@ test("the transfer switch sends the same PATCH as before and nothing about Xendi
 });
 
 test("add, change and remove an account send the same requests as before, then read the page again", async () => {
-  for (const xendit of ["live", null]) {
+  for (const xendit of [null]) {
     const d = boot({ xendit });
     await d.show();
 
@@ -239,18 +240,30 @@ test("add, change and remove an account send the same requests as before, then r
   }
 });
 
-test("hidden, not deleted: one constant, off, and turning it on brings the Xendit row and card back", async () => {
-  assert.equal(SRC.split(SWITCH_OFF).length, 2, "payments.js sets XENDIT_SECTION_ENABLED to false, once");
+test("one constant, on; a read with the Xendit block draws the row, card, key buttons and webhook block", async () => {
+  assert.equal(SRC.split(SWITCH_ON).length, 2, "payments.js sets XENDIT_SECTION_ENABLED to true, once");
   assert.equal(SRC.match(/XENDIT_SECTION_ENABLED\s*=[^=]/g).length, 1, "and assigns it nowhere else");
-  const d = boot({ accounts: [BDO], xendit: "failed", src: SRC.replace(SWITCH_OFF, "var XENDIT_SECTION_ENABLED = true;") });
+  const d = boot({ accounts: [BDO], xendit: "failed" });
   await d.show();
   assert.deepEqual(d.cards(), ["pm-h-methods", "pm-h-accounts", "pm-h-xendit"]);
   assert.deepEqual(d.has(d.root, "pm-switch").map((s) => s.id), ["pm-sw-direct", "pm-sw-xendit"]);
   assert.deepEqual(d.has(d.$("pm-h-xendit").parentNode.parentNode, "chip").map((c) => c.textContent), ["Key stopped working"]);
   assert.ok(d.press(d.root, "Change key") && d.press(d.root, "Remove key"));
   assert.equal(d.has(d.root, "pm-hook").length, 1);
-  assert.equal(d.accountsCard().attrs["class"], "pm-card pm-half", "half width again beside the Xendit card");
+  assert.equal(d.accountsCard().attrs["class"], "pm-card pm-half", "half width beside the Xendit card");
   assert.equal(d.$("pm-h-xendit").parentNode.parentNode.attrs["class"], "pm-card pm-half");
+  for (const x of ["live", "unset"]) {
+    const e = boot({ accounts: [BDO], xendit: x });
+    await e.show();
+    assert.ok(e.$("pm-h-xendit"), "the card shows for " + x);
+  }
+});
+
+test("with the constant off the Xendit section is never drawn, even if the read carries the block", async () => {
+  const d = boot({ accounts: [BDO], xendit: "live", src: SRC.replace(SWITCH_ON, "var XENDIT_SECTION_ENABLED = false;") });
+  await d.show();
+  assert.deepEqual(d.cards(), ["pm-h-methods", "pm-h-accounts"]);
+  assertNoXendit(d);
 });
 
 test("index.html loads payments.js under a new version", () => {

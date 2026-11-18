@@ -188,7 +188,7 @@ test("Home: awaiting Xendit with an invoice, without one, mismatch and expired",
   assert.ok(wait.includes("Waiting for payment") && wait.includes("Pay online (Xendit) · ₱1,488.00") && wait.includes("Finish your payment to turn on your membership benefits."));
   assert.ok(wait.includes(`href="${INVOICE}"`) && wait.includes("Continue to payment") && !wait.includes("Ships after the store verifies"));
   const failed = PANEL({});
-  assert.ok(failed.includes("Payment is not available right now.") && failed.includes("Your order is saved. Try again to open the payment page.") && failed.includes('href="/funnel/membership-pack/checkout/return/">Try again'));
+  assert.ok(failed.includes("Payment is not available right now.") && failed.includes("Your order is saved. Try again in a moment.") && !failed.includes("<a ") && !failed.includes("Try again</"));
   const mismatch = PANEL({ payment_status: "xendit_mismatch", payment_label: "Under review", tone: "rev" });
   assert.ok(mismatch.includes("The payment we received does not match ₱1,488.00. The store is checking it and will contact you.") && !mismatch.includes("Continue to payment"));
   const expired = PANEL({ payment_status: "xendit_expired", payment_label: "Payment not completed", tone: "no" });

@@ -45,7 +45,9 @@ const VERSIONS: Record<string, string> = {
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "31a2768f",
-  "js/pack-checkout.js": "cbfb3795", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
+  "js/pack-pay.js": "90cd387b", // the pay page opens the Xendit invoice (ClickUp z8uq9mgkp1)
+  "js/pack-return.js": "15ab7bbb", // the return page polls the payment (ClickUp z8uq9mgkp1)
+  "js/pack-checkout.js": "0de08ac6", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
   "js/pack-address.js": "5ba0f831",
   "js/pack-details-gate.js": "e52d9e8d",

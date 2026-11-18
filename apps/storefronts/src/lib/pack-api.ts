@@ -177,9 +177,37 @@ export function checkoutPlace(form: FormData, c: Calls) {
   return packPost(
     "checkout/place",
     form,
-    (b) => (record(b) && typeof b.order_number === "string" && typeof b.replay === "boolean" ? { order_number: b.order_number, replay: b.replay } : null),
+    (b) => (record(b) && typeof b.order_number === "string" && typeof b.replay === "boolean"
+      ? { order_number: b.order_number, replay: b.replay, pay_url: xenditPayUrl(b.pay_url) } : null),
     c,
     PLACE_TIMEOUT_MS,
+  );
+}
+
+/** The buyer's payment, as the pay and return pages read it (backend storefront checkout/payment-status; the
+    statuses are the API's own words). under_review and needs_attention are a bank-transfer order. */
+export type PayState = "none" | "waiting" | "no_invoice" | "paid" | "expired" | "mismatch" | "under_review" | "needs_attention";
+const PAY_STATES: readonly string[] = ["none", "waiting", "no_invoice", "paid", "expired", "mismatch", "under_review", "needs_attention"];
+
+/** Where the buyer may be sent to pay: only Xendit's own https address; anything else reads as no address. */
+export function xenditPayUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" && (u.hostname === "xendit.co" || u.hostname.endsWith(".xendit.co")) && !u.username && !u.password ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+/** `retry` asks for a new invoice when the answer was no_invoice (the API allows 5 an hour). */
+export function checkoutPaymentStatus(args: Base & { token: string; retry?: boolean }, c: Calls) {
+  return packPost(
+    "checkout/payment-status",
+    args,
+    (b) => (record(b) && typeof b.payment_status === "string" && PAY_STATES.includes(b.payment_status)
+      ? { payment_status: b.payment_status as PayState, pay_url: xenditPayUrl(b.pay_url) } : null),
+    c,
   );
 }
 
@@ -409,12 +437,14 @@ export type PackProof = { id: string; seq: number; submitted_at: string; referen
 export type LockAccount = { id: string; provider_name: string; account_name: string };
 export type MemberPack = {
   order_number: string;
-  payment_status: "pending_review" | "rejected" | "verified";
+  payment_status: "pending_review" | "rejected" | "verified" | "awaiting_xendit" | "xendit_expired" | "xendit_mismatch";
   payment_label: string;
   method_label: string;
   price_centavos: number;
   tone: string;
   benefits_off: boolean;
+  /** An awaiting_xendit order's invoice address (Xendit's own https address), "" when there is none yet. */
+  pay_url: string;
   lock: { reason_label: string; other_text: string; resubmitted: boolean; accounts: LockAccount[] } | null;
   proofs: PackProof[];
 };
@@ -441,10 +471,12 @@ function parseProof(v: unknown): PackProof | null {
   };
 }
 
+const PACK_STATUSES: readonly string[] = ["pending_review", "rejected", "verified", "awaiting_xendit", "xendit_expired", "xendit_mismatch"];
+
 function parsePack(v: unknown): MemberPack | null {
   if (!record(v) || typeof v.order_number !== "string") return null;
   const status = v.payment_status;
-  if (status !== "pending_review" && status !== "rejected" && status !== "verified") return null;
+  if (!PACK_STATUSES.includes(status as string)) return null;
   let lock: MemberPack["lock"] = null;
   if (record(v.lock)) {
     const accounts = Array.isArray(v.lock.accounts) ? v.lock.accounts : [];
@@ -457,7 +489,8 @@ function parsePack(v: unknown): MemberPack | null {
   }
   const proofs = Array.isArray(v.proofs) ? v.proofs.flatMap((p) => { const x = parseProof(p); return x ? [x] : []; }) : [];
   return {
-    order_number: v.order_number, payment_status: status, payment_label: str(v.payment_label), method_label: str(v.method_label),
+    order_number: v.order_number, payment_status: status as MemberPack["payment_status"], payment_label: str(v.payment_label),
+    method_label: str(v.method_label) || str(v.payment_method_label), pay_url: xenditPayUrl(v.pay_url),
     price_centavos: num(v.price_centavos, 0), tone: str(v.tone), benefits_off: v.benefits_off === true, lock, proofs,
   };
 }

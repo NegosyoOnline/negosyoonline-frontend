@@ -1189,3 +1189,13 @@ test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row ico
   assert.ok(pt.classList.contains("cm-tip"));
   pb.fire("focus"); assert.ok(pt.classList.contains("is-open"));
 });
+
+test("failTextOf for the fbcomment channel uses the comment wording, not the email wording", async () => {
+  const d = boot();
+  await d.openInbox();
+  const f = d.window.NOInbox.util.failTextOf;
+  assert.equal(f("token_invalid", "fbcomment"), "Reconnect your Facebook Page to reply.");
+  assert.equal(f("forbidden_page", "fbcomment"), "Turn on comments for your Page to reply.");
+  assert.equal(f("rate_limited", "fbcomment"), "Facebook is limiting replies right now. Try again in a few minutes.");
+  assert.equal(f("email_failed", "fbcomment"), "Facebook did not answer. Try again.");
+});

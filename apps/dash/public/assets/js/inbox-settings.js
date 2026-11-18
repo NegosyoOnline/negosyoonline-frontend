@@ -92,7 +92,7 @@
   /* ---------- load ---------- */
 
   function show() {
-    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "" };
+    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "", cm: null };
     cleanAddress();
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "pm-meta", "Loading your inbox settings…"));
@@ -125,8 +125,10 @@
       if (!res.ok || !res.data || typeof res.data !== "object") { S.msg = { down: true, pages: null }; render(); return; }
       S.msg = { conn: res.data, pages: null };
       if (S.back.error) S.err = msgErrText(S.back.error);
-      if (res.data.status !== "active" && (S.back.pick || res.data.pick_pending === true)) { loadPages(mine); return; }
-      render();
+      loadComments(mine, function () {
+        if (res.data.status !== "active" && (S.back.pick || res.data.pick_pending === true)) { loadPages(mine); return; }
+        render();
+      });
     });
   }
   function loadPages(mine) {
@@ -223,7 +225,16 @@
   }
   /* ---------- the Facebook Messenger card ---------- */
 
-  function goConnect() { location.href = window.NO_CONFIG.apiBase + mBase() + "start/"; }
+  /* While comments are on for the site (GET comments/status/ answered, not 404) the Facebook dialog also asks for the comments permissions: start/?comments=1. */
+  function goConnect() { location.href = window.NO_CONFIG.apiBase + mBase() + "start/" + (S && S.cm ? "?comments=1" : ""); }
+  function loadComments(mine, next) {
+    D.call("GET", "/sites/" + S.site + "/inquiries/comments/status/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401) return;
+      var d = res.data;
+      S.cm = res.ok && d && typeof d === "object" && d.enabled !== false ? { reason: typeof d.reason === "string" ? d.reason : "" } : null;
+      next();
+    });
+  }
   function errLine() {
     if (!S.err) return null;
     var p = h("p", "pm-hint", S.err); p.setAttribute("role", "alert"); p.setAttribute("id", "ibs-m-err");
@@ -242,6 +253,11 @@
     if (st === "active") {
       var nm = h("p", "pm-lead", "Connected Page: "); var pn = h("b", "", c.page_name || c.page_id || "Your Facebook Page"); pn.setAttribute("id", "ibs-m-page"); nm.appendChild(pn);
       add(s, nm, h("p", "pm-hint", "Messages sent to this Page show in your Inbox as Facebook Messenger."));
+      if (S.cm && S.cm.reason === "permission_missing") {
+        var ch = h("p", "pm-hint", "Turn on comments for your Page to reply."); ch.setAttribute("id", "ibs-m-cm-hint");
+        var cc = btn("Reconnect", "ghost", goConnect); cc.setAttribute("id", "ibs-m-cm-connect");
+        add(s, ch, add(h("div", "mk-pause"), cc));
+      }
       var row = h("div", "mk-pause");
       if (S.asking) {
         add(s, h("p", "pm-lead", "Disconnect this Page? New Messenger messages will stop arriving in your Inbox. Your past conversations stay."));

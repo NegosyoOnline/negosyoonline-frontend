@@ -7,11 +7,13 @@
               stops at the code step (an uploaded file cannot wait across it) and the payment step asks again.
      code     6-digit code by SMS, for a returning buyer only.
      payment  the transfer sheet alone, after the code.
-   Placed: 303 to the onboarding page, the cookie stays (it binds the onboarding to this order).
+   Placed: 303 to the onboarding page, the cookie stays (it binds the onboarding to this order). A Xendit order goes to the
+   pay page (or the return page when the invoice is not ready), never straight to Xendit: the policy's form-action 'self'
+   would block a post answered with a redirect off this host.
    Every refusal renders the same page with TWCinc's own words, never a status page. A 429 keeps its status. */
 import { randomBytes } from "node:crypto";
 import { CHECKOUT, CHECKOUT_MAX_AGE, clearCookie, setCookie } from "./cookies.ts";
-import type { Pack, Site } from "./django.ts";
+import { packMethods, type Pack, type Site } from "./django.ts";
 import { htmlResponse, type Markup } from "./html.ts";
 import { redirect } from "./member.ts";
 import { placeFields } from "./meta.ts";
@@ -24,6 +26,7 @@ import {
   type CheckoutAccount, type CheckoutModel, type CheckoutStep,
 } from "../views/sante/pack-checkout.ts";
 import { packContext } from "../views/sante/pack-page.ts";
+import { PAY_PATH, RETURN_PATH } from "../views/sante/pack-pay.ts";
 import { landingDocument } from "../views/sante/pack-landing.ts";
 
 export { ONBOARDING_PATH } from "../views/sante/pack-onboarding.ts";
@@ -78,7 +81,7 @@ function submitKey(): string {
 function model(flow: Flow, step: CheckoutStep, over: Partial<CheckoutModel> = {}): CheckoutModel {
   const posted = over.posted ?? {};
   return checkoutModel({
-    step, submit_key: submitKey(), accounts: accountsOf(flow.pack),
+    step, submit_key: submitKey(), accounts: accountsOf(flow.pack), methods: packMethods(flow.pack),
     enrollment_held: posted.enrollment_authorized === "1",
     ...over,
   });
@@ -143,6 +146,14 @@ export async function checkoutGet(flow: Flow): Promise<Response> {
 
 /* ---- POST --------------------------------------------------------------------------------------------- */
 
+/** The method this post asks for: its own pick if the site offers it, else the one the site has. */
+function methodOf(flow: Flow, text: Record<string, string>): "direct" | "xendit" {
+  const m = packMethods(flow.pack);
+  if (text.pay_method === "xendit" && m.xendit) return "xendit";
+  if (text.pay_method === "direct" && m.direct) return "direct";
+  return m.direct ? "direct" : "xendit";
+}
+
 function placeForm(flow: Flow, token: string, text: Record<string, string>, proof: File | null, key: string): FormData {
   const form = new FormData();
   form.append("host", flow.host);
@@ -150,11 +161,13 @@ function placeForm(flow: Flow, token: string, text: Record<string, string>, proo
   form.append("token", token);
   form.append("submit_key", key);
   form.append("visitor_ref", (text.visitor_ref ?? "").slice(0, 32)); // the visit this buyer came from (src/app/funnel/membership-pack/visit/route.ts); Django links it to the order
-  for (const name of TRANSFER_FIELDS) form.append(name, text[name] ?? "");
+  const method = methodOf(flow, text);
+  form.append("pay_method", method);
+  if (method === "direct") for (const name of TRANSFER_FIELDS) form.append(name, text[name] ?? "");
   /* The Meta identifiers (consent "1", _fbp, _fbc, user agent, page address) go only after Accept on a site with a
      Pixel; Django reads them only with the consent, and builds Purchase and AddPaymentInfo from the order itself. */
   for (const [name, value] of Object.entries(placeFields(flow.request, flow.site, flow.now))) form.append(name, value);
-  if (proof) form.append("proof", proof, proof.name || "proof");
+  if (proof && method === "direct") form.append("proof", proof, proof.name || "proof");
   return form;
 }
 
@@ -182,12 +195,16 @@ async function refusedPlace(
 async function place(
   flow: Flow, token: string, text: Record<string, string>, proof: File | null, from: "contact" | "payment", key: string,
 ): Promise<Response> {
-  if (proof && proof.size > PROOF_MAX_BYTES) {
+  const method = methodOf(flow, text);
+  if (method === "direct" && proof && proof.size > PROOF_MAX_BYTES) {
     const m = model(flow, from, { error_code: "invalid_proof", error_message: "Check the highlighted fields.", field_errors: { proof: PROOF_TOO_LARGE }, posted: text });
     return slide(page(flow, m), flow, token);
   }
   const placed = await checkoutPlace(placeForm(flow, token, text, proof, key), flow.calls);
-  if (placed.state === "ok") return slide(redirect(ONBOARDING_PATH), flow, token);
+  if (placed.state === "ok") {
+    if (method === "xendit") return slide(redirect(placed.pay_url ? PAY_PATH : RETURN_PATH), flow, token);
+    return slide(redirect(ONBOARDING_PATH), flow, token);
+  }
   if (placed.state === "unavailable") return unavailable(flow);
   if (placed.state === "failed") {
     return slide(page(flow, model(flow, from, { error_code: "unavailable", error_message: TRY_AGAIN, posted: text }), 503), flow, token);

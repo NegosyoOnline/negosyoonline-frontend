@@ -386,9 +386,14 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
 /* ---- corrections 2 (ClickUp z8uq9mgmjg, 2026-11-19): the phone/tablet top bar, the fixed bottom navigation, the More sheet and the light member footer ----
    One breakpoint, 1024px, the one where the bar's links already left the bar: up to it the bottom navigation is shown and the links (and the hamburger) are not;
    above it the links are shown and the bottom navigation is not. At 1024px and below there is no width with neither or both. */
+/* Shared tokens of the phone/tablet header and bottom navigation (corrections 5). The colour values are the ones this sheet already used: no official Sante brand kit
+   was found in the repositories or assets, so brand compliance is UNVERIFIED and none of these is a confirmed brand value. --mbn-h is the one navigation height:
+   the page's bottom space, the chat launcher and the tablet chat panel all follow it. */
+body.mem { --mbn-h: 68px; --mbn-bg: #fff; --mbn-line: #E2E8F0; --mbn-ink: #52635A; --mbn-active: #00693A; --mbn-mint: #DCEFE6; --mbn-gap: 16px; --mbn-launcher: 56px; }
+html[data-theme="dark"] body.mem { --mbn-bg: #141c18; --mbn-line: #2C3A33; --mbn-ink: #A9B8B0; --mbn-active: #8BE0B8; --mbn-mint: rgba(139,224,184,.16); }
 .mbn, .mbn-sheet { display: none; }
 @media (max-width: 1024px) {
-  .e4-bn .pdn { height: 56px; }
+  .e4-bn .pdn { height: 56px; background: var(--mbn-bg); border-bottom: 1px solid var(--mbn-line); box-shadow: none; }
   .e4-bn .pdn-inner { padding-inline: 16px; }
   .e4-bn .pdn-logo img { height: 32px; }
   .e4-bn .pdn-links { display: none !important; }
@@ -397,13 +402,15 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
   .e4-bn .pdn-bell-btn { width: 44px; height: 44px; }
   .e4-bn .shell { padding: 16px 16px 20px; }
   .e4-bn.e4-home .shell { padding-inline: 16px; }
-  .e4-bn { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .e4-bn { padding-bottom: calc(var(--mbn-h) + env(safe-area-inset-bottom, 0px)); }
 
-  .mbn { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; padding-bottom: env(safe-area-inset-bottom, 0px); background: #fff; border-top: 1px solid #E2E8F0; box-shadow: 0 -2px 12px rgba(15,40,28,.06); font-family: 'Open Sans', system-ui, sans-serif; }
+  .mbn { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; box-sizing: border-box; min-height: calc(var(--mbn-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--mbn-bg); border-top: 1px solid var(--mbn-line); font-family: 'Open Sans', system-ui, sans-serif; }
   .mbn-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
   .mbn-list li { margin: 0; min-width: 0; }
-  .mbn-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%; min-height: 64px; padding: 6px 2px; border: 0; background: none; color: #52635A; font: 600 14px/1.15 'Open Sans', system-ui, sans-serif; text-decoration: none; cursor: pointer; }
-  .mbn-item.is-active { color: #00693A; font-weight: 800; }
+  .mbn-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%; min-height: calc(var(--mbn-h) - 1px); padding: 6px 2px; border: 0; background: none; color: var(--mbn-ink); font: 600 14px/1.15 'Open Sans', system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+  .mbn-item.is-active { color: var(--mbn-active); font-weight: 700; }
+  .mbn-pill { display: flex; align-items: center; justify-content: center; width: 40px; height: 28px; border-radius: 14px; }
+  .mbn-item.is-active .mbn-pill { background: var(--mbn-mint); }
   .mbn-item:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; border-radius: 12px; }
   .mbn-ic { width: 24px; height: 24px; flex: none; }
   .mbn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -441,22 +448,19 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
   body.mem.sw-on .mfoot-desk .footer { padding-bottom: 24px; }  /* the chat widget's 104px footer padding is not needed here */
 }
 
-/* The website chat on the member pages (body.mem). Up to 1024px the fixed bottom navigation (72px plus the safe area) is on screen: the launcher rides above
+/* The website chat on the member pages (body.mem). Up to 1024px the fixed bottom navigation (--mbn-h plus the safe area) is on screen: the launcher rides above
    it and is hidden while the More sheet is open,. On a phone the opened chat is a full-screen sheet above the navigation
    (the widget's z-index 900 is above the navigation's 110), so the navigation never sits on the input; on a tablet the floating panel rides above the navigation. */
 @media (max-width: 1024px) {
-  body.mem .sw-launcher { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); }
+  body.mem .sw-launcher { bottom: calc(var(--mbn-h) + var(--mbn-gap) + env(safe-area-inset-bottom, 0px)); }
   body.mem:has(.mbn-sheet:not([hidden])) .sw-launcher, html.mbn-lock body.mem .sw-launcher { display: none; }
   /* with no footer, the last line ends above the launcher (56px plus its gap, 72px) while chat is shown (sw-on is set by the widget only when chat is available) */
-  body.mem.sw-on .e4-bn .shell { padding-bottom: 92px; }
+  body.mem.sw-on .e4-bn .shell { padding-bottom: calc(20px + var(--mbn-launcher) + var(--mbn-gap)); }
 }
 @media (min-width: 641px) and (max-width: 1024px) {
-  body.mem .sw-panel { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); max-height: min(660px, calc(100vh - 72px - 32px - env(safe-area-inset-bottom, 0px))); }
+  body.mem .sw-panel { bottom: calc(var(--mbn-h) + var(--mbn-gap) + env(safe-area-inset-bottom, 0px)); max-height: min(660px, calc(100vh - var(--mbn-h) - 2 * var(--mbn-gap) - env(safe-area-inset-bottom, 0px))); }
 }
 
-html[data-theme="dark"] .mbn { background: #141c18; border-top-color: #2C3A33; box-shadow: 0 -2px 12px rgba(0,0,0,.4); }
-html[data-theme="dark"] .mbn-item { color: #A9B8B0; }
-html[data-theme="dark"] .mbn-item.is-active { color: #8BE0B8; }
 html[data-theme="dark"] .mbn-panel { background: #17201B; color: #E6EDE9; }
 html[data-theme="dark"] .mbn-links-sep, html[data-theme="dark"] .mbn-out { border-top-color: #2C3A33; }
 html[data-theme="dark"] .mbn-links a[aria-current="page"] { color: #8BE0B8; background: rgba(139,224,184,.1); }

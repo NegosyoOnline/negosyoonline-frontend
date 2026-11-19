@@ -670,11 +670,11 @@ test("the bottom navigation and the compact footer exist only on signed-in membe
 test("the bar's CSS shows the bottom navigation up to 1024px and the links above it, with the safe area and the room under the content", () => {
   const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
   assert.match(css, /\.mbn, \.mbn-sheet \{ display: none; \}/);
-  assert.match(css, /@media \(max-width: 1024px\) \{[^]*\.e4-bn \.pdn \{ height: 56px; \}/);
+  assert.match(css, /@media \(max-width: 1024px\) \{[^]*\.e4-bn \.pdn \{ height: 56px;/);
   assert.match(css, /\.e4-bn \.pdn-links \{ display: none !important; \}/);
-  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(var\(--mbn-h\) \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
   assert.match(css, /\.mbn \{[^}]*position: fixed;[^}]*padding-bottom: env\(safe-area-inset-bottom, 0px\)/);
-  assert.match(css, /\.mbn-item \{[^}]*min-height: 64px/);
+  assert.match(css, /\.mbn-item \{[^}]*min-height: calc\(var\(--mbn-h\) - 1px\)/);
   assert.doesNotMatch(css, /@media \(max-width: 1023px\)|@media \(min-width: 1026px\)/); // one breakpoint, no gap and no overlap
 });
 
@@ -821,12 +821,12 @@ test("corrections 4: no footer up to 1024px, the compact dark footer above it; t
   assert.match(css, /@media \(min-width: 1025px\) \{\s*\.mfoot-desk \{ display: block;[^}]*\}\s*\.mfoot-desk \.footer \{ padding: 24px 190px; \}/);
   assert.match(css, /\.mfoot-desk \.footer-bottom \{ padding-top: 0; \}/);
   assert.doesNotMatch(css, /mfoot-inner/);
-  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom, 0px\)\); \}/); // the page still clears the fixed navigation
-  assert.match(css, /body\.mem \.sw-launcher \{ bottom: calc\(72px \+ 16px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
-  assert.match(css, /body\.mem\.sw-on \.e4-bn \.shell \{ padding-bottom: 92px; \}/); // 20px normal + 72px for the launcher, only while chat is shown
+  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(var\(--mbn-h\) \+ env\(safe-area-inset-bottom, 0px\)\); \}/); // the page still clears the fixed navigation
+  assert.match(css, /body\.mem \.sw-launcher \{ bottom: calc\(var\(--mbn-h\) \+ var\(--mbn-gap\) \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(css, /body\.mem\.sw-on \.e4-bn \.shell \{ padding-bottom: calc\(20px \+ var\(--mbn-launcher\) \+ var\(--mbn-gap\)\); \}/); // 20px normal + launcher + gap, only while chat is shown
   assert.match(css, /\.e4-bn \.shell \{ padding: 16px 16px 20px; \}/); // chat off: unchanged
   assert.match(css, /body\.mem:has\(\.mbn-sheet:not\(\[hidden\]\)\) \.sw-launcher/); // never over the More sheet
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{\s*body\.mem \.sw-panel \{ bottom: calc\(72px/);
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{\s*body\.mem \.sw-panel \{ bottom: calc\(var\(--mbn-h\)/);
   const widget = readFileSync(path.join(CSS_DIR, "chat-widget.css"), "utf8");
   assert.match(widget, /@media \(max-width: 640px\) \{\s*\.sw-panel \{ inset: 0;/);
   assert.match(widget, /\.sw-panel \{ position: fixed;[^}]*z-index: 900/);
@@ -868,4 +868,31 @@ test("the More menus carry Privacy Policy, Terms and Cookie settings as a last g
   assert.doesNotMatch(sheetOf(onlyTerms), /Privacy Policy/);
   assert.match(dropOf(onlyTerms), />Terms</);
   assert.doesNotMatch(onlyTerms, /class="mfoot"/); // the footer itself stays removed
+});
+
+test("corrections 5: header border, bottom-nav active pill on every tab, inactive grey, one nav-height variable for the chat offsets, dark tokens", async () => {
+  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const css = readFileSync(path.join(CSS_DIR, "pack-member-bar.css"), "utf8");
+  const page = (current: string) => memberDocument(chrome(FILLED), { title: "T", member: "Ana", current, content: html`<p>x</p>`, scripts: [] }).value;
+  // each destination: exactly one tab is active, with aria-current, and its icon sits in a pill; the others are plain links with a pill wrapper that stays unfilled
+  for (const [current, href] of [["home", "/dashboard/"], ["purchases", "/dashboard/purchases/"], ["products", "/products/"], ["help", "/dashboard/help/"]]) {
+    const out = page(current);
+    const nav = out.slice(out.indexOf('<nav class="mbn"'), out.indexOf("</nav>", out.indexOf('<nav class="mbn"')));
+    assert.equal([...nav.matchAll(/class="mbn-item is-active"/g)].length, 1, current);
+    assert.match(nav, new RegExp(`<a class="mbn-item is-active" href="${href.replace(/\//g, "\\/")}" aria-current="page"><span class="mbn-pill"><svg`));
+    assert.equal([...nav.matchAll(/<span class="mbn-pill">/g)].length, 5, current);
+  }
+  assert.match(page("membership"), /class="mbn-item mbn-more is-active"[^>]*><span class="mbn-pill">/); // More is active for the pages it holds
+  assert.match(css, /\.mbn-pill \{[^}]*width: 40px; height: 28px; border-radius: 14px;/);
+  assert.match(css, /\.mbn-item\.is-active \.mbn-pill \{ background: var\(--mbn-mint\); \}/); // the mint is on the icon only, never the tab column
+  assert.doesNotMatch(css, /\.mbn-item\.is-active \{[^}]*background/);
+  assert.match(css, /\.mbn-item\.is-active \{ color: var\(--mbn-active\); font-weight: 700; \}/);
+  assert.match(css, /\.mbn-item \{[^}]*color: var\(--mbn-ink\)/);
+  assert.match(css, /\.mbn \{[^}]*background: var\(--mbn-bg\); border-top: 1px solid var\(--mbn-line\)/);
+  assert.match(css, /\.e4-bn \.pdn \{ height: 56px; background: var\(--mbn-bg\); border-bottom: 1px solid var\(--mbn-line\); box-shadow: none; \}/); // the header: same height, border, no hamburger
+  assert.match(css, /body\.mem \{ --mbn-h: 68px;[^}]*--mbn-gap: 16px; --mbn-launcher: 56px; \}/);
+  assert.match(css, /html\[data-theme="dark"\] body\.mem \{ --mbn-bg: #141c18;[^}]*--mbn-active: #8BE0B8;/);
+  assert.doesNotMatch(css.slice(css.indexOf("@media (max-width: 1024px) {\n  .e4-bn .pdn")), /72px \+|calc\(72px/); // nothing but the variable sets the nav height
+  assert.doesNotMatch(page("home"), /data-pdn-toggle|pdn-hamburger/);
 });

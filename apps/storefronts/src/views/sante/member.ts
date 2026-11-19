@@ -161,7 +161,7 @@ const NAV_ICONS = {
   help: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7M8.5 12.5h4"/>',
   more: '<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
 };
-const navIcon = (d: string): Markup => html`<svg class="mbn-ic" ${safe(STROKE)} width="24" height="24">${safe(d)}</svg>`;
+const navIcon = (d: string): Markup => html`<span class="mbn-pill"><svg class="mbn-ic" ${safe(STROKE)} width="24" height="24">${safe(d)}</svg></span>`;
 
 /** The four destinations of the bottom bar. Orders is the website membership-package purchases (My Purchases), never the Santé App Order Log. */
 export const BOTTOM_NAV: readonly { key: string; label: string; path: string; icon: string }[] = [

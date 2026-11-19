@@ -105,7 +105,7 @@ function track(step: "onboarding" | "completed"): Markup {
 `;
 }
 
-function paidSummary(c: PackCtx, paymentLabel: string): Markup {
+export function paidSummary(c: PackCtx, paymentLabel: string): Markup {
   return html`
 <section class="pp-co-card pp-co-summary" aria-label="Order summary">
   <h2 class="text-lg !leading-snug">Order Summary</h2>
@@ -114,7 +114,7 @@ function paidSummary(c: PackCtx, paymentLabel: string): Markup {
   <dl class="pp-co-totals mt-4 space-y-1.5 border-t border-paper-300 pt-4 text-sm">
     <div class="flex justify-between gap-3"><dt>Subtotal</dt><dd>${c.price}</dd></div>
     <div class="flex justify-between gap-3"><dt>Shipping</dt><dd class="font-semibold text-primary-700">FREE</dd></div>
-    <div class="flex justify-between gap-3"><dt>Payment</dt><dd>${paymentLabel || "Bank or e-wallet transfer"}</dd></div>
+    ${paymentLabel ? html`<div class="flex justify-between gap-3"><dt>Payment</dt><dd>${paymentLabel}</dd></div>` : html``}
     <div class="pp-co-total flex justify-between gap-3 border-t border-paper-300 pt-2 text-lg font-bold text-ink-900"><dt>Total</dt><dd>${c.total}</dd></div>
   </dl>
 </section>

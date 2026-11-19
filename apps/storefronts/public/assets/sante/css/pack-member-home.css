@@ -83,10 +83,7 @@ html[data-theme="dark"] .pdn-earn-h { color: #98A8A0; }
 .mh-order-art-photo img { width: 100%; height: 100%; object-fit: contain; }
 .mh-order-body { min-width: 0; padding-left: 20px; border-left: 1px solid #E2E8F0; }
 .mh-card .mh-order-body h2 { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.15; font-weight: 800; letter-spacing: -.01em; color: #14201B; overflow-wrap: anywhere; }
-.mh-card .mh-order-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; font-size: 16px; color: #3B4A42; }
-.mh-order-sum { position: relative; }
-.mh-order-sum::before { content: ""; position: absolute; left: -10px; top: 15%; bottom: 15%; width: 1px; background: #C9D3CD; }
-.mh-order-meta > span:only-child .mh-order-sum::before { display: none; }
+.mh-card .mh-order-meta { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0; font-size: 16px; color: #3B4A42; }
 
 .mh-track-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 20px 0 0; padding: 0; list-style: none; }
 .mh-ts { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; min-width: 0; }
@@ -107,8 +104,6 @@ html[data-theme="dark"] .pdn-earn-h { color: #98A8A0; }
   .mh-order-art { width: 96px; height: 84px; }
   .mh-pkg-art { width: 92px; }
   .mh-order-body { padding-left: 0; border-left: 0; }
-  .mh-card .mh-order-meta { flex-direction: column; gap: 2px; }
-  .mh-order-sum::before { display: none; }
   .mh-ts-label { font-size: 13px; }
   .mh-strip-lead { border-right: 0; padding-right: 0; }
   .mh-strip-actions { margin-left: 0; width: 100%; }
@@ -230,7 +225,6 @@ html[data-theme="dark"] .mh-track { color: #E6EDE9; }
 html[data-theme="dark"] .mh-eyebrow-ic, html[data-theme="dark"] .mh-support-ic, html[data-theme="dark"] .mh-strip-ic { color: #8BE0B8; }
 html[data-theme="dark"] .mh-member .mh-eyebrow-ic { color: #fff; }
 html[data-theme="dark"] .mh-order-body { border-color: #2C3A33; }
-html[data-theme="dark"] .mh-order-sum::before { background: #3A4A42; }
 html[data-theme="dark"] .mh-order-art-photo { background: #1B2620; }
 html[data-theme="dark"] .mh-strip { background: #1B2B23; }
 html[data-theme="dark"] .mh-strip-lead { border-color: #35503F; }

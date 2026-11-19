@@ -264,6 +264,40 @@ test("an order under review, and each payment problem, shows the right pill, tra
   }
 });
 
+test("before the payment is verified the first tracker step names the real state, never \"Payment confirmed\"", async () => {
+  const cases: [Record<string, unknown>, string][] = [
+    [{ payment_status: "awaiting_xendit" }, "Payment due"],
+    [{ payment_status: "pending_review" }, "Payment under review"],
+    [{ payment_status: "xendit_expired", problem: true }, "Payment needs attention|Payment expired"],
+    [{ payment_status: "xendit_mismatch", problem: true }, "Payment needs attention"],
+    [{ payment_status: "rejected", problem: true }, "Payment needs attention"],
+    [{ problem: true }, "Payment needs attention"],
+  ];
+  for (const [o, label] of cases) {
+    const body = orderPart(await home({ cards: cardsOf(card({ steps: STEPS(1, ["2026-11-17"]), membership: null, ...o })) }));
+    assert.match(body, new RegExp(`mh-ts-label">(${label})`), JSON.stringify(o));
+    assert.doesNotMatch(body, /Payment confirmed/, JSON.stringify(o));
+  }
+  assert.equal(viewOf(asCard(card({ payment_status: "xendit_expired", problem: true }))).first, "Payment expired");
+  assert.match(orderPart(await home({ cards: cardsOf(card()) })), /mh-ts-label">Payment confirmed/); // verified: confirmed
+});
+
+test("the order reference and the package summary sit on separate lines, with no separator between them", async () => {
+  const o = orderPart(await home({ cards: cardsOf(card({ item_lines: [{ qty: 1, name: "Santé Membership Package · 2 Boxes With Stevia, 20 Sachets" }] })) }));
+  assert.match(o, /<\/span><span class="mh-order-sum">Sant(é|&eacute;) Membership Package/);
+  assert.doesNotMatch(o, /mh-order-sum::|\| /);
+});
+
+test("order art: a product matches only by an exact name or a name followed by a boundary, the longest first", async () => {
+  const art = async (item: string, ...names: string[]) => orderPart(await home({ cards: cardsOf(card({ headline: item, item_lines: [{ qty: 1, name: item }] })), catalog: ok({ products: names.map((n, i) => PRODUCT(i + 1, { name: n })) }) }));
+  assert.match(await art("Barley 10's", "Barley 1"), /mh-pkg-art/); // "Barley 1" is not "Barley 10's"
+  assert.match(await art("Barley 1", "Barley 1"), /mh-order-art-photo/); // exact
+  assert.match(await art("barley  1 ", "Barley 1"), /mh-order-art-photo/); // normalised
+  assert.match(await art("Barley 1 · 2 boxes", "Barley 1"), /mh-order-art-photo/); // name, then a boundary
+  assert.match(await art("Santé Membership Package", "Moringa"), /mh-pkg-art/); // no match
+  assert.match(await art("Barley Max 2 boxes", "Barley", "Barley Max"), /mh-order-art-photo/);
+});
+
 test("an unknown payment status gets a neutral state with no tracker, never a success", async () => {
   const body = await home({ cards: cardsOf(card({ payment_status: "bank_pending", chip_label: "Bank pending" })) });
   const o = orderPart(body);

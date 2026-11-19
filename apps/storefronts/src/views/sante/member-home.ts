@@ -131,6 +131,8 @@ export type OrderView = {
   tone: Tone;
   /** null: no tracker, a plain line instead (the status cannot be read). */
   tracker: StepStatus[] | null;
+  /** The first step's label: "Payment confirmed" only once the payment is verified, else the real state. */
+  first: string;
 };
 
 /** The four steps from the existing states: the payment is confirmed once verified; Ready to ship is where a verified, unshipped order waits
@@ -143,27 +145,28 @@ export function trackerOf(c: OrderCard): StepStatus[] {
 }
 
 export function viewOf(c: OrderCard): OrderView {
-  if (!KNOWN_PAYMENT.includes(c.payment_status)) return { kind: "unknown", headline: "We're checking your order", pill: "Checking", tone: "plain", tracker: null };
-  const alert = (kind: OrderView["kind"], headline: string): OrderView => ({ kind, headline, pill: "Action needed", tone: "warn", tracker: ["alert", "todo", "todo", "todo"] });
+  const CONFIRMED = TRACKER_LABELS[0];
+  if (!KNOWN_PAYMENT.includes(c.payment_status)) return { kind: "unknown", headline: "We're checking your order", pill: "Checking", tone: "plain", tracker: null, first: CONFIRMED };
+  const alert = (kind: OrderView["kind"], headline: string, first: string): OrderView => ({ kind, headline, pill: "Action needed", tone: "warn", tracker: ["alert", "todo", "todo", "todo"], first });
   switch (c.payment_status) {
-    case "awaiting_xendit": return { ...alert("payment_due", "Complete your payment"), pill: "Payment due" };
-    case "xendit_expired": return alert("payment_expired", "Your payment link expired");
-    case "xendit_mismatch": return alert("payment_mismatch", "Your payment needs attention");
-    case "rejected": return alert("rejected", "We couldn't verify your payment");
-    case "pending_review": return { kind: "review", headline: "Your payment is under review", pill: "Under review", tone: "wait", tracker: trackerOf(c) };
+    case "awaiting_xendit": return { ...alert("payment_due", "Complete your payment", "Payment due"), pill: "Payment due" };
+    case "xendit_expired": return alert("payment_expired", "Your payment link expired", "Payment expired");
+    case "xendit_mismatch": return alert("payment_mismatch", "Your payment needs attention", "Payment needs attention");
+    case "rejected": return alert("rejected", "We couldn't verify your payment", "Payment needs attention");
+    case "pending_review": return { kind: "review", headline: "Your payment is under review", pill: "Under review", tone: "wait", tracker: trackerOf(c), first: "Payment under review" };
     default: break;
   }
-  if (c.problem) return alert("problem", "Your order needs attention");
-  if (isDelivered(c)) return { kind: "delivered", headline: "Your package was delivered", pill: "Delivered", tone: "ok", tracker: trackerOf(c) };
-  if (isShipped(c)) return { kind: "shipped", headline: "Your package has shipped", pill: "On its way", tone: "ok", tracker: trackerOf(c) };
-  return { kind: "prepared", headline: "Your package is being prepared", pill: "Preparing", tone: "ok", tracker: trackerOf(c) };
+  if (c.problem) return alert("problem", "Your order needs attention", "Payment needs attention");
+  if (isDelivered(c)) return { kind: "delivered", headline: "Your package was delivered", pill: "Delivered", tone: "ok", tracker: trackerOf(c), first: CONFIRMED };
+  if (isShipped(c)) return { kind: "shipped", headline: "Your package has shipped", pill: "On its way", tone: "ok", tracker: trackerOf(c), first: CONFIRMED };
+  return { kind: "prepared", headline: "Your package is being prepared", pill: "Preparing", tone: "ok", tracker: trackerOf(c), first: CONFIRMED };
 }
 
 const PILL_ICON: Record<Tone, string> = { ok: I.truck, wait: I.clock, warn: I.alert, plain: I.clock };
 const KIND_ICON: Partial<Record<OrderView["kind"], string>> = { prepared: I.box, delivered: I.checkCircle };
 
-function trackerMarkup(t: StepStatus[]): Markup {
-  return html`<ol class="mh-track-steps" aria-label="Package progress">${TRACKER_LABELS.map((label, i) => html`<li class="mh-ts mh-ts-${t[i]}"${t[i] === "current" ? safe(' aria-current="step"') : ""}>
+function trackerMarkup(t: StepStatus[], first: string): Markup {
+  return html`<ol class="mh-track-steps" aria-label="Package progress">${TRACKER_LABELS.map((base, i) => i === 0 ? first : base).map((label, i) => html`<li class="mh-ts mh-ts-${t[i]}"${t[i] === "current" ? safe(' aria-current="step"') : ""}>
     <span class="mh-ts-dot" aria-hidden="true">${t[i] === "done" ? ICON(I.check, 16) : t[i] === "alert" ? html`!` : t[i] === "current" ? ICON(TRACKER_ICONS[i], 16) : ""}</span>
     <span class="mh-ts-label">${label}<span class="sr-only">, ${t[i] === "done" ? "done" : t[i] === "current" ? "current step" : t[i] === "alert" ? "needs attention" : "not yet"}</span></span>
   </li>`)}</ol>`;
@@ -177,10 +180,19 @@ function itemSummary(c: OrderCard): string {
 }
 
 /** The catalog products that appear among the purchased items, by name. */
+const norm = (s: string): string => s.toLowerCase().replace(/\s+/g, " ").trim();
+const wordChar = /[\p{L}\p{N}]/u;
+
+/** A product matches an item only when its name equals the item's name, or the item's name starts with it followed by a non-letter,
+    non-digit boundary ("Barley 1" never matches "Barley 10's"). The longest matching product name comes first. */
 export function purchasedProducts(c: OrderCard | null, products: CatalogProduct[] | null): CatalogProduct[] {
   if (!c || !products) return [];
-  const names = [c.headline, ...c.item_lines.map((l) => l.name)].map((n) => n.toLowerCase()).filter(Boolean);
-  return products.filter((p) => p.name && names.some((n) => n.includes(p.name.toLowerCase()))).slice(0, 3);
+  const names = [...c.item_lines.map((l) => l.name), c.headline].map(norm).filter(Boolean);
+  const hit = (p: CatalogProduct): boolean => {
+    const n = norm(p.name);
+    return !!n && names.some((item) => item === n || (item.startsWith(n) && !wordChar.test(item.charAt(n.length))));
+  };
+  return products.filter(hit).sort((a, b) => norm(b.name).length - norm(a.name).length).slice(0, 3);
 }
 
 function orderArt(c: OrderCard, products: CatalogProduct[] | null): Markup {
@@ -228,7 +240,7 @@ function orderCard(c: OrderCard, state: OrderState, others: number, products: Ca
     <div class="mh-order-body">
       <h2 id="mh-order-h">${v.headline}</h2>
       <p class="mh-order-meta"><span>Order reference <strong>${c.order_number}</strong></span><span class="mh-order-sum">${itemSummary(c)}</span></p>
-      ${v.tracker ? trackerMarkup(v.tracker) : ""}
+      ${v.tracker ? trackerMarkup(v.tracker, v.first) : ""}
     </div>
   </div>
   <div class="mh-strip">

@@ -4,7 +4,7 @@
 
 /* ---- settings tab: the Payments card look ---- */
 #view-settings-inbox .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
-#view-settings-inbox .pm-root > .pm-card { margin-bottom: 16px; }
+#view-settings-inbox .pm-root > .pm-card, #view-settings-inbox .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
 #view-settings-inbox .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
 #view-settings-inbox .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
 #view-settings-inbox .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }

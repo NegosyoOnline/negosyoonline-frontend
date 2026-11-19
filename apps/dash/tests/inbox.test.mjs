@@ -789,7 +789,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261118cm21/);
   assert.match(HTML, /inbox-settings\.js\?v=20261118cm23/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm22/);
+  assert.match(HTML, /inbox\.css\?v=20261119cm23/);
   assert.match(HTML, /inbox-comments\.js\?v=20261118cm20/);
 });
 

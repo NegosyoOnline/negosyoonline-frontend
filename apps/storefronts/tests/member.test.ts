@@ -428,12 +428,18 @@ test("the menu shows only the built sections, and the footer follows TWCinc's pa
   assert.equal(nextKey("javascript:x"), "");
   assert.equal(nextKey("__proto__"), "");
   assert.equal(nextTarget("orders"), "/dashboard/orders/");
-  const page = homeDocument(chrome({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } }), "Ana").value;
-  assert.match(page, /<footer class="footer">/);
-  assert.match(page, /Registered business<\/span>Nena Santos Trading/);
-  assert.match(page, /href="mailto:hello@demo-store\.example\.test"/);
-  assert.match(page, /\+63 917 123 4567<\/a>/);
-  assert.match(page, /Products are for general wellness support only\./);
+  const v = chrome({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } });
+  // The signed-out sign-in page keeps TWCinc's pack footer; the signed-in member pages have the light compact footer (corrections 2).
+  const out = signInDocument(v, signInModel()).value;
+  assert.match(out, /<footer class="footer">/);
+  assert.match(out, /Registered business<\/span>Nena Santos Trading/);
+  assert.match(out, /href="mailto:hello@demo-store\.example\.test"/);
+  assert.match(out, /\+63 917 123 4567<\/a>/);
+  assert.match(out, /Products are for general wellness support only\./);
+  const page = homeDocument(v, "Ana").value;
+  assert.doesNotMatch(page, /<footer class="footer">|pd-footer/);
+  assert.match(page, /<footer class="mfoot" data-mfoot>/);
+  assert.match(page, /Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\./);
 });
 
 test("the number typed is read as pack-phone.js reads it", () => {

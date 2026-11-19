@@ -383,6 +383,86 @@ html[data-theme="dark"] .e4 .pk-date-link { color: #9DB4FF; }
 html[data-theme="dark"] .e4 .pk-date-cell.is-disabled, html[data-theme="dark"] .e4 .pk-date-cell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-link.is-disabled { color: #A9B8B0; opacity: .4; cursor: not-allowed; background: transparent; text-decoration: none; }
 html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not-allowed; }
 
+/* ---- corrections 2 (ClickUp z8uq9mgmjg, 2026-11-19): the phone/tablet top bar, the fixed bottom navigation, the More sheet and the light member footer ----
+   One breakpoint, 1024px, the one where the bar's links already left the bar: up to it the bottom navigation is shown and the links (and the hamburger) are not;
+   above it the links are shown and the bottom navigation is not. At 1024px and below there is no width with neither or both. */
+.mbn, .mbn-sheet { display: none; }
+@media (max-width: 1024px) {
+  .e4-bn .pdn { height: 56px; }
+  .e4-bn .pdn-inner { padding-inline: 16px; }
+  .e4-bn .pdn-logo img { height: 32px; }
+  .e4-bn .pdn-links { display: none !important; }
+  .e4-bn .pdn-actions { margin-left: auto; }
+  .e4-bn .pdn-logo { min-height: 44px; }
+  .e4-bn .pdn-bell-btn { width: 44px; height: 44px; }
+  .e4-bn .shell { padding: 16px 16px 20px; }
+  .e4-bn.e4-home .shell { padding-inline: 16px; }
+  .e4-bn { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+
+  .mbn { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; padding-bottom: env(safe-area-inset-bottom, 0px); background: #fff; border-top: 1px solid #E2E8F0; box-shadow: 0 -2px 12px rgba(15,40,28,.06); font-family: 'Open Sans', system-ui, sans-serif; }
+  .mbn-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+  .mbn-list li { margin: 0; min-width: 0; }
+  .mbn-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%; min-height: 64px; padding: 6px 2px; border: 0; background: none; color: #52635A; font: 600 14px/1.15 'Open Sans', system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+  .mbn-item.is-active { color: #00693A; font-weight: 800; }
+  .mbn-item:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; border-radius: 12px; }
+  .mbn-ic { width: 24px; height: 24px; flex: none; }
+  .mbn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .mbn-sheet:not([hidden]) { position: fixed; inset: 0; z-index: 130; display: flex; align-items: flex-end; font-family: 'Open Sans', system-ui, sans-serif; }
+  .mbn-backdrop { position: absolute; inset: 0; background: rgba(10,20,15,.5); }
+  .mbn-panel { position: relative; width: 100%; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: #fff; color: #14201B; border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.2); }
+  .mbn-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; }
+  .mbn-head h2 { margin: 0; font-size: 18px; }
+  .mbn-close { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -8px; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; }
+  .mbn-close:hover { background: rgba(0,122,61,.08); }
+  .mbn-links { margin: 0; padding: 0; list-style: none; }
+  .mbn-links-sep { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E2E8F0; }
+  .mbn-links a { display: flex; align-items: center; min-height: 48px; padding: 0 8px; border-radius: 10px; color: inherit; font-weight: 600; font-size: 16px; text-decoration: none; }
+  .mbn-links a:hover { background: rgba(0,122,61,.08); }
+  .mbn-links a[aria-current="page"] { color: #00693A; font-weight: 800; background: rgba(0,122,61,.08); }
+  .mbn-links a:focus-visible, .mbn-logout:focus-visible, .mbn-close:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; }
+  .mbn-group { margin: 10px 0 2px; padding: 0 8px; font: 700 14px 'Open Sans', system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #5B6B63; }
+  .mbn-out { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid #E2E8F0; }
+  .mbn-logout { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 8px; border: 0; border-radius: 10px; background: none; color: #B3261E; font: 700 16px 'Open Sans', system-ui, sans-serif; text-align: left; cursor: pointer; }
+  .mbn-logout:hover { background: rgba(179,38,30,.07); }
+  html.mbn-lock { overflow: hidden; }
+}
+
+/* The light member footer (signed-in pages only; the public pages keep theirs). The same container as the bar and the body. */
+.mfoot { margin-top: auto; border-top: 1px solid var(--line); color: #4B5B53; font-family: 'Open Sans', system-ui, sans-serif; }
+.mfoot-inner { box-sizing: border-box; width: 100%; max-width: min(1600px, calc(50vw + 620px)); margin-inline: auto; padding: 24px 15px; }
+.e4-home .mfoot-inner { max-width: 1240px; padding-inline: 24px; }
+.mfoot p { margin: 0; }
+.mfoot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 24px; }
+.mfoot-copy { font-size: 14px; line-height: 1.5; }
+.mfoot-links { display: flex; flex-wrap: wrap; align-items: center; margin: 0; padding: 0; list-style: none; }
+.mfoot-links li { margin: 0; }
+.mfoot-links li + li::before { content: "\00b7"; margin: 0 10px; }
+.mfoot-links a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-block: -10px; color: #2F3E36; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.mfoot-links a:hover { color: #00693A; }
+.mfoot-links a:focus-visible, .mfoot-links button:focus-visible { outline: 3px solid #6C8CFF; outline-offset: 2px; border-radius: 4px; }
+.mfoot-biz { margin-top: 8px !important; font-size: 14px; line-height: 1.5; }
+.mfoot-disclaimer { margin-top: 8px !important; font-size: 14px; line-height: 1.5; color: #5B6B63; }
+@media (max-width: 1024px) {
+  .mfoot-inner { padding: 16px 16px; }
+  .mfoot-contact { display: none; }
+  .e4-home .mfoot-inner { padding-inline: 16px; }
+}
+@media (min-width: 1025px) { .mfoot-links { margin-block: 0; } }
+
+html[data-theme="dark"] .mbn { background: #141c18; border-top-color: #2C3A33; box-shadow: 0 -2px 12px rgba(0,0,0,.4); }
+html[data-theme="dark"] .mbn-item { color: #A9B8B0; }
+html[data-theme="dark"] .mbn-item.is-active { color: #8BE0B8; }
+html[data-theme="dark"] .mbn-panel { background: #17201B; color: #E6EDE9; }
+html[data-theme="dark"] .mbn-links-sep, html[data-theme="dark"] .mbn-out { border-top-color: #2C3A33; }
+html[data-theme="dark"] .mbn-links a[aria-current="page"] { color: #8BE0B8; background: rgba(139,224,184,.1); }
+html[data-theme="dark"] .mbn-group { color: #98A8A0; }
+html[data-theme="dark"] .mbn-logout { color: #FFB4AB; }
+html[data-theme="dark"] .mfoot { border-top-color: #2C3A33; color: #A9B8B0; }
+html[data-theme="dark"] .mfoot-links a { color: #C9D6CE; }
+html[data-theme="dark"] .mfoot-links a:hover { color: #8BE0B8; }
+html[data-theme="dark"] .mfoot-disclaimer { color: #98A8A0; }
+
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */
 .sf-status-chip,

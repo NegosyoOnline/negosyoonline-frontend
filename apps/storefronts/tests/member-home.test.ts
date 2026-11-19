@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { homePage, helpPage, membershipPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
 import {
-  BENEFIT_LINES, DISCOVER_CARDS, GUIDE_PRODUCT_HREF, GUIDE_START_HREF, MEMBERSHIP_HEADLINE, NO_FEES_LINE, TRACKER_LABELS, pickOrder, stateOf, termsHref, trackerOf, viewOf, welcomeText, discoverHref,
+  BENEFIT_LINES, BENEFIT_SHORT_LINE, DISCOVER_CARDS, GUIDANCE_SENTENCE, GROUP_ROWS, HELP_CONTACT_HREF, quantityOf, TRACKER_SHORT, GUIDE_PRODUCT_HREF, GUIDE_START_HREF, MEMBERSHIP_HEADLINE, NO_FEES_LINE, TRACKER_LABELS, pickOrder, stateOf, termsHref, trackerOf, viewOf, welcomeText, discoverHref,
 } from "../src/views/sante/member-home.ts";
 import { appButtons } from "../src/views/sante/app-links.ts";
 import { CATEGORIES } from "../src/views/sante/shop-products.ts";
@@ -95,9 +95,9 @@ test("the Home follows the approved layout: welcome, order card, membership card
   assert.match(body, /Your Membership Package/);
   assert.match(body, /Your Sant(é|&eacute;) Membership/);
   assert.match(body, /Discover more from Sant(é|&eacute;)/);
-  assert.match(body, /href="\/products\/"[^>]*>View all products &rarr;/);
+  assert.match(body, /href="\/products\/"[^>]*><span class="mh-d">View all products<\/span>/);
   assert.match(body, /Make the most of your membership/);
-  assert.match(body, /Learn how to order in the Sant(é|&eacute;) Mobile App\./);
+  assert.match(body, /Order through the Sant(é|&eacute;) Mobile App and enjoy member prices\./);
   assert.match(body, /Your product guide/);
   assert.match(body, /Simple preparation and storage guides\./);
   assert.match(body, /Need a hand\? We(?:'|&#x27;)re here to help\./);
@@ -278,11 +278,11 @@ test("before the payment is verified the first tracker step names the real state
   ];
   for (const [o, label] of cases) {
     const body = orderPart(await home({ cards: cardsOf(card({ steps: STEPS(1, ["2026-11-17"]), membership: null, ...o })) }));
-    assert.match(body, new RegExp(`mh-ts-label">(${label})`), JSON.stringify(o));
+    assert.match(body, new RegExp(`mh-ts-l">(${label})`), JSON.stringify(o));
     assert.doesNotMatch(body, /Payment confirmed/, JSON.stringify(o));
   }
   assert.equal(viewOf(asCard(card({ payment_status: "xendit_expired", problem: true }))).first, "Payment expired");
-  assert.match(orderPart(await home({ cards: cardsOf(card()) })), /mh-ts-label">Payment confirmed/); // verified: confirmed
+  assert.match(orderPart(await home({ cards: cardsOf(card()) })), /mh-ts-l">Payment confirmed/); // verified: confirmed
 });
 
 test("the order reference and the package summary sit on separate lines, with no separator between them", async () => {
@@ -397,7 +397,7 @@ const CATS = [
   { key: "coffee", title: "Coffee &amp; beverages", text: "Discover drinks for your daily routine.", href: "/products/?category=drinks", img: "dash-category-coffee-beverages" },
   { key: "range", title: "Explore the range", text: "Browse the Santé product collection.", href: "/products/", img: "dash-category-explore-range" },
 ];
-const explorePart = (page: string) => { const at = page.indexOf('id="mh-explore"'); return page.slice(at, page.indexOf('class="mh-guides"')); };
+const explorePart = (page: string) => { const at = page.indexOf('id="mh-explore"'); return page.slice(at, page.indexOf('class="mh-guides')); };
 
 test("Discover more from Santé: four category cards with their exact line, link and image, in order", async () => {
   const part = explorePart(await home({ catalog: ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }), cards: cardsOf(card()) }));
@@ -431,22 +431,25 @@ test("discovery shows no product names, prices, bottle placeholders or product d
     assert.doesNotMatch(part, /Barley \d|A short description|₱|\d+% off|product-img-placeholder|data-mh-product|mh-prod|data-mh-empty|class="mh-prods"/i);
     assert.doesNotMatch(part, /Members order in the Sant|App Store|Google Play|Open the Sant/); // the app guidance moved out of the heading
   }
-  assert.match(await home({ catalog: err(500) }), /href="\/products\/"[^>]*>View all products &rarr;/);
+  assert.match(await home({ catalog: err(500) }), /href="\/products\/"[^>]*><span class="mh-d">View all products<\/span><span class="mh-m">View all<\/span> &rarr;/);
 });
 
-test("the App Store / Google Play buttons and the ordering line are in the app-guidance tile, once", async () => {
+test("the desktop guidance tile is one sentence with the App Store / Google Play buttons, once; the no-link fallback stays truthful", async () => {
   const body = await home({ cards: cardsOf(card()) }, { appUrl: { ios: IOS, android: ANDROID, fallback: FALLBACK } });
   const at = body.indexOf('data-mh-guide="app"');
   const tileHtml = body.slice(at, body.indexOf('data-mh-guide="products"'));
-  assert.match(tileHtml, /Learn how to order in the Sant(é|&eacute;) Mobile App\./);
-  assert.match(tileHtml, /Members order in the Sant(é|&eacute;) Mobile App, where member prices are shown\./);
+  assert.equal(GUIDANCE_SENTENCE, "Order through the Santé Mobile App and enjoy member prices.");
+  assert.match(tileHtml, /<p>Order through the Sant(é|&eacute;) Mobile App and enjoy member prices\.<\/p>/);
+  assert.doesNotMatch(tileHtml, /Learn how to order|Members order in the Sant|where member prices are shown/); // the repeated instructions are gone
   assert.match(tileHtml, />App Store</);
   assert.match(tileHtml, />Google Play</);
-  assert.equal(body.split("Members order in the Sant").length - 1, 1);
   assert.equal(body.split(">App Store<").length - 1, 1);
+  assert.equal(body.split("enjoy member prices").length - 1, 1);
   assert.equal(explorePart(body).includes("App Store"), false);
   const none = await home({ cards: cardsOf(card()) });
-  assert.match(none.slice(none.indexOf('data-mh-guide="app"')), /Ask us for the Sant(é|&eacute;) Mobile App link\./);
+  const noneTile = none.slice(none.indexOf('data-mh-guide="app"'), none.indexOf('data-mh-guide="products"'));
+  assert.match(noneTile, /enjoy member prices\./);
+  assert.match(noneTile, /Ask us for the Sant(é|&eacute;) Mobile App link\./);
   assert.equal(none.includes(">App Store<"), false);
 });
 
@@ -463,7 +466,7 @@ test("the order card's package picture is Coach Ed's brown parcel (transparent W
 
 test("the Home and its bar share one 1240px container, scoped to the Home", async () => {
   const body = await home({});
-  assert.match(body, /<div class="e4 e4-home"/);
+  assert.match(body, /<div class="e4 e4-bn e4-home"/);
   const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
   assert.match(css, /\.e4-home \.pdn-inner, \.e4-home \.shell \{[^}]*max-width: 1240px[^}]*margin-inline: auto[^}]*padding-inline: 24px/);
   assert.match(css, /max-width: 640px\) \{ \.e4-home \.pdn-inner, \.e4-home \.shell \{ padding-inline: 16px/);
@@ -607,4 +610,187 @@ test("a registered member sees the registered line on the Membership page, My Pu
   const pu = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [FREE], "member/orders": [cardsOf(card({ membership }))] })))).text();
   assert.match(pu, /<p>Your membership is registered with Sant/);
   assert.doesNotMatch(pu, /is registering your membership/);
+});
+
+/* ---- corrections 2 (2026-11-19): bottom navigation, the phone's Home, the light footer ------------------------------------------------ */
+
+const bottomNavOf = (page: string) => page.slice(page.indexOf('<nav class="mbn"'), page.indexOf("</nav>", page.indexOf('<nav class="mbn"')));
+const sheetOf = (page: string) => page.slice(page.indexOf('<div class="mbn-sheet"'), page.indexOf("</form>", page.indexOf('<div class="mbn-sheet"')));
+const pageOf = async (fn: (d: Dash) => Promise<Response>, extra: Record<string, Reply[]> = {}): Promise<string> => {
+  const r = await fn(dashOf(fake({ ...replies(), ...extra })));
+  assert.equal(r.status, 200);
+  return r.text();
+};
+
+test("the bottom navigation: Home, Orders, Products, Help and a More button; Orders is My Purchases, never the Santé App Order Log", async () => {
+  const nav = bottomNavOf(await home({ cards: cardsOf(card()) }));
+  const links = [...nav.matchAll(/<a class="mbn-item[^"]*" href="([^"]+)"[^>]*>[^]*?<span class="mbn-label">([^<]+)<\/span>/g)].map((m) => `${m[2]} ${m[1]}`);
+  assert.deepEqual(links, ["Home /dashboard/", "Orders /dashboard/purchases/", "Products /products/", "Help /dashboard/help/"]);
+  assert.match(nav, /<button type="button" class="mbn-item mbn-more[^"]*" aria-haspopup="dialog" aria-expanded="false" aria-controls="mbn-sheet" data-mbn-more>[^]*<span class="mbn-label">More<\/span>/);
+  assert.doesNotMatch(nav, /\/dashboard\/orders\//); // Orders is not the member-encoded Santé App Order Log
+  assert.equal(nav.split("<svg").length - 1, 5); // an outline icon above each of the five labels
+  assert.match(nav, /aria-label="Main"/);
+});
+
+test("aria-current=\"page\" marks the active bottom destination on every member page that shows it", async () => {
+  const active = (nav: string) => [...nav.matchAll(/<a class="mbn-item is-active" href="([^"]+)" aria-current="page"/g)].map((m) => m[1]);
+  assert.deepEqual(active(bottomNavOf(await home({}))), ["/dashboard/"]);
+  assert.deepEqual(active(bottomNavOf(await pageOf(helpPage))), ["/dashboard/help/"]);
+  const purchases = await pageOf(purchasesPage, { "member/pack": [FREE], "member/orders": [cardsOf(card())] });
+  assert.deepEqual(active(bottomNavOf(purchases)), ["/dashboard/purchases/"]);
+  assert.equal(bottomNavOf(purchases).split('aria-current="page"').length - 1, 1); // exactly one
+  // A page behind More: the More button is the active one, and its own link in the sheet carries aria-current.
+  const membership = await pageOf(membershipPage, { "member/pack": [FREE], "member/orders": [cardsOf(card())], pack: [PACK_AGREEMENT] });
+  assert.deepEqual(active(bottomNavOf(membership)), []);
+  assert.match(bottomNavOf(membership), /class="mbn-item mbn-more is-active"/);
+  assert.match(sheetOf(membership), /<a href="\/dashboard\/membership\/" aria-current="page">Membership<\/a>/);
+});
+
+test("the More sheet holds Membership, Earn with Santé (Training, Media Library, Affiliate Hub), the Santé App Order Log, Account Settings and Log out", async () => {
+  const page = await home({});
+  const sheet = sheetOf(page);
+  assert.match(sheet, /role="dialog" aria-modal="true" aria-labelledby="mbn-sheet-h" data-mbn-sheet hidden/);
+  const links = [...sheet.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => `${m[2]} ${m[1]}`);
+  assert.deepEqual(links, ["Membership /dashboard/membership/", "Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/",
+    "Santé App Order Log /dashboard/orders/", "Account Settings /dashboard/account/"].map((x) => x.replace("Santé", "Santé")));
+  assert.match(sheet, /Earn with Sant(é|&eacute;)/);
+  assert.match(page, /<form method="post" action="\/dashboard\/sign-out\/" class="mbn-out"><button type="submit" class="mbn-logout">Log out<\/button><\/form>/);
+  assert.match(sheet, /aria-label="Close menu"/);
+  assert.doesNotMatch(page.slice(page.indexOf('<nav class="pdn"'), page.indexOf("</nav>")), /pdnToggle/); // no hamburger in the top bar
+  assert.match(page, /viewport-fit=cover/);
+});
+
+test("the bottom navigation and the compact footer exist only on signed-in member pages", async () => {
+  const { signInDocument, signInModel, chrome } = await import("../src/views/sante/member.ts");
+  const out = signInDocument(chrome(SITE), signInModel()).value;
+  assert.doesNotMatch(out, /class="mbn"|data-mbn-sheet|data-mfoot|e4-bn|viewport-fit/);
+  assert.match(out, /<footer class="footer">/);
+});
+
+test("the bar's CSS shows the bottom navigation up to 1024px and the links above it, with the safe area and the room under the content", () => {
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
+  assert.match(css, /\.mbn, \.mbn-sheet \{ display: none; \}/);
+  assert.match(css, /@media \(max-width: 1024px\) \{[^]*\.e4-bn \.pdn \{ height: 56px; \}/);
+  assert.match(css, /\.e4-bn \.pdn-links \{ display: none !important; \}/);
+  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(css, /\.mbn \{[^}]*position: fixed;[^}]*padding-bottom: env\(safe-area-inset-bottom, 0px\)/);
+  assert.match(css, /\.mbn-item \{[^}]*min-height: 64px/);
+  assert.doesNotMatch(css, /@media \(max-width: 1023px\)|@media \(min-width: 1026px\)/); // one breakpoint, no gap and no overlap
+});
+
+test("the footer: the real store name, the current year, Privacy Policy, Terms, Contact and the approved disclaimer, word for word", async () => {
+  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const doc = (site: typeof SITE, now: Date) => memberDocument(chrome(site, now), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
+  const page = doc({ ...SITE, display_name: "Nena's Wellness & Barley" }, new Date("2027-03-02T00:00:00Z"));
+  const foot = page.slice(page.indexOf("<footer"), page.indexOf("</footer>"));
+  assert.match(foot, /&#169; 2027 Nena(?:'|&#x27;)s Wellness &amp; Barley\. All rights reserved\./);
+  assert.match(foot, /<a href="\/privacy-policy\/">Privacy Policy<\/a>/);
+  assert.match(foot, /<a href="\/terms-and-conditions\/">Terms<\/a>/);
+  assert.match(foot, /<li class="mfoot-contact"><a href="\/dashboard\/help\/#contact">Contact<\/a><\/li>/);
+  assert.match(foot, /<p class="mfoot-disclaimer">Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\.<\/p>/);
+  assert.doesNotMatch(foot, /Demo Store|Ana(?:'|&#x27;)s Store/);
+  assert.match(doc(SITE, new Date("2026-11-19T00:00:00Z")), /&#169; 2026 Demo Store\./); // the configured name, whatever it is
+  // a site that lists its own policy paths keeps them
+  const own = doc({ ...SITE, policy_links: [{ label: "Privacy", path: "/privacy-policy/" }] }, new Date("2026-11-19T00:00:00Z"));
+  assert.match(own, /href="\/privacy-policy\/">Privacy Policy/);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
+  assert.match(css, /\.mfoot \{[^}]*border-top: 1px solid var\(--line\)/);
+  assert.match(css, /\.e4-home \.mfoot-inner \{ max-width: 1240px; padding-inline: 24px; \}/); // the Home's shared container
+  assert.match(css, /@media \(max-width: 1024px\) \{[^}]*\.mfoot-inner \{ padding: 16px 16px; \}[^}]*\.mfoot-contact \{ display: none; \}/);
+});
+
+test("the mobile order card: parcel beside the headline, order reference and a concise quantity, no tracking number and no Copy; both stay on the desktop strip", async () => {
+  const body = await home({ cards: cardsOf(card({ steps: SHIPPED, courier: "J&T Express", tracking: "JT123456789", item_lines: [{ qty: 1, name: "Santé Membership Package · 2 Boxes With Stevia, 20 Sachets" }] })) });
+  const o = orderPart(body);
+  assert.match(o, /<span class="mh-d">Your Membership Package<\/span><span class="mh-m">Your package<\/span>/);
+  assert.match(o, /<p class="mh-order-meta mh-order-metam mh-m"><strong>SP-1001<\/strong> &middot; <span class="mh-order-qty">2 boxes, 20 sachets<\/span><\/p>/);
+  assert.match(o, /<span class="mh-strip-text mh-d">Tracking number[^]*JT123456789/); // desktop only
+  assert.match(o, /data-mh-copy="JT123456789"/); // the Copy script keeps working for the desktop strip
+  assert.equal(o.split("JT123456789").length - 1, 2); // the number and the copy value, both inside the desktop-only text
+  assert.match(o, /<strong class="mh-strip-lead">J&amp;T Express<\/strong>/);
+  assert.match(o, /class="mh-btn mh-btn-primary mh-view" href="\/dashboard\/purchases\/#order-SP-1001">View order/);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-home.css"), "utf8");
+  assert.match(css, /@media \(max-width: 640px\) \{\n  \.mh \.mh-d \{ display: none !important; \}/);
+  assert.match(css, /\.mh-order-art \{ width: 64px; height: 64px;/);
+  assert.match(css, /\.mh-order-art \{[^}]*width: 192px; height: 192px/); // the desktop parcel, +13% of 170px
+  assert.match(css, /\.mh-pkg-art \{[^}]*width: 192px[^}]*object-fit: contain/);
+});
+
+test("the concise quantity is read from the purchased items, with a plain fallback", () => {
+  const q = (names: string[], headline = "") => quantityOf(asCard(card({ headline, item_lines: names.map((name) => ({ qty: 1, name })) })));
+  assert.equal(q(["Santé Membership Package · 2 Boxes With Stevia, 20 Sachets"]), "2 boxes, 20 sachets");
+  assert.equal(q(["Membership Package"], "Santé Barley 10's with Stevia x 1 box"), "1 box");
+  assert.equal(q(["Membership Package"], ""), "Membership Package");
+});
+
+test("the phone's tracker reads Paid | Ready | Shipped | Delivered on the same real steps; before payment the first label is the real state", async () => {
+  assert.deepEqual([...TRACKER_SHORT], ["Paid", "Ready", "Shipped", "Delivered"]);
+  const shorts = (o: string) => [...o.matchAll(/<span class="mh-ts-s">([^<]+)<\/span>/g)].map((m) => m[1]);
+  const states = (o: string) => [...o.matchAll(/class="mh-ts mh-ts-(\w+)"/g)].map((m) => m[1]);
+  const prepared = orderPart(await home({ cards: cardsOf(card()) }));
+  assert.deepEqual(shorts(prepared), ["Paid", "Ready", "Shipped", "Delivered"]);
+  assert.deepEqual(states(prepared), ["done", "current", "todo", "todo"]);
+  const shipped = orderPart(await home({ cards: cardsOf(card({ steps: SHIPPED })) }));
+  assert.deepEqual(states(shipped), ["done", "done", "current", "todo"]);
+  const delivered = orderPart(await home({ cards: cardsOf(card({ steps: DELIVERED })) }));
+  assert.deepEqual(states(delivered), ["done", "done", "done", "done"]);
+  const review = orderPart(await home({ cards: cardsOf(card({ payment_status: "pending_review", membership: null })) }));
+  assert.deepEqual(shorts(review), ["Review", "Ready", "Shipped", "Delivered"]); // never "Paid" before the payment is verified
+  assert.doesNotMatch(review, /<span class="mh-ts-s">Paid/);
+  const due = orderPart(await home({ cards: cardsOf(card({ payment_status: "awaiting_xendit", membership: null })) }));
+  assert.deepEqual(shorts(due), ["Due", "Ready", "Shipped", "Delivered"]);
+  const rejected = orderPart(await home({ cards: cardsOf(card({ payment_status: "rejected", problem: true, membership: null })) }));
+  assert.deepEqual(shorts(rejected), ["Attention", "Ready", "Shipped", "Delivered"]);
+  assert.doesNotMatch(prepared + shipped + delivered, /Packed/);
+});
+
+test("the mobile Home keeps every state truthful: error, none, pending review and action each render, with no tracking number", async () => {
+  for (const [opts, state] of [[{ cards: err(500) }, "error"], [{}, "none"], [{ cards: cardsOf(card({ payment_status: "pending_review" })) }, "review"], [{ cards: cardsOf(card({ payment_status: "rejected", problem: true })) }, "action"]] as const) {
+    const body = await home(opts as Opts);
+    assert.match(body, new RegExp(`data-mh-state="${state}"`));
+    assert.match(orderPart(body), /<span class="mh-m">Your package<\/span>/);
+  }
+});
+
+test("the compact membership card: short label, the same headline, the real state, one benefit line and a View membership link", async () => {
+  const pending = memberPart(await home({ cards: cardsOf(card()) }));
+  assert.match(pending, /<span class="mh-d">Your Sant(é|&eacute;) Membership<\/span><span class="mh-m">Your membership<\/span>/);
+  assert.match(pending, /<h2 id="mh-member-h">Member benefits, for life<\/h2>/);
+  assert.match(pending, /Registration pending/); // pending is not shown as complete
+  assert.doesNotMatch(pending, /Member ID/);
+  assert.equal(BENEFIT_SHORT_LINE, "No renewals · No quotas · No maintenance");
+  assert.match(pending, /<p class="mh-benefit-line mh-m">No renewals &middot; No quotas &middot; No maintenance<\/p>|<p class="mh-benefit-line mh-m">No renewals · No quotas · No maintenance<\/p>/);
+  assert.match(pending, /<ul class="mh-benefits mh-d">/); // the three large rows are desktop only
+  assert.match(pending, /<a class="mh-btn mh-btn-light" href="\/dashboard\/membership\/">View membership<\/a>/);
+  const done = memberPart(await home({ cards: cardsOf(card({ membership: { label: "Registered", line: "", tone: "ok", registered: true, sante_member_id: "SF-1234", act: false } })) }));
+  assert.match(done, /Member ID <strong>SF-1234<\/strong>/);
+});
+
+test("the phone's grouped list: three whole-row links to the real destinations, then the quiet earning invitation", async () => {
+  assert.deepEqual(GROUP_ROWS.map((r) => `${r.label} ${r.href}`), ["Use the Santé Mobile App /dashboard/membership/#how-to-use", "Product guides /dashboard/media/", "Contact your store /dashboard/help/#contact"]);
+  assert.equal(GROUP_ROWS[0].href, GUIDE_START_HREF);
+  assert.equal(GROUP_ROWS[1].href, GUIDE_PRODUCT_HREF);
+  assert.equal(GROUP_ROWS[2].href, HELP_CONTACT_HREF);
+  const body = await home({});
+  const list = body.slice(body.indexOf('id="mh-glist"'), body.indexOf('data-mh-guide="app"'));
+  const rows = [...list.matchAll(/<a class="mh-gl-row" href="([^"]+)" data-mh-row="(\w+)">[^]*?<span class="mh-gl-t">([^<]+)<\/span>/g)].map((m) => `${m[3]} ${m[1]}`);
+  assert.deepEqual(rows, GROUP_ROWS.map((r) => `${r.label} ${r.href}`).map((x) => x.replace("Santé", "Santé")));
+  assert.equal(list.split("mh-gl-chev").length - 1, 3);
+  assert.match(list, /Interested in sharing Sant(é|&eacute;)\? <a class="mh-link" href="\/dashboard\/training\/" data-mh-share>Learn more &rarr;<\/a>/);
+  assert.equal(EARN_ENTRY_PATH, "/dashboard/training/");
+  // the destination of "Use the Santé Mobile App" holds the steps and the App Store / Google Play buttons
+  const ms = await pageOf(membershipPage, { "member/pack": [FREE], "member/orders": [cardsOf(card())], pack: [PACK_AGREEMENT] });
+  assert.ok(ms.includes('id="how-to-use"'));
+});
+
+test("the mobile category tiles: titles stay, descriptions and Explore rows are desktop-only, the whole tile is one link", async () => {
+  const part = explorePart(await home({}));
+  assert.match(part, /<span class="mh-d">Discover more from Sant(é|&eacute;)<\/span><span class="mh-m">Discover Sant(é|&eacute;)<\/span>/);
+  assert.equal(part.split("data-mh-category=").length - 1, 4);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-home.css"), "utf8");
+  assert.match(css, /\.mh-cats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); gap: 10px; \}/);
+  assert.match(css, /\.mh-cat-desc, \.mh-cat-go \{ display: none; \}/);
+  assert.match(css, /\.mh-cat h3 a::before \{ content: ""; position: absolute; inset: 0;/); // the tile is the link
+  assert.match(css, /\.mh-cat-img \{ aspect-ratio: auto; height: 78px; \}/);
 });

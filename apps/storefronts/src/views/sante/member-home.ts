@@ -35,6 +35,9 @@ export const APP_PRICES_LINE = "Member prices are shown in the Santé Mobile App
 export const ORDERING_LINE = "Members order in the Santé Mobile App, where member prices are shown.";
 export const NO_APP_LINK_LINE = "Ask us for the Santé Mobile App link.";
 export const ORDER_ERROR = "We couldn't load your order update";
+/* Corrections 2 (Coach Ed, 2026-11-19): the one guidance sentence, and the mobile membership line. */
+export const GUIDANCE_SENTENCE = "Order through the Santé Mobile App and enjoy member prices.";
+export const BENEFIT_SHORT_LINE = "No renewals · No quotas · No maintenance";
 
 /** The terms link: the central agreement PDF of the current version, or nothing when no version is known. */
 export const termsHref = (versionId: number | null | undefined): string => (typeof versionId === "number" && versionId > 0 ? `${AGREEMENT_PDF_PATH}?v=${versionId}` : "");
@@ -117,6 +120,9 @@ const PACKAGE_ART = html`<img class="mh-pkg-art" src="${asset("img/dash-parcel-b
 export type Tone = "ok" | "wait" | "warn" | "plain";
 export type StepStatus = "done" | "current" | "todo" | "alert";
 export const TRACKER_LABELS = ["Payment confirmed", "Ready to ship", "Shipped", "Delivered"] as const;
+/* The phone's four short labels (Paid | Ready | Shipped | Delivered), on the same real steps. The first one names the real state until the payment is verified. */
+export const TRACKER_SHORT = ["Paid", "Ready", "Shipped", "Delivered"] as const;
+const FIRST_SHORT: Record<string, string> = { "Payment due": "Due", "Payment under review": "Review", "Payment expired": "Expired", "Payment needs attention": "Attention" };
 const TRACKER_ICONS = [I.card, I.box, I.truck, I.checkCircle];
 
 export type OrderView = {
@@ -164,7 +170,7 @@ const KIND_ICON: Partial<Record<OrderView["kind"], string>> = { prepared: I.box,
 function trackerMarkup(t: StepStatus[], first: string): Markup {
   return html`<ol class="mh-track-steps" aria-label="Package progress">${TRACKER_LABELS.map((base, i) => i === 0 ? first : base).map((label, i) => html`<li class="mh-ts mh-ts-${t[i]}"${t[i] === "current" ? safe(' aria-current="step"') : ""}>
     <span class="mh-ts-dot" aria-hidden="true">${t[i] === "done" ? ICON(I.check, 16) : t[i] === "alert" ? html`!` : t[i] === "current" ? ICON(TRACKER_ICONS[i], 16) : ""}</span>
-    <span class="mh-ts-label">${label}<span class="sr-only">, ${t[i] === "done" ? "done" : t[i] === "current" ? "current step" : t[i] === "alert" ? "needs attention" : "not yet"}</span></span>
+    <span class="mh-ts-label"><span class="mh-ts-l">${label}</span><span class="mh-ts-s">${i === 0 ? FIRST_SHORT[label] ?? TRACKER_SHORT[0] : TRACKER_SHORT[i]}</span><span class="sr-only">, ${t[i] === "done" ? "done" : t[i] === "current" ? "current step" : t[i] === "alert" ? "needs attention" : "not yet"}</span></span>
   </li>`)}</ol>`;
 }
 
@@ -173,6 +179,14 @@ export const viewOrderHref = (c: OrderCard): string => `${PURCHASES_PATH}#order-
 function itemSummary(c: OrderCard): string {
   const lines = c.item_lines.filter((l) => l.name).map((l) => `${l.qty > 1 ? `${l.qty} × ` : ""}${l.name}`);
   return lines.length ? lines.join(", ") : c.headline;
+}
+
+/** The phone's concise quantity ("2 boxes, 20 sachets"), read from the purchased items' own names; the item summary when none is stated. */
+export function quantityOf(c: OrderCard): string {
+  const text = [...c.item_lines.map((l) => l.name), c.headline].join(" ");
+  const n = (re: RegExp, one: string, many: string): string => { const m = re.exec(text); return m ? `${m[1]} ${m[1] === "1" ? one : many}` : ""; };
+  const parts = [n(/(\d+)\s*box(?:es)?\b/i, "box", "boxes"), n(/(\d+)\s*sachets?\b/i, "sachet", "sachets")].filter(Boolean);
+  return parts.length ? parts.join(", ") : itemSummary(c);
 }
 
 /** The catalog products that appear among the purchased items, by name. */
@@ -196,29 +210,30 @@ function orderArt(c: OrderCard, products: CatalogProduct[] | null): Markup {
   return own ? html`<div class="mh-order-art mh-order-art-photo"><img src="${own}" alt="" loading="lazy"></div>` : html`<div class="mh-order-art">${PACKAGE_ART}</div>`;
 }
 
-type Strip = { icon: string; lead: string; text: Markup; cta: { href: string; label: string; data?: string }; secondary?: { href: string; label: string } };
+/* `quiet`: the text is for the desktop strip only (the phone's row keeps the courier and View order; the tracking number and Copy stay in the order details). */
+type Strip = { icon: string; lead: string; text: Markup; quiet?: boolean; short?: string; cta: { href: string; label: string; data?: string }; secondary?: { href: string; label: string } };
 
 function stripOf(c: OrderCard, v: OrderView): Strip {
   const view = { href: viewOrderHref(c), label: "View order" };
   switch (v.kind) {
-    case "unknown": return { icon: I.help, lead: "", text: html`We can't show the status of this order right now.`, cta: { href: `${HELP_PATH}#order`, label: "Get help" }, secondary: view };
-    case "review": return { icon: I.clock, lead: "", text: html`The store is checking your payment details. Your package is prepared once the payment is confirmed.`, cta: view };
-    case "payment_due": return { icon: I.card, lead: "", text: html`Your order is placed, but the payment is not complete yet.`, cta: { href: PURCHASES_PATH, label: "Complete payment" }, secondary: view };
+    case "unknown": return { icon: I.help, lead: "", text: html`We can't show the status of this order right now.`, short: "We can't show this status right now.", cta: { href: `${HELP_PATH}#order`, label: "Get help" }, secondary: view };
+    case "review": return { icon: I.clock, lead: "", text: html`The store is checking your payment details. Your package is prepared once the payment is confirmed.`, short: "The store is checking your payment.", cta: view };
+    case "payment_due": return { icon: I.card, lead: "", text: html`Your order is placed, but the payment is not complete yet.`, short: "Your payment is not complete yet.", cta: { href: PURCHASES_PATH, label: "Complete payment" }, secondary: view };
     case "payment_expired": return { icon: I.alert, lead: "", text: html`${c.problem_line || "The payment was not completed in time. Open your order for the next step."}`, cta: { href: PURCHASES_PATH, label: "See next steps" }, secondary: view };
     case "payment_mismatch": return { icon: I.alert, lead: "", text: html`${c.problem_line || "The amount received did not match your order. Contact us with your order number."}`, cta: { href: `${HELP_PATH}#order`, label: "Get help" }, secondary: view };
     case "rejected": return { icon: I.alert, lead: "", text: html`${c.problem_line || "The store could not verify your payment. You can send new proof of payment."}`, cta: { href: PURCHASES_PATH, label: "Send new proof" }, secondary: view };
     case "problem": return { icon: I.alert, lead: "", text: html`${c.problem_line || "There is a problem with this order. Open it to see the next step."}`, cta: view };
-    case "prepared": return { icon: I.box, lead: "", text: html`The store is preparing your package. Courier details appear here once it ships.`, cta: view };
+    case "prepared": return { icon: I.box, lead: "", text: html`The store is preparing your package. Courier details appear here once it ships.`, short: "The store is preparing your package.", cta: view };
     case "delivered": {
       const on = step(c, 3)?.date ? shortDate(step(c, 3)!.date) : "";
-      return { icon: I.checkCircle, lead: c.courier, text: html`${on ? `Delivered on ${on}.` : "Your package was delivered."}`, cta: view };
+      return { icon: I.checkCircle, lead: c.courier, text: html`${on ? `Delivered on ${on}.` : "Your package was delivered."}`, quiet: true, cta: view };
     }
     default: {
       const on = step(c, 2)?.date ? shortDate(step(c, 2)!.date) : "";
       const text = c.tracking
         ? html`Tracking number <span class="mh-track" data-mh-tracking>${c.tracking}</span> <button type="button" class="mh-copy" data-mh-copy="${c.tracking}" hidden>Copy</button>`
         : html`${on ? `Shipped on ${on}. ` : ""}Tracking will appear once the store provides it.`;
-      return { icon: I.truck, lead: c.courier || "Shipped", text, cta: view };
+      return { icon: I.truck, lead: c.courier || "Shipped", text, quiet: true, cta: view };
     }
   }
 }
@@ -228,29 +243,30 @@ function orderCard(c: OrderCard, state: OrderState, others: number, products: Ca
   const s = stripOf(c, v);
   return html`<section class="mh-card mh-order" id="mh-order" data-mh-state="${state}" data-mh-kind="${v.kind}" aria-labelledby="mh-order-h">
   <div class="mh-order-top">
-    <p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span>Your Membership Package</p>
+    <p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span><span class="mh-d">Your Membership Package</span><span class="mh-m">Your package</span></p>
     <span class="mh-pill mh-pill-${v.tone}"><span aria-hidden="true">${ICON(KIND_ICON[v.kind] && v.tone !== "warn" ? KIND_ICON[v.kind]! : PILL_ICON[v.tone], 18)}</span>${v.pill}</span>
   </div>
   <div class="mh-order-main">
     ${orderArt(c, products)}
     <div class="mh-order-body">
       <h2 id="mh-order-h">${v.headline}</h2>
-      <p class="mh-order-meta"><span>Order reference <strong>${c.order_number}</strong></span><span class="mh-order-sum">${itemSummary(c)}</span></p>
+      <p class="mh-order-meta mh-d"><span>Order reference <strong>${c.order_number}</strong></span><span class="mh-order-sum">${itemSummary(c)}</span></p>
+      <p class="mh-order-meta mh-order-metam mh-m"><strong>${c.order_number}</strong> &middot; <span class="mh-order-qty">${quantityOf(c)}</span></p>
       ${v.tracker ? trackerMarkup(v.tracker, v.first) : ""}
     </div>
   </div>
   <div class="mh-strip">
     <span class="mh-strip-ic" aria-hidden="true">${ICON(s.icon, 24)}</span>
     ${s.lead ? html`<strong class="mh-strip-lead">${s.lead}</strong>` : ""}
-    <span class="mh-strip-text">${s.text}</span>
-    <span class="mh-strip-actions">${s.secondary ? html`<a class="mh-link" href="${s.secondary.href}">${s.secondary.label}</a>` : ""}${others > 0 ? html`<a class="mh-link" href="${PURCHASES_PATH}">All purchases (${others + 1})</a>` : ""}<a class="mh-btn mh-btn-primary" href="${s.cta.href}">${s.cta.label}</a></span>
+    ${s.short ? html`<span class="mh-strip-text mh-d">${s.text}</span><span class="mh-strip-text mh-m">${s.short}</span>` : html`<span class="mh-strip-text${s.quiet ? " mh-d" : ""}">${s.text}</span>`}
+    <span class="mh-strip-actions">${s.secondary ? html`<a class="mh-link" href="${s.secondary.href}">${s.secondary.label}</a>` : ""}${others > 0 ? html`<a class="mh-link" href="${PURCHASES_PATH}">All purchases (${others + 1})</a>` : ""}<a class="mh-btn mh-btn-primary${s.cta.label === "View order" ? " mh-view" : ""}" href="${s.cta.href}">${s.cta.label}</a></span>
   </div>
 </section>`;
 }
 
 function orderError(): Markup {
   return html`<section class="mh-card mh-order mh-card-warn" id="mh-order" data-mh-state="error" role="alert" aria-labelledby="mh-order-h">
-  <div class="mh-order-top"><p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span>Your Membership Package</p></div>
+  <div class="mh-order-top"><p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span><span class="mh-d">Your Membership Package</span><span class="mh-m">Your package</span></p></div>
   <div class="mh-order-main"><div class="mh-order-art">${PACKAGE_ART}</div><div class="mh-order-body"><h2 id="mh-order-h">${ORDER_ERROR}</h2><p class="mh-order-meta">Your order is safe. We just can't show its update right now.</p></div></div>
   <div class="mh-strip"><span class="mh-strip-ic" aria-hidden="true">${ICON(I.alert, 24)}</span><span class="mh-strip-text"><a class="mh-link" href="${HELP_PATH}">Help</a> &middot; <a class="mh-link" href="${PURCHASES_PATH}">My Purchases</a></span>
     <span class="mh-strip-actions"><a class="mh-btn mh-btn-primary" href="/dashboard/" data-mh-retry>Retry</a></span></div>
@@ -259,7 +275,7 @@ function orderError(): Markup {
 
 function orderNone(): Markup {
   return html`<section class="mh-card mh-order" id="mh-order" data-mh-state="none" aria-labelledby="mh-order-h">
-  <div class="mh-order-top"><p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span>Your Membership Package</p></div>
+  <div class="mh-order-top"><p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.box, 22)}</span><span class="mh-d">Your Membership Package</span><span class="mh-m">Your package</span></p></div>
   <div class="mh-order-main"><div class="mh-order-art">${PACKAGE_ART}</div><div class="mh-order-body"><h2 id="mh-order-h">No package order yet</h2><p class="mh-order-meta">There is no membership package purchase on this account. If you expected one, contact us with your order number.</p></div></div>
   <div class="mh-strip"><span class="mh-strip-ic" aria-hidden="true">${ICON(I.help, 24)}</span><span class="mh-strip-text">Our team can look into it.</span>
     <span class="mh-strip-actions"><a class="mh-btn mh-btn-primary" href="${HELP_PATH}#order">Get help with an order</a></span></div>
@@ -288,10 +304,11 @@ export function membershipCard(reg: RegistrationInfo | null, hasOrder: boolean):
   const act = reg && !reg.registered && reg.act ? html`<p class="mh-member-note"><a href="${PURCHASES_PATH}">Complete my registration &rarr;</a></p>` : "";
   return html`<section class="mh-card mh-member" id="mh-member" aria-labelledby="mh-member-h">
   <span class="mh-leaf-wrap" aria-hidden="true">${LEAF_ART}</span>
-  <p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.shield, 22)}</span>Your Sant&eacute; Membership</p>
+  <p class="mh-eyebrow"><span class="mh-eyebrow-ic" aria-hidden="true">${ICON(I.shield, 22)}</span><span class="mh-d">Your Sant&eacute; Membership</span><span class="mh-m">Your membership</span></p>
   <h2 id="mh-member-h">${MEMBERSHIP_HEADLINE}</h2>
   ${pill}${id}${unavailable}${act}
-  <ul class="mh-benefits">${BENEFIT_LINES.map((b, i) => html`<li><span aria-hidden="true">${ICON(BENEFIT_ICONS[i], 22)}</span>${b}</li>`)}</ul>
+  <ul class="mh-benefits mh-d">${BENEFIT_LINES.map((b, i) => html`<li><span aria-hidden="true">${ICON(BENEFIT_ICONS[i], 22)}</span>${b}</li>`)}</ul>
+  <p class="mh-benefit-line mh-m">${BENEFIT_SHORT_LINE}</p>
   <a class="mh-btn mh-btn-light" href="${MEMBERSHIP_PATH}">View membership</a>
 </section>`;
 }
@@ -325,7 +342,7 @@ export function categoryCard(c: DiscoverCard): Markup {
 
 export function exploreSection(): Markup {
   return html`<section class="mh-sect" id="mh-explore" aria-labelledby="mh-explore-h">
-  <div class="mh-sect-head"><h2 id="mh-explore-h">Discover more from Sant&eacute;</h2><a class="mh-link mh-all" href="/products/">View all products &rarr;</a></div>
+  <div class="mh-sect-head"><h2 id="mh-explore-h"><span class="mh-d">Discover more from Sant&eacute;</span><span class="mh-m">Discover Sant&eacute;</span></h2><a class="mh-link mh-all" href="/products/"><span class="mh-d">View all products</span><span class="mh-m">View all</span> &rarr;</a></div>
   <div class="mh-cats">${DISCOVER_CARDS.filter(realCard).map(categoryCard)}</div>
 </section>`;
 }
@@ -336,18 +353,32 @@ function tile(icon: string, title: string, text: string, href: string, action: s
   return html`<div class="mh-tile" data-mh-guide="${key}"><span class="mh-tile-ic" aria-hidden="true">${ICON(icon, 28)}</span><div class="mh-tile-tx"><h3>${title}</h3><p>${text}</p>${extra}</div><a class="mh-link mh-tile-go" href="${href}">${action} &rarr;</a></div>`;
 }
 
-/** The app-guidance tile carries the ordering line and the App Store / Google Play buttons (moved here from the discovery heading). */
+/** The app-guidance tile: one sentence and the App Store / Google Play buttons where links are configured (Coach Ed, corrections 2). With no link
+    configured the honest "Ask us for the Santé Mobile App link." follows the sentence. The steps and the ordering instruction live at the destination. */
 export function guidanceRow(appUrl: AppLinkInput): Markup {
   const linked = hasAppLink(appUrl);
-  const app = html`<p class="mh-tile-order">${ORDERING_LINE}${linked ? "" : ` ${NO_APP_LINK_LINE}`}</p>${linked ? html`<span class="mh-app-btns">${appButtons(appUrl, "mh-btn mh-btn-sm")}</span>` : ""}`;
-  return html`<section class="mh-guides" aria-label="Guides">
-  ${tile(I.phone, "Make the most of your membership", "Learn how to order in the Santé Mobile App.", GUIDE_START_HREF, "Start here", "app", app)}
+  const app = html`${linked ? "" : html`<p class="mh-tile-order">${NO_APP_LINK_LINE}</p>`}${linked ? html`<span class="mh-app-btns">${appButtons(appUrl, "mh-btn mh-btn-sm")}</span>` : ""}`;
+  return html`<section class="mh-guides mh-d" aria-label="Guides">
+  ${tile(I.phone, "Make the most of your membership", GUIDANCE_SENTENCE, GUIDE_START_HREF, "Start here", "app", app)}
   ${tile(I.play, "Your product guide", "Simple preparation and storage guides.", GUIDE_PRODUCT_HREF, "View guides", "products")}
 </section>`;
 }
 
+/** The phone's grouped list: one rounded panel of three whole-row links, then the quiet earning invitation. Every row reuses a destination of the desktop tiles. */
+export const GROUP_ROWS: readonly { key: string; icon: string; label: string; href: string }[] = [
+  { key: "app", icon: I.phone, label: "Use the Santé Mobile App", href: GUIDE_START_HREF },
+  { key: "guides", icon: I.play, label: "Product guides", href: GUIDE_PRODUCT_HREF },
+  { key: "contact", icon: I.headset, label: "Contact your store", href: HELP_CONTACT_HREF },
+];
+export function groupedList(): Markup {
+  return html`<section class="mh-glist mh-m" id="mh-glist" aria-label="Guides and support">
+  <ul>${GROUP_ROWS.map((r) => html`<li><a class="mh-gl-row" href="${r.href}" data-mh-row="${r.key}"><span class="mh-gl-ic" aria-hidden="true">${ICON(r.icon, 22)}</span><span class="mh-gl-t">${r.label}</span><span class="mh-gl-chev" aria-hidden="true">${ICON('<path d="m9 6 6 6-6 6"/>', 20)}</span></a></li>`)}</ul>
+</section>
+<p class="mh-share mh-m"><span aria-hidden="true">${ICON(I.users, 20)}</span><span>Interested in sharing Sant&eacute;? <a class="mh-link" href="${EARN_ENTRY_PATH}" data-mh-share>Learn more &rarr;</a></span></p>`;
+}
+
 export function supportStrip(): Markup {
-  return html`<section class="mh-support" id="mh-help" aria-label="Support">
+  return html`<section class="mh-support mh-d" id="mh-help" aria-label="Support">
   <div class="mh-support-help"><span class="mh-support-ic" aria-hidden="true">${ICON(I.headset, 28)}</span><p>Need a hand? We're here to help.</p><a class="mh-link" href="${HELP_CONTACT_HREF}">Contact your store &rarr;</a></div>
   <div class="mh-support-earn" id="mh-earn"><span class="mh-support-ic" aria-hidden="true">${ICON(I.users, 28)}</span><p>Interested in sharing Sant&eacute;?</p><a class="mh-link" href="${EARN_ENTRY_PATH}">Explore ways to earn &rarr;</a></div>
 </section>`;
@@ -378,10 +409,11 @@ export function homeBody(i: HomeInput): Markup {
   const card = picked?.card ?? null;
   const a = i.orders.state === "failed" ? orderError() : !picked ? orderNone() : orderCard(picked.card, picked.state, others, i.products);
   const b = membershipCard(registrationOf(i, card), !!card);
-  return html`<header class="mh-welcome">${DECO}<h1>${welcomeText(i.first_name)}</h1><p>Your membership, products and order updates in one place.</p></header>
+  return html`<header class="mh-welcome">${DECO}<h1>${welcomeText(i.first_name)}</h1><p><span class="mh-d">Your membership, products and order updates in one place.</span><span class="mh-m">Your membership at a glance.</span></p></header>
 <div class="mh-top">${a}${b}</div>
 ${i.notices}
 ${exploreSection()}
+${groupedList()}
 ${guidanceRow(i.app_url)}
 ${supportStrip()}`;
 }

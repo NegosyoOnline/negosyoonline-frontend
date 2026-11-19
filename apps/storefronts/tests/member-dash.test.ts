@@ -61,8 +61,9 @@ test("the bar lists Home, Products, My Purchases, Membership and Help, then the 
   assert.doesNotMatch(nav, /Orders|Dashboard<|Buy|Cart/);
   assert.match(nav, /<a href="\/dashboard\/"[^>]*aria-current="page"/);
   assert.ok(body.indexOf("data-pdn-bell-btn") > body.indexOf('id="pdnLinks"') && body.indexOf("data-pdn-user-btn") > body.indexOf("data-pdn-bell-btn"));
-  assert.doesNotMatch(body, /My Orders|class="pdn-who">Juan[^]*class="pdn-out"|<li><a href="\/dashboard\/account\//);
-  assert.match(body, /id="pdnToggle"/); // the mobile drawer button
+  const bar = body.slice(body.indexOf('<nav class="pdn"'), body.indexOf("</nav>"));
+  assert.doesNotMatch(bar, /My Orders|class="pdn-who">Juan[^]*class="pdn-out"|<li><a href="\/dashboard\/account\//);
+  assert.doesNotMatch(body, /pdnToggle|class="pdn-toggle"/); // no hamburger: the bottom navigation replaces it (corrections 2)
 });
 
 test("the name opens a dropdown: the Santé App Order Log, Account Settings, Help Center, Theme and Logout", async () => {

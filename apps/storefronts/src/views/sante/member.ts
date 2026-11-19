@@ -144,6 +144,83 @@ export function initials(name: string): string {
 const STROKE = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 const CHEV = safe(`<svg class="pdn-chev" ${STROKE}><path d="m9 6 6 6-6 6"/></svg>`);
 
+/* ---- the light compact footer of the signed-in member pages (corrections 2, 2026-11-19) ------------------------------------------------ */
+
+/* The policy routes the public footer already links. A policy the site lists keeps the site's own path; the two routes always exist. */
+export const PRIVACY_FOOTER_PATH = "/privacy-policy/";
+export const TERMS_FOOTER_PATH = "/terms-and-conditions/";
+export const WELLNESS_DISCLAIMER = "Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.";
+
+function memberFooter(v: Chrome): Markup {
+  const b = v.biz;
+  const privacy = v.policy_links.find((l) => l.path === PRIVACY_FOOTER_PATH)?.path ?? PRIVACY_FOOTER_PATH;
+  const terms = v.policy_links.find((l) => l.path === TERMS_FOOTER_PATH)?.path ?? TERMS_FOOTER_PATH;
+  const business = [b.registered_name ? `Registered business: ${b.registered_name}` : "", b.dti_business_number ? `DTI registration no. ${b.dti_business_number}` : ""].filter(Boolean).join(" · ");
+  return html`<footer class="mfoot" data-mfoot>
+  <div class="mfoot-inner">
+    <div class="mfoot-row">
+      <p class="mfoot-copy">&#169; ${v.year} ${v.store_name}. All rights reserved.</p>
+      <ul class="mfoot-links" aria-label="Legal and contact">
+        <li><a href="${privacy}">Privacy Policy</a></li>
+        <li><a href="${terms}">Terms</a></li>
+        <li class="mfoot-contact"><a href="${HELP_PATH}#contact">Contact</a></li>
+        ${cookieSettingsItem(v.cookie_settings)}
+      </ul>
+    </div>
+    ${business ? html`<p class="mfoot-biz">${business}</p>` : ""}
+    <p class="mfoot-disclaimer">${WELLNESS_DISCLAIMER}</p>
+  </div>
+</footer>`;
+}
+
+/* ---- the fixed bottom navigation and its More sheet (phones and tablets, up to 1024px: where the bar's links used to fold into a hamburger) ---- */
+
+const NAV_ICONS = {
+  home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/>',
+  orders: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 12h6M9 16h6"/>',
+  products: '<path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+  help: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8.5 9.5h7M8.5 12.5h4"/>',
+  more: '<circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/>',
+};
+const navIcon = (d: string): Markup => html`<svg class="mbn-ic" ${safe(STROKE)} width="24" height="24">${safe(d)}</svg>`;
+
+/** The four destinations of the bottom bar. Orders is the website membership-package purchases (My Purchases), never the Santé App Order Log. */
+export const BOTTOM_NAV: readonly { key: string; label: string; path: string; icon: string }[] = [
+  { key: "home", label: "Home", path: HOME_PATH, icon: NAV_ICONS.home },
+  { key: "purchases", label: "Orders", path: PURCHASES_PATH, icon: NAV_ICONS.orders },
+  { key: "products", label: "Products", path: "/products/", icon: NAV_ICONS.products },
+  { key: "help", label: "Help", path: HELP_PATH, icon: NAV_ICONS.help },
+];
+/** The pages behind More: the bottom bar's fifth destination is active on any of them. */
+const MORE_KEYS = ["membership", "training", "media", "affiliate", "orders", "account"];
+const here = (current: string, key: string): Markup => (current === key ? safe(' aria-current="page"') : html``);
+const sectionOf = (key: string): Section | undefined => SECTIONS.find((s) => s.key === key && s.built);
+
+function bottomNav(current: string): Markup {
+  const more = MORE_KEYS.includes(current);
+  return html`<nav class="mbn" id="mbn" aria-label="Main">
+  <ul class="mbn-list">${BOTTOM_NAV.map((n) => html`<li><a class="mbn-item${current === n.key ? " is-active" : ""}" href="${n.path}"${here(current, n.key)}>${navIcon(n.icon)}<span class="mbn-label">${n.label}</span></a></li>`)}
+    <li><button type="button" class="mbn-item mbn-more${more ? " is-active" : ""}" aria-haspopup="dialog" aria-expanded="false" aria-controls="mbn-sheet" data-mbn-more>${navIcon(NAV_ICONS.more)}<span class="mbn-label">${MORE_LABEL}</span></button></li>
+  </ul>
+</nav>`;
+}
+
+/** The More sheet: Membership, Earn with Santé (the same permission rules as the bar's menu), the Santé App Order Log, Account Settings, Log out. */
+function moreSheet(current: string): Markup {
+  const link = (s: Section | undefined) => (s ? html`<li><a href="${s.path}"${here(current, s.key)}>${s.label}</a></li>` : "");
+  const earn = SECTIONS.filter((s) => s.built && s.earn);
+  return html`<div class="mbn-sheet" id="mbn-sheet" role="dialog" aria-modal="true" aria-labelledby="mbn-sheet-h" data-mbn-sheet hidden>
+  <div class="mbn-backdrop" data-mbn-close></div>
+  <div class="mbn-panel">
+    <div class="mbn-head"><h2 id="mbn-sheet-h">${MORE_LABEL}</h2><button type="button" class="mbn-close" aria-label="Close menu" data-mbn-close>${safe(`<svg ${STROKE} width="22" height="22"><path d="M6 6l12 12M18 6 6 18"/></svg>`)}</button></div>
+    <ul class="mbn-links">${link(sectionOf("membership"))}</ul>
+    ${earn.length ? html`<p class="mbn-group" id="mbn-earn-h">${EARN_LABEL}</p><ul class="mbn-links" aria-labelledby="mbn-earn-h">${earn.map((s) => link(s))}</ul>` : ""}
+    <ul class="mbn-links mbn-links-sep">${link(sectionOf("orders"))}${link(sectionOf("account"))}</ul>
+    <form method="post" action="/dashboard/sign-out/" class="mbn-out"><button type="submit" class="mbn-logout">Log out</button></form>
+  </div>
+</div>`;
+}
+
 /* The notification bell: pack-member-bar.js fills the count and the list from /dashboard/notifications/ (the markup holds no data). */
 function bell(): Markup {
   return html`<div class="pdn-bell" data-pdn-bell>
@@ -225,7 +302,6 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     <div class="pdn-actions">
       ${bell()}
       ${userMenu(member ?? "")}
-      <button type="button" class="pdn-toggle" aria-label="Menu" aria-controls="pdnLinks" aria-expanded="false" id="pdnToggle"><span></span><span></span><span></span></button>
     </div>
     ` : ""}
   </div>
@@ -242,7 +318,7 @@ export function memberDocument(
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1${signedIn ? ", viewport-fit=cover" : ""}">
 <meta name="robots" content="noindex">
 <title>${args.title} | ${v.store_name}</title>
 <style>${safe(MEMBER_BASE_CSS)}</style>
@@ -263,11 +339,12 @@ ${(args.styles ?? []).map((s) => html`<link rel="stylesheet" href="${asset(s)}">
 ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
 <body>
-<div class="e4${signedIn && args.current === "home" ? " e4-home" : ""}"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
+<div class="e4${signedIn ? " e4-bn" : ""}${signedIn && args.current === "home" ? " e4-home" : ""}"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
 ${bar(v, args.member, args.current)}
 <script src="${asset("js/pack-nav-toggle.js")}"></script>
 ${signedIn ? html`<div class="shell"><main class="main">${args.content}</main></div>` : html`<main class="wrap">${args.content}</main>`}
-${footer(v)}
+${signedIn ? memberFooter(v) : footer(v)}
+${signedIn ? html`${bottomNav(args.current)}${moreSheet(args.current)}` : ""}
 ${args.scripts.map((s) => html`<script src="${asset(s)}"></script>`)}
 </div>
 </body>

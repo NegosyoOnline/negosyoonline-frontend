@@ -61,17 +61,17 @@ export function orderMonitor(m: OrderMonitor): Markup {
 }
 
 export function viewAllLink(): Markup {
-  return html`<p class="sf-dash-all"><a href="/dashboard/orders/">View all orders</a></p>`;
+  return html`<p class="sf-dash-all"><a href="/dashboard/purchases/">View all purchases</a></p>`;
 }
 
-function card(c: OrderCard, i = 0): Markup {
+export function card(c: OrderCard, i = 0): Markup {
   const tail = c.problem
     ? html`<div class="oc-problem-banner">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    <p>${c.problem_line} See your <a href="/dashboard/">Dashboard</a> for what to do next, or contact the store with this order number.</p>
+    <p>${c.problem_line} See <a href="/dashboard/purchases/">My Purchases</a> for what to do next, or contact the store with this order number.</p>
   </div>`
     : c.note ? html`<p class="oc-awaiting-note">${c.note}</p>`
-    : c.awaiting_payment ? html`<p class="oc-awaiting-note">This order will start processing once payment is completed. Open your <a href="/dashboard/">Dashboard</a> to finish paying.</p>`
+    : c.awaiting_payment ? html`<p class="oc-awaiting-note">This order will start processing once payment is completed. Open <a href="/dashboard/purchases/">My Purchases</a> to finish paying.</p>`
     : c.under_review ? html`<p class="oc-awaiting-note">We received your payment. The store is <strong>checking</strong> it, and your order starts processing once it is verified.</p>`
     : html`<div class="oc-track">
     ${c.steps.map((s) => html`<div class="oc-track-step is-${s.state}">
@@ -82,7 +82,7 @@ function card(c: OrderCard, i = 0): Markup {
   </div>
   ${c.courier || c.tracking ? html`<div class="oc-courier">${c.courier ? html`Shipping via <strong>${c.courier}</strong>` : ""}${c.tracking ? html`${c.courier ? html` &middot; ` : ""}Tracking# ${c.tracking}` : ""}</div>` : ""}`;
   const m = c.membership;
-  return html`<div class="oc-card${c.problem ? " problem" : ""}">
+  return html`<div class="oc-card${c.problem ? " problem" : ""}" id="order-${c.order_number}">
   <div class="oc-top">
     <div><div class="oc-ref">${c.order_number}</div><div class="oc-date">Placed ${shortDate(c.created_at)}</div></div>
     <div class="oc-total"><span>Total &middot; ${c.payment_label}</span>&#8369;${c.total}</div>
@@ -101,7 +101,7 @@ function card(c: OrderCard, i = 0): Markup {
       <p><strong>${m.label}</strong></p>
       <p>${m.line}</p>
       ${m.registered && m.sante_member_id ? html`<dl class="pp-dash-rows"><div><dt>Member / Reference ID</dt><dd>${m.sante_member_id}</dd></div></dl>` : ""}
-      ${m.act ? html`<a href="/dashboard/" class="oc-member-link">Review your details &rarr;</a>` : ""}
+      ${m.act ? html`<a href="/dashboard/purchases/" class="oc-member-link">Review your details &rarr;</a>` : ""}
     </div>
   </div>` : ""}
   <div class="oc-footline"><button type="button" class="oc-view-link oc-detail-toggle" aria-expanded="false" aria-controls="oc-detail-p${i}">View Details &rarr;</button></div>

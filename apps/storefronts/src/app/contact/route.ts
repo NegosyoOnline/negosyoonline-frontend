@@ -15,6 +15,7 @@
 import { sendContact, type ContactResult } from "../../lib/django.ts";
 import { storefrontEnv } from "../../lib/env.ts";
 import { htmlResponse } from "../../lib/html.ts";
+import { homePayMethods } from "../../lib/home-pay.ts";
 import { isSignedIn } from "../../lib/member.ts";
 import { requestHost, siteFor } from "../../lib/site.ts";
 import { visitorIp } from "../../lib/visitor.ts";
@@ -76,12 +77,12 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(null, { status: 303, headers: { Location: CONTACT_SENT_PATH, "Cache-Control": "no-store" } });
   }
   if (result.state === "invalid") {
-    return htmlResponse(homeDocument(homeModel(site, invalidContactForm(posted, result.errors), undefined, await isSignedIn(request))), 400);
+    return htmlResponse(homeDocument({ ...homeModel(site, invalidContactForm(posted, result.errors), undefined, await isSignedIn(request)), pay_methods: await homePayMethods(requestHost(request)) }), 400);
   }
   if (result.state === "limited") {
-    return htmlResponse(homeDocument(homeModel(site, limitedContactForm(posted), undefined, await isSignedIn(request))), 429);
+    return htmlResponse(homeDocument({ ...homeModel(site, limitedContactForm(posted), undefined, await isSignedIn(request)), pay_methods: await homePayMethods(requestHost(request)) }), 429);
   }
-  return htmlResponse(homeDocument(homeModel(site, failedContactForm(posted), undefined, await isSignedIn(request))));
+  return htmlResponse(homeDocument({ ...homeModel(site, failedContactForm(posted), undefined, await isSignedIn(request)), pay_methods: await homePayMethods(requestHost(request)) }));
 }
 
 export {

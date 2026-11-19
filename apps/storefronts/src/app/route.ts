@@ -5,6 +5,7 @@ import { storefrontEnv } from "../lib/env.ts";
 import { htmlResponse } from "../lib/html.ts";
 import { isSignedIn } from "../lib/member.ts";
 import { afterResponse, metaPage } from "../lib/meta.ts";
+import { homePayMethods } from "../lib/home-pay.ts";
 import { homeDrawer } from "../lib/shop-flow.ts";
 import { requestHost, siteFor } from "../lib/site.ts";
 import { neutralNotFound } from "../views/neutral.ts";
@@ -17,7 +18,8 @@ export async function GET(request: Request): Promise<Response> {
   const site = await siteFor(request);
   if (!site) return neutralNotFound();
   const sent = new URL(request.url).searchParams.get("contact") === "sent";
-  const model = homeModel(site, sent ? sentContactForm() : emptyContactForm(), undefined, await isSignedIn(request));
+  const [signedIn, pay_methods] = await Promise.all([isSignedIn(request), homePayMethods(requestHost(request))]);
+  const model = { ...homeModel(site, sent ? sentContactForm() : emptyContactForm(), undefined, signedIn), pay_methods };
   /* The Meta Pixel: the notice, or after Accept the data block, with the server events sent after the response. */
   const meta = metaPage({ request, site, host: requestHost(request), env: storefrontEnv(), events: ["PageView"] });
   if (meta.send) await afterResponse(meta.send);

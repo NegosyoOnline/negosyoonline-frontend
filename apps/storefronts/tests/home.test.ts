@@ -274,37 +274,55 @@ test("footer CSS: four columns on desktop, and the brand column takes a row of i
 });
 
 import { homePayMethods } from "../src/lib/home-pay.ts";
-import { homeDocument as homeDoc } from "../src/views/sante/home.ts";
+import { homeDocument as homeDoc, XENDIT_BADGES } from "../src/views/sante/home.ts";
 import { homeModel as homeMdl } from "../src/views/sante/model.ts";
 import { SITE as PAY_SITE } from "./site.ts";
 
 const BANK_FAQ = "We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.";
-const XENDIT_FAQ = "You pay online at checkout, on Xendit's secure page.";
 const GENERIC_FAQ = "You choose how to pay at checkout.";
 function payPage(pay_methods: { direct: boolean; xendit: boolean } | null | undefined): string {
   return homeDoc({ ...homeMdl(PAY_SITE), pay_methods }).value;
 }
 
-test("home: direct available shows the Bank Transfer badge and the bank FAQ", () => {
+const XENDIT_ONLINE_FAQ = "You pay online at checkout on Xendit's secure page, by card (Visa, Mastercard) or e-wallet (GCash, Maya, GrabPay).";
+function badgesOf(page: string): string[] {
+  const row = page.match(/<div class="payment-row">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  return [...row.matchAll(/<span class="pay-badge">([^<]*)<\/span>/g)].map((m) => m[1]);
+}
+const FIVE = ["Visa", "Mastercard", "GCash", "Maya", "GrabPay"];
+
+test("home: direct and Xendit show Bank Transfer plus the five Xendit badges and the bank FAQ", () => {
   const page = payPage({ direct: true, xendit: true });
-  assert.match(page, /<span class="pay-badge">Bank Transfer<\/span>/);
+  assert.deepEqual(badgesOf(page), ["Bank Transfer", ...FIVE]);
   assert.ok(page.includes(BANK_FAQ));
 });
 
-test("home: Xendit only shows no bank badge and the neutral online FAQ", () => {
-  const page = payPage({ direct: false, xendit: true });
-  assert.doesNotMatch(page, /Bank Transfer<\/span>/);
-  assert.ok(page.includes(XENDIT_FAQ));
-  assert.ok(!page.includes(BANK_FAQ));
+test("home: direct only shows Bank Transfer and E-wallet, and the bank FAQ", () => {
+  const page = payPage({ direct: true, xendit: false });
+  assert.deepEqual(badgesOf(page), ["Bank Transfer", "E-wallet"]);
+  assert.ok(page.includes(BANK_FAQ));
 });
 
-test("home: a failed read (null or absent) and both-off name no method", () => {
+test("home: Xendit only shows the five badges and the card and e-wallet FAQ", () => {
+  const page = payPage({ direct: false, xendit: true });
+  assert.deepEqual(badgesOf(page), FIVE);
+  assert.ok(page.includes(XENDIT_ONLINE_FAQ));
+  assert.ok(!page.includes(BANK_FAQ));
+  assert.equal(XENDIT_BADGES.join(","), FIVE.join(","));
+});
+
+test("home: a failed read (null or absent) and both-off show E-wallet only and name no method", () => {
   for (const m of [null, undefined, { direct: false, xendit: false }]) {
     const page = payPage(m);
-    assert.doesNotMatch(page, /Bank Transfer<\/span>/);
+    assert.deepEqual(badgesOf(page), ["E-wallet"]);
     assert.ok(page.includes(GENERIC_FAQ));
     assert.ok(!page.includes(BANK_FAQ));
   }
+});
+
+test("home: the payment badges carry no fixed width, so the row wraps at 360px", () => {
+  const row = payPage({ direct: true, xendit: true }).match(/<div class="payment-row">[\s\S]*?<\/div>/)?.[0] ?? "";
+  assert.doesNotMatch(row, /style=|width/);
 });
 
 test("homePayMethods: reads the pack's methods, and null on a failed read or when the API sends none", async () => {

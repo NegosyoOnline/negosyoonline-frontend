@@ -421,8 +421,6 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
   .mbn-links a:hover { background: rgba(0,122,61,.08); }
   .mbn-links a[aria-current="page"] { color: #00693A; font-weight: 800; background: rgba(0,122,61,.08); }
   .mbn-links a:focus-visible, .mbn-logout:focus-visible, .mbn-close:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; }
-  .mbn-legal { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E2E8F0; }
-  .mbn-legal a { min-height: 44px; font-size: 14px; font-weight: 500; color: #5B6B63; }
   .mbn-group { margin: 10px 0 2px; padding: 0 8px; font: 700 14px 'Open Sans', system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #5B6B63; }
   .mbn-out { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid #E2E8F0; }
   .mbn-logout { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 8px; border: 0; border-radius: 10px; background: none; color: #B3261E; font: 700 16px 'Open Sans', system-ui, sans-serif; text-align: left; cursor: pointer; }
@@ -460,15 +458,8 @@ html[data-theme="dark"] .mbn-item.is-active { color: #8BE0B8; }
 html[data-theme="dark"] .mbn-panel { background: #17201B; color: #E6EDE9; }
 html[data-theme="dark"] .mbn-links-sep, html[data-theme="dark"] .mbn-out { border-top-color: #2C3A33; }
 html[data-theme="dark"] .mbn-links a[aria-current="page"] { color: #8BE0B8; background: rgba(139,224,184,.1); }
-html[data-theme="dark"] .mbn-legal { border-top-color: #2C3A33; }
-html[data-theme="dark"] .mbn-legal a { color: #98A8A0; }
 html[data-theme="dark"] .mbn-group { color: #98A8A0; }
 html[data-theme="dark"] .mbn-logout { color: #FFB4AB; }
-
-/* The legal group at the bottom of the desktop More dropdown: small and muted, set off by a rule. */
-.pdn-earn-pop .pdn-legal a { font-size: 14px; font-weight: 500; color: #667085; }
-.pdn-earn-pop .pdn-legal-first { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
-html[data-theme="dark"] .pdn-earn-pop .pdn-legal a { color: #98A8A0; }
 
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */

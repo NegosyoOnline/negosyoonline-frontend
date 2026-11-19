@@ -441,6 +441,10 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
 .mfoot-links a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-block: -10px; color: #2F3E36; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .mfoot-links a:hover { color: #00693A; }
 .mfoot-links a:focus-visible, .mfoot-links button:focus-visible { outline: 3px solid #6C8CFF; outline-offset: 2px; border-radius: 4px; }
+.mfoot-reg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
+.mfoot-reg .mfoot-biz { margin: 0 !important; }
+.mfoot-seal { display: block; width: 120px; height: auto; max-width: 100%; background: #fff; border-radius: 6px; }
+@media (max-width: 1024px) { .mfoot-seal { width: 96px; } }
 .mfoot-biz { margin-top: 8px !important; font-size: 14px; line-height: 1.5; }
 .mfoot-disclaimer { margin-top: 8px !important; font-size: 14px; line-height: 1.5; color: #5B6B63; }
 @media (max-width: 1024px) {

@@ -167,7 +167,7 @@ function memberFooter(v: Chrome): Markup {
         ${cookieSettingsItem(v.cookie_settings)}
       </ul>
     </div>
-    ${business ? html`<p class="mfoot-biz">${business}</p>` : ""}
+    ${business || b.has_seal ? html`<div class="mfoot-reg">${business ? html`<p class="mfoot-biz">${business}</p>` : ""}${b.has_seal ? html`<img class="mfoot-seal" src="/business-seal/" alt="BIR registered business seal" width="240" height="84" loading="lazy">` : ""}</div>` : ""}
     <p class="mfoot-disclaimer">${WELLNESS_DISCLAIMER}</p>
   </div>
 </footer>`;

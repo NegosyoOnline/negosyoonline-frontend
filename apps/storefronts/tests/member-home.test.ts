@@ -794,3 +794,18 @@ test("the mobile category tiles: titles stay, descriptions and Explore rows are 
   assert.match(css, /\.mh-cat h3 a::before \{ content: ""; position: absolute; inset: 0;/); // the tile is the link
   assert.match(css, /\.mh-cat-img \{ aspect-ratio: auto; height: 78px; \}/);
 });
+
+test("the footer shows the BIR seal, compact, only when the business has one; the registered-business line stays", async () => {
+  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const doc = (has_seal: boolean) => memberDocument(chrome({ ...FILLED, business: { ...FILLED.business, has_seal } }), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
+  const withSeal = doc(true);
+  const foot = withSeal.slice(withSeal.indexOf("<footer"), withSeal.indexOf("</footer>"));
+  assert.match(foot, /<img class="mfoot-seal" src="\/business-seal\/" alt="BIR registered business seal"/);
+  assert.match(foot, /Registered business: Nena Santos Trading &middot; DTI registration no\. 1234567|Registered business: Nena Santos Trading · DTI registration no\. 1234567/);
+  const none = doc(false);
+  assert.doesNotMatch(none.slice(none.indexOf("<footer"), none.indexOf("</footer>")), /mfoot-seal|business-seal/);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
+  assert.match(css, /\.mfoot-seal \{[^}]*width: 120px/);
+  assert.match(css, /max-width: 1024px\) \{ \.mfoot-seal \{ width: 96px; \}/);
+});

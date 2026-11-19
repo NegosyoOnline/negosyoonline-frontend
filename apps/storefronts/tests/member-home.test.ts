@@ -4,9 +4,12 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { homePage, helpPage, membershipPage, purchasesPage, type Dash } from "../src/lib/dashboard-flow.ts";
 import {
-  BENEFIT_LINES, GUIDE_PRODUCT_HREF, GUIDE_START_HREF, MEMBERSHIP_HEADLINE, NO_FEES_LINE, TRACKER_LABELS, pickOrder, stateOf, termsHref, trackerOf, viewOf, welcomeText,
+  BENEFIT_LINES, DISCOVER_CARDS, GUIDE_PRODUCT_HREF, GUIDE_START_HREF, MEMBERSHIP_HEADLINE, NO_FEES_LINE, TRACKER_LABELS, pickOrder, stateOf, termsHref, trackerOf, viewOf, welcomeText, discoverHref,
 } from "../src/views/sante/member-home.ts";
 import { appButtons } from "../src/views/sante/app-links.ts";
+import { CATEGORIES } from "../src/views/sante/shop-products.ts";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { mobileApps } from "../src/lib/env.ts";
 import { EARN_ENTRY_PATH } from "../src/views/sante/member.ts";
 import type { OrderCard } from "../src/lib/pack-api.ts";
@@ -312,12 +315,12 @@ test("the member pack read with a status the Home does not know does not break t
   assert.match(body, /We(?:'|&#x27;)re checking your order/);
 });
 
-test("the order art is the purchased product's catalog image when matched, else a CSS/SVG package", async () => {
+test("the order art is the purchased product's catalog image when matched, else the brown parcel image", async () => {
   const matched = await home({ cards: cardsOf(card({ item_lines: [{ qty: 1, name: "Barley 1" }] })), catalog: ok({ products: [PRODUCT(1)] }) });
   assert.match(orderPart(matched), /mh-order-art-photo/);
   const none = orderPart(await home({ cards: cardsOf(card()), catalog: ok({ products: [PRODUCT(1, { name: "Moringa" })] }) }));
   assert.match(none, /mh-pkg-art/);
-  assert.doesNotMatch(none, /<img/);
+  assert.doesNotMatch(none, /mh-order-art-photo|blob\.vercel-storage/); // the parcel, not a product photo
 });
 
 test("with no purchase: an honest empty state with support, no prompt to buy; the membership card and products stay", async () => {
@@ -327,7 +330,7 @@ test("with no purchase: an honest empty state with support, no prompt to buy; th
   assert.match(body, /href="\/dashboard\/help\/#order"/);
   assert.doesNotMatch(main(body), /Get 2 Boxes|Unlock|Buy/);
   assert.match(body, /id="mh-member"/);
-  assert.match(body, /data-mh-product=/);
+  assert.equal(body.split("data-mh-category=").length - 1, 4);
 });
 
 test("a failed order read says so with Retry, My Purchases and Help; it is not shown as no purchase", async () => {
@@ -388,36 +391,82 @@ test("no registration read: not started with an order, an honest line without on
 
 /* ---- products ------------------------------------------------------------------------------------------------------ */
 
-test("Discover more from Santé: four real products, no prices, the ordering guidance once, Explore links", async () => {
-  const body = await home({ catalog: ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }), cards: cardsOf(card()) });
-  assert.equal(body.split("data-mh-product=").length - 1, 4);
-  assert.match(body, /Barley 1/);
-  assert.doesNotMatch(body, /Barley 5/);
-  assert.match(body, /A short description\./);
-  assert.doesNotMatch(main(body), /₱|\d+% off|Members price|Check member prices/i); // no price comparison and no per-card paragraph
-  assert.equal(body.split("Members order in the Sant").length - 1, 1); // the guidance, once
-  assert.match(body, /href="\/products\/barley-1\/">Explore/);
-  assert.match(body, /<img src="[^"]*a\.png"/);
-});
+const CATS = [
+  { key: "barley", title: "Barley essentials", text: "Plant-based wellness for your daily routine.", href: "/products/?category=barley", img: "dash-category-barley-essentials" },
+  { key: "wellness", title: "Daily wellness", text: "Explore products for your everyday wellness routine.", href: "/products/?category=essentials", img: "dash-category-daily-wellness" },
+  { key: "coffee", title: "Coffee &amp; beverages", text: "Discover drinks for your daily routine.", href: "/products/?category=drinks", img: "dash-category-coffee-beverages" },
+  { key: "range", title: "Explore the range", text: "Browse the Santé product collection.", href: "/products/", img: "dash-category-explore-range" },
+];
+const explorePart = (page: string) => { const at = page.indexOf('id="mh-explore"'); return page.slice(at, page.indexOf('class="mh-guides"')); };
 
-test("missing images and short descriptions leave the tile truthful; no invented copy", async () => {
-  const body = await home({ catalog: ok({ products: [PRODUCT(1, { image_url: "", short_description: "" })] }) });
-  assert.match(body, /product-img-placeholder/);
-  assert.doesNotMatch(body, /mh-prod-desc/);
-});
-
-test("an empty or unreadable catalog is a compact state, not placeholder products", async () => {
-  for (const catalog of [ok({ products: [] }), err(500)]) {
-    const body = await home({ catalog });
-    assert.match(body, /data-mh-empty="products"/);
-    assert.equal(body.split("data-mh-product=").length - 1, 0);
-    assert.match(body, /href="\/products\/"[^>]*>View all products/);
+test("Discover more from Santé: four category cards with their exact line, link and image, in order", async () => {
+  const part = explorePart(await home({ catalog: ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }), cards: cardsOf(card()) }));
+  assert.equal(part.split("data-mh-category=").length - 1, 4);
+  let last = -1;
+  for (const c of CATS) {
+    const at = part.indexOf(`data-mh-category="${c.key}"`);
+    assert.ok(at > last, c.key);
+    last = at;
+    const cardHtml = part.slice(at, part.indexOf("</article>", at));
+    assert.match(cardHtml, new RegExp(`<h3><a href="${c.href.replace(/[?]/g, "\\?")}">${c.title}</a></h3>`));
+    assert.ok(cardHtml.includes(`<p class="mh-cat-desc">${c.text}</p>`), c.text);
+    assert.match(cardHtml, new RegExp(`class="mh-link mh-cat-go" href="${c.href.replace(/[?]/g, "\\?")}">Explore<span class="sr-only"> ${c.title}</span> &rarr;`));
+    assert.match(cardHtml, new RegExp(`<img src="/assets/sante/img/${c.img}\\.webp\\?v=[0-9a-f]{8}" alt=""`)); // decorative
   }
 });
 
-test("the Home product grid carries its tile count, so the columns can fill the row", async () => {
-  assert.match(await home({ catalog: ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }) }), /class="mh-prods" data-count="4"/);
-  assert.match(await home({ catalog: ok({ products: [1, 2].map((n) => PRODUCT(n)) }) }), /class="mh-prods" data-count="2"/);
+test("the category links use real catalog categories, and the shop accepts each one", () => {
+  for (const c of DISCOVER_CARDS) {
+    if (!c.value) { assert.equal(discoverHref(c), "/products/"); continue; }
+    assert.ok(CATEGORIES.some((k) => k.value === c.value), c.value); // the same values the shop's ?category= filter accepts
+    assert.equal(discoverHref(c), `/products/?category=${c.value}`);
+  }
+  assert.deepEqual(DISCOVER_CARDS.map((c) => c.value), ["barley", "essentials", "drinks", ""]);
+});
+
+test("discovery shows no product names, prices, bottle placeholders or product descriptions, whatever the catalog holds", async () => {
+  for (const catalog of [ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }), ok({ products: [] }), err(500)]) {
+    const part = explorePart(await home({ catalog, cards: cardsOf(card()) }));
+    assert.equal(part.split("data-mh-category=").length - 1, 4); // the same four cards, catalog or not
+    assert.doesNotMatch(part, /Barley \d|A short description|₱|\d+% off|product-img-placeholder|data-mh-product|mh-prod|data-mh-empty|class="mh-prods"/i);
+    assert.doesNotMatch(part, /Members order in the Sant|App Store|Google Play|Open the Sant/); // the app guidance moved out of the heading
+  }
+  assert.match(await home({ catalog: err(500) }), /href="\/products\/"[^>]*>View all products &rarr;/);
+});
+
+test("the App Store / Google Play buttons and the ordering line are in the app-guidance tile, once", async () => {
+  const body = await home({ cards: cardsOf(card()) }, { appUrl: { ios: IOS, android: ANDROID, fallback: FALLBACK } });
+  const at = body.indexOf('data-mh-guide="app"');
+  const tileHtml = body.slice(at, body.indexOf('data-mh-guide="products"'));
+  assert.match(tileHtml, /Learn how to order in the Sant(é|&eacute;) Mobile App\./);
+  assert.match(tileHtml, /Members order in the Sant(é|&eacute;) Mobile App, where member prices are shown\./);
+  assert.match(tileHtml, />App Store</);
+  assert.match(tileHtml, />Google Play</);
+  assert.equal(body.split("Members order in the Sant").length - 1, 1);
+  assert.equal(body.split(">App Store<").length - 1, 1);
+  assert.equal(explorePart(body).includes("App Store"), false);
+  const none = await home({ cards: cardsOf(card()) });
+  assert.match(none.slice(none.indexOf('data-mh-guide="app"')), /Ask us for the Sant(é|&eacute;) Mobile App link\./);
+  assert.equal(none.includes(">App Store<"), false);
+});
+
+test("the order card's package picture is Coach Ed's brown parcel (transparent WebP, contained), not the outlined drawing", async () => {
+  const o = orderPart(await home({ cards: cardsOf(card()), catalog: ok({ products: [PRODUCT(1, { name: "Moringa" })] }) }));
+  assert.match(o, /<img class="mh-pkg-art" src="\/assets\/sante\/img\/dash-parcel-brown-box\.webp\?v=[0-9a-f]{8}" alt=""/);
+  assert.doesNotMatch(o, /<svg class="mh-pkg-art"|#EAF4EE/);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-home.css"), "utf8");
+  assert.match(css, /\.mh-pkg-art \{[^}]*object-fit: contain/);
+  const webp = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "img", "dash-parcel-brown-box.webp"));
+  assert.equal(webp.subarray(0, 4).toString(), "RIFF");
+  assert.ok(webp.includes("ALPH") || webp.includes("VP8L") || webp.includes("VP8X"), "keeps its alpha channel"); // an alpha chunk or a lossless WebP
+});
+
+test("the Home and its bar share one 1240px container, scoped to the Home", async () => {
+  const body = await home({});
+  assert.match(body, /<div class="e4 e4-home"/);
+  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
+  assert.match(css, /\.e4-home \.pdn-inner, \.e4-home \.shell \{[^}]*max-width: 1240px[^}]*margin-inline: auto[^}]*padding-inline: 24px/);
+  assert.match(css, /max-width: 640px\) \{ \.e4-home \.pdn-inner, \.e4-home \.shell \{ padding-inline: 16px/);
 });
 
 /* ---- links: no dead hrefs -------------------------------------------------------------------------------------------- */
@@ -429,7 +478,7 @@ test("the guidance tiles, support strip and every Home link point at a real page
   assert.match(body, /href="\/dashboard\/membership\/#how-to-use">Start here/);
   assert.match(body, /href="\/dashboard\/media\/">View guides/);
   assert.match(body, /href="\/dashboard\/help\/#contact">Contact your store/);
-  const known = [/^\/dashboard\/(membership|purchases|help|media|training|affiliate|orders|account)?\/?(#[\w-]*)?$/, /^\/products\/([\w-]+\/)?$/, /^https:\/\//, /^\/assets\//, /^\/$/, /^\/#/, /^\/(cart|business-seal|privacy|terms)/];
+  const known = [/^\/dashboard\/(membership|purchases|help|media|training|affiliate|orders|account)?\/?(#[\w-]*)?$/, /^\/products\/([\w-]+\/|\?category=[\w-]+)?$/, /^https:\/\//, /^\/assets\//, /^\/$/, /^\/#/, /^\/(cart|business-seal|privacy|terms)/];
   const hrefs = [...main(body).matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
   assert.ok(hrefs.length > 8);
   for (const h of hrefs) assert.ok(h && h !== "#" && known.some((r) => r.test(h)), `dead or unexpected href: ${h}`);

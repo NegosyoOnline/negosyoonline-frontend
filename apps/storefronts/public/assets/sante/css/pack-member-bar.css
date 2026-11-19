@@ -7,6 +7,15 @@
 .e4 .shell { max-width: min(1600px, calc(50vw + 620px)); padding: 24px 15px 40px; }
 .pdn { padding: 0 15px; }
 
+/* The member Home (ClickUp z8uq9mgmjg, corrections 1): one shared container for the bar's inner content and every Home section.
+   1240px including the padding, centred, 24px each side (16px on a phone). The bar's background stays full width; only the
+   inner content is boxed. Other member pages keep the width above. The links collapse into the menu at 1024px, not widen. */
+.e4-home .pdn { padding: 0; }
+.e4-home .pdn-inner, .e4-home .shell { box-sizing: border-box; width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 24px; }
+.e4-home .shell { padding-block: 24px 40px; }
+.e4-home .mh { max-width: none; }
+@media (max-width: 640px) { .e4-home .pdn-inner, .e4-home .shell { padding-inline: 16px; } }
+
 /* The bell and the name */
 .pdn-actions { gap: 14px; }
 .pdn-bell, .pdn-user { position: relative; }

@@ -2,21 +2,22 @@
    My Membership and Help pages share.
 
    Layout, top to bottom: the welcome line; the membership-package order card (62%) beside the emerald membership card (38%);
-   "Discover more from Santé" with up to four real catalog products; two guidance tiles; the support strip with the secondary
+   "Discover more from Santé" with four category cards (corrections 1, 2026-11-19); two guidance tiles; the support strip with the secondary
    earning invitation. Notices sit below the top row. Everything shown is real data from the existing reads (member/orders,
    member/pack, the catalog); a missing read gets a truthful state. No cart, Buy Now, Add to Cart or Buy Again, no Packed step,
    no registration milestone in the shipment tracker, no link into the membership funnel (the Membership Terms PDF is the
    central agreement route), no invented price, percentage, date or ETA. Member prices are not written on Home: members see them in the app. */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { OrderCard, OrderStep } from "../../lib/pack-api.ts";
+import { asset } from "../../lib/assets.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
 import { REGISTERED_LINE, shortDate } from "./pack-orders.ts";
 export { REGISTERED_LINE };
 import { EARN_ENTRY_PATH, HELP_PATH, MEMBERSHIP_PATH, PURCHASES_PATH } from "./member.ts";
-import { PRODUCT_PLACEHOLDER, safeImage } from "./shop-shell.ts";
+import { safeImage } from "./shop-shell.ts";
+import { CATEGORIES } from "./shop-products.ts";
 import { appButtons, hasAppLink, type AppLinkInput } from "./app-links.ts";
 
-export const HOME_PRODUCTS_MAX = 4;
 export const AGREEMENT_PDF_PATH = "/funnel/membership-pack/membership-terms.pdf";
 
 /* The two guidance tiles' destinations, one place each (Supervisor decision: "View guides" opens the Media Library, confirmed 2026-11-19). */
@@ -108,13 +109,8 @@ const I = {
 };
 export const icons = { ICON, I };
 
-/* A simple CSS/SVG package for an order with no matching catalog image; never a stock photo. */
-const PACKAGE_ART = html`<svg class="mh-pkg-art" viewBox="0 0 120 110" fill="none" aria-hidden="true" focusable="false">
-  <path d="M60 14 104 36v44L60 102 16 80V36z" fill="#EAF4EE" stroke="#00693A" stroke-width="2.4" stroke-linejoin="round"/>
-  <path d="M16 36 60 58l44-22M60 58v44" stroke="#00693A" stroke-width="2.4" stroke-linejoin="round"/>
-  <path d="M38 25 82 47v13" stroke="#00693A" stroke-width="2.4" stroke-linejoin="round" opacity=".55"/>
-  <path d="M96 76c10-2 16-9 18-18-10 1-17 8-18 18z" fill="#8CC63F" stroke="#00693A" stroke-width="1.8" stroke-linejoin="round"/>
-</svg>`;
+/* The package picture of an order with no matching catalog image: Coach Ed's brown parcel (transparent WebP), contained, never cropped. */
+const PACKAGE_ART = html`<img class="mh-pkg-art" src="${asset("img/dash-parcel-brown-box.webp")}" alt="" width="400" height="400" decoding="async">`;
 
 /* ---- the order card: state, headline, pill, tracker --------------------------------------------------------- */
 
@@ -300,43 +296,52 @@ export function membershipCard(reg: RegistrationInfo | null, hasOrder: boolean):
 </section>`;
 }
 
-/* ---- discover products -------------------------------------------------------------------------------------- */
+/* ---- discover more: four category cards ---------------------------------------------------------------------- */
 
-const cut = (text: string, max: number): string => { const t = text.trim(); return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`; };
+/* Customer-facing discovery labels, not Santé's official category names. `value` is a catalog category from CATEGORIES (shop-products.ts,
+   the backend's apps/catalog/services.py CATEGORIES, which the shop's ?category= filter accepts); "" is the whole catalog. */
+export type DiscoverCard = { key: string; value: string; title: string; text: string; image: string };
+export const DISCOVER_CARDS: readonly DiscoverCard[] = [
+  { key: "barley", value: "barley", title: "Barley essentials", text: "Plant-based wellness for your daily routine.", image: "img/dash-category-barley-essentials.webp" },
+  { key: "wellness", value: "essentials", title: "Daily wellness", text: "Explore products for your everyday wellness routine.", image: "img/dash-category-daily-wellness.webp" },
+  { key: "coffee", value: "drinks", title: "Coffee & beverages", text: "Discover drinks for your daily routine.", image: "img/dash-category-coffee-beverages.webp" },
+  { key: "range", value: "", title: "Explore the range", text: "Browse the Santé product collection.", image: "img/dash-category-explore-range.webp" },
+];
+export const discoverHref = (c: DiscoverCard): string => (c.value ? `/products/?category=${c.value}` : "/products/");
+/** Only a category the shop really has gets a card: never a dead link. */
+const realCard = (c: DiscoverCard): boolean => c.value === "" || CATEGORIES.some((k) => k.value === c.value);
 
-export function productTile(p: CatalogProduct): Markup {
-  const image = safeImage(p.image_url);
-  const href = `/products/${p.code}/`;
-  return html`<article class="mh-prod" data-mh-product="${p.code}">
-    <a class="mh-prod-img" href="${href}" tabindex="-1" aria-hidden="true">${image ? html`<img src="${image}" alt="" loading="lazy">` : PRODUCT_PLACEHOLDER}</a>
-    <div class="mh-prod-body">
-      <h3><a href="${href}">${p.name}</a></h3>
-      ${p.short_description ? html`<p class="mh-prod-desc">${cut(p.short_description, 90)}</p>` : ""}
-      <a class="mh-link mh-prod-go" href="${href}">Explore<span class="sr-only"> ${p.name}</span> &rarr;</a>
+export function categoryCard(c: DiscoverCard): Markup {
+  const href = discoverHref(c);
+  return html`<article class="mh-cat" data-mh-category="${c.key}">
+    <a class="mh-cat-img" href="${href}" tabindex="-1" aria-hidden="true"><img src="${asset(c.image)}" alt="" width="800" height="534" loading="lazy" decoding="async"></a>
+    <div class="mh-cat-body">
+      <h3><a href="${href}">${c.title}</a></h3>
+      <p class="mh-cat-desc">${c.text}</p>
+      <a class="mh-link mh-cat-go" href="${href}">Explore<span class="sr-only"> ${c.title}</span> &rarr;</a>
     </div>
   </article>`;
 }
 
-export function exploreSection(products: CatalogProduct[] | null, appUrl: AppLinkInput): Markup {
-  const shown = (products ?? []).slice(0, HOME_PRODUCTS_MAX);
-  const guidance = html`<div class="mh-sect-sub"><p>${ORDERING_LINE}${hasAppLink(appUrl) ? "" : ` ${NO_APP_LINK_LINE}`}</p>${hasAppLink(appUrl) ? html`<span class="mh-app-btns">${appButtons(appUrl, "mh-btn mh-btn-sm")}</span>` : ""}</div>`;
+export function exploreSection(): Markup {
   return html`<section class="mh-sect" id="mh-explore" aria-labelledby="mh-explore-h">
   <div class="mh-sect-head"><h2 id="mh-explore-h">Discover more from Sant&eacute;</h2><a class="mh-link mh-all" href="/products/">View all products &rarr;</a></div>
-  ${guidance}
-  ${shown.length ? html`<div class="mh-prods" data-count="${shown.length}">${shown.map(productTile)}</div>` : html`<div class="mh-card mh-empty" data-mh-empty="products">
-    <p>${products === null ? "We can't show products right now." : "No products are listed here yet."} Members order in the Sant&eacute; Mobile App.</p></div>`}
+  <div class="mh-cats">${DISCOVER_CARDS.filter(realCard).map(categoryCard)}</div>
 </section>`;
 }
 
 /* ---- guidance, support, earning ----------------------------------------------------------------------------- */
 
-function tile(icon: string, title: string, text: string, href: string, action: string, key: string): Markup {
-  return html`<div class="mh-tile" data-mh-guide="${key}"><span class="mh-tile-ic" aria-hidden="true">${ICON(icon, 28)}</span><div class="mh-tile-tx"><h3>${title}</h3><p>${text}</p></div><a class="mh-link mh-tile-go" href="${href}">${action} &rarr;</a></div>`;
+function tile(icon: string, title: string, text: string, href: string, action: string, key: string, extra: Markup = html``): Markup {
+  return html`<div class="mh-tile" data-mh-guide="${key}"><span class="mh-tile-ic" aria-hidden="true">${ICON(icon, 28)}</span><div class="mh-tile-tx"><h3>${title}</h3><p>${text}</p>${extra}</div><a class="mh-link mh-tile-go" href="${href}">${action} &rarr;</a></div>`;
 }
 
-export function guidanceRow(): Markup {
+/** The app-guidance tile carries the ordering line and the App Store / Google Play buttons (moved here from the discovery heading). */
+export function guidanceRow(appUrl: AppLinkInput): Markup {
+  const linked = hasAppLink(appUrl);
+  const app = html`<p class="mh-tile-order">${ORDERING_LINE}${linked ? "" : ` ${NO_APP_LINK_LINE}`}</p>${linked ? html`<span class="mh-app-btns">${appButtons(appUrl, "mh-btn mh-btn-sm")}</span>` : ""}`;
   return html`<section class="mh-guides" aria-label="Guides">
-  ${tile(I.phone, "Make the most of your membership", "Learn how to order in the Santé Mobile App.", GUIDE_START_HREF, "Start here", "app")}
+  ${tile(I.phone, "Make the most of your membership", "Learn how to order in the Santé Mobile App.", GUIDE_START_HREF, "Start here", "app", app)}
   ${tile(I.play, "Your product guide", "Simple preparation and storage guides.", GUIDE_PRODUCT_HREF, "View guides", "products")}
 </section>`;
 }
@@ -376,7 +381,7 @@ export function homeBody(i: HomeInput): Markup {
   return html`<header class="mh-welcome">${DECO}<h1>${welcomeText(i.first_name)}</h1><p>Your membership, products and order updates in one place.</p></header>
 <div class="mh-top">${a}${b}</div>
 ${i.notices}
-${exploreSection(i.products, i.app_url)}
-${guidanceRow()}
+${exploreSection()}
+${guidanceRow(i.app_url)}
 ${supportStrip()}`;
 }

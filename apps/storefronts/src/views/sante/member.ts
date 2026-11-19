@@ -263,7 +263,7 @@ ${(args.styles ?? []).map((s) => html`<link rel="stylesheet" href="${asset(s)}">
 ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
 <body>
-<div class="e4"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
+<div class="e4${signedIn && args.current === "home" ? " e4-home" : ""}"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
 ${bar(v, args.member, args.current)}
 <script src="${asset("js/pack-nav-toggle.js")}"></script>
 ${signedIn ? html`<div class="shell"><main class="main">${args.content}</main></div>` : html`<main class="wrap">${args.content}</main>`}

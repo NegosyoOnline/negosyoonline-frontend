@@ -29,15 +29,22 @@ export const TEXT_ME_ENABLED = false;
 
 /* The dashboard menu. `built: false` hides a section until its page exists (no dead link): the later slice
    flips it. The order is TWCinc's (dashboard.py SECTIONS). */
-export type Section = { key: string; label: string; path: string; built: boolean; menu: boolean };
+export type Section = { key: string; label: string; path: string; built: boolean; menu: boolean; earn?: boolean };
+export const EARN_LABEL = "Earn with Santé";
+export const MEMBERSHIP_PATH = "/dashboard/membership/";
+export const HELP_PATH = "/dashboard/help/";
 export const SECTIONS: readonly Section[] = [
-  { key: "home", label: "Dashboard", path: "/dashboard/", built: true, menu: true },
-  { key: "training", label: "Training", path: "/dashboard/training/", built: true, menu: true },
-  { key: "media", label: "Media Library", path: "/dashboard/media/", built: true, menu: true },
-  { key: "affiliate", label: "Affiliate Hub", path: "/dashboard/affiliate/", built: true, menu: true },
-  { key: "orders", label: "Orders", path: "/dashboard/orders/", built: true, menu: true },
-  /* In the name dropdown, not in the bar: */
-  { key: "purchases", label: "My Purchases", path: PURCHASES_PATH, built: true, menu: false },
+  { key: "home", label: "Home", path: "/dashboard/", built: true, menu: true },
+  { key: "products", label: "Explore Products", path: "/products/", built: true, menu: true },
+  { key: "purchases", label: "My Purchases", path: PURCHASES_PATH, built: true, menu: true },
+  { key: "membership", label: "My Membership", path: MEMBERSHIP_PATH, built: true, menu: true },
+  { key: "help", label: "Help", path: HELP_PATH, built: true, menu: true },
+  /* The "Earn with Santé" menu (existing routes, permissions unchanged): */
+  { key: "training", label: "Training", path: "/dashboard/training/", built: true, menu: false, earn: true },
+  { key: "media", label: "Media Library", path: "/dashboard/media/", built: true, menu: false, earn: true },
+  { key: "affiliate", label: "Affiliate Hub", path: "/dashboard/affiliate/", built: true, menu: false, earn: true },
+  /* In the name dropdown, not in the bar. The Orders log is the member's own notebook of Santé app orders, not the package tracker: */
+  { key: "orders", label: "Santé App Order Log", path: "/dashboard/orders/", built: true, menu: false },
   { key: "account", label: "Account Settings", path: "/dashboard/account/", built: true, menu: false },
   { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false, menu: false },
 ];
@@ -159,9 +166,9 @@ function userMenu(name: string): Markup {
       <div class="pdn-pop pdn-user-pop" data-pdn-user-pop hidden>
         <div class="pdn-pop-profile"><span class="pdn-avatar pdn-avatar-lg" aria-hidden="true">${initials(name)}</span><strong>${name}</strong></div>
         <div class="pdn-dd-list">
-          ${link(PURCHASES_PATH, "My Purchases", '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>')}
+          ${link("/dashboard/orders/", "Santé App Order Log", '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>')}
           ${link("/dashboard/account/", "Account Settings", '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')}
-          ${link(HELP_CENTER_PATH, "Help Center", '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5"/><path d="M12 17.5h.01"/>')}
+          ${link(HELP_PATH, "Help Center", '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5"/><path d="M12 17.5h.01"/>')}
         </div>
         <div class="pdn-dd-display">
           <div class="pdn-dd-title">Display Options</div>
@@ -171,6 +178,16 @@ function userMenu(name: string): Markup {
         <form method="post" action="/dashboard/sign-out/" class="pdn-dd-out"><button type="submit" class="pdn-dd-logout">${safe(`<svg ${STROKE}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>`)}Logout</button></form>
       </div>
     </div>`;
+}
+
+/* The "Earn with Santé" menu: Training, Media Library and Affiliate Hub. The button is drawn by pack-member-bar.js (data-pdn-earn). */
+function earnMenu(current: string): Markup {
+  const items = SECTIONS.filter((s) => s.built && s.earn);
+  const here = items.some((s) => s.key === current);
+  return html`<li class="pdn-earn" data-pdn-earn>
+      <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-haspopup="true" aria-expanded="false" data-pdn-earn-btn>${EARN_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
+      <ul class="pdn-pop pdn-earn-pop" data-pdn-earn-pop hidden>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
+    </li>`;
 }
 
 function bar(v: Chrome, member: string | null, current: string): Markup {
@@ -199,6 +216,7 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     ${signedIn ? html`
     <ul class="pdn-links" id="pdnLinks">${SECTIONS.filter((s) => s.built && s.menu).map((s) => html`
       <li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}
+      ${earnMenu(current)}
     </ul>
     <div class="pdn-actions">
       ${bell()}
@@ -236,6 +254,7 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-reviews.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
 <link rel="stylesheet" href="${asset("css/pack-member-bar.css")}">
+<link rel="stylesheet" href="${asset("css/pack-member-home.css")}">
 ${(args.styles ?? []).map((s) => html`<link rel="stylesheet" href="${asset(s)}">`)}
 ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
@@ -369,19 +388,10 @@ export function signInDocument(v: Chrome, m: SignInModel): Markup {
 
 /* ---- the dashboard home ------------------------------------------------------------------------ */
 
-/** The Home: the hero, then `body` (the notices panel and the slots M3 fills). The member's order figures are gone: members order in the app. */
+/** The Home: the customer-first sections in `body` (src/views/sante/member-home.ts). There is no hero: the welcome line is the first thing in `body`. */
 export function homeDocument(v: Chrome, memberName: string, body: Markup = html``, scripts: string[] = []): Markup {
-  const content = html`<div class="pd" id="pp-dash-home">
-<div class="acct-hero">
-  <div class="acct-hero-id">
-    <span class="acct-hero-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-    <div class="acct-hero-idtext">
-      <h1>Dashboard</h1>
-      <div class="acct-hero-sub"><span>Signed in as <strong>${memberName}</strong></span></div>
-    </div>
-  </div>
-</div>
+  const content = html`<div class="pd mh" id="pp-dash-home">
 ${body}
 </div>`;
-  return memberDocument(v, { title: "Dashboard", member: memberName, current: "home", content, scripts });
+  return memberDocument(v, { title: "Home", member: memberName, current: "home", content, scripts: ["js/pack-member-home.js", ...scripts] });
 }

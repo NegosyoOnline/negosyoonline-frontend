@@ -12,6 +12,20 @@
 
   function ready(fn) { if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", fn); } else { fn(); } }
 
+  /* The "Earn with Santé" menu: the button opens the list; Esc closes it and returns focus to the button; a click elsewhere closes it. */
+  ready(function () {
+    var earn = document.querySelector("[data-pdn-earn]");
+    if (!earn) { return; }
+    var btn = earn.querySelector("[data-pdn-earn-btn]"), pop = earn.querySelector("[data-pdn-earn-pop]");
+    function set(open) { pop.hidden = !open; btn.setAttribute("aria-expanded", open ? "true" : "false"); }
+    btn.addEventListener("click", function () { set(pop.hidden); });
+    document.addEventListener("click", function (e) { if (!pop.hidden && !earn.contains(e.target)) { set(false); } }, true);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !pop.hidden) { set(false); btn.focus(); }
+    });
+    earn.addEventListener("focusout", function (e) { if (!pop.hidden && e.relatedTarget && !earn.contains(e.relatedTarget)) { set(false); } });
+  });
+
   ready(function () {
     var user = document.querySelector("[data-pdn-user]");
     var bell = document.querySelector("[data-pdn-bell]");

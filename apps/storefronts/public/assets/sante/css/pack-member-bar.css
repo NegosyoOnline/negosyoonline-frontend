@@ -450,6 +450,7 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
 @media (max-width: 1024px) {
   .mfoot-inner { padding: 16px 16px; }
   .mfoot-contact { display: none; }
+  .mfoot-links li:first-child.mfoot-contact + li::before { content: none; }
   .e4-home .mfoot-inner { padding-inline: 16px; }
 }
 @media (min-width: 1025px) { .mfoot-links { margin-block: 0; } }

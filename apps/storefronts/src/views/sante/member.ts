@@ -146,23 +146,23 @@ const CHEV = safe(`<svg class="pdn-chev" ${STROKE}><path d="m9 6 6 6-6 6"/></svg
 
 /* ---- the light compact footer of the signed-in member pages (corrections 2, 2026-11-19) ------------------------------------------------ */
 
-/* The policy routes the public footer already links. A policy the site lists keeps the site's own path; the two routes always exist. */
+/* A policy is linked only when the site lists it (v.policy_links), at the path the site gives: the same rule as the public footer. Never a guessed route. */
 export const PRIVACY_FOOTER_PATH = "/privacy-policy/";
 export const TERMS_FOOTER_PATH = "/terms-and-conditions/";
 export const WELLNESS_DISCLAIMER = "Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.";
 
 function memberFooter(v: Chrome): Markup {
   const b = v.biz;
-  const privacy = v.policy_links.find((l) => l.path === PRIVACY_FOOTER_PATH)?.path ?? PRIVACY_FOOTER_PATH;
-  const terms = v.policy_links.find((l) => l.path === TERMS_FOOTER_PATH)?.path ?? TERMS_FOOTER_PATH;
+  const privacy = v.policy_links.find((l) => l.path === PRIVACY_FOOTER_PATH)?.path ?? "";
+  const terms = v.policy_links.find((l) => l.path === TERMS_FOOTER_PATH)?.path ?? "";
   const business = [b.registered_name ? `Registered business: ${b.registered_name}` : "", b.dti_business_number ? `DTI registration no. ${b.dti_business_number}` : ""].filter(Boolean).join(" · ");
   return html`<footer class="mfoot" data-mfoot>
   <div class="mfoot-inner">
     <div class="mfoot-row">
       <p class="mfoot-copy">&#169; ${v.year} ${v.store_name}. All rights reserved.</p>
       <ul class="mfoot-links" aria-label="Legal and contact">
-        <li><a href="${privacy}">Privacy Policy</a></li>
-        <li><a href="${terms}">Terms</a></li>
+        ${privacy ? html`<li><a href="${privacy}">Privacy Policy</a></li>` : ""}
+        ${terms ? html`<li><a href="${terms}">Terms</a></li>` : ""}
         <li class="mfoot-contact"><a href="${HELP_PATH}#contact">Contact</a></li>
         ${cookieSettingsItem(v.cookie_settings)}
       </ul>

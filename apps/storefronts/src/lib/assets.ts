@@ -20,7 +20,7 @@ const VERSIONS: Record<string, string> = {
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "bbc3d1a0", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
-  "css/pack-member-bar.css": "42c7450b", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "css/pack-member-bar.css": "18c0c815", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
   "js/pack-member-bar.js": "b213a855", // this storefront's own file: the member bar's dropdowns (user, bell, Earn with Santé), theme switch and bell (loaded in the head)
   "css/pack-member-home.css": "2dad74b8", // this storefront's own file: the Home (v3 redesign), My Membership, Help, the My Purchases list and the More menu
   "js/pack-member-home.js": "fcaf50cc", // this storefront's own file: the Home's Copy button for the tracking number

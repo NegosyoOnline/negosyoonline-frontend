@@ -682,7 +682,8 @@ test("the footer: the real store name, the current year, Privacy Policy, Terms, 
   const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
   const { html } = await import("../src/lib/html.ts");
   const doc = (site: typeof SITE, now: Date) => memberDocument(chrome(site, now), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
-  const page = doc({ ...SITE, display_name: "Nena's Wellness & Barley" }, new Date("2027-03-02T00:00:00Z"));
+  const both = [{ label: "Privacy Policy", path: "/privacy-policy/" }, { label: "Terms and Conditions", path: "/terms-and-conditions/" }];
+  const page = doc({ ...SITE, display_name: "Nena's Wellness & Barley", policy_links: both }, new Date("2027-03-02T00:00:00Z"));
   const foot = page.slice(page.indexOf("<footer"), page.indexOf("</footer>"));
   assert.match(foot, /&#169; 2027 Nena(?:'|&#x27;)s Wellness &amp; Barley\. All rights reserved\./);
   assert.match(foot, /<a href="\/privacy-policy\/">Privacy Policy<\/a>/);
@@ -691,9 +692,19 @@ test("the footer: the real store name, the current year, Privacy Policy, Terms, 
   assert.match(foot, /<p class="mfoot-disclaimer">Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\.<\/p>/);
   assert.doesNotMatch(foot, /Demo Store|Ana(?:'|&#x27;)s Store/);
   assert.match(doc(SITE, new Date("2026-11-19T00:00:00Z")), /&#169; 2026 Demo Store\./); // the configured name, whatever it is
-  // a site that lists its own policy paths keeps them
-  const own = doc({ ...SITE, policy_links: [{ label: "Privacy", path: "/privacy-policy/" }] }, new Date("2026-11-19T00:00:00Z"));
-  assert.match(own, /href="\/privacy-policy\/">Privacy Policy/);
+  // a policy is linked only when the site lists it; nothing is guessed
+  const footOf = (links: { label: string; path: string }[]) => { const p = doc({ ...SITE, policy_links: links }, new Date("2026-11-19T00:00:00Z")); return p.slice(p.indexOf("<footer"), p.indexOf("</footer>")); };
+  const neither = footOf([]);
+  assert.doesNotMatch(neither, /privacy-policy|terms-and-conditions|Privacy Policy|>Terms</);
+  assert.match(neither, /<ul class="mfoot-links"[^>]*>\s*<li class="mfoot-contact"><a href="\/dashboard\/help\/#contact">Contact<\/a><\/li>/); // just Contact, no stray separator item
+  const onlyPrivacy = footOf([both[0]]);
+  assert.match(onlyPrivacy, /href="\/privacy-policy\/">Privacy Policy/);
+  assert.doesNotMatch(onlyPrivacy, /terms-and-conditions|>Terms</);
+  const onlyTerms = footOf([both[1]]);
+  assert.match(onlyTerms, /href="\/terms-and-conditions\/">Terms/);
+  assert.doesNotMatch(onlyTerms, /privacy-policy|Privacy Policy/);
+  const listed = footOf(both);
+  assert.match(listed, /href="\/privacy-policy\/">Privacy Policy[^]*href="\/terms-and-conditions\/">Terms/);
   const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
   assert.match(css, /\.mfoot \{[^}]*border-top: 1px solid var\(--line\)/);
   assert.match(css, /\.e4-home \.mfoot-inner \{ max-width: 1240px; padding-inline: 24px; \}/); // the Home's shared container

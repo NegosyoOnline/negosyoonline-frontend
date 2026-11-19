@@ -48,7 +48,7 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, locSearch = "", clock = null, EventSource = null } = {}) {
+function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
@@ -57,7 +57,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   for (const id of ["ib-root", "ib-live", "ibs-root", "ibs-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : []);
-  const s = { listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
+  const s = { cmStatus, listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
     channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null,
     messenger: messenger === null ? null : { ...messenger }, pages, pagesAnswer: null, connectAnswer: null, deleteAnswer: null };
   const fetch = (url, opts) => {
@@ -68,6 +68,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     if (opts.method === "GET" && p === "/sites/") a = { status: 200, body: { items: [{ id: A, template: "sante" }], next_cursor: null } };
     else if (s.off) a = err(404, "not_found", "Not found.");
     else if (p === BASE + "messenger/connection/" && opts.method === "GET") a = s.messenger ? { status: 200, body: s.messenger } : err(404, "not_found", "Not found.");
+    else if (p === BASE + "comments/status/" && opts.method === "GET") a = s.cmStatus ? { status: 200, body: s.cmStatus } : err(404, "not_found", "Not found.");
     else if (p === BASE + "messenger/pages/" && opts.method === "GET") a = s.pagesAnswer || (s.pages ? { status: 200, body: { items: s.pages } } : { status: 410, body: { error: { code: "pick_expired", message: "Gone." } } });
     else if (p === BASE + "messenger/connect/" && opts.method === "POST") a = s.connectAnswer || { status: 200, body: { status: "active", page_id: body.page_id, page_name: (s.pages.find((x) => x.id === body.page_id) || {}).name, connected_at: iso(0), pick_pending: false } };
     else if (p === BASE + "messenger/connection/" && opts.method === "DELETE") a = s.deleteAnswer || { status: 204, body: {} };
@@ -786,9 +787,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261118cm20/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261117fm2/);
-  assert.match(HTML, /inbox\.css\?v=20261118cm20/);
+  assert.match(HTML, /inbox\.js\?v=20261118cm21/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261118cm22/);
+  assert.match(HTML, /inbox\.css\?v=20261118cm21/);
   assert.match(HTML, /inbox-comments\.js\?v=20261118cm20/);
 });
 
@@ -888,6 +889,47 @@ test("messenger invalid: Reconnect goes to start/; ?messenger=error&code shows o
     assert.equal(e.text("ibs-m-err"), e.window.NOInboxSettings.util.msgErrText(code));
     assert.ok(e.$("ibs-m-connect"));
   }
+});
+
+const CM_NOT_READY = { enabled: true, connected: true, page_name: "Santé Beauty", ready: false, reason: "permission_missing" };
+
+test("connect opens start/?comments=1 while comments are on, plain start/ when the comments API is 404", async () => {
+  const on = boot({ channels: CH_OFF, messenger: { ...M_ACTIVE, status: "invalid" }, cmStatus: { ...CM_NOT_READY, reason: "reconnect" } });
+  await on.openSettings();
+  await on.click(on.$("ibs-m-connect"));
+  assert.equal(on.where.href, "http://api.test/v1" + MBASE + "start/?comments=1");
+  const un = boot({ channels: CH_OFF, messenger: M_UNSET, cmStatus: { enabled: true, connected: false, page_name: "", ready: false, reason: "not_connected" } });
+  await un.openSettings();
+  await un.click(un.$("ibs-m-connect"));
+  assert.equal(un.where.href, "http://api.test/v1" + MBASE + "start/?comments=1");
+  const off = boot({ channels: CH_OFF, messenger: M_UNSET });
+  await off.openSettings();
+  await off.click(off.$("ibs-m-connect"));
+  assert.equal(off.where.href, "http://api.test/v1" + MBASE + "start/");
+});
+
+test("connected with permission_missing: Settings offers the same reconnect; ready or no comments API offers none", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_ACTIVE, cmStatus: CM_NOT_READY });
+  await d.openSettings();
+  assert.match(d.text("ibs-m-cm-hint"), /Turn on comments for your Page to reply\./);
+  await d.click(d.$("ibs-m-cm-connect"));
+  assert.equal(d.where.href, "http://api.test/v1" + MBASE + "start/?comments=1");
+  const ready = boot({ channels: CH_OFF, messenger: M_ACTIVE, cmStatus: { ...CM_NOT_READY, ready: true, reason: "" } });
+  await ready.openSettings();
+  assert.equal(ready.$("ibs-m-cm-connect"), null);
+  const none = boot({ channels: CH_OFF, messenger: M_ACTIVE });
+  await none.openSettings();
+  assert.equal(none.$("ibs-m-cm-connect"), null);
+});
+
+test("connected with permission_missing: Reconnect and Disconnect share one action row, hint above it", async () => {
+  const d = boot({ channels: CH_OFF, messenger: M_ACTIVE, cmStatus: CM_NOT_READY });
+  await d.openSettings();
+  const row = d.$("ibs-m-cm-connect").parentNode;
+  assert.ok(row.classList.contains("mk-pause"));
+  assert.equal(d.$("ibs-m-disconnect").parentNode, row);
+  assert.equal(row.parentNode.children[row.parentNode.children.indexOf(row) - 1], d.$("ibs-m-cm-hint"));
+  assert.match(fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8"), /:is\(\.pm-hint, \.pm-lead, \.pm-field\) \+ \.mk-pause \{ margin-top: 12px/);
 });
 
 test("messenger: no token is ever in the script", () => {
@@ -1453,7 +1495,7 @@ test("U2: Messenger bubbles say Sent, Delivered or Seen (Seen on the latest seen
   const d = boot({ listing: mList(), reading: mThread(msgs), channels: CHANNELS_ON });
   await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
   const chips = d.all(d.$("ib-threadpane"), "ib-long").map((c) => c.textContent);
-  assert.deepEqual(chips, ["Seen", "Delivered", "Sent", "Failed: The email could not be sent. Please try again shortly."], "the older seen bubble shows nothing");
+  assert.deepEqual(chips, ["Seen", "Delivered", "Sent", "Failed: Facebook did not answer. Try again."], "the older seen bubble shows nothing");
   const seen = boot({ listing: mList(), reading: mThread([out("o1", "seen", 50), out("o2", "seen", 40)]), channels: CHANNELS_ON });
   await seen.openInbox(); await seen.click(seen.all(seen.$("ib-list"), "ib-item")[0]);
   assert.deepEqual(seen.all(seen.$("ib-threadpane"), "ib-long").map((c) => c.textContent), ["Seen"]);
@@ -1463,6 +1505,23 @@ test("U2: Messenger bubbles say Sent, Delivered or Seen (Seen on the latest seen
   assert.equal(u.chipFor("webchat", out("x", "sent", 1))[1], "Delivered to chat when the visitor is online");
   assert.equal(u.chipFor("email", out("x", "sent", 1))[1], "Sent to the mail server");
   assert.equal(u.chipFor("webchat", out("x", "seen", 1)), null);
+});
+
+test("failTextOf is channel aware: Messenger and comment codes never fall back to the email wording", async () => {
+  const d = boot({ channels: CH_OFF });
+  const f = d.window.NOInbox.util.failTextOf;
+  /* email and chat keep their texts */
+  assert.equal(f("email_failed", "email"), "The email could not be sent. Please try again shortly.");
+  assert.equal(f("rate_limited", "webchat"), "Too many emails have been sent from this store. Please wait and try again.");
+  assert.equal(f("nonsense"), "The email could not be sent. Please try again shortly.");
+  /* Messenger */
+  assert.equal(f("window_closed", "messenger"), "You can reply within 24 hours of the customer's last message.");
+  for (const c of ["token_invalid", "invalid_credentials", "expired_credentials"]) assert.equal(f(c, "messenger"), "Reconnect your Facebook Page in Settings > Inbox.");
+  assert.equal(f("not_configured", "messenger"), "Connect your Facebook Page to reply.");
+  assert.equal(f("forbidden_page", "messenger"), "Messenger needs all the permissions it asks for. Please connect again and allow them.");
+  for (const c of ["rate_limited", "blocked_rate"]) assert.equal(f(c, "messenger"), "Facebook is limiting replies right now. Try again in a few minutes.");
+  for (const c of ["provider_down", "bad_response", "not_found", "", "unknown_code"]) assert.equal(f(c, "messenger"), "Facebook did not answer. Try again.");
+  for (const c of ["email_failed", "sender_not_ready", "no_recipient"]) assert.ok(!/email/i.test(f(c, "messenger")), c);
 });
 
 test("U3: with under 2 hours left the thread says until when; more time says nothing; a closed window locks the box", async () => {

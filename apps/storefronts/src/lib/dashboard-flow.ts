@@ -19,6 +19,7 @@ import {
 } from "./pack-api.ts";
 import { memberNotices } from "./notices-api.ts";
 import { fetchCatalog } from "./shop-api.ts";
+import { memberCourses, memberLive } from "./training-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
@@ -90,13 +91,16 @@ export async function homePage(d: Dash): Promise<Response> {
   if (p.state === "unavailable") return neutralNotFound();
   if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
   // Every other read is independent: the order update is critical (a failure is said plainly), the rest only hide their own section.
-  const [o, n, catalog, agreement] = await Promise.all([
+  const [o, n, catalog, agreement, live, courses] = await Promise.all([
     memberOrders(args(d), d.calls),
     memberNotices({ host: d.call.host, token: d.call.member_token }, d.calls),
     fetchCatalog(d.call.host, d.calls),
     fetchPack(d.call.host, d.calls.env, d.calls.fetchImpl, d.calls.log),
+    memberLive(args(d), d.calls),
+    memberCourses(args(d), d.calls),
   ]);
-  if ((o.state === "refused" && o.status === 401) || (n.state === "refused" && n.status === 401)) return signedOut(d);
+  const dead = (r: { state: string; status?: number }) => r.state === "refused" && r.status === 401;
+  if (dead(o) || dead(n) || dead(live) || dead(courses)) return signedOut(d);
   const cards = o.state === "ok" ? o.cards : [];
   const input: HomeInput = {
     first_name: s.member.full_name.trim().split(/\s+/)[0] ?? "",
@@ -107,6 +111,8 @@ export async function homePage(d: Dash): Promise<Response> {
     products: catalog,
     notices: n.state === "ok" ? noticesPanel(n.notices) : html``,
     contacts: contactsOf(d),
+    live: live.state === "ok" ? live.live : null,
+    resume: courses.state === "ok" ? courses.resume : null,
   };
   return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, homeBody(input)));
 }

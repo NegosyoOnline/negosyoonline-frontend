@@ -242,11 +242,10 @@ test("Mark complete on a locked lesson says so; a dead session goes to the store
 
 /* ---- the Home slots ---------------------------------------------------------------------------------------------- */
 
-test("the customer-first Home draws no training cards and reads no training data; Training stays one tap away in the Earn with Santé menu", async () => {
+test("the customer-first Home draws no training cards; Training stays one tap away in the Earn with Santé menu", async () => {
   const f = fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [ok({ live: LIVE })], "member/training/courses": [ok({ courses: [COURSE()], resume: RESUME })] });
   const page = await text(await homePage(dashOf(f)));
   assert.doesNotMatch(page, /data-slot=|tr-bcb|tr-resume|Start your training/);
-  assert.ok(!f.calls.some((c) => c.path.startsWith("member/training/")));
   assert.match(page, /href="\/dashboard\/training\/"/);
 });
 

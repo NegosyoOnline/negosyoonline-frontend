@@ -57,8 +57,9 @@ const PRODUCT = (n: number, over: Record<string, unknown> = {}) => ({
 });
 const FREE = ok({ pack: null, registration: null });
 
-type Opts = { cards?: Reply; notices?: Reply; catalog?: Reply; pack?: Reply; agreement?: Reply };
+type Opts = { cards?: Reply; notices?: Reply; catalog?: Reply; pack?: Reply; agreement?: Reply; live?: Reply; courses?: Reply };
 const replies = (o: Opts = {}) => ({
+  ...(o.live ? { "member/training/live": [o.live] } : {}), ...(o.courses ? { "member/training/courses": [o.courses] } : {}),
   "member/me": [ME], "member/pack": [o.pack ?? FREE], "member/orders": [o.cards ?? ok({ cards: [] })], "member/notices": [o.notices ?? NOTICES],
   "catalog/products": [o.catalog ?? ok({ products: [] })], pack: [o.agreement ?? PACK_AGREEMENT],
 });
@@ -314,6 +315,35 @@ test("the approved membership statements are quoted unchanged, with no invented 
   assert.match(body, /Lifetime Membership/);
   assert.match(body, /No renewal fees\. No monthly quotas\. No maintenance purchases\./);
   assert.doesNotMatch(body, /\d+\s*%/);
+});
+
+const LIVE = { id: "liv_1", title: "Weekly <Q&A>", starts_at: "2026-11-20T11:00:00Z", duration_minutes: 90, description: "", join_url: "https://meet.example.test/room", thumbnail_url: "" };
+const COURSE = { id: "crs_1", slug: "app", title: "How to use the <App>", description: "", image_url: "", order: 1, coming_soon: false, completed_lessons: 1, total_lessons: 4, percent: 25, module_count: 2 };
+const RESUME = { course: { id: "crs_1", title: "How to use the <App>" }, id: "lsn_2", title: "Place an order" };
+const earnPart = (page: string) => page.slice(page.indexOf('id="mh-earn"'));
+
+test("section F carries one compact line for a scheduled live training and one for a course in progress, only when the data exists", async () => {
+  const both = await home({ cards: cardsOf(card()), live: ok({ live: LIVE }), courses: ok({ courses: [COURSE], resume: RESUME }) });
+  const tail = earnPart(both);
+  assert.match(tail, /data-mh-earn="live"[^>]*><a class="mh-link" href="\/dashboard\/training\/">Next live training: Weekly &lt;Q&amp;A&gt; &middot; [^<]*Nov 20, 2026/);
+  assert.match(tail, /data-mh-earn="course"[^>]*><a class="mh-link" href="\/dashboard\/training\/crs_1\/">Continue your course: How to use the &lt;App&gt;<\/a>/);
+  // lowest on the page: after the order card, the products and the help block
+  assert.ok(both.indexOf('data-mh-earn="live"') > both.indexOf('id="mh-help"') && both.indexOf('id="mh-help"') > both.indexOf('id="mh-order"'));
+  assert.doesNotMatch(both, /tr-bcb|tr-resume|data-slot=/);
+  const liveOnly = await home({ live: ok({ live: LIVE }), courses: ok({ courses: [], resume: null }) });
+  assert.match(liveOnly, /data-mh-earn="live"/);
+  assert.doesNotMatch(liveOnly, /data-mh-earn="course"/);
+  const courseOnly = await home({ live: ok({ live: null }), courses: ok({ courses: [COURSE], resume: RESUME }) });
+  assert.match(courseOnly, /data-mh-earn="course"/);
+  assert.doesNotMatch(courseOnly, /data-mh-earn="live"/);
+});
+
+test("with no live training, no course in progress, or failed training reads, section F renders without any line", async () => {
+  for (const o of [{}, { live: ok({ live: null }), courses: ok({ courses: [COURSE], resume: null }) }, { live: err(500), courses: err(500) }, { live: err(404), courses: err(404) }] as Opts[]) {
+    const body = await home(o);
+    assert.match(body, /Interested in sharing Sant(é|&eacute;)\?/);
+    assert.doesNotMatch(body, /data-mh-earn|mh-earn-lines|Continue your course|Next live training/);
+  }
 });
 
 test("Need help? shows the order, membership and product entries with the store's own contacts, and the Earn invitation is last", async () => {

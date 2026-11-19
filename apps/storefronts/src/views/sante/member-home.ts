@@ -13,6 +13,8 @@ import type { CatalogProduct } from "../../lib/shop-api.ts";
 import { shortDate } from "./pack-orders.ts";
 import { HELP_PATH, MEMBERSHIP_PATH, PURCHASES_PATH } from "./member.ts";
 import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
+import type { Live, Resume } from "../../lib/training-api.ts";
+import { courseHref, liveWhen } from "./training.ts";
 
 export const HOME_PRODUCTS_MAX = 4;
 export const AGREEMENT_PDF_PATH = "/funnel/membership-pack/membership-terms.pdf";
@@ -42,6 +44,9 @@ export type HomeInput = {
   products: CatalogProduct[] | null;
   notices: Markup;
   contacts: Contacts;
+  /** The next scheduled live training and the course in progress, for the one compact line each in section F; null when absent or unreadable. */
+  live?: Live | null;
+  resume?: Resume | null;
 };
 
 /* ---- which order, which state ------------------------------------------------------------------------------ */
@@ -315,9 +320,19 @@ export function helpBlock(ct: Contacts): Markup {
 
 /* ---- F: Earn with Santé ------------------------------------------------------------------------------------- */
 
-export function earnInvite(): Markup {
+/** At most two compact lines, each only when its data exists: the next scheduled live training, and the course in progress. */
+export function earnLines(live: Live | null, resume: Resume | null): Markup {
+  const when = live ? liveWhen(live.starts_at) : "";
+  if (!live && !resume) return html``;
+  return html`<ul class="mh-earn-lines">
+    ${live ? html`<li data-mh-earn="live"><a class="mh-link" href="${TRAINING_ENTRY_PATH}">Next live training: ${live.title}${when ? html` &middot; ${when}` : ""}</a></li>` : ""}
+    ${resume ? html`<li data-mh-earn="course"><a class="mh-link" href="${courseHref(resume.course.id)}">Continue your course: ${resume.course.title}</a></li>` : ""}
+  </ul>`;
+}
+
+export function earnInvite(live: Live | null = null, resume: Resume | null = null): Markup {
   return html`<section class="mh-sect mh-earn" id="mh-earn" aria-labelledby="mh-earn-h">
-  <div class="mh-card mh-card-soft"><h2 id="mh-earn-h">Interested in sharing Sant&eacute;?</h2><p>Explore the business opportunity when you're ready.</p><a class="mh-btn" href="${TRAINING_ENTRY_PATH}">Explore Ways to Earn</a></div>
+  <div class="mh-card mh-card-soft"><h2 id="mh-earn-h">Interested in sharing Sant&eacute;?</h2><p>Explore the business opportunity when you're ready.</p>${earnLines(live, resume)}<a class="mh-btn" href="${TRAINING_ENTRY_PATH}">Explore Ways to Earn</a></div>
 </section>`;
 }
 
@@ -349,5 +364,5 @@ export function homeBody(i: HomeInput): Markup {
 ${i.notices}
 ${returning ? html`${start}${explore}` : html`${explore}${start}`}
 ${helpBlock(i.contacts)}
-${earnInvite()}`;
+${earnInvite(i.live ?? null, i.resume ?? null)}`;
 }

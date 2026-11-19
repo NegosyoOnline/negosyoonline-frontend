@@ -284,16 +284,16 @@ function payPage(pay_methods: { direct: boolean; xendit: boolean } | null | unde
   return homeDoc({ ...homeMdl(PAY_SITE), pay_methods }).value;
 }
 
-const XENDIT_ONLINE_FAQ = "You pay online at checkout on Xendit's secure page, by card (Visa, Mastercard) or e-wallet (GCash, Maya, GrabPay).";
+const XENDIT_ONLINE_FAQ = "You pay online at checkout on Xendit's secure page, by card (Visa, Mastercard, JCB), e-wallet (GCash, Maya, GrabPay, ShopeePay) or QR Ph.";
 function badgesOf(page: string): string[] {
   const row = page.match(/<div class="payment-row">([\s\S]*?)<\/div>/)?.[1] ?? "";
   return [...row.matchAll(/<span class="pay-badge">([^<]*)<\/span>/g)].map((m) => m[1]);
 }
-const FIVE = ["Visa", "Mastercard", "GCash", "Maya", "GrabPay"];
+const XENDIT_LIST = ["Visa", "Mastercard", "JCB", "GCash", "Maya", "GrabPay", "ShopeePay", "QR Ph"];
 
-test("home: direct and Xendit show Bank Transfer plus the five Xendit badges and the bank FAQ", () => {
+test("home: direct and Xendit show Bank Transfer plus the eight Xendit badges and the bank FAQ", () => {
   const page = payPage({ direct: true, xendit: true });
-  assert.deepEqual(badgesOf(page), ["Bank Transfer", ...FIVE]);
+  assert.deepEqual(badgesOf(page), ["Bank Transfer", ...XENDIT_LIST]);
   assert.ok(page.includes(BANK_FAQ));
 });
 
@@ -303,12 +303,12 @@ test("home: direct only shows Bank Transfer and E-wallet, and the bank FAQ", () 
   assert.ok(page.includes(BANK_FAQ));
 });
 
-test("home: Xendit only shows the five badges and the card and e-wallet FAQ", () => {
+test("home: Xendit only shows the eight badges and the card, e-wallet and QR Ph FAQ", () => {
   const page = payPage({ direct: false, xendit: true });
-  assert.deepEqual(badgesOf(page), FIVE);
+  assert.deepEqual(badgesOf(page), XENDIT_LIST);
   assert.ok(page.includes(XENDIT_ONLINE_FAQ));
   assert.ok(!page.includes(BANK_FAQ));
-  assert.equal(XENDIT_BADGES.join(","), FIVE.join(","));
+  assert.equal(XENDIT_BADGES.join(","), XENDIT_LIST.join(","));
 });
 
 test("home: a failed read (null or absent) and both-off show E-wallet only and name no method", () => {

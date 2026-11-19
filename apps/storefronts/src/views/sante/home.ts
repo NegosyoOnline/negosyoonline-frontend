@@ -58,7 +58,7 @@ export function storeNav(v: HomeModel): Markup {
 }
 
 /* The Xendit channels the footer shows as text badges when the site offers online payment. The backend sends no channel list, so this is the one place to edit. */
-export const XENDIT_BADGES: readonly string[] = ["Visa", "Mastercard", "GCash", "Maya", "GrabPay"];
+export const XENDIT_BADGES: readonly string[] = ["Visa", "Mastercard", "JCB", "GCash", "Maya", "GrabPay", "ShopeePay", "QR Ph"];
 
 export function storeFooter(v: HomeModel): Markup {
   return html`
@@ -323,7 +323,7 @@ export function trustBadges(): Markup {
 /** The "What payment methods do you accept?" answer, from the live methods; it names only what is confirmed. */
 export function payFaq(methods: HomeModel["pay_methods"]): Markup {
   if (methods?.direct) return html`We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.`;
-  if (methods?.xendit) return html`You pay online at checkout on Xendit's secure page, by card (Visa, Mastercard) or e-wallet (GCash, Maya, GrabPay).`;
+  if (methods?.xendit) return html`You pay online at checkout on Xendit's secure page, by card (Visa, Mastercard, JCB), e-wallet (GCash, Maya, GrabPay, ShopeePay) or QR Ph.`;
   return html`You choose how to pay at checkout.`;
 }
 

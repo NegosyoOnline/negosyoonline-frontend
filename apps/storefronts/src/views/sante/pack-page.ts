@@ -9,6 +9,7 @@ import { html, type Markup } from "../../lib/html.ts";
 import type { Pack, Site } from "../../lib/django.ts";
 import { cookieSettingsItem } from "../../lib/meta.ts";
 import { chrome, type Chrome } from "./member.ts";
+import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
 
 /** What every pack page reads: the site chrome plus the page's own values (TWCinc's template context). */
 export type PackCtx = Chrome & {
@@ -116,8 +117,11 @@ ${(c.policy_links.length > 0) ? html`
 /** A pack page: base.html. `head`, `afterShell` and `scripts` are its blocks of those names. */
 export function packDocument(
   c: PackCtx,
-  args: { title: string; content: Markup; head?: Markup; afterShell?: Markup; scripts?: string[]; noPolicyPopup?: boolean },
+  args: { title: string; content: Markup; head?: Markup; afterShell?: Markup; scripts?: string[]; noPolicyPopup?: boolean; chat?: boolean },
 ): Markup {
+  /* The website chat widget, on every funnel page (landing, checkout, pay, onboarding, completed). It draws nothing until its first
+     poll says chat is on for this host, so a host with chat off looks the same as before. The policy pages leave it out. */
+  const chatOn = args.chat ?? !args.noPolicyPopup;
   return html`<!doctype html>
 <html lang="en">
 <head>
@@ -135,6 +139,7 @@ export function packDocument(
 <link rel="stylesheet" href="${asset("css/pack-registration.css")}">
 <link rel="stylesheet" href="${asset("css/pack-focus.css")}">
 ${args.head ?? ""}
+${chatOn ? chatWidgetCss() : ""}
 </head>
 <body class="pp-pack">
 <div class="pb pp-shell">
@@ -145,6 +150,7 @@ ${footer(c)}
 ${args.afterShell ?? ""}
 ${args.noPolicyPopup ? "" : policyDialog(c)}
 ${(args.scripts ?? []).map((s) => html`<script src="${asset(s)}"></script>`)}
+${chatOn ? chatWidgetScript(c.store_name) : ""}
 ${c.tracking ?? ""}
 </body>
 </html>

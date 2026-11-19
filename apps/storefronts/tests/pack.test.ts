@@ -158,7 +158,7 @@ test("the landing page, order button off: only the message, no link, no phone ba
 
 test("the landing page never carries an inline script and never a per-order billing word", () => {
   const doc = page(PACK, FILLED);
-  for (const tag of doc.match(/<script\b[^>]*>/g) ?? []) assert.match(tag, /^<script src="\/assets\/sante\/js\/[^"]+\?v=[0-9a-f]{8}">$/);
+  for (const tag of doc.match(/<script\b[^>]*>/g) ?? []) assert.match(tag, /^<script src="\/assets\/sante\/js\/[^"]+\?v=[0-9a-f]{8}"( data-chat-widget data-store="[^"]*")?>$/);
   assert.doesNotMatch(doc, /\son[a-z]+=/i);
   assert.doesNotMatch(doc, /per[- ]order|commission fee|transaction fee/i);
 });

@@ -1309,7 +1309,7 @@
     var name = nameOf(t.display_name || S.selName), now = new Date();
     var channel = channelOf(t.channel ? t : { ref: S.sel });
     var closed = t.status === "closed";
-    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: channel === "email" ? t.contact_email : "", action: statusButton(closed), avatar: typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) }));
+    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: subOf(channel, t), action: statusButton(closed), avatar: typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) }));
     var note = noteFor(channel, t);
     if (note) p.appendChild(note);
     /* messages */
@@ -1347,6 +1347,15 @@
         if (!keep.bottom) msgs.scrollTop = keep.top;
       }
     }
+  }
+  /* The line under the name: an email thread's address; a chat visitor's email and mobile number, as far as they left them (the chat's contact ask). */
+  function subOf(channel, t) {
+    if (channel === "email") return t.contact_email;
+    if (channel !== "webchat") return "";
+    var parts = [];
+    if (typeof t.contact_email === "string" && t.contact_email) parts.push(t.contact_email);
+    if (typeof t.contact_mobile === "string" && t.contact_mobile) parts.push(t.contact_mobile);
+    return parts.join(" \u00B7 ");
   }
   /* The note under a stored thread's head: no email given (chat), or the contact-form address nobody confirmed (email). A note only (P1). */
   function noteFor(channel, t) {

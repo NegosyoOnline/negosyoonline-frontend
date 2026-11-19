@@ -385,8 +385,8 @@ test("the script never builds markup from text and never turns text into a link;
   const code = readFileSync(path.join(ASSETS, "js", "chat-widget.js"), "utf8");
   assert.doesNotMatch(code, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function|createContextualFragment/);
   assert.doesNotMatch(code, /"[^"\n]*(?:placeholder|\(D6\))[^"\n]*"/i); // no tag in any string the page can show
-  assert.doesNotMatch(code, /XMLHttpRequest|api\.negosyo|\/storefront\/v1/); // the browser calls this site's two routes only
-  assert.deepEqual([...code.matchAll(/post\("([^"]+)"/g)].map((m) => m[1]).sort(), ["/chat/poll/", "/chat/send/"]);
+  assert.doesNotMatch(code, /XMLHttpRequest|api\.negosyo|\/storefront\/v1/); // the browser calls this site's three chat routes only
+  assert.deepEqual([...code.matchAll(/post\("([^"]+)"/g)].map((m) => m[1]).sort(), ["/chat/contact/", "/chat/poll/", "/chat/send/"]);
 });
 
 test("the reply-time line is a fixed sentence with no number; the launcher reads Chat with us; the paused text points to the contact form", () => {

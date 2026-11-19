@@ -2,6 +2,7 @@
    (Media Library, Affiliate Hub, Orders) and the My Purchases heading. Plain markup, no script. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { Notice } from "../../lib/notices-api.ts";
+import { appButtons, hasAppLink, type AppLinkInput } from "./app-links.ts";
 import { safeImage } from "./shop-shell.ts";
 
 const manila = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric" });
@@ -48,12 +49,12 @@ export function pageHero(title: string, sub: string): Markup {
 export const APP_ORDERS_LINE = "Your orders are placed and tracked in the Santé Mobile App.";
 
 /** The Santé Mobile App button, only when the link is set. */
-export function appButton(appUrl: string): Markup {
-  return appUrl ? html`<p><a href="${appUrl}" class="btn md-app-btn" rel="noopener" target="_blank">Open the Sant&eacute; Mobile App</a></p>` : html``;
+export function appButton(appUrl: AppLinkInput): Markup {
+  return hasAppLink(appUrl) ? html`<p class="md-app-row">${appButtons(appUrl, "btn md-app-btn")}</p>` : html``;
 }
 
 /** Affiliate Hub: the app line, with the app button when the link is set. No earnings, no referral link. */
-export function appOrdersContent(title: string, appUrl: string): Markup {
+export function appOrdersContent(title: string, appUrl: AppLinkInput): Markup {
   return html`<div class="pd md-plain" data-md-page="app-orders">${pageHero(title, "")}<section class="md-card">
   <p>${APP_ORDERS_LINE}</p>
   ${appButton(appUrl)}

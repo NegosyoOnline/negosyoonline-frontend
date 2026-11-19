@@ -344,8 +344,8 @@ test("dashboard home: signed in shows the hero with the member's name; no cookie
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("cache-control"), "no-store");
     const page = await r.text();
-    assert.match(page, /<h1>Dashboard<\/h1>/);
-    assert.match(page, /Signed in as <strong>Ana Reyes<\/strong>/);
+    assert.match(page, /<h1>Welcome, Ana<\/h1>/);
+    assert.doesNotMatch(page, /Signed in as/);
     assert.match(page, /<form method="post" action="\/dashboard\/sign-out\/" class="pdn-dd-out">/);
     assert.match(page, /href="\/dashboard\/orders\/"/);
     assert.doesNotMatch(page, /Commission|acct-kpi|My Orders/);
@@ -421,18 +421,25 @@ test("the sign-in page keeps TWCinc's wording and its hooks", () => {
 });
 
 test("the menu shows only the built sections, and the footer follows TWCinc's pack footer", () => {
-  assert.deepEqual(SECTIONS.filter((s) => s.built && s.menu).map((s) => s.label), ["Dashboard", "Training", "Media Library", "Affiliate Hub", "Orders"]);
+  assert.deepEqual(SECTIONS.filter((s) => s.built && s.menu).map((s) => s.label), ["Home", "Products", "My Purchases", "Membership", "Help"]);
+  assert.deepEqual(SECTIONS.filter((s) => s.built && s.earn).map((s) => s.label), ["Training", "Media Library", "Affiliate Hub"]);
   assert.equal(nextTarget("account"), "/dashboard/account/");
   assert.equal(nextKey("orders"), "orders");
   assert.equal(nextKey("javascript:x"), "");
   assert.equal(nextKey("__proto__"), "");
   assert.equal(nextTarget("orders"), "/dashboard/orders/");
-  const page = homeDocument(chrome({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } }), "Ana").value;
-  assert.match(page, /<footer class="footer">/);
-  assert.match(page, /Registered business<\/span>Nena Santos Trading/);
-  assert.match(page, /href="mailto:hello@demo-store\.example\.test"/);
-  assert.match(page, /\+63 917 123 4567<\/a>/);
-  assert.match(page, /Products are for general wellness support only\./);
+  const v = chrome({ ...FILLED, business: { ...FILLED.business, contact_mobile: "+639171234567" } });
+  // The signed-out sign-in page keeps TWCinc's pack footer; the signed-in member pages have the light compact footer (corrections 2).
+  const out = signInDocument(v, signInModel()).value;
+  assert.match(out, /<footer class="footer">/);
+  assert.match(out, /Registered business<\/span>Nena Santos Trading/);
+  assert.match(out, /href="mailto:hello@demo-store\.example\.test"/);
+  assert.match(out, /\+63 917 123 4567<\/a>/);
+  assert.match(out, /Products are for general wellness support only\./);
+  const page = homeDocument(v, "Ana").value;
+  assert.doesNotMatch(page, /footer-reg-contact|footer-legal-row/); // not the signed-out pack footer: the desktop footer is the storefront's business-details block (corrections 3)
+  assert.doesNotMatch(page, /class="mfoot"|data-mfoot>/); // corrections 4: no phone/tablet footer
+  assert.match(page, /Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\./);
 });
 
 test("the number typed is read as pack-phone.js reads it", () => {

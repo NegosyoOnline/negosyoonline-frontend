@@ -48,23 +48,30 @@ const home = async (replies: Record<string, Reply[]>, over: Partial<Dash> = {}) 
 
 /* ---- the menu and the name dropdown ---------------------------------------------------------------------------- */
 
-test("the bar lists Dashboard, Training, Media Library, Affiliate Hub and Orders, then the bell and the name; My Orders and the old items are gone", async () => {
+test("the bar lists Home, Products, My Purchases, Membership and Help, then the More menu (Earn with Santé), the bell and the name", async () => {
   const body = await (await home({ "member/me": [ME], "member/pack": [FREE], "member/notices": [ok({ notices: [] })] })).text();
   const nav = body.slice(body.indexOf('id="pdnLinks"'), body.indexOf("</ul>", body.indexOf('id="pdnLinks"')));
   const labels = [...nav.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => `${m[2]} ${m[1]}`);
-  assert.deepEqual(labels, ["Dashboard /dashboard/", "Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/", "Orders /dashboard/orders/"]);
+  assert.deepEqual(labels, ["Home /dashboard/", "Products /products/", "My Purchases /dashboard/purchases/", "Membership /dashboard/membership/", "Help /dashboard/help/",
+    "Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/"]);
+  assert.match(nav, /data-pdn-earn-btn[^>]*>More/);
+  assert.match(nav, /aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn/);
+  assert.doesNotMatch(nav, /pdn-earn-btn[^>]*aria-haspopup|aria-haspopup[^>]*data-pdn-earn-btn/); // a disclosure, not an ARIA menu
+  assert.match(nav, /<ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list"/);
+  assert.doesNotMatch(nav, /Orders|Dashboard<|Buy|Cart/);
   assert.match(nav, /<a href="\/dashboard\/"[^>]*aria-current="page"/);
   assert.ok(body.indexOf("data-pdn-bell-btn") > body.indexOf('id="pdnLinks"') && body.indexOf("data-pdn-user-btn") > body.indexOf("data-pdn-bell-btn"));
-  assert.doesNotMatch(body, /My Orders|class="pdn-who">Juan[^]*class="pdn-out"|<li><a href="\/dashboard\/account\//);
-  assert.match(body, /id="pdnToggle"/); // the mobile drawer button
+  const bar = body.slice(body.indexOf('<nav class="pdn"'), body.indexOf("</nav>"));
+  assert.doesNotMatch(bar, /My Orders|class="pdn-who">Juan[^]*class="pdn-out"|<li><a href="\/dashboard\/account\//);
+  assert.doesNotMatch(body, /pdnToggle|class="pdn-toggle"/); // no hamburger: the bottom navigation replaces it (corrections 2)
 });
 
-test("the name opens a dropdown: My Purchases, Account Settings, Help Center (the store's contact section), Theme and Logout", async () => {
+test("the name opens a dropdown: the Santé App Order Log, Account Settings, Help Center, Theme and Logout", async () => {
   const body = await (await home({ "member/me": [ME], "member/pack": [FREE], "member/notices": [ok({ notices: [] })] })).text();
   const pop = body.slice(body.indexOf("data-pdn-user-pop"), body.indexOf("</nav>"));
-  assert.match(pop, /<a href="\/dashboard\/purchases\/">[^]*?<span>My Purchases<\/span>/);
+  assert.match(pop, /<a href="\/dashboard\/orders\/">[^]*?<span>Sant\S+ App Order Log<\/span>/);
   assert.match(pop, /<a href="\/dashboard\/account\/">[^]*?<span>Account Settings<\/span>/);
-  assert.match(pop, /<a href="\/#contact">[^]*?<span>Help Center<\/span>/);
+  assert.match(pop, /<a href="\/dashboard\/help\/">[^]*?<span>Help Center<\/span>/);
   assert.match(pop, /data-pdn-theme[^>]*>[^]*>Light<\/span>[^]*>Dark<\/span>/);
   assert.match(pop, /<form method="post" action="\/dashboard\/sign-out\/" class="pdn-dd-out"><button type="submit" class="pdn-dd-logout">[^]*Logout<\/button><\/form>/);
   assert.match(body, /<span class="pdn-avatar" aria-hidden="true">JD<\/span><span class="pdn-who">Juan Dela Cruz<\/span>/);
@@ -108,17 +115,16 @@ test("the Home shows the Announcements & promos panel, escaped, with the kind, a
   assert.ok(body.includes(`src="${BLOB}"`));
   assert.doesNotMatch(body, /evil\.test/);
   assert.match(body, /Nov 14, 2026 to Nov 20, 2026/);
-  assert.match(body, /data-slot="next-live-training"/);
-  assert.match(body, /data-slot="pick-up-where-you-left-off"/);
+  // the notices sit below the order card, never above it
+  assert.ok(body.indexOf('id="mh-order"') < body.indexOf('id="md-notices"'));
 });
 
 test("the panel is hidden when there are no notices, or the notices cannot be read; the order figures are gone", async () => {
   for (const notices of [ok({ notices: [] }), err(500), err(404)]) {
     const body = await (await home({ "member/me": [ME], "member/pack": [FREE], "member/notices": [notices] })).text();
     assert.doesNotMatch(body, /md-notices|Announcements/);
-    assert.match(body, /<h1>Dashboard<\/h1>/);
-    assert.match(body, /Signed in as <strong>Juan Dela Cruz<\/strong>/);
-    assert.doesNotMatch(body, /acct-kpi|Total Spent|Order Monitoring|View all orders/);
+    assert.match(body, /<h1>Welcome, Juan<\/h1>/);
+    assert.doesNotMatch(body, /Signed in as|<h1>Dashboard<\/h1>|acct-kpi|Total Spent|Order Monitoring|View all orders/);
   }
 });
 
@@ -147,7 +153,7 @@ test("My Purchases holds the Membership Pack payment card, and the rejected orde
   const lock = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [LOCKED] })))).text();
   assert.match(lock, /<dialog class="pk-dlg" id="pk-lock" open/);
   const gone = await (await home({ "member/me": [ME], "member/pack": [ok({ pack, registration: null })], "member/notices": [ok({ notices: [] })] })).text();
-  assert.doesNotMatch(gone, /SP-1001|Membership Pack/);
+  assert.doesNotMatch(gone, /SP-1001|\bMembership Pack\b/);
 });
 
 test("The rejected-payment dialog has a dark rule for its card and contents, before and after resubmit", async () => {
@@ -186,7 +192,7 @@ test("Affiliate Hub says the orders are in the app, with the app link only when 
     const withLink = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] }), { appUrl: "https://apps.example.test/sante" }))).text();
     assert.match(withLink, new RegExp(`<h1>${title}</h1>`));
     assert.match(withLink, /Your orders are placed and tracked in the Sant(é|&eacute;) Mobile App\./);
-    assert.match(withLink, /<a href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant&eacute; Mobile App<\/a>/);
+    assert.match(withLink, /<a class="btn md-app-btn" href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant(é|&eacute;) Mobile App<\/a>/);
     const without = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
     assert.match(without, /placed and tracked in the Sant/);
     assert.doesNotMatch(without, /Open the Sant/);

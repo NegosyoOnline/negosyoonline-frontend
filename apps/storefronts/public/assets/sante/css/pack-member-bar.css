@@ -7,6 +7,15 @@
 .e4 .shell { max-width: min(1600px, calc(50vw + 620px)); padding: 24px 15px 40px; }
 .pdn { padding: 0 15px; }
 
+/* The member Home (ClickUp z8uq9mgmjg, corrections 1): one shared container for the bar's inner content and every Home section.
+   1240px including the padding, centred, 24px each side (16px on a phone). The bar's background stays full width; only the
+   inner content is boxed. Other member pages keep the width above. The links collapse into the menu at 1024px, not widen. */
+.e4-home .pdn { padding: 0; }
+.e4-home .pdn-inner, .e4-home .shell { box-sizing: border-box; width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 24px; }
+.e4-home .shell { padding-block: 24px 40px; }
+.e4-home .mh { max-width: none; }
+@media (max-width: 640px) { .e4-home .pdn-inner, .e4-home .shell { padding-inline: 16px; } }
+
 /* The bell and the name */
 .pdn-actions { gap: 14px; }
 .pdn-bell, .pdn-user { position: relative; }
@@ -373,6 +382,97 @@ html[data-theme="dark"] .e4 .pk-date-link { color: #9DB4FF; }
 .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not-allowed; }
 html[data-theme="dark"] .e4 .pk-date-cell.is-disabled, html[data-theme="dark"] .e4 .pk-date-cell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled, html[data-theme="dark"] .e4 .pk-date-mcell.is-disabled:hover, html[data-theme="dark"] .e4 .pk-date-link.is-disabled { color: #A9B8B0; opacity: .4; cursor: not-allowed; background: transparent; text-decoration: none; }
 html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not-allowed; }
+
+/* ---- corrections 2 (ClickUp z8uq9mgmjg, 2026-11-19): the phone/tablet top bar, the fixed bottom navigation, the More sheet and the light member footer ----
+   One breakpoint, 1024px, the one where the bar's links already left the bar: up to it the bottom navigation is shown and the links (and the hamburger) are not;
+   above it the links are shown and the bottom navigation is not. At 1024px and below there is no width with neither or both. */
+/* Shared tokens of the phone/tablet header and bottom navigation (corrections 5). The colour values are the ones this sheet already used: no official Sante brand kit
+   was found in the repositories or assets, so brand compliance is UNVERIFIED and none of these is a confirmed brand value. --mbn-h is the one navigation height:
+   the page's bottom space, the chat launcher and the tablet chat panel all follow it. */
+body.mem { --mbn-h: 68px; --mbn-bg: #fff; --mbn-line: #E2E8F0; --mbn-ink: #52635A; --mbn-active: #00693A; --mbn-mint: #DCEFE6; --mbn-gap: 16px; --mbn-launcher: 56px; }
+html[data-theme="dark"] body.mem { --mbn-bg: #141c18; --mbn-line: #2C3A33; --mbn-ink: #A9B8B0; --mbn-active: #8BE0B8; --mbn-mint: rgba(139,224,184,.16); }
+.mbn, .mbn-sheet { display: none; }
+@media (max-width: 1024px) {
+  .e4-bn .pdn { height: 56px; background: var(--mbn-bg); border-bottom: 1px solid var(--mbn-line); box-shadow: none; }
+  .e4-bn .pdn-inner { padding-inline: 16px; }
+  .e4-bn .pdn-logo img { height: 32px; }
+  .e4-bn .pdn-links { display: none !important; }
+  .e4-bn .pdn-actions { margin-left: auto; }
+  .e4-bn .pdn-logo { min-height: 44px; }
+  .e4-bn .pdn-bell-btn { width: 44px; height: 44px; }
+  .e4-bn .shell { padding: 16px 16px 20px; }
+  .e4-bn.e4-home .shell { padding-inline: 16px; }
+  .e4-bn { padding-bottom: calc(var(--mbn-h) + env(safe-area-inset-bottom, 0px)); }
+
+  .mbn { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; box-sizing: border-box; min-height: calc(var(--mbn-h) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); background: var(--mbn-bg); border-top: 1px solid var(--mbn-line); font-family: 'Open Sans', system-ui, sans-serif; }
+  .mbn-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+  .mbn-list li { margin: 0; min-width: 0; }
+  .mbn-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 100%; min-height: calc(var(--mbn-h) - 1px); padding: 6px 2px; border: 0; background: none; color: var(--mbn-ink); font: 600 14px/1.15 'Open Sans', system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+  .mbn-item.is-active { color: var(--mbn-active); font-weight: 700; }
+  .mbn-pill { display: flex; align-items: center; justify-content: center; width: 40px; height: 28px; border-radius: 14px; }
+  .mbn-item.is-active .mbn-pill { background: var(--mbn-mint); }
+  .mbn-item:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; border-radius: 12px; }
+  .mbn-ic { width: 24px; height: 24px; flex: none; }
+  .mbn-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .mbn-sheet:not([hidden]) { position: fixed; inset: 0; z-index: 130; display: flex; align-items: flex-end; font-family: 'Open Sans', system-ui, sans-serif; }
+  .mbn-backdrop { position: absolute; inset: 0; background: rgba(10,20,15,.5); }
+  .mbn-panel { position: relative; width: 100%; max-height: 88vh; overflow-y: auto; overscroll-behavior: contain; padding: 4px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: #fff; color: #14201B; border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.2); }
+  .mbn-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; }
+  .mbn-head h2 { margin: 0; font-size: 18px; }
+  .mbn-close { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -8px; border: 0; border-radius: 10px; background: none; color: inherit; cursor: pointer; }
+  .mbn-close:hover { background: rgba(0,122,61,.08); }
+  .mbn-links { margin: 0; padding: 0; list-style: none; }
+  .mbn-links-sep { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E2E8F0; }
+  .mbn-links a { display: flex; align-items: center; min-height: 48px; padding: 0 8px; border-radius: 10px; color: inherit; font-weight: 600; font-size: 16px; text-decoration: none; }
+  .mbn-links a:hover { background: rgba(0,122,61,.08); }
+  .mbn-links a[aria-current="page"] { color: #00693A; font-weight: 800; background: rgba(0,122,61,.08); }
+  .mbn-links a:focus-visible, .mbn-logout:focus-visible, .mbn-close:focus-visible { outline: 3px solid #6C8CFF; outline-offset: -3px; }
+  .mbn-legal { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E2E8F0; }
+  .mbn-legal a { min-height: 44px; font-size: 14px; font-weight: 500; color: #5B6B63; }
+  .mbn-group { margin: 10px 0 2px; padding: 0 8px; font: 700 14px 'Open Sans', system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; color: #5B6B63; }
+  .mbn-out { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid #E2E8F0; }
+  .mbn-logout { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 8px; border: 0; border-radius: 10px; background: none; color: #B3261E; font: 700 16px 'Open Sans', system-ui, sans-serif; text-align: left; cursor: pointer; }
+  .mbn-logout:hover { background: rgba(179,38,30,.07); }
+  html.mbn-lock { overflow: hidden; }
+}
+
+/* Corrections 4 (2026-11-19): up to 1024px (phones and tablets) a member page has no footer. Above 1024px it ends with the storefront's dark footer
+   carrying only the copyright and the wellness lines, centred, with compact top and bottom padding (no business-details card). */
+.mfoot-desk { display: none; }
+@media (min-width: 1025px) {
+  .mfoot-desk { display: block; margin-top: auto; }
+  .mfoot-desk .footer { padding: 24px 190px; }  /* the side room keeps the lower-right chat button clear of the text */
+  .mfoot-desk .footer-bottom { padding-top: 0; }
+  .mfoot-desk .footer-disclaimer { white-space: normal; }
+  body.mem.sw-on .mfoot-desk .footer { padding-bottom: 24px; }  /* the chat widget's 104px footer padding is not needed here */
+}
+
+/* The website chat on the member pages (body.mem). Up to 1024px the fixed bottom navigation (--mbn-h plus the safe area) is on screen: the launcher rides above
+   it and is hidden while the More sheet is open,. On a phone the opened chat is a full-screen sheet above the navigation
+   (the widget's z-index 900 is above the navigation's 110), so the navigation never sits on the input; on a tablet the floating panel rides above the navigation. */
+@media (max-width: 1024px) {
+  body.mem .sw-launcher { bottom: calc(var(--mbn-h) + var(--mbn-gap) + env(safe-area-inset-bottom, 0px)); }
+  body.mem:has(.mbn-sheet:not([hidden])) .sw-launcher, html.mbn-lock body.mem .sw-launcher { display: none; }
+  /* with no footer, the last line ends above the launcher (56px plus its gap, 72px) while chat is shown (sw-on is set by the widget only when chat is available) */
+  body.mem.sw-on .e4-bn .shell { padding-bottom: calc(20px + var(--mbn-launcher) + var(--mbn-gap)); }
+}
+@media (min-width: 641px) and (max-width: 1024px) {
+  body.mem .sw-panel { bottom: calc(var(--mbn-h) + var(--mbn-gap) + env(safe-area-inset-bottom, 0px)); max-height: min(660px, calc(100vh - var(--mbn-h) - 2 * var(--mbn-gap) - env(safe-area-inset-bottom, 0px))); }
+}
+
+html[data-theme="dark"] .mbn-panel { background: #17201B; color: #E6EDE9; }
+html[data-theme="dark"] .mbn-links-sep, html[data-theme="dark"] .mbn-out { border-top-color: #2C3A33; }
+html[data-theme="dark"] .mbn-links a[aria-current="page"] { color: #8BE0B8; background: rgba(139,224,184,.1); }
+html[data-theme="dark"] .mbn-legal { border-top-color: #2C3A33; }
+html[data-theme="dark"] .mbn-legal a { color: #98A8A0; }
+html[data-theme="dark"] .mbn-group { color: #98A8A0; }
+html[data-theme="dark"] .mbn-logout { color: #FFB4AB; }
+
+/* The legal group at the bottom of the desktop More dropdown: small and muted, set off by a rule. */
+.pdn-earn-pop .pdn-legal a { font-size: 14px; font-weight: 500; color: #667085; }
+.pdn-earn-pop .pdn-legal-first { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+html[data-theme="dark"] .pdn-earn-pop .pdn-legal a { color: #98A8A0; }
 
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */

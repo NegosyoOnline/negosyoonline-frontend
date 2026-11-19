@@ -3,6 +3,7 @@
    when Django says this buyer is a member with active benefits (quote.member_price); a guest never gets it. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { PRODUCT_PLACEHOLDER, appNotice, php, safeImage } from "./shop-shell.ts";
 
 /** The four categories as the store's own footer names them (backend apps/catalog/services.py CATEGORIES). */
@@ -13,7 +14,7 @@ export const CATEGORIES: readonly { value: string; label: string }[] = [
   { value: "beauty", label: "Santé Beauty" },
 ];
 
-export type ProductsModel = { products: CatalogProduct[]; category: string; members: boolean; message: string; app?: { href: string } | null };
+export type ProductsModel = { products: CatalogProduct[]; category: string; members: boolean; message: string; app?: { href: AppLinkInput } | null };
 
 /** A word-boundary cut with an ellipsis, as Django's truncatechars. */
 export function truncate(text: string, max: number): string {
@@ -23,7 +24,7 @@ export function truncate(text: string, max: number): string {
 
 /* The image link only repeats the title link beside it, so keyboard and screen-reader users skip it (aria-hidden,
    tabindex -1); the title link names the product. A photo keeps its alt text. */
-export function productCard(p: CatalogProduct, members: boolean, app: { href: string } | null = null): Markup {
+export function productCard(p: CatalogProduct, members: boolean, app: { href: AppLinkInput } | null = null): Markup {
   const image = safeImage(p.image_url);
   return html`
       <div class="product-card">

@@ -59,7 +59,7 @@ test("the list keeps the app line and button on top, then the hero figures, the 
   const body = await r.text();
   assert.match(body, /<h1>Orders<\/h1>/);
   assert.ok(body.indexOf("Your orders are placed and tracked in the Sant") < body.indexOf('class="mo-hero"'));
-  assert.match(body, /<a href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant&eacute; Mobile App<\/a>/);
+  assert.match(body, /<a class="btn md-app-btn" href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant(é|&eacute;) Mobile App<\/a>/);
   assert.match(body, /This is your own log\. Add each order you placed in the app to track it here\./);
   assert.match(body, /Sales this month[^]*₱12,345\.50[^]*November 2026/);
   assert.match(body, /Orders<\/div><div class="mo-kpi-val">5</);

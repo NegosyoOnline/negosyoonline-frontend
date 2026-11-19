@@ -9,6 +9,7 @@
    so the one line says so (plan z8uq9mek5v R6). */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { CatalogProduct, ReviewPage } from "../../lib/shop-api.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { trustBadges } from "./home.ts";
 import { LANDING_PATH } from "./pack-page.ts";
 import { PRODUCT_PLACEHOLDER, appNotice, php, safeImage } from "./shop-shell.ts";
@@ -17,7 +18,7 @@ import { ratingSummary, reviewsSection } from "./shop-review.ts";
 /** `reviews` is the first page(s) of this store's reviews of the product and `moreHref` the link to the next page; null or absent shows nothing. */
 export type ProductModel = { product: CatalogProduct; related: CatalogProduct[]; members: boolean; reviews?: ReviewPage | null; moreHref?: string; packOn?: boolean;
   /** A signed-in member: the app notice replaces Add to Cart, and no member price or saving is written (`href` is the app link, may be empty). */
-  app?: { href: string } | null };
+  app?: { href: AppLinkInput } | null };
 
 /** Paragraphs as Django's linebreaks: a blank line starts a new paragraph, a single newline is a <br>. */
 function paragraphs(text: string): Markup {

@@ -20,7 +20,13 @@
    in memory for the page only.
 
    The first poll (is chat available here?) is remembered in sessionStorage under "no-chat-probe" for 60 s per host, so a visitor
-   moving between pages costs one poll a minute, not one per page. An open panel still polls on its own 20 s / 60 s schedule. */
+   moving between pages costs one poll a minute, not one per page. An open panel still polls on its own 20 s / 60 s schedule.
+
+   Contact ask (ClickUp z8uq9mgtt2): the form has no name or email field, the visitor just types. After the first message is sent the
+   panel shows one optional ask for a mobile number or an email, with Save and Skip, once per conversation. The answer goes to this
+   site's own /chat/contact/. The mobile option sits behind CHAT_CONTACT_MOBILE: false makes the ask and its check email-only. The
+   answer (saved or skipped) is kept in localStorage under "no-chat-contact" for the same 30 days as the conversation, and dropped
+   with it. The number or email itself is never kept in the browser. */
 (function (root, factory) {
   var api = factory();
   if (typeof module === "object" && module.exports) module.exports = api; // the tests read the rules below
@@ -28,10 +34,12 @@
 })(typeof window !== "undefined" ? window : this, function () {
   "use strict";
 
+  var CHAT_CONTACT_MOBILE = true; // false: the contact ask takes an email only (e.g. if HQ changes the Privacy wording)
   var MAX = 1000;
   var FAST_MS = 20000, SLOW_MS = 60000, SLOW_AFTER_MS = 10 * 60000, STOP_AFTER_MS = 30 * 60000;
   var LOG_KEY = "no-chat-log", LOG_MAX = 80, LOG_TTL_MS = 30 * 24 * 3600 * 1000; // 30 days = CHAT_MAX_AGE of the chat cookie
   var PROBE_KEY = "no-chat-probe", PROBE_MS = 60000;
+  var CONTACT_KEY = "no-chat-contact";
   var CONTACT_HREF = "/#contact-form";
   var TEXT = {
     launcher: "Chat with us",
@@ -41,10 +49,7 @@
     sub: "Ask us anything about our products.",
     intro: "Send us a message and the store will reply here.",
     message: "Your message",
-    name: "Name",
-    email: "Email",
-    optional: "(optional)",
-    note: "If you leave, we can only reply here while this browser keeps the chat. Add your email to get replies by email.",
+    note: "We reply here as soon as we can.",
     send: "Send",
     sending: "Sending…",
     compose: "Write a message",
@@ -56,7 +61,14 @@
     pausedAfter: ".",
     today: "Today",
     yesterday: "Yesterday",
-    conversation: "Conversation"
+    conversation: "Conversation",
+    askText: CHAT_CONTACT_MOBILE ? "Leave your mobile number or email so we can reach you if you leave this page." : "Leave your email so we can reach you if you leave this page.",
+    askLabel: CHAT_CONTACT_MOBILE ? "Mobile number or email" : "Email",
+    askHint: CHAT_CONTACT_MOBILE ? "09171234567 or you@example.com" : "you@example.com",
+    save: "Save",
+    saving: "Saving…",
+    skip: "Skip",
+    saved: "Thank you. We saved it."
   };
   /* The three fixed error texts of the mockup (w5), plus the two the form can catch by itself. */
   var ERRORS = {
@@ -64,7 +76,9 @@
     limited: "You have sent several messages in a short time. Please wait a few minutes and try again.",
     links: "Please remove some of the links and try again.",
     email: "Please enter a valid email address.",
-    empty: "Please write a message."
+    empty: "Please write a message.",
+    contact: CHAT_CONTACT_MOBILE ? "Please enter a mobile number like 09171234567, or an email like you@example.com." : "Please enter an email like you@example.com.",
+    contactFailed: "We could not save that. Please try again in a moment."
   };
 
   /* ---------- the rules, pure ---------- */
@@ -79,7 +93,7 @@
   function errorKind(status, body) {
     var e = body && typeof body === "object" ? body.error : "";
     if (e === "limited" || status === 429) return "limited";
-    if (e === "links" || e === "email" || e === "empty") return e;
+    if (e === "links" || e === "email" || e === "empty" || e === "contact") return e;
     if (e === "too_long") return "empty";
     return "failed";
   }
@@ -87,6 +101,19 @@
   function emailOk(value) {
     var v = String(value || "").trim();
     return v === "" || /^[^\s@]+@[^\s@]+$/.test(v);
+  }
+
+  /** What a contact entry is: "mobile" (09XXXXXXXXX, 9XXXXXXXXX or +639XXXXXXXXX, spaces, dashes and brackets allowed), "email", or ""
+      when it is neither. The server checks again and decides; this only saves a round trip. `mobileOn` defaults to CHAT_CONTACT_MOBILE. */
+  function contactKind(value, mobileOn) {
+    var v = String(value || "").trim();
+    if (!v) return "";
+    if (v.indexOf("@") !== -1) return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? "email" : "";
+    if (mobileOn === undefined ? CHAT_CONTACT_MOBILE : mobileOn) {
+      var digits = v.replace(/[\s\-().]/g, "");
+      if (/^(\+63|0)?9\d{9}$/.test(digits)) return "mobile";
+    }
+    return "";
   }
 
   /** Adds the store's replies to the log by id, in order; returns true when something new came. */
@@ -130,6 +157,26 @@
       if (!log.items.length) storage.removeItem(LOG_KEY);
       else storage.setItem(LOG_KEY, JSON.stringify({ items: log.items, last: log.last, saved_at: typeof now === "number" ? now : Date.now() }));
     } catch { /* blocked or full: the conversation stays in memory for this page */ }
+  }
+
+  /** Whether the contact ask was answered for this conversation: "saved", "skipped" or "" (not yet). Dropped after the conversation's 30 days. */
+  function readContact(storage, now) {
+    try {
+      var raw = storage && storage.getItem(CONTACT_KEY);
+      if (!raw) return "";
+      var d = JSON.parse(raw);
+      if (!d || (d.done !== "saved" && d.done !== "skipped")) return "";
+      if (typeof d.at === "number" && typeof now === "number" && now - d.at > LOG_TTL_MS) { try { storage.removeItem(CONTACT_KEY); } catch { /* ignore */ } return ""; }
+      return d.done;
+    } catch { return ""; }
+  }
+
+  function writeContact(storage, done, now) {
+    try {
+      if (!storage) return;
+      if (!done) storage.removeItem(CONTACT_KEY);
+      else storage.setItem(CONTACT_KEY, JSON.stringify({ done: done, at: typeof now === "number" ? now : Date.now() }));
+    } catch { /* blocked: the ask may show again on this page only */ }
   }
 
   /** One-time move of a log an older version kept in sessionStorage: copied only when localStorage has none; the old copy always goes. */
@@ -187,7 +234,8 @@
     migrateLog(storage, session);
     var log = readLog(storage, Date.now());
 
-    var S = { open: false, view: "form", state: "none", sending: false, error: "", draft: { text: "", name: "", email: "" },
+    var S = { open: false, view: "form", state: "none", sending: false, error: "", draft: { text: "", contact: "" },
+      contact: readContact(storage, Date.now()), contactBusy: false, contactError: "", contactThanks: false,
       openedAt: "", lastAction: Date.now(), timer: 0, polling: false };
     var el = {};
 
@@ -243,6 +291,7 @@
     function apply(body) {
       S.state = body.state;
       if (body.state === "none" && log.items.length) { log.items = []; log.last = 0; } // the server no longer knows this visitor
+      if (body.state === "none" && S.contact) { S.contact = ""; writeContact(storage, "", Date.now()); }
       if (Array.isArray(body.messages)) mergeReplies(log, body.messages);
       writeLog(storage, log);
       S.view = viewFor();
@@ -311,43 +360,75 @@
       return a;
     }
 
-    function field(id, label, optional, input) {
-      var wrap = h("div", "sw-field"), lab = h("label");
-      lab.setAttribute("for", id); lab.appendChild(doc.createTextNode(label));
-      if (optional) { lab.appendChild(doc.createTextNode(" ")); lab.appendChild(h("span", "opt", TEXT.optional)); }
-      input.id = id;
-      return add(wrap, lab, input);
-    }
-
     function formView(panel) {
       var form = h("form", "sw-form"); form.setAttribute("novalidate", "");
       var body = h("div", "sw-body");
       var textBad = S.error === "failed" || S.error === "limited" || S.error === "links" || S.error === "empty";
       var msg = h("textarea", "sw-input" + (textBad ? " bad" : ""));
-      msg.rows = 4; msg.maxLength = MAX; msg.setAttribute("aria-describedby", "sw-cnt"); msg.value = S.draft.text;
-      var name = h("input", "sw-input"); name.type = "text"; name.autocomplete = "name"; name.maxLength = 80; name.value = S.draft.name;
-      var email = h("input", "sw-input" + (S.error === "email" ? " bad" : "")); email.type = "email"; email.autocomplete = "email";
-      email.setAttribute("inputmode", "email"); email.setAttribute("aria-describedby", "sw-note"); email.maxLength = 254; email.value = S.draft.email;
+      msg.id = "sw-msg"; msg.rows = 4; msg.maxLength = MAX; msg.setAttribute("aria-describedby", "sw-cnt"); msg.value = S.draft.text;
+      var lab = h("label", "sw-label", TEXT.message); lab.setAttribute("for", "sw-msg");
       var hp = h("div", "sw-hp"); hp.setAttribute("aria-hidden", "true");
       var trap = h("input"); trap.type = "text"; trap.name = "website"; trap.tabIndex = -1; trap.autocomplete = "off"; trap.setAttribute("aria-hidden", "true");
       hp.appendChild(trap);
-      var nt = h("p", "sw-note", TEXT.note); nt.id = "sw-note";
-      add(body, alertBox(), h("p", "sw-intro", TEXT.intro), field("sw-msg", TEXT.message, false, msg), field("sw-name", TEXT.name, true, name),
-        field("sw-email", TEXT.email, true, email), nt, hp);
+      var field = h("div", "sw-field"); add(field, lab, msg);
+      add(body, alertBox(), h("p", "sw-intro", TEXT.intro), field, h("p", "sw-note", TEXT.note), hp);
       var foot = h("div", "sw-foot"), count = h("span", "sw-count", msg.value.length + " / " + MAX); count.id = "sw-cnt";
       var send = h("button", "sw-send", S.sending ? TEXT.sending : TEXT.send); send.type = "submit"; send.disabled = S.sending;
       if (S.sending) send.setAttribute("aria-busy", "true");
       add(foot, count, send);
       msg.addEventListener("input", function () { S.draft.text = msg.value; count.textContent = msg.value.length + " / " + MAX; note(); });
-      name.addEventListener("input", function () { S.draft.name = name.value; note(); });
-      email.addEventListener("input", function () { S.draft.email = email.value; note(); });
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        submit({ text: msg.value, name: name.value, email: email.value, website: trap.value });
+        submit({ text: msg.value, website: trap.value });
       });
       add(form, body, foot);
       panel.appendChild(form);
       el.focus = msg;
+    }
+
+    /* The optional contact ask, once the visitor has written: one input, Save and Skip. */
+    function askBox() {
+      var box = h("form", "sw-ask"); box.setAttribute("novalidate", "");
+      var bad = S.contactError !== "";
+      var text = h("p", "sw-ask-text", TEXT.askText); text.id = "sw-ask-t";
+      var lab = h("label", "sr-only", TEXT.askLabel); lab.setAttribute("for", "sw-contact");
+      var input = h("input", "sw-input" + (bad ? " bad" : "")); input.id = "sw-contact"; input.type = "text"; input.maxLength = 254;
+      input.autocomplete = "off"; input.value = S.draft.contact; input.setAttribute("aria-describedby", "sw-ask-t");
+      input.placeholder = TEXT.askHint;
+      input.setAttribute("inputmode", CHAT_CONTACT_MOBILE ? "text" : "email");
+      if (bad) input.setAttribute("aria-invalid", "true");
+      var save = h("button", "sw-send sw-ask-save", S.contactBusy ? TEXT.saving : TEXT.save); save.type = "submit"; save.disabled = S.contactBusy;
+      var skip = h("button", "sw-skip", TEXT.skip); skip.type = "button"; skip.disabled = S.contactBusy;
+      var row = h("div", "sw-ask-row"); add(row, save, skip);
+      var err = null;
+      if (bad) { err = h("p", "sw-ask-err", ERRORS[S.contactError] || ERRORS.contactFailed); err.setAttribute("role", "alert"); }
+      input.addEventListener("input", function () { S.draft.contact = input.value; note(); });
+      skip.addEventListener("click", function () { note(); S.contact = "skipped"; S.contactError = ""; writeContact(storage, "skipped", Date.now()); drawPanel(false); });
+      box.addEventListener("submit", function (e) { e.preventDefault(); saveContact(input.value); });
+      return add(box, text, lab, input, err, row);
+    }
+
+    function saveContact(value) {
+      if (S.contactBusy) return;
+      note();
+      S.draft.contact = value;
+      if (!contactKind(value)) { S.contactError = "contact"; drawPanel(true); return; }
+      S.contactError = ""; S.contactBusy = true; drawPanel(true);
+      post("/chat/contact/", { contact: String(value).trim() }).then(function (r) {
+        S.contactBusy = false;
+        if (r.status === 200 && r.body && r.body.ok === true && r.body.saved === false) { // the owner has chat off or paused: nothing was saved, so the ask stays open
+          poll().then(function () { drawPanel(false); });
+          return;
+        }
+        if (r.status === 200 && r.body && r.body.ok === true && r.body.saved === true) {
+          S.contact = "saved"; S.contactThanks = true; S.draft.contact = "";
+          writeContact(storage, "saved", Date.now());
+          drawPanel(false);
+          return;
+        }
+        S.contactError = r.status === 422 && r.body && r.body.error === "contact" ? "contact" : "contactFailed";
+        drawPanel(true);
+      });
     }
 
     function convoView(panel) {
@@ -365,6 +446,9 @@
         list.appendChild(li);
       });
       add(body, list);
+      var asked = log.items.some(function (m) { return m.who === "me"; });
+      if (asked && !S.contact) body.appendChild(askBox());
+      else if (S.contactThanks) { var thanks = h("p", "sw-thanks", TEXT.saved); thanks.setAttribute("role", "status"); body.appendChild(thanks); }
       panel.appendChild(body);
       var alert = alertBox();
       if (alert) { alert.classList.add("sw-alert-pad"); panel.appendChild(alert); }
@@ -377,9 +461,9 @@
       var send = h("button", "sw-send", S.sending ? TEXT.sending : TEXT.send); send.type = "submit"; send.disabled = S.sending;
       ta.addEventListener("input", function () { S.draft.text = ta.value; note(); });
       ta.addEventListener("keydown", function (e) {
-        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit({ text: ta.value, name: "", email: "", website: "" }); }
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit({ text: ta.value, website: "" }); }
       });
-      form.addEventListener("submit", function (e) { e.preventDefault(); submit({ text: ta.value, name: "", email: "", website: "" }); });
+      form.addEventListener("submit", function (e) { e.preventDefault(); submit({ text: ta.value, website: "" }); });
       add(form, lab, ta, send);
       panel.appendChild(form);
       el.focus = ta;
@@ -448,13 +532,9 @@
       note();
       var text = String(values.text || "").trim();
       S.draft.text = values.text;
-      if (values.name) S.draft.name = values.name;
-      if (values.email) S.draft.email = values.email;
-      var email = values.email || S.draft.email;
       if (!text) { S.error = "empty"; drawPanel(true); return; }
-      if (!emailOk(email)) { S.error = "email"; drawPanel(true); return; }
       S.error = ""; S.sending = true; drawPanel(true);
-      post("/chat/send/", { text: text, name: String(values.name || S.draft.name || "").trim(), email: String(email || "").trim(), website: values.website || "",
+      post("/chat/send/", { text: text, website: values.website || "",
         opened_at: S.openedAt, after_id: log.last }).then(function (r) {
         S.sending = false;
         if (r.status === 200 && r.body && r.body.ok === true) {
@@ -494,6 +574,6 @@
     });
   }
 
-  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, migrateLog: migrateLog, LOG_TTL_MS: LOG_TTL_MS, readProbe: readProbe, writeProbe: writeProbe,
+  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, contactKind: contactKind, readContact: readContact, writeContact: writeContact, CHAT_CONTACT_MOBILE: CHAT_CONTACT_MOBILE, CONTACT_KEY: CONTACT_KEY, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, migrateLog: migrateLog, LOG_TTL_MS: LOG_TTL_MS, readProbe: readProbe, writeProbe: writeProbe,
     TEXT: TEXT, ERRORS: ERRORS, LOG_KEY: LOG_KEY, PROBE_KEY: PROBE_KEY };
 });

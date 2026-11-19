@@ -533,6 +533,23 @@ test("a chat visitor who gave an email has no no-email note", async () => {
   assert.equal(d.all(d.$("ib-threadpane"), "ib-note").length, 0);
 });
 
+test("a chat visitor's mobile number shows next to their email, or alone, under the name; none shows no line", async () => {
+  for (const [over, want] of [
+    [{ contact_email: "ana@example.test", contact_mobile: "+639171234567" }, "ana@example.test \u00B7 +639171234567"],
+    [{ contact_email: "", contact_mobile: "+639171234567" }, "+639171234567"],
+    [{ contact_email: "ana@example.test" }, "ana@example.test"],
+  ]) {
+    const d = boot({ listing: MIXED(), reading: sthread(over), channels: CHANNELS_ON });
+    await d.openInbox();
+    await d.click(rowsOf(d)[0]);
+    assert.equal(d.all(d.$("ib-threadpane"), "ib-sub")[0].textContent, want);
+  }
+  const d = boot({ listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  await d.openInbox();
+  await d.click(rowsOf(d)[0]);
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-sub").length, 0);
+});
+
 test("d3: an email thread shows the address, the unverified-sender note as a note only, and the Sent to the mail server chip", async () => {
   const reading = emailThread({ messages: [
     { id: "1", direction: "in", sender_kind: "customer", text: "Subject: Order #1042 (test)\n\nNo tracking number.", attachments: [], at: iso(30), delivery_state: "" },

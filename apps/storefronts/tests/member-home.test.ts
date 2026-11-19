@@ -842,3 +842,30 @@ test("corrections 4: the storefront home footer still carries the full business 
   assert.match(out, /<div class="footer-seal-box"><img class="footer-seal" src="\/business-seal\/"/);
   assert.match(out, /<div class="footer-bottom">\s*<div class="footer-meta">\s*<div class="footer-copyright">&#169; 2026 /);
 });
+
+test("the More menus carry Privacy Policy, Terms and Cookie settings as a last group: only what the site publishes, Cookie settings only with a Pixel", async () => {
+  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const both = [{ label: "Privacy Policy", path: "/privacy-policy/" }, { label: "Terms and Conditions", path: "/terms-and-conditions/" }];
+  const render = (site: typeof SITE) => memberDocument(chrome(site), { title: "T", member: "Ana", current: "home", content: html`<p>x</p>`, scripts: [] }).value;
+  const sheetOf = (p: string) => p.slice(p.indexOf('class="mbn-sheet"'), p.indexOf("</div>\n</div>", p.indexOf('class="mbn-sheet"')));
+  const dropOf = (p: string) => p.slice(p.indexOf("data-pdn-earn-pop"), p.indexOf("</ul>", p.indexOf("data-pdn-earn-pop")));
+  const full = render({ ...SITE, policy_links: both, meta_pixel_id: "123456789012345" });
+  for (const part of [sheetOf(full), dropOf(full)]) {
+    assert.match(part, /<a href="\/privacy-policy\/">Privacy Policy<\/a>/);
+    assert.match(part, /<a href="\/terms-and-conditions\/">Terms<\/a>/);
+    assert.match(part, /<a href="\/\?cookie-settings=1" class="footer-cookie-settings">Cookie settings<\/a>/);
+  }
+  assert.match(sheetOf(full), /Log out[^]*mbn-legal/); // the last group, after Log out
+  const noPixel = render({ ...SITE, policy_links: both });
+  for (const part of [sheetOf(noPixel), dropOf(noPixel)]) {
+    assert.match(part, /Privacy Policy/);
+    assert.doesNotMatch(part, /Cookie settings/);
+  }
+  const none = render(SITE);
+  for (const part of [sheetOf(none), dropOf(none)]) assert.doesNotMatch(part, /Privacy Policy|>Terms<|Cookie settings|mbn-legal|pdn-legal/);
+  const onlyTerms = render({ ...SITE, policy_links: [both[1]] });
+  assert.doesNotMatch(sheetOf(onlyTerms), /Privacy Policy/);
+  assert.match(dropOf(onlyTerms), />Terms</);
+  assert.doesNotMatch(onlyTerms, /class="mfoot"/); // the footer itself stays removed
+});

@@ -170,5 +170,6 @@ export async function chatContactPost(request: Request): Promise<Response> {
     if (result.status === 422 && result.fields.contact) return problem("contact", 422);
     return problem("failed", 503);
   }
+  if (!result.chat.saved) return noStore({ ok: true, saved: false });
   return noStore({ ok: true, saved: true, kind: result.chat.kind });
 }

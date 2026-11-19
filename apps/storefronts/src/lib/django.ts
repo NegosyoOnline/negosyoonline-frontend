@@ -476,7 +476,7 @@ export type ChatPoll = { host: string; visitor_ip: string; visitor_secret: strin
 export type ChatContact = { host: string; visitor_ip: string; visitor_secret: string; contact: string };
 
 /** Django's 200 for a saved contact. */
-export type ChatContactSaved = { saved: true; kind: "email" | "mobile" };
+export type ChatContactSaved = { saved: true; kind: "email" | "mobile" } | { saved: false; kind: "" };
 
 const logChat: Log = (reason) => console.error(`storefront: chat call failed: ${reason}`);
 const CHAT_STATES = ["none", "open", "closed", "paused"];
@@ -493,7 +493,9 @@ function chatAnswer(body: unknown): ChatAnswer | null {
 }
 
 function contactAnswer(body: unknown): ChatContactSaved | null {
-  if (!record(body) || body.saved !== true || (body.kind !== "email" && body.kind !== "mobile")) return null;
+  if (!record(body)) return null;
+  if (body.saved === false && body.kind === "") return { saved: false, kind: "" }; // chat is off or paused for the site: nothing was saved
+  if (body.saved !== true || (body.kind !== "email" && body.kind !== "mobile")) return null;
   return { saved: true, kind: body.kind };
 }
 

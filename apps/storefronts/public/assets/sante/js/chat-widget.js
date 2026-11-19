@@ -62,7 +62,7 @@
     today: "Today",
     yesterday: "Yesterday",
     conversation: "Conversation",
-    askText: "Leave your mobile number or email so we can reach you if you leave this page.",
+    askText: CHAT_CONTACT_MOBILE ? "Leave your mobile number or email so we can reach you if you leave this page." : "Leave your email so we can reach you if you leave this page.",
     askLabel: CHAT_CONTACT_MOBILE ? "Mobile number or email" : "Email",
     askHint: CHAT_CONTACT_MOBILE ? "09171234567 or you@example.com" : "you@example.com",
     save: "Save",
@@ -416,6 +416,10 @@
       S.contactError = ""; S.contactBusy = true; drawPanel(true);
       post("/chat/contact/", { contact: String(value).trim() }).then(function (r) {
         S.contactBusy = false;
+        if (r.status === 200 && r.body && r.body.ok === true && r.body.saved === false) { // the owner has chat off or paused: nothing was saved, so the ask stays open
+          poll().then(function () { drawPanel(false); });
+          return;
+        }
         if (r.status === 200 && r.body && r.body.ok === true && r.body.saved === true) {
           S.contact = "saved"; S.contactThanks = true; S.draft.contact = "";
           writeContact(storage, "saved", Date.now());

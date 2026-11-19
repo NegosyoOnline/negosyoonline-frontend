@@ -241,7 +241,32 @@ test("with the mobile option off, the whole widget reads email-only", () => {
   assert.equal(off.contactKind("ana@example.test"), "email");
   assert.equal(off.TEXT.askLabel, "Email");
   assert.ok(!/mobile/i.test(off.ERRORS.contact + off.TEXT.askHint + off.TEXT.askLabel));
-  assert.equal(off.TEXT.askText, "Leave your mobile number or email so we can reach you if you leave this page.", "the sentence is the ruled one");
+  assert.equal(off.TEXT.askText, "Leave your email so we can reach you if you leave this page.", "email-only mode never mentions a mobile number");
+  assert.ok(!/mobile/i.test(off.TEXT.askText));
+});
+
+test("askText: the default (mobile on) keeps the ruled sentence; mobile off says email only", () => {
+  assert.equal(widget.CHAT_CONTACT_MOBILE, true);
+  assert.equal(widget.TEXT.askText, "Leave your mobile number or email so we can reach you if you leave this page.");
+  const code = readFileSync(path.join(ASSETS, "js", "chat-widget.js"), "utf8").replace("var CHAT_CONTACT_MOBILE = true;", "var CHAT_CONTACT_MOBILE = false;");
+  const sandbox = { exports: {} as Widget };
+  new Function("module", "exports", "window", code)(sandbox, sandbox.exports, undefined);
+  assert.equal(sandbox.exports.TEXT.askText, "Leave your email so we can reach you if you leave this page.");
+});
+
+test("saved:false (chat off or paused): the widget writes no contact marker, clears busy and shows the paused view from its poll", async () => {
+  const w = await asked({ "/chat/contact/": { status: 200, body: { ok: true, saved: false } } });
+  const input = askInput(w);
+  input.value = "09171234567";
+  input.fire("input");
+  w.calls.length = 0;
+  find(w.panel(), "sw-ask")[0].fire("submit");
+  await w.wait();
+  assert.equal(w.local.getItem(widget.CONTACT_KEY), null, "no 'answered' marker");
+  assert.equal(widget.readContact(w.local), "");
+  assert.equal(w.calls.filter((c) => c.url === "/chat/contact/").length, 1);
+  assert.equal(w.calls.filter((c) => c.url === "/chat/poll/").length, 1, "one poll after the paused answer");
+  assert.equal(find(w.panel(), "sw-thanks").length, 0);
 });
 
 test("the kept 'answered' mark lasts as long as the conversation and survives a blocked store", () => {
@@ -276,6 +301,13 @@ test("contact: one POST to /storefront/v1/chat/contact/ with the credential and 
   assert.deepEqual(JSON.parse(calls[0].init.body as string), CONTACT);
 });
 
+test("contact: Django saved:false with kind '' is a valid answer, not a wrong shape, and nothing is logged", async () => {
+  const logs: string[] = [];
+  const r = await chatContact(CONTACT, env, () => Promise.resolve(Response.json({ saved: false, kind: "" })), (l) => logs.push(l));
+  assert.deepEqual(r, { state: "ok", chat: { saved: false, kind: "" } });
+  assert.deepEqual(logs, []);
+});
+
 test("contact: 404 unavailable, 422 and 429 refusals, a wrong shape or a server error failed, and nothing typed is logged", async () => {
   const run = (response: () => Response, logs: string[] = []) => chatContact(CONTACT, env, () => Promise.resolve(response()), (r) => logs.push(r));
   assert.deepEqual(await run(() => Response.json({}, { status: 404 })), { state: "unavailable" });
@@ -283,7 +315,7 @@ test("contact: 404 unavailable, 422 and 429 refusals, a wrong shape or a server 
   assert.deepEqual(refused, { state: "refused", status: 422, code: "invalid_request", message: "m", fields: { contact: "Enter a valid mobile or email." } });
   assert.equal((await run(() => Response.json({}, { status: 429 }))).state, "refused");
   const logs: string[] = [];
-  for (const odd of [() => Response.json({ saved: true, kind: "fax" }), () => Response.json({ saved: false, kind: "email" }), () => Response.json({}, { status: 500 })]) {
+  for (const odd of [() => Response.json({ saved: true, kind: "fax" }), () => Response.json({ saved: false, kind: "email" }), () => Response.json({ saved: true, kind: "" }), () => Response.json({}, { status: 500 })]) {
     assert.deepEqual(await run(odd, logs), { state: "failed" });
   }
   for (const line of logs) for (const word of [secret, VISITOR, CONTACT.contact, "api.test", CONTACT.visitor_ip]) assert.ok(!line.includes(word), line);
@@ -318,6 +350,17 @@ test("the contact route: the aliased host, the cookie secret and the contact go 
     const sent = JSON.parse(calls(seen)[0].init?.body as string);
     assert.deepEqual(sent, { host: "demo-store.negosyotest.com", visitor_ip: "203.0.113.7", visitor_secret: VISITOR, contact: "ana@example.test" });
   }, { VERCEL: "1" });
+});
+
+test("the contact route: Django saved:false gives the browser {ok:true, saved:false} with no error log", async () => {
+  await withDjango(() => Response.json({ saved: false, kind: "" }), async () => {
+    const errors: unknown[] = [];
+    console.error = (...a: unknown[]) => void errors.push(a);
+    const answer = await contactPost(post({ contact: "ana@example.test" }, { cookie: `no_chat=${VISITOR}` }));
+    assert.equal(answer.status, 200);
+    assert.deepEqual(await answer.json(), { ok: true, saved: false });
+    assert.equal(errors.length, 0);
+  });
 });
 
 test("the contact route: a visitor with no cookie sends an empty secret and the browser's own host and secret are ignored", async () => {

@@ -44,6 +44,7 @@ class Node {
     return e;
   }
   focus() { this.doc.activeElement = this; }
+  scrollIntoView(o) { (this.doc.scrolled = this.doc.scrolled || []).push({ id: this.getAttribute("id"), o }); }
   all(test = () => true, out = []) {
     for (const n of this.children) { if (test(n)) out.push(n); n.all(test, out); }
     return out;
@@ -62,6 +63,7 @@ class Node {
 export function makeDocument() {
   const doc = { activeElement: null, listeners: {}, cookie: "" };
   doc.createElement = (tag) => { const n = new Node(tag); n.doc = doc; return n; };
+  doc.createTextNode = (v) => { const t = new Node("#text"); t.text = String(v); return t; };
   doc.createElementNS = (ns, tag) => doc.createElement(tag);
   doc.body = doc.createElement("body");
   doc.getElementById = (id) => doc.body.all((n) => n.attrs.id === id)[0] || null;

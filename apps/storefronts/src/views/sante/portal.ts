@@ -59,7 +59,7 @@ ${args.scripts.map((s) => html`<script src="${asset(s)}"></script>`)}
 
 const NO_CHROME: Chrome = {
   store_name: "", accent_color: "", free_shipping_banner: false, year: 0, policy_links: [],
-  biz: { registered_name: "", dti_business_number: "", tin: "", contact_email: "", contact_mobile: "", contact_mobile_raw: "", has_seal: false },
+  biz: { registered_name: "", dti_business_number: "", contact_email: "", contact_mobile: "", contact_mobile_raw: "", has_seal: false },
 };
 
 export function signInContent(m: SignInModel): Markup {

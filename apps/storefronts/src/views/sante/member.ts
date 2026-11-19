@@ -18,7 +18,7 @@ import { cookieSettingsItem, hasPixel } from "../../lib/meta.ts";
 import { formatMobile } from "./model.ts";
 import { MEMBER_BASE_CSS } from "./member-base-css.ts";
 import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
-import { footerBusiness } from "./footer-business.ts";
+import { footerBottom } from "./footer-business.ts";
 
 export const SIGN_IN_PATH = "/dashboard/sign-in/";
 export const HOME_PATH = "/dashboard/";
@@ -82,7 +82,7 @@ export type Chrome = {
   policy_links: { label: string; path: string }[];
   /* The footer's "Cookie settings" link: only on a site with a Meta Pixel (src/lib/meta.ts). */
   cookie_settings?: boolean;
-  biz: { registered_name: string; dti_business_number: string; tin: string; contact_email: string; contact_mobile: string; contact_mobile_raw: string; has_seal: boolean };
+  biz: { registered_name: string; dti_business_number: string; contact_email: string; contact_mobile: string; contact_mobile_raw: string; has_seal: boolean };
 };
 
 export function chrome(site: Site, now: Date = new Date()): Chrome {
@@ -98,7 +98,6 @@ export function chrome(site: Site, now: Date = new Date()): Chrome {
     biz: {
       registered_name: site.business.registered_name,
       dti_business_number: site.business.dti_business_number,
-      tin: site.business.tin,
       contact_email: site.business.contact_email,
       contact_mobile: formatMobile(raw) || raw,
       contact_mobile_raw: raw,
@@ -147,39 +146,10 @@ export function initials(name: string): string {
 const STROKE = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 const CHEV = safe(`<svg class="pdn-chev" ${STROKE}><path d="m9 6 6 6-6 6"/></svg>`);
 
-/* ---- the light compact footer of the signed-in member pages (corrections 2, 2026-11-19) ------------------------------------------------ */
-
-/* A policy is linked only when the site lists it (v.policy_links), at the path the site gives: the same rule as the public footer. Never a guessed route. */
-export const PRIVACY_FOOTER_PATH = "/privacy-policy/";
-export const TERMS_FOOTER_PATH = "/terms-and-conditions/";
-export const WELLNESS_DISCLAIMER = "Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.";
-
-function memberFooter(v: Chrome): Markup {
-  const b = v.biz;
-  const privacy = v.policy_links.find((l) => l.path === PRIVACY_FOOTER_PATH)?.path ?? "";
-  const terms = v.policy_links.find((l) => l.path === TERMS_FOOTER_PATH)?.path ?? "";
-  const business = [b.registered_name ? `Registered business: ${b.registered_name}` : "", b.dti_business_number ? `DTI registration no. ${b.dti_business_number}` : ""].filter(Boolean).join(" · ");
-  return html`<footer class="mfoot" data-mfoot>
-  <div class="mfoot-inner">
-    <div class="mfoot-row">
-      <p class="mfoot-copy">&#169; ${v.year} ${v.store_name}. All rights reserved.</p>
-      <ul class="mfoot-links" aria-label="Legal and contact">
-        ${privacy ? html`<li><a href="${privacy}">Privacy Policy</a></li>` : ""}
-        ${terms ? html`<li><a href="${terms}">Terms</a></li>` : ""}
-        <li class="mfoot-contact"><a href="${HELP_PATH}#contact">Contact</a></li>
-        ${cookieSettingsItem(v.cookie_settings)}
-      </ul>
-    </div>
-    ${business || b.has_seal ? html`<div class="mfoot-reg">${business ? html`<p class="mfoot-biz">${business}</p>` : ""}${b.has_seal ? html`<img class="mfoot-seal" src="/business-seal/" alt="BIR registered business seal" width="240" height="84" loading="lazy">` : ""}</div>` : ""}
-    <p class="mfoot-disclaimer">${WELLNESS_DISCLAIMER}</p>
-  </div>
-</footer>`;
-}
-
-/* The desktop footer of the signed-in member pages (corrections 3, 2026-11-19): the storefront's business-details footer (footer-business.ts, the same
-   function as the storefront home), dark, from the store's own record. Shown above 1024px only; the light compact footer above is the one up to 1024px. */
+/* The footer of the signed-in member pages (corrections 4, 2026-11-19): above 1024px only, the dark storefront footer's copyright and wellness lines, with no
+   business-details card. Up to 1024px (phones and tablets) there is no footer: CSS hides this block there, and the page ends above the bottom navigation. */
 function desktopFooter(v: Chrome): Markup {
-  return html`<div class="pb pd-footer mfoot-desk" data-mfoot-desk><footer class="footer"><div class="footer-inner">${footerBusiness(v)}</div></footer></div>`;
+  return html`<div class="pb pd-footer mfoot-desk" data-mfoot-desk><footer class="footer"><div class="footer-inner">${footerBottom(v)}</div></footer></div>`;
 }
 
 /* ---- the fixed bottom navigation and its More sheet (phones and tablets, up to 1024px: where the bar's links used to fold into a hamburger) ---- */
@@ -353,7 +323,7 @@ ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : "
 ${bar(v, args.member, args.current)}
 <script src="${asset("js/pack-nav-toggle.js")}"></script>
 ${signedIn ? html`<div class="shell"><main class="main">${args.content}</main></div>` : html`<main class="wrap">${args.content}</main>`}
-${signedIn ? html`${memberFooter(v)}${desktopFooter(v)}` : footer(v)}
+${signedIn ? desktopFooter(v) : footer(v)}
 ${signedIn ? html`${bottomNav(args.current)}${moreSheet(args.current)}` : ""}
 ${args.scripts.map((s) => html`<script src="${asset(s)}"></script>`)}
 </div>

@@ -20,11 +20,16 @@ export function footerBusiness(v: FooterBusiness): Markup {
       ${v.biz.has_seal ? html`<div class="footer-seal-box"><img class="footer-seal" src="/business-seal/" alt="BIR registered business seal" width="240" height="84"></div>` : ""}
     </div>
     ` : ""}
-    <div class="footer-bottom">
+    ${footerBottom(v)}
+  `;
+}
+
+/* The © line and the wellness disclaimer on their own (the member pages' desktop footer carries no business-details card). */
+export function footerBottom(v: { year: number; store_name: string }): Markup {
+  return html`<div class="footer-bottom">
       <div class="footer-meta">
         <div class="footer-copyright">&#169; ${v.year} ${v.store_name}. All rights reserved.</div>
         <div class="footer-disclaimer">Products are for general wellness support only. Not intended to diagnose, treat, cure, or prevent any disease. Results may vary.</div>
       </div>
-    </div>
-  `;
+    </div>`;
 }

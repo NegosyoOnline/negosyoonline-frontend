@@ -678,37 +678,20 @@ test("the bar's CSS shows the bottom navigation up to 1024px and the links above
   assert.doesNotMatch(css, /@media \(max-width: 1023px\)|@media \(min-width: 1026px\)/); // one breakpoint, no gap and no overlap
 });
 
-test("the footer: the real store name, the current year, Privacy Policy, Terms, Contact and the approved disclaimer, word for word", async () => {
+test("corrections 4: the footer is the © line and the wellness disclaimer only; no links, no business-details card, and none of the light footer", async () => {
   const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
   const { html } = await import("../src/lib/html.ts");
   const doc = (site: typeof SITE, now: Date) => memberDocument(chrome(site, now), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
   const both = [{ label: "Privacy Policy", path: "/privacy-policy/" }, { label: "Terms and Conditions", path: "/terms-and-conditions/" }];
   const page = doc({ ...SITE, display_name: "Nena's Wellness & Barley", policy_links: both }, new Date("2027-03-02T00:00:00Z"));
+  assert.doesNotMatch(page, /class="mfoot"|data-mfoot>|mfoot-inner|mfoot-links|mfoot-seal/); // the phone/tablet footer is not rendered at all
   const foot = page.slice(page.indexOf("<footer"), page.indexOf("</footer>"));
   assert.match(foot, /&#169; 2027 Nena(?:'|&#x27;)s Wellness &amp; Barley\. All rights reserved\./);
-  assert.match(foot, /<a href="\/privacy-policy\/">Privacy Policy<\/a>/);
-  assert.match(foot, /<a href="\/terms-and-conditions\/">Terms<\/a>/);
-  assert.match(foot, /<li class="mfoot-contact"><a href="\/dashboard\/help\/#contact">Contact<\/a><\/li>/);
-  assert.match(foot, /<p class="mfoot-disclaimer">Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\.<\/p>/);
-  assert.doesNotMatch(foot, /Demo Store|Ana(?:'|&#x27;)s Store/);
+  assert.match(foot, /Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\./);
+  assert.doesNotMatch(foot, /footer-registration|footer-reg-list|footer-seal|BIR tax ID|DTI registration|Registered business|privacy-policy|Privacy Policy/);
   assert.match(doc(SITE, new Date("2026-11-19T00:00:00Z")), /&#169; 2026 Demo Store\./); // the configured name, whatever it is
-  // a policy is linked only when the site lists it; nothing is guessed
-  const footOf = (links: { label: string; path: string }[]) => { const p = doc({ ...SITE, policy_links: links }, new Date("2026-11-19T00:00:00Z")); return p.slice(p.indexOf("<footer"), p.indexOf("</footer>")); };
-  const neither = footOf([]);
-  assert.doesNotMatch(neither, /privacy-policy|terms-and-conditions|Privacy Policy|>Terms</);
-  assert.match(neither, /<ul class="mfoot-links"[^>]*>\s*<li class="mfoot-contact"><a href="\/dashboard\/help\/#contact">Contact<\/a><\/li>/); // just Contact, no stray separator item
-  const onlyPrivacy = footOf([both[0]]);
-  assert.match(onlyPrivacy, /href="\/privacy-policy\/">Privacy Policy/);
-  assert.doesNotMatch(onlyPrivacy, /terms-and-conditions|>Terms</);
-  const onlyTerms = footOf([both[1]]);
-  assert.match(onlyTerms, /href="\/terms-and-conditions\/">Terms/);
-  assert.doesNotMatch(onlyTerms, /privacy-policy|Privacy Policy/);
-  const listed = footOf(both);
-  assert.match(listed, /href="\/privacy-policy\/">Privacy Policy[^]*href="\/terms-and-conditions\/">Terms/);
   const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
-  assert.match(css, /\.mfoot \{[^}]*border-top: 1px solid var\(--line\)/);
-  assert.match(css, /\.e4-home \.mfoot-inner \{ max-width: 1240px; padding-inline: 24px; \}/); // the Home's shared container
-  assert.match(css, /@media \(max-width: 1024px\) \{[^}]*\.mfoot-inner \{ padding: 16px 16px; \}[^}]*\.mfoot-contact \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.mfoot(?!-desk)/);
 });
 
 test("the mobile order card: parcel beside the headline, order reference and a concise quantity, no tracking number and no Copy; both stay on the desktop strip", async () => {
@@ -806,22 +789,7 @@ test("the mobile category tiles: titles stay, descriptions and Explore rows are 
   assert.match(css, /\.mh-cat-img \{ aspect-ratio: auto; height: 78px; \}/);
 });
 
-test("the footer shows the BIR seal, compact, only when the business has one; the registered-business line stays", async () => {
-  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
-  const { html } = await import("../src/lib/html.ts");
-  const doc = (has_seal: boolean) => memberDocument(chrome({ ...FILLED, business: { ...FILLED.business, has_seal } }), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
-  const withSeal = doc(true);
-  const foot = withSeal.slice(withSeal.indexOf("<footer"), withSeal.indexOf("</footer>"));
-  assert.match(foot, /<img class="mfoot-seal" src="\/business-seal\/" alt="BIR registered business seal"/);
-  assert.match(foot, /Registered business: Nena Santos Trading &middot; DTI registration no\. 1234567|Registered business: Nena Santos Trading · DTI registration no\. 1234567/);
-  const none = doc(false);
-  assert.doesNotMatch(none.slice(none.indexOf("<footer"), none.indexOf("</footer>")), /mfoot-seal|business-seal/);
-  const css = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "css", "pack-member-bar.css"), "utf8");
-  assert.match(css, /\.mfoot-seal \{[^}]*width: 120px/);
-  assert.match(css, /max-width: 1024px\) \{ \.mfoot-seal \{ width: 96px; \}/);
-});
-
-/* ---- corrections 3 (2026-11-19): the desktop business-details footer and the website chat on the member pages ---- */
+/* ---- corrections 3 and 4 (2026-11-19): the desktop footer and the website chat on the member pages ---- */
 
 const CSS_DIR = path.join(import.meta.dirname, "..", "public", "assets", "sante", "css");
 
@@ -837,43 +805,33 @@ test("corrections 3: every signed-in member page carries the chat tags, in the h
   assert.doesNotMatch(signIn, /mfoot-desk/);
 });
 
-test("corrections 3: the desktop footer is the storefront business-details block with the store-record values; nothing is hard-coded", async () => {
+test("corrections 4: the desktop footer has the © and disclaimer and no business-details card, whatever the store record holds", async () => {
   const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
   const { html } = await import("../src/lib/html.ts");
-  const doc = (business: Partial<typeof FILLED.business>) => memberDocument(chrome({ ...FILLED, business: { ...FILLED.business, ...business } }), { title: "T", member: "Ana", current: "home", content: html`<p>x</p>`, scripts: [] }).value;
-  const full = doc({ has_seal: true });
-  const desk = full.slice(full.indexOf('<div class="pb pd-footer mfoot-desk"'), full.indexOf("</footer>", full.indexOf("mfoot-desk")));
-  assert.match(desk, /<span>Registered business<\/span>Nena Santos Trading/);
-  assert.match(desk, /<span>DTI registration no\.<\/span>1234567/);
-  assert.match(desk, /<span>BIR tax ID no\. \(TIN\)<\/span>123-456-789-00000/);
-  assert.match(desk, /<img class="footer-seal" src="\/business-seal\/"/);
+  const out = memberDocument(chrome({ ...FILLED, business: { ...FILLED.business, has_seal: true } }), { title: "T", member: "Ana", current: "home", content: html`<p>x</p>`, scripts: [] }).value;
+  const desk = out.slice(out.indexOf('<div class="pb pd-footer mfoot-desk"'), out.indexOf("</footer>", out.indexOf("mfoot-desk")));
   assert.match(desk, /<div class="footer-copyright">&#169; \d{4} Nena&#x27;s Wellness &amp; Barley\. All rights reserved\.<\/div>/);
   assert.match(desk, /Products are for general wellness support only\./);
-  assert.match(full, /<footer class="mfoot" data-mfoot>/); // the approved compact footer stays in the page for phones and tablets
-  // a missing value or seal draws nothing; with none at all, only the copyright and the disclaimer remain
-  const part = doc({ has_seal: false, tin: "" });
-  assert.doesNotMatch(part, /BIR tax ID no|footer-seal/);
-  assert.match(part, /<span>Registered business<\/span>/);
-  const none = doc({ has_seal: false, tin: "", registered_name: "", dti_business_number: "" });
-  const d = none.slice(none.indexOf("mfoot-desk"), none.indexOf("</footer>", none.indexOf("mfoot-desk")));
-  assert.doesNotMatch(d, /footer-registration/);
-  assert.match(d, /footer-copyright/);
+  assert.doesNotMatch(desk, /footer-registration|footer-seal|business-seal|1234567|123-456-789/);
 });
 
-test("corrections 3: the dark footer shows above 1024px only, the light one up to it; the launcher rides above the bottom navigation", () => {
+test("corrections 4: no footer up to 1024px, the compact dark footer above it; the launcher rides above the bottom navigation", () => {
   const css = readFileSync(path.join(CSS_DIR, "pack-member-bar.css"), "utf8");
   assert.match(css, /\.mfoot-desk \{ display: none; \}/);
-  assert.match(css, /@media \(min-width: 1025px\) \{\s*\.mfoot \{ display: none; \}\s*\.mfoot-desk \{ display: block;/);
+  assert.match(css, /@media \(min-width: 1025px\) \{\s*\.mfoot-desk \{ display: block;[^}]*\}\s*\.mfoot-desk \.footer \{ padding: 24px 190px; \}/);
+  assert.match(css, /\.mfoot-desk \.footer-bottom \{ padding-top: 0; \}/);
+  assert.doesNotMatch(css, /mfoot-inner/);
+  assert.match(css, /\.e4-bn \{ padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom, 0px\)\); \}/); // the page still clears the fixed navigation
   assert.match(css, /body\.mem \.sw-launcher \{ bottom: calc\(72px \+ 16px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
   assert.match(css, /body\.mem:has\(\.mbn-sheet:not\(\[hidden\]\)\) \.sw-launcher/); // never over the More sheet
   assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{\s*body\.mem \.sw-panel \{ bottom: calc\(72px/);
   const widget = readFileSync(path.join(CSS_DIR, "chat-widget.css"), "utf8");
-  assert.match(widget, /@media \(max-width: 640px\) \{\s*\.sw-panel \{ inset: 0;/); // the phone sheet is full screen
+  assert.match(widget, /@media \(max-width: 640px\) \{\s*\.sw-panel \{ inset: 0;/);
   assert.match(widget, /\.sw-panel \{ position: fixed;[^}]*z-index: 900/);
-  assert.match(css, /\.mbn \{ display: block; position: fixed;[^}]*z-index: 110/); // under the chat panel, so the navigation never sits on the input
+  assert.match(css, /\.mbn \{ display: block; position: fixed;[^}]*z-index: 110/);
 });
 
-test("corrections 3: the storefront home and pack footers still carry the same business block", async () => {
+test("corrections 4: the storefront home footer still carries the full business block", async () => {
   const { storeFooter } = await import("../src/views/sante/home.ts");
   const { homeModel } = await import("../src/views/sante/model.ts");
   const out = storeFooter(homeModel({ ...FILLED, business: { ...FILLED.business, has_seal: true } }, undefined, new Date("2026-06-01T00:00:00Z"))).value;

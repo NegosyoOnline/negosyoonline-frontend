@@ -428,48 +428,23 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
   html.mbn-lock { overflow: hidden; }
 }
 
-/* The light member footer (signed-in pages only; the public pages keep theirs). The same container as the bar and the body. */
-.mfoot { margin-top: auto; border-top: 1px solid var(--line); color: #4B5B53; font-family: 'Open Sans', system-ui, sans-serif; }
-.mfoot-inner { box-sizing: border-box; width: 100%; max-width: min(1600px, calc(50vw + 620px)); margin-inline: auto; padding: 24px 15px; }
-.e4-home .mfoot-inner { max-width: 1240px; padding-inline: 24px; }
-.mfoot p { margin: 0; }
-.mfoot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 24px; }
-.mfoot-copy { font-size: 14px; line-height: 1.5; }
-.mfoot-links { display: flex; flex-wrap: wrap; align-items: center; margin: 0; padding: 0; list-style: none; }
-.mfoot-links li { margin: 0; }
-.mfoot-links li + li::before { content: "\00b7"; margin: 0 10px; }
-.mfoot-links a { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-block: -10px; color: #2F3E36; font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-.mfoot-links a:hover { color: #00693A; }
-.mfoot-links a:focus-visible, .mfoot-links button:focus-visible { outline: 3px solid #6C8CFF; outline-offset: 2px; border-radius: 4px; }
-.mfoot-reg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 8px; }
-.mfoot-reg .mfoot-biz { margin: 0 !important; }
-.mfoot-seal { display: block; width: 120px; height: auto; max-width: 100%; background: #fff; border-radius: 6px; }
-@media (max-width: 1024px) { .mfoot-seal { width: 96px; } }
-.mfoot-biz { margin-top: 8px !important; font-size: 14px; line-height: 1.5; }
-.mfoot-disclaimer { margin-top: 8px !important; font-size: 14px; line-height: 1.5; color: #5B6B63; }
-@media (max-width: 1024px) {
-  .mfoot-inner { padding: 16px 16px; }
-  .mfoot-contact { display: none; }
-  .mfoot-links li:first-child.mfoot-contact + li::before { content: none; }
-  .e4-home .mfoot-inner { padding-inline: 16px; }
-}
-@media (min-width: 1025px) { .mfoot-links { margin-block: 0; } }
-
-/* Corrections 3 (2026-11-19): above 1024px the member footer is the storefront's dark business-details footer (.mfoot-desk) and the light one is not shown;
-   up to 1024px the light compact footer stays and the dark one is not shown. The same 1024px breakpoint as the bottom navigation. */
+/* Corrections 4 (2026-11-19): up to 1024px (phones and tablets) a member page has no footer. Above 1024px it ends with the storefront's dark footer
+   carrying only the copyright and the wellness lines, centred, with compact top and bottom padding (no business-details card). */
 .mfoot-desk { display: none; }
 @media (min-width: 1025px) {
-  .mfoot { display: none; }
   .mfoot-desk { display: block; margin-top: auto; }
+  .mfoot-desk .footer { padding: 24px 190px; }  /* the side room keeps the lower-right chat button clear of the text */
+  .mfoot-desk .footer-bottom { padding-top: 0; }
+  .mfoot-desk .footer-disclaimer { white-space: normal; }
+  body.mem.sw-on .mfoot-desk .footer { padding-bottom: 24px; }  /* the chat widget's 104px footer padding is not needed here */
 }
 
 /* The website chat on the member pages (body.mem). Up to 1024px the fixed bottom navigation (72px plus the safe area) is on screen: the launcher rides above
-   it and is hidden while the More sheet is open, and the light footer keeps clear of it. On a phone the opened chat is a full-screen sheet above the navigation
+   it and is hidden while the More sheet is open,. On a phone the opened chat is a full-screen sheet above the navigation
    (the widget's z-index 900 is above the navigation's 110), so the navigation never sits on the input; on a tablet the floating panel rides above the navigation. */
 @media (max-width: 1024px) {
   body.mem .sw-launcher { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); }
   body.mem:has(.mbn-sheet:not([hidden])) .sw-launcher, html.mbn-lock body.mem .sw-launcher { display: none; }
-  body.mem.sw-on .mfoot-inner { padding-bottom: 80px; }
 }
 @media (min-width: 641px) and (max-width: 1024px) {
   body.mem .sw-panel { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); max-height: min(660px, calc(100vh - 72px - 32px - env(safe-area-inset-bottom, 0px))); }
@@ -483,10 +458,6 @@ html[data-theme="dark"] .mbn-links-sep, html[data-theme="dark"] .mbn-out { borde
 html[data-theme="dark"] .mbn-links a[aria-current="page"] { color: #8BE0B8; background: rgba(139,224,184,.1); }
 html[data-theme="dark"] .mbn-group { color: #98A8A0; }
 html[data-theme="dark"] .mbn-logout { color: #FFB4AB; }
-html[data-theme="dark"] .mfoot { border-top-color: #2C3A33; color: #A9B8B0; }
-html[data-theme="dark"] .mfoot-links a { color: #C9D6CE; }
-html[data-theme="dark"] .mfoot-links a:hover { color: #8BE0B8; }
-html[data-theme="dark"] .mfoot-disclaimer { color: #98A8A0; }
 
 /* The dashboard sheet (pack-dashboard.css, a byte-for-byte TWCinc original) sets some text at 10-13.5px; the owner dashboard (apps/dash dash.css) has none under 14px.
    Raised here, in the member-only sheet, so the original and the sign-in portal stay as they were. */

@@ -438,7 +438,7 @@ test("the menu shows only the built sections, and the footer follows TWCinc's pa
   assert.match(out, /Products are for general wellness support only\./);
   const page = homeDocument(v, "Ana").value;
   assert.doesNotMatch(page, /footer-reg-contact|footer-legal-row/); // not the signed-out pack footer: the desktop footer is the storefront's business-details block (corrections 3)
-  assert.match(page, /<footer class="mfoot" data-mfoot>/);
+  assert.doesNotMatch(page, /class="mfoot"|data-mfoot>/); // corrections 4: no phone/tablet footer
   assert.match(page, /Products are for general wellness support only\. Not intended to diagnose, treat, cure, or prevent any disease\. Results may vary\./);
 });
 

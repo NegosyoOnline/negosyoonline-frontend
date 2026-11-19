@@ -185,8 +185,8 @@ function earnMenu(current: string): Markup {
   const items = SECTIONS.filter((s) => s.built && s.earn);
   const here = items.some((s) => s.key === current);
   return html`<li class="pdn-earn" data-pdn-earn>
-      <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-haspopup="true" aria-expanded="false" data-pdn-earn-btn>${EARN_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
-      <ul class="pdn-pop pdn-earn-pop" data-pdn-earn-pop hidden>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
+      <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn>${EARN_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
+      <ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list" data-pdn-earn-pop hidden>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
     </li>`;
 }
 

@@ -99,7 +99,7 @@ export function card(c: OrderCard, i = 0): Markup {
     </div>
     <div class="oc-member-body">
       <p><strong>${m.label}</strong></p>
-      <p>${m.line}</p>
+      <p>${m.registered ? REGISTERED_LINE : m.line}</p>
       ${m.registered && m.sante_member_id ? html`<dl class="pp-dash-rows"><div><dt>Member / Reference ID</dt><dd>${m.sante_member_id}</dd></div></dl>` : ""}
       ${m.act ? html`<a href="/dashboard/purchases/" class="oc-member-link">Review your details &rarr;</a>` : ""}
     </div>
@@ -133,6 +133,8 @@ const SHOP_TRACK = ["placed", "confirmed", "shipped", "delivered"] as const;
 /** A shop order as a card beside the pack's (TWCinc _store_order_card.html over the pack card's look): the buyer's four-step tracker,
     "This order was cancelled." for a cancelled one, the courier line and the details. Django's buyer view is the source of every word. */
 export const ORDERS_REVIEW_PATH = "/dashboard/orders/review/";
+/** What a registered member is told, whatever line the server still sends (it can still say "is registering your membership"). */
+export const REGISTERED_LINE = "Your membership is registered with Santé.";
 
 export function shopCard(o: BuyerOrder, i = 0, notice: ReviewNotice | null = null): Markup {
   const at = SHOP_TRACK.indexOf(o.status as (typeof SHOP_TRACK)[number]);

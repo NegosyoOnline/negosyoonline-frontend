@@ -55,7 +55,9 @@ test("the bar lists Home, Explore Products, My Purchases, My Membership and Help
   assert.deepEqual(labels, ["Home /dashboard/", "Explore Products /products/", "My Purchases /dashboard/purchases/", "My Membership /dashboard/membership/", "Help /dashboard/help/",
     "Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/"]);
   assert.match(nav, /data-pdn-earn-btn[^>]*>Earn with Sant/);
-  assert.match(nav, /aria-expanded="false" data-pdn-earn-btn/);
+  assert.match(nav, /aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn/);
+  assert.doesNotMatch(nav, /pdn-earn-btn[^>]*aria-haspopup|aria-haspopup[^>]*data-pdn-earn-btn/); // a disclosure, not an ARIA menu
+  assert.match(nav, /<ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list"/);
   assert.doesNotMatch(nav, /Orders|Dashboard<|Buy|Cart/);
   assert.match(nav, /<a href="\/dashboard\/"[^>]*aria-current="page"/);
   assert.ok(body.indexOf("data-pdn-bell-btn") > body.indexOf('id="pdnLinks"') && body.indexOf("data-pdn-user-btn") > body.indexOf("data-pdn-bell-btn"));

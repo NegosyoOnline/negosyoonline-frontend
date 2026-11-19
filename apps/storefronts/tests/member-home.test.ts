@@ -414,3 +414,34 @@ test("My Purchases says plainly when the full list could not be read", async () 
   assert.match(body, /We couldn&#x27;t load your full purchase list/);
   assert.match(body, /You have no Membership Pack purchase|data-md-page="no-purchase"/);
 });
+
+/* ---- fix round 1: the registered line and the product grid hook ----------------------------------------------------- */
+
+test("a registered member sees the registered line in all four places, whatever line the server sends", async () => {
+  const SERVER = "The store is registering your membership with Santé.";
+  const membership = { label: "Registered", line: SERVER, tone: "ok", registered: true, sante_member_id: "SF-00123", act: false };
+  const registration = { status: "registered", label: "Registered", line: SERVER, tone: "ok", details_form: false, details_erased: false, state_version: "2", sante_member_id: "SF-00123" };
+  const DONE = "Your membership is registered with Sant";
+  const homeBody = await home({ cards: cardsOf(card({ membership })), pack: ok({ pack: null, registration }) });
+  assert.doesNotMatch(homeBody, /is registering your membership/);
+  assert.match(lineOf(homeBody, "registration"), new RegExp(DONE)); // the order card's registration line
+  assert.match(homeBody.slice(homeBody.indexOf('id="mh-member"')), new RegExp(DONE)); // the membership card
+  const f = fake({ "member/me": [ME], "member/pack": [ok({ pack: null, registration })], "member/orders": [cardsOf(card({ membership }))], pack: [PACK_AGREEMENT] });
+  const ms = await (await membershipPage(dashOf(f))).text();
+  assert.match(ms, new RegExp(DONE));
+  assert.doesNotMatch(ms, /is registering your membership/);
+  const pu = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [FREE], "member/orders": [cardsOf(card({ membership }))] })))).text();
+  assert.match(pu, /<p>Your membership is registered with Sant/);
+  assert.doesNotMatch(pu, /is registering your membership/);
+  // not registered: the server's own line stays
+  const pending = await home({ cards: cardsOf(card({ membership: { ...membership, registered: false, label: "Registration pending" } })), pack: ok({ pack: null, registration: { ...registration, status: "pending" } }) });
+  assert.match(pending, /is registering your membership/);
+  assert.doesNotMatch(pending, /Your membership is registered with/);
+});
+
+test("the Home product grid carries its tile count, so the columns can fill the row", async () => {
+  const four = await home({ catalog: ok({ products: [1, 2, 3, 4, 5].map((n) => PRODUCT(n)) }) });
+  assert.match(four, /class="mh-prods" data-count="4"/);
+  const two = await home({ catalog: ok({ products: [1, 2].map((n) => PRODUCT(n)) }) });
+  assert.match(two, /class="mh-prods" data-count="2"/);
+});

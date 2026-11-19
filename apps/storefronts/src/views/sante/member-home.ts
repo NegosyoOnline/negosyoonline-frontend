@@ -10,7 +10,8 @@
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { OrderCard, OrderStep } from "../../lib/pack-api.ts";
 import type { CatalogProduct } from "../../lib/shop-api.ts";
-import { shortDate } from "./pack-orders.ts";
+import { REGISTERED_LINE, shortDate } from "./pack-orders.ts";
+export { REGISTERED_LINE };
 import { HELP_PATH, MEMBERSHIP_PATH, PURCHASES_PATH } from "./member.ts";
 import { PRODUCT_PLACEHOLDER, php, safeImage } from "./shop-shell.ts";
 import type { Live, Resume } from "../../lib/training-api.ts";
@@ -170,7 +171,7 @@ export function registrationLine(c: OrderCard): Line {
   const m = c.membership;
   if (!m) return mine("See My Membership", "Your membership registration is shown under My Membership.", "plain", undefined, { href: MEMBERSHIP_PATH, label: "Open My Membership" });
   const id = m.registered && m.sante_member_id ? html`<p class="mh-id">Official Santé Member ID <strong>${m.sante_member_id}</strong></p>` : html``;
-  return mine(m.label || (m.registered ? "Registered" : "Registration pending"), m.line, m.registered ? "ok" : m.act ? "warn" : "wait", id, m.act ? { href: PURCHASES_PATH, label: "Complete my registration" } : undefined);
+  return mine(m.label || (m.registered ? "Registered" : "Registration pending"), m.registered ? REGISTERED_LINE : m.line, m.registered ? "ok" : m.act ? "warn" : "wait", id, m.act ? { href: PURCHASES_PATH, label: "Complete my registration" } : undefined);
 }
 
 /* ---- A: welcome and the order card ------------------------------------------------------------------------- */
@@ -234,7 +235,7 @@ function orderNone(): Markup {
 
 export function membershipCard(reg: RegistrationInfo | null, appUrl: string, terms: string, hasOrder: boolean): Markup {
   const status = reg
-    ? html`<p class="mh-reg"><strong>${reg.label || (reg.registered ? "Registered" : "Registration pending")}</strong></p>${reg.line ? html`<p>${reg.line}</p>` : ""}`
+    ? html`<p class="mh-reg"><strong>${reg.label || (reg.registered ? "Registered" : "Registration pending")}</strong></p>${reg.registered ? html`<p>${REGISTERED_LINE}</p>` : reg.line ? html`<p>${reg.line}</p>` : ""}`
     : hasOrder ? html`<p class="mh-reg"><strong>Registration not started</strong></p><p>Membership registration opens once your payment is confirmed.</p>`
     : html`<p>Your membership details are not available right now. <a class="mh-link" href="${HELP_PATH}#membership">Ask us</a> if you need them.</p>`;
   const id = reg?.registered && reg.member_id
@@ -272,7 +273,7 @@ export function exploreSection(products: CatalogProduct[] | null, appUrl: string
   const shown = (products ?? []).slice(0, HOME_PRODUCTS_MAX);
   return html`<section class="mh-sect" id="mh-explore" aria-labelledby="mh-explore-h">
   <div class="mh-sect-head"><h2 id="mh-explore-h">Explore Sant&eacute; products</h2>${shown.length ? html`<a class="mh-link" href="/products/">Explore All Products &rarr;</a>` : ""}</div>
-  ${shown.length ? html`<div class="mh-prods">${shown.map(productTile)}</div>` : html`<div class="mh-card mh-empty" data-mh-empty="products">
+  ${shown.length ? html`<div class="mh-prods" data-count="${shown.length}">${shown.map(productTile)}</div>` : html`<div class="mh-card mh-empty" data-mh-empty="products">
     <p>${products === null ? "We can't show products right now." : "No products are listed here yet."} Members order in the Sant&eacute; Mobile App.</p>
     <div class="mh-actions">${appUrl ? html`<a class="mh-btn mh-btn-primary" href="${appUrl}" rel="noopener" target="_blank">Open Sant&eacute; Mobile App</a>` : html`<span class="mh-muted">${NO_APP_LINK_LINE}</span>`}<a class="mh-link" href="/products/">Explore All Products &rarr;</a></div></div>`}
 </section>`;

@@ -8,7 +8,7 @@ import {
   APP_PRICES_LINE, LIFETIME_LINE, NO_APP_LINK_LINE, NO_FEES_LINE, icons, type Contacts, type RegistrationInfo,
 } from "./member-home.ts";
 import { HELP_PATH, PURCHASES_PATH } from "./member.ts";
-import { card as orderCard } from "./pack-orders.ts";
+import { card as orderCard, REGISTERED_LINE } from "./pack-orders.ts";
 import type { OrderCard } from "../../lib/pack-api.ts";
 
 export type MembershipInput = { registration: RegistrationInfo | null; has_order: boolean; app_url: string; terms_href: string };
@@ -24,7 +24,7 @@ export const BENEFIT_QA: readonly { q: string; a: string }[] = [
 export function membershipContent(m: MembershipInput): Markup {
   const reg = m.registration;
   const status = reg
-    ? html`<p class="mh-reg"><strong>${reg.label || (reg.registered ? "Registered" : "Registration pending")}</strong></p>${reg.line ? html`<p>${reg.line}</p>` : ""}
+    ? html`<p class="mh-reg"><strong>${reg.label || (reg.registered ? "Registered" : "Registration pending")}</strong></p>${reg.registered ? html`<p>${REGISTERED_LINE}</p>` : reg.line ? html`<p>${reg.line}</p>` : ""}
       ${reg.act ? html`<a class="mh-btn mh-btn-primary" href="${PURCHASES_PATH}">Complete my registration</a>` : ""}`
     : m.has_order ? html`<p class="mh-reg"><strong>Registration not started</strong></p><p>Membership registration opens once your payment is confirmed.</p>`
     : html`<p>Your membership details are not available right now. <a class="mh-link" href="${HELP_PATH}#membership">Ask us</a> if you need them.</p>`;

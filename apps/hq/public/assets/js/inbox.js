@@ -1,8 +1,8 @@
 /* The Inbox pages of the HQ staff app, SMS only (ClickUp z8uq9me128, plan 5): the list of conversations, one
    conversation with its reply form, and New SMS. One script serves /inbox/sms/ and /inbox/sms/new/.
    Which conversation is open is held in memory only: no number, text or id is in an address, in storage or in
-   the console, and a reload returns to the list. Every action is one button press: there is no timer and no
-   automatic refresh. The page decides nothing about access or about what a valid text is: the backend does,
+   the console, and a reload returns to the list. Every action is one button press, except the quiet auto-refresh
+   at the end of this file (ClickUp z8uq9mgtf8, a port of the Dash Messenger's z8uq9mg799). The page decides nothing about access or about what a valid text is: the backend does,
    and the page follows its answer. A raw backend value is never shown; the backend's own words are shown only
    for the nine codes named in SHOWN. The user card and Sign out are shell.js's. */
 (function () {
@@ -30,7 +30,7 @@
   var status = null;          /* the last inbox/status/ answer */
   var bulkOn = false;         /* bulk/status/ answered 200: the Bulk SMS button is drawn (plan 9) */
   var view = "boot", filter = "all", cursor = null, listRun = 0, found = false;
-  var conv = null, convRun = 0, pushed = false, busy = false;
+  var conv = null, convRun = 0, pushed = false, busy = false, listRows = [], moreLoaded = false;
   var replyId = null, newId = null;
   var mark = document.querySelector ? document.querySelector("svg") : null;
   var SVG = mark ? mark.namespaceURI : null;
@@ -54,6 +54,7 @@
     view = name;
     VIEWS.forEach(function (id) { $(id).hidden = id !== name; });
     $("tabs").hidden = WITH_TABS.indexOf(name) < 0;
+    pollStart();
   }
   function say(id, text) { $(id).textContent = text || ""; $(id).hidden = !text; }
   function words(map, key) { return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : ""; }
@@ -176,7 +177,10 @@
       $("l-loading").hidden = false;
       $("found-line").hidden = true;
       found = false;
+      listRows = [];
+      moreLoaded = false;
     }
+    else moreLoaded = true;
     return H.call("POST", "inbox/conversations/list/", body).then(function (res) {
       if (run !== listRun) return;
       $("l-loading").hidden = true;
@@ -185,6 +189,7 @@
       if (!res.ok) { say("l-msg", "The conversations could not be loaded. Try again."); return; }
       cursor = res.data.next || null;
       $("l-empty").textContent = emptyWords();
+      listRows = listRows.concat(res.data.results || []);
       paintRows(res.data.results || [], !!cursor);
     });
   }
@@ -296,7 +301,8 @@
 
   function enter(data, push) {
     conv = { id: data.id, contact: String(data.contact || ""), can_reply: !!data.can_reply,
-      messages: data.messages || [], next: data.next || null };
+      messages: data.messages || [], next: data.next || null, older: false, stamp: null };
+    listRows.forEach(function (c) { if (c.id === data.id) conv.stamp = stampOf(c.last_message_at); });
     replyId = null;
     $("reply-text").value = "";
     show("v-conv");
@@ -362,6 +368,7 @@
       if (!res.ok) { say("c-msg", "The conversation could not be refreshed. Try again."); return; }
       conv.messages = res.data.messages || [];
       conv.next = res.data.next || null;
+      conv.older = false;
       say("c-msg", "");
       paintThread();
     });
@@ -376,6 +383,7 @@
       if (!res.ok) { say("c-msg", "Earlier texts could not be loaded. Try again."); return; }
       conv.messages = (res.data.messages || []).concat(conv.messages);
       conv.next = res.data.next || null;
+      conv.older = true;
       say("c-msg", "");
       paintThread();
       if (root && typeof window.scrollTo === "function") window.scrollTo(0, y + (root.scrollHeight - before));
@@ -419,7 +427,7 @@
         if (!conv || conv.id !== id) return;
         if (res.ok) {
           replyId = null;
-          if (res.data && res.data.message) conv.messages.push(res.data.message);
+          if (res.data && res.data.message) { conv.messages.push(res.data.message); conv.stamp = Math.max(conv.stamp || 0, stampOf(res.data.message.at)); }
           $("reply-text").value = "";
           countOf("reply-text", "reply-count");
           paintThread();
@@ -539,6 +547,129 @@
   });
   window.addEventListener("hashchange", function () { if (view === "v-list" && location.hash === "#find") $("find-number").focus(); });
   $("retry").addEventListener("click", start);
+
+  /* ---- auto-refresh (ClickUp z8uq9mgtf8, from the Dash Messenger's z8uq9mg799) ----
+     While the tab is visible, the open conversation is checked every 5 s (through the list, which writes no audit entry; the conversation itself is opened only when its row shows something new) and the list every 15 s, so a new text shows without
+     Refresh. Plain polling, no push stream. One timer per kind, armed only after the last read of that kind has ended, so two never
+     overlap. A hidden tab or leaving the view stops both; coming back (visibilitychange, window focus) reads at once. An error doubles
+     the wait (thread 5, 10, 20, 40, 60 s; list 15, 30, 60 s) and a success resets it. A background read is silent: no loading state,
+     no banner. It redraws only when the data changed, keeps the reply text, the focus and the scroll (the bottom only if the thread was
+     at the bottom), and never resets the filter, the open conversation or the pages of "Show more" / "Earlier texts" (the first page is
+     merged into them). The thread is polled only on the conversation view, the list only on the list view. */
+  var EVERY = { thread: 5000, list: 15000 }, CAP = 60000;
+  var P = { epoch: 0, thread: { t: null, fails: 0, busy: false }, list: { t: null, fails: 0, busy: false } };
+  function sigOf(x) { try { return JSON.stringify(x); } catch (e) { return ""; } }
+  function tabHidden() { return !!document.hidden || document.visibilityState === "hidden"; }
+  function pollOn(kind) {
+    if (tabHidden()) return false;
+    return kind === "thread" ? view === "v-conv" : view === "v-list";
+  }
+  function pollClear(kind) { var p = P[kind]; if (p.t !== null) { clearTimeout(p.t); p.t = null; } }
+  function pollArm(kind) {
+    var p = P[kind]; pollClear(kind);
+    if (!pollOn(kind)) return;
+    p.t = setTimeout(function () { p.t = null; pollRun(kind); }, Math.min(CAP, EVERY[kind] * Math.pow(2, p.fails)));
+  }
+  /* The view changed, or the tab came back: start the timers of the current view afresh. */
+  function pollStart() {
+    P.epoch++;
+    ["thread", "list"].forEach(function (k) { pollClear(k); P[k].fails = 0; P[k].busy = false; pollArm(k); });
+  }
+  /* Read at once (the tab came back); a read already running will arm the next one itself. */
+  function pollKick() {
+    ["thread", "list"].forEach(function (k) { if (pollOn(k)) { pollClear(k); P[k].fails = 0; pollRun(k); } });
+  }
+  function pollRun(kind) {
+    var p = P[kind], epoch = P.epoch, started;
+    if (!pollOn(kind) || p.busy) return;
+    function done(result) {
+      if (epoch !== P.epoch) return; /* the view changed meanwhile */
+      p.busy = false;
+      if (result === "ok") p.fails = 0; else if (result === "fail") p.fails++;
+      pollArm(kind);
+    }
+    p.busy = true;
+    started = kind === "thread" ? pollThread(done) : pollList(done);
+    if (started === false) done("skip");
+  }
+  function atBottom() {
+    var root = document.documentElement;
+    return !root || (window.innerHeight || 0) + (window.scrollY || 0) >= root.scrollHeight - 4;
+  }
+  /* The open conversation. Opening one writes an audit entry, so the 5 s read is the list's first page (no audit entry): the open
+     conversation's row says whether anything is new (unread, or a last_message_at newer than the one seen when the thread was drawn).
+     Only then is the conversation opened, which is a real view of the new texts, and its newest page merged in front of any older pages
+     loaded. A row not on the first page means nothing changed. An outbound status (queued to sent) shows on the next open. */
+  function stampOf(iso) { var t = Date.parse(iso); return isNaN(t) ? 0 : t; }
+  function pollThread(done) {
+    if (!conv || busy) return false;
+    var run = convRun, mine = conv, id = conv.id;
+    H.call("POST", "inbox/conversations/list/", { platform: "sms", state: "all" }).then(function (res) {
+      if (run !== convRun || conv !== mine || res.status === 401) { if (res.status === 401) left(res); done("skip"); return; }
+      if (!res.ok) { done("fail"); return; }
+      var rows = res.data.results || [], row = null;
+      rows.forEach(function (c) { if (c.id === id) row = c; });
+      if (!row) { done("ok"); return; }
+      var at = stampOf(row.last_message_at);
+      if (mine.stamp == null) mine.stamp = at;
+      if (!(row.unread > 0) && at <= mine.stamp) { done("ok"); return; }
+      readConversation(id).then(function (r) {
+        if (run !== convRun || conv !== mine || r.status === 401) { if (r.status === 401) left(r); done("skip"); return; }
+        if (!r.ok) { done("fail"); return; }
+        mine.stamp = Math.max(at, mine.stamp);
+        var fresh = r.data.messages || [], next = r.data.next || null, all = fresh, keep = conv.messages.length, seen = {};
+        if (conv.older) {
+          fresh.forEach(function (m) { seen[m.id] = true; });
+          for (var i = 0; i < conv.messages.length; i++) { if (seen[conv.messages[i].id]) { keep = i; break; } }
+          all = conv.messages.slice(0, keep).concat(fresh);
+          next = conv.next;
+        }
+        if (sigOf([all, next]) !== sigOf([conv.messages, conv.next])) {
+          var root = document.documentElement, bottom = atBottom(), y = window.scrollY || 0;
+          conv.messages = all;
+          conv.next = next;
+          paintThread();
+          if (root && typeof window.scrollTo === "function") window.scrollTo(0, bottom ? root.scrollHeight : y);
+        }
+        done("ok");
+      });
+    });
+    return true;
+  }
+  /* The list (and the status, for the unread count): the first page replaces the rows unless "Show more" pages are loaded, then it is merged in. */
+  function pollList(done) {
+    if (found || !$("l-loading").hidden) return false;
+    var run = listRun, body = { platform: "sms", state: filter };
+    H.call("POST", "inbox/status/", { platform: "sms" }).then(function (res) {
+      if (res.ok && run === listRun && view === "v-list") { status = res.data; paintStatus(); }
+    });
+    H.call("POST", "inbox/conversations/list/", body).then(function (res) {
+      if (run !== listRun || view !== "v-list" || found || res.status === 401) { if (res.status === 401) left(res); done("skip"); return; }
+      if (!res.ok) { done("fail"); return; }
+      var fresh = res.data.results || [], next = moreLoaded ? cursor : res.data.next || null, all = fresh, seen = {};
+      if (moreLoaded) {
+        fresh.forEach(function (c) { seen[c.id] = true; });
+        all = fresh.concat(listRows.filter(function (c) { return !seen[c.id]; }));
+      }
+      if (sigOf([all, next]) !== sigOf([listRows, cursor])) {
+        var held = document.activeElement, kids = $("rows").children, at = -1, id = "", i;
+        for (i = 0; i < kids.length; i++) { if (kids[i].contains && kids[i].contains(held)) at = i; }
+        if (at >= 0 && listRows[at]) id = listRows[at].id;
+        listRows = all;
+        cursor = next;
+        $("rows").textContent = "";
+        $("l-empty").textContent = emptyWords();
+        paintRows(all, !!cursor);
+        for (i = 0; id && i < all.length; i++) {
+          if (all[i].id === id) { var b = $("rows").children[i].querySelectorAll("button")[0]; if (b && b.focus) b.focus(); }
+        }
+      }
+      done("ok");
+    });
+    return true;
+  }
+  document.addEventListener("visibilitychange", function () { if (tabHidden()) pollStart(); else pollKick(); });
+  window.addEventListener("focus", function () { pollKick(); });
 
   /* Who is signed in comes from me/, the staff route that answers it; the Inbox routes do not. */
   function start() {

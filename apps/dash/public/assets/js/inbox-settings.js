@@ -92,7 +92,8 @@
   /* ---------- load ---------- */
 
   function show() {
-    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "", cm: null };
+    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "", cm: null, rulesBox: null };
+    if (window.NOCommentRules) window.NOCommentRules.unmount();
     cleanAddress();
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "pm-meta", "Loading your inbox settings…"));
@@ -105,7 +106,7 @@
       read(mine);
     });
   }
-  function hide() { token++; S = null; say(""); var r = byId("ibs-root"); if (r) clear(r); }
+  function hide() { token++; if (window.NOCommentRules) window.NOCommentRules.unmount(); S = null; say(""); var r = byId("ibs-root"); if (r) clear(r); }
   function read(mine) {
     D.call("GET", chBase(), null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
@@ -126,6 +127,11 @@
       S.msg = { conn: res.data, pages: null };
       if (S.back.error) S.err = msgErrText(S.back.error);
       loadComments(mine, function () {
+        /* The comment auto-replies editor (inbox-rules.js) draws itself into one box that stays in the page across renders; it hides itself on a 404. */
+        if (S.cm && window.NOCommentRules && !S.rulesBox) {
+          S.rulesBox = h("div", ""); S.rulesBox.setAttribute("id", "ibs-rules");
+          window.NOCommentRules.mount(S.rulesBox, { site: S.site, connect: goConnect, say: say });
+        }
         if (res.data.status !== "active" && (S.back.pick || res.data.pick_pending === true)) { loadPages(mine); return; }
         render();
       });
@@ -167,7 +173,7 @@
 
   function render() {
     var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
-    add(root, channelsCard(), messengerCard(), emailCard(), howCard());
+    add(root, channelsCard(), messengerCard(), S.rulesBox, emailCard(), howCard());
   }
 
   /* ---------- the channel cards (d6) ---------- */
@@ -256,7 +262,7 @@
       var row = h("div", "mk-pause"), cc = null;
       if (S.cm && S.cm.reason === "permission_missing") {
         add(s, (function () { var ch = h("p", "pm-hint", "Turn on comments for your Page to reply."); ch.setAttribute("id", "ibs-m-cm-hint"); return ch; })());
-        cc = btn("Reconnect", "ghost", goConnect); cc.setAttribute("id", "ibs-m-cm-connect");
+        cc = btn("Turn on comments", "ghost", goConnect); cc.setAttribute("id", "ibs-m-cm-connect");
       }
       if (S.asking) {
         /* The reconnect button keeps its own row above the question; Disconnect and Keep connected share one row below it. */
@@ -362,5 +368,5 @@
     return add(s, ul);
   }
 
-  window.NOInboxSettings = { show: show, hide: hide, util: { returnOf: returnOf, msgErrText: msgErrText, whenText: whenText, pauseUntil: pauseUntil, chatStatus: chatStatus } };
+  window.NOInboxSettings = { show: show, hide: hide, ui: { h: h, add: add, clear: clear, btn: btn, busy: busy, card: card, swtch: swtch, line: line, whenText: whenText }, util: { returnOf: returnOf, msgErrText: msgErrText, whenText: whenText, pauseUntil: pauseUntil, chatStatus: chatStatus } };
 })();

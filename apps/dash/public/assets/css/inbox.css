@@ -4,7 +4,7 @@
 
 /* ---- settings tab: the Payments card look ---- */
 #view-settings-inbox .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
-#view-settings-inbox .pm-root > .pm-card { margin-bottom: 16px; }
+#view-settings-inbox .pm-root > .pm-card, #view-settings-inbox .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
 #view-settings-inbox .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
 #view-settings-inbox .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
 #view-settings-inbox .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
@@ -181,6 +181,39 @@ body.dash-app .ib-note-info { background: var(--chip-info-bg); color: var(--chip
 #view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
 @media (max-width: 640px) { #view-settings-inbox .mk-pause > div { flex: 1 1 100%; } #view-settings-inbox .mk-pause .no-btn { width: 100%; } }
 
+/* ---- Comment auto-replies (ClickUp z8uq9mg9pk, C4): rules list, rule form, live preview, post picker ---- */
+#view-settings-inbox [hidden] { display: none !important; }
+#view-settings-inbox .ibr-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--bl-chip-warn); border-radius: 12px; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); font-size: 15px; line-height: 1.45; }
+#view-settings-inbox .ibr-banner p { margin: 0; color: inherit; }
+#view-settings-inbox .ibr-banner p + p { margin-top: 4px; }
+#view-settings-inbox .ibr-ready { margin: 0 0 14px; }
+#view-settings-inbox .ibr-counters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+#view-settings-inbox .ibr-list { margin: 0 0 14px; }
+#view-settings-inbox .ibr-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--card-line); }
+#view-settings-inbox .ibr-rule-t { min-width: 0; }
+#view-settings-inbox .ibr-rule-t b { display: block; font-size: 16px; color: var(--text); overflow-wrap: anywhere; }
+#view-settings-inbox .ibr-rule-t span { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
+#view-settings-inbox .ibr-excerpt { color: var(--meta); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#view-settings-inbox .ibr-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#view-settings-inbox .ibr-acts .pm-hint { margin: 0; }
+#view-settings-inbox .ibr-form { scroll-margin-top: 96px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--card-line); }
+#view-settings-inbox .ibr-h3 { font-size: 17px; }
+#view-settings-inbox .ibr-ta { min-height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.45; }
+#view-settings-inbox .ibr-err { color: var(--err-h); }
+#view-settings-inbox .ibr-prev { margin-top: 6px; }
+#view-settings-inbox .ibr-samples { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+#view-settings-inbox .ibr-chosen { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+#view-settings-inbox .ibr-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--card-line); border-radius: 8px; font-size: 14px; color: var(--text); }
+#view-settings-inbox .ibr-pick > span { min-width: 0; overflow-wrap: anywhere; }
+#view-settings-inbox .ibr-posts-list { display: flex; flex-direction: column; max-height: 260px; margin: 8px 0; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 8px; }
+#view-settings-inbox .ibr-post { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; color: var(--text); cursor: pointer; }
+#view-settings-inbox .ibr-post + .ibr-post { border-top: 1px solid var(--card-line); }
+#view-settings-inbox .ibr-post input { flex: none; margin-top: 3px; width: 18px; height: 18px; accent-color: var(--link); }
+#view-settings-inbox .ibr-post input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+#view-settings-inbox .ibr-post-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#view-settings-inbox .ibr-add, #view-settings-inbox .ibr-save { margin-top: 4px; }
+@media (max-width: 640px) { #view-settings-inbox .ibr-rule { grid-template-columns: minmax(0, 1fr); } #view-settings-inbox .ibr-rule .mk-sw { justify-self: start; } }
+
 /* the house dropdown (the pr-combo of Products, renamed ib-): the Channel filter and "Pause for". Focus is the light blue, never gold. */
 body.dash-app .ib-combo { position: relative; }
 body.dash-app .ib-combo .ib-combo-native { position: absolute; inset: 0; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; appearance: none; -webkit-appearance: none; width: 100%; height: 100%; }
@@ -342,3 +375,4 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 #view-inbox .ib-top-cm .cm-st { flex: none; }
+#view-settings-inbox .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }

@@ -1242,3 +1242,19 @@ test("added scope: the post card shows the caption as the link text; with no cap
   await d.openRow(0);
   assert.equal(d.$("ib-threadpane").all((n) => n.tagName === "A").length, 0, "no link when there is no permalink");
 });
+
+test("a comment row shows the auto-reply's own label as a neutral chip, and nothing when auto_reply is null or absent", async () => {
+  const d = boot();
+  d.s.listing = listing({ items: [
+    item({ auto_reply: null }),
+    item({ ref: R2, author_name: "Jun Dela Cruz", auto_reply: { state: "limit", label: "Not auto-answered (limit)", reason: "daily_cap", public: null, private: null } }),
+    item({ ref: R3, author_name: "Ana Reyes", auto_reply: { state: "sent", label: "Auto-replied", reason: "", public: "sent", private: "sent" } })
+  ] });
+  await d.openInbox();
+  const rows = d.rows();
+  const chipsOf = (r) => d.all(r, "chip").map((c) => text(c));
+  assert.deepEqual(chipsOf(rows[0]), []);
+  assert.deepEqual(chipsOf(rows[1]), ["Not auto-answered (limit)"]);
+  assert.deepEqual(chipsOf(rows[2]), ["Auto-replied"]);
+  assert.ok(d.all(rows[1], "chip").every((c) => c.classList.contains("chip-neutral")));
+});

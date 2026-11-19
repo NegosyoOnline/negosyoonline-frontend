@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
 import { fetchPack, memberMe } from "./django.ts";
-import { mobileApps } from "./env.ts";
+import { mobileAppsFor } from "./env.ts";
 import type { AppLinkInput } from "../views/sante/app-links.ts";
 import type { Member } from "./django.ts";
 import { html, htmlResponse } from "./html.ts";
@@ -103,7 +103,7 @@ export async function homePage(d: Dash): Promise<Response> {
     first_name: s.member.full_name.trim().split(/\s+/)[0] ?? "",
     orders: o.state === "ok" ? { state: "ok", cards } : { state: "failed" },
     registration: registrationOf(p),
-    app_url: d.appUrl ?? mobileApps(),
+    app_url: d.appUrl ?? mobileAppsFor(d.call.request),
     products: catalog,
     notices: n.state === "ok" ? noticesPanel(n.notices) : html``,
   };
@@ -134,7 +134,7 @@ export async function membershipPage(d: Dash): Promise<Response> {
   const cards = o.state === "ok" ? o.cards : [];
   const fromCard = cards.find((c) => c.membership)?.membership;
   const registration = registrationOf(p) ?? (fromCard ? { label: fromCard.label, line: fromCard.line, registered: fromCard.registered, member_id: fromCard.sante_member_id, act: fromCard.act } : null);
-  const content = membershipContent({ registration, has_order: (p.state === "ok" && !!p.pack) || cards.length > 0, app_url: d.appUrl ?? mobileApps(), terms_href: termsHref(agreement?.agreement?.id) });
+  const content = membershipContent({ registration, has_order: (p.state === "ok" && !!p.pack) || cards.length > 0, app_url: d.appUrl ?? mobileAppsFor(d.call.request), terms_href: termsHref(agreement?.agreement?.id) });
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Membership", member: s.member.full_name, current: "membership", content, scripts: [] }));
 }
 
@@ -171,7 +171,7 @@ async function plainPage(d: Dash, key: string, title: string, content: (appUrl: 
   if ("response" in s) return s.response;
   const locked = await lockedHome(d);
   if (locked) return locked;
-  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileApps()), scripts: [] });
+  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileAppsFor(d.call.request)), scripts: [] });
   return htmlResponse(doc);
 }
 

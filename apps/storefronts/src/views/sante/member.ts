@@ -14,7 +14,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { Site } from "../../lib/django.ts";
-import { cookieSettingsItem, hasPixel } from "../../lib/meta.ts";
+import { COOKIE_SETTINGS_LABEL, COOKIE_SETTINGS_PATH, cookieSettingsItem, hasPixel } from "../../lib/meta.ts";
 import { formatMobile } from "./model.ts";
 import { MEMBER_BASE_CSS } from "./member-base-css.ts";
 import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
@@ -185,7 +185,21 @@ function bottomNav(current: string): Markup {
 }
 
 /** The More sheet: Membership, Earn with Santé (the same permission rules as the bar's menu), the Santé App Order Log, Account Settings, Log out. */
-function moreSheet(current: string): Markup {
+/* The legal links of the More menus (corrections 4 follow-up, 2026-11-19): the links the removed footer carried. A policy is linked only when the site lists it, at the
+   path the site gives; "Cookie settings" only on a site with a Meta Pixel, and it is the same link (it reopens the consent choice). */
+export const PRIVACY_FOOTER_PATH = "/privacy-policy/";
+export const TERMS_FOOTER_PATH = "/terms-and-conditions/";
+export function legalLinks(v: Chrome): { label: string; path: string; cookie?: boolean }[] {
+  const out: { label: string; path: string; cookie?: boolean }[] = [];
+  const privacy = v.policy_links.find((l) => l.path === PRIVACY_FOOTER_PATH)?.path;
+  const terms = v.policy_links.find((l) => l.path === TERMS_FOOTER_PATH)?.path;
+  if (privacy) out.push({ label: "Privacy Policy", path: privacy });
+  if (terms) out.push({ label: "Terms", path: terms });
+  if (v.cookie_settings) out.push({ label: COOKIE_SETTINGS_LABEL, path: COOKIE_SETTINGS_PATH, cookie: true });
+  return out;
+}
+
+function moreSheet(v: Chrome, current: string): Markup {
   const link = (s: Section | undefined) => (s ? html`<li><a href="${s.path}"${here(current, s.key)}>${s.label}</a></li>` : "");
   const earn = SECTIONS.filter((s) => s.built && s.earn);
   return html`<div class="mbn-sheet" id="mbn-sheet" role="dialog" aria-modal="true" aria-labelledby="mbn-sheet-h" data-mbn-sheet hidden>
@@ -196,6 +210,7 @@ function moreSheet(current: string): Markup {
     ${earn.length ? html`<p class="mbn-group" id="mbn-earn-h">${EARN_LABEL}</p><ul class="mbn-links" aria-labelledby="mbn-earn-h">${earn.map((s) => link(s))}</ul>` : ""}
     <ul class="mbn-links mbn-links-sep">${link(sectionOf("orders"))}${link(sectionOf("account"))}</ul>
     <form method="post" action="/dashboard/sign-out/" class="mbn-out"><button type="submit" class="mbn-logout">Log out</button></form>
+    ${legalLinks(v).length ? html`<ul class="mbn-links mbn-legal" aria-label="Legal">${legalLinks(v).map((l) => html`<li><a href="${l.path}"${l.cookie ? safe(' class="footer-cookie-settings"') : ""}>${l.label}</a></li>`)}</ul>` : ""}
   </div>
 </div>`;
 }
@@ -241,12 +256,12 @@ function userMenu(name: string): Markup {
 }
 
 /* The "Earn with Santé" menu: Training, Media Library and Affiliate Hub. The button is drawn by pack-member-bar.js (data-pdn-earn). */
-function earnMenu(current: string): Markup {
+function earnMenu(v: Chrome, current: string): Markup {
   const items = SECTIONS.filter((s) => s.built && s.earn);
   const here = items.some((s) => s.key === current);
   return html`<li class="pdn-earn" data-pdn-earn>
       <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn>${MORE_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
-      <ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list" data-pdn-earn-pop hidden><li class="pdn-earn-h" role="presentation">${EARN_LABEL}</li>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
+      <ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list" data-pdn-earn-pop hidden><li class="pdn-earn-h" role="presentation">${EARN_LABEL}</li>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}${legalLinks(v).map((l, i) => html`<li class="pdn-legal${i === 0 ? " pdn-legal-first" : ""}"><a href="${l.path}"${l.cookie ? safe(' class="footer-cookie-settings"') : ""}>${l.label}</a></li>`)}</ul>
     </li>`;
 }
 
@@ -276,7 +291,7 @@ function bar(v: Chrome, member: string | null, current: string): Markup {
     ${signedIn ? html`
     <ul class="pdn-links" id="pdnLinks">${SECTIONS.filter((s) => s.built && s.menu).map((s) => html`
       <li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}
-      ${earnMenu(current)}
+      ${earnMenu(v, current)}
     </ul>
     <div class="pdn-actions">
       ${bell()}
@@ -324,7 +339,7 @@ ${bar(v, args.member, args.current)}
 <script src="${asset("js/pack-nav-toggle.js")}"></script>
 ${signedIn ? html`<div class="shell"><main class="main">${args.content}</main></div>` : html`<main class="wrap">${args.content}</main>`}
 ${signedIn ? desktopFooter(v) : footer(v)}
-${signedIn ? html`${bottomNav(args.current)}${moreSheet(args.current)}` : ""}
+${signedIn ? html`${bottomNav(args.current)}${moreSheet(v, args.current)}` : ""}
 ${args.scripts.map((s) => html`<script src="${asset(s)}"></script>`)}
 </div>
 ${signedIn ? chatWidgetScript(v.store_name) : ""}

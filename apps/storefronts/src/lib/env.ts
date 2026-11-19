@@ -27,11 +27,21 @@ export function storefrontEnv(source: Record<string, string | undefined> = proce
 /** STOREFRONT_MOBILE_APP_URL: where the Santé Mobile App can be opened or installed (a store link), shown to a signed-in member in place
     of the cart and checkout. Server only, read on each request. Anything but an https URL counts as not set (the notice then has no link). */
 export function mobileAppUrl(source: Record<string, string | undefined> = process.env): string {
-  const raw = (source.STOREFRONT_MOBILE_APP_URL || "").trim();
+  return httpsLink(source.STOREFRONT_MOBILE_APP_URL);
+}
+
+function httpsLink(value: string | undefined): string {
+  const raw = (value || "").trim();
   try {
     const url = new URL(raw);
     return url.protocol === "https:" && !/[\s"'<>]/.test(raw) ? url.toString() : "";
   } catch {
     return "";
   }
+}
+
+/** The app links: STOREFRONT_MOBILE_APP_URL_IOS (App Store), STOREFRONT_MOBILE_APP_URL_ANDROID (Google Play) and the single fallback
+    STOREFRONT_MOBILE_APP_URL, each validated alike (https only; anything else counts as not set). */
+export function mobileApps(source: Record<string, string | undefined> = process.env): { ios: string; android: string; fallback: string } {
+  return { ios: httpsLink(source.STOREFRONT_MOBILE_APP_URL_IOS), android: httpsLink(source.STOREFRONT_MOBILE_APP_URL_ANDROID), fallback: mobileAppUrl(source) };
 }

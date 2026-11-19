@@ -7,6 +7,7 @@ import { localMediaOrigin } from "../../lib/local-media.ts";
 import type { CartLine } from "../../lib/shop-cart.ts";
 import { countOf } from "../../lib/shop-cart.ts";
 import type { Quote } from "../../lib/shop-api.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
 import { storeDrawer, storeFooter, storeNav } from "./home.ts";
 import type { HomeModel } from "./model.ts";
@@ -37,7 +38,7 @@ export function safeImage(url: string, source: Record<string, string | undefined
 export const PRODUCT_PLACEHOLDER: Markup = html`<span class="product-img-placeholder" aria-hidden="true"><svg viewBox="0 0 48 48" width="56" height="56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M19 5h10v6l3 4v26a3 3 0 0 1-3 3H19a3 3 0 0 1-3-3V15l3-4z"/><path d="M16 22h16M16 33h16"/></svg></span>`;
 
 /** The basket drawer of a signed-in member: no rows, no checkout; the notice stands in the footer (storeDrawer). */
-export function appDrawer(href: string): HomeModel["drawer"] {
+export function appDrawer(href: AppLinkInput): HomeModel["drawer"] {
   return { count: 0, count_label: itemsLabel(0), subtotal: "0.00", lines: false, error: "", rows: html``, app: { href } };
 }
 

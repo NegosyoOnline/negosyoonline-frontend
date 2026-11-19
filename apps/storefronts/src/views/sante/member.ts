@@ -31,15 +31,16 @@ export const TEXT_ME_ENABLED = false;
    flips it. The order is TWCinc's (dashboard.py SECTIONS). */
 export type Section = { key: string; label: string; path: string; built: boolean; menu: boolean; earn?: boolean };
 export const EARN_LABEL = "Earn with Santé";
+export const MORE_LABEL = "More";
 export const MEMBERSHIP_PATH = "/dashboard/membership/";
 export const HELP_PATH = "/dashboard/help/";
 export const SECTIONS: readonly Section[] = [
   { key: "home", label: "Home", path: "/dashboard/", built: true, menu: true },
-  { key: "products", label: "Explore Products", path: "/products/", built: true, menu: true },
+  { key: "products", label: "Products", path: "/products/", built: true, menu: true },
   { key: "purchases", label: "My Purchases", path: PURCHASES_PATH, built: true, menu: true },
-  { key: "membership", label: "My Membership", path: MEMBERSHIP_PATH, built: true, menu: true },
+  { key: "membership", label: "Membership", path: MEMBERSHIP_PATH, built: true, menu: true },
   { key: "help", label: "Help", path: HELP_PATH, built: true, menu: true },
-  /* The "Earn with Santé" menu (existing routes, permissions unchanged): */
+  /* The "More" menu holds the Earn with Santé items (existing routes, permissions unchanged): */
   { key: "training", label: "Training", path: "/dashboard/training/", built: true, menu: false, earn: true },
   { key: "media", label: "Media Library", path: "/dashboard/media/", built: true, menu: false, earn: true },
   { key: "affiliate", label: "Affiliate Hub", path: "/dashboard/affiliate/", built: true, menu: false, earn: true },
@@ -48,6 +49,9 @@ export const SECTIONS: readonly Section[] = [
   { key: "account", label: "Account Settings", path: "/dashboard/account/", built: true, menu: false },
   { key: "commission", label: "Commission", path: "/dashboard/commission/", built: false, menu: false },
 ];
+
+/** The first page of the More / Earn with Santé menu: where "Explore ways to earn" leads. */
+export const EARN_ENTRY_PATH = SECTIONS.find((s) => s.built && s.earn)?.path ?? "/dashboard/training/";
 
 /* The ?next= keys of TWCinc (site_views.NEXT_TARGETS). A key whose page is not built yet lands on the home. */
 const NEXT_PATHS: Record<string, string> = {
@@ -185,8 +189,8 @@ function earnMenu(current: string): Markup {
   const items = SECTIONS.filter((s) => s.built && s.earn);
   const here = items.some((s) => s.key === current);
   return html`<li class="pdn-earn" data-pdn-earn>
-      <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn>${EARN_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
-      <ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list" data-pdn-earn-pop hidden>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
+      <button type="button" class="pdn-earn-btn${here ? " is-here" : ""}" aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn>${MORE_LABEL}<svg class="pdn-earn-caret" ${safe(STROKE)}><path d="m6 9 6 6 6-6"/></svg></button>
+      <ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list" data-pdn-earn-pop hidden><li class="pdn-earn-h" role="presentation">${EARN_LABEL}</li>${items.map((s) => html`<li><a href="${s.path}"${s.key === current ? safe(' aria-current="page"') : ""}>${s.label}</a></li>`)}</ul>
     </li>`;
 }
 

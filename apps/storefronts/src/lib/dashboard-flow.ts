@@ -8,7 +8,8 @@ import { randomBytes } from "node:crypto";
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
 import { fetchPack, memberMe } from "./django.ts";
-import { mobileAppUrl } from "./env.ts";
+import { mobileApps } from "./env.ts";
+import type { AppLinkInput } from "../views/sante/app-links.ts";
 import type { Member } from "./django.ts";
 import { html, htmlResponse } from "./html.ts";
 import { redirect, type Call } from "./member.ts";
@@ -19,7 +20,6 @@ import {
 } from "./pack-api.ts";
 import { memberNotices } from "./notices-api.ts";
 import { fetchCatalog } from "./shop-api.ts";
-import { memberCourses, memberLive } from "./training-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
@@ -30,8 +30,8 @@ import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../v
 import type { Site } from "../lib/django.ts";
 import type { Markup } from "./html.ts";
 
-/** `appUrl` is the Santé Mobile App link for a test; a request reads STOREFRONT_MOBILE_APP_URL (src/lib/env.ts). */
-export type Dash = { site: Site; call: Call; calls: Calls; now?: Date; appUrl?: string };
+/** `appUrl` is the Santé Mobile App link(s) for a test (a string is the single fallback link); a request reads the STOREFRONT_MOBILE_APP_URL* variables (src/lib/env.ts). */
+export type Dash = { site: Site; call: Call; calls: Calls; now?: Date; appUrl?: AppLinkInput };
 
 const TRY_AGAIN = "Please try again shortly.";
 const NO_MOBILE: MobileCheck = { pending: false, mobile: "", locked: false, code_sent_to: "", resend_in: 0, attempts_left: 5 };
@@ -91,28 +91,21 @@ export async function homePage(d: Dash): Promise<Response> {
   if (p.state === "unavailable") return neutralNotFound();
   if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
   // Every other read is independent: the order update is critical (a failure is said plainly), the rest only hide their own section.
-  const [o, n, catalog, agreement, live, courses] = await Promise.all([
+  const [o, n, catalog] = await Promise.all([
     memberOrders(args(d), d.calls),
     memberNotices({ host: d.call.host, token: d.call.member_token }, d.calls),
     fetchCatalog(d.call.host, d.calls),
-    fetchPack(d.call.host, d.calls.env, d.calls.fetchImpl, d.calls.log),
-    memberLive(args(d), d.calls),
-    memberCourses(args(d), d.calls),
   ]);
   const dead = (r: { state: string; status?: number }) => r.state === "refused" && r.status === 401;
-  if (dead(o) || dead(n) || dead(live) || dead(courses)) return signedOut(d);
+  if (dead(o) || dead(n)) return signedOut(d);
   const cards = o.state === "ok" ? o.cards : [];
   const input: HomeInput = {
     first_name: s.member.full_name.trim().split(/\s+/)[0] ?? "",
     orders: o.state === "ok" ? { state: "ok", cards } : { state: "failed" },
     registration: registrationOf(p),
-    app_url: d.appUrl ?? mobileAppUrl(),
-    terms_href: termsHref(agreement?.agreement?.id),
+    app_url: d.appUrl ?? mobileApps(),
     products: catalog,
     notices: n.state === "ok" ? noticesPanel(n.notices) : html``,
-    contacts: contactsOf(d),
-    live: live.state === "ok" ? live.live : null,
-    resume: courses.state === "ok" ? courses.resume : null,
   };
   return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, homeBody(input)));
 }
@@ -141,7 +134,7 @@ export async function membershipPage(d: Dash): Promise<Response> {
   const cards = o.state === "ok" ? o.cards : [];
   const fromCard = cards.find((c) => c.membership)?.membership;
   const registration = registrationOf(p) ?? (fromCard ? { label: fromCard.label, line: fromCard.line, registered: fromCard.registered, member_id: fromCard.sante_member_id, act: fromCard.act } : null);
-  const content = membershipContent({ registration, has_order: (p.state === "ok" && !!p.pack) || cards.length > 0, app_url: d.appUrl ?? mobileAppUrl(), terms_href: termsHref(agreement?.agreement?.id) });
+  const content = membershipContent({ registration, has_order: (p.state === "ok" && !!p.pack) || cards.length > 0, app_url: d.appUrl ?? mobileApps(), terms_href: termsHref(agreement?.agreement?.id) });
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Membership", member: s.member.full_name, current: "membership", content, scripts: [] }));
 }
 
@@ -173,12 +166,12 @@ export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Pro
 }
 
 /** A page with no data of its own (Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
-async function plainPage(d: Dash, key: string, title: string, content: (appUrl: string) => Markup): Promise<Response> {
+async function plainPage(d: Dash, key: string, title: string, content: (appUrl: AppLinkInput) => Markup): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
   const locked = await lockedHome(d);
   if (locked) return locked;
-  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileAppUrl()), scripts: [] });
+  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileApps()), scripts: [] });
   return htmlResponse(doc);
 }
 

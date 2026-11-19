@@ -4,6 +4,7 @@
    (a CSS table turned into blocks, the cell's data-label as the line's name), so the page never scrolls sideways. */
 import { html, safe, type Markup } from "../../lib/html.ts";
 import { STATUSES, type Filters, type LogOrder, type OrderFields, type OrderList, type OrderStatus } from "../../lib/orders-api.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { APP_ORDERS_LINE, appButton, pageHero } from "./member-dash.ts";
 
 export const ORDERS_PATH = "/dashboard/orders/";
@@ -135,7 +136,7 @@ const style = () => html`<style>${safe(MEMBER_ORDERS_CSS)}</style>`;
 
 /* ---- the list --------------------------------------------------------------------------------------------------- */
 
-export type ListPage = { list: OrderList; filters: Filters; appUrl: string; saved: string; now: Date };
+export type ListPage = { list: OrderList; filters: Filters; appUrl: AppLinkInput; saved: string; now: Date };
 
 const monthLabel = new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", month: "long", year: "numeric" });
 

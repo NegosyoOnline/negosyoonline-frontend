@@ -48,13 +48,13 @@ const home = async (replies: Record<string, Reply[]>, over: Partial<Dash> = {}) 
 
 /* ---- the menu and the name dropdown ---------------------------------------------------------------------------- */
 
-test("the bar lists Home, Explore Products, My Purchases, My Membership and Help, then the Earn with Santé menu, the bell and the name", async () => {
+test("the bar lists Home, Products, My Purchases, Membership and Help, then the More menu (Earn with Santé), the bell and the name", async () => {
   const body = await (await home({ "member/me": [ME], "member/pack": [FREE], "member/notices": [ok({ notices: [] })] })).text();
   const nav = body.slice(body.indexOf('id="pdnLinks"'), body.indexOf("</ul>", body.indexOf('id="pdnLinks"')));
   const labels = [...nav.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => `${m[2]} ${m[1]}`);
-  assert.deepEqual(labels, ["Home /dashboard/", "Explore Products /products/", "My Purchases /dashboard/purchases/", "My Membership /dashboard/membership/", "Help /dashboard/help/",
+  assert.deepEqual(labels, ["Home /dashboard/", "Products /products/", "My Purchases /dashboard/purchases/", "Membership /dashboard/membership/", "Help /dashboard/help/",
     "Training /dashboard/training/", "Media Library /dashboard/media/", "Affiliate Hub /dashboard/affiliate/"]);
-  assert.match(nav, /data-pdn-earn-btn[^>]*>Earn with Sant/);
+  assert.match(nav, /data-pdn-earn-btn[^>]*>More/);
   assert.match(nav, /aria-expanded="false" aria-controls="pdn-earn-list" data-pdn-earn-btn/);
   assert.doesNotMatch(nav, /pdn-earn-btn[^>]*aria-haspopup|aria-haspopup[^>]*data-pdn-earn-btn/); // a disclosure, not an ARIA menu
   assert.match(nav, /<ul class="pdn-pop pdn-earn-pop" id="pdn-earn-list"/);
@@ -122,7 +122,7 @@ test("the panel is hidden when there are no notices, or the notices cannot be re
   for (const notices of [ok({ notices: [] }), err(500), err(404)]) {
     const body = await (await home({ "member/me": [ME], "member/pack": [FREE], "member/notices": [notices] })).text();
     assert.doesNotMatch(body, /md-notices|Announcements/);
-    assert.match(body, /<h1>Welcome to Sant&eacute;, Juan!<\/h1>/);
+    assert.match(body, /<h1>Welcome, Juan<\/h1>/);
     assert.doesNotMatch(body, /Signed in as|<h1>Dashboard<\/h1>|acct-kpi|Total Spent|Order Monitoring|View all orders/);
   }
 });
@@ -152,7 +152,7 @@ test("My Purchases holds the Membership Pack payment card, and the rejected orde
   const lock = await (await purchasesPage(dashOf(fake({ "member/me": [ME], "member/pack": [LOCKED] })))).text();
   assert.match(lock, /<dialog class="pk-dlg" id="pk-lock" open/);
   const gone = await (await home({ "member/me": [ME], "member/pack": [ok({ pack, registration: null })], "member/notices": [ok({ notices: [] })] })).text();
-  assert.doesNotMatch(gone, /SP-1001|Membership Pack/);
+  assert.doesNotMatch(gone, /SP-1001|\bMembership Pack\b/);
 });
 
 test("The rejected-payment dialog has a dark rule for its card and contents, before and after resubmit", async () => {
@@ -191,7 +191,7 @@ test("Affiliate Hub says the orders are in the app, with the app link only when 
     const withLink = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] }), { appUrl: "https://apps.example.test/sante" }))).text();
     assert.match(withLink, new RegExp(`<h1>${title}</h1>`));
     assert.match(withLink, /Your orders are placed and tracked in the Sant(é|&eacute;) Mobile App\./);
-    assert.match(withLink, /<a href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant&eacute; Mobile App<\/a>/);
+    assert.match(withLink, /<a class="btn md-app-btn" href="https:\/\/apps\.example\.test\/sante"[^>]*>Open the Sant(é|&eacute;) Mobile App<\/a>/);
     const without = await (await page(dashOf(fake({ "member/me": [ME], "member/pack": [FREE] })))).text();
     assert.match(without, /placed and tracked in the Sant/);
     assert.doesNotMatch(without, /Open the Sant/);

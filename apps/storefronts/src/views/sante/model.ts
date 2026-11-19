@@ -2,6 +2,7 @@
    approved template's own variables, so home.ts reads like the template. */
 import type { Site } from "../../lib/django.ts";
 import type { Markup } from "../../lib/html.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { hasPixel } from "../../lib/meta.ts";
 
 export type ContactForm = {
@@ -20,7 +21,7 @@ export type HomeModel = {
   free_shipping_banner: boolean;
   year: number;
   /* The basket: `lines` says whether it has rows, `rows` is their markup (the shop fills it; the home passes none). */
-  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: string } };
+  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: AppLinkInput } };
   dist: { name: string; initials: string; tel: string; phone: string; photo: boolean };
   socials: { instagram: string; tiktok: string; facebook: string; facebook_label: string };
   contact_path: string;

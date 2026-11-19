@@ -4,7 +4,7 @@
    the store home; a rejected order locks the dashboard to My Purchases; a 404 (the log is off, the host is not served, or an id that
    is not this member's) is the neutral page. The filters are query parameters (q, status, from, to, page) carried into every link. */
 import { lockedHome, session, signedOut, tryAgain, type Dash } from "./dashboard-flow.ts";
-import { mobileAppUrl } from "./env.ts";
+import { mobileApps } from "./env.ts";
 import { htmlResponse } from "./html.ts";
 import { redirect } from "./member.ts";
 import {
@@ -76,7 +76,7 @@ export async function ordersPage(d: Dash): Promise<Response> {
   const r = await memberOrderList({ ...who(d), filters, page: n }, d.calls);
   if (r.state !== "ok") return ended(d, r);
   const saved = params.get("saved") ?? "";
-  return page(d, g.name, "Orders", ordersContent({ list: r, filters, appUrl: d.appUrl ?? mobileAppUrl(), saved: Object.hasOwn(SAVED_NOTICES, saved) ? saved : "", now: d.now ?? new Date() }));
+  return page(d, g.name, "Orders", ordersContent({ list: r, filters, appUrl: d.appUrl ?? mobileApps(), saved: Object.hasOwn(SAVED_NOTICES, saved) ? saved : "", now: d.now ?? new Date() }));
 }
 
 function formPage(d: Dash, name: string, p: Partial<FormPage> & { id: string | null; values: OrderFields }, status = 200): Response {

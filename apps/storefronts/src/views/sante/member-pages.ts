@@ -3,6 +3,7 @@
    statements are Coach Ed's approved funnel copy, the terms are the central agreement PDF, the help entries are this store's own
    contact details. No invented eligibility, discount percentage, deadline or deep link. */
 import { html, type Markup } from "../../lib/html.ts";
+import { appButtons, hasAppLink, type AppLinkInput } from "./app-links.ts";
 import { pageHero } from "./member-dash.ts";
 import {
   APP_PRICES_LINE, LIFETIME_LINE, NO_APP_LINK_LINE, NO_FEES_LINE, icons, type Contacts, type RegistrationInfo,
@@ -11,7 +12,7 @@ import { HELP_PATH, PURCHASES_PATH } from "./member.ts";
 import { card as orderCard, REGISTERED_LINE } from "./pack-orders.ts";
 import type { OrderCard } from "../../lib/pack-api.ts";
 
-export type MembershipInput = { registration: RegistrationInfo | null; has_order: boolean; app_url: string; terms_href: string };
+export type MembershipInput = { registration: RegistrationInfo | null; has_order: boolean; app_url: AppLinkInput; terms_href: string };
 
 /** The four questions of the benefits Q&A (Coach Ed's direction, section 5). */
 export const BENEFIT_QA: readonly { q: string; a: string }[] = [
@@ -45,11 +46,11 @@ ${pageHero("My Membership", "Your membership status, benefits and how to use the
 <section class="mh-card" id="how-to-use" aria-labelledby="mh-how-h">
   <h2 id="mh-how-h">How to Use My Membership</h2>
   <ol class="mh-steps">
-    <li>${m.app_url ? html`Open the <a href="${m.app_url}" rel="noopener" target="_blank">Sant&eacute; Mobile App</a>.` : html`Get the Sant&eacute; Mobile App. ${NO_APP_LINK_LINE}`}</li>
+    <li>${hasAppLink(m.app_url) ? html`Open the Sant&eacute; Mobile App.` : html`Get the Sant&eacute; Mobile App. ${NO_APP_LINK_LINE}`}</li>
     <li>${APP_PRICES_LINE}</li>
     <li>Place your member orders in the app. This website shows your membership package and product information.</li>
   </ol>
-  <div class="mh-actions">${m.app_url ? html`<a class="mh-btn mh-btn-primary" href="${m.app_url}" rel="noopener" target="_blank">Open Sant&eacute; Mobile App</a>` : html`<a class="mh-btn" href="${HELP_PATH}#membership">Ask us for the app link</a>`}</div>
+  <div class="mh-actions">${hasAppLink(m.app_url) ? appButtons(m.app_url, "mh-btn mh-btn-primary") : html`<a class="mh-btn" href="${HELP_PATH}#membership">Ask us for the app link</a>`}</div>
 </section>
 </div>`;
 }
@@ -66,13 +67,14 @@ export function purchasesList(cards: OrderCard[] | null): Markup {
 }
 
 /** Help: order, membership or app setup, and product questions, each pointing at this store's own contact details. */
-export function helpContent(ct: Contacts, appUrl: string): Markup {
+export function helpContent(ct: Contacts, appUrl: AppLinkInput): Markup {
   const contact = html`${ct.email || ct.mobile ? html`<p class="mh-contact">${ct.email ? html`<a class="mh-link" href="mailto:${ct.email}">${ct.email}</a>` : ""}${ct.email && ct.mobile ? " · " : ""}${ct.mobile ? html`<a class="mh-link" href="tel:${ct.mobile_raw}">${ct.mobile}</a>` : ""}</p>` : ""}<p><a class="mh-link" href="/#contact">Send a message through the store's contact form &rarr;</a></p>`;
-  const block = (id: string, title: string, text: string, extra: Markup = html``) => html`<section class="mh-card" id="${id}" aria-labelledby="${id}-h"><h2 id="${id}-h">${title}</h2><p>${text}</p>${extra}${contact}</section>`;
+  const block = (id: string, title: string, text: string, extra: Markup = html``) => html`<section class="mh-card" id="${id}" aria-labelledby="${id}-h"><h2 id="${id}-h">${title}</h2><p>${text}</p>${extra}<p><a class="mh-link" href="#contact">Contact your store &rarr;</a></p></section>`;
   return html`<div class="pd mh md-plain" data-md-page="help" id="pp-dash-help">
 ${pageHero("Help", "Your store is here to help.")}
+<section class="mh-card" id="contact" aria-labelledby="contact-h"><h2 id="contact-h">Contact your store</h2><p>Reach your store directly for anything about your order, membership or products.</p>${contact}</section>
 ${block("order", "About my order", "Tell us your order number and what you need. You can find it under My Purchases.", html`<p><a class="mh-link" href="${PURCHASES_PATH}">Open My Purchases &rarr;</a></p>`)}
-${block("membership", "Membership or app setup", "Ask about your membership registration, your member ID or getting the Santé Mobile App.", appUrl ? html`<p><a class="mh-link" href="${appUrl}" rel="noopener" target="_blank">Open the Sant&eacute; Mobile App &rarr;</a></p>` : html`<p class="mh-muted">${NO_APP_LINK_LINE}</p>`)}
+${block("membership", "Membership or app setup", "Ask about your membership registration, your member ID or getting the Santé Mobile App.", hasAppLink(appUrl) ? html`<div class="mh-actions">${appButtons(appUrl, "mh-btn")}</div>` : html`<p class="mh-muted">${NO_APP_LINK_LINE}</p>`)}
 ${block("product", "A product question", "Ask about how to use, prepare or store a product. Each product page also has its own FAQs.", html`<p><a class="mh-link" href="/products/">Browse products &rarr;</a></p>`)}
 </div>`;
 }

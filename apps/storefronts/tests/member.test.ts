@@ -344,7 +344,7 @@ test("dashboard home: signed in shows the hero with the member's name; no cookie
     assert.equal(r.status, 200);
     assert.equal(r.headers.get("cache-control"), "no-store");
     const page = await r.text();
-    assert.match(page, /<h1>Welcome to Sant&eacute;, Ana!<\/h1>/);
+    assert.match(page, /<h1>Welcome, Ana<\/h1>/);
     assert.doesNotMatch(page, /Signed in as/);
     assert.match(page, /<form method="post" action="\/dashboard\/sign-out\/" class="pdn-dd-out">/);
     assert.match(page, /href="\/dashboard\/orders\/"/);
@@ -421,7 +421,7 @@ test("the sign-in page keeps TWCinc's wording and its hooks", () => {
 });
 
 test("the menu shows only the built sections, and the footer follows TWCinc's pack footer", () => {
-  assert.deepEqual(SECTIONS.filter((s) => s.built && s.menu).map((s) => s.label), ["Home", "Explore Products", "My Purchases", "My Membership", "Help"]);
+  assert.deepEqual(SECTIONS.filter((s) => s.built && s.menu).map((s) => s.label), ["Home", "Products", "My Purchases", "Membership", "Help"]);
   assert.deepEqual(SECTIONS.filter((s) => s.built && s.earn).map((s) => s.label), ["Training", "Media Library", "Affiliate Hub"]);
   assert.equal(nextTarget("account"), "/dashboard/account/");
   assert.equal(nextKey("orders"), "orders");

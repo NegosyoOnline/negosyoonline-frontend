@@ -823,6 +823,8 @@ test("corrections 4: no footer up to 1024px, the compact dark footer above it; t
   assert.doesNotMatch(css, /mfoot-inner/);
   assert.match(css, /\.e4-bn \{ padding-bottom: calc\(72px \+ env\(safe-area-inset-bottom, 0px\)\); \}/); // the page still clears the fixed navigation
   assert.match(css, /body\.mem \.sw-launcher \{ bottom: calc\(72px \+ 16px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(css, /body\.mem\.sw-on \.e4-bn \.shell \{ padding-bottom: 92px; \}/); // 20px normal + 72px for the launcher, only while chat is shown
+  assert.match(css, /\.e4-bn \.shell \{ padding: 16px 16px 20px; \}/); // chat off: unchanged
   assert.match(css, /body\.mem:has\(\.mbn-sheet:not\(\[hidden\]\)\) \.sw-launcher/); // never over the More sheet
   assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{\s*body\.mem \.sw-panel \{ bottom: calc\(72px/);
   const widget = readFileSync(path.join(CSS_DIR, "chat-widget.css"), "utf8");

@@ -445,6 +445,8 @@ html[data-theme="dark"] .e4 .pk-date-nav.is-disabled { opacity: .35; cursor: not
 @media (max-width: 1024px) {
   body.mem .sw-launcher { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); }
   body.mem:has(.mbn-sheet:not([hidden])) .sw-launcher, html.mbn-lock body.mem .sw-launcher { display: none; }
+  /* with no footer, the last line ends above the launcher (56px plus its gap, 72px) while chat is shown (sw-on is set by the widget only when chat is available) */
+  body.mem.sw-on .e4-bn .shell { padding-bottom: 92px; }
 }
 @media (min-width: 641px) and (max-width: 1024px) {
   body.mem .sw-panel { bottom: calc(72px + 16px + env(safe-area-inset-bottom, 0px)); max-height: min(660px, calc(100vh - 72px - 32px - env(safe-area-inset-bottom, 0px))); }

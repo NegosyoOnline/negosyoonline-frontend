@@ -12,6 +12,49 @@
 
   function ready(fn) { if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", fn); } else { fn(); } }
 
+  /* The "Earn with Santé" menu: the button opens the list; Esc closes it and returns focus to the button; a click elsewhere closes it. */
+  ready(function () {
+    var earn = document.querySelector("[data-pdn-earn]");
+    if (!earn) { return; }
+    var btn = earn.querySelector("[data-pdn-earn-btn]"), pop = earn.querySelector("[data-pdn-earn-pop]");
+    function set(open) { pop.hidden = !open; btn.setAttribute("aria-expanded", open ? "true" : "false"); }
+    btn.addEventListener("click", function () { set(pop.hidden); });
+    document.addEventListener("click", function (e) { if (!pop.hidden && !earn.contains(e.target)) { set(false); } }, true);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !pop.hidden) { set(false); btn.focus(); }
+    });
+    earn.addEventListener("focusout", function (e) { if (!pop.hidden && e.relatedTarget && !earn.contains(e.relatedTarget)) { set(false); } });
+  });
+
+
+  /* The More sheet of the bottom navigation (phones and tablets): the More button opens it; Esc, the close button and a tap on the backdrop close it
+     and return focus to the button; Tab stays inside it while it is open; the page behind does not scroll. */
+  ready(function () {
+    var sheet = document.querySelector("[data-mbn-sheet]"), btn = document.querySelector("[data-mbn-more]");
+    if (!sheet || !btn) { return; }
+    var root2 = document.documentElement;
+    function focusables() { return Array.prototype.slice.call(sheet.querySelectorAll("a[href], button:not([disabled])")); }
+    function set(open) {
+      sheet.hidden = !open;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) { root2.classList.add("mbn-lock"); var f = focusables(); if (f.length) { f[0].focus(); } }
+      else { root2.classList.remove("mbn-lock"); }
+    }
+    btn.addEventListener("click", function () { set(sheet.hidden); });
+    sheet.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("[data-mbn-close]")) { set(false); btn.focus(); } });
+    document.addEventListener("keydown", function (e) {
+      if (sheet.hidden) { return; }
+      if (e.key === "Escape") { set(false); btn.focus(); return; }
+      if (e.key === "Tab") {
+        var f = focusables(); if (!f.length) { return; }
+        var first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    window.addEventListener("resize", function () { if (!sheet.hidden && window.innerWidth > 1024) { set(false); } });
+  });
+
   ready(function () {
     var user = document.querySelector("[data-pdn-user]");
     var bell = document.querySelector("[data-pdn-bell]");

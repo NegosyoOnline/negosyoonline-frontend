@@ -8,7 +8,7 @@
 
 const VERSIONS: Record<string, string> = {
   "css/pack-home.css": "7bf002d3",
-  "css/pack-storefront.css": "e1b2e295",
+  "css/pack-storefront.css": "8fe53bbe",
   "js/pack-home.js": "db367a6b",
   "js/pack-store.js": "3caf40e6",
   "js/contact-form.js": "e1bebee9", // this storefront's own file, not one of the approved TWCinc files
@@ -20,8 +20,10 @@ const VERSIONS: Record<string, string> = {
   "css/pack-reviews.css": "351a9a33", // this storefront's own file: the stars, the order review form and the product page reviews
   "css/pack-shop-orders.css": "ad99690f", // this storefront's own file: the shop order card's photo, unit price and savings row
   "css/pack-focus.css": "bbc3d1a0", // this storefront's own file: Coach Ed's light-blue focus rule, over the TWCinc sheets
-  "css/pack-member-bar.css": "d70cb34c", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
-  "js/pack-member-bar.js": "074b2abb", // this storefront's own file: the member bar's dropdowns, theme switch and bell (loaded in the head)
+  "css/pack-member-bar.css": "45780e6f", // this storefront's own file: the member bar's boxed width, bell, name dropdown, notices panel and dark theme
+  "js/pack-member-bar.js": "b213a855", // this storefront's own file: the member bar's dropdowns (user, bell, Earn with Santé), theme switch and bell (loaded in the head)
+  "css/pack-member-home.css": "2dad74b8", // this storefront's own file: the Home (v3 redesign), My Membership, Help, the My Purchases list and the More menu
+  "js/pack-member-home.js": "fcaf50cc", // this storefront's own file: the Home's Copy button for the tracking number
   "js/pack-phone.js": "8f9f894d",
   "js/pack-otp.js": "08e878d8",
   "js/pack-busy.js": "cd6351f6",
@@ -55,6 +57,12 @@ const VERSIONS: Record<string, string> = {
   "data/provinces.json": "1926a7f7",
   "data/city-mun.json": "06b39d0d",
   "data/barangays.json": "4f4439a8",
+  // Member Home v3 corrections 1 (ClickUp z8uq9mgmjg): Coach Ed's four category photos (800px) and the brown parcel (400px, with alpha)
+  "img/dash-category-barley-essentials.webp": "66454c47",
+  "img/dash-category-daily-wellness.webp": "8dd1531f",
+  "img/dash-category-coffee-beverages.webp": "2e3449e4",
+  "img/dash-category-explore-range.webp": "520a5c1f",
+  "img/dash-parcel-brown-box.webp": "ee40c908",
   "img/order-summary-pack-640.webp": "66a9cf4a",
   "img/order-summary-pack-960.webp": "46396612",
   "img/about/about-1.webp": "7bebaeeb",

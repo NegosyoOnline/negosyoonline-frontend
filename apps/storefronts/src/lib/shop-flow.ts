@@ -7,7 +7,8 @@
    never a price. Nothing a buyer typed is stored here before the order is placed; the placing buyer's key to the done page is
    the `no_order` cookie. Every refusal re-draws the page it came from with TWCinc's own words, never a status page. */
 import { randomBytes } from "node:crypto";
-import { mobileAppUrl } from "./env.ts";
+import { mobileApps } from "./env.ts";
+import type { AppLinkInput } from "../views/sante/app-links.ts";
 import { MEMBER, ORDER, ORDER_MAX_AGE, clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import type { Member, Site } from "./django.ts";
 import { fetchPack, memberMe } from "./django.ts";
@@ -36,10 +37,10 @@ const SESSION_ENDED = "Your sign-in has ended. Please sign in again to ship at t
 const ADDRESS_FIELD_KEYS = new Set(["receiver_name", "receiver_mobile", "contact_email", "line", "barangay", "city", "province", "zip", "landmark", "delivery_address", "ship_mode"]);
 const PAY_FIELD_KEYS = new Set(["account_id", "reference_number", "amount_sent", "proof"]);
 
-export type Shop = { request: Request; site: Site; host: string; visitor_ip: string; member_token: string; calls: Calls; now?: Date; appUrl?: string };
+export type Shop = { request: Request; site: Site; host: string; visitor_ip: string; member_token: string; calls: Calls; now?: Date; appUrl?: AppLinkInput };
 
 export function shopOf(request: Request, site: Site, call: Call = callFor(request)): Shop {
-  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env }, appUrl: mobileAppUrl() };
+  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env }, appUrl: mobileApps() };
 }
 
 /* ---- the basket, priced -------------------------------------------------------------------------------------------- */
@@ -59,7 +60,7 @@ export type Basket = {
 };
 
 /** What the pages pass the views while the visitor is a signed-in member: the app link (empty when none is configured). */
-const appOf = (s: Shop, b: { app: boolean }): { href: string } | null => (b.app ? { href: s.appUrl ?? "" } : null);
+const appOf = (s: Shop, b: { app: boolean }): { href: AppLinkInput } | null => (b.app ? { href: s.appUrl ?? "" } : null);
 
 type Pricing = { ship_mode?: string; address?: Address | null };
 

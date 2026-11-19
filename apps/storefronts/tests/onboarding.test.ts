@@ -6,7 +6,7 @@ import {
   onboardingGo, onboardingPage, zipLookup, type ObFlow,
 } from "../src/lib/onboarding-flow.ts";
 import type { Pack } from "../src/lib/django.ts";
-import { mobileDisplay } from "../src/views/sante/pack-onboarding.ts";
+import { mobileDisplay, paidSummary } from "../src/views/sante/pack-onboarding.ts";
 import { SITE, FILLED } from "./site.ts";
 
 const secret = randomBytes(24).toString("hex"); // throwaway, made for this run only
@@ -216,17 +216,17 @@ test("Completed: the page signs nobody in; only the POST sets the member cookie 
   assert.match(await text((await completedPost(flowOf(f)))!), /The store updated your contact details/);
 });
 
-test("Completed with a held registration shows its label and line, and the Order Summary says transfer", async () => {
+test("Completed with a held registration shows its label and line, and the Order Summary omits the payment row", async () => {
   const f = fake({ "onboarding/state": [ok(state({ step: "done", registration_held: { label: "Cancelled", line: "The store cancelled this registration." } }))] });
   const body = await text((await completedGet(flowOf(f)))!);
   assert.match(body, /<h1>Cancelled<\/h1>/);
   assert.match(body, /The store cancelled this registration\./);
   assert.doesNotMatch(body, /What happens next/);
-  assert.match(body, /Bank or e-wallet transfer/);
+  assert.doesNotMatch(body, /<dt>Payment<\/dt>/);
   assert.match(body, /<dd>₱1,488\.00<\/dd>/);
 });
 
-test("the Order Summary payment line follows payment_method_label on Onboarding and Completed, with a transfer fallback", async () => {
+test("the Order Summary payment line follows payment_method_label on Onboarding and Completed, and no row when it is missing", async () => {
   const pay = /<dt>Payment<\/dt><dd>([^<]*)<\/dd>/;
   const f = fake({
     "onboarding/state": [
@@ -248,7 +248,7 @@ test("the Order Summary payment line follows payment_method_label on Onboarding 
   seen.push((await text((await completedGet(flowOf(f)))!)).match(pay)?.[1]);
   seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
   const x = "Pay online (Xendit)", t = "Bank or e-wallet transfer";
-  assert.deepEqual(seen, [x, x, t, t, t, t, t]);
+  assert.deepEqual(seen, [x, x, t, t, undefined, undefined, undefined]);
 });
 
 test("Completed wording follows payment_verified, with the unverified text when it is false or missing", async () => {
@@ -305,4 +305,14 @@ test("the mobile box shows the ten digits after +63", () => {
   assert.equal(mobileDisplay("+639171234567"), "917 123 4567");
   assert.equal(mobileDisplay("09171234567"), "917 123 4567");
   assert.equal(mobileDisplay(""), "");
+});
+
+test("the order summary shows the payment row only when the order names its method (no bank claim as a fallback)", () => {
+  const c = { price: "P1,488.00", total: "P1,488.00" } as never;
+  const named = paidSummary(c, "Pay online (Xendit)").value;
+  assert.match(named, /<dt>Payment<\/dt><dd>Pay online \(Xendit\)<\/dd>/);
+  const missing = paidSummary(c, "").value;
+  assert.doesNotMatch(missing, /Payment<\/dt>/);
+  assert.doesNotMatch(missing, /[Bb]ank|e-wallet/);
+  assert.match(missing, /Total/);
 });

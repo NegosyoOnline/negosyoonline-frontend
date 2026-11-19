@@ -2,6 +2,7 @@
    approved template's own variables, so home.ts reads like the template. */
 import type { Site } from "../../lib/django.ts";
 import type { Markup } from "../../lib/html.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { hasPixel } from "../../lib/meta.ts";
 
 export type ContactForm = {
@@ -14,13 +15,16 @@ export type ContactForm = {
 export type HomeModel = {
   /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Only the home route sets it. */
   tracking?: Markup;
+  /* The payment methods the site offers at checkout, from the pack read (src/lib/home-pay.ts). Absent or null when that read
+     failed or did not say: the home then names no method. */
+  pay_methods?: { direct: boolean; xendit: boolean } | null;
   store_name: string;
   /* A signed-in member sees "Dashboard" in the header CTA where a visitor sees "Login" (Coach Ed, 2026-11-12). */
   signed_in: boolean;
   free_shipping_banner: boolean;
   year: number;
   /* The basket: `lines` says whether it has rows, `rows` is their markup (the shop fills it; the home passes none). */
-  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: string } };
+  drawer: { count: number; count_label: string; subtotal: string; lines: boolean; error: string; rows?: Markup; app?: { href: AppLinkInput } };
   dist: { name: string; initials: string; tel: string; phone: string; photo: boolean };
   socials: { instagram: string; tiktok: string; facebook: string; facebook_label: string };
   contact_path: string;

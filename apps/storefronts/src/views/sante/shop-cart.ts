@@ -3,10 +3,11 @@
    The Metro Manila note shows while the shipping shown is an estimate; the "FREE" shipping label shows under the `zero` policy. */
 import { html, type Markup } from "../../lib/html.ts";
 import type { Quote } from "../../lib/shop-api.ts";
+import type { AppLinkInput } from "./app-links.ts";
 import { MSG_EMPTY_CART } from "../../lib/shop-flow-text.ts";
 import { appNotice, php, safeImage } from "./shop-shell.ts";
 
-export type CartModel = { quote: Quote | null; images: Map<string, string>; error: string; empty: boolean; app?: { href: string } | null };
+export type CartModel = { quote: Quote | null; images: Map<string, string>; error: string; empty: boolean; app?: { href: AppLinkInput } | null };
 
 /** The shipping line of the totals: the quote's own label, FREE under the `zero` policy. */
 export function shippingCell(q: Quote): Markup {

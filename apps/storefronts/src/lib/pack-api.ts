@@ -601,7 +601,7 @@ export type OrderMonitor = {
 };
 export type OrderStep = { state: string; num: number; label: string; date: string };
 export type OrderCard = {
-  order_number: string; created_at: string; total: string; payment_label: string; headline: string; chip_class: string; chip_label: string;
+  order_number: string; created_at: string; total: string; payment_status: string; payment_label: string; headline: string; chip_class: string; chip_label: string;
   problem: boolean; problem_line: string; note: string; awaiting_payment: boolean; under_review: boolean; steps: OrderStep[];
   courier: string; tracking: string; shipping_label: string; item_count: number; item_lines: { qty: number; name: string }[];
   address: string; receiver_name: string; receiver_mobile: string;
@@ -631,7 +631,7 @@ function parseCard(v: unknown): OrderCard | null {
   const m = record(v.membership) ? v.membership : null;
   return {
     order_number: v.order_number, created_at: str(v.created_at), total: moneyText(v.total_text, v.total_centavos),
-    payment_label: str(v.payment_label), headline: str(v.headline), chip_class: str(v.chip_class), chip_label: str(v.chip_label),
+    payment_status: str(v.payment_status), payment_label: str(v.payment_label), headline: str(v.headline), chip_class: str(v.chip_class), chip_label: str(v.chip_label),
     problem: v.problem === true, problem_line: str(v.problem_line), note: str(v.note), awaiting_payment: v.awaiting_payment === true,
     under_review: v.under_review === true,
     steps: arr(v.steps).flatMap((s) => (record(s) ? [{ state: str(s.state), num: num(s.num, 0), label: str(s.label), date: str(s.date) }] : [])),

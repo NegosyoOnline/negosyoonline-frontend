@@ -1,10 +1,10 @@
 /* inbox.js: the SMS list, a conversation with its reply form, and New SMS. Driven through the stand-in
    document with the backend's answers per route. They prove the page follows the answers and keeps the rules
-   (no id or value in an address, nothing stored, no timer, no raw backend value). They do not prove the look. */
+   (no id or value in an address, nothing stored, only the quiet polling timers, no raw backend value). They do not prove the look. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import { inbox, settle, status, conv, msg, refusal } from "./inbox-page.mjs";
+import { inbox, settle, status, conv, msg, refusal, makeClock } from "./inbox-page.mjs";
 
 const src = fs.readFileSync(new URL("../public/assets/js/inbox.js", import.meta.url), "utf8");
 const rowsOf = (p) => p.node.rows.children;
@@ -601,10 +601,192 @@ test("compose keeps its request id after no answer and replaces it after a 201",
   assert.equal(ids[0], ids[1]);
 });
 
+/* ---- auto-refresh by polling (z8uq9mgtf8) ---- */
+
+const LISTR = "inbox/conversations/list/", OPENR = "inbox/conversations/open/";
+async function polling(routes = {}) {
+  const clock = makeClock(), p = inbox(routes, { clock });
+  await settle();
+  return { p, clock };
+}
+const listing = (rows, next = null) => ({ [LISTR]: () => [200, { results: rows, next }] });
+async function openFirstRow(p) { p.node.rows.children[0].all((x) => x.tagName === "BUTTON")[0].fire("click"); await settle(); }
+
+test("poll: the open conversation is checked every 5 s through the list, the list every 15 s, and a quiet thread makes no open call", async () => {
+  const { p, clock } = await polling({ ...listing([conv({ id: "conv_1" })]), ...withOpen() });
+  const l0 = p.calls_to(LISTR).length;
+  await clock.advance(14999);
+  assert.equal(p.calls_to(LISTR).length, l0);
+  await clock.advance(1);
+  assert.equal(p.calls_to(LISTR).length, l0 + 1, "the list at 15 s");
+  assert.equal(p.calls_to(OPENR).length, 0, "no conversation read on the list view");
+  await openFirstRow(p);
+  const o0 = p.calls_to(OPENR).length, l1 = p.calls_to(LISTR).length;
+  assert.equal(o0, 1, "the one open of the click");
+  await clock.advance(4999);
+  assert.equal(p.calls_to(LISTR).length, l1);
+  await clock.advance(1);
+  assert.equal(p.calls_to(LISTR).length, l1 + 1, "the thread check at 5 s");
+  assert.deepEqual(p.calls_to(LISTR).at(-1).body, { platform: "sms", state: "all" }, "the first page only");
+  await clock.advance(55000);
+  assert.equal(p.calls_to(LISTR).length, l1 + 12, "every 5 s for 60 s");
+  assert.equal(p.calls_to(OPENR).length, o0, "a quiet thread: zero open calls in 60 s");
+});
+
+test("poll: a new text (unread in the list row) makes exactly one open call and shows without Refresh; the reply text, the focus and the bottom scroll survive", async () => {
+  let messages = [msg({ id: "m1" })], row = conv({ id: "conv_1" });
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }],
+    [OPENR]: () => { row = { ...row, unread: 0 }; return [200, { ...OPEN, messages }]; } });
+  await openFirstRow(p);
+  type(p, "reply-text", "Typing a reply");
+  p.node["reply-text"].focus();
+  const was = p.node.thread.children.length, o0 = p.calls_to(OPENR).length;
+  await clock.advance(10000);
+  assert.equal(p.calls_to(OPENR).length, o0, "nothing new: no open");
+  messages = [msg({ id: "m1" }), msg({ id: "m2", body: "Are you open today?" })];
+  row = { ...row, unread: 1, last_message_at: "2026-11-09T09:30:00+00:00" };
+  p.window.scrollTo = (x, y) => { p.scrolled = y; };
+  p.doc.documentElement = { scrollHeight: 1000 };
+  p.window.scrollY = 600; p.window.innerHeight = 400;
+  await clock.advance(5000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1, "exactly one open call for the new text");
+  assert.equal(p.node.thread.children.length, was + 1);
+  assert.match(p.node.thread.textContent, /Are you open today\?/);
+  assert.equal(p.node["reply-text"].value, "Typing a reply");
+  assert.equal(p.doc.activeElement, p.node["reply-text"]);
+  assert.equal(p.scrolled, 1000, "at the bottom: stays at the bottom");
+  await clock.advance(30000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1, "read now: no more open calls");
+  messages = [...messages, msg({ id: "m3", body: "Hello again" })];
+  row = { ...row, unread: 1, last_message_at: "2026-11-09T09:45:00+00:00" };
+  p.window.scrollY = 100; p.scrolled = null;
+  await clock.advance(5000);
+  assert.match(p.node.thread.textContent, /Hello again/);
+  assert.equal(p.scrolled, 100, "not at the bottom: the place is kept");
+  assert.equal(p.shown("c-msg"), false, "no banner");
+});
+
+test("poll: a newer last_message_at alone (no unread) also opens once; a row off the first page changes nothing", async () => {
+  let row = conv({ id: "conv_1" }), rows = () => [row];
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: rows(), next: null }], ...withOpen({ messages: [msg()] }) });
+  await openFirstRow(p);
+  const o0 = p.calls_to(OPENR).length;
+  row = { ...row, last_message_at: "2026-11-09T09:30:00+00:00" };
+  await clock.advance(5000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1);
+  await clock.advance(20000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1);
+  rows = () => [conv({ id: "conv_other" })];
+  await clock.advance(20000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1, "the open row is not on the first page: nothing");
+});
+
+test("poll: earlier texts already loaded are kept when the newest page is read again", async () => {
+  let newest = [msg({ id: "m5" }), msg({ id: "m6" })], row = conv({ id: "conv_1" });
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }],
+    [OPENR]: (body) => [200, { ...OPEN, messages: body.cursor ? [msg({ id: "m1" }), msg({ id: "m2" })] : newest, next: body.cursor ? null : "m5" }] });
+  await openFirstRow(p);
+  p.node.earlier.fire("click");
+  await settle();
+  assert.equal(p.node.thread.children.filter((x) => x.classList.contains("msg")).length, 4);
+  newest = [msg({ id: "m5" }), msg({ id: "m6" }), msg({ id: "m7" })];
+  row = { ...row, unread: 1, last_message_at: "2026-11-09T09:30:00+00:00" };
+  await clock.advance(5000);
+  assert.equal(p.node.thread.children.filter((x) => x.classList.contains("msg")).length, 5);
+  assert.equal(p.shown("earlier-row"), false, "the cursor of the older pages is kept");
+});
+
+test("poll: an unchanged answer redraws nothing", async () => {
+  const { p, clock } = await polling({ ...listing([conv({ id: "conv_1" })]), ...withOpen({ messages: [msg()] }) });
+  await openFirstRow(p);
+  const first = p.node.thread.children[1];
+  await clock.advance(5000);
+  assert.equal(p.node.thread.children[1], first, "the same nodes");
+});
+
+test("poll: the list redraws on a change, keeps the focused row and the Show more page", async () => {
+  let rows = [conv({ id: "conv_a" }), conv({ id: "conv_b", contact: "+63 900 ••• 0222" })];
+  const { p, clock } = await polling({ [LISTR]: (body) => [200, body.cursor ? { results: [conv({ id: "conv_z", contact: "+63 900 ••• 0999" })], next: null } : { results: rows, next: "c2" }] });
+  p.node.more.fire("click");
+  await settle();
+  assert.equal(rowsOf(p).length, 3);
+  buttonsIn(rowsOf(p)[1])[0].focus();
+  rows = [conv({ id: "conv_c", contact: "+63 900 ••• 0333", unread: 1 }), ...rows];
+  await clock.advance(15000);
+  assert.equal(rowsOf(p).length, 4, "the new row in front, the older page kept");
+  assert.match(rowsOf(p)[0].textContent, /0333/);
+  assert.match(rowsOf(p)[0].textContent, /1 unread/);
+  assert.equal(p.doc.activeElement, buttonsIn(rowsOf(p)[2])[0], "focus stays on the same conversation");
+  assert.equal(p.shown("more"), false, "the loaded page's end is kept");
+});
+
+test("poll: a hidden tab reads nothing; coming back (visibility or focus) reads at once", async () => {
+  const { p, clock } = await polling({ ...listing([conv({ id: "conv_1" })]) });
+  p.doc.hidden = true;
+  p.doc.fire("visibilitychange");
+  assert.equal(clock.pending(), 0, "no timer left");
+  const n = p.log.length;
+  await clock.advance(120000);
+  assert.equal(p.log.length, n, "no request while hidden");
+  p.doc.hidden = false;
+  p.doc.fire("visibilitychange");
+  await settle();
+  assert.equal(p.log.length, n + 2, "the list and the status at once");
+  p.doc.hidden = true; p.doc.fire("visibilitychange");
+  p.doc.hidden = false; p.heard.focus();
+  await settle();
+  assert.equal(p.log.length, n + 4);
+});
+
+test("poll: errors double the wait (list 15, 30, 60 s) with no banner, and a success resets it", async () => {
+  let fail = false;
+  const { p, clock } = await polling({ [LISTR]: () => (fail ? [500, {}] : [200, { results: [], next: null }]), ...withOpen() });
+  fail = true;
+  const l0 = p.calls_to(LISTR).length;
+  await clock.advance(15000);
+  assert.equal(p.calls_to(LISTR).length, l0 + 1);
+  await clock.advance(29999);
+  assert.equal(p.calls_to(LISTR).length, l0 + 1);
+  await clock.advance(1);
+  assert.equal(p.calls_to(LISTR).length, l0 + 2, "30 s later");
+  await clock.advance(60000);
+  assert.equal(p.calls_to(LISTR).length, l0 + 3, "60 s later");
+  await clock.advance(60000);
+  assert.equal(p.calls_to(LISTR).length, l0 + 4, "never longer than 60 s");
+  assert.equal(p.shown("l-msg"), false);
+  fail = false;
+  await clock.advance(60000);
+  await clock.advance(15000);
+  assert.equal(p.calls_to(LISTR).length, l0 + 6, "back to 15 s after a success");
+});
+
+test("poll: a thread check that fails backs off silently (5, 10 s)", async () => {
+  let fail = false;
+  const { p, clock } = await polling({ [LISTR]: () => (fail ? [500, {}] : [200, { results: [conv({ id: "conv_1" })], next: null }]), ...withOpen() });
+  await openFirstRow(p);
+  fail = true;
+  const l0 = p.calls_to(LISTR).length;
+  await clock.advance(5000);
+  await clock.advance(9999);
+  assert.equal(p.calls_to(LISTR).length, l0 + 1);
+  await clock.advance(1);
+  assert.equal(p.calls_to(LISTR).length, l0 + 2, "10 s after the first failure");
+  assert.equal(p.shown("c-msg"), false);
+});
+
+test("poll: none on the New SMS view", async () => {
+  const clock = makeClock(), p = inbox({}, { clock, pathname: "/inbox/sms/new/" });
+  await settle();
+  assert.equal(p.shown("v-new"), true);
+  const n = p.log.length;
+  await clock.advance(60000);
+  assert.equal(p.log.length, n);
+});
+
 /* ---- rules ---- */
 
-test("no timer, no storage, no console, no other host, no inline handler in inbox.js", () => {
-  assert.doesNotMatch(src, /setTimeout|setInterval|requestAnimationFrame|localStorage|sessionStorage|document\.cookie|console\./);
+test("no interval, no storage, no console, no other host, no inline handler, no push stream in inbox.js", () => {
+  assert.doesNotMatch(src, /setInterval|EventSource|requestAnimationFrame|localStorage|sessionStorage|document\.cookie|console\./);
   assert.doesNotMatch(src, /https?:\/\//);
 });
 

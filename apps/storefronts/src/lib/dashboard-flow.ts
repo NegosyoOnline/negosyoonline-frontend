@@ -8,7 +8,8 @@ import { randomBytes } from "node:crypto";
 import { MEMBER, clearCookie } from "./cookies.ts";
 import { PROOF_TOO_LARGE } from "./checkout-flow.ts";
 import { fetchPack, memberMe } from "./django.ts";
-import { mobileAppUrl } from "./env.ts";
+import { mobileApps } from "./env.ts";
+import type { AppLinkInput } from "../views/sante/app-links.ts";
 import type { Member } from "./django.ts";
 import { html, htmlResponse } from "./html.ts";
 import { redirect, type Call } from "./member.ts";
@@ -18,18 +19,19 @@ import {
   type Calls, type MemberPack, type MobileCheck, type OrderCard, type PackRefusal, type RegistrationCard,
 } from "./pack-api.ts";
 import { memberNotices } from "./notices-api.ts";
-import { memberCourses, memberLive } from "./training-api.ts";
+import { fetchCatalog } from "./shop-api.ts";
 import { ORDER_ID, readReviewForm, submitReview } from "./review-flow.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
 import { PURCHASES_PATH, chrome, homeDocument, memberDocument } from "../views/sante/member.ts";
 import { appOrdersContent, noPurchaseCard, noticesPanel, purchasesHero } from "../views/sante/member-dash.ts";
-import { homeSlots } from "../views/sante/training.ts";
+import { homeBody, termsHref, type Contacts, type HomeInput, type RegistrationInfo } from "../views/sante/member-home.ts";
+import { helpContent, membershipContent, purchasesList } from "../views/sante/member-pages.ts";
 import { NO_ERRORS, homePanels, type PanelErrors, type TermsVersion } from "../views/sante/pack-member.ts";
 import type { Site } from "../lib/django.ts";
 import type { Markup } from "./html.ts";
 
-/** `appUrl` is the Santé Mobile App link for a test; a request reads STOREFRONT_MOBILE_APP_URL (src/lib/env.ts). */
-export type Dash = { site: Site; call: Call; calls: Calls; now?: Date; appUrl?: string };
+/** `appUrl` is the Santé Mobile App link(s) for a test (a string is the single fallback link); a request reads the STOREFRONT_MOBILE_APP_URL* variables (src/lib/env.ts). */
+export type Dash = { site: Site; call: Call; calls: Calls; now?: Date; appUrl?: AppLinkInput };
 
 const TRY_AGAIN = "Please try again shortly.";
 const NO_MOBILE: MobileCheck = { pending: false, mobile: "", locked: false, code_sent_to: "", resend_in: 0, attempts_left: 5 };
@@ -69,13 +71,13 @@ type Over = { pack_errors?: PanelErrors; reg_errors?: PanelErrors; posted?: Reco
 
 function render(
   d: Dash, member: Member, pack: MemberPack | null, reg: RegistrationCard | null, mobile: MobileCheck, over: Over, status = 200,
-  terms: TermsVersion | null = null, order: OrderCard | null = null,
+  terms: TermsVersion | null = null, order: OrderCard | null = null, all: OrderCard[] | null = [],
 ): Response {
   const posted = { ...(over.posted ?? {}), submit_key: randomBytes(12).toString("base64url") };
   const panels = homePanels({ pack, registration: reg, mobile, pack_errors: over.pack_errors, reg_errors: over.reg_errors, posted, terms, order });
   const locked = !!pack?.lock;
-  const scripts = [...(locked ? ["js/pack-select.js", ...HOME_SCRIPTS] : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
-  const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${pack ? panels : noPurchaseCard()}</div>`;
+  const scripts = ["js/pack-dashboard.js", ...(locked ? ["js/pack-select.js", ...HOME_SCRIPTS] : []), ...(terms && reg?.terms_required && reg.details_form && !mobile.pending ? [TERMS_SCRIPT] : [])];
+  const content = html`<div class="pd" id="pp-dash-purchases">${purchasesHero()}${pack ? panels : noPurchaseCard()}${purchasesList(all)}</div>`;
   return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Purchases", member: member.full_name, current: "purchases", content, scripts, styles: locked ? ["css/pack-select.css"] : [] }), status);
 }
 
@@ -88,15 +90,56 @@ export async function homePage(d: Dash): Promise<Response> {
   if (p.state === "refused" && p.status === 401) return signedOut(d);
   if (p.state === "unavailable") return neutralNotFound();
   if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
-  // The notices are the store's own news: a failed read leaves the Home without the panel, it never fails the page.
-  const n = await memberNotices({ host: d.call.host, token: d.call.member_token }, d.calls);
-  if (n.state === "refused" && n.status === 401) return signedOut(d);
-  // Training the same way: the next live card and "pick up where you left off" are hidden when empty or when the read fails.
-  const [live, courses] = await Promise.all([memberLive(args(d), d.calls), memberCourses(args(d), d.calls)]);
-  if ((live.state === "refused" && live.status === 401) || (courses.state === "refused" && courses.status === 401)) return signedOut(d);
-  const body = html`${n.state === "ok" ? noticesPanel(n.notices) : ""}${homeSlots(live.state === "ok" ? live.live : null, courses.state === "ok" ? courses.resume : null, courses.state === "ok" ? courses.courses : [], d.now)}`;
-  return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, body));
+  // Every other read is independent: the order update is critical (a failure is said plainly), the rest only hide their own section.
+  const [o, n, catalog] = await Promise.all([
+    memberOrders(args(d), d.calls),
+    memberNotices({ host: d.call.host, token: d.call.member_token }, d.calls),
+    fetchCatalog(d.call.host, d.calls),
+  ]);
+  const dead = (r: { state: string; status?: number }) => r.state === "refused" && r.status === 401;
+  if (dead(o) || dead(n)) return signedOut(d);
+  const cards = o.state === "ok" ? o.cards : [];
+  const input: HomeInput = {
+    first_name: s.member.full_name.trim().split(/\s+/)[0] ?? "",
+    orders: o.state === "ok" ? { state: "ok", cards } : { state: "failed" },
+    registration: registrationOf(p),
+    app_url: d.appUrl ?? mobileApps(),
+    products: catalog,
+    notices: n.state === "ok" ? noticesPanel(n.notices) : html``,
+  };
+  return htmlResponse(homeDocument(chrome(d.site, d.now), s.member.full_name, homeBody(input)));
 }
+
+/** The registration of the member pack read, in the Home's shape; null while benefits are off or the read failed. */
+function registrationOf(p: Awaited<ReturnType<typeof memberPack>>): RegistrationInfo | null {
+  const r = p.state === "ok" ? p.registration : null;
+  return r ? { label: r.label, line: r.line, registered: r.status === "registered", member_id: r.sante_member_id, act: r.details_form } : null;
+}
+
+function contactsOf(d: Dash): Contacts {
+  const b = chrome(d.site, d.now).biz;
+  return { email: b.contact_email, mobile: b.contact_mobile, mobile_raw: b.contact_mobile_raw };
+}
+
+/** My Membership: registration state, benefits Q&A, terms and app steps. */
+export async function membershipPage(d: Dash): Promise<Response> {
+  const s = await session(d);
+  if ("response" in s) return s.response;
+  const p = await memberPack(args(d), d.calls);
+  if (p.state === "refused" && p.status === 401) return signedOut(d);
+  if (p.state === "unavailable") return neutralNotFound();
+  if (p.state === "ok" && p.pack?.lock) return redirect(PURCHASES_PATH);
+  const [o, agreement] = await Promise.all([memberOrders(args(d), d.calls), fetchPack(d.call.host, d.calls.env, d.calls.fetchImpl, d.calls.log)]);
+  if (o.state === "refused" && o.status === 401) return signedOut(d);
+  const cards = o.state === "ok" ? o.cards : [];
+  const fromCard = cards.find((c) => c.membership)?.membership;
+  const registration = registrationOf(p) ?? (fromCard ? { label: fromCard.label, line: fromCard.line, registered: fromCard.registered, member_id: fromCard.sante_member_id, act: fromCard.act } : null);
+  const content = membershipContent({ registration, has_order: (p.state === "ok" && !!p.pack) || cards.length > 0, app_url: d.appUrl ?? mobileApps(), terms_href: termsHref(agreement?.agreement?.id) });
+  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "My Membership", member: s.member.full_name, current: "membership", content, scripts: [] }));
+}
+
+/** Help: this store's own contact details. It reads nothing but the session and the lock, so it stays reachable when order or catalog reads fail. */
+export const helpPage = (d: Dash) => plainPage(d, "help", "Help", (url) => helpContent(contactsOf(d), url));
 
 /** My Purchases: the member's payment card, and the registration card with its mobile check while the form is open. */
 export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Promise<Response> {
@@ -116,20 +159,19 @@ export async function purchasesPage(d: Dash, over: Over = {}, status = 200): Pro
   }
   // The Shipment line is the same member/orders card the app shows for this order; if that read fails the card keeps its plain text.
   let order: OrderCard | null = null;
-  if (p.pack && p.pack.payment_status === "verified") {
-    const o = await memberOrders(args(d), d.calls);
-    if (o.state === "ok") order = o.cards.find((c) => c.order_number === p.pack!.order_number) ?? null;
-  }
-  return render(d, s.member, p.pack, p.registration, mobile, over, status, terms, order);
+  const o = await memberOrders(args(d), d.calls);
+  if (o.state === "refused" && o.status === 401) return signedOut(d);
+  if (p.pack && p.pack.payment_status === "verified" && o.state === "ok") order = o.cards.find((c) => c.order_number === p.pack!.order_number) ?? null;
+  return render(d, s.member, p.pack, p.registration, mobile, over, status, terms, order, o.state === "ok" ? o.cards : null);
 }
 
 /** A page with no data of its own (Affiliate Hub, Orders): the signed-in member, the lock rule, the content. */
-async function plainPage(d: Dash, key: string, title: string, content: (appUrl: string) => Markup): Promise<Response> {
+async function plainPage(d: Dash, key: string, title: string, content: (appUrl: AppLinkInput) => Markup): Promise<Response> {
   const s = await session(d);
   if ("response" in s) return s.response;
   const locked = await lockedHome(d);
   if (locked) return locked;
-  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileAppUrl()), scripts: [] });
+  const doc = memberDocument(chrome(d.site, d.now), { title, member: s.member.full_name, current: key, content: content(d.appUrl ?? mobileApps()), scripts: [] });
   return htmlResponse(doc);
 }
 

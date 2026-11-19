@@ -301,7 +301,8 @@
 
   function enter(data, push) {
     conv = { id: data.id, contact: String(data.contact || ""), can_reply: !!data.can_reply,
-      messages: data.messages || [], next: data.next || null, older: false };
+      messages: data.messages || [], next: data.next || null, older: false, stamp: null };
+    listRows.forEach(function (c) { if (c.id === data.id) conv.stamp = stampOf(c.last_message_at); });
     replyId = null;
     $("reply-text").value = "";
     show("v-conv");
@@ -426,7 +427,7 @@
         if (!conv || conv.id !== id) return;
         if (res.ok) {
           replyId = null;
-          if (res.data && res.data.message) conv.messages.push(res.data.message);
+          if (res.data && res.data.message) { conv.messages.push(res.data.message); conv.stamp = Math.max(conv.stamp || 0, stampOf(res.data.message.at)); }
           $("reply-text").value = "";
           countOf("reply-text", "reply-count");
           paintThread();
@@ -548,7 +549,7 @@
   $("retry").addEventListener("click", start);
 
   /* ---- auto-refresh (ClickUp z8uq9mgtf8, from the Dash Messenger's z8uq9mg799) ----
-     While the tab is visible, the open conversation is read again every 5 s and the list every 15 s, so a new text shows without
+     While the tab is visible, the open conversation is checked every 5 s (through the list, which writes no audit entry; the conversation itself is opened only when its row shows something new) and the list every 15 s, so a new text shows without
      Refresh. Plain polling, no push stream. One timer per kind, armed only after the last read of that kind has ended, so two never
      overlap. A hidden tab or leaving the view stops both; coming back (visibilitychange, window focus) reads at once. An error doubles
      the wait (thread 5, 10, 20, 40, 60 s; list 15, 30, 60 s) and a success resets it. A background read is silent: no loading state,
@@ -595,28 +596,43 @@
     var root = document.documentElement;
     return !root || (window.innerHeight || 0) + (window.scrollY || 0) >= root.scrollHeight - 4;
   }
-  /* The open conversation: its newest page, merged in front of any older pages already loaded. */
+  /* The open conversation. Opening one writes an audit entry, so the 5 s read is the list's first page (no audit entry): the open
+     conversation's row says whether anything is new (unread, or a last_message_at newer than the one seen when the thread was drawn).
+     Only then is the conversation opened, which is a real view of the new texts, and its newest page merged in front of any older pages
+     loaded. A row not on the first page means nothing changed. An outbound status (queued to sent) shows on the next open. */
+  function stampOf(iso) { var t = Date.parse(iso); return isNaN(t) ? 0 : t; }
   function pollThread(done) {
     if (!conv || busy) return false;
     var run = convRun, mine = conv, id = conv.id;
-    readConversation(id).then(function (res) {
+    H.call("POST", "inbox/conversations/list/", { platform: "sms", state: "all" }).then(function (res) {
       if (run !== convRun || conv !== mine || res.status === 401) { if (res.status === 401) left(res); done("skip"); return; }
       if (!res.ok) { done("fail"); return; }
-      var fresh = res.data.messages || [], next = res.data.next || null, all = fresh, keep = conv.messages.length, seen = {};
-      if (conv.older) {
-        fresh.forEach(function (m) { seen[m.id] = true; });
-        for (var i = 0; i < conv.messages.length; i++) { if (seen[conv.messages[i].id]) { keep = i; break; } }
-        all = conv.messages.slice(0, keep).concat(fresh);
-        next = conv.next;
-      }
-      if (sigOf([all, next]) !== sigOf([conv.messages, conv.next])) {
-        var root = document.documentElement, bottom = atBottom(), y = window.scrollY || 0;
-        conv.messages = all;
-        conv.next = next;
-        paintThread();
-        if (root && typeof window.scrollTo === "function") window.scrollTo(0, bottom ? root.scrollHeight : y);
-      }
-      done("ok");
+      var rows = res.data.results || [], row = null;
+      rows.forEach(function (c) { if (c.id === id) row = c; });
+      if (!row) { done("ok"); return; }
+      var at = stampOf(row.last_message_at);
+      if (mine.stamp == null) mine.stamp = at;
+      if (!(row.unread > 0) && at <= mine.stamp) { done("ok"); return; }
+      readConversation(id).then(function (r) {
+        if (run !== convRun || conv !== mine || r.status === 401) { if (r.status === 401) left(r); done("skip"); return; }
+        if (!r.ok) { done("fail"); return; }
+        mine.stamp = Math.max(at, mine.stamp);
+        var fresh = r.data.messages || [], next = r.data.next || null, all = fresh, keep = conv.messages.length, seen = {};
+        if (conv.older) {
+          fresh.forEach(function (m) { seen[m.id] = true; });
+          for (var i = 0; i < conv.messages.length; i++) { if (seen[conv.messages[i].id]) { keep = i; break; } }
+          all = conv.messages.slice(0, keep).concat(fresh);
+          next = conv.next;
+        }
+        if (sigOf([all, next]) !== sigOf([conv.messages, conv.next])) {
+          var root = document.documentElement, bottom = atBottom(), y = window.scrollY || 0;
+          conv.messages = all;
+          conv.next = next;
+          paintThread();
+          if (root && typeof window.scrollTo === "function") window.scrollTo(0, bottom ? root.scrollHeight : y);
+        }
+        done("ok");
+      });
     });
     return true;
   }

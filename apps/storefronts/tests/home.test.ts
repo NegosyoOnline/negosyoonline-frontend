@@ -272,3 +272,56 @@ test("footer CSS: four columns on desktop, and the brand column takes a row of i
   assert.match(css, /\.footer-top > :first-child \{ grid-column: 1 \/ -1; \}/);
   assert.match(css, /\.footer-contact a \{ display: flex; align-items: center; gap: 10px; \}/);
 });
+
+import { homePayMethods } from "../src/lib/home-pay.ts";
+import { homeDocument as homeDoc } from "../src/views/sante/home.ts";
+import { homeModel as homeMdl } from "../src/views/sante/model.ts";
+import { SITE as PAY_SITE } from "./site.ts";
+
+const BANK_FAQ = "We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.";
+const XENDIT_FAQ = "You pay online at checkout, on Xendit's secure page.";
+const GENERIC_FAQ = "You choose how to pay at checkout.";
+function payPage(pay_methods: { direct: boolean; xendit: boolean } | null | undefined): string {
+  return homeDoc({ ...homeMdl(PAY_SITE), pay_methods }).value;
+}
+
+test("home: direct available shows the Bank Transfer badge and the bank FAQ", () => {
+  const page = payPage({ direct: true, xendit: true });
+  assert.match(page, /<span class="pay-badge">Bank Transfer<\/span>/);
+  assert.ok(page.includes(BANK_FAQ));
+});
+
+test("home: Xendit only shows no bank badge and the neutral online FAQ", () => {
+  const page = payPage({ direct: false, xendit: true });
+  assert.doesNotMatch(page, /Bank Transfer<\/span>/);
+  assert.ok(page.includes(XENDIT_FAQ));
+  assert.ok(!page.includes(BANK_FAQ));
+});
+
+test("home: a failed read (null or absent) and both-off name no method", () => {
+  for (const m of [null, undefined, { direct: false, xendit: false }]) {
+    const page = payPage(m);
+    assert.doesNotMatch(page, /Bank Transfer<\/span>/);
+    assert.ok(page.includes(GENERIC_FAQ));
+    assert.ok(!page.includes(BANK_FAQ));
+  }
+});
+
+test("homePayMethods: reads the pack's methods, and null on a failed read or when the API sends none", async () => {
+  const saved = { ...process.env };
+  const prev = globalThis.fetch;
+  process.env.STOREFRONT_API_BASE = "http://api.test";
+  process.env.STOREFRONT_SERVER_SECRET = "s".repeat(40);
+  const pack = (methods?: unknown) => ({ price_centavos: 1, currency: "PHP", available: true, agreement: null, payment_accounts: [], ...(methods ? { methods } : {}) });
+  try {
+    globalThis.fetch = (() => Promise.resolve(Response.json(pack({ direct: false, xendit: true })))) as never;
+    assert.deepEqual(await homePayMethods("demo.test"), { direct: false, xendit: true });
+    globalThis.fetch = (() => Promise.resolve(Response.json(pack()))) as never;
+    assert.equal(await homePayMethods("demo.test"), null);
+    globalThis.fetch = (() => Promise.reject(new Error("down"))) as never;
+    assert.equal(await homePayMethods("demo.test"), null);
+  } finally {
+    globalThis.fetch = prev;
+    process.env = saved;
+  }
+});

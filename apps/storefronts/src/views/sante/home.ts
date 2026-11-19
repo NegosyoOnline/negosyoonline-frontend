@@ -67,7 +67,7 @@ export function storeFooter(v: HomeModel): Markup {
         <img class="footer-logo" src="${asset("img/navbar-logo.webp")}" alt="Sant&eacute; International">
         <p class="footer-tagline">Premium Wellness for Every Filipino Family. Trusted since 2007, present in 20+ countries.</p>
         <div class="payment-row">
-          <span class="pay-badge">Bank Transfer</span>
+          ${v.pay_methods?.direct ? html`<span class="pay-badge">Bank Transfer</span>` : html``}
           <span class="pay-badge">E-wallet</span>
         </div>
       </div>
@@ -315,6 +315,13 @@ export function trustBadges(): Markup {
     </div>
 
   </div>`;
+}
+
+/** The "What payment methods do you accept?" answer, from the live methods; it names only what is confirmed. */
+export function payFaq(methods: HomeModel["pay_methods"]): Markup {
+  if (methods?.direct) return html`We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.`;
+  if (methods?.xendit) return html`You pay online at checkout, on Xendit's secure page.`;
+  return html`You choose how to pay at checkout.`;
 }
 
 function homeBottom(v: HomeModel): Markup {
@@ -711,7 +718,7 @@ function homeBottom(v: HomeModel): Markup {
           What payment methods do you accept?
           <span class="faq-icon">+</span>
         </div>
-        <div class="faq-a">We accept bank transfer and e-wallet transfer to our store's accounts. You upload your proof of payment at checkout.</div>
+        <div class="faq-a">${payFaq(v.pay_methods)}</div>
       </div>
 
     </div></div>

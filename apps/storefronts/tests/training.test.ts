@@ -242,14 +242,12 @@ test("Mark complete on a locked lesson says so; a dead session goes to the store
 
 /* ---- the Home slots ---------------------------------------------------------------------------------------------- */
 
-test("the Home fills both slots from the same data, and hides them when there is nothing or the reads fail", async () => {
-  const filled = await text(await homePage(dashOf(fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [ok({ live: LIVE })], "member/training/courses": [ok({ courses: [COURSE()], resume: RESUME })] }))));
-  assert.match(filled, /<div data-slot="next-live-training"><section class="tr-bcb"/);
-  assert.match(filled, /<div data-slot="pick-up-where-you-left-off"><section class="tr-card tr-resume"/);
-  for (const [live, courses] of [[ok({ live: null }), ok({ courses: [], resume: null })], [err(500), err(500)], [err(404), err(404)]]) {
-    const empty = await text(await homePage(dashOf(fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [live], "member/training/courses": [courses] }))));
-    assert.match(empty, /<div data-slot="next-live-training"><\/div><div data-slot="pick-up-where-you-left-off"><\/div>/);
-  }
+test("the customer-first Home draws no training cards and reads no training data; Training stays one tap away in the Earn with Santé menu", async () => {
+  const f = fake({ ...mkBase(), "member/notices": [ok({ notices: [] })], "member/training/live": [ok({ live: LIVE })], "member/training/courses": [ok({ courses: [COURSE()], resume: RESUME })] });
+  const page = await text(await homePage(dashOf(f)));
+  assert.doesNotMatch(page, /data-slot=|tr-bcb|tr-resume|Start your training/);
+  assert.ok(!f.calls.some((c) => c.path.startsWith("member/training/")));
+  assert.match(page, /href="\/dashboard\/training\/"/);
 });
 
 /* ---- small helpers and the page policy --------------------------------------------------------------------------- */

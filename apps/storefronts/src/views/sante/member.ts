@@ -17,6 +17,8 @@ import type { Site } from "../../lib/django.ts";
 import { cookieSettingsItem, hasPixel } from "../../lib/meta.ts";
 import { formatMobile } from "./model.ts";
 import { MEMBER_BASE_CSS } from "./member-base-css.ts";
+import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
+import { footerBusiness } from "./footer-business.ts";
 
 export const SIGN_IN_PATH = "/dashboard/sign-in/";
 export const HOME_PATH = "/dashboard/";
@@ -80,7 +82,7 @@ export type Chrome = {
   policy_links: { label: string; path: string }[];
   /* The footer's "Cookie settings" link: only on a site with a Meta Pixel (src/lib/meta.ts). */
   cookie_settings?: boolean;
-  biz: { registered_name: string; dti_business_number: string; contact_email: string; contact_mobile: string; contact_mobile_raw: string; has_seal: boolean };
+  biz: { registered_name: string; dti_business_number: string; tin: string; contact_email: string; contact_mobile: string; contact_mobile_raw: string; has_seal: boolean };
 };
 
 export function chrome(site: Site, now: Date = new Date()): Chrome {
@@ -96,6 +98,7 @@ export function chrome(site: Site, now: Date = new Date()): Chrome {
     biz: {
       registered_name: site.business.registered_name,
       dti_business_number: site.business.dti_business_number,
+      tin: site.business.tin,
       contact_email: site.business.contact_email,
       contact_mobile: formatMobile(raw) || raw,
       contact_mobile_raw: raw,
@@ -171,6 +174,12 @@ function memberFooter(v: Chrome): Markup {
     <p class="mfoot-disclaimer">${WELLNESS_DISCLAIMER}</p>
   </div>
 </footer>`;
+}
+
+/* The desktop footer of the signed-in member pages (corrections 3, 2026-11-19): the storefront's business-details footer (footer-business.ts, the same
+   function as the storefront home), dark, from the store's own record. Shown above 1024px only; the light compact footer above is the one up to 1024px. */
+function desktopFooter(v: Chrome): Markup {
+  return html`<div class="pb pd-footer mfoot-desk" data-mfoot-desk><footer class="footer"><div class="footer-inner">${footerBusiness(v)}</div></footer></div>`;
 }
 
 /* ---- the fixed bottom navigation and its More sheet (phones and tablets, up to 1024px: where the bar's links used to fold into a hamburger) ---- */
@@ -336,17 +345,19 @@ export function memberDocument(
 <link rel="stylesheet" href="${asset("css/pack-member-bar.css")}">
 <link rel="stylesheet" href="${asset("css/pack-member-home.css")}">
 ${(args.styles ?? []).map((s) => html`<link rel="stylesheet" href="${asset(s)}">`)}
+${signedIn ? chatWidgetCss() : ""}
 ${signedIn ? html`<script src="${asset("js/pack-member-bar.js")}"></script>` : ""}
 </head>
-<body>
+<body${signedIn ? html` class="mem"` : ""}>
 <div class="e4${signedIn ? " e4-bn" : ""}${signedIn && args.current === "home" ? " e4-home" : ""}"${v.accent_color ? html` style="--accent:${v.accent_color}"` : ""}>
 ${bar(v, args.member, args.current)}
 <script src="${asset("js/pack-nav-toggle.js")}"></script>
 ${signedIn ? html`<div class="shell"><main class="main">${args.content}</main></div>` : html`<main class="wrap">${args.content}</main>`}
-${signedIn ? memberFooter(v) : footer(v)}
+${signedIn ? html`${memberFooter(v)}${desktopFooter(v)}` : footer(v)}
 ${signedIn ? html`${bottomNav(args.current)}${moreSheet(args.current)}` : ""}
 ${args.scripts.map((s) => html`<script src="${asset(s)}"></script>`)}
 </div>
+${signedIn ? chatWidgetScript(v.store_name) : ""}
 </body>
 </html>
 `;

@@ -820,3 +820,65 @@ test("the footer shows the BIR seal, compact, only when the business has one; th
   assert.match(css, /\.mfoot-seal \{[^}]*width: 120px/);
   assert.match(css, /max-width: 1024px\) \{ \.mfoot-seal \{ width: 96px; \}/);
 });
+
+/* ---- corrections 3 (2026-11-19): the desktop business-details footer and the website chat on the member pages ---- */
+
+const CSS_DIR = path.join(import.meta.dirname, "..", "public", "assets", "sante", "css");
+
+test("corrections 3: every signed-in member page carries the chat tags, in the head and before </body>; the sign-in page does not", async () => {
+  const { chrome, memberDocument, signInDocument, signInModel } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const page = memberDocument(chrome(FILLED), { title: "T", member: "Ana", current: "help", content: html`<p>x</p>`, scripts: [] }).value;
+  assert.match(page, /<link rel="stylesheet" href="[^"]*css\/chat-widget\.css\?v=[0-9a-f]{8}">/);
+  assert.match(page, /<script src="[^"]*js\/chat-widget\.js\?v=[0-9a-f]{8}" data-chat-widget data-store="Nena&#x27;s Wellness &amp; Barley"><\/script>\s*<\/body>/);
+  assert.match(page, /<body class="mem">/);
+  const signIn = signInDocument(chrome(FILLED), signInModel()).value;
+  assert.doesNotMatch(signIn, /chat-widget/);
+  assert.doesNotMatch(signIn, /mfoot-desk/);
+});
+
+test("corrections 3: the desktop footer is the storefront business-details block with the store-record values; nothing is hard-coded", async () => {
+  const { chrome, memberDocument } = await import("../src/views/sante/member.ts");
+  const { html } = await import("../src/lib/html.ts");
+  const doc = (business: Partial<typeof FILLED.business>) => memberDocument(chrome({ ...FILLED, business: { ...FILLED.business, ...business } }), { title: "T", member: "Ana", current: "home", content: html`<p>x</p>`, scripts: [] }).value;
+  const full = doc({ has_seal: true });
+  const desk = full.slice(full.indexOf('<div class="pb pd-footer mfoot-desk"'), full.indexOf("</footer>", full.indexOf("mfoot-desk")));
+  assert.match(desk, /<span>Registered business<\/span>Nena Santos Trading/);
+  assert.match(desk, /<span>DTI registration no\.<\/span>1234567/);
+  assert.match(desk, /<span>BIR tax ID no\. \(TIN\)<\/span>123-456-789-00000/);
+  assert.match(desk, /<img class="footer-seal" src="\/business-seal\/"/);
+  assert.match(desk, /<div class="footer-copyright">&#169; \d{4} Nena&#x27;s Wellness &amp; Barley\. All rights reserved\.<\/div>/);
+  assert.match(desk, /Products are for general wellness support only\./);
+  assert.match(full, /<footer class="mfoot" data-mfoot>/); // the approved compact footer stays in the page for phones and tablets
+  // a missing value or seal draws nothing; with none at all, only the copyright and the disclaimer remain
+  const part = doc({ has_seal: false, tin: "" });
+  assert.doesNotMatch(part, /BIR tax ID no|footer-seal/);
+  assert.match(part, /<span>Registered business<\/span>/);
+  const none = doc({ has_seal: false, tin: "", registered_name: "", dti_business_number: "" });
+  const d = none.slice(none.indexOf("mfoot-desk"), none.indexOf("</footer>", none.indexOf("mfoot-desk")));
+  assert.doesNotMatch(d, /footer-registration/);
+  assert.match(d, /footer-copyright/);
+});
+
+test("corrections 3: the dark footer shows above 1024px only, the light one up to it; the launcher rides above the bottom navigation", () => {
+  const css = readFileSync(path.join(CSS_DIR, "pack-member-bar.css"), "utf8");
+  assert.match(css, /\.mfoot-desk \{ display: none; \}/);
+  assert.match(css, /@media \(min-width: 1025px\) \{\s*\.mfoot \{ display: none; \}\s*\.mfoot-desk \{ display: block;/);
+  assert.match(css, /body\.mem \.sw-launcher \{ bottom: calc\(72px \+ 16px \+ env\(safe-area-inset-bottom, 0px\)\); \}/);
+  assert.match(css, /body\.mem:has\(\.mbn-sheet:not\(\[hidden\]\)\) \.sw-launcher/); // never over the More sheet
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1024px\) \{\s*body\.mem \.sw-panel \{ bottom: calc\(72px/);
+  const widget = readFileSync(path.join(CSS_DIR, "chat-widget.css"), "utf8");
+  assert.match(widget, /@media \(max-width: 640px\) \{\s*\.sw-panel \{ inset: 0;/); // the phone sheet is full screen
+  assert.match(widget, /\.sw-panel \{ position: fixed;[^}]*z-index: 900/);
+  assert.match(css, /\.mbn \{ display: block; position: fixed;[^}]*z-index: 110/); // under the chat panel, so the navigation never sits on the input
+});
+
+test("corrections 3: the storefront home and pack footers still carry the same business block", async () => {
+  const { storeFooter } = await import("../src/views/sante/home.ts");
+  const { homeModel } = await import("../src/views/sante/model.ts");
+  const out = storeFooter(homeModel({ ...FILLED, business: { ...FILLED.business, has_seal: true } }, undefined, new Date("2026-06-01T00:00:00Z"))).value;
+  assert.match(out, /<div class="footer-registration">\s*<ul class="footer-reg-list">/);
+  assert.match(out, /<span>BIR tax ID no\. \(TIN\)<\/span>123-456-789-00000/);
+  assert.match(out, /<div class="footer-seal-box"><img class="footer-seal" src="\/business-seal\/"/);
+  assert.match(out, /<div class="footer-bottom">\s*<div class="footer-meta">\s*<div class="footer-copyright">&#169; 2026 /);
+});

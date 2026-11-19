@@ -9,7 +9,7 @@
 
    What the browser gets is only {ok, state, available, messages} or {ok:false, error}: the error is one of a few kinds the widget
    has fixed texts for. Django's own words, the secret and the address are never passed on or logged. */
-import { chatPoll, chatSend, type ChatMessage, type ChatResult } from "./django.ts";
+import { chatContact, chatPoll, chatSend, type ChatMessage, type ChatResult } from "./django.ts";
 import { storefrontEnv } from "./env.ts";
 import { CHAT, CHAT_MAX_AGE, clearCookie, readCookieShaped, cookieName, isSecure, sameOriginPost, setCookie } from "./cookies.ts";
 import { cleanHost } from "./host.ts";
@@ -21,7 +21,7 @@ const SECRET_SHAPE = /^[A-Za-z0-9_-]{43}$/; // what Django makes: token_urlsafe(
 const MAX_BODY = 16 * 1024; // a 1,000-character message with its name and email is well under this
 const MAX_AFTER = 2_000_000_000;
 
-export type ChatError = "failed" | "limited" | "links" | "email" | "empty" | "too_long" | "too_fast";
+export type ChatError = "failed" | "limited" | "links" | "email" | "empty" | "too_long" | "too_fast" | "contact";
 
 type Body = Record<string, unknown>;
 
@@ -152,4 +152,23 @@ export async function chatPollPost(request: Request): Promise<Response> {
     return response;
   }
   return setSecret(response, request, secret);
+}
+
+/** The visitor's optional mobile number or email, saved to their conversation. The browser gets {ok:true, saved:true, kind} or
+    {ok:false, error}: "contact" is Django's 422 on the value (the widget has its own friendly text), the rest are the usual kinds. */
+export async function chatContactPost(request: Request): Promise<Response> {
+  const g = await gate(request);
+  if (!g) return neutralNotFound();
+  const result = await chatContact(
+    { host: g.host, visitor_ip: visitorIp(request.headers), visitor_secret: secretOf(request), contact: str(g.body.contact, 300) },
+    storefrontEnv(),
+  );
+  if (result.state === "unavailable") return neutralNotFound();
+  if (result.state === "failed") return problem("failed", 503);
+  if (result.state === "refused") {
+    if (result.status === 429) return problem("limited", 429);
+    if (result.status === 422 && result.fields.contact) return problem("contact", 422);
+    return problem("failed", 503);
+  }
+  return noStore({ ok: true, saved: true, kind: result.chat.kind });
 }

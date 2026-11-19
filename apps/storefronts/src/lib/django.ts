@@ -452,8 +452,8 @@ export type ChatAnswer = { state: "none" | "open" | "closed" | "paused"; visitor
 
 export type ChatRefusal = { state: "refused"; status: number; code: string; message: string; fields: Record<string, string> };
 
-export type ChatResult =
-  | { state: "ok"; chat: ChatAnswer }
+export type ChatResult<T = ChatAnswer> =
+  | { state: "ok"; chat: T }
   | ChatRefusal
   | { state: "unavailable" } // 404: chat is switched off, or the host is not a served site
   | { state: "failed" };
@@ -472,6 +472,12 @@ export type ChatSend = {
 
 export type ChatPoll = { host: string; visitor_ip: string; visitor_secret: string; after_id: number };
 
+/** The visitor's optional way to be reached: one mobile number or one email, checked and told apart by Django. */
+export type ChatContact = { host: string; visitor_ip: string; visitor_secret: string; contact: string };
+
+/** Django's 200 for a saved contact. */
+export type ChatContactSaved = { saved: true; kind: "email" | "mobile" };
+
 const logChat: Log = (reason) => console.error(`storefront: chat call failed: ${reason}`);
 const CHAT_STATES = ["none", "open", "closed", "paused"];
 
@@ -486,14 +492,20 @@ function chatAnswer(body: unknown): ChatAnswer | null {
   return { state: body.state as ChatAnswer["state"], visitor_secret: body.visitor_secret, messages };
 }
 
-async function chatPost(
-  path: "send" | "poll",
-  payload: ChatSend | ChatPoll,
+function contactAnswer(body: unknown): ChatContactSaved | null {
+  if (!record(body) || body.saved !== true || (body.kind !== "email" && body.kind !== "mobile")) return null;
+  return { saved: true, kind: body.kind };
+}
+
+async function chatPost<T = ChatAnswer>(
+  path: "send" | "poll" | "contact",
+  payload: ChatSend | ChatPoll | ChatContact,
   env: Pick<StorefrontEnv, "apiBase" | "secret">,
   fetchImpl: Fetch,
   log: Log,
-): Promise<ChatResult> {
-  const failed: ChatResult = { state: "failed" };
+  parse: (body: unknown) => T | null = chatAnswer as unknown as (body: unknown) => T | null,
+): Promise<ChatResult<T>> {
+  const failed: ChatResult<T> = { state: "failed" };
   if (!payload.host) return failed;
   if (env.secret.length < SECRET_MIN_LENGTH) {
     log("STOREFRONT_SERVER_SECRET is not set");
@@ -523,7 +535,7 @@ async function chatPost(
     return failed;
   }
   if (response.status === 200) {
-    const parsed = chatAnswer(body);
+    const parsed = parse(body);
     if (parsed === null) {
       log("the API answer had the wrong shape");
       return failed;
@@ -543,4 +555,9 @@ export function chatSend(payload: ChatSend, env: Pick<StorefrontEnv, "apiBase" |
 /** The owner's replies since `after_id`, and the conversation's state. */
 export function chatPoll(payload: ChatPoll, env: Pick<StorefrontEnv, "apiBase" | "secret">, fetchImpl: Fetch = fetch, log: Log = logChat) {
   return chatPost("poll", payload, env, fetchImpl, log);
+}
+
+/** The visitor's contact for their conversation (POST /storefront/v1/chat/contact/). The contact is never logged. */
+export function chatContact(payload: ChatContact, env: Pick<StorefrontEnv, "apiBase" | "secret">, fetchImpl: Fetch = fetch, log: Log = logChat) {
+  return chatPost<ChatContactSaved>("contact", payload, env, fetchImpl, log, contactAnswer);
 }

@@ -8,7 +8,7 @@
   var MAX = 2147483647;
   var LOST = "That did not go through. Check the page before trying again.";
   var DIGITS = /^\d{1,10}$/;
-  var known = false, busy = false, tokenOpen = false, gwRun = 0, gwNow = null, gwMode = "", token = "", pendingAction = null, ownerRun = 0, smsRun = 0, ownerNow = null, smsNow = null, names = {};
+  var known = false, busy = false, tokenOpen = false, gwRun = 0, gwNow = null, gwMode = "", token = "", afterToken = null, pendingAction = null, ownerRun = 0, smsRun = 0, ownerNow = null, smsNow = null, names = {};
   /* Escape closes nothing while a call is on its way or the one-time token is on screen. */
   var dlg = F.dialogs(function () { return busy || tokenOpen; });
 
@@ -211,7 +211,9 @@
     disabled: ["Disabled", "chip-neutral", "This phone is switched off and refused. Rotate does not re-enable it."]
   };
   var CONN = { connected: "connected", offline: "offline", waiting: "waiting", waiting_for_phone: "waiting", no_phone: "none", disabled: "disabled" };
-  var CODE6 = /^\d{6}$/;
+  var CODE6 = /^\d{6}$/, NAME_OK = /^[a-z0-9-]{1,60}$/;
+  var NAME_HELP = "Use 1 to 60 lower-case letters, numbers and hyphens, e.g. system.";
+  var CODE_WAIT = " If you just signed in, wait for the next code (about 30 seconds).";
   var CODE_REFUSED = "That code was not accepted. Use the current code from your authenticator app.";
 
   function ago(iso) {
@@ -345,6 +347,7 @@
     F.say("tk-copied", "");
     dlg.close(false);
     $("g-refresh").focus();
+    if (afterToken) { paintGw(afterToken); afterToken = null; card("g", "body"); return Promise.resolve(); }
     return loadGw("");
   }
   $("tk-done").addEventListener("click", endToken);
@@ -376,21 +379,34 @@
       if (res.ok) {
         t = res.data && typeof res.data.token === "string" ? res.data.token : "";
         if (res.data) delete res.data.token;
-        if (mode === "disable") { closeGw(false); loadGw("Phone disabled."); return false; }
+        if (mode === "disable") {
+          closeGw(false);
+          if (res.data && res.data.device !== undefined) { paintGw(res.data); F.say("g-msg", "Phone disabled."); card("g", "body"); }
+          else loadGw("Phone disabled.");
+          return false;
+        }
         if (!t) { closeGw(false); loadGw("The phone was changed but no token came back. Rotate to get one."); return false; }
         closeGw(false);
-        paintGw({ server_address: gwNow ? gwNow.server_address : "", device: res.data });
-        card("g", "body");
+        afterToken = { server_address: typeof res.data.server_address === "string" ? res.data.server_address : gwNow ? gwNow.server_address : "",
+          device: res.data.device && typeof res.data.device === "object" ? res.data.device : null };
+        gwNow = afterToken;
         showToken(t);
         return false;
       }
-      if (res.status === 409) { F.say("gw-err", "A phone is already registered. The card has been reloaded."); loadGw(""); return false; }
-      if (res.status === 400 || res.status === 401 || res.status === 403) {
-        if (mode !== "register") { F.say("gw-err", CODE_REFUSED); $("gw-code").setAttribute("aria-invalid", "true"); return false; }
-        F.say("gw-err", first(res.fields, "name") || "Check the name and try again.");
+      if (res.status === 409 && res.code === "phone_exists") { F.say("gw-err", "A phone is already registered."); loadGw(""); return false; }
+      if (res.status === 409 && res.code === "name_taken") { F.say("gw-err", "That name is already in use."); $("gw-name").setAttribute("aria-invalid", "true"); return false; }
+      if (res.status === 409 && res.code === "device_disabled") { F.say("gw-err", "This phone is disabled."); loadGw(""); return false; }
+      if (res.code === "invalid_name" || (mode === "register" && res.status === 400)) {
+        F.say("gw-err", first(res.fields, "name") || res.message || NAME_HELP);
         $("gw-name").setAttribute("aria-invalid", "true");
         return false;
       }
+      if (res.status === 403 && res.code === "reauth_failed") {
+        F.say("gw-err", (res.message || CODE_REFUSED) + CODE_WAIT);
+        $("gw-code").setAttribute("aria-invalid", "true");
+        return false;
+      }
+      if (mode !== "register" && (res.status === 400 || res.status === 403)) { F.say("gw-err", CODE_REFUSED + CODE_WAIT); $("gw-code").setAttribute("aria-invalid", "true"); return false; }
       F.say("gw-err", LOST);
       return false;
     });
@@ -403,6 +419,7 @@
     if (gwMode === "register") {
       name = $("gw-name").value.trim();
       if (!name) { F.say("gw-err", "Enter a name for the phone."); $("gw-name").setAttribute("aria-invalid", "true"); return; }
+      if (!NAME_OK.test(name)) { F.say("gw-err", NAME_HELP); $("gw-name").setAttribute("aria-invalid", "true"); return; }
       body = { name: name, confirm: true };
     } else {
       dev = gwNow && gwNow.device;

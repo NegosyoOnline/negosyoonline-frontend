@@ -20,7 +20,7 @@ const NOW = Date.parse("2026-11-20T10:00:00+08:00");
 const ADDR = "https://gateway.example.test";
 const TOKEN = "tok_SAMPLE_0123456789abcdef";
 const ago = (s) => new Date(NOW - s * 1000).toISOString();
-const DEV = (o = {}) => ({ name: "Platform phone", enabled: true, forwards_incoming: false, last_poll_at: null, app_version: null, battery: null, charging: null, connection: "waiting", ...o });
+const DEV = (o = {}) => ({ name: "system", enabled: true, forwards_incoming: false, last_poll_at: null, app_version: null, battery: null, charging: null, connection: "waiting", ...o });
 const get = (device, address = ADDR) => [200, { server_address: address, device }];
 const KEYS = { get: "POST sms/device/get/", reg: "POST sms/device/register/", rot: "POST sms/device/rotate/", dis: "POST sms/device/disable/" };
 
@@ -66,7 +66,7 @@ test("waiting for phone: registered, never polled", async () => {
   const p = await page({ [KEYS.get]: get(DEV()) });
   assert.equal(text(p, "g-chip"), "Waiting for phone");
   assert.match(text(p, "g-note"), /Enter the token in the Android app/);
-  assert.equal(text(p, "g-name"), "Platform phone");
+  assert.equal(text(p, "g-name"), "system");
   assert.equal(text(p, "g-enabled"), "Yes");
   assert.equal(text(p, "g-poll"), "Never");
   assert.equal(text(p, "g-incoming"), "Off");
@@ -136,28 +136,29 @@ test("Copy on the card copies the server address", async () => {
 });
 
 test("Register: the name is required, then name and confirm are sent and the token screen opens", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, ...DEV() }] });
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] });
   await click(p, "g-register");
   assert.equal(p.node["m-gw"].hidden, false);
   assert.equal(p.node["gw-code-field"].hidden, true);
   await click(p, "gw-go");
   assert.equal(text(p, "gw-err"), "Enter a name for the phone.");
   assert.equal(p.sent(KEYS.reg).length, 0);
-  p.node["gw-name"].value = "  Platform phone ";
+  p.node["gw-name"].value = "  system ";
   await click(p, "gw-go");
-  assert.deepEqual(p.sent(KEYS.reg)[0].body, { name: "Platform phone", confirm: true });
+  assert.deepEqual(p.sent(KEYS.reg)[0].body, { name: "system", confirm: true });
   assert.equal(p.node["m-gw"].hidden, true);
   assert.equal(p.node["m-token"].hidden, false);
   assert.equal(p.node["tk-token"].value, TOKEN);
   assert.equal(p.node["tk-token"].hasAttribute("readonly"), false, "set in the page markup, not by script");
   assert.equal(text(p, "tk-addr"), ADDR);
+  await click(p, "tk-done");
   assert.equal(text(p, "g-chip"), "Waiting for phone");
 });
 
 test("the token screen: Copy copies the token, Escape does not close it, Done clears every trace", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, ...DEV() }] });
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] });
   await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+  p.node["gw-name"].value = "system";
   await click(p, "gw-go");
   await click(p, "tk-copy");
   assert.deepEqual(p.writes, [TOKEN]);
@@ -173,13 +174,13 @@ test("the token screen: Copy copies the token, Escape does not close it, Done cl
   assert.ok(!everything(p).includes(TOKEN), "the token is gone from the page");
   await click(p, "tk-copy");
   assert.deepEqual(p.writes, [TOKEN, ADDR], "Copy after Done has nothing to copy");
-  assert.equal(p.sent(KEYS.get).length, 2, "Done reads the phone again");
+  assert.equal(p.sent(KEYS.get).length, 1, "Done repaints from the answer");
 });
 
 test("the token is never written to storage, a URL, or a later request", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, ...DEV() }] });
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] });
   await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+  p.node["gw-name"].value = "system";
   await click(p, "gw-go");
   await click(p, "tk-done");
   assert.deepEqual(p.stored, []);
@@ -190,11 +191,11 @@ test("the token is never written to storage, a URL, or a later request", async (
 });
 
 test("Copy falls back to a hidden textarea where the clipboard API is missing", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, ...DEV() }] }, { navigator: null });
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] }, { navigator: null });
   const copied = [];
   p.doc.execCommand = (c) => { copied.push([c, p.doc.selected && p.doc.selected.value !== undefined ? p.doc.selected.textContent : ""]); return true; };
   await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+  p.node["gw-name"].value = "system";
   await click(p, "gw-go");
   await click(p, "tk-copy");
   assert.deepEqual(copied, [["copy", TOKEN]]);
@@ -203,29 +204,96 @@ test("Copy falls back to a hidden textarea where the clipboard API is missing", 
 });
 
 test("a failed Copy says so and keeps the token for selecting", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, ...DEV() }] }, { navigator: null });
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] }, { navigator: null });
   p.doc.execCommand = () => false;
   await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+  p.node["gw-name"].value = "system";
   await click(p, "gw-go");
   await click(p, "tk-copy");
   assert.match(text(p, "tk-copied"), /Copy did not work/);
   assert.equal(p.node["tk-token"].value, TOKEN);
 });
 
-test("Register answered 409 reloads the card and says a phone exists", async () => {
-  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [409, { error: { code: "conflict", message: "x" } }] });
-  await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+const err = (code, message = "Backend words.", fields = {}) => ({ error: { code, message, fields } });
+const reg = async (p, name = "system") => { await click(p, "g-register"); p.node["gw-name"].value = name; await click(p, "gw-go"); };
+
+test("Register checks the name format in the page before sending", async () => {
+  const p = await page({ [KEYS.get]: get(null) });
+  for (const bad of ["Platform phone", "SYSTEM", "sys_tem", "a".repeat(61)]) {
+    await reg(p, bad);
+    assert.match(text(p, "gw-err"), /lower-case letters, numbers and hyphens/);
+    assert.equal(p.node["gw-name"].getAttribute("aria-invalid"), "true");
+    p.node["gw-name"].value = "";
+  }
+  assert.equal(p.sent(KEYS.reg).length, 0);
+});
+
+test("Register errors by code: invalid_name, name_taken", async () => {
+  let reply = [400, err("invalid_name", "Bad name from backend.")];
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: () => reply });
+  await reg(p);
+  assert.equal(text(p, "gw-err"), "Bad name from backend.");
+  assert.equal(p.node["m-gw"].hidden, false);
+  reply = [409, err("name_taken")];
   await click(p, "gw-go");
-  assert.match(text(p, "gw-err"), /already registered/);
+  assert.equal(text(p, "gw-err"), "That name is already in use.");
+});
+
+test("Rotate: 409 device_disabled says so and reloads", async () => {
+  const p = await page({ [KEYS.get]: connected(), [KEYS.rot]: [409, err("device_disabled")] });
+  await click(p, "g-rotate");
+  p.node["gw-code"].value = "123456"; p.node["gw-ack"].checked = true;
+  await click(p, "gw-go");
+  assert.equal(text(p, "gw-err"), "This phone is disabled.");
+  assert.equal(p.sent(KEYS.get).length, 2);
+});
+
+test("reauth_failed shows the backend message and the 30-second hint", async () => {
+  const p = await page({ [KEYS.get]: connected(), [KEYS.dis]: [403, err("reauth_failed", "Code refused.")] });
+  await click(p, "g-disable");
+  p.node["gw-code"].value = "123456";
+  await click(p, "gw-go");
+  assert.equal(text(p, "gw-err"), "Code refused. If you just signed in, wait for the next code (about 30 seconds).");
+  assert.equal(p.node["m-gw"].hidden, false);
+});
+
+test("a 401 is a session problem: sent to sign in, not called a wrong code", async () => {
+  const p = await page({ [KEYS.get]: connected(), [KEYS.dis]: [401, err("unauthenticated")] });
+  await click(p, "g-disable");
+  p.node["gw-code"].value = "123456";
+  await click(p, "gw-go");
+  assert.equal(p.location.replaced, "/sign-in/");
+  assert.doesNotMatch(text(p, "gw-err"), /code/i);
+  const q = await page({ [KEYS.get]: connected(), [KEYS.rot]: [401, err("second_step_required")] });
+  await click(q, "g-rotate");
+  q.node["gw-code"].value = "123456"; q.node["gw-ack"].checked = true;
+  await click(q, "gw-go");
+  assert.equal(q.location.replaced, "/verify/");
+});
+
+test("Done repaints from the register response, with its own address and device", async () => {
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [200, { token: TOKEN, server_address: "https://other.example.test", device: DEV({ name: "system" }) }] });
+  await reg(p);
+  await click(p, "tk-done");
+  assert.equal(p.sent(KEYS.get).length, 1, "no second read");
+  assert.equal(text(p, "g-addr"), "https://other.example.test");
+  assert.equal(text(p, "g-chip"), "Waiting for phone");
+  assert.ok(!everything(p).includes(TOKEN));
+});
+
+test("Register answered 409 phone_exists reloads the card and says a phone exists", async () => {
+  const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [409, err("phone_exists")] });
+  await click(p, "g-register");
+  p.node["gw-name"].value = "system";
+  await click(p, "gw-go");
+  assert.equal(text(p, "gw-err"), "A phone is already registered.");
   assert.equal(p.node["m-token"].hidden, true);
 });
 
 const connected = () => get(DEV({ connection: "connected", last_poll_at: ago(5) }));
 
 test("Rotate: the code must be 6 digits and I understand ticked before anything is sent", async () => {
-  const p = await page({ [KEYS.get]: connected(), [KEYS.rot]: [200, { token: TOKEN, ...DEV() }] });
+  const p = await page({ [KEYS.get]: connected(), [KEYS.rot]: [200, { token: TOKEN, server_address: ADDR, device: DEV() }] });
   await click(p, "g-rotate");
   assert.match(text(p, "m-gw-sub"), /The previous token stops working immediately/);
   assert.equal(p.node["gw-name-field"].hidden, true);
@@ -244,7 +312,7 @@ test("Rotate: the code must be 6 digits and I understand ticked before anything 
   assert.equal(p.sent(KEYS.rot).length, 0);
   p.node["gw-ack"].checked = true;
   await click(p, "gw-go");
-  assert.deepEqual(p.sent(KEYS.rot)[0].body, { name: "Platform phone", code: "123456", confirm: true });
+  assert.deepEqual(p.sent(KEYS.rot)[0].body, { name: "system", code: "123456", confirm: true });
   assert.equal(p.node["m-token"].hidden, false);
   assert.equal(p.node["tk-token"].value, TOKEN);
   assert.equal(p.node["gw-code"].value, "", "the code is cleared");
@@ -256,7 +324,7 @@ test("Rotate with a refused code keeps the dialog open with one message", async 
   p.node["gw-code"].value = "123456";
   p.node["gw-ack"].checked = true;
   await click(p, "gw-go");
-  assert.match(text(p, "gw-err"), /code was not accepted/);
+  assert.match(text(p, "gw-err"), /wait for the next code/);
   assert.equal(p.node["m-gw"].hidden, false);
   assert.equal(p.node["m-token"].hidden, true);
   assert.equal(p.node["gw-go"].disabled, false);
@@ -265,7 +333,7 @@ test("Rotate with a refused code keeps the dialog open with one message", async 
 test("Disable: needs a 6-digit code, sends name, code and confirm, then reloads", async () => {
   let disabled = false;
   const p = await page({ [KEYS.get]: () => (disabled ? get(DEV({ enabled: false, connection: "disabled" })) : connected()),
-    [KEYS.dis]: () => { disabled = true; return [200, { ok: true }]; } });
+    [KEYS.dis]: () => { disabled = true; return get(DEV({ enabled: false, connection: "disabled" })); } });
   await click(p, "g-disable");
   assert.match(text(p, "m-gw-sub"), /No texts will be sent until a phone is registered/);
   assert.equal(p.node["gw-ack-field"].hidden, true);
@@ -274,10 +342,11 @@ test("Disable: needs a 6-digit code, sends name, code and confirm, then reloads"
   assert.equal(p.sent(KEYS.dis).length, 0);
   p.node["gw-code"].value = "654321";
   await click(p, "gw-go");
-  assert.deepEqual(p.sent(KEYS.dis)[0].body, { name: "Platform phone", code: "654321", confirm: true });
+  assert.deepEqual(p.sent(KEYS.dis)[0].body, { name: "system", code: "654321", confirm: true });
   assert.equal(p.node["m-gw"].hidden, true);
   assert.equal(text(p, "g-chip"), "Disabled");
   assert.equal(text(p, "g-msg"), "Phone disabled.");
+  assert.equal(p.sent(KEYS.get).length, 1, "repainted from the disable answer, no second read");
 });
 
 test("Cancel in the dialog sends nothing and clears the code", async () => {
@@ -293,7 +362,7 @@ test("Cancel in the dialog sends nothing and clears the code", async () => {
 test("a route that answers 404 while acting turns the card off", async () => {
   const p = await page({ [KEYS.get]: get(null), [KEYS.reg]: [404, {}] });
   await click(p, "g-register");
-  p.node["gw-name"].value = "Platform phone";
+  p.node["gw-name"].value = "system";
   await click(p, "gw-go");
   assert.equal(p.node["g-off"].hidden, false);
   assert.equal(p.node["m-gw"].hidden, true);

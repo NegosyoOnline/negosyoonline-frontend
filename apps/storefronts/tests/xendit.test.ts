@@ -61,7 +61,7 @@ test("the offered methods: the API's methods, or transfer only when it sends non
 test("both methods: two cards, transfer first chosen with its sheet open; Xendit card carries its words", () => {
   const page = PAGE({ direct: true, xendit: true });
   assert.ok(page.includes('name="pay_method" value="xendit"') && page.includes('name="pay_method" value="direct" checked'));
-  assert.ok(page.includes("Pay online (Xendit)") && page.includes("You&#x27;ll be redirected to our secure payment provider powered by Xendit."));
+  assert.ok(page.includes("Credit / Debit Card / GCash / Maya") && page.includes("You&#x27;ll be redirected to our secure payment provider powered by Xendit."));
   assert.ok(page.includes('id="direct-panel" class="pp-co-direct pp-co-slide is-open"') && page.includes('name="proof"'));
   assert.ok(page.includes('data-xendit="Continue to Payment'));
   const picked = PAGE({ direct: true, xendit: true }, { pay_method: "xendit" });
@@ -71,7 +71,7 @@ test("both methods: two cards, transfer first chosen with its sheet open; Xendit
 
 test("only Xendit: no transfer card, account, proof or receipt fields; the card is chosen", () => {
   const page = PAGE({ direct: false, xendit: true });
-  assert.ok(page.includes('value="xendit" checked') && page.includes("Pay online (Xendit)"));
+  assert.ok(page.includes('value="xendit" checked') && page.includes("Credit / Debit Card / GCash / Maya"));
   for (const gone of ['name="pay_method" value="direct"', 'name="proof"', 'name="account_id"', 'name="sender_bank"', "direct-panel", "Bank or e-wallet transfer"]) assert.ok(!page.includes(gone), gone);
 });
 
@@ -198,7 +198,7 @@ test("the poll answers JSON, never cached; no answer from the API is a 503 the p
 
 const PANEL = (over: Partial<MemberPack>): string => {
   const pack: MemberPack = {
-    order_number: "SP-1", payment_status: "awaiting_xendit", payment_label: "Waiting for payment", method_label: "Pay online (Xendit)",
+    order_number: "SP-1", payment_status: "awaiting_xendit", payment_label: "Waiting for payment", method_label: "Credit / Debit Card / GCash / Maya",
     price_centavos: 148800, tone: "wait", benefits_off: true, pay_url: "", lock: null, proofs: [], ...over,
   };
   const h: HomePanels = { pack, registration: null, mobile: { pending: false, mobile: "", locked: false, code_sent_to: "", resend_in: 0, attempts_left: 5 } };
@@ -207,7 +207,7 @@ const PANEL = (over: Partial<MemberPack>): string => {
 
 test("Home: awaiting Xendit with an invoice, without one, mismatch and expired", () => {
   const wait = PANEL({ pay_url: INVOICE });
-  assert.ok(wait.includes("Waiting for payment") && wait.includes("Pay online (Xendit) · ₱1,488.00") && wait.includes("Finish your payment to turn on your membership benefits."));
+  assert.ok(wait.includes("Waiting for payment") && wait.includes("Credit / Debit Card / GCash / Maya · ₱1,488.00") && wait.includes("Finish your payment to turn on your membership benefits."));
   assert.ok(wait.includes(`href="${INVOICE}"`) && wait.includes("Continue to payment") && !wait.includes("Ships after the store verifies"));
   const failed = PANEL({});
   assert.ok(failed.includes("Payment is not available right now.") && failed.includes("Your order is saved. Try again in a moment.") && !failed.includes("<a ") && !failed.includes("Try again</"));

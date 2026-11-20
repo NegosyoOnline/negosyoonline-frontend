@@ -13,11 +13,11 @@
   var PAY = { pending_review: ["warn", "Under review"], rejected: ["danger", "Needs attention"], verified: ["ok", "Verified"] };
   var REG = { ready_to_register: "Ready to register", in_registration: "In registration", registered: "Registered" };
 
-  /* TWCinc's eight stages (partnership/stages.py), in funnel order: a row reports the furthest it reached. */
-  var PR_STAGES = [["new_lead", "New Lead"], ["landing_page", "Landing Page"], ["start_watching", "Start Watching"], ["done_watching", "Done Watching"],
-    ["added_to_cart", "Add to Cart"], ["checked_out", "Checked Out"], ["account_setup", "Account Setup"], ["activated", "Activated"]];
+  /* The six prospect stages, in funnel order: a row reports the furthest it reached (Coach Ed, 2026-11-21). */
+  var PR_STAGES = [["landing_page", "Landing Page"], ["start_watching", "Start Watching"], ["done_watching", "Done Watching"],
+    ["checked_out", "Checked Out"], ["purchased", "Purchased"], ["activated", "Activated"]];
   var PR_SOURCES = { pack_page: "Membership Pack page", webchat: "Website chat", email: "Email", messenger: "FB Messenger" };
-  var PR_TONE = { new_lead: "neutral", landing_page: "neutral", start_watching: "info", done_watching: "info", added_to_cart: "warn", checked_out: "info", account_setup: "warn", activated: "ok" };
+  var PR_TONE = { landing_page: "neutral", start_watching: "info", done_watching: "info", checked_out: "warn", purchased: "info", activated: "ok" };
   var NO_NAME = "No name";
   var ICONS = {
     phone: "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z",

@@ -3,7 +3,7 @@
    Transcribed from TWCinc's negosyoonline_sante_pack/checkout.html with _checkout_steps.html, _transfer_proof.html and
    _agreement_dialog.html (includes expanded). Markup, class names, text and order are the templates'. Different from
    them, on purpose:
-   - Xendit (ClickUp z8uq9mgkp1, Coach Ed 2026-11-18): "Pay online (Xendit)" is a second card when the site offers it, and the
+   - Xendit (ClickUp z8uq9mgkp1, Coach Ed 2026-11-18): "Credit / Debit Card / GCash / Maya" is a second card when the site offers it, and the
      transfer card and proof fields are left out when the site does not offer transfer (the API's pack.methods);
    - no CSRF token or hidden "action" field: a post is checked for its origin (src/lib/cookies.ts sameOriginPost), and
      the step is the button (name="action");
@@ -27,7 +27,7 @@ export const ENROLLMENT_AUTHORIZATION =
 export const MSG_ENROLLMENT_REQUIRED = "Please tick this box to continue.";
 export const MSG_CHECKOUT_EXPIRED = "This checkout has expired. Please start again.";
 export const MSG_PAYMENT_UNAVAILABLE = "Payment is not available right now.";
-export const PAY_ONLINE_LABEL = "Pay online (Xendit)";
+export const PAY_ONLINE_LABEL = "Credit / Debit Card / GCash / Maya";
 export const PAY_ONLINE_HINT = "You'll be redirected to our secure payment provider powered by Xendit.";
 export const PAY_ONLINE_STEP_HINT = "You will finish paying on Xendit's secure page. Your order is placed when you continue.";
 export const VERIFY_FIRST = "Verify your mobile number first.";

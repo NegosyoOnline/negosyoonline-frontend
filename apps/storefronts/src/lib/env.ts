@@ -40,8 +40,21 @@ function httpsLink(value: string | undefined): string {
   }
 }
 
-/** The app links: STOREFRONT_MOBILE_APP_URL_IOS (App Store), STOREFRONT_MOBILE_APP_URL_ANDROID (Google Play) and the single fallback
-    STOREFRONT_MOBILE_APP_URL, each validated alike (https only; anything else counts as not set). */
-export function mobileApps(source: Record<string, string | undefined> = process.env): { ios: string; android: string; fallback: string } {
-  return { ios: httpsLink(source.STOREFRONT_MOBILE_APP_URL_IOS), android: httpsLink(source.STOREFRONT_MOBILE_APP_URL_ANDROID), fallback: mobileAppUrl(source) };
+/** The Google Play link as an Android "open the app" link: an intent:// URL naming the app's package (the `id=` of the configured Play link)
+    that falls back to the Play link itself when the app is not installed. "" when the id is missing or not a valid package name. */
+function androidIntent(play: string): string {
+  const id = play ? new URL(play).searchParams.get("id") ?? "" : "";
+  if (!/^[A-Za-z0-9._]+$/.test(id)) return "";
+  return `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${id};S.browser_fallback_url=${encodeURIComponent(play)};end`;
 }
+
+/** The app links: STOREFRONT_MOBILE_APP_URL_IOS (App Store), STOREFRONT_MOBILE_APP_URL_ANDROID (Google Play) and the single fallback
+    STOREFRONT_MOBILE_APP_URL, each validated alike (https only; anything else counts as not set). For an Android visitor (`userAgent`
+    names Android) the Google Play link becomes the intent:// link that opens the installed app; every other visitor keeps the plain links. */
+export function mobileApps(source: Record<string, string | undefined> = process.env, userAgent = ""): { ios: string; android: string; fallback: string } {
+  const android = httpsLink(source.STOREFRONT_MOBILE_APP_URL_ANDROID);
+  return { ios: httpsLink(source.STOREFRONT_MOBILE_APP_URL_IOS), android: /Android/i.test(userAgent) ? androidIntent(android) || android : android, fallback: mobileAppUrl(source) };
+}
+
+/** The app links for this request, read from its User-Agent. */
+export const mobileAppsFor = (request: Request) => mobileApps(process.env, request.headers.get("user-agent") ?? "");

@@ -7,7 +7,7 @@
    never a price. Nothing a buyer typed is stored here before the order is placed; the placing buyer's key to the done page is
    the `no_order` cookie. Every refusal re-draws the page it came from with TWCinc's own words, never a status page. */
 import { randomBytes } from "node:crypto";
-import { mobileApps } from "./env.ts";
+import { mobileAppsFor } from "./env.ts";
 import type { AppLinkInput } from "../views/sante/app-links.ts";
 import { MEMBER, ORDER, ORDER_MAX_AGE, clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import type { Member, Site } from "./django.ts";
@@ -40,7 +40,7 @@ const PAY_FIELD_KEYS = new Set(["account_id", "reference_number", "amount_sent",
 export type Shop = { request: Request; site: Site; host: string; visitor_ip: string; member_token: string; calls: Calls; now?: Date; appUrl?: AppLinkInput };
 
 export function shopOf(request: Request, site: Site, call: Call = callFor(request)): Shop {
-  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env }, appUrl: mobileApps() };
+  return { request, site, host: call.host, visitor_ip: call.visitor_ip, member_token: call.member_token, calls: { env: call.env }, appUrl: mobileAppsFor(request) };
 }
 
 /* ---- the basket, priced -------------------------------------------------------------------------------------------- */

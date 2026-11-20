@@ -236,6 +236,8 @@
 
   function backLink() { return D.el("a", { "class": "no-btn no-btn-ghost", href: "/" }, "Back to Overview"); }
 
+  /* Referral panel: the same referral card as Overview from the /dashboard/ data already loaded (no extra request).
+     Before the data loads, or if it failed, an honest note points back to Overview. */
   function renderReferral(loaded, ref) {
     var body = $("ref-body");
     if (!body) return;

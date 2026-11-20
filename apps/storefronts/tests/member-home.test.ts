@@ -11,6 +11,7 @@ import { CATEGORIES } from "../src/views/sante/shop-products.ts";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { mobileApps } from "../src/lib/env.ts";
+import { appNotice } from "../src/views/sante/shop-app-notice.ts";
 import { EARN_ENTRY_PATH } from "../src/views/sante/member.ts";
 import type { OrderCard } from "../src/lib/pack-api.ts";
 import { FILLED, SITE } from "./site.ts";
@@ -895,4 +896,70 @@ test("corrections 5: header border, bottom-nav active pill on every tab, inactiv
   assert.match(css, /html\[data-theme="dark"\] body\.mem \{ --mbn-bg: #141c18;[^}]*--mbn-active: #8BE0B8;/);
   assert.doesNotMatch(css.slice(css.indexOf("@media (max-width: 1024px) {\n  .e4-bn .pdn")), /72px \+|calc\(72px/); // nothing but the variable sets the nav height
   assert.doesNotMatch(page("home"), /data-pdn-toggle|pdn-hamburger/);
+});
+
+/* ---- the Android "open the app" link (ClickUp z8uq9mgpzf) ------------------------------------------------------------- */
+
+const PLAY = "https://play.google.com/store/apps/details?id=com.example.app";
+const INTENT = "intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.example.app;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.example.app;end";
+const UA_ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36";
+const UA_IOS = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1";
+const UA_DESKTOP = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36";
+const SRC = { STOREFRONT_MOBILE_APP_URL_IOS: IOS, STOREFRONT_MOBILE_APP_URL_ANDROID: PLAY, STOREFRONT_MOBILE_APP_URL: FALLBACK };
+
+test("an Android visitor gets the intent link; everyone else the plain store links", () => {
+  assert.equal(mobileApps(SRC, UA_ANDROID).android, INTENT);
+  assert.equal(mobileApps(SRC, UA_ANDROID).ios, IOS);
+  assert.equal(mobileApps(SRC, UA_ANDROID).fallback, FALLBACK);
+  for (const ua of [UA_IOS, UA_DESKTOP, ""]) assert.deepEqual(mobileApps(SRC, ua), { ios: IOS, android: PLAY, fallback: FALLBACK }, ua);
+  assert.deepEqual(mobileApps(SRC), { ios: IOS, android: PLAY, fallback: FALLBACK });
+});
+
+test("an Android visitor keeps the plain Play link when the id is missing or invalid; no link stays no link", () => {
+  for (const bad of ["https://play.google.com/store/apps/details", "https://play.google.com/store/apps/details?id=", "https://play.google.com/store/apps/details?id=bad%3Bid", "https://play.google.com/store/apps/details?id=a%20b"]) {
+    assert.equal(mobileApps({ STOREFRONT_MOBILE_APP_URL_ANDROID: bad }, UA_ANDROID).android, bad, bad);
+  }
+  assert.deepEqual(mobileApps({}, UA_ANDROID), { ios: "", android: "", fallback: "" });
+});
+
+test("the intent href survives HTML escaping: ; # % kept, no raw &", () => {
+  const out = String(appButtons({ ios: IOS, android: INTENT, fallback: "" }, "b"));
+  assert.match(out, new RegExp(`href="${INTENT.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*>Google Play<`));
+  assert.doesNotMatch(out, /&/);
+  const withAmp = mobileApps({ STOREFRONT_MOBILE_APP_URL_ANDROID: `${PLAY}&hl=en` }, UA_ANDROID).android;
+  assert.doesNotMatch(String(appButtons({ ios: "", android: withAmp, fallback: "" }, "b")), /&/);
+  assert.match(withAmp, /S\.browser_fallback_url=https%3A%2F%2Fplay\.google\.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom\.example\.app%26hl%3Den;end$/);
+});
+
+test("the shop app notice: Android gets the intent Google Play button, iOS and desktop the plain one, none the honest line", () => {
+  const droid = String(appNotice(mobileApps(SRC, UA_ANDROID)));
+  assert.ok(droid.includes(`href="${INTENT}"`));
+  assert.match(droid, new RegExp(`href="${IOS}"[^>]*>App Store<`));
+  for (const ua of [UA_IOS, UA_DESKTOP]) {
+    const plain = String(appNotice(mobileApps(SRC, ua)));
+    assert.ok(plain.includes(`href="${PLAY}"`) && !plain.includes("intent://"), ua);
+  }
+  assert.doesNotMatch(String(appNotice(mobileApps({}, UA_ANDROID))), /href=|Google Play/);
+});
+
+test("the member Home reads the User-Agent: the Google Play button opens the app for Android only", async () => {
+  const before = { ...process.env };
+  Object.assign(process.env, SRC);
+  try {
+    const page = async (ua: string) => {
+      const request = new Request("http://www.santetest.com/dashboard/", { headers: { "user-agent": ua } });
+      const d = dashOf(fake(replies()), { appUrl: undefined });
+      const r = await homePage({ ...d, call: { ...d.call, request } });
+      return r.text();
+    };
+    const droid = await page(UA_ANDROID);
+    assert.ok(droid.includes(`href="${INTENT}"`));
+    assert.ok(droid.includes(`href="${IOS}"`));
+    for (const ua of [UA_IOS, UA_DESKTOP]) {
+      const other = await page(ua);
+      assert.ok(other.includes(`href="${PLAY}"`) && !other.includes("intent://"), ua);
+    }
+  } finally {
+    for (const k of Object.keys(SRC)) { if (before[k] === undefined) delete process.env[k]; else process.env[k] = before[k]; }
+  }
 });

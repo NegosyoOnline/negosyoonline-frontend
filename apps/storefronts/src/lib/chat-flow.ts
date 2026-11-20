@@ -17,6 +17,7 @@ import { requestHost } from "./site.ts";
 import { visitorIp } from "./visitor.ts";
 import { neutralNotFound } from "../views/neutral.ts";
 
+const VISIT_REF_SHAPE = /^[A-Za-z0-9_-]{16,32}$/; // what pack-visit.js keeps under "np:visit-ref"
 const SECRET_SHAPE = /^[A-Za-z0-9_-]{43}$/; // what Django makes: token_urlsafe(32)
 const MAX_BODY = 16 * 1024; // a 1,000-character message with its name and email is well under this
 const MAX_AFTER = 2_000_000_000;
@@ -45,6 +46,11 @@ async function readBody(request: Request): Promise<Body | null> {
   } catch {
     return null;
   }
+}
+
+/** The optional visit ref as a one-key object: present only when well formed, so a bad or missing one is dropped, not passed on. */
+function visitRef(value: unknown): { pack_visitor_ref?: string } {
+  return typeof value === "string" && VISIT_REF_SHAPE.test(value) ? { pack_visitor_ref: value } : {};
 }
 
 function str(value: unknown, max: number): string {
@@ -114,6 +120,7 @@ export async function chatSendPost(request: Request): Promise<Response> {
       website: str(g.body.website, 500),
       opened_at: openedAt(g.body.opened_at),
       after_id: afterId(g.body.after_id),
+      ...visitRef(g.body.pack_visitor_ref),
     },
     storefrontEnv(),
   );
@@ -160,7 +167,7 @@ export async function chatContactPost(request: Request): Promise<Response> {
   const g = await gate(request);
   if (!g) return neutralNotFound();
   const result = await chatContact(
-    { host: g.host, visitor_ip: visitorIp(request.headers), visitor_secret: secretOf(request), contact: str(g.body.contact, 300) },
+    { host: g.host, visitor_ip: visitorIp(request.headers), visitor_secret: secretOf(request), contact: str(g.body.contact, 300), ...visitRef(g.body.pack_visitor_ref) },
     storefrontEnv(),
   );
   if (result.state === "unavailable") return neutralNotFound();

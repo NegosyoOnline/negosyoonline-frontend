@@ -98,6 +98,16 @@
     return "failed";
   }
 
+  /** The Membership Pack visit ref that pack-visit.js keeps in localStorage ("np:visit-ref", 16-32 of A-Za-z0-9_-), or "" when it is
+      absent, malformed or storage is blocked. It rides on a send or contact call so the chat lands on the visitor's prospect row. */
+  var VISIT_REF_KEY = "np:visit-ref";
+  function visitRef(storage) {
+    try {
+      var v = storage ? storage.getItem(VISIT_REF_KEY) : "";
+      return typeof v === "string" && /^[A-Za-z0-9_-]{16,32}$/.test(v) ? v : "";
+    } catch { return ""; }
+  }
+
   function emailOk(value) {
     var v = String(value || "").trim();
     return v === "" || /^[^\s@]+@[^\s@]+$/.test(v);
@@ -264,6 +274,8 @@
       pause: ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM10 9v6M14 9v6"]
     };
 
+    function withRef(payload) { var ref = visitRef(storage); if (ref) payload.pack_visitor_ref = ref; return payload; }
+
     function note() { S.lastAction = Date.now(); }
 
     /* ---- talking to our own server ---- */
@@ -414,7 +426,7 @@
       S.draft.contact = value;
       if (!contactKind(value)) { S.contactError = "contact"; drawPanel(true); return; }
       S.contactError = ""; S.contactBusy = true; drawPanel(true);
-      post("/chat/contact/", { contact: String(value).trim() }).then(function (r) {
+      post("/chat/contact/", withRef({ contact: String(value).trim() })).then(function (r) {
         S.contactBusy = false;
         if (r.status === 200 && r.body && r.body.ok === true && r.body.saved === false) { // the owner has chat off or paused: nothing was saved, so the ask stays open
           poll().then(function () { drawPanel(false); });
@@ -534,8 +546,8 @@
       S.draft.text = values.text;
       if (!text) { S.error = "empty"; drawPanel(true); return; }
       S.error = ""; S.sending = true; drawPanel(true);
-      post("/chat/send/", { text: text, website: values.website || "",
-        opened_at: S.openedAt, after_id: log.last }).then(function (r) {
+      post("/chat/send/", withRef({ text: text, website: values.website || "",
+        opened_at: S.openedAt, after_id: log.last })).then(function (r) {
         S.sending = false;
         if (r.status === 200 && r.body && r.body.ok === true) {
           if (r.body.state === "paused") { S.state = "paused"; S.view = "paused"; drawPanel(false); return; }
@@ -574,6 +586,6 @@
     });
   }
 
-  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, contactKind: contactKind, readContact: readContact, writeContact: writeContact, CHAT_CONTACT_MOBILE: CHAT_CONTACT_MOBILE, CONTACT_KEY: CONTACT_KEY, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, migrateLog: migrateLog, LOG_TTL_MS: LOG_TTL_MS, readProbe: readProbe, writeProbe: writeProbe,
+  return { start: start, pollDelay: pollDelay, errorKind: errorKind, emailOk: emailOk, visitRef: visitRef, contactKind: contactKind, readContact: readContact, writeContact: writeContact, CHAT_CONTACT_MOBILE: CHAT_CONTACT_MOBILE, CONTACT_KEY: CONTACT_KEY, mergeReplies: mergeReplies, readLog: readLog, writeLog: writeLog, migrateLog: migrateLog, LOG_TTL_MS: LOG_TTL_MS, readProbe: readProbe, writeProbe: writeProbe,
     TEXT: TEXT, ERRORS: ERRORS, LOG_KEY: LOG_KEY, PROBE_KEY: PROBE_KEY };
 });

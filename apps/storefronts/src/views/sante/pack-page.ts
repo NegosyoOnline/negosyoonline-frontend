@@ -22,6 +22,8 @@ export type PackCtx = Chrome & {
   /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Set only for the
      landing and checkout pages. */
   tracking?: Markup;
+  /* The indexable head tags (src/lib/seo.ts), set only by the landing route; without them the page is noindex. */
+  seo?: Markup;
 };
 
 export const LANDING_PATH = "/funnel/membership-pack/landing-page/";
@@ -127,7 +129,7 @@ export function packDocument(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
+${c.seo ?? html`<meta name="robots" content="noindex">`}
 <title>${args.title} | ${c.store_name}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

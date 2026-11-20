@@ -15,6 +15,8 @@ export type ContactForm = {
 export type HomeModel = {
   /* The Meta notice, or the Pixel's data block and script, just before </body> (src/lib/meta.ts). Only the home route sets it. */
   tracking?: Markup;
+  /* The indexable head tags (src/lib/seo.ts), set only by the home route for a plain visit; without them the page is noindex. */
+  seo?: Markup;
   /* The payment methods the site offers at checkout, from the pack read (src/lib/home-pay.ts). Absent or null when that read
      failed or did not say: the home then names no method. */
   pay_methods?: { direct: boolean; xendit: boolean } | null;

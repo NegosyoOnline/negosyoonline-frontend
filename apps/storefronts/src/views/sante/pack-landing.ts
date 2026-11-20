@@ -6,6 +6,7 @@
    inline block (the policy allows none). */
 import { html, type Markup } from "../../lib/html.ts";
 import { asset } from "../../lib/assets.ts";
+import { LANDING_PATH, organizationLd, productLd, seoHead } from "../../lib/seo.ts";
 import { packDocument, type PackCtx } from "./pack-page.ts";
 
 
@@ -340,6 +341,19 @@ ${(c.cta) ? html`<div data-pp-sticky class="pp-sticky pb sticky bottom-0 z-30 bo
     ${(c.cta) ? html`<a href="${c.checkout_path}" data-pp-beat class="inline-flex items-center justify-center gap-2 rounded-full font-bold transition-[transform,background-color,color,box-shadow] duration-200 ease-out disabled:cursor-not-allowed motion-safe:hover:-translate-y-0.5 active:translate-y-0 ${html`bg-accent-500 text-primary-950 shadow-[var(--shadow-cta)] hover:bg-accent-400 hover:shadow-[0_12px_26px_-10px_rgba(244,172,28,0.9)]`} px-7 py-2.5 text-base leading-6 flex-1 !px-4 text-center !text-sm !leading-5 ph:min-w-[10.5rem] ph:!px-3 ph:text-balance tab:!text-base tab:!leading-6">Get 2 Boxes &amp; Unlock My Discount</a>` : ""}
   </div></div>` : ""}
 `;
+}
+
+/* The landing page's description: the hero's own lede, verbatim as the page prints it (ClickUp z8uq9mh8n9). */
+export function landingDescription(c: PackCtx): string {
+  return `Get 2 boxes of Santé Barley Powder from ${c.store_name} for only ${c.price} and unlock your Lifetime Membership.`;
+}
+
+/** The head tags of the indexable landing page for the served host; Product from the pack's own price. */
+export function landingSeo(c: PackCtx, host: string, pack: { price_centavos: number; currency: string; available: boolean }): Markup {
+  return seoHead({
+    host, path: LANDING_PATH, title: `Membership Pack | ${c.store_name}`, description: landingDescription(c), storeName: c.store_name,
+    jsonLd: [organizationLd(host, c.store_name), productLd(host, pack)],
+  });
 }
 
 export function landingDocument(c: PackCtx): Markup {

@@ -230,8 +230,8 @@ test("the Order Summary payment line follows payment_method_label on Onboarding 
   const pay = /<dt>Payment<\/dt><dd>([^<]*)<\/dd>/;
   const f = fake({
     "onboarding/state": [
-      ok(state({ payment_method_label: "Pay online (Xendit)" })),
-      ok(state({ step: "done", payment_method_label: "Pay online (Xendit)" })),
+      ok(state({ payment_method_label: "Credit / Debit Card / GCash / Maya" })),
+      ok(state({ step: "done", payment_method_label: "Credit / Debit Card / GCash / Maya" })),
       ok(state({ payment_method_label: "Bank or e-wallet transfer" })),
       ok(state({ step: "done", payment_method_label: "Bank or e-wallet transfer" })),
       ok(state()),
@@ -247,7 +247,7 @@ test("the Order Summary payment line follows payment_method_label on Onboarding 
   seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
   seen.push((await text((await completedGet(flowOf(f)))!)).match(pay)?.[1]);
   seen.push((await text((await onboardingPage(flowOf(f), "verify"))!)).match(pay)?.[1]);
-  const x = "Pay online (Xendit)", t = "Bank or e-wallet transfer";
+  const x = "Credit / Debit Card / GCash / Maya", t = "Bank or e-wallet transfer";
   assert.deepEqual(seen, [x, x, t, t, undefined, undefined, undefined]);
 });
 
@@ -309,8 +309,8 @@ test("the mobile box shows the ten digits after +63", () => {
 
 test("the order summary shows the payment row only when the order names its method (no bank claim as a fallback)", () => {
   const c = { price: "P1,488.00", total: "P1,488.00" } as never;
-  const named = paidSummary(c, "Pay online (Xendit)").value;
-  assert.match(named, /<dt>Payment<\/dt><dd>Pay online \(Xendit\)<\/dd>/);
+  const named = paidSummary(c, "Credit / Debit Card / GCash / Maya").value;
+  assert.match(named, /<dt>Payment<\/dt><dd>Credit \/ Debit Card \/ GCash \/ Maya<\/dd>/);
   const missing = paidSummary(c, "").value;
   assert.doesNotMatch(missing, /Payment<\/dt>/);
   assert.doesNotMatch(missing, /[Bb]ank|e-wallet/);

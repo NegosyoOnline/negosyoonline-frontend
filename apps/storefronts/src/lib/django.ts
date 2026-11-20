@@ -468,12 +468,13 @@ export type ChatSend = {
   website: string; // the widget's hidden field, passed on as posted: the API decides what it means
   opened_at: string | null;
   after_id: number;
+  pack_visitor_ref?: string; // the Membership Pack visit ref, only when the widget sent a well-formed one
 };
 
 export type ChatPoll = { host: string; visitor_ip: string; visitor_secret: string; after_id: number };
 
 /** The visitor's optional way to be reached: one mobile number or one email, checked and told apart by Django. */
-export type ChatContact = { host: string; visitor_ip: string; visitor_secret: string; contact: string };
+export type ChatContact = { host: string; visitor_ip: string; visitor_secret: string; contact: string; pack_visitor_ref?: string };
 
 /** Django's 200 for a saved contact. */
 export type ChatContactSaved = { saved: true; kind: "email" | "mobile" } | { saved: false; kind: "" };

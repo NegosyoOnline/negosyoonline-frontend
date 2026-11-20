@@ -18,13 +18,13 @@ const settle = async () => { for (let i = 0; i < 12; i++) await tick(); };
 
 const prospectsBody = (over = {}) => ({
   page: 1, page_size: 25, pages: 1, total: 5,
-  stage_counts: { all: 5, new_lead: 2, landing_page: 0, start_watching: 0, done_watching: 0, added_to_cart: 1, checked_out: 1, account_setup: 1, activated: 0 },
+  stage_counts: { all: 5, landing_page: 2, start_watching: 0, done_watching: 1, checked_out: 1, purchased: 1, activated: 0 },
   results: [
-    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "pack_page", stage: "account_setup", registration_status: "ready_to_register", video_percent: 90, mobile: "+639170000009", email: "coach.test@example.test", last_activity: "2026-11-15T03:00:00Z", placed_at: "2026-11-15T03:00:00Z", payment_status: "verified", price_centavos: 148800, currency: "PHP" },
+    { kind: "order", name: "Ana Reyes", order_number: "PK-0001", order_id: "ord_1", source: "pack_page", stage: "purchased", registration_status: "ready_to_register", video_percent: 90, mobile: "+639170000009", email: "coach.test@example.test", last_activity: "2026-11-15T03:00:00Z", placed_at: "2026-11-15T03:00:00Z", payment_status: "verified", price_centavos: 148800, currency: "PHP" },
     { kind: "order", name: "Ben Cruz", order_number: "PK-0002", order_id: "ord_2", source: "pack_page", stage: "checked_out", registration_status: null, video_percent: null, mobile: "+639170000010", email: "", last_activity: "2026-11-14T03:00:00Z", placed_at: "2026-11-14T03:00:00Z", payment_status: "pending_review", price_centavos: 148800, currency: "PHP" },
-    { kind: "visit", name: "Cora Cart", order_number: null, order_id: null, source: "pack_page", stage: "added_to_cart", registration_status: null, video_percent: 50, mobile: "09171234567", email: "cora@buyer.test", last_activity: "2026-11-14T01:00:00Z" },
-    { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "new_lead", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-13T03:00:00Z" },
-    { kind: "inquiry", name: "", order_number: null, order_id: null, source: "facebook", stage: "new_lead", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-12T03:00:00Z" },
+    { kind: "visit", name: "Cora Cart", order_number: null, order_id: null, source: "pack_page", stage: "done_watching", registration_status: null, video_percent: 50, mobile: "09171234567", email: "cora@buyer.test", last_activity: "2026-11-14T01:00:00Z" },
+    { kind: "inquiry", name: "Chat Person", order_number: null, order_id: null, source: "webchat", stage: "landing_page", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-13T03:00:00Z" },
+    { kind: "inquiry", name: "", order_number: null, order_id: null, source: "facebook", stage: "landing_page", registration_status: null, video_percent: null, mobile: "", email: "", last_activity: "2026-11-12T03:00:00Z" },
   ],
   ...over,
 });
@@ -114,8 +114,8 @@ test("Prospects: the royal blue header with the search inside it at the right, t
   assert.match(CSS, /\.jr-pr-head \{[^}]*justify-content: space-between/);
   assert.match(CSS, /@media \(max-width: 640px\) \{[^@]*\.jr-pr-tools \{ width: 100%/);
   const chips = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON");
-  assert.deepEqual(chips.map((b) => b.textContent), ["All", "New Lead", "Landing Page", "Start Watching", "Done Watching", "Add to Cart", "Checked Out", "Account Setup", "Activated"]);
-  assert.equal(chips[1].getAttribute("title"), "New Lead, 2 people");
+  assert.deepEqual(chips.map((b) => b.textContent), ["All", "Landing Page", "Start Watching", "Done Watching", "Checked Out", "Purchased", "Activated"]);
+  assert.equal(chips[1].getAttribute("title"), "Landing Page, 2 people");
   assert.match(CSS, /\.jr-pr-head \{[^}]*background: var\(--primary\);[^}]*color: #fff/);
   assert.match(CSS, /\.jr-pr-chip\.is-on[^{]*\{[^}]*background: var\(--ov-gold\);[^}]*color: #1F1700/);
   assert.match(CSS, /\.jr-pr-chips \{[^}]*color-mix\(in srgb, var\(--ov-gold\)/);
@@ -235,13 +235,13 @@ test("popups: the close button and a click outside close; Tab stays inside", asy
 
 test("Prospects: a stage chip re-reads with that stage; search re-reads after a pause with q and page 1", async () => {
   const d = boot(); await d.open();
-  const chip = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent === "New Lead");
+  const chip = d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent === "Landing Page");
   chip.fire("click"); await settle();
-  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=new_lead`));
-  assert.equal(d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent === "New Lead").getAttribute("aria-pressed"), "true");
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=landing_page`));
+  assert.equal(d.$("jr-pr-chips").all((n) => n.tagName === "BUTTON").find((b) => b.textContent === "Landing Page").getAttribute("aria-pressed"), "true");
   const q = d.$("jr-pr-q"); q.value = "  PK-0001 "; q.fire("input");
   await new Promise((r) => setTimeout(r, 400)); await settle();
-  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=new_lead&q=PK-0001`));
+  assert.ok(d.calls.includes(`/sites/${A}/pack/journey/prospects/?page=1&stage=landing_page&q=PK-0001`));
 });
 
 test("Prospects: paging, empty and error states", async () => {

@@ -44,6 +44,7 @@ class Node {
     return e;
   }
   click() { this.fire("click"); }
+  select() { this.doc.selected = this; }
   focus() { this.doc.activeElement = this; }
   all(test = () => true, out = []) {
     for (const n of this.children) { if (test(n)) out.push(n); n.all(test, out); }

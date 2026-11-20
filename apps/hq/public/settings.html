@@ -107,11 +107,11 @@
             <p class="banner fin-msg" id="g-msg" role="status" hidden></p>
             <p class="dash-copy" id="g-note"></p>
             <dl class="fin-facts">
-              <div><dt>Server address</dt><dd><span id="g-addr"></span> <button type="button" class="no-btn no-btn-ghost" id="g-addr-copy" hidden>Copy</button></dd></div>
+              <div><dt>Server address</dt><dd class="fin-row"><span id="g-addr"></span><button type="button" class="no-btn no-btn-ghost" id="g-addr-copy" hidden>Copy</button></dd></div>
               <div><dt>Device name</dt><dd id="g-name">-</dd></div>
               <div><dt>Enabled</dt><dd id="g-enabled">-</dd></div>
-              <div><dt>Last successful poll</dt><dd id="g-poll">-</dd></div>
-              <div><dt>Incoming texts</dt><dd><span id="g-incoming">-</span> <span class="small">Changed separately.</span></dd></div>
+              <div><dt>Last successful poll</dt><dd><span id="g-poll">-</span><br><span class="small" id="g-poll-at"></span></dd></div>
+              <div><dt>Incoming texts</dt><dd class="fin-row"><span id="g-incoming">-</span><span class="small">Changed separately.</span></dd></div>
             </dl>
             <div class="fin-row">
               <button type="button" class="no-btn no-btn-primary" id="g-register" aria-haspopup="dialog" hidden>Register phone</button>
@@ -158,14 +158,16 @@
     <p class="dash-copy" id="m-token-sub">Shown once. We keep only a one-way hash. If you lose it, rotate.</p>
     <div class="field"><label for="tk-token">Token</label><input class="input" id="tk-token" type="text" readonly autocomplete="off" spellcheck="false"></div>
     <div class="fin-row"><button type="button" class="no-btn no-btn-ghost" id="tk-copy">Copy</button><span class="small" id="tk-copied" role="status" hidden></span></div>
-    <p class="dash-copy"><strong>Set up the Android app</strong></p>
-    <ol class="dash-copy">
-      <li>Open the NegosyoOnline Gateway app, then Settings.</li>
-      <li>Enter the server address: <strong id="tk-addr"></strong> <button type="button" class="no-btn no-btn-ghost" id="tk-addr-copy" hidden>Copy</button></li>
-      <li>Paste the token.</li>
-      <li>Save, then switch the gateway on.</li>
-      <li>Return here. The status turns Connected within a minute.</li>
-    </ol>
+    <section class="banner" aria-labelledby="tk-steps-h">
+      <h2 id="tk-steps-h">Set up the Android app</h2>
+      <ul>
+        <li>1. Open the NegosyoOnline Gateway app, then Settings.</li>
+        <li>2. Enter the server address:<span class="fin-row"><strong id="tk-addr"></strong><button type="button" class="no-btn no-btn-ghost" id="tk-addr-copy" hidden>Copy</button></span></li>
+        <li>3. Paste the token.</li>
+        <li>4. Save, then switch the gateway on.</li>
+        <li>5. Return here. The status turns Connected within a minute.</li>
+      </ul>
+    </section>
     <button class="no-btn no-btn-primary fin-block" type="button" id="tk-done">Done</button>
   </div>
 </div>
@@ -174,6 +176,6 @@
 <script src="/assets/js/menu.js?v=20261114a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261113a"></script>
-<script src="/assets/js/settings.js?v=20261120a"></script>
+<script src="/assets/js/settings.js?v=20261120b"></script>
 </body>
 </html>

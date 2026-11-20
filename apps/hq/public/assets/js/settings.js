@@ -220,8 +220,8 @@
     var ms = Date.now() - new Date(iso).getTime(), n, u;
     if (isNaN(ms)) return "";
     ms = Math.max(0, ms);
-    if (ms < 60000) { n = Math.floor(ms / 1000); u = "second"; }
-    else if (ms < 3600000) { n = Math.floor(ms / 60000); u = "minute"; }
+    if (ms < 60000) return "just now";
+    if (ms < 3600000) { n = Math.floor(ms / 60000); u = "minute"; }
     else if (ms < 86400000) { n = Math.floor(ms / 3600000); u = "hour"; }
     else { n = Math.floor(ms / 86400000); u = "day"; }
     return n + " " + u + (n === 1 ? "" : "s") + " ago";
@@ -269,12 +269,13 @@
     $("g-name").textContent = dev && typeof dev.name === "string" && dev.name ? dev.name : "-";
     $("g-enabled").textContent = dev ? (dev.enabled === true ? "Yes" : "No") : "-";
     poll = dev && typeof dev.last_poll_at === "string" ? dev.last_poll_at : "";
-    $("g-poll").textContent = poll && ago(poll) ? ago(poll) + " (" + F.stamp(poll) + ")" : dev ? "Never" : "-";
+    $("g-poll").textContent = poll && ago(poll) ? ago(poll) : dev ? "Never" : "-";
+    $("g-poll-at").textContent = poll && ago(poll) ? F.stamp(poll) : "";
     $("g-incoming").textContent = dev ? (dev.forwards_incoming === true ? "On" : "Off") : "-";
     note = meta[2];
     if (dev && typeof dev.app_version === "string" && dev.app_version) bits.push("app version " + dev.app_version);
     if (dev && typeof dev.battery === "number") bits.push("battery " + Math.round(dev.battery) + "%" + (dev.charging === true ? " (charging)" : ""));
-    if (st === "connected") note = "Last poll " + ago(poll) + (bits.length ? ", " + bits.join(", ") : "") + ".";
+    if (st === "connected") note = (ago(poll) === "just now" ? "Last poll just now" : "Last poll " + ago(poll)) + (bits.length ? ", " + bits.join(", ") : "") + ".";
     if (st === "offline") note = "Last poll " + ago(poll) + ". Texts are being refused until the phone is back.";
     if (!addr) note += (note ? " " : "") + "The server address is not configured, so a token cannot be used yet.";
     $("g-note").textContent = note;

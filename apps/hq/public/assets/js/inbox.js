@@ -599,7 +599,7 @@
   /* The open conversation. Opening one writes an audit entry, so the 5 s read is the list's first page (no audit entry): the open
      conversation's row says whether anything is new (unread, or a last_message_at newer than the one seen when the thread was drawn).
      Only then is the conversation opened, which is a real view of the new texts, and its newest page merged in front of any older pages
-     loaded. A row not on the first page means nothing changed. An outbound status (queued to sent) shows on the next open. */
+     loaded. A row not on the first page means nothing changed. An outbound status change of the newest text shows without a read when it is sent, and with one read when not. */
   function stampOf(iso) { var t = Date.parse(iso); return isNaN(t) ? 0 : t; }
   function pollThread(done) {
     if (!conv || busy) return false;
@@ -612,7 +612,21 @@
       if (!row) { done("ok"); return; }
       var at = stampOf(row.last_message_at);
       if (mine.stamp == null) mine.stamp = at;
-      if (!(row.unread > 0) && at <= mine.stamp) { done("ok"); return; }
+      if (!(row.unread > 0) && at <= mine.stamp) {
+        /* Nothing new, but the newest text may be ours and its send status may have moved on (queued to sent, or failed). Messages run
+           oldest first, so the newest is the last. Sent is patched in place; anything else is read once so the reason shows. */
+        var newest = mine.messages[mine.messages.length - 1];
+        if (!(row.last_direction === "out" && row.last_status && newest && newest.direction === "out" && newest.status !== row.last_status)) { done("ok"); return; }
+        if (words(WAITING, newest.status) && words(WAITING, row.last_status)) { newest.status = row.last_status; done("ok"); return; }
+        if (row.last_status === "sent") {
+          var root0 = document.documentElement, bottom0 = atBottom(), y0 = window.scrollY || 0;
+          newest.status = "sent";
+          paintThread();
+          if (root0 && typeof window.scrollTo === "function") window.scrollTo(0, bottom0 ? root0.scrollHeight : y0);
+          done("ok");
+          return;
+        }
+      }
       readConversation(id).then(function (r) {
         if (run !== convRun || conv !== mine || r.status === 401) { if (r.status === 401) left(r); done("skip"); return; }
         if (!r.ok) { done("fail"); return; }

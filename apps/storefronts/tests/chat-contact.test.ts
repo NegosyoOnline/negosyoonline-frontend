@@ -411,3 +411,41 @@ test("the contact route answers a same-origin JSON post only; any other method o
 test("every chat route is listed: send, poll and contact", () => {
   assert.deepEqual(readdirSync(path.join(SRC, "app", "chat")).sort(), ["contact", "poll", "send"]);
 });
+
+/* ClickUp z8uq9mh9ew: the visit ref the chat passes so a chat updates that visitor's prospect row. */
+const REF = "Ab3_-xyz9QrStUv0";
+test("widget visitRef: a well-formed np:visit-ref is returned; absent, malformed or blocked storage gives \"\"", () => {
+  const w = widget as unknown as { visitRef(s: unknown): string };
+  const store = (v: unknown) => ({ getItem: (k: string) => (k === "np:visit-ref" ? v : null) });
+  assert.equal(w.visitRef(store(REF)), REF);
+  assert.equal(w.visitRef(store("A".repeat(32))), "A".repeat(32));
+  for (const bad of [null, "", "short", "A".repeat(33), "has space 123456789", "bad!chars12345678", 5]) assert.equal(w.visitRef(store(bad)), "");
+  assert.equal(w.visitRef(null), "");
+  assert.equal(w.visitRef({ getItem() { throw new Error("blocked"); } }), "");
+});
+
+test("send and contact routes forward pack_visitor_ref when valid and drop it when invalid or missing", async () => {
+  const { POST: sendRoute } = await import("../src/app/chat/send/route.ts");
+  const mk = (route: string, body: unknown) => new Request(`http://www.santetest.com:3062/chat/${route}/`, { method: "POST", body: JSON.stringify(body),
+    headers: { host: "www.santetest.com:3062", "content-type": "application/json", "sec-fetch-site": "same-origin", "x-vercel-forwarded-for": "203.0.113.7" } });
+  const send = { text: "Hi", website: "", opened_at: "2026-11-16T08:00:00Z", after_id: 0 };
+  const open = { state: "open", visitor_secret: "", messages: [], notice: "" };
+  for (const [route, fn, base, answer, hit] of [
+    ["send", sendRoute, send, open, "/chat/send/"],
+    ["contact", contactPost, { contact: "ana@example.test" }, { saved: true, kind: "email" }, "/chat/contact/"],
+  ] as const) {
+    await withDjango(() => Response.json(answer), async (seen) => {
+      const sent = () => JSON.parse(seen.filter((c) => c.url.includes(hit))[0].init?.body as string);
+      await fn(mk(route, { ...base, pack_visitor_ref: REF }));
+      assert.equal(sent().pack_visitor_ref, REF);
+      for (const bad of ["short", "x".repeat(33), "bad ref 1234567890", 7, null, { a: 1 }]) {
+        seen.length = 0;
+        await fn(mk(route, { ...base, pack_visitor_ref: bad }));
+        assert.ok(!("pack_visitor_ref" in sent()), `${route}: ${JSON.stringify(bad)} dropped`);
+      }
+      seen.length = 0;
+      await fn(mk(route, base));
+      assert.ok(!("pack_visitor_ref" in sent()), `${route}: missing stays missing`);
+    });
+  }
+});

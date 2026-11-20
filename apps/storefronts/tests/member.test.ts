@@ -511,3 +511,15 @@ test("/business-seal/: the badge image comes through this host; no badge, a non-
     names.forEach((n, i) => { if (before.env[i] === undefined) delete process.env[n]; else process.env[n] = before.env[i]; });
   }
 });
+
+test("sign-in lead: neither the member nor the Track Order lead promises a text", () => {
+  const v = chrome(SITE);
+  for (const next of ["", "orders"]) {
+    const page = signInDocument(v, signInModel({ next })).value;
+    const lead = /<p class="sc-lead">([\s\S]*?)<\/p>/.exec(page)?.[1] ?? "";
+    assert.ok(lead.length > 0, `lead found for next=${next || "member"}`);
+    assert.match(lead, /one-time code|one quick code/);
+    assert.doesNotMatch(lead, /text/i);
+    assert.doesNotMatch(lead, /\(or /);
+  }
+});

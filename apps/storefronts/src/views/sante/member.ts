@@ -437,7 +437,7 @@ ${icon}
 <h1>${orders ? "Track Your Orders" : "Member Login"}</h1>
 ${smsPaused ? html`<div class="note warn" role="alert"><b>${m.error_message}</b>${m.hint ? html`<br>${m.hint}` : ""}</div>`
   : m.error_message && noFieldErrors ? html`<div class="note bad" role="alert">${m.error_message}</div>`
-  : html`<p class="sc-lead">${orders ? html`Enter your email or mobile number. You&rsquo;ll confirm it with one quick code, by email (or text if your email isn&rsquo;t verified) &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the email or mobile number you registered with to log in to your member dashboard. We&rsquo;ll email you a one-time code (or text it if your email isn&rsquo;t verified) &mdash; no password needed.`}</p>`}
+  : html`<p class="sc-lead">${orders ? html`Enter your email or mobile number. You&rsquo;ll confirm it with one quick code, by email &mdash; no password, no account to create.` : html`<strong>For Sant&eacute; members only.</strong> Enter the email or mobile number you registered with to log in to your member dashboard. We&rsquo;ll email you a one-time code &mdash; no password needed.`}</p>`}
 <form method="post" data-pp-busy-msg="Sending your code&hellip;">
 <input type="hidden" name="action" value="request">
 ${nextField(m.next)}

@@ -1,5 +1,6 @@
-/* The Settings page (ClickUp z8uq9mek62): two cards. Santé catalog owner (who the Santé catalog belongs to) and
-   SMS settings (the stop switch and the two daily limits). Every change goes through a confirm dialog. The page
+/* The Settings page (ClickUp z8uq9mek62): three cards. Santé catalog owner (who the Santé catalog belongs to),
+   SMS settings (the stop switch and the two daily limits) and SMS Gateway (the platform phone, ClickUp z8uq9mh7pq;
+   its token is shown once and never stored). Every change goes through a confirm dialog. The page
    decides nothing: the backend does, and a 404 means the feature is switched off on this server, so the card
    shows that and no controls. Nothing is stored in the browser. */
 (function () {
@@ -7,8 +8,9 @@
   var MAX = 2147483647;
   var LOST = "That did not go through. Check the page before trying again.";
   var DIGITS = /^\d{1,10}$/;
-  var known = false, busy = false, pendingAction = null, ownerRun = 0, smsRun = 0, ownerNow = null, smsNow = null, names = {};
-  var dlg = F.dialogs(function () { return busy; });
+  var known = false, busy = false, tokenOpen = false, gwRun = 0, gwNow = null, gwMode = "", token = "", pendingAction = null, ownerRun = 0, smsRun = 0, ownerNow = null, smsNow = null, names = {};
+  /* Escape closes nothing while a call is on its way or the one-time token is on screen. */
+  var dlg = F.dialogs(function () { return busy || tokenOpen; });
 
   function show(view) { ["boot", "v-main", "v-down"].forEach(function (id) { $(id).hidden = id !== view; }); }
   /* One card shows one of: loading, off, down, body. */
@@ -199,10 +201,232 @@
   });
   $("s-retry").addEventListener("click", function () { loadSms(""); });
 
+  /* ---- SMS Gateway: the platform phone ---- */
+
+  var GW_STATES = {
+    none: ["No phone", "chip-neutral", "No phone is registered for this server."],
+    waiting: ["Waiting for phone", "chip-info", "Enter the token in the Android app. This turns to Connected after its first poll."],
+    connected: ["Connected", "chip-ok", ""],
+    offline: ["Offline", "chip-warn", ""],
+    disabled: ["Disabled", "chip-neutral", "This phone is switched off and refused. Rotate does not re-enable it."]
+  };
+  var CONN = { connected: "connected", offline: "offline", waiting: "waiting", waiting_for_phone: "waiting", no_phone: "none", disabled: "disabled" };
+  var CODE6 = /^\d{6}$/;
+  var CODE_REFUSED = "That code was not accepted. Use the current code from your authenticator app.";
+
+  function ago(iso) {
+    var ms = Date.now() - new Date(iso).getTime(), n, u;
+    if (isNaN(ms)) return "";
+    ms = Math.max(0, ms);
+    if (ms < 60000) { n = Math.floor(ms / 1000); u = "second"; }
+    else if (ms < 3600000) { n = Math.floor(ms / 60000); u = "minute"; }
+    else if (ms < 86400000) { n = Math.floor(ms / 3600000); u = "hour"; }
+    else { n = Math.floor(ms / 86400000); u = "day"; }
+    return n + " " + u + (n === 1 ? "" : "s") + " ago";
+  }
+  /* The server's own word for the connection when this page knows it, else worked out from the last poll. */
+  function gwState(dev) {
+    var c, t;
+    if (!dev) return "none";
+    if (dev.enabled !== true) return "disabled";
+    c = typeof dev.connection === "string" && Object.prototype.hasOwnProperty.call(CONN, dev.connection) ? CONN[dev.connection] : "";
+    if (c) return c;
+    t = typeof dev.last_poll_at === "string" ? new Date(dev.last_poll_at).getTime() : NaN;
+    if (isNaN(t)) return "waiting";
+    return Date.now() - t <= 60000 ? "connected" : "offline";
+  }
+  function gwAddr() { return gwNow && typeof gwNow.server_address === "string" ? gwNow.server_address.trim() : ""; }
+
+  /* Copies text: the clipboard API where the browser offers it (https or localhost), else a hidden textarea. */
+  function copyText(text, done, failed) {
+    if (typeof navigator !== "undefined" && navigator && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(done, failed);
+      return;
+    }
+    var area = F.el("textarea", "", text), ok = false;
+    area.setAttribute("readonly", "readonly");
+    area.setAttribute("aria-hidden", "true");
+    area.setAttribute("style", "position:fixed;opacity:0");
+    document.body.appendChild(area);
+    area.select();
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(area);
+    if (ok) done(); else failed();
+  }
+
+  function paintGw(d) {
+    var dev = d && d.device && typeof d.device === "object" ? d.device : null, st = gwState(dev), meta = GW_STATES[st], addr, note, poll, bits = [];
+    gwNow = { server_address: d && typeof d.server_address === "string" ? d.server_address : "", device: dev };
+    addr = gwAddr();
+    $("g-chip").textContent = meta[0];
+    $("g-chip").setAttribute("class", "chip " + meta[1]);
+    $("g-chip").hidden = false;
+    $("g-addr").textContent = addr || "Not configured";
+    $("g-addr-copy").hidden = !addr;
+    $("g-addr-copy").textContent = "Copy";
+    $("g-name").textContent = dev && typeof dev.name === "string" && dev.name ? dev.name : "-";
+    $("g-enabled").textContent = dev ? (dev.enabled === true ? "Yes" : "No") : "-";
+    poll = dev && typeof dev.last_poll_at === "string" ? dev.last_poll_at : "";
+    $("g-poll").textContent = poll && ago(poll) ? ago(poll) + " (" + F.stamp(poll) + ")" : dev ? "Never" : "-";
+    $("g-incoming").textContent = dev ? (dev.forwards_incoming === true ? "On" : "Off") : "-";
+    note = meta[2];
+    if (dev && typeof dev.app_version === "string" && dev.app_version) bits.push("app version " + dev.app_version);
+    if (dev && typeof dev.battery === "number") bits.push("battery " + Math.round(dev.battery) + "%" + (dev.charging === true ? " (charging)" : ""));
+    if (st === "connected") note = "Last poll " + ago(poll) + (bits.length ? ", " + bits.join(", ") : "") + ".";
+    if (st === "offline") note = "Last poll " + ago(poll) + ". Texts are being refused until the phone is back.";
+    if (!addr) note += (note ? " " : "") + "The server address is not configured, so a token cannot be used yet.";
+    $("g-note").textContent = note;
+    /* A token is useless without an address, so Register and Rotate are not offered without one. */
+    $("g-register").hidden = !!dev || !addr;
+    $("g-rotate").hidden = !dev || dev.enabled !== true || !addr;
+    $("g-disable").hidden = !dev || dev.enabled !== true;
+  }
+  function loadGw(message) {
+    var run = ++gwRun;
+    card("g", "load");
+    $("g-chip").hidden = true;
+    return H.call("POST", "sms/device/get/", {}).then(function (res) {
+      if (run !== gwRun) return;
+      if (F.left(res)) return;
+      if (res.status === 404) { card("g", "off"); return; }
+      if (!res.ok) { card("g", "down"); return; }
+      paintGw(res.data);
+      F.say("g-msg", message || "");
+      card("g", "body");
+    });
+  }
+
+  /* The dialog for register, rotate and disable. mode: "register" | "rotate" | "disable". */
+  function gwLock(on) {
+    busy = on;
+    ["gw-go", "gw-x", "gw-cancel"].forEach(function (id) { $(id).disabled = on; });
+  }
+  function openGw(mode, opener) {
+    var t = { register: ["Register phone", "This server has no platform phone yet. Name this one.", "Register phone"],
+      rotate: ["Rotate token?", "The previous token stops working immediately. The phone will not send until you enter the new one.", "Rotate"],
+      disable: ["Disable phone?", "No texts will be sent until a phone is registered. Enter a current code to confirm.", "Disable phone"] }[mode];
+    gwMode = mode;
+    $("m-gw-h").textContent = t[0];
+    $("m-gw-sub").textContent = t[1];
+    $("gw-go").textContent = t[2];
+    $("gw-name-field").hidden = mode !== "register";
+    $("gw-code-field").hidden = mode === "register";
+    $("gw-ack-field").hidden = mode !== "rotate";
+    $("gw-name").value = "";
+    $("gw-code").value = "";
+    $("gw-ack").checked = false;
+    ["gw-name", "gw-code"].forEach(function (id) { $(id).removeAttribute("aria-invalid"); });
+    F.say("gw-err", "");
+    dlg.open("m-gw", opener, mode === "register" ? $("gw-name") : $("gw-code"));
+  }
+  function closeGw(refocus) {
+    $("gw-code").value = "";
+    gwMode = "";
+    dlg.close(refocus);
+  }
+
+  function showToken(value) {
+    var addr = gwAddr();
+    token = value;
+    tokenOpen = true;
+    $("tk-token").value = value;
+    F.say("tk-copied", "");
+    $("tk-copy").textContent = "Copy";
+    $("tk-addr").textContent = addr || "Not configured";
+    $("tk-addr-copy").hidden = !addr;
+    $("tk-addr-copy").textContent = "Copy";
+    dlg.open("m-token", null, $("tk-copy"));
+  }
+  /* Done: the token leaves the field and this script's memory, then the card reads the phone again. */
+  function endToken() {
+    $("tk-token").value = "";
+    token = "";
+    tokenOpen = false;
+    F.say("tk-copied", "");
+    dlg.close(false);
+    $("g-refresh").focus();
+    return loadGw("");
+  }
+  $("tk-done").addEventListener("click", endToken);
+  $("tk-copy").addEventListener("click", function () {
+    if (!token) return;
+    copyText(token, function () { $("tk-copy").textContent = "Copied"; F.say("tk-copied", "Token copied."); },
+      function () { F.say("tk-copied", "Copy did not work. Select the token and copy it."); });
+  });
+  $("tk-addr-copy").addEventListener("click", function () {
+    var addr = gwAddr();
+    if (!addr) return;
+    copyText(addr, function () { $("tk-addr-copy").textContent = "Copied"; F.say("tk-copied", "Server address copied."); },
+      function () { F.say("tk-copied", "Copy did not work. Select the address and copy it."); });
+  });
+  $("g-addr-copy").addEventListener("click", function () {
+    var addr = gwAddr();
+    if (!addr) return;
+    copyText(addr, function () { $("g-addr-copy").textContent = "Copied"; }, function () { F.say("g-msg", "Copy did not work. Select the address and copy it."); });
+  });
+
+  /* Sends the dialog's call. Resolves true when the dialog may close. The token is read from the answer once, handed
+     to the one-time screen and dropped from the answer before anything is painted. */
+  function sendGw(mode, body) {
+    var route = { register: "sms/device/register/", rotate: "sms/device/rotate/", disable: "sms/device/disable/" }[mode];
+    return H.call("POST", route, body).then(function (res) {
+      var t;
+      if (F.left(res)) return true;
+      if (res.status === 404) { card("g", "off"); return true; }
+      if (res.ok) {
+        t = res.data && typeof res.data.token === "string" ? res.data.token : "";
+        if (res.data) delete res.data.token;
+        if (mode === "disable") { closeGw(false); loadGw("Phone disabled."); return false; }
+        if (!t) { closeGw(false); loadGw("The phone was changed but no token came back. Rotate to get one."); return false; }
+        closeGw(false);
+        paintGw({ server_address: gwNow ? gwNow.server_address : "", device: res.data });
+        card("g", "body");
+        showToken(t);
+        return false;
+      }
+      if (res.status === 409) { F.say("gw-err", "A phone is already registered. The card has been reloaded."); loadGw(""); return false; }
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        if (mode !== "register") { F.say("gw-err", CODE_REFUSED); $("gw-code").setAttribute("aria-invalid", "true"); return false; }
+        F.say("gw-err", first(res.fields, "name") || "Check the name and try again.");
+        $("gw-name").setAttribute("aria-invalid", "true");
+        return false;
+      }
+      F.say("gw-err", LOST);
+      return false;
+    });
+  }
+  function submitGw() {
+    var name, code, body, dev;
+    if (busy || !gwMode) return;
+    F.say("gw-err", "");
+    ["gw-name", "gw-code"].forEach(function (id) { $(id).removeAttribute("aria-invalid"); });
+    if (gwMode === "register") {
+      name = $("gw-name").value.trim();
+      if (!name) { F.say("gw-err", "Enter a name for the phone."); $("gw-name").setAttribute("aria-invalid", "true"); return; }
+      body = { name: name, confirm: true };
+    } else {
+      dev = gwNow && gwNow.device;
+      code = $("gw-code").value.trim();
+      if (!CODE6.test(code)) { F.say("gw-err", "Enter the 6-digit code from your authenticator app."); $("gw-code").setAttribute("aria-invalid", "true"); return; }
+      if (gwMode === "rotate" && !$("gw-ack").checked) { F.say("gw-err", "Tick \"I understand\" to rotate the token."); return; }
+      if (!dev) { F.say("gw-err", LOST); return; }
+      body = { name: dev.name, code: code, confirm: true };
+    }
+    gwLock(true);
+    sendGw(gwMode, body).then(function (done) { gwLock(false); if (done) closeGw(false); });
+  }
+  $("gw-go").addEventListener("click", submitGw);
+  ["gw-x", "gw-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!busy) closeGw(true); }); });
+  $("g-register").addEventListener("click", function () { if (!busy) openGw("register", $("g-register")); });
+  $("g-rotate").addEventListener("click", function () { if (!busy) openGw("rotate", $("g-rotate")); });
+  $("g-disable").addEventListener("click", function () { if (!busy) openGw("disable", $("g-disable")); });
+  $("g-refresh").addEventListener("click", function () { loadGw(""); });
+  $("g-retry").addEventListener("click", function () { loadGw(""); });
+
   /* Who is signed in comes from me/, the staff route that answers it. */
   function start() {
     show("boot");
-    if (known) { show("v-main"); loadOwner(""); loadSms(""); return; }
+    if (known) { show("v-main"); loadOwner(""); loadSms(""); loadGw(""); return; }
     H.call("GET", "me/").then(function (res) {
       if (F.left(res)) return;
       if (!res.ok) { show("v-down"); return; }
@@ -211,6 +435,7 @@
       show("v-main");
       loadOwner("");
       loadSms("");
+      loadGw("");
     });
   }
   $("retry").addEventListener("click", start);

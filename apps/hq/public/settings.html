@@ -94,6 +94,33 @@
             </form>
           </div>
         </section>
+
+        <section class="dash-card fin-pay" aria-labelledby="g-h">
+          <div class="fin-row"><h2 id="g-h">SMS Gateway</h2><span class="chip chip-neutral" id="g-chip" hidden></span></div>
+          <p class="dash-copy" id="g-load">Loading…</p>
+          <p class="dash-copy" id="g-off" hidden>SMS Gateway is switched off on this server.</p>
+          <div id="g-down" hidden>
+            <p class="dash-copy">The SMS Gateway could not be loaded.</p>
+            <p><button type="button" class="no-btn no-btn-ghost" id="g-retry">Try again</button></p>
+          </div>
+          <div class="fin-pay" id="g-body" hidden>
+            <p class="banner fin-msg" id="g-msg" role="status" hidden></p>
+            <p class="dash-copy" id="g-note"></p>
+            <dl class="fin-facts">
+              <div><dt>Server address</dt><dd><span id="g-addr"></span> <button type="button" class="no-btn no-btn-ghost" id="g-addr-copy" hidden>Copy</button></dd></div>
+              <div><dt>Device name</dt><dd id="g-name">-</dd></div>
+              <div><dt>Enabled</dt><dd id="g-enabled">-</dd></div>
+              <div><dt>Last successful poll</dt><dd id="g-poll">-</dd></div>
+              <div><dt>Incoming texts</dt><dd><span id="g-incoming">-</span> <span class="small">Changed separately.</span></dd></div>
+            </dl>
+            <div class="fin-row">
+              <button type="button" class="no-btn no-btn-primary" id="g-register" aria-haspopup="dialog" hidden>Register phone</button>
+              <button type="button" class="no-btn no-btn-ghost" id="g-rotate" aria-haspopup="dialog" hidden>Rotate token</button>
+              <button type="button" class="no-btn no-btn-ghost" id="g-disable" aria-haspopup="dialog" hidden>Disable phone</button>
+              <button type="button" class="no-btn no-btn-ghost" id="g-refresh">Refresh</button>
+            </div>
+          </div>
+        </section>
       </div>
 
       <section class="dash-card" id="v-down" aria-labelledby="h-down" hidden>
@@ -113,11 +140,40 @@
     <button class="no-btn no-btn-ghost fin-block" type="button" id="confirm-cancel">Cancel</button>
   </div>
 </div>
+<div class="modal" id="m-gw" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="m-gw-h" aria-describedby="m-gw-sub">
+    <div class="modal-head"><h2 id="m-gw-h"></h2><button type="button" class="icon-btn modal-x" id="gw-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="dash-copy" id="m-gw-sub"></p>
+    <div class="field" id="gw-name-field"><label for="gw-name">Phone name</label><input class="input" id="gw-name" type="text" maxlength="80" autocomplete="off" aria-describedby="gw-err"></div>
+    <div class="field" id="gw-code-field"><label for="gw-code">Authenticator code</label><input class="input code" id="gw-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-describedby="gw-err"></div>
+    <div class="field" id="gw-ack-field"><div class="checks"><label for="gw-ack"><input type="checkbox" id="gw-ack">I understand</label></div></div>
+    <p class="field-err" id="gw-err" role="alert" hidden></p>
+    <button class="no-btn no-btn-primary fin-block" type="button" id="gw-go"></button>
+    <button class="no-btn no-btn-ghost fin-block" type="button" id="gw-cancel">Cancel</button>
+  </div>
+</div>
+<div class="modal" id="m-token" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="m-token-h" aria-describedby="m-token-sub">
+    <div class="modal-head"><h2 id="m-token-h">Phone token</h2></div>
+    <p class="dash-copy" id="m-token-sub">Shown once. We keep only a one-way hash. If you lose it, rotate.</p>
+    <div class="field"><label for="tk-token">Token</label><input class="input" id="tk-token" type="text" readonly autocomplete="off" spellcheck="false"></div>
+    <div class="fin-row"><button type="button" class="no-btn no-btn-ghost" id="tk-copy">Copy</button><span class="small" id="tk-copied" role="status" hidden></span></div>
+    <p class="dash-copy"><strong>Set up the Android app</strong></p>
+    <ol class="dash-copy">
+      <li>Open the NegosyoOnline Gateway app, then Settings.</li>
+      <li>Enter the server address: <strong id="tk-addr"></strong> <button type="button" class="no-btn no-btn-ghost" id="tk-addr-copy" hidden>Copy</button></li>
+      <li>Paste the token.</li>
+      <li>Save, then switch the gateway on.</li>
+      <li>Return here. The status turns Connected within a minute.</li>
+    </ol>
+    <button class="no-btn no-btn-primary fin-block" type="button" id="tk-done">Done</button>
+  </div>
+</div>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261114a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261113a"></script>
-<script src="/assets/js/settings.js?v=20261113a"></script>
+<script src="/assets/js/settings.js?v=20261120a"></script>
 </body>
 </html>

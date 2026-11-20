@@ -8,11 +8,15 @@ import { open, settle, BASE, refused } from "./page.mjs";
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
   "s-platform", "s-platform-err", "s-site", "s-site-err", "s-err", "s-when", "s-save",
+  "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-incoming",
+  "g-register", "g-rotate", "g-disable", "g-refresh",
+  "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",
+  "m-token", "tk-token", "tk-copy", "tk-copied", "tk-addr", "tk-addr-copy", "tk-done",
   "m-confirm", "m-confirm-h", "m-confirm-sub", "confirm-x", "confirm-err", "confirm-go", "confirm-cancel",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const ME = { email: "sample.staff@example.com", expires_at: "2026-11-11T21:01:00+08:00" };
-const OGET = "POST sante/owner/get/", OSET = "POST sante/owner/set/", SGET = "POST sms/policy/get/", SSET = "POST sms/policy/set/";
+const OGET = "POST sante/owner/get/", OSET = "POST sante/owner/set/", SGET = "POST sms/policy/get/", SSET = "POST sms/policy/set/", DGET = "POST sms/device/get/";
 const CANDS = [{ id: "site_a", name: "Sample Store A" }, { id: "site_b", name: "Sample Store B" }];
 const owner = (o = { id: "site_a", name: "Sample Store A" }) => [200, { owner: o, candidates: CANDS }];
 const policy = (over = {}) => [200, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, updated_at: "2026-11-13T09:30:00+08:00", ...over }];
@@ -27,17 +31,17 @@ async function page(table) {
   await settle();
   return { ...p, sent: (key) => p.calls.filter((c) => c.method + " " + c.url.slice(BASE.length + 1) === key) };
 }
-const normal = (over = {}) => ({ "GET me/": [200, ME], [OGET]: owner(), [SGET]: policy(), ...over });
+const normal = (over = {}) => ({ "GET me/": [200, ME], [OGET]: owner(), [SGET]: policy(), [DGET]: [404, {}], ...over });
 const text = (p, id) => p.node[id].textContent;
 const confirm = async (p) => { p.node["confirm-go"].fire("click"); await settle(); };
 
 test("the page asks who is signed in, then reads both cards", async () => {
   const p = await page(normal());
-  assert.deepEqual(p.calls.map((c) => c.method + " " + c.url.slice(BASE.length + 1)), ["GET me/", OGET, SGET]);
+  assert.deepEqual(p.calls.map((c) => c.method + " " + c.url.slice(BASE.length + 1)), ["GET me/", OGET, SGET, DGET]);
   assert.equal(p.node["v-main"].hidden, false);
   assert.equal(p.node["o-body"].hidden, false);
   assert.equal(p.node["s-body"].hidden, false);
-  assert.deepEqual(p.calls.slice(1).map((c) => c.body), [{}, {}]);
+  assert.deepEqual(p.calls.slice(1).map((c) => c.body), [{}, {}, {}]);
 });
 
 test("the owner card shows the owner's name and small public id, and the candidates", async () => {

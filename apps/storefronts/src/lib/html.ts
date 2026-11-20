@@ -45,14 +45,14 @@ export function html(strings: TemplateStringsArray, ...values: Value[]): Markup 
   return new Markup(out);
 }
 
-/** A page answer. Never stored by a cache and never indexed, as the approved site sends. */
-export function htmlResponse(document: Markup, status = 200): Response {
-  return new Response(document.value, {
-    status,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Robots-Tag": "noindex",
-    },
-  });
+/** A page answer. Never stored by a cache and never indexed, as the approved site sends. Only a page that passes
+    `{ index: true }` leaves out the noindex header (the Santé home and the Membership Pack landing page, ClickUp z8uq9mh8n9);
+    the default stays noindex for every other route. */
+export function htmlResponse(document: Markup, status = 200, options: { index?: boolean } = {}): Response {
+  const headers: Record<string, string> = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+  };
+  if (options.index !== true) headers["X-Robots-Tag"] = "noindex";
+  return new Response(document.value, { status, headers });
 }

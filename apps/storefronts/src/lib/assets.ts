@@ -36,14 +36,14 @@ const VERSIONS: Record<string, string> = {
   "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
-  "img/bundle-1.webp": "79f1b43a",
-  "img/bundle-2.webp": "7e5a838a",
-  "img/bundle-3.webp": "b8bc751e",
+  "img/bundle-1.webp": "72508fd0",
+  "img/bundle-2.webp": "26805437",
+  "img/bundle-3.webp": "e38eb488",
   "img/certifications/biogro-certified-organic.png": "147c9dfc",
   "img/certifications/halal-idcp.png": "b6a42b13",
   "img/certifications/superbrands-philippines-choice.png": "03f8b26e",
-  "img/hero-nz-clean-1400.webp": "116d1c9c",
-  "img/hero-nz-clean-2000.webp": "ff4d3e4b",
+  "img/hero-nz-clean-1400.webp": "934eb4d9",
+  "img/hero-nz-clean-2000.webp": "6c73488a",
   "img/iqvia-seal.webp": "fd45835a",
   "img/sante-logo-white.webp": "095eff6a",
   "js/pack-select.js": "31a2768f",
@@ -80,6 +80,9 @@ const VERSIONS: Record<string, string> = {
   "js/pack-landing.js": "625c300d", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
+  "img/sante-share-1200x630.jpg": "d576a824", // this storefront's own file: the share image (og:image, twitter:image) of the home and the landing page (ClickUp z8uq9mh8n9)
+  "img/sante-apple-touch-icon-180.png": "b7f52c18", // this storefront's own file: the apple-touch-icon, the Santé S on white
+  "img/sante-favicon-32.png": "c417ab3c", // this storefront's own file: the favicon, the Santé S on white
   "img/fda-philippines.png": "ee97c331",
   "img/category_barley.png": "595b18ab",
   "img/category_drinks.png": "4f45e145",

@@ -10,7 +10,7 @@ The server draws every page. A request arrives for some host; the server asks Dj
 2. `src/lib/django.ts` calls `GET <STOREFRONT_API_BASE>/storefront/v1/site/?host=<host>` with `Authorization: Bearer <STOREFRONT_SERVER_SECRET>`, never cached, 5-second limit. The surface is described in the backend's `docs/runbooks/storefront.md`.
 3. A served Santé site gets its page. Everything else gets the neutral 404 (`src/views/neutral.ts`): a host that is not a served site, a site of another template, a path with no page, the API down or slow, a wrong or missing secret. Unknown fails closed, and the reason goes to the server log without the secret or the URL.
 
-Pages are route handlers that return whole HTML documents (`src/app/route.ts`, `src/app/[...path]/route.ts`), not React components. Documents are built with the `html` tag in `src/lib/html.ts`, which escapes every interpolated value unless it is explicitly marked safe. No page carries an inline script.
+Pages are route handlers that return whole HTML documents (`src/app/route.ts`, `src/app/[...path]/route.ts`), not React components. Documents are built with the `html` tag in `src/lib/html.ts`, which escapes every interpolated value unless it is explicitly marked safe. No page carries an inline script (the JSON-LD data blocks of the two indexable pages are data, not code).
 
 Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pages` folder as its Pages Router.
 
@@ -22,7 +22,7 @@ Page templates live in `src/views/`, not `src/pages/`: Next.js treats a `src/pag
 | `/assets/sante/*` | The approved Santé files and this storefront's one own script, served as static files. |
 | anything else | The neutral 404, with or without a trailing slash, any method. |
 
-Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`.
+Every page is sent with `Cache-Control: no-store` and `X-Robots-Tag: noindex`, with two exceptions (ClickUp z8uq9mh8n9, Coach Ed's ruling 1100430000599937 "SEO: A"): the home `/` and the Membership Pack landing page `/funnel/membership-pack/landing-page/` are indexable. They opt in with `htmlResponse(document, 200, { index: true })`, which leaves out the header, and they carry no robots meta; the default stays noindex for every other route (checkout, onboarding, dashboard, chat, contact, QR, PDF, bell, orders, portal, shop, policy pages and the neutral 404), and the home's `?contact=sent` view stays noindex. Their head tags (description, canonical without the query string, Open Graph, Twitter, icons) and the JSON-LD data blocks (Organization on both, Product on the landing page, the price from the pack) come from `src/lib/seo.ts`, built per site from the store data and the served host. A JSON-LD block is data, not a script that runs, and its text is escaped so no value can close it. `/robots.txt` and `/sitemap.xml` answer only for a served Santé site (the neutral 404 otherwise), and `/favicon.ico` sends a served site to its icon file.
 
 ## The Santé home
 

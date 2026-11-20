@@ -696,6 +696,41 @@ test("poll: earlier texts already loaded are kept when the newest page is read a
   assert.equal(p.shown("earlier-row"), false, "the cursor of the older pages is kept");
 });
 
+test("poll: the newest outbound text going from Waiting to sent shows Sent with no open call; unchanged reads none", async () => {
+  const waiting = [msg({ id: "m1" }), msg({ id: "m2", direction: "out", status: "queued", author: "sample.staff", body: "Hi" })];
+  let row = conv({ id: "conv_1" });
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }], ...withOpen({ messages: waiting }) });
+  await openFirstRow(p);
+  type(p, "reply-text", "Typing");
+  const o0 = p.calls_to(OPENR).length;
+  assert.match(p.node.thread.textContent, /Waiting to send/);
+  row = { ...row, last_direction: "out", last_status: "queued" };
+  await clock.advance(10000);
+  assert.equal(p.calls_to(OPENR).length, o0, "unchanged status: no open");
+  row = { ...row, last_status: "sent" };
+  await clock.advance(5000);
+  assert.equal(p.calls_to(OPENR).length, o0, "sent: patched in place, no open");
+  assert.match(p.node.thread.textContent, /Sent/);
+  assert.doesNotMatch(p.node.thread.textContent, /Waiting to send/);
+  assert.equal(p.node["reply-text"].value, "Typing");
+  await clock.advance(10000);
+  assert.equal(p.calls_to(OPENR).length, o0);
+});
+
+test("poll: the newest outbound text going to failed makes exactly one open call", async () => {
+  let messages = [msg({ id: "m1" }), msg({ id: "m2", direction: "out", status: "queued", author: "sample.staff", body: "Hi" })], row = conv({ id: "conv_1" });
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }], [OPENR]: () => [200, { ...OPEN, messages }] });
+  await openFirstRow(p);
+  const o0 = p.calls_to(OPENR).length;
+  messages = [messages[0], { ...messages[1], status: "failed", reason: "text_lost" }];
+  row = { ...row, last_direction: "out", last_status: "failed" };
+  await clock.advance(5000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1, "one read");
+  assert.match(p.node.thread.textContent, /Not sent/);
+  await clock.advance(20000);
+  assert.equal(p.calls_to(OPENR).length, o0 + 1, "no more reads");
+});
+
 test("poll: an unchanged answer redraws nothing", async () => {
   const { p, clock } = await polling({ ...listing([conv({ id: "conv_1" })]), ...withOpen({ messages: [msg()] }) });
   await openFirstRow(p);

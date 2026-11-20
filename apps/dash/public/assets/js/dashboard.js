@@ -200,24 +200,6 @@
     body.appendChild(box);
   }
 
-  function trialBanner(trial, headId) {
-    headId = headId || "h-trial";
-    var t = trial || {}, start = D.date(t.trial_start_at), end = D.date(t.trial_end_at);
-    var byStatus = {
-      trial_active: { chip: ["info", "Free trial"], head: "Your " + t.trial_days + "-day free trial is active",
-        copy: [start && "Started " + start, end && "Ends " + end].filter(Boolean).join(" · ") },
-      trial_ended: { chip: ["neutral", "Trial ended"], head: "Your free trial has ended",
-        copy: (end ? "Ended " + end + ". " : "") + "Your account and records are kept." },
-      pending_verification: { chip: ["neutral", "Free trial"], head: "Your free trial started when you created your account", copy: "Verify your email to open your dashboard." }
-    };
-    var v = has(byStatus, t.status) ? byStatus[t.status] : { chip: null, head: "Trial status", copy: "" };
-    var box = D.el("section", { "class": "trial-banner", "aria-labelledby": headId });
-    if (v.chip) box.appendChild(chip(v.chip[0], v.chip[1]));
-    box.appendChild(D.el("h2", { id: headId }, v.head));
-    if (v.copy) box.appendChild(D.el("p", {}, v.copy));
-    return box;
-  }
-
   function referralCard(ref, headId) {
     headId = headId || "h-ref";
     var card = D.el("section", { "class": "dash-card ref-card", "aria-labelledby": headId });
@@ -254,27 +236,6 @@
 
   function backLink() { return D.el("a", { "class": "no-btn no-btn-ghost", href: "/" }, "Back to Overview"); }
 
-  /* My Subscription: the real trial status from the /dashboard/ data already loaded (no extra request), then an honest
-     "not available yet" card. Before the data loads, or if it failed, only the card shows. */
-  function renderSubscription(trial) {
-    var body = $("sub-body");
-    if (!body) return;
-    body.textContent = "";
-    var wrap = D.el("div", { "class": "stack" });
-    if (trial) wrap.appendChild(trialBanner(trial, "h-trial-sub"));
-    var card = D.el("section", { "class": "dash-card ph-card", "aria-labelledby": "h-sub-ph" });
-    card.appendChild(chip("neutral", "Not available yet"));
-    card.appendChild(D.el("h2", { id: "h-sub-ph" }, "Plans and payment are not available yet"));
-    card.appendChild(D.el("p", {}, trial
-      ? "Choosing a plan and paying for your subscription are not part of your dashboard yet. Your trial details are shown above."
-      : "Choosing a plan and paying for your subscription are not part of your dashboard yet."));
-    card.appendChild(backLink());
-    wrap.appendChild(card);
-    body.appendChild(wrap);
-  }
-
-  /* Referral panel: the same referral card as Overview from the /dashboard/ data already loaded (no extra request).
-     Before the data loads, or if it failed, an honest note points back to Overview. */
   function renderReferral(loaded, ref) {
     var body = $("ref-body");
     if (!body) return;
@@ -576,7 +537,6 @@
       lastSetup = st.ok ? obj(st.data) : null; /* Phase 3 S2: every handled setup answer, before routing */
       D.setWorkspace(siteName(lastSetup), askSites(lastSetup));
       lastDash = { ok: true, status: 200, data: {} };
-      renderSubscription(null);
       renderReferral(true, null);
       var v = setupView(st);
       if (v === "error") return setupFailed(body); /* Phase 7 B1: an Account whose setup is unknown never sees the normal Overview */
@@ -1375,7 +1335,6 @@
     account0 = account || {};
     $("h-overview").textContent = greeting(account0);
     renderAccountPanel(account);
-    renderSubscription(null);
     renderReferral(false);
     /* The page modules (billing.js, business.js and the rest) are blocking script tags after this file, and route()
        opens a module only if its global is already there. When /me/ answers before those files have run, the first

@@ -617,6 +617,7 @@
            oldest first, so the newest is the last. Sent is patched in place; anything else is read once so the reason shows. */
         var newest = mine.messages[mine.messages.length - 1];
         if (!(row.last_direction === "out" && row.last_status && newest && newest.direction === "out" && newest.status !== row.last_status)) { done("ok"); return; }
+        if (words(WAITING, newest.status) && words(WAITING, row.last_status)) { newest.status = row.last_status; done("ok"); return; }
         if (row.last_status === "sent") {
           var root0 = document.documentElement, bottom0 = atBottom(), y0 = window.scrollY || 0;
           newest.status = "sent";

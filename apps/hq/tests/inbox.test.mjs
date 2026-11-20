@@ -717,6 +717,18 @@ test("poll: the newest outbound text going from Waiting to sent shows Sent with 
   assert.equal(p.calls_to(OPENR).length, o0);
 });
 
+test("poll: queued shown, dispatched polled: no open call and still Waiting to send", async () => {
+  const waiting = [msg({ id: "m1" }), msg({ id: "m2", direction: "out", status: "queued", author: "sample.staff", body: "Hi" })];
+  let row = conv({ id: "conv_1" });
+  const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }], ...withOpen({ messages: waiting }) });
+  await openFirstRow(p);
+  const o0 = p.calls_to(OPENR).length;
+  row = { ...row, last_direction: "out", last_status: "dispatched" };
+  await clock.advance(15000);
+  assert.equal(p.calls_to(OPENR).length, o0, "no open call");
+  assert.match(p.node.thread.textContent, /Waiting to send/);
+});
+
 test("poll: the newest outbound text going to failed makes exactly one open call", async () => {
   let messages = [msg({ id: "m1" }), msg({ id: "m2", direction: "out", status: "queued", author: "sample.staff", body: "Hi" })], row = conv({ id: "conv_1" });
   const { p, clock } = await polling({ [LISTR]: () => [200, { results: [row], next: null }], [OPENR]: () => [200, { ...OPEN, messages }] });

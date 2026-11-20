@@ -18,7 +18,7 @@ const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const NOW = Date.parse("2026-11-20T10:00:00+08:00");
 const ADDR = "https://gateway.example.test";
-const TOKEN = "tok_SAMPLE_0123456789abcdef";
+const TOKEN = "K7MX4QPA";
 const ago = (s) => new Date(NOW - s * 1000).toISOString();
 const DEV = (o = {}) => ({ name: "system", enabled: true, forwards_incoming: false, last_poll_at: null, app_version: null, battery: null, charging: null, connection: "waiting", ...o });
 const get = (device, address = ADDR) => [200, { server_address: address, device }];
@@ -97,12 +97,57 @@ test("a connection word this page does not know is worked out from the last poll
   assert.equal(text(b, "g-chip"), "Offline");
 });
 
-test("disabled: grey chip, Rotate and Disable are not offered", async () => {
+test("disabled: grey chip, Add phone offered, Rotate and Disable are not", async () => {
   const p = await page({ [KEYS.get]: get(DEV({ enabled: false, connection: "disabled" })) });
   assert.equal(text(p, "g-chip"), "Disabled");
-  assert.match(text(p, "g-note"), /Rotate does not re-enable it\./);
+  assert.match(text(p, "g-note"), /Add a phone to replace it\./);
+  assert.doesNotMatch(text(p, "g-note"), /does not re-enable/);
   assert.equal(text(p, "g-enabled"), "No");
-  assert.deepEqual(["g-register", "g-rotate", "g-disable"].map((id) => p.node[id].hidden), [true, true, true]);
+  assert.deepEqual(["g-register", "g-rotate", "g-disable"].map((id) => p.node[id].hidden), [false, true, true]);
+  assert.equal(text(p, "g-register"), "Add phone");
+});
+
+test("disabled without a server address: Add phone is not offered", async () => {
+  const p = await page({ [KEYS.get]: get(DEV({ enabled: false, connection: "disabled" }), "") });
+  assert.equal(p.node["g-register"].hidden, true);
+});
+
+test("Add phone (replace): name and code are required, then name, code and confirm are sent and the token screen opens", async () => {
+  const p = await page({ [KEYS.get]: get(DEV({ enabled: false, connection: "disabled" })), [KEYS.reg]: [200, { token: TOKEN, server_address: ADDR, device: DEV({ name: "newphone" }) }] });
+  await click(p, "g-register");
+  assert.equal(p.node["m-gw"].hidden, false);
+  assert.equal(text(p, "m-gw-h"), "Add phone");
+  assert.match(text(p, "m-gw-sub"), /This replaces the disabled phone\. The old phone stays switched off\./);
+  assert.equal(text(p, "gw-go"), "Add phone");
+  assert.equal(p.node["gw-name-field"].hidden, false);
+  assert.equal(p.node["gw-code-field"].hidden, false);
+  assert.equal(p.node["gw-ack-field"].hidden, true);
+  await click(p, "gw-go");
+  assert.equal(text(p, "gw-err"), "Enter a name for the phone.");
+  p.node["gw-name"].value = "newphone";
+  await click(p, "gw-go");
+  assert.equal(text(p, "gw-err"), "Enter the 6-digit code from your authenticator app.");
+  assert.equal(p.sent(KEYS.reg).length, 0);
+  p.node["gw-code"].value = "123456";
+  await click(p, "gw-go");
+  assert.deepEqual(p.sent(KEYS.reg)[0].body, { name: "newphone", code: "123456", confirm: true });
+  assert.equal(p.node["m-gw"].hidden, true);
+  assert.equal(p.node["m-token"].hidden, false);
+  assert.equal(p.node["tk-token"].value, TOKEN);
+  await click(p, "tk-done");
+  assert.equal(text(p, "g-chip"), "Waiting for phone");
+  assert.equal(p.node["g-register"].hidden, true);
+});
+
+test("Add phone (replace): a refused code is shown with the wait copy and the code field flagged", async () => {
+  const p = await page({ [KEYS.get]: get(DEV({ enabled: false, connection: "disabled" })), [KEYS.reg]: [403, { error: { code: "reauth_failed", message: "Code refused.", fields: {} } }] });
+  await click(p, "g-register");
+  p.node["gw-name"].value = "newphone";
+  p.node["gw-code"].value = "123456";
+  await click(p, "gw-go");
+  assert.match(text(p, "gw-err"), /wait for the next code/);
+  assert.equal(p.node["gw-code"].getAttribute("aria-invalid"), "true");
+  assert.equal(p.node["m-gw"].hidden, false);
 });
 
 test("404: switched off, no controls", async () => {

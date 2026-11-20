@@ -208,7 +208,7 @@
     waiting: ["Waiting for phone", "chip-info", "Enter the token in the Android app. This turns to Connected after its first poll."],
     connected: ["Connected", "chip-ok", ""],
     offline: ["Offline", "chip-warn", ""],
-    disabled: ["Disabled", "chip-neutral", "This phone is switched off and refused. Rotate does not re-enable it."]
+    disabled: ["Disabled", "chip-neutral", "This phone is switched off and refused. Add a phone to replace it."]
   };
   var CONN = { connected: "connected", offline: "offline", waiting: "waiting", waiting_for_phone: "waiting", no_phone: "none", disabled: "disabled" };
   var CODE6 = /^\d{6}$/, NAME_OK = /^[a-z0-9-]{1,60}$/;
@@ -280,7 +280,8 @@
     if (!addr) note += (note ? " " : "") + "The server address is not configured, so a token cannot be used yet.";
     $("g-note").textContent = note;
     /* A token is useless without an address, so Register and Rotate are not offered without one. */
-    $("g-register").hidden = !!dev || !addr;
+    $("g-register").textContent = dev ? "Add phone" : "Register phone";
+    $("g-register").hidden = (!!dev && dev.enabled === true) || !addr;
     $("g-rotate").hidden = !dev || dev.enabled !== true || !addr;
     $("g-disable").hidden = !dev || dev.enabled !== true;
   }
@@ -307,12 +308,13 @@
   function openGw(mode, opener) {
     var t = { register: ["Register phone", "This server has no platform phone yet. Name this one.", "Register phone"],
       rotate: ["Rotate token?", "The previous token stops working immediately. The phone will not send until you enter the new one.", "Rotate"],
+      replace: ["Add phone", "This replaces the disabled phone. The old phone stays switched off. Enter a current code to confirm.", "Add phone"],
       disable: ["Disable phone?", "No texts will be sent until a phone is registered. Enter a current code to confirm.", "Disable phone"] }[mode];
     gwMode = mode;
     $("m-gw-h").textContent = t[0];
     $("m-gw-sub").textContent = t[1];
     $("gw-go").textContent = t[2];
-    $("gw-name-field").hidden = mode !== "register";
+    $("gw-name-field").hidden = mode !== "register" && mode !== "replace";
     $("gw-code-field").hidden = mode === "register";
     $("gw-ack-field").hidden = mode !== "rotate";
     $("gw-name").value = "";
@@ -320,7 +322,7 @@
     $("gw-ack").checked = false;
     ["gw-name", "gw-code"].forEach(function (id) { $(id).removeAttribute("aria-invalid"); });
     F.say("gw-err", "");
-    dlg.open("m-gw", opener, mode === "register" ? $("gw-name") : $("gw-code"));
+    dlg.open("m-gw", opener, mode === "register" || mode === "replace" ? $("gw-name") : $("gw-code"));
   }
   function closeGw(refocus) {
     $("gw-code").value = "";
@@ -372,7 +374,7 @@
   /* Sends the dialog's call. Resolves true when the dialog may close. The token is read from the answer once, handed
      to the one-time screen and dropped from the answer before anything is painted. */
   function sendGw(mode, body) {
-    var route = { register: "sms/device/register/", rotate: "sms/device/rotate/", disable: "sms/device/disable/" }[mode];
+    var route = { register: "sms/device/register/", replace: "sms/device/register/", rotate: "sms/device/rotate/", disable: "sms/device/disable/" }[mode];
     return H.call("POST", route, body).then(function (res) {
       var t;
       if (F.left(res)) return true;
@@ -397,7 +399,7 @@
       if (res.status === 409 && res.code === "phone_exists") { F.say("gw-err", "A phone is already registered."); loadGw(""); return false; }
       if (res.status === 409 && res.code === "name_taken") { F.say("gw-err", "That name is already in use."); $("gw-name").setAttribute("aria-invalid", "true"); return false; }
       if (res.status === 409 && res.code === "device_disabled") { F.say("gw-err", "This phone is disabled."); loadGw(""); return false; }
-      if (res.code === "invalid_name" || (mode === "register" && res.status === 400)) {
+      if (res.code === "invalid_name" || (mode === "register" && res.status === 400) || (mode === "replace" && res.status === 400 && first(res.fields, "name"))) {
         F.say("gw-err", first(res.fields, "name") || res.message || NAME_HELP);
         $("gw-name").setAttribute("aria-invalid", "true");
         return false;
@@ -417,11 +419,16 @@
     if (busy || !gwMode) return;
     F.say("gw-err", "");
     ["gw-name", "gw-code"].forEach(function (id) { $(id).removeAttribute("aria-invalid"); });
-    if (gwMode === "register") {
+    if (gwMode === "register" || gwMode === "replace") {
       name = $("gw-name").value.trim();
       if (!name) { F.say("gw-err", "Enter a name for the phone."); $("gw-name").setAttribute("aria-invalid", "true"); return; }
       if (!NAME_OK.test(name)) { F.say("gw-err", NAME_HELP); $("gw-name").setAttribute("aria-invalid", "true"); return; }
       body = { name: name, confirm: true };
+      if (gwMode === "replace") {
+        code = $("gw-code").value.trim();
+        if (!CODE6.test(code)) { F.say("gw-err", "Enter the 6-digit code from your authenticator app."); $("gw-code").setAttribute("aria-invalid", "true"); return; }
+        body.code = code;
+      }
     } else {
       dev = gwNow && gwNow.device;
       code = $("gw-code").value.trim();
@@ -435,7 +442,7 @@
   }
   $("gw-go").addEventListener("click", submitGw);
   ["gw-x", "gw-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!busy) closeGw(true); }); });
-  $("g-register").addEventListener("click", function () { if (!busy) openGw("register", $("g-register")); });
+  $("g-register").addEventListener("click", function () { if (!busy) openGw(gwNow && gwNow.device ? "replace" : "register", $("g-register")); });
   $("g-rotate").addEventListener("click", function () { if (!busy) openGw("rotate", $("g-rotate")); });
   $("g-disable").addEventListener("click", function () { if (!busy) openGw("disable", $("g-disable")); });
   $("g-refresh").addEventListener("click", function () { loadGw(""); });

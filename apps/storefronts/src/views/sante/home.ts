@@ -21,10 +21,22 @@
 import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import { cookieSettingsItem } from "../../lib/meta.ts";
+import { HOME_PATH, organizationLd, seoHead } from "../../lib/seo.ts";
 import type { HomeModel } from "./model.ts";
 import { chatWidgetCss, chatWidgetScript } from "./chat-widget.ts";
 import { footerBusiness } from "./footer-business.ts";
 import { appNotice } from "./shop-app-notice.ts";
+
+/* The home's description for search and share cards: the hero's own subhead, verbatim (ClickUp z8uq9mh8n9). */
+export const HOME_DESCRIPTION = "Certified pure organic barley grass from New Zealand. Your trusted daily nutrition, made simple.";
+
+/** The head tags of the indexable home (description, canonical, Open Graph, Twitter, icons, JSON-LD) for the served host. */
+export function homeSeo(storeName: string, host: string): Markup {
+  return seoHead({
+    host, path: HOME_PATH, title: `${storeName} | Premium Wellness`, description: HOME_DESCRIPTION, storeName,
+    jsonLd: [organizationLd(host, storeName)],
+  });
+}
 
 export function storeNav(v: HomeModel): Markup {
   return html`
@@ -159,7 +171,7 @@ function homeTop(v: HomeModel): Markup {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex">
+  ${v.seo ?? html`<meta name="robots" content="noindex">`}
   <title>${v.store_name} | Premium Wellness</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

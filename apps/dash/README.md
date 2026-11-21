@@ -30,7 +30,7 @@ Shared: `assets/js/app.js` (API client, shell, formatting), `assets/css/dash.css
 
 The CSP `connect-src` follows `SITE_API_BASE`. Production must set all three. The API must list the dashboard origin in CORS.
 
-The CSP allows images from one public Vercel Blob media host, set as `mediaOrigin` in `next.config.ts`. It must match the backend's public media host.
+The CSP allows images from one public Vercel Blob media host, `mediaOrigin` in `src/lib/site-env.ts`, read from the optional `SITE_MEDIA_ORIGIN` (default: the staging store). It must match the backend's public media host (`PUBLIC_MEDIA_BASE_URL`). A value that is not exactly `https://<store>.public.blob.vercel-storage.com` fails the build. Production sets it to its own store.
 
 ## Behaviour notes
 

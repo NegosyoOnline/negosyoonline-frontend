@@ -146,6 +146,8 @@ test("invoices: available shows View copy; pending shows the backend's own messa
   const rows = d.has(d.card("BIR invoices"), "bl-drow");
   assert.deepEqual(d.labels(rows[0]), ["View copy"]);
   assert.deepEqual(d.labels(rows[1]), []);
+  assert.equal(d.has(rows[1], "bl-dpad").length, 1);
+  assert.equal(d.has(rows[0], "bl-dpad").length, 0);
   assert.match(d.text(rows[1]), /Your invoice copy is not ready yet\./);
   assert.match(d.text(rows[0]), /PHP 4,999\.00/);
   d.click(rows[0], "View copy"); await settle();

@@ -537,7 +537,11 @@
       add(main, title, h("span", "bl-meta bl-dline", "Period " + dayRange(it.period_start_at, it.period_end_at)));
       var acts = null;
       if (it.state === "available") acts = add(h("div", "bl-dacts"), btn("View copy", "ghost", function (b) { openInvoiceCopy(it, b); }));
-      else add(main, h("span", "bl-meta bl-dline bl-dmsg", it.message || ""));
+      else {
+        add(main, h("span", "bl-meta bl-dline bl-dmsg", it.message || ""));
+        /* An unseen stand-in the size of the View copy button, so the amount lines up with rows that have it (hidden on phones). */
+        acts = attrs(h("span", "no-btn no-btn-ghost bl-dpad", "View copy"), { "aria-hidden": "true" });
+      }
       add(card, drow(main, peso(it.total_centavos), acts));
     });
     var m = moreBtn("inv"); if (m) add(card, add(h("div", "bl-dmore"), m));

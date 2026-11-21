@@ -1259,7 +1259,7 @@ html[data-theme="light"] body.dash-app {
 #view-settings-billing .bl-facts > div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-top: 1px solid var(--bl-row-line); }
 #view-settings-billing .bl-facts > div:first-child { border-top: 0; }
 #view-settings-billing .bl-facts dt { color: var(--meta); font-size: 15px; }
-#view-settings-billing .bl-facts dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+#view-settings-billing .bl-facts dd { margin: 0; font-weight: 600; text-align: right; overflow-wrap: break-word; }
 #view-settings-billing .bl-reject { margin: 10px 0; padding: 12px 14px; border: 1px solid #C0392B; border-radius: 12px; }
 #view-settings-billing .bl-reject p { margin: 0 0 6px; }
 #view-settings-billing .bl-hrow { display: grid; grid-template-columns: 1.1fr 2fr 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--bl-row-line); font-size: 15px; }
@@ -1272,6 +1272,7 @@ html[data-theme="light"] body.dash-app {
 #view-settings-billing .bl-dtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 #view-settings-billing .bl-dline { display: block; font-size: 14px; overflow-wrap: anywhere; }
 #view-settings-billing .bl-damt { font-weight: 600; white-space: nowrap; text-align: right; }
+#view-settings-billing .bl-dpad { visibility: hidden; pointer-events: none; }
 #view-settings-billing .bl-dacts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 #view-settings-billing .bl-dmore { padding-top: 12px; border-top: 1px solid var(--bl-row-line); }
 #view-settings-billing .bl-doc .bl-actions { margin-top: 12px; }
@@ -1284,6 +1285,9 @@ html[data-theme="light"] body.dash-app {
   #view-settings-billing .bl-drow { grid-template-columns: minmax(0, 1fr) auto; }
   #view-settings-billing .bl-dacts { grid-column: 1 / -1; justify-content: stretch; }
   #view-settings-billing .bl-dacts .no-btn { flex: 1 1 0; }
+  #view-settings-billing .bl-dpad { display: none; }
+  #view-settings-billing .bl-doc .bl-facts > div { flex-direction: column; gap: 2px; }
+  #view-settings-billing .bl-doc .bl-facts dd { text-align: left; }
 }
 #view-settings-billing .bl-empty { margin: 10px 0 0; padding: 16px; border: 1px dashed var(--bl-empty-line); border-radius: 10px; text-align: center; color: var(--text-2); }
 #view-settings-billing .no-btn, #view-settings-billing .bl-input { min-height: 44px; border-radius: 10px; }

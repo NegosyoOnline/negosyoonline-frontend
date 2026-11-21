@@ -1,6 +1,7 @@
 /* Search and share tags for the two public pages that may be indexed: the Santé home and the Membership Pack landing page
    (ClickUp z8uq9mh8n9, Coach Ed's ruling 1100430000599937). Every value is built per site from the storefront's own data and the
-   host the visitor asked for; nothing here names a particular store or domain. Every other page stays noindex
+   host the visitor asked for. One exception, by Coach Ed's ruling 1100430000604741 (ClickUp z8uq9mhbcq): the Live4More hosts in
+   SHARE_IMAGE_BY_HOST carry that store's own share image and alt text; every other host keeps the generic image. Every other page stays noindex
    (src/lib/html.ts: an explicit `index: true` is the only way out). */
 import { asset } from "./assets.ts";
 import { cleanHost } from "./host.ts";
@@ -39,12 +40,25 @@ export type SeoArgs = {
   jsonLd: unknown[];
 };
 
+/** The one store-specific share image: served host (lower-case, no port) -> file and alt text (ClickUp z8uq9mhbcq). */
+const L4M = {
+  file: "img/live4more-share-1200x630.jpg",
+  alt: "Santé Lifetime Membership for only ₱1,488: two boxes of Santé Barley Powder in a New Zealand meadow, managed by Coach Ed Geronilla",
+};
+export const SHARE_IMAGE_BY_HOST: Record<string, { file: string; alt: string }> = {
+  "live4moreonline.store": L4M,
+  "www.live4moreonline.store": L4M,
+  "live4more.storefronts-staging.negosyonline.com": L4M,
+};
+
 /** Everything the head of an indexable page adds: description, canonical, Open Graph, Twitter, icons and JSON-LD. */
 export function seoHead(a: SeoArgs): Markup {
   const origin = `https://${a.host}`;
   const canonical = `${origin}${a.path}`; // no query string: utm and fbclid never reach it
-  const image = `${origin}${asset("img/sante-share-1200x630.jpg")}`;
-  const imageAlt = `${a.storeName} logo over a New Zealand barley grass farm`;
+  const key = a.host.toLowerCase().replace(/:\d+$/, "");
+  const own = Object.hasOwn(SHARE_IMAGE_BY_HOST, key) ? SHARE_IMAGE_BY_HOST[key] : undefined;
+  const image = `${origin}${asset(own ? own.file : "img/sante-share-1200x630.jpg")}`;
+  const imageAlt = own ? own.alt : `${a.storeName} logo over a New Zealand barley grass farm`;
   return html`
 <meta name="description" content="${a.description}">
 <link rel="canonical" href="${canonical}">

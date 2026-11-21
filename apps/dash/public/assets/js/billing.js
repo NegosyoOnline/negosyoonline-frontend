@@ -3,7 +3,10 @@
    writes POST billing/payments/ (multipart), billing/cancel/ and billing/reactivate/; a proof is shown only from
    billing/payments/{id}/proof/ through a blob URL. Every status, date and amount comes from the API; the only
    browser arithmetic is integer centavos to pesos for display. API strings reach the page through textContent only.
-   Nothing is kept in the browser: no storage, and no payment detail outlives the form. */
+   Nothing is kept in the browser: no storage, and no payment detail outlives the form.
+   Owner documents (ClickUp z8uq9mhbgh), under Payment history, each its own card and each hidden when its route answers 404 (its switch is off):
+   GET billing/statements/ (limit, cursor), statements/{number}/ and statements/{number}/pdf/; GET billing/invoices/ and invoices/{id}/copy/;
+   GET and PUT billing/profile/. The PDF and the invoice copy are fetched with the sign-in cookie and held as a blob URL, never as an address. */
 (function () {
   var D = window.NODash;
   var TZ = "Asia/Manila";
@@ -210,7 +213,7 @@
   /* ---- load ---- */
   function show() { window.removeEventListener("popstate", onPop); window.addEventListener("popstate", onPop); load(); }
   function hide() {
-    window.removeEventListener("popstate", onPop); stopTick(); revokeAll(); token++; closeDialog(false); say("");
+    window.removeEventListener("popstate", onPop); stopTick(); revokeAll(); token++; DOCS = null; closeDialog(false); say("");
   }
   function onPop() {
     if ((location.pathname.slice(-1) === "/" ? location.pathname : location.pathname + "/") !== "/settings/billing/") return;
@@ -218,7 +221,7 @@
   }
   function load() {
     var mine = ++token;
-    stopTick(); revokeAll(); closeDialog(false); say(""); skeleton();
+    DOCS = null; stopTick(); revokeAll(); closeDialog(false); say(""); skeleton();
     D.call("GET", "/sites/").then(function (res) {
       if (mine !== token || res.status === 401) return;
       if (!res.ok) { panelH(); return; }
@@ -425,9 +428,243 @@
     var b = S.billing;
     add(r, heroEl(heroModel()));
     if (!b.billing_exempt) {
-      add(r, add(h("div", "bl-two"), planCard(), payCard()), histEl());
+      docsEl = h("div", "bl-docs");
+      add(r, add(h("div", "bl-two"), planCard(), payCard()), histEl(), docsEl);
+      docsStart(); paintDocs();
       if (b.outstanding_centavos > 0) add(r, para("Unpaid usage: " + peso(b.outstanding_centavos), "bl-meta"));
     }
+  }
+
+  /* ---- owner documents: Statements, BIR invoices, Billing details (each hidden while its route answers 404) ---- */
+  var DOCS = null, docsEl = null, PAGE = 10;
+  function listState() { return { s: "idle", items: [], next: null, more: false, busy: false }; }
+  function docsStart() {
+    if (DOCS) return;
+    DOCS = { stm: listState(), inv: listState(), prof: { s: "idle", data: null } };
+    loadList("stm", false); loadList("inv", false); loadProfile();
+  }
+  function listPath(kind, cursor) {
+    return base() + (kind === "stm" ? "statements/" : "invoices/") + "?limit=" + PAGE + (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+  }
+  function loadList(kind, more) {
+    var L = DOCS[kind], mine = token, docs = DOCS;
+    if (L.busy) return Promise.resolve();
+    L.busy = true; if (!more) L.s = "loading";
+    return api(listPath(kind, more ? L.next : null)).then(function (res) {
+      if (mine !== token || docs !== DOCS) return;
+      L.busy = false;
+      if (res.status === 401) return;
+      if (res.status === 404) { L.s = "hidden"; L.items = []; L.next = null; }
+      else if (res.ok && res.data && Array.isArray(res.data.items)) {
+        L.items = more ? L.items.concat(res.data.items) : res.data.items; L.next = res.data.next_cursor || null; L.s = "ok";
+      } else if (more) toast("That did not work", "We could not load more. Please try again.", "error");
+      else L.s = "error";
+      paintDocs();
+    });
+  }
+  function loadProfile() {
+    var P = DOCS.prof, mine = token, docs = DOCS;
+    P.s = "loading";
+    return api(base() + "profile/").then(function (res) {
+      if (mine !== token || docs !== DOCS) return;
+      if (res.status === 401) return;
+      if (res.status === 404) P.s = "hidden";
+      else if (res.ok && res.data) { P.s = "ok"; P.data = res.data; }
+      else P.s = "error";
+      paintDocs();
+    });
+  }
+  function paintDocs() {
+    if (!docsEl || !DOCS) return;
+    clear(docsEl);
+    var cards = [stmCard(), invCard(), profCard()];
+    cards.forEach(function (c) { if (c) add(docsEl, c); });
+  }
+  function docCard(id, title) {
+    var s = attrs(h("section", "bl-card bl-hist bl-doc"), { "aria-labelledby": id });
+    add(s, attrs(h("h2", "bl-h2", title), { id: id }));
+    return s;
+  }
+  /* Idle, loading and a hidden route draw no card; a failed read draws the card with a retry. */
+  function docFail(card, retry) {
+    add(card, para("We could not load this. Nothing was changed.", "bl-empty"), btn("Try again", "ghost", function () { retry(); }));
+    return card;
+  }
+  function moreBtn(kind) {
+    var L = DOCS[kind];
+    if (!L.next) return null;
+    var b = btn("Load more", "ghost", function (x) {
+      if (L.busy) return;
+      x.setAttribute("aria-busy", "true"); setDisabled(x, true); loadList(kind, true);
+    }, "bl-more");
+    return b;
+  }
+  function testChip(row) { return row.is_test ? chip("neutral", "Test") : null; }
+  function dayRange(a, b) { return range(a, b); }
+  function drow(main, amount, actions) {
+    var row = h("div", "bl-drow");
+    add(row, main, h("span", "bl-damt", amount));
+    if (actions) add(row, actions);
+    return row;
+  }
+
+  function stmCard() {
+    var L = DOCS.stm;
+    if (L.s === "idle" || L.s === "loading" || L.s === "hidden") return null;
+    var card = docCard("bl-st", "Statements");
+    if (L.s === "error") return docFail(card, function () { loadList("stm", false); paintDocs(); });
+    if (!L.items.length) { add(card, para("No statements yet.", "bl-empty")); return card; }
+    L.items.forEach(function (st) {
+      var main = h("div", "bl-dmain"), title = h("div", "bl-dtitle");
+      add(title, h("b", "", st.number)); var t = testChip(st); if (t) add(title, t);
+      add(main, title, h("span", "bl-meta bl-dline", "Issued " + dateShort(st.issued_at)), h("span", "bl-meta bl-dline", "Period " + dayRange(st.period_start, st.period_end)));
+      var acts = h("div", "bl-dacts");
+      add(acts, btn("View", "ghost", function (b) { openStatement(st, b); }), btn("Download PDF", "ghost", function (b) { downloadStatement(st, b); }));
+      add(card, drow(main, peso(st.total_centavos), acts));
+    });
+    var m = moreBtn("stm"); if (m) add(card, add(h("div", "bl-dmore"), m));
+    return card;
+  }
+  function invCard() {
+    var L = DOCS.inv;
+    if (L.s === "idle" || L.s === "loading" || L.s === "hidden") return null;
+    var card = docCard("bl-iv", "BIR invoices");
+    if (L.s === "error") return docFail(card, function () { loadList("inv", false); paintDocs(); });
+    if (!L.items.length) { add(card, para("No invoices yet.", "bl-empty")); return card; }
+    L.items.forEach(function (it) {
+      var main = h("div", "bl-dmain"), title = h("div", "bl-dtitle");
+      add(title, h("b", "", "Paid " + dateShort(it.paid_at))); var t = testChip(it); if (t) add(title, t);
+      add(main, title, h("span", "bl-meta bl-dline", "Period " + dayRange(it.period_start_at, it.period_end_at)));
+      var acts = null;
+      if (it.state === "available") acts = add(h("div", "bl-dacts"), btn("View copy", "ghost", function (b) { openInvoiceCopy(it, b); }));
+      else add(main, h("span", "bl-meta bl-dline bl-dmsg", it.message || ""));
+      add(card, drow(main, peso(it.total_centavos), acts));
+    });
+    var m = moreBtn("inv"); if (m) add(card, add(h("div", "bl-dmore"), m));
+    return card;
+  }
+  function profCard() {
+    var P = DOCS.prof;
+    if (P.s === "idle" || P.s === "loading" || P.s === "hidden") return null;
+    var card = docCard("bl-bd", "Billing details");
+    if (P.s === "error") return docFail(card, function () { loadProfile(); paintDocs(); });
+    var d = P.data || {}, none = "Not added yet";
+    add(card, facts([["Company name", d.company_name || none], ["Billing email", d.billing_email || none], ["Address", d.address || none], ["TIN", d.tin || none]]));
+    add(card, add(h("div", "bl-actions"), btn("Edit", "ghost", function (b) { openProfile(b); })), para("These details appear on future documents only.", "bl-meta bl-cardnote"));
+    return card;
+  }
+
+  /* A private file is fetched with the cookie and held as a blob URL: the page never has an address for it. */
+  function fetchPrivate(path) {
+    return fetch(D.cfg.apiBase + path, { method: "GET", credentials: "include" })
+      .then(function (r) { return r.ok ? r.blob() : null; }).catch(function () { return null; });
+  }
+  function downloadStatement(st, opener) {
+    if (opener.getAttribute("aria-busy") === "true") return;
+    opener.setAttribute("aria-busy", "true"); setDisabled(opener, true);
+    var mine = token;
+    fetchPrivate(base() + "statements/" + encodeURIComponent(st.number) + "/pdf/").then(function (blob) {
+      opener.removeAttribute("aria-busy"); setDisabled(opener, false);
+      if (mine !== token) return;
+      if (!blob) { toast("That did not work", "We could not download the statement. Please try again.", "error"); return; }
+      var url = URL.createObjectURL(blob), a = attrs(h("a", ""), { href: url, download: st.number + ".pdf" });
+      a.hidden = true; document.body.appendChild(a);
+      if (a.click) a.click();
+      a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) { /* ignore */ } }, 4000);
+    });
+  }
+  function openInvoiceCopy(it, opener) {
+    openDialog("Copy of your invoice", opener, function (box, d) {
+      var hold = h("div", "bl-proof"), slotEl = h("div", "");
+      add(hold, para("Loading the copy…", "bl-meta")); add(box, hold, slotEl);
+      fetchPrivate(base() + "invoices/" + encodeURIComponent(it.id) + "/copy/").then(function (blob) {
+        if (dlg !== d) return;
+        clear(hold);
+        if (!blob) { add(hold, para("We could not load the copy. Please try again.", "bl-meta")); return; }
+        var url = URL.createObjectURL(blob); d.url = url;
+        var pdf = blob.type === "application/pdf";
+        if (pdf) add(hold, para("This copy is a PDF.", "bl-meta"));
+        else add(hold, attrs(h("img", "bl-proof-img"), { src: url, alt: "The copy of your invoice" }));
+        add(slotEl, attrs(h("a", "no-btn no-btn-primary bl-full", pdf ? "Open the copy (PDF)" : "Open the copy"), { href: url, target: "_blank", rel: "noopener" }));
+      });
+    });
+  }
+  function party(obj, rows) {
+    var o = obj || {};
+    return rows.map(function (k) { return o[k] ? String(o[k]) : null; }).filter(Boolean).join("\n");
+  }
+  function openStatement(st, opener) {
+    openDialog("Statement " + st.number, opener, function (box, d) {
+      var hold = h("div", "bl-sdetail");
+      add(hold, para("Loading the statement…", "bl-meta")); add(box, hold);
+      api(base() + "statements/" + encodeURIComponent(st.number) + "/").then(function (res) {
+        if (dlg !== d || res.status === 401) return;
+        clear(hold);
+        if (!res.ok || !res.data || !res.data.number) { add(hold, para("We could not load the statement. Please try again.", "bl-meta")); return; }
+        var s = res.data, iss = s.issuer || {}, lines = Array.isArray(s.lines) ? s.lines : [];
+        add(hold, facts([["Number", s.number], s.label ? ["Document", s.label] : null, ["Issued", dateShort(s.issued_at)], ["Period", dayRange(s.period_start, s.period_end)],
+          s.original_number ? ["Adjusts", s.original_number] : null, s.payment_reference ? ["Payment reference", s.payment_reference] : null,
+          ["Issued by", [iss.legal_name, iss.registered_address, iss.tin ? "TIN " + iss.tin : ""].filter(Boolean).join("\n")],
+          ["Billed to", party(s.bill_to, ["name", "address", "email"]) + (s.bill_to && s.bill_to.tin ? "\nTIN " + s.bill_to.tin : "")]]));
+        var ul = h("div", "bl-slines");
+        lines.forEach(function (l) {
+          add(ul, add(h("div", "bl-sline"), h("span", "", l.description), h("span", "bl-meta", l.quantity + " × " + peso(l.unit_centavos)), h("b", "", peso(l.amount_centavos))));
+        });
+        add(hold, ul, add(h("div", "bl-total"), h("span", "", "Total"), h("b", "", peso(s.total_centavos))));
+        if (s.is_test) add(hold, chip("neutral", "Test"));
+      });
+    });
+  }
+
+  /* Billing details: the four fields the API takes, its field messages shown beside them. */
+  var PROFILE_FIELDS = [["company_name", "Company name", 160, "text"], ["billing_email", "Billing email", 254, "email"], ["address", "Address", 255, "text"], ["tin", "TIN", 17, "text"]];
+  function openProfile(opener) {
+    var cur = (DOCS && DOCS.prof.data) || {}, docs = DOCS;
+    openDialog("Billing details", opener, function (box, d) {
+      var F = {}, banner = attrs(h("p", "bl-note"), { role: "alert", tabindex: "-1" }); banner.hidden = true;
+      add(box, banner);
+      PROFILE_FIELDS.forEach(function (f) {
+        var id = "bl-pf-" + f[0], input = f[0] === "address" ? attrs(h("textarea", "bl-input bl-textarea"), { rows: "3" }) : attrs(h("input", "bl-input"), { type: f[3] });
+        attrs(input, { id: id, name: f[0], maxlength: String(f[2]), autocomplete: "off" }); input.value = cur[f[0]] || "";
+        var err = attrs(h("p", "bl-ferr"), { id: id + "-err", role: "alert" }); err.hidden = true;
+        input.setAttribute("aria-describedby", id + "-err");
+        F[f[0]] = { input: input, err: err };
+        add(box, add(h("div", "bl-field"), attrs(h("label", "bl-label", f[1]), { "for": id }), input, err));
+      });
+      function paint(key, msg) {
+        var e = F[key]; e.err.textContent = msg || ""; e.err.hidden = !msg;
+        if (msg) e.input.setAttribute("aria-invalid", "true"); else e.input.removeAttribute("aria-invalid");
+      }
+      var save = btn("Save", "primary", null, "bl-full"), cancel = btn("Cancel", "ghost", function () { if (!d.busy) closeDialog(true); }, "bl-full");
+      add(box, add(h("div", "bl-dlg-acts"), save, cancel));
+      save.addEventListener("click", function () {
+        if (d.busy) return;
+        var body = {};
+        PROFILE_FIELDS.forEach(function (f) { body[f[0]] = F[f[0]].input.value.trim(); paint(f[0], ""); });
+        banner.hidden = true;
+        d.busy = true; save.setAttribute("aria-busy", "true"); setDisabled(save, true);
+        D.call("PUT", base() + "profile/", body).then(function (res) {
+          d.busy = false; save.removeAttribute("aria-busy"); setDisabled(save, false);
+          if (res.status === 401 || dlg !== d) return;
+          if (res.ok) {
+            if (docs === DOCS && DOCS) { DOCS.prof.data = res.data; DOCS.prof.s = "ok"; }
+            closeDialog(true); paintDocs(); toast("Billing details saved", "They appear on future documents only.");
+            return;
+          }
+          var fields = res.data && res.data.fields, shown = false;
+          if (res.status === 400 && fields) {
+            Object.keys(fields).forEach(function (k) { if (F[k]) { paint(k, String(fields[k])); shown = true; } });
+          }
+          if (!shown) {
+            banner.textContent = res.status === 429 ? "You have saved too many times. Please try again later." : res.status === 0 ? refusal(res) : "That did not work. Please try again.";
+            banner.hidden = false;
+          }
+          var first = PROFILE_FIELDS.filter(function (f) { return !F[f[0]].err.hidden; })[0];
+          if (first) F[first[0]].input.focus(); else if (banner.focus) banner.focus();
+        });
+      });
+    });
   }
 
   /* ---- pop-ups: X and Escape close; no Cancel button; a click outside does nothing ---- */
@@ -447,7 +684,7 @@
     function onKey(e) {
       if (e.key === "Escape") { e.preventDefault(); if (!d.busy) closeDialog(true); return; }
       if (e.key !== "Tab") return;
-      var items = Array.prototype.slice.call(box.querySelectorAll("button, a[href], input")).filter(function (n) { return !n.disabled && !n.hidden; });
+      var items = Array.prototype.slice.call(box.querySelectorAll("button, a[href], input, textarea")).filter(function (n) { return !n.disabled && !n.hidden; });
       if (!items.length) return;
       var first = items[0], last = items[items.length - 1], now = document.activeElement;
       if (e.shiftKey && (now === first || items.indexOf(now) < 0)) { e.preventDefault(); last.focus(); }

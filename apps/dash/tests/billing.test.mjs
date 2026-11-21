@@ -112,7 +112,7 @@ async function fillForm(d, over = {}, { time = true, file = true } = {}) {
 }
 
 /* ---- 1. routes and vocabulary ---- */
-test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none to /billing/sites/; no gateway, statement, video or business-day wording in the source", async () => {
+test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none to /billing/sites/; no gateway, video or business-day wording in the source", async () => {
   const d = boot({ pay: payInfo({ offers: [OFFER.promo, OFFER.monthly, OFFER.annual] }) });
   await d.go("?site=" + A + "&pay=choose");
   d.click(d.root, "Choose"); /* Monthly or Annual, whichever comes first after the promo */
@@ -123,7 +123,7 @@ test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none 
     assert.equal(c.credentials, "include");
   }
   assert.ok(d.list().includes("GET " + B) && d.list().includes("GET " + B + "payment/") && d.list().includes("GET " + B + "payments/?limit=20"));
-  assert.doesNotMatch(SRC, /xendit|paymongo|gateway|statement|invoice|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
+  assert.doesNotMatch(SRC, /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
 });
 
 /* ---- 2. the states of the home page ---- */

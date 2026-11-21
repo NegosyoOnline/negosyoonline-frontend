@@ -307,7 +307,7 @@ test("the watch script posts the furthest percent at each 10% step and at the en
   const w = runWatch();
   w.ready();
   for (const p of [3, 9.9]) await w.at(p);
-  assert.deepEqual(w.posts, [], "nothing below the first step");
+  assert.equal(w.posts.length, 0, "nothing below the first step");
   await w.at(10);
   await w.at(14);
   await w.at(31); // a jump forward posts the step it reached

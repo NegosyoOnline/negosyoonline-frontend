@@ -1,13 +1,15 @@
 /* Subscriber Training editor (ClickUp z8uq9mezdj, /training/, /training/course/?id=, /training/live/). The Subscriber writes the courses, modules,
    lessons and live trainings their members see in the member dashboard. Reads and writes /sites/{id}/training/ (courses, modules, lessons, live;
    pictures are multipart `file`, JPEG, PNG or WebP up to 2 MB). Every status and string from the API reaches the page through textContent or D.el only.
-   Live times are typed and shown in Philippine time and sent as ISO times with a zone. A lesson's video link is turned into an embed link
-   here (YouTube and Vimeo watch links); the API accepts embed links only and says so for anything else. While the API answers 404 (members are
+   Live times are typed and shown in Philippine time and sent as ISO times with a zone. A lesson's video is uploaded here to the store's own
+   Bunny Stream library (CP-1 R2, ClickUp z8uq9mhbhd): the API makes the video and signs the upload, tus.js sends the file, and the page polls until
+   it is ready; there is no link field (a legacy link stays shown and playing until the owner replaces it). The course editor also shows each
+   member's furthest watched percent per lesson. While the API answers 404 (members are
    switched off, or not a Santé site) the pages say Training is not available yet and the Training links stay hidden (probe).
    Plain ES5. NOTraining.util holds the pure helpers (tests/training.test.mjs). */
 (function () {
   var D = window.NODash;
-  var token = 0, S = null;
+  var token = 0, S = null, VIDEOS = {}; /* VIDEOS: lesson id -> the upload this page is running (phase, pct, error, abort, timer, paint, rowNote) */
   var TITLE_MAX = 120, LESSON_TITLE_MAX = 160, DESC_MAX = 5000, LESSON_DESC_MAX = 10000, DUR_MAX = 20, URL_MAX = 500;
   var PIC_MAX = 2 * 1024 * 1024, PIC_TYPES = ["image/jpeg", "image/png", "image/webp"];
   var LOCAL_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/, ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -56,26 +58,49 @@
     if (!t || isNaN(t.getTime())) return "";
     return new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }).format(t) + " (Philippine time)";
   }
-  /* A watch link becomes the embed link the API accepts. YouTube: watch?v=, youtu.be/, shorts/, live/, embed/. Vimeo: vimeo.com/123,
-     vimeo.com/123/hash (a private video, hash kept as ?h=) and player.vimeo.com/video/123. Anything else is returned as typed, so the API
-     can refuse it with its own sentence. "" stays "". */
-  function toEmbed(link) {
-    var v = String(link || "").trim();
-    if (!v) return "";
-    var m = /^https?:\/\/(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})(?:[&?#\/].*)?$/.exec(v)
-      || /^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{11})(?:[?#\/].*)?$/.exec(v);
-    if (m) return "https://www.youtube.com/embed/" + m[1];
-    m = /^https?:\/\/(?:www\.)?vimeo\.com\/(?:channels\/[A-Za-z0-9_-]+\/|groups\/[A-Za-z0-9_-]+\/videos\/)?(\d{1,15})(?:\/([0-9a-f]{6,20}))?(?:[?#].*)?$/.exec(v)
-      || /^https?:\/\/player\.vimeo\.com\/video\/(\d{1,15})(?:\?(?:[^#]*&)?h=([0-9a-f]{6,20}))?(?:[&#].*)?$/.exec(v);
-    if (m) return "https://player.vimeo.com/video/" + m[1] + (m[2] ? "?h=" + m[2] : "");
-    return v;
-  }
   function pictureError(file) {
     if (!file) return "";
     if (PIC_TYPES.indexOf(file.type) < 0) return "Use a JPEG, PNG or WebP picture.";
     if (file.size > PIC_MAX) return "The picture is over 2 MB. Choose a smaller one.";
     return "";
   }
+  /* ---------- lesson video: pure helpers ---------- */
+
+  var FAIL = "Could not upload. Try again.";
+  /* The API's video block for a lesson: {kind: "stream" | "legacy" | "none", status, embed_url, needs_video}, or null from an older answer. */
+  function videoOf(l) { return l && l.video && typeof l.video === "object" ? l.video : null; }
+  function hasVideo(l) { var v = videoOf(l); return v ? v.kind !== "none" : !!(l && l.video_url); }
+  function needsVideo(l) { var v = videoOf(l); return !!(v ? v.needs_video : l && l.needs_video); }
+  function localHost(h) { return h === "localhost" || h === "127.0.0.1" || /\.negosyotest\.com$/.test(h); }
+  /* An address the page may frame or send to: https, or plain http on this computer's own preview names; never a login in it. The CSP still decides. */
+  function hostOk(url) {
+    var m = /^(https?):\/\/([^\s\/?#@]+)(?:[\/?#]|$)/i.exec(String(url || ""));
+    if (!m) return false;
+    var host = m[2].toLowerCase().replace(/:\d+$/, "");
+    return m[1].toLowerCase() === "https" || localHost(host);
+  }
+  function embedOk(url) { return typeof url === "string" && url.length <= 600 && hostOk(url); }
+  /* The upload block of POST .../video/upload/, or false when it cannot be used. */
+  function uploadOk(u) {
+    return !!u && typeof u === "object" && hostOk(u.endpoint) && u.video_id != null && String(u.video_id) !== "" && u.library_id != null && String(u.library_id) !== ""
+      && typeof u.signature === "string" && u.signature !== "" && u.expires != null && String(u.expires) !== "";
+  }
+  /* The watch answer as [{id, title, members: [{id, name, percent, completed}]}]; a row the page cannot draw is left out. */
+  function watchRows(d) {
+    var list = d && Array.isArray(d.lessons) ? d.lessons : [];
+    return list.map(function (x) {
+      if (!x || typeof x !== "object") return null;
+      var id = x.id || x.lesson_id, title = typeof x.title === "string" ? x.title : "";
+      if (typeof id !== "string" || !id || !title) return null;
+      var members = (Array.isArray(x.members) ? x.members : []).map(function (m) {
+        if (!m || typeof m !== "object" || typeof m.name !== "string" || !m.name) return null;
+        var n = typeof m.percent === "number" && isFinite(m.percent) ? Math.max(0, Math.min(100, Math.round(m.percent))) : 0;
+        return { id: String(m.member_id || m.id || m.name), name: m.name, percent: n, completed: m.completed === true };
+      }).filter(Boolean);
+      return { id: id, title: title, members: members };
+    }).filter(Boolean);
+  }
+
   function hasErrors(errors) { for (var k in errors) { if (Object.prototype.hasOwnProperty.call(errors, k)) return true; } return false; }
   function textErr(value, name, max, required) {
     var v = String(value || "").trim();
@@ -100,13 +125,12 @@
   }
   function buildLesson(v) {
     var errors = {}, title = String(v.title || "").trim(), duration = String(v.duration || "").trim(), description = String(v.description || "").trim();
-    var link = toEmbed(v.video_url), e = textErr(title, "a title", LESSON_TITLE_MAX, true);
+    var e = textErr(title, "a title", LESSON_TITLE_MAX, true);
     if (e) errors.title = e;
     e = textErr(duration, "", DUR_MAX, false); if (e) errors.duration = e;
     e = textErr(description, "", LESSON_DESC_MAX, false); if (e) errors.description = e;
-    if (link.length > URL_MAX) errors.video_url = "Keep the link to " + URL_MAX + " characters.";
     if (hasErrors(errors)) return { errors: errors };
-    return { body: { title: title, duration: duration, description: description, video_url: link || null, active: !!v.active } };
+    return { body: { title: title, duration: duration, description: description, active: !!v.active } }; /* never video_url: the video is uploaded, not typed */
   }
   function buildLive(v) {
     var errors = {}, title = String(v.title || "").trim(), description = String(v.description || "").trim(), join = String(v.join_url || "").trim();
@@ -168,6 +192,7 @@
   function show(view) {
     var mine = ++token, r = clear(byId(ROOTS[view]));
     if (S && S.sc) S.sc.stop();
+    stopVideos();
     S = { view: view, site: null, courses: [], live: [], course: null, tab: tabOf(), editing: "", confirm: "", adding: "", lesson: null };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "tr-meta", "Loading…"));
@@ -180,7 +205,7 @@
       read(mine);
     });
   }
-  function hide(view) { token++; if (S && S.sc) S.sc.stop(); S = null; say(""); var r = byId(ROOTS[view]); if (r) clear(r); }
+  function hide(view) { token++; if (S && S.sc) S.sc.stop(); stopVideos(); S = null; say(""); var r = byId(ROOTS[view]); if (r) clear(r); }
   function read(mine) {
     var view = S.view, path;
     if (view === "training") path = base() + "courses/";
@@ -200,6 +225,7 @@
       else { S.course = d; if (!Array.isArray(S.course.modules)) S.course.modules = []; }
       render(); setNav(true);
       if (view === "training") sharedList(mine);
+      if (view === "training-course") { resumeVideos(mine); loadWatch(mine); }
     });
   }
   /* "From <source store>": what the content source offers, and the Share switch when this site is the source (shared-content.js). */
@@ -450,6 +476,46 @@
     var back = link("← Your courses", href("/training/"), "tr-back"); r.appendChild(back);
     r.appendChild(courseCard(c));
     r.appendChild(modulesCard(c));
+    var holder = h("div", "tr-watch-holder"); holder.setAttribute("id", "tc-watch"); r.appendChild(holder);
+    fillWatch(holder);
+  }
+  /* A video the API says is still processing (the page was reloaded, or another tab uploaded it) is followed until it is ready. */
+  function resumeVideos(mine) {
+    S.course.modules.forEach(function (m) { (m.lessons || []).forEach(function (l) {
+      var v = videoOf(l); if (!v || v.kind !== "stream" || v.status !== "processing") return;
+      var st = vstate(l.id); st.phase = "processing"; changed(l.id); pollVideo(l.id, mine);
+    }); });
+    if (S.course.modules.some(function (m) { return (m.lessons || []).some(function (l) { return !!VIDEOS[l.id]; }); })) render();
+  }
+  /* "Watch progress": the members of this store and the furthest percent each has watched, per lesson. */
+  function loadWatch(mine) {
+    D.call("GET", base() + "courses/" + S.courseId + "/watch/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401 || !res.ok) return;
+      S.watch = watchRows(res.data);
+      var holder = byId("tc-watch"); if (holder) fillWatch(holder);
+    });
+  }
+  function fillWatch(holder) {
+    clear(holder);
+    if (!S || !S.watch) return;
+    var s = card("watch", "Watch progress");
+    S.watch.forEach(function (ls) {
+      var block = h("div", "tr-watch-lesson");
+      block.appendChild(h("h4", "tr-lesson-title", ls.title));
+      if (ls.members.length) {
+        var ul = h("ul", "tr-list");
+        ls.members.forEach(function (mm) {
+          var li = h("li", "tr-row"), main = h("div", "tr-row-main");
+          main.appendChild(h("p", "tr-row-title", mm.name));
+          var meta = h("p", "tr-meta", mm.percent > 0 || !mm.completed ? "Watched " + mm.percent + "%" : "");
+          if (mm.completed) meta.appendChild(h("span", "chip chip-ok" + (meta.textContent ? " tr-off" : ""), "Completed"));
+          main.appendChild(meta); li.appendChild(main); ul.appendChild(li);
+        });
+        block.appendChild(ul);
+      }
+      s.appendChild(block);
+    });
+    holder.appendChild(s);
   }
   function courseCard(c) {
     var st = courseChip(c), s = card("course", "Course details", st);
@@ -569,8 +635,11 @@
     if (S.lesson && S.lesson.id === l.id) { var li0 = h("li", "tr-lesson tr-lesson-edit"); li0.appendChild(lessonForm(m, l)); return li0; }
     var li = h("li", "tr-lesson"); li.setAttribute("data-lesson", l.id);
     var main = add(h("div", "tr-row-main"), h("h4", "tr-lesson-title", l.title));
-    var bits = [l.duration || "", l.video_url ? "Video" : l.needs_video ? "Add your video" : "No video"].filter(Boolean);
-    var meta = h("p", "tr-meta", bits.join(" · ")); if (!l.active) meta.appendChild(h("span", "chip chip-neutral tr-off", "Off"));
+    var vs = VIDEOS[l.id], busyNow = !!vs && (vs.phase === "uploading" || vs.phase === "processing");
+    var bits = [l.duration || "", busyNow ? "" : hasVideo(l) ? "Video" : needsVideo(l) ? "Add your video" : "No video"].filter(Boolean);
+    var meta = h("p", "tr-meta", bits.join(" · ") + (busyNow && bits.length ? " · " : ""));
+    if (busyNow) { var note = h("span", "tr-vnote", videoLine(vs)); note.setAttribute("role", "status"); vs.rowNote = note; meta.appendChild(note); }
+    if (!l.active) meta.appendChild(h("span", "chip chip-neutral tr-off", "Off"));
     main.appendChild(meta);
     var acts = h("div", "tr-row-actions");
     var up = btn("Up", "ghost", function (b) { reorderLesson(b, m, l.id, -1, lids); }), dn = btn("Down", "ghost", function (b) { reorderLesson(b, m, l.id, 1, lids); });
@@ -601,19 +670,122 @@
       D.toast("Deleted", "The lesson was deleted."); say("Lesson deleted.");
     });
   }
+  /* ---------- lesson video: upload to Bunny Stream, wait until it is ready, preview ---------- */
+
+  var POLL_MS = 3000, POLL_MISSES = 5;
+  function vstate(id) { return VIDEOS[id] || (VIDEOS[id] = { phase: "", pct: 0, error: "", abort: null, timer: 0, paint: null, rowNote: null, misses: 0 }); }
+  function stopVideos() {
+    Object.keys(VIDEOS).forEach(function (k) { var v = VIDEOS[k]; if (v.abort) { try { v.abort(); } catch (e) { /* ignore */ } } if (v.timer) clearTimeout(v.timer); });
+    VIDEOS = {};
+  }
+  function lessonById(id) {
+    var found = null;
+    if (S && S.course) S.course.modules.forEach(function (m) { (m.lessons || []).forEach(function (x) { if (x.id === id) found = x; }); });
+    return found;
+  }
+  function videoLine(st) { return st.phase === "uploading" ? "Uploading… " + st.pct + "%" : st.phase === "processing" ? "Processing…" : ""; }
+  function changed(id) {
+    var st = VIDEOS[id]; if (!st) return;
+    if (st.paint) st.paint();
+    if (st.rowNote) st.rowNote.textContent = videoLine(st);
+  }
+  function settled(id) { /* the upload ended (ready or failed): a row nobody is editing is redrawn with its new state */
+    changed(id);
+    if (S && S.view === "training-course" && !S.lesson) render();
+  }
+  function failVideo(id, text) {
+    var st = vstate(id); st.phase = "failed"; st.error = text || FAIL; st.abort = null; st.pct = 0; settled(id);
+  }
+  function pollVideo(id, mine) {
+    var st = vstate(id);
+    st.timer = setTimeout(function () {
+      st.timer = 0;
+      if (mine !== token || !S) return;
+      D.call("GET", base() + "lessons/" + id + "/video/", null, true).then(function (res) {
+        if (res.status === 401 || mine !== token || !S) return;
+        var d = res.data, v = res.ok && d ? (d.video && typeof d.video === "object" ? d.video : d.kind ? d : null) : null, l = lessonById(id);
+        if (v) {
+          st.misses = 0; if (l) l.video = v;
+          if (v.status === "ready") { st.phase = ""; st.pct = 0; st.error = ""; settled(id); return; }
+          if (v.status === "failed") { failVideo(id, FAIL); return; }
+        } else if (++st.misses >= POLL_MISSES) { failVideo(id, FAIL); return; }
+        pollVideo(id, mine);
+      });
+    }, POLL_MS);
+  }
+  function startUpload(id, file, mine) {
+    var st = vstate(id);
+    if (!file || !file.type || file.type.indexOf("video/") !== 0 || !window.NOTus) { failVideo(id, FAIL); return; }
+    st.phase = "uploading"; st.pct = 0; st.error = ""; st.misses = 0; changed(id);
+    D.call("POST", base() + "lessons/" + id + "/video/upload/", {}, true).then(function (res) {
+      if (res.status === 401 || mine !== token || !S) return;
+      var d = res.data, up = d && d.upload;
+      if (!res.ok) { failVideo(id, msgOf(res, FAIL)); return; }
+      if (!uploadOk(up)) { failVideo(id, FAIL); return; }
+      var l = lessonById(id); if (l && d.video && typeof d.video === "object") l.video = d.video;
+      var t = window.NOTus.upload(file, {
+        endpoint: up.endpoint,
+        headers: { AuthorizationSignature: up.signature, AuthorizationExpire: up.expires, VideoId: up.video_id, LibraryId: up.library_id },
+        metadata: { filetype: file.type, title: file.name || "video" },
+        onProgress: function (p) { if (mine === token && S && st.phase === "uploading") { st.pct = p; changed(id); } }
+      });
+      st.abort = t.abort;
+      t.promise.then(function () {
+        st.abort = null;
+        if (mine !== token || !S) return;
+        st.phase = "processing"; changed(id); pollVideo(id, mine);
+      }, function () { st.abort = null; if (mine !== token || !S) return; failVideo(id, FAIL); });
+    });
+  }
+  /* The video part of the lesson form: what the lesson has now (a preview of a ready video, the legacy link), the state of an upload, and the
+     Upload video button. `id` is "" for a lesson not saved yet: the chosen file waits and goes up right after the first save (pending()). */
+  function videoField(id) {
+    var wrap = h("div", "tr-field tr-video-field"), body = h("div", "tr-video-body"), chosen = null;
+    var input = D.el("input", { "class": "tr-input", type: "file", name: "video", accept: "video/*" });
+    input.hidden = true; input.setAttribute("tabindex", "-1"); input.setAttribute("aria-hidden", "true");
+    function paint() {
+      var l = id ? lessonById(id) : null, v = videoOf(l), st = id ? VIDEOS[id] : null, active = !!st && (st.phase === "uploading" || st.phase === "processing");
+      var none = !l || !hasVideo(l);
+      clear(body);
+      var head = h("p", "tr-label", none ? "Add your video" : "Replace with your own video"); head.setAttribute("id", "tr-lv-h");
+      body.appendChild(head);
+      if (v && v.kind === "stream" && v.status === "ready" && embedOk(v.embed_url)) {
+        var fr = D.el("iframe", { "class": "tr-video", src: v.embed_url, title: l.title, allowfullscreen: "" });
+        fr.setAttribute("loading", "lazy"); fr.setAttribute("referrerpolicy", "strict-origin-when-cross-origin"); fr.setAttribute("allow", "fullscreen; picture-in-picture; encrypted-media");
+        body.appendChild(fr);
+      } else if (l && (v ? v.kind === "legacy" : l.video_url) && l.video_url) body.appendChild(h("p", "tr-meta tr-video-link", l.video_url));
+      if (st && active) { var note = h("p", "tr-meta tr-vnote", videoLine(st)); note.setAttribute("role", "status"); body.appendChild(note); }
+      else if (st && st.phase === "failed") { var er = h("p", "tr-error", st.error || FAIL); er.setAttribute("role", "alert"); body.appendChild(er); }
+      else if (!id && chosen) body.appendChild(h("p", "tr-meta", chosen.name || ""));
+      var pick = btn("Upload video", "ghost", function () { if (input.click) input.click(); });
+      pick.setAttribute("aria-describedby", "tr-lv-h"); pick.disabled = active; if (active) pick.setAttribute("aria-busy", "true");
+      body.appendChild(add(h("div", "tr-actions"), pick));
+    }
+    input.addEventListener("change", function () {
+      var f = input.files && input.files[0] ? input.files[0] : null;
+      if (!f) return;
+      if (id) { var mine = token; input.value = ""; startUpload(id, f, mine); }
+      else if (f.type && f.type.indexOf("video/") === 0) { chosen = f; paint(); }
+      else { chosen = null; paint(); }
+    });
+    if (id) vstate(id).paint = paint;
+    paint(); add(wrap, body, input);
+    return { node: wrap, pending: function () { return chosen; } };
+  }
+
   function lessonForm(m, l) {
     var s = h("div", "tr-form");
     s.appendChild(h("h4", "tr-lesson-title", l ? "Edit lesson" : "New lesson"));
     var title = input("", "text", "title", LESSON_TITLE_MAX); title.value = l ? l.title : "";
-    var video = input("", "url", "video_url", URL_MAX); video.value = l && l.video_url ? l.video_url : "";
+    var vf = videoField(l ? l.id : "");
     var dur = input("", "text", "duration", DUR_MAX); dur.value = l ? l.duration || "" : "";
     var desc = textarea("description", LESSON_DESC_MAX, 5); desc.value = l ? l.description || "" : "";
     var on = checkbox("tr-lon", "Show to members", l ? l.active : true);
-    add(s, field("tr-lt", "Title", title), field("tr-lv", "Video link", video, "Paste a YouTube or Vimeo link. We turn it into an embed link for you."), field("tr-ld", "Duration", dur, "Optional. Shown as typed, for example 6:30."), field("tr-ldesc", "Description", desc, "Optional. Plain text; line breaks are kept."), on.wrap);
+    add(s, field("tr-lt", "Title", title), vf.node, field("tr-ld", "Duration", dur, "Optional. Shown as typed, for example 6:30."), field("tr-ldesc", "Description", desc, "Optional. Plain text; line breaks are kept."), on.wrap);
     var pic = pictureControls(s, "lesson picture", l ? l.image_url : "", "tr-lp");
-    var f = { title: title, video_url: video, duration: dur, description: desc, file: pic.file };
+    var f = { title: title, duration: dur, description: desc, file: pic.file };
     add(s, add(h("div", "tr-actions"), btn("Save lesson", "primary", function (b) {
-      var built = buildLesson({ title: title.value, video_url: video.value, duration: dur.value, description: desc.value, active: on.box.checked });
+      var built = buildLesson({ title: title.value, duration: dur.value, description: desc.value, active: on.box.checked });
       var chosen = pic.file.files && pic.file.files[0] ? pic.file.files[0] : null, errors = built.errors || {}, pe = pictureError(chosen);
       if (pe) errors.file = pe;
       if (built.errors || pe) { showFields(f, errors); return; }
@@ -622,15 +794,19 @@
       D.call(l ? "PATCH" : "POST", l ? base() + "lessons/" + l.id + "/" : base() + "modules/" + m.id + "/lessons/", built.body, true).then(function (res) {
         if (res.status === 401 || mine !== token || !S) return;
         if (!res.ok) { busy(b, false); if (!showFields(f, apiFields(res))) D.toast("That did not work", msgOf(res, "We could not save the lesson. Please try again."), "error"); return; }
-        var saved = res.data; m.lessons = upsert(m.lessons, saved);
+        var saved = res.data, waiting = l ? null : vf.pending(); /* a video chosen before the lesson existed goes up now, and the form stays open to show it */
+        m.lessons = upsert(m.lessons, saved);
         picture(base() + "lessons/" + saved.id + "/image/", chosen, pic.state.remove && !chosen, mine, function (final, failed) {
           busy(b, false);
           if (final) m.lessons = upsert(m.lessons, final);
           if (failed) {
             S.lesson = { module: m.id, id: saved.id }; render();
             var box = byId("tr-lp-file"); if (box) { markBad(box, failed); box.focus(); }
-            D.toast("Saved, but the picture was not added", failed, "error"); return;
+            D.toast("Saved, but the picture was not added", failed, "error");
+            if (waiting) startUpload(saved.id, waiting, mine);
+            return;
           }
+          if (waiting) { S.lesson = { module: m.id, id: saved.id }; render(); startUpload(saved.id, waiting, mine); D.toast("Saved", "The lesson was added."); say("Lesson saved."); return; }
           S.lesson = null; render(); D.toast("Saved", l ? "The lesson was updated." : "The lesson was added."); say("Lesson saved.");
         });
       });
@@ -718,7 +894,7 @@
     if (S && S.view === "training" && byId("tr-root") && byId("tr-root").firstChild) { var t = tabOf(); if (t !== S.tab) { S.tab = t; S.confirm = ""; render(); } }
   });
 
-  window.NOTraining = { show: show, hide: hide, probe: probe, util: { toIso: toIso, toLocal: toLocal, whenText: whenText, toEmbed: toEmbed, pictureError: pictureError,
+  window.NOTraining = { show: show, hide: hide, probe: probe, util: { toIso: toIso, toLocal: toLocal, whenText: whenText, pictureError: pictureError, videoOf: videoOf, hasVideo: hasVideo, needsVideo: needsVideo, embedOk: embedOk, uploadOk: uploadOk, watchRows: watchRows,
     buildCourse: buildCourse, buildModule: buildModule, buildLesson: buildLesson, buildLive: buildLive, moved: moved, upsert: upsert, courseChip: courseChip,
     liveChip: liveChip, tabOf: tabOf, queryId: queryId, ID_RE: ID_RE } };
 })();

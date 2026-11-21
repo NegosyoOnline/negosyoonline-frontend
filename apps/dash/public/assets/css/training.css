@@ -71,3 +71,11 @@
 }
 /* the More sheet group that stays hidden until the Training probe answers */
 .sheet-label[hidden], .sheet-grid[hidden] { display: none; }
+/* the lesson video (CP-1 R2): the preview of a ready video, the upload state and the watch progress per lesson */
+.tr-root .tr-video { display: block; width: 100%; max-width: 480px; aspect-ratio: 16 / 9; margin: 0 0 10px; border: 1px solid var(--card-line); border-radius: 10px; background: #000; }
+.tr-root .tr-video-link { overflow-wrap: anywhere; }
+.tr-root .tr-video-body .tr-label { margin-bottom: 8px; }
+.tr-root .tr-video-body .tr-actions { margin-bottom: 0; }
+.tr-root .tr-vnote { color: var(--text-2); font-weight: 600; }
+.tr-root .tr-watch-lesson { margin: 0 0 12px; }
+.tr-root .tr-watch-lesson .tr-list { margin: 4px 0 0; }

@@ -10,6 +10,10 @@ const standalone: string[] = [];
 /* Public Vercel Blob media store. Images only; must match the backend's public media host. */
 const mediaOrigin = "https://pemdcws76uzmwk7c.public.blob.vercel-storage.com";
 
+/* Bunny Stream: the TUS upload host (connect-src) and the embed host (frame-src). Both are the same for every store's library, so no per-store entry is needed. */
+const tusOrigin = "https://video.bunnycdn.com";
+const embedOrigin = "https://iframe.mediadelivery.net";
+
 const csp = [
   "default-src 'self'",
   "script-src 'self'",
@@ -17,7 +21,8 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src https://fonts.gstatic.com",
   `img-src 'self' data: blob: ${mediaOrigin} https://platform-lookaside.fbsbx.com https://*.fbcdn.net`,
-  `connect-src 'self' ${apiOrigin} https://vercel.com`, // https://vercel.com: the Media Library's direct video upload to Vercel Blob (media.js)
+  `connect-src 'self' ${apiOrigin} https://vercel.com ${tusOrigin}`, // https://vercel.com: the Media Library's direct video upload to Vercel Blob (media.js); tusOrigin: the lesson video upload to Bunny Stream (tus.js)
+  `frame-src ${embedOrigin}`, // the lesson video preview (Bunny Stream embed); the same host for every store's library
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

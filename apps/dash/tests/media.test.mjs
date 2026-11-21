@@ -112,9 +112,12 @@ test("dashboard.js: the route, the view name, the enter/leave hooks and the prob
   assert.match(dash, /window\.NOMedia\.probe\(\)/);
 });
 
-test("the dash CSP lets the browser send the video to Vercel Blob, and nothing else new", () => {
+test("the dash CSP lets the browser send the video to Vercel Blob, and (CP-1 R2) the lesson video to Bunny Stream, and nothing else new", () => {
   const csp = CONFIG.slice(CONFIG.indexOf("const csp = ["), CONFIG.indexOf('].join("; ")'));
-  assert.match(csp, /connect-src 'self' \$\{apiOrigin\} https:\/\/vercel\.com`/);
+  assert.match(csp, /connect-src 'self' \$\{apiOrigin\} https:\/\/vercel\.com \$\{tusOrigin\}`/);
+  assert.match(CONFIG, /const tusOrigin = "https:\/\/video\.bunnycdn\.com";/);
+  assert.match(CONFIG, /const embedOrigin = "https:\/\/iframe\.mediadelivery\.net";/);
+  assert.match(csp, /`frame-src \$\{embedOrigin\}`/);
   assert.match(csp, /"script-src 'self'"/);
 });
 

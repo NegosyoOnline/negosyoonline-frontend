@@ -27,7 +27,7 @@
   function fromApi(r) {
     r = r && typeof r === "object" ? r : {};
     return { id: text(r.site_id), name: text(r.business_name), address: text(r.site_address), template: text(r.template),
-      plan: F.words(PLAN, r.plan), state: F.words(STATE, r.state), chip: F.words(CHIP, r.state) || "chip-neutral",
+      plan: F.words(PLAN, r.plan), state: F.words(STATE, r.state), chip: F.words(CHIP, r.state) || "chip-neutral", trialing: r.state === "trial_active",
       trialEnds: F.dayOf(r.trial_ends_at), nextDue: F.dayOf(r.next_due_at), lastPayment: F.dayOf(r.last_payment_at),
       email: text(r.owner_email), joined: F.dayOf(r.created_at) };
   }
@@ -49,14 +49,15 @@
   }
 
   function row(r) {
-    var tr = F.el("tr", ""), td, b = F.el("button", "no-btn no-btn-ghost", "Open");
-    td = cell(tr, "Business"); td.appendChild(F.el("strong", "", r.name));
-    cell(tr, "Site address").textContent = orDash(r.address);
+    var tr = F.el("tr", ""), td, box, b = F.el("button", "no-btn no-btn-ghost", "Open");
+    td = cell(tr, "Business");
+    box = F.el("div", ""); box.appendChild(F.el("strong", "", r.name));
+    if (r.address) box.appendChild(F.el("span", "small", r.address));
+    td.appendChild(box);
     cell(tr, "Plan").textContent = orDash(r.plan);
     td = cell(tr, "State");
     if (r.state) td.appendChild(F.el("span", "chip " + r.chip, r.state)); else td.textContent = DASH;
-    cell(tr, "Trial ends").textContent = orDash(r.trialEnds);
-    cell(tr, "Next due").textContent = orDash(r.nextDue);
+    cell(tr, "Next due").textContent = orDash(r.nextDue || (r.trialing ? r.trialEnds : ""));
     cell(tr, "Last payment").textContent = orDash(r.lastPayment);
     cell(tr, "Owner email").textContent = orDash(r.email);
     cell(tr, "Joined").textContent = orDash(r.joined);
@@ -128,8 +129,8 @@
     if (p.status) line.appendChild(F.el("span", "chip chip-neutral", p.status));
     li.appendChild(line);
     sub = [p.plan, p.amount, p.received ? "received " + p.received : "", p.transferred ? "transferred " + p.transferred : ""].filter(Boolean).join(" · ");
-    if (sub) li.appendChild(F.el("span", "item-sub", sub));
-    if (p.submitted) li.appendChild(F.el("span", "small", "Submitted " + p.submitted + (p.decided ? " · Decided " + p.decided : "")));
+    if (sub) li.appendChild(F.el("div", "item-sub", sub));
+    if (p.submitted) li.appendChild(F.el("div", "small", "Submitted " + p.submitted + (p.decided ? " · Decided " + p.decided : "")));
     return li;
   }
 
@@ -144,7 +145,7 @@
     fact(dl, "Site address", r.address);
     fact(dl, "Template", r.template);
     fact(dl, "Plan", r.plan);
-    fact(dl, "Trial ends", r.trialEnds);
+    fact(dl, "Trial ends", r.trialing ? r.trialEnds : "");
     fact(dl, "Next due", r.nextDue);
     fact(dl, "Last payment", r.lastPayment);
     fact(dl, "Owner email", r.email);

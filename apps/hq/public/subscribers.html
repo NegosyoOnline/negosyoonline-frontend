@@ -57,14 +57,14 @@
         </div>
         <section class="dash-card" aria-labelledby="s-h">
           <h2 id="s-h" class="sr-only">Find a subscriber</h2>
-          <form class="range-row" id="s-form" novalidate>
+          <form class="range-row sub-search" id="s-form" novalidate>
             <div class="field"><label for="s-q">Search</label><input class="input" id="s-q" type="search" maxlength="100" placeholder="Business, site address or owner email" autocomplete="off" spellcheck="false" aria-describedby="s-err"></div>
             <button type="submit" class="no-btn no-btn-primary" id="s-go">Search</button>
           </form>
           <p class="field-err" id="s-err" role="alert" hidden></p>
         </section>
         <section class="dash-card list-card rtable-wrap" id="s-card" aria-label="Subscribers" hidden>
-          <table class="rtable"><thead><tr><th>Business</th><th>Site address</th><th>Plan</th><th>State</th><th>Trial ends</th><th>Next due</th><th>Last payment</th><th>Owner email</th><th>Joined</th><th><span class="sr-only">Open</span></th></tr></thead>
+          <table class="rtable sub-table"><thead><tr><th>Business</th><th>Plan</th><th>State</th><th>Next due</th><th>Last payment</th><th>Owner email</th><th>Joined</th><th><span class="sr-only">Open</span></th></tr></thead>
           <tbody id="s-body"></tbody></table>
         </section>
         <p class="dash-copy fin-note" id="s-loading" hidden>Loading subscribers…</p>
@@ -82,7 +82,7 @@
             <p class="small" id="d-site-id"></p>
             <dl class="fin-facts" id="d-facts"></dl>
           </section>
-          <section class="dash-card list-card" aria-labelledby="d-pay-h">
+          <section class="dash-card fin-hist" aria-labelledby="d-pay-h">
             <h2 id="d-pay-h">Payments</h2>
             <ol class="list" id="d-pays"></ol>
             <p class="dash-copy fin-note" id="d-pay-empty" hidden>No payments yet.</p>

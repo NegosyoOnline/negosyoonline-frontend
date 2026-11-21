@@ -538,6 +538,10 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .rtable td::before { content: attr(data-label); flex: none; color: var(--meta); font-size: 14px; text-align: left; }
   .rtable td .exc { justify-content: flex-end; }
 }
+.sub-table td { overflow-wrap: anywhere; }
+.sub-table td .small { display: block; margin-top: 2px; }
+.range-row.sub-search .field { flex: 1 1 320px; max-width: 460px; }
+@media (max-width: 1099.98px) { .sub-table td > div { text-align: right; } }
 .range-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
 .range-row .field { flex: 1 1 180px; max-width: 220px; }
 @media (max-width: 599.98px) { .range-row .field { max-width: none; } .range-row .no-btn { width: 100%; } }

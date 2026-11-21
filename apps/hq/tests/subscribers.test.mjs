@@ -41,8 +41,8 @@ test("the page asks who is signed in, then lists all subscribers, mapped for dis
   assert.deepEqual(p.calls[1].body, { filter: "all" });
   assert.deepEqual(p.shown(), ["v-list"]);
   assert.equal(p.node["acct-name"].textContent, "sample.staff");
-  assert.deepEqual(cells(p, 0), ["Sample Store A", "sample-a.example.test", "Monthly", "Active", "Nov 30, 2026", "Dec 5, 2026", "—", "owner.a@example.com", "Oct 1, 2026", "Open"]);
-  assert.deepEqual(cells(p, 1), ["Sample Store B", "—", "—", "—", "—", "—", "—", "—", "Oct 1, 2026", "Open"]);
+  assert.deepEqual(cells(p, 0), ["Sample Store Asample-a.example.test", "Monthly", "Active", "Dec 5, 2026", "—", "owner.a@example.com", "Oct 1, 2026", "Open"]);
+  assert.deepEqual(cells(p, 1), ["Sample Store B", "—", "—", "—", "—", "—", "Oct 1, 2026", "Open"]);
   assert.equal(p.node["s-card"].hidden, false);
   assert.equal(p.node["s-more-row"].hidden, true);
 });
@@ -154,7 +154,7 @@ test("a stale answer is dropped: a slow list does not overwrite a newer tab", as
 test("data is only ever text: markup in a value stays text, and the script never uses innerHTML", async () => {
   const evil = '<img src=x onerror="alert(1)">';
   const p = await page({ "GET me/": [200, ME], [LIST]: rows([row({ business_name: evil, owner_email: evil })]), [DETAIL]: [200, { ...row({ business_name: evil }), payments: [pay({ id: evil })] }] });
-  assert.equal(p.node["s-body"].children[0].children[0].textContent, evil);
+  assert.match(p.node["s-body"].children[0].children[0].textContent, /^<img/);
   assert.equal(p.node["s-body"].all((x) => x.tagName === "IMG").length, 0);
   p.node["s-body"].children[0].all((x) => x.tagName === "BUTTON")[0].fire("click");
   await settle();
@@ -186,4 +186,17 @@ test("the menu draws Subscribers only after subscribers/list/ answers 200, after
     const off = await run(reply);
     assert.deepEqual(off.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance", "Lifecycle", "Settings"]);
   }
+});
+
+test("a trial end shows only while the state is trial_active, in Next due and in the detail", async () => {
+  const trial = row({ state: "trial_active", next_due_at: null, trial_ends_at: "2026-11-25T00:00:00+08:00" });
+  const p = await page({ "GET me/": [200, ME], [LIST]: rows([trial, row({ site_id: "s2", state: "suspended", next_due_at: null, trial_ends_at: "2026-11-25T00:00:00+08:00" })]),
+    [DETAIL]: [200, { ...row({ state: "suspended", trial_ends_at: "2026-11-25T00:00:00+08:00" }), payments: [pay()] }] });
+  assert.equal(cells(p, 0)[3], "Nov 25, 2026");
+  assert.equal(cells(p, 1)[3], "\u2014");
+  p.node["s-body"].children[1].all((x) => x.tagName === "BUTTON")[0].fire("click");
+  await settle();
+  assert.match(p.node["d-facts"].textContent, /Trial ends\u2014/);
+  const sub = p.node["d-pays"].children[0].children.map((n) => n.tagName);
+  assert.ok(sub.every((t) => t === "DIV"), "payment lines are blocks, not run together");
 });

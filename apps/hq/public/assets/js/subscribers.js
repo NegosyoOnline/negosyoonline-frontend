@@ -37,6 +37,14 @@
       received: F.money(p.amount_received_centavos), transferred: F.day(p.transferred_on), submitted: F.stamp(p.submitted_at),
       decided: F.stamp(p.decided_at) };
   }
+  /* Text with a place to break after "@" and before each ".", so a long address wraps at natural points only. */
+  function breakable(node, value) {
+    String(value).split(/(?=\.)|(?<=@)/).forEach(function (part, i) {
+      if (i) node.appendChild(document.createElement("wbr"));
+      node.appendChild(F.el("span", "", part));
+    });
+    return node;
+  }
   function orDash(v) { return v || DASH; }
 
   /* ---- the list ---- */
@@ -52,14 +60,16 @@
     var tr = F.el("tr", ""), td, box, b = F.el("button", "no-btn no-btn-ghost", "Open");
     td = cell(tr, "Business");
     box = F.el("div", ""); box.appendChild(F.el("strong", "", r.name));
-    if (r.address) box.appendChild(F.el("span", "small", r.address));
+    if (r.address) box.appendChild(breakable(F.el("span", "small"), r.address));
     td.appendChild(box);
     cell(tr, "Plan").textContent = orDash(r.plan);
     td = cell(tr, "State");
     if (r.state) td.appendChild(F.el("span", "chip " + r.chip, r.state)); else td.textContent = DASH;
     cell(tr, "Next due").textContent = orDash(r.nextDue || (r.trialing ? r.trialEnds : ""));
     cell(tr, "Last payment").textContent = orDash(r.lastPayment);
-    cell(tr, "Owner email").textContent = orDash(r.email);
+    td = cell(tr, "Owner email");
+    td.setAttribute("class", "sub-wrap");
+    if (r.email) breakable(td, r.email); else td.textContent = DASH;
     cell(tr, "Joined").textContent = orDash(r.joined);
     b.setAttribute("type", "button");
     b.setAttribute("aria-label", "Open " + r.name);

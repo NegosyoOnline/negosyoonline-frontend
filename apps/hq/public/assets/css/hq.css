@@ -538,7 +538,9 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .rtable td::before { content: attr(data-label); flex: none; color: var(--meta); font-size: 14px; text-align: left; }
   .rtable td .exc { justify-content: flex-end; }
 }
-.sub-table td { overflow-wrap: anywhere; }
+.sub-table td { overflow-wrap: break-word; }
+@media (min-width: 1100px) { .sub-table td { white-space: nowrap; } .sub-table td.sub-wrap { white-space: normal; } .sub-table td:first-child { min-width: 180px; white-space: normal; } }
+.sub-table td.sub-wrap { overflow-wrap: break-word; }
 .sub-table td .small { display: block; margin-top: 2px; }
 .range-row.sub-search .field { flex: 1 1 320px; max-width: 460px; }
 @media (max-width: 1099.98px) { .sub-table td > div { text-align: right; } }

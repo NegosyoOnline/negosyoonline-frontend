@@ -200,3 +200,12 @@ test("a trial end shows only while the state is trial_active, in Next due and in
   const sub = p.node["d-pays"].children[0].children.map((n) => n.tagName);
   assert.ok(sub.every((t) => t === "DIV"), "payment lines are blocks, not run together");
 });
+
+test("a long email and site address get break points after the at sign and before each dot, and the text is unchanged", async () => {
+  const p = await page({ "GET me/": [200, ME], [LIST]: rows([row({ owner_email: "owner.trial@example.test", site_address: "preview-trial.negosyotest.com" })]) });
+  const tr = p.node["s-body"].children[0];
+  assert.equal(cells(p, 0)[5], "owner.trial@example.test");
+  assert.equal(cells(p, 0)[0], "Sample Store Apreview-trial.negosyotest.com");
+  assert.equal(tr.all((x) => x.tagName === "WBR").length, 3 + 2);
+  assert.equal(tr.children[5].getAttribute("class"), "sub-wrap");
+});

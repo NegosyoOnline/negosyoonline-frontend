@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { htmlResponse, html } from "../src/lib/html.ts";
 import { jsonLdText, PRIVATE_PREFIXES } from "../src/lib/seo.ts";
@@ -191,4 +191,39 @@ test("favicon.ico: a served site is sent to its icon; an unknown host gets the n
 test("the share image is under 300 KB", () => {
   const file = path.join(import.meta.dirname, "..", "public", "assets", "sante", "img", "sante-share-1200x630.jpg");
   assert.ok(statSync(file).size < 300 * 1024);
+});
+
+test("Live4More hosts carry Coach Ed's own share image and alt in og and twitter tags; every other host keeps the generic one", async () => {
+  const own = `/assets/sante/img/live4more-share-1200x630.jpg?v=${assetVersions()["img/live4more-share-1200x630.jpg"]}`;
+  const alt = "Santé Lifetime Membership for only ₱1,488: two boxes of Santé Barley Powder in a New Zealand meadow, managed by Coach Ed Geronilla";
+  const generic = `/assets/sante/img/sante-share-1200x630.jpg?v=${assetVersions()["img/sante-share-1200x630.jpg"]}`;
+  for (const [file, pagePath] of [[HOME, "/"], [LANDING, "/funnel/membership-pack/landing-page/"]] as const) {
+    for (const host of ["live4moreonline.store", "www.live4moreonline.store", "live4more.storefronts-staging.negosyonline.com"]) {
+      const page = await (await call(file, pagePath, host, FILLED)).text();
+      for (const key of ['property="og:image"', 'name="twitter:image"']) assert.equal(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)), `https://${host}${own}`, `${host} ${key}`);
+      for (const key of ['property="og:image:alt"', 'name="twitter:image:alt"']) assert.equal(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)), alt, `${host} ${key}`);
+      assert.equal(tag(page, /<meta property="og:image:width" content="([^"]*)"/), "1200");
+      assert.equal(tag(page, /<meta property="og:image:height" content="([^"]*)"/), "630");
+      assert.equal(tag(page, /<meta property="og:image:type" content="([^"]*)"/), "image/jpeg");
+    }
+    const host = "ritas.storefronts-staging.negosyonline.com";
+    const page = await (await call(file, pagePath, host, FILLED)).text();
+    for (const key of ['property="og:image"', 'name="twitter:image"']) assert.equal(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)), `https://${host}${generic}`);
+    for (const key of ['property="og:image:alt"', 'name="twitter:image:alt"']) assert.match(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)) ?? "", / logo over a New Zealand barley grass farm$/);
+  }
+});
+
+test("the Live4More share image is a 1200x630 JPEG under 300 KB", () => {
+  const file = path.join(import.meta.dirname, "..", "public", "assets", "sante", "img", "live4more-share-1200x630.jpg");
+  const bytes = readFileSync(file);
+  assert.ok(bytes.length < 300 * 1024);
+  assert.equal(bytes[0], 0xff);
+  assert.equal(bytes[1], 0xd8);
+  let i = 2, w = 0, h = 0;
+  while (i < bytes.length) {
+    const marker = bytes[i + 1];
+    if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) { h = bytes.readUInt16BE(i + 5); w = bytes.readUInt16BE(i + 7); break; }
+    i += 2 + bytes.readUInt16BE(i + 2);
+  }
+  assert.deepEqual([w, h], [1200, 630]);
 });

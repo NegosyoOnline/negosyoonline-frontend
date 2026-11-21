@@ -81,6 +81,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-policy-popup.js": "9d957133",
   "img/navbar-logo.webp": "c9c6702a",
   "img/sante-share-1200x630.jpg": "d576a824", // this storefront's own file: the share image (og:image, twitter:image) of the home and the landing page (ClickUp z8uq9mh8n9)
+  "img/live4more-share-1200x630.jpg": "6bbeb550", // this storefront's own file: Coach Ed's own share image for the Live4More stores only (ClickUp z8uq9mhbcq, ruling 1100430000604741)
   "img/sante-apple-touch-icon-180.png": "b7f52c18", // this storefront's own file: the apple-touch-icon, the Santé S on white
   "img/sante-favicon-32.png": "c417ab3c", // this storefront's own file: the favicon, the Santé S on white
   "img/fda-philippines.png": "ee97c331",

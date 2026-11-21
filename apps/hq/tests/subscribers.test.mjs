@@ -41,8 +41,8 @@ test("the page asks who is signed in, then lists all subscribers, mapped for dis
   assert.deepEqual(p.calls[1].body, { filter: "all" });
   assert.deepEqual(p.shown(), ["v-list"]);
   assert.equal(p.node["acct-name"].textContent, "sample.staff");
-  assert.deepEqual(cells(p, 0), ["Sample Store Asample-a.example.test", "Monthly", "Active", "Dec 5, 2026", "—", "owner.a@example.com", "Oct 1, 2026", "Open"]);
-  assert.deepEqual(cells(p, 1), ["Sample Store B", "—", "—", "—", "—", "—", "Oct 1, 2026", "Open"]);
+  assert.deepEqual(cells(p, 0), ["Sample Store Asample-a.example.test", "Monthly", "Active", "Dec 5, 2026", "owner.a@example.com", "Oct 1, 2026", "Open"]);
+  assert.deepEqual(cells(p, 1), ["Sample Store B", "—", "—", "—", "—", "Oct 1, 2026", "Open"]);
   assert.equal(p.node["s-card"].hidden, false);
   assert.equal(p.node["s-more-row"].hidden, true);
 });
@@ -204,8 +204,9 @@ test("a trial end shows only while the state is trial_active, in Next due and in
 test("a long email and site address get break points after the at sign and before each dot, and the text is unchanged", async () => {
   const p = await page({ "GET me/": [200, ME], [LIST]: rows([row({ owner_email: "owner.trial@example.test", site_address: "preview-trial.negosyotest.com" })]) });
   const tr = p.node["s-body"].children[0];
-  assert.equal(cells(p, 0)[5], "owner.trial@example.test");
+  assert.equal(cells(p, 0)[4], "owner.trial@example.test");
   assert.equal(cells(p, 0)[0], "Sample Store Apreview-trial.negosyotest.com");
   assert.equal(tr.all((x) => x.tagName === "WBR").length, 3 + 2);
-  assert.equal(tr.children[5].getAttribute("class"), "sub-wrap");
+  assert.equal(tr.children[4].getAttribute("class"), "sub-wrap");
+  assert.equal(tr.children[4].children.length, 1, "one wrapper span in the cell");
 });

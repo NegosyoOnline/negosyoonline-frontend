@@ -41,7 +41,7 @@
   function breakable(node, value) {
     String(value).split(/(?=\.)|(?<=@)/).forEach(function (part, i) {
       if (i) node.appendChild(document.createElement("wbr"));
-      node.appendChild(F.el("span", "", part));
+      node.appendChild(document.createTextNode(part));
     });
     return node;
   }
@@ -66,10 +66,9 @@
     td = cell(tr, "State");
     if (r.state) td.appendChild(F.el("span", "chip " + r.chip, r.state)); else td.textContent = DASH;
     cell(tr, "Next due").textContent = orDash(r.nextDue || (r.trialing ? r.trialEnds : ""));
-    cell(tr, "Last payment").textContent = orDash(r.lastPayment);
     td = cell(tr, "Owner email");
     td.setAttribute("class", "sub-wrap");
-    if (r.email) breakable(td, r.email); else td.textContent = DASH;
+    if (r.email) td.appendChild(breakable(F.el("span", ""), r.email)); else td.textContent = DASH;
     cell(tr, "Joined").textContent = orDash(r.joined);
     b.setAttribute("type", "button");
     b.setAttribute("aria-label", "Open " + r.name);

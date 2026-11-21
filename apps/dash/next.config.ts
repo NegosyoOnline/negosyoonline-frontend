@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { apiOrigin } from "./src/lib/site-env";
+import { apiOrigin, mediaOrigin } from "./src/lib/site-env";
 
 /* The dashboard is static HTML in /public. This file gives it the routing, security headers
    and CSP it had as a plain static deploy: every path ends in a slash, standalone
@@ -7,8 +7,7 @@ import { apiOrigin } from "./src/lib/site-env";
 
 const standalone: string[] = [];
 
-/* Public Vercel Blob media store. Images only; must match the backend's public media host. */
-const mediaOrigin = "https://pemdcws76uzmwk7c.public.blob.vercel-storage.com";
+/* Public Vercel Blob media store (mediaOrigin, from SITE_MEDIA_ORIGIN; staging store when unset). Images only; must match the backend's public media host. */
 
 const csp = [
   "default-src 'self'",

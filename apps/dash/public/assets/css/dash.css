@@ -1266,6 +1266,8 @@ html[data-theme="light"] body.dash-app {
 /* owner documents: statements, BIR invoices, billing details (z8uq9mhbgh) */
 #view-settings-billing .bl-docs { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
 #view-settings-billing .bl-drow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--bl-row-line); font-size: 15px; }
+#view-settings-billing .bl-doc > .bl-h2 + .bl-drow { border-top: 0; }
+#view-settings-billing .bl-doc .bl-actions + .bl-cardnote { margin-top: 16px; }
 #view-settings-billing .bl-dmain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 #view-settings-billing .bl-dtitle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 #view-settings-billing .bl-dline { display: block; font-size: 14px; overflow-wrap: anywhere; }

@@ -49,6 +49,7 @@ export const SHARE_IMAGE_BY_HOST: Record<string, { file: string; alt: string }> 
   "live4moreonline.store": L4M,
   "www.live4moreonline.store": L4M,
   "live4more.storefronts-staging.negosyonline.com": L4M,
+  "live4more.storefronts.negosyonline.com": L4M,
 };
 
 /** Everything the head of an indexable page adds: description, canonical, Open Graph, Twitter, icons and JSON-LD. */

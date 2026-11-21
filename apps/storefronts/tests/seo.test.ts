@@ -198,7 +198,7 @@ test("Live4More hosts carry Coach Ed's own share image and alt in og and twitter
   const alt = "Santé Lifetime Membership for only ₱1,488: two boxes of Santé Barley Powder in a New Zealand meadow, managed by Coach Ed Geronilla";
   const generic = `/assets/sante/img/sante-share-1200x630.jpg?v=${assetVersions()["img/sante-share-1200x630.jpg"]}`;
   for (const [file, pagePath] of [[HOME, "/"], [LANDING, "/funnel/membership-pack/landing-page/"]] as const) {
-    for (const host of ["live4moreonline.store", "www.live4moreonline.store", "live4more.storefronts-staging.negosyonline.com"]) {
+    for (const host of ["live4moreonline.store", "www.live4moreonline.store", "live4more.storefronts-staging.negosyonline.com", "live4more.storefronts.negosyonline.com"]) {
       const page = await (await call(file, pagePath, host, FILLED)).text();
       for (const key of ['property="og:image"', 'name="twitter:image"']) assert.equal(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)), `https://${host}${own}`, `${host} ${key}`);
       for (const key of ['property="og:image:alt"', 'name="twitter:image:alt"']) assert.equal(tag(page, new RegExp(`<meta ${key} content="([^"]*)"`)), alt, `${host} ${key}`);

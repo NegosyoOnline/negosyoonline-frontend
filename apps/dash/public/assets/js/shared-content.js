@@ -70,9 +70,9 @@
     function paint() {
       while (el.firstChild) el.removeChild(el.firstChild);
       var list = items();
-      if (!st || st.isSource || !list.length) { el.hidden = true; return; }
+      if (!st || st.isSource || !st.name || !list.length) { el.hidden = true; return; }
       el.hidden = false;
-      var head = "From " + (st.name || "the source store"), box = h("section", "sc-box");
+      var head = "From " + st.name, box = h("section", "sc-box");
       var t = h("h2", "sc-h2", head), id = "sc-h-" + opts.kind; t.setAttribute("id", id); box.setAttribute("aria-labelledby", id);
       var open = list.filter(function (x) { return stateOf(x) === "not_copied" || stateOf(x) === "failed"; });
       var top = add(h("div", "sc-head"), t);

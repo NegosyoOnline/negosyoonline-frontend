@@ -69,6 +69,9 @@ test("the section is hidden when the API lists nothing, and for the source store
     assert.ok(d.list().includes(`GET /sites/${A}/shared-content/`));
     d.close();
   }
+  const n = boot({ shared: { is_source: false, source_name: "", courses: [offerCourse("crs_s1")], media: [] } }); await n.open();
+  assert.equal(n.sect(), null, "no store name, no section");
+  n.close();
   const d = boot({ sharedStatus: 404 }); await d.open();
   assert.equal(d.sect(), null);
   assert.ok(d.root().textContent.includes("Courses"));

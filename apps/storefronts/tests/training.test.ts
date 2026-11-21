@@ -4,8 +4,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { homePage, type Dash } from "../src/lib/dashboard-flow.ts";
-import { coursePage, lessonCompletePost, lessonPage, trainingPage } from "../src/lib/training-flow.ts";
+import { WATCH_SCRIPT, coursePage, lessonCompletePost, lessonPage, lessonWatchPost, trainingPage } from "../src/lib/training-flow.ts";
 import { durationText, embedUrl, liveWhen, resumeCard } from "../src/views/sante/training.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
@@ -26,8 +28,7 @@ function fake(replies: Record<string, Reply[]>) {
   };
   return { calls, fetchImpl };
 }
-function dashOf(f: ReturnType<typeof fake>, token = TOKEN): Dash {
-  const request = new Request("http://www.santetest.com/dashboard/training/");
+function dashOf(f: ReturnType<typeof fake>, token = TOKEN, request = new Request("http://www.santetest.com/dashboard/training/")): Dash {
   return {
     site: SITE, now: new Date("2026-11-14T00:00:00Z"), appUrl: "",
     call: { request, host: "demo.negosyotest.com", visitor_ip: "", member_token: token, binding: "", env },
@@ -218,6 +219,120 @@ test("a locked lesson (409) shows a plain message with the way back, and no play
   assert.doesNotMatch(body, /<iframe/);
   const noHint = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_3": [err(409, "lesson_locked")] })), "lsn_3", "<x>"));
   assert.match(noHint, /href="\/dashboard\/training\/">Back to Training/);
+});
+
+/* ---- Stream lessons (R2) ------------------------------------------------------------------------------------------ */
+
+const STREAM_EMBED = "https://iframe.mediadelivery.net/embed/816560/0a1b2c3d-4e5f-6789-abcd-0123456789ab";
+const STREAM = (over: Record<string, unknown> = {}) => ({ kind: "stream", status: "ready", embed_url: STREAM_EMBED, needs_video: false, ...over });
+
+test("a ready Stream lesson plays the embed the API returns for the lesson's own library, and loads the watch script", async () => {
+  const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video: STREAM() }))] })), "lsn_2", "crs_1"));
+  assert.ok(body.includes(`<iframe src="${STREAM_EMBED}"`));
+  assert.match(body, /<div class="tr-player" data-lesson-video="lsn_2" data-watch="1">/);
+  assert.match(body, /<script src="\/assets\/sante\/js\/lesson-watch\.js\?v=[0-9a-f]{8}"><\/script>/);
+  assert.match(body, /Mark complete/);
+  // another store's library is simply another embed_url: the page never builds one
+  const other = "https://iframe.mediadelivery.net/embed/999001/0a1b2c3d-4e5f-6789-abcd-0123456789ab";
+  const b2 = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video: STREAM({ embed_url: other }) }))] })), "lsn_2"));
+  assert.ok(b2.includes(`<iframe src="${other}"`));
+});
+
+test("a Stream lesson that is not ready, or whose embed is off the Stream host, shows no player and no watch script", async () => {
+  for (const video of [STREAM({ status: "processing" }), STREAM({ status: "uploading" }), STREAM({ status: "failed" }), STREAM({ embed_url: "https://evil.test/embed/816560/0a1b2c3d-4e5f-6789-abcd-0123456789ab" }), STREAM({ embed_url: "" })]) {
+    const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video }))] })), "lsn_2"));
+    assert.doesNotMatch(body, /<iframe|lesson-watch/);
+    assert.match(body, /not available yet/);
+  }
+});
+
+test("a legacy lesson keeps playing its link, with no watch script", async () => {
+  for (const over of [{ video: { kind: "legacy", status: "", embed_url: YT, needs_video: false } }, {}]) {
+    const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON(over))] })), "lsn_2"));
+    assert.match(body, /<iframe src="https:\/\/www\.youtube\.com\/embed\/dQw4w9WgXcQ"/);
+    assert.doesNotMatch(body, /lesson-watch|data-watch/);
+  }
+});
+
+const watchPost = (f: ReturnType<typeof fake>, percent: unknown, id = "lsn_2", token = TOKEN) =>
+  lessonWatchPost(dashOf(f, token, new Request("http://www.santetest.com/dashboard/training/lesson/lsn_2/watch/", { method: "POST", body: typeof percent === "string" && percent.startsWith("raw:") ? percent.slice(4) : JSON.stringify({ percent }) })), id);
+
+test("the watch post passes host, token and percent to the API and answers JSON; it never reads the session first", async () => {
+  const f = fake({ "member/training/lessons/lsn_2/watch": [ok({ percent: 40 })] });
+  const r = await watchPost(f, 40);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { percent: 40 });
+  assert.deepEqual(f.calls, [{ path: "member/training/lessons/lsn_2/watch", body: { host: "demo.negosyotest.com", token: TOKEN, percent: 40 } }]);
+});
+
+test("the watch post refuses a bad percent, a bad body and a bad id before Django, and maps the API's refusals", async () => {
+  const f = fake({});
+  for (const bad of [-1, 101, 12.5, "50", null, "raw:not json", "raw:[]"]) assert.equal((await watchPost(f, bad)).status, 400, String(bad));
+  assert.equal((await watchPost(f, 50, "a/b")).status, 404);
+  assert.equal((await watchPost(f, 50, "lsn_2", "")).status, 401);
+  assert.equal(f.calls.length, 0);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(401)] }), 50)).status, 401);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(409, "lesson_locked")] }), 50)).status, 409);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(429)] }), 50)).status, 429);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(404)] }), 50)).status, 404);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(500)] }), 50)).status, 503);
+});
+
+const WATCH_JS = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "js", "lesson-watch.js"), "utf8");
+
+/** Runs the watch script against a fake Player.js and a fake fetch (`ok` decides whether the server takes a post). */
+function runWatch(opts: { stream?: boolean; ok?: () => boolean } = {}) {
+  const posts: { url: string; percent: number }[] = [];
+  const handlers: Record<string, (d?: unknown) => void> = {};
+  const player = { on: (n: string, f: (d?: unknown) => void) => { handlers[n] = f; }, getDuration: (cb: (d: number) => void) => cb(200) };
+  const box = { querySelector: () => ({}), getAttribute: () => "lsn_2" };
+  const doc = { querySelector: () => (opts.stream === false ? null : box), head: { appendChild: (s: { onload: () => void }) => s.onload() }, createElement: () => ({}) };
+  const fetchStub = (url: string, init: { body: string }) => {
+    posts.push({ url, percent: JSON.parse(init.body).percent });
+    const good = opts.ok ? opts.ok() : true;
+    return Promise.resolve({ ok: good });
+  };
+  new Function("document", "fetch", "playerjs", "setTimeout", WATCH_JS)(doc, fetchStub, { Player: function () { return player; } }, () => 0);
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  return {
+    posts, settle,
+    ready: () => handlers.ready?.(),
+    at: async (pct: number) => { handlers.timeupdate?.({ seconds: pct * 2, duration: 200 }); await settle(); },
+    ended: async () => { handlers.ended?.(); await settle(); },
+  };
+}
+
+test("the watch script posts the furthest percent at each 10% step and at the end, only ever upward", async () => {
+  assert.equal(WATCH_SCRIPT, "js/lesson-watch.js");
+  const w = runWatch();
+  w.ready();
+  for (const p of [3, 9.9]) await w.at(p);
+  assert.deepEqual(w.posts, [], "nothing below the first step");
+  await w.at(10);
+  await w.at(14);
+  await w.at(31); // a jump forward posts the step it reached
+  await w.at(20); // seeking back sends nothing
+  await w.at(5);
+  await w.at(31.5);
+  await w.at(59.9);
+  await w.at(95);
+  await w.ended();
+  assert.deepEqual(w.posts.map((p) => p.percent), [10, 30, 50, 90, 100]);
+  assert.ok(w.posts.every((p) => p.url === "/dashboard/training/lesson/lsn_2/watch/"));
+  await w.ended();
+  assert.equal(w.posts.length, 5, "the end is sent once");
+});
+
+test("a step the server did not take is tried again at the next step; a page with no watch box does nothing", async () => {
+  let up = false;
+  const w = runWatch({ ok: () => up });
+  w.ready();
+  await w.at(10);
+  up = true;
+  await w.at(25);
+  assert.deepEqual(w.posts.map((p) => p.percent), [10, 20]);
+  const none = runWatch({ stream: false });
+  assert.equal(none.posts.length, 0);
 });
 
 /* ---- Mark complete ----------------------------------------------------------------------------------------------- */

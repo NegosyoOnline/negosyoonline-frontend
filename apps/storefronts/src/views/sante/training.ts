@@ -192,10 +192,17 @@ export function embedUrl(value: string): string {
 /** The CSP frame-src list for the lesson page (next.config.ts uses the same hosts). */
 export const VIDEO_FRAME_HOSTS = ["https://www.youtube.com", "https://youtube.com", "https://www.youtube-nocookie.com", "https://youtube-nocookie.com", "https://player.vimeo.com", "https://iframe.mediadelivery.net"];
 
+/** What the player frames: a Stream lesson plays the embed address the API returns for the lesson's own library (never built here, and only once the
+    video is ready); a legacy lesson keeps playing its allowlisted link. "" when there is nothing to play. */
+export function playerSrc(l: Lesson): string {
+  if (l.video.kind === "stream") return l.video.status === "ready" ? embedUrl(l.video.embed_url) : "";
+  return embedUrl(l.video.kind === "legacy" && l.video.embed_url ? l.video.embed_url : l.video_url);
+}
+
 function player(l: Lesson): Markup {
-  const src = embedUrl(l.video_url);
+  const src = playerSrc(l);
   if (!src) return html`<div class="tr-player tr-player-msg"><p>The video for this lesson is not available yet.</p></div>`;
-  return html`<div class="tr-player"><iframe src="${src}" title="${l.title}" loading="lazy" allowfullscreen
+  return html`<div class="tr-player" data-lesson-video="${l.id}"${l.video.kind === "stream" ? html` data-watch="1"` : ""}><iframe src="${src}" title="${l.title}" loading="lazy" allowfullscreen
     allow="fullscreen; picture-in-picture; encrypted-media" sandbox="allow-scripts allow-same-origin allow-presentation"
     referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
 }

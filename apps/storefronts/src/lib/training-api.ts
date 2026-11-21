@@ -17,8 +17,10 @@ export type LessonRow = { id: string; title: string; duration: string; image_url
 export type Module = { id: string; title: string; module_number: number; completed_lessons: number; total_lessons: number; lessons: LessonRow[] };
 export type CourseDetail = Course & { modules: Module[]; next_lesson: Ref | null };
 export type ModuleRef = Ref & { first_lesson_id: string; module_number: number };
+/** The lesson's video as the API describes it (R2): `embed_url` already names the lesson's own Bunny Stream library; the page never builds it. */
+export type Video = { kind: "stream" | "legacy" | "none"; status: string; embed_url: string; needs_video: boolean };
 export type Lesson = {
-  id: string; title: string; duration: string; description: string; video_url: string; completed: boolean;
+  id: string; title: string; duration: string; description: string; video_url: string; video: Video; completed: boolean;
   course: Ref; module: Ref & { module_number: number }; lessons: LessonRow[]; previous_lesson: Ref | null; next_lesson: Ref | null; next_lesson_locked: boolean;
   previous_module: ModuleRef | null; next_module: ModuleRef | null;
 };
@@ -56,6 +58,11 @@ function moduleOf(v: unknown): Module[] {
     id: str(v.id), title: str(v.title), module_number: num(v.module_number), completed_lessons: num(v.completed_lessons), total_lessons: num(v.total_lessons),
     lessons: Array.isArray(v.lessons) ? v.lessons.flatMap(row) : [],
   }];
+}
+function video(v: unknown): Video {
+  if (!record(v)) return { kind: "none", status: "", embed_url: "", needs_video: false };
+  const kind = v.kind === "stream" || v.kind === "legacy" ? v.kind : "none";
+  return { kind, status: str(v.status), embed_url: str(v.embed_url), needs_video: v.needs_video === true };
 }
 function live(v: unknown): Live | null {
   if (!record(v) || !str(v.id) || !str(v.title) || !str(v.starts_at)) return null;
@@ -96,7 +103,7 @@ export function memberLesson(args: Args & { id: string }, c: Calls): Promise<Pac
     if (!cr || !mr) return null;
     return {
       lesson: {
-        id: str(b.id), title: str(b.title), duration: str(b.duration), description: str(b.description), video_url: str(b.video_url),
+        id: str(b.id), title: str(b.title), duration: str(b.duration), description: str(b.description), video_url: str(b.video_url), video: video(b.video),
         completed: b.completed === true, course: cr, module: { ...mr, module_number: record(b.module) ? num(b.module.module_number) : 0 }, lessons: Array.isArray(b.lessons) ? b.lessons.flatMap(row) : [],
         previous_lesson: ref(b.previous_lesson), next_lesson: ref(b.next_lesson), next_lesson_locked: b.next_lesson_locked === true,
         previous_module: moduleRef(b.previous_module), next_module: moduleRef(b.next_module),
@@ -112,6 +119,12 @@ export function memberLessonComplete(args: Args & { id: string }, c: Calls): Pro
     const progress = record(b.course) ? b.course : {};
     return { done: { lesson_id: str(b.lesson_id), course_id: str(progress.id), completed: b.completed === true, next_lesson: ref(b.next_lesson), percent: Math.min(100, num(progress.percent)) } };
   }, c);
+}
+
+/** The furthest point of a lesson's video this member has reached (0 to 100). The server keeps the highest and never changes "completed". */
+export function memberLessonWatch(args: Args & { id: string; percent: number }, c: Calls): Promise<PackResult<{ percent: number }>> {
+  const { id, ...rest } = args;
+  return packPost(`member/training/lessons/${encodeURIComponent(id)}/watch`, rest, (b) => ({ percent: record(b) ? Math.min(100, num(b.percent)) : 0 }), c);
 }
 
 /** The next live training that has not ended, or none. */

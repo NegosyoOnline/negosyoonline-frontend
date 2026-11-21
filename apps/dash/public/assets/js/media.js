@@ -106,7 +106,8 @@
 
   function show() {
     var mine = ++token, r = clear(root());
-    S = { site: null, assets: [], adding: false, editing: "", confirm: "" };
+    if (S && S.sc) S.sc.stop();
+    S = { site: null, assets: [], adding: false, editing: "", confirm: "", sc: null };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "ml-meta", "Loading…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -119,7 +120,7 @@
       read(mine);
     });
   }
-  function hide() { token++; S = null; say(""); var r = root(); if (r) clear(r); }
+  function hide() { token++; if (S && S.sc) S.sc.stop(); S = null; say(""); var r = root(); if (r) clear(r); }
   function read(mine) {
     D.call("GET", base(), null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
@@ -128,7 +129,14 @@
       var d = res.data || {};
       S.assets = Array.isArray(d.assets) ? d.assets.filter(valid) : [];
       render(); setNav(true);
+      sharedList(mine);
     });
+  }
+  /* "From <source store>": what the content source offers, and the Share switch when this site is the source (shared-content.js). */
+  function sharedList(mine) {
+    if (!window.NOShared || S.sc) return;
+    S.sc = window.NOShared.create({ kind: "media", site: S.site, changed: function () { reload(); } });
+    S.sc.load(function () { if (mine === token && S) render(); });
   }
   /* The links stay hidden until the API shows the Media Library is open for this site (a 404 means members are off or it is not a Santé site). */
   function probe() {
@@ -260,6 +268,7 @@
     if (editing) r.appendChild(editCard(editing));
     else if (S.adding) r.appendChild(newCard());
     r.appendChild(listCard());
+    if (S.sc && !editing && !S.adding) r.appendChild(S.sc.el);
   }
   function findAsset(id) { return S.assets.filter(function (a) { return a.id === id; })[0] || null; }
 
@@ -280,6 +289,16 @@
     if (open) head.appendChild(h("span", "chip chip-warn", "No video yet"));
     var detail = [a.category_label || labelOf(CATEGORIES, a.category), a.product_category_label || labelOf(PRODUCTS, a.product_category || "")].filter(Boolean).join(" · ");
     var main = add(h("div", "ml-row-main"), head, h("h3", "ml-row-title", a.title), detail ? h("p", "ml-meta", detail) : null, hidden ? h("p", "ml-meta", "Hidden from members") : null);
+    if (a.copied_from && !a.published && !hidden) main.appendChild(h("p", "ml-meta ml-review", "Review and publish"));
+    if (S.sc && S.sc.isSource()) main.appendChild(window.NOShared.shareSwitch("ml-share-" + a.id, a.shared, function (on, box) {
+      var mine = token; box.disabled = true;
+      D.call("PATCH", base() + a.id + "/", { shared: on }, true).then(function (res) {
+        if (res.status === 401 || mine !== token || !S) return;
+        if (!res.ok) { box.disabled = false; box.checked = !on; D.toast("That did not work", refused(res), "error"); return; }
+        if (valid(res.data)) S.assets = upsert(S.assets, res.data);
+        render();
+      });
+    }));
     var acts = h("div", "ml-row-actions");
     var up = btn("Up", "ghost", function (b) { reorder(b, a.id, -1, ids); }), dn = btn("Down", "ghost", function (b) { reorder(b, a.id, 1, ids); });
     up.setAttribute("aria-label", "Move " + a.title + " up"); dn.setAttribute("aria-label", "Move " + a.title + " down");

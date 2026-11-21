@@ -167,6 +167,7 @@
 
   function show(view) {
     var mine = ++token, r = clear(byId(ROOTS[view]));
+    if (S && S.sc) S.sc.stop();
     S = { view: view, site: null, courses: [], live: [], course: null, tab: tabOf(), editing: "", confirm: "", adding: "", lesson: null };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "tr-meta", "Loading…"));
@@ -179,7 +180,7 @@
       read(mine);
     });
   }
-  function hide(view) { token++; S = null; say(""); var r = byId(ROOTS[view]); if (r) clear(r); }
+  function hide(view) { token++; if (S && S.sc) S.sc.stop(); S = null; say(""); var r = byId(ROOTS[view]); if (r) clear(r); }
   function read(mine) {
     var view = S.view, path;
     if (view === "training") path = base() + "courses/";
@@ -198,6 +199,20 @@
       else if (view === "training-live") S.live = Array.isArray(d.live) ? d.live : [];
       else { S.course = d; if (!Array.isArray(S.course.modules)) S.course.modules = []; }
       render(); setNav(true);
+      if (view === "training") sharedList(mine);
+    });
+  }
+  /* "From <source store>": what the content source offers, and the Share switch when this site is the source (shared-content.js). */
+  function sharedList(mine) {
+    if (!window.NOShared || S.sc) return;
+    S.sc = window.NOShared.create({ kind: "course", site: S.site, changed: function () { reloadCourses(); } });
+    S.sc.load(function () { if (mine === token && S) render(); });
+  }
+  function reloadCourses() {
+    var mine = token;
+    D.call("GET", base() + "courses/", null, true).then(function (res) {
+      if (mine !== token || !S || res.status === 401 || !res.ok) return;
+      S.courses = Array.isArray(res.data && res.data.courses) ? res.data.courses : S.courses; render();
     });
   }
   function setNav(on) { Array.prototype.forEach.call(document.querySelectorAll("[data-training-nav]"), function (n) { n.hidden = !on; }); }
@@ -351,12 +366,22 @@
       s.appendChild(ul);
     }
     r.appendChild(s);
+    if (S.sc && !archived) r.appendChild(S.sc.el);
   }
   function courseRow(c, i, n, visible) {
     var li = h("li", "tr-row"), st = courseChip(c), nl = c.lesson_count || 0, ml = c.module_count || 0;
     li.setAttribute("data-course", c.id);
     var main = add(h("div", "tr-row-main"), add(h("div", "tr-row-head"), h("span", "chip chip-" + st[0], st[1])), h("h3", "tr-row-title", c.title));
     main.appendChild(h("p", "tr-meta", plural(ml, "module", "modules") + " · " + plural(nl, "lesson", "lessons") + (nl && c.active_lesson_count !== nl ? " (" + c.active_lesson_count + " on)" : "")));
+    if (c.copied_from && !c.active && !c.archived_at) main.appendChild(h("p", "tr-meta tr-review", "Review and publish"));
+    if (S.sc && S.sc.isSource() && !c.archived_at) main.appendChild(window.NOShared.shareSwitch("tr-share-" + c.id, c.shared, function (on, box) {
+      var mine = token; box.disabled = true;
+      D.call("PATCH", base() + "courses/" + c.id + "/", { shared: on }, true).then(function (res) {
+        if (res.status === 401 || mine !== token || !S) return;
+        if (!res.ok) { box.disabled = false; box.checked = !on; D.toast("That did not work", msgOf(res, "We could not change the course. Please try again."), "error"); return; }
+        S.courses = upsert(S.courses, res.data); render();
+      });
+    }));
     var acts = h("div", "tr-row-actions");
     add(acts, link("Edit", href("/training/course/", "id=" + c.id), "no-btn no-btn-ghost"));
     if (!c.archived_at) {
@@ -544,7 +569,7 @@
     if (S.lesson && S.lesson.id === l.id) { var li0 = h("li", "tr-lesson tr-lesson-edit"); li0.appendChild(lessonForm(m, l)); return li0; }
     var li = h("li", "tr-lesson"); li.setAttribute("data-lesson", l.id);
     var main = add(h("div", "tr-row-main"), h("h4", "tr-lesson-title", l.title));
-    var bits = [l.duration || "", l.video_url ? "Video" : "No video"].filter(Boolean);
+    var bits = [l.duration || "", l.video_url ? "Video" : l.needs_video ? "Add your video" : "No video"].filter(Boolean);
     var meta = h("p", "tr-meta", bits.join(" · ")); if (!l.active) meta.appendChild(h("span", "chip chip-neutral tr-off", "Off"));
     main.appendChild(meta);
     var acts = h("div", "tr-row-actions");

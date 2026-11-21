@@ -343,7 +343,6 @@
     m.actions.forEach(function (a) {
       if (a === "pay") add(acts, btn("Pay by bank transfer", "primary", function () { go("choose"); }));
       else if (a === "pay-next") add(acts, btn("Pay for the next period", "primary", function () { go("choose"); }));
-      else if (a === "cancel") add(acts, btn("Cancel subscription", "cancel", function (b) { openCancel(b); }));
       else if (a === "reactivate") add(acts, btn("Keep my subscription", "primary", function (b) { reactivate(b); }));
     });
     if (acts.children.length) add(el, acts);
@@ -426,13 +425,16 @@
   }
   function renderHome(r) {
     var b = S.billing;
-    add(r, heroEl(heroModel()));
+    var hm = heroModel();
+    add(r, heroEl(hm));
     if (!b.billing_exempt) {
       docsEl = h("div", "bl-docs");
       add(r, add(h("div", "bl-two"), planCard(), payCard()), histEl(), docsEl);
       docsStart(); paintDocs();
       if (b.outstanding_centavos > 0) add(r, para("Unpaid usage: " + peso(b.outstanding_centavos), "bl-meta"));
     }
+    /* Cancel sits last on the page, never in the status block; same button, same conditions, only the place moved. */
+    if (hm.actions.indexOf("cancel") !== -1) add(r, add(h("div", "bl-cancelrow"), btn("Cancel subscription", "cancel", function (x) { openCancel(x); })));
   }
 
   /* ---- owner documents: Statements, BIR invoices, Billing details (each hidden while its route answers 404) ---- */

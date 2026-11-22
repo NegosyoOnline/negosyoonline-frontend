@@ -8,7 +8,9 @@
    the buttons stay as the page ships them.
    Settings (ClickUp z8uq9mek62) is the one plain entry after the list: always drawn, last, with Inbox and Contacts in front of it.
    Contacts is the second gated entry (ClickUp z8uq9me128): not drawn until contacts/status/ answers 200, always
-   after Inbox when there is one, current for every /contacts/ path. That call carries nothing at all. */
+   after Inbox when there is one, current for every /contacts/ path. That call carries nothing at all.
+   Subscribers is the third gated entry (ClickUp z8uq9mhbdn): not drawn until subscribers/list/ answers 200
+   (a 404 is the backend switch HQ_SUBSCRIBERS_ENABLED being off), always last in front of Settings. */
 (function () {
   /* href: the page's address. label: its name. icon: the path of a 24 by 24 line icon. */
   var MENU = [
@@ -20,6 +22,7 @@
   var SETTINGS = { href: "/settings/", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2" };
   var INBOX = { href: "/inbox/sms/", label: "Inbox", icon: "M4 5h16v11H8l-4 4zM8 9h8M8 12h5" };
   var CONTACTS = { href: "/contacts/", label: "Contacts", icon: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.2a3.5 3.5 0 0 1 0 6.6" };
+  var SUBSCRIBERS = { href: "/subscribers/", label: "Subscribers", icon: "M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M17 11l2 2 3-3.5" };
   /* The SVG namespace, read from the wordmark already on the page. */
   var mark = document.querySelector ? document.querySelector("svg") : null;
   var SVG = mark ? mark.namespaceURI : null;
@@ -74,7 +77,7 @@
   var H = window.NOHq;
   if (!H || typeof H.call !== "function") return;
 
-  var pills = [], dots = [], contactsLink = null;
+  var pills = [], dots = [], contactsLink = null, subscribersLink = null;
   function unreadWords(n) { return n > 0 ? "Inbox, " + n + " unread" : "Inbox, no unread texts"; }
 
   /* The unread number on the menu entry and the dot on the bell. The Inbox page calls this after it has
@@ -102,7 +105,7 @@
 
   H.call("POST", "inbox/status/", { platform: "sms" }).then(function (res) {
     if (!res || res.status !== 200) return;
-    var a = entry(INBOX, location.pathname.indexOf("/inbox/") === 0, contactsLink || settingsLink);
+    var a = entry(INBOX, location.pathname.indexOf("/inbox/") === 0, contactsLink || subscribersLink || settingsLink);
     [a, a.twin].forEach(function (x) {
       if (!x) return;
       var pill = document.createElement("span");
@@ -127,7 +130,14 @@
 
   H.call("POST", "contacts/status/").then(function (res) {
     if (!res || res.status !== 200) return;
-    contactsLink = entry(CONTACTS, location.pathname.indexOf("/contacts/") === 0, settingsLink);
+    contactsLink = entry(CONTACTS, location.pathname.indexOf("/contacts/") === 0, subscribersLink || settingsLink);
+  });
+
+  /* Only a 200 draws the entry; a 404 is the switch being off. The body is the smallest the route takes, and the
+     answer is not read. */
+  H.call("POST", "subscribers/list/", { filter: "all" }).then(function (res) {
+    if (!res || res.status !== 200) return;
+    subscribersLink = entry(SUBSCRIBERS, location.pathname.indexOf("/subscribers/") === 0, settingsLink);
   });
 
   window.NOHqMenu = { setUnread: setUnread };

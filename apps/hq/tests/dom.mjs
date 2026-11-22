@@ -66,6 +66,7 @@ class Node {
 export function makeDocument() {
   const doc = { activeElement: null, listeners: {}, cookie: "" };
   doc.createElement = (tag) => { const n = new Node(tag); n.doc = doc; return n; };
+  doc.createTextNode = (t) => { const n = new Node("#text"); n.doc = doc; n.text = String(t); return n; };
   doc.createElementNS = (ns, tag) => doc.createElement(tag);
   doc.body = doc.createElement("body");
   doc.getElementById = (id) => doc.body.all((n) => n.attrs.id === id)[0] || null;

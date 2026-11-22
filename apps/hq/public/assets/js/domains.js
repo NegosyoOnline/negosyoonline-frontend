@@ -84,8 +84,8 @@
   function button(text) { var b = F.el("button", "no-btn no-btn-ghost", text); b.setAttribute("type", "button"); return b; }
   function call(path, body) { return H.call("POST", ROUTE + path, body); }
   function label(c) { return c.name ? c.name : "this claim of " + (c.store || c.site); }
-  /* The store's name, or its id when the backend sent no name. The field names are read leniently: store_name, site_name, display_name. */
-  function storeName(o) { return str(o.store_name) || str(o.site_name) || str(o.display_name) || str(o.store) || ""; }
+  /* The store's name: `site_name` on a claim row. Empty when the backend sent none (the id stands in). */
+  function storeName(o) { return str(o.site_name); }
   /* "Nov 22, 4:51 PM": the Manila time without the year, on one line. */
   function short(iso) { return F.stamp(iso).replace(/, \d{4}(?=,)/, ""); }
 
@@ -97,23 +97,36 @@
     else td.textContent = content || "—";
     return td;
   }
-  function stack(main, small) {
-    var b = F.el("div", "");
-    b.appendChild(F.el("span", "lc-id", main));
-    if (small) b.appendChild(F.el("small", "", small));
+  /* A main line and a small grey line, each on one line with an ellipsis; the full text is in title. */
+  function stack(main, small, smallTitle) {
+    var b = F.el("div", "dm-stack"), m = F.el("span", "lc-id", main), t;
+    m.setAttribute("title", main);
+    b.appendChild(m);
+    if (small) {
+      t = F.el("small", "", small);
+      t.setAttribute("title", smallTitle || small);
+      b.appendChild(t);
+    }
     return b;
   }
-  function chipStack(chipNode, small) {
-    var b = F.el("div", "dm-chips");
-    b.appendChild(chipNode);
-    if (small) b.appendChild(F.el("small", "", small));
+  /* The status cell: the state and registration chips side by side, the reason, the last confirm request (only when there is
+     one: its chip, then the refusal in words and the time) and the short last-change date in small grey text. */
+  function statusCell(c) {
+    var b = F.el("div", "dm-status"), top = F.el("div", "dm-chips"), k = obj(c.confirm), why, line, note;
+    top.appendChild(chip(STATE, c.state));
+    if (c.registration) top.appendChild(chip(REGISTRATION, c.registration));
+    b.appendChild(top);
+    if (plainReason(c.reason)) b.appendChild(F.el("small", "", plainReason(c.reason)));
+    if (own(CONFIRM, k.state)) {
+      line = F.el("div", "dm-chips");
+      line.appendChild(chip(CONFIRM, k.state));
+      why = k.state === "refused" ? confirmWhy(str(k.reason)) : "";
+      note = [why, short(k.at)].filter(Boolean).join(" · ");
+      if (note) line.appendChild(F.el("small", "", note));
+      b.appendChild(line);
+    }
+    if (short(c.state_changed_at)) b.appendChild(F.el("small", "", short(c.state_changed_at)));
     return b;
-  }
-  /* The last confirm request: its state, the reason a refusal gave (the backend's own words, set as text) and when. */
-  function confirmCell(c) {
-    var k = obj(c.confirm), why = k.state === "refused" ? confirmWhy(str(k.reason)) : "";
-    if (!own(CONFIRM, k.state)) return cell("");
-    return cell(chipStack(chip(CONFIRM, k.state), [why, short(k.at)].filter(Boolean).join(" · ")), "lc-wrap");
   }
 
   function act(c, key, text) {
@@ -132,14 +145,11 @@
   }
 
   function claimRow(c) {
-    var tr = F.el("tr", ""), name = c.name, regName = c.registration_name, labels = ["Site", "Domain", "State", "Registration", "Last change", "Confirm request"];
+    var tr = F.el("tr", ""), name = c.name, regName = c.registration_name, labels = ["Store", "Domain", "Status"];
     var domain = name ? stack(name, regName && regName !== name ? "Registered as " + regName : "") : regName ? stack(regName, "") : "";
-    tr.appendChild(cell(c.store ? stack(c.store, c.site + " · " + c.claim) : stack(c.site, c.claim)));
-    tr.appendChild(cell(domain));
-    tr.appendChild(cell(chipStack(chip(STATE, c.state), plainReason(c.reason)), "lc-wrap"));
-    tr.appendChild(cell(c.registration ? chip(REGISTRATION, c.registration) : ""));
-    tr.appendChild(cell(short(c.state_changed_at)));
-    tr.appendChild(confirmCell(c));
+    tr.appendChild(cell(c.store ? stack(c.store, c.site, c.site + " · " + c.claim) : stack(c.site, "", c.site + " · " + c.claim), "dm-trunc"));
+    tr.appendChild(cell(domain, "dm-trunc"));
+    tr.appendChild(cell(statusCell(c), "dm-st"));
     tr.appendChild(actions(c));
     /* The phone layout stacks each row and names each value by the column it is in. */
     Array.prototype.slice.call(tr.children).forEach(function (td, i) { if (labels[i]) td.setAttribute("data-label", labels[i]); });
@@ -183,11 +193,11 @@
   function take(data) {
     var d = obj(data);
     claims = clean(d.claims);
-    /* Each is {site, name} (or {id, name}); an older answer is a plain id string. */
+    /* Each is {id, name}; an older answer is a plain id string. */
     eligible = arr(d.eligible_sites).map(function (s) {
       if (typeof s === "string") return s ? { id: s, name: "" } : null;
-      var o = obj(s), id = str(o.site) || str(o.id) || str(o.public_id);
-      return id ? { id: id, name: storeName(o) || str(o.name) } : null;
+      var o = obj(s), id = str(o.id);
+      return id ? { id: id, name: str(o.name) } : null;
     }).filter(Boolean);
     counters = obj(d.counters);
   }

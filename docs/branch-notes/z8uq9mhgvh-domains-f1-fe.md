@@ -49,3 +49,10 @@ Expected `200 {"site":"<site public id>","n":"abcdefghijklmnopqrstuv"}` with `Ca
 * Desktop: dates are short ("Nov 22, 4:51 PM", no year), padding and column widths are tighter, the actions column is 132 px with stacked, wrapping buttons. No horizontal scroll at 1360 or 1200; every label shows in full.
 * Phone: ids break inside the card (`overflow-wrap`), checked with a 75-character id; no horizontal overflow at 375.
 * Focus border: the filter box uses `var(--link)` like `.input` (measured rgb(23, 61, 184) in the light theme, the shared HQ link blue; the dark theme's is #9DB4FF). The page adds no navy focus rule.
+
+## Fix round 2
+
+* Real fields (B2 894e30c): `site_name` on claim rows, `{id, name}` for eligible sites; the guessed extras were dropped (a plain id string still works).
+* The claims table is four columns: Store | Domain | Status | Actions. Status holds the state chip and registration chip side by side, the reason line, the last confirm request (chip, refusal in words, time; only when there is one) and the short last-change date in small grey text.
+* Store name and domain are one line with an ellipsis and the full text in `title`; under the store name only the site id (title: "site_... · dom_..."). No mid-word breaks. The actions column takes its buttons' natural width (`width: 1%; nowrap`).
+* Measured with getBoundingClientRect: at 1200 light and 1360 dark every button's right edge is inside the card, no scroll inside the card (scrollWidth equals clientWidth). At 375 no element passes the card edge.

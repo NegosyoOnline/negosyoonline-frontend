@@ -65,7 +65,7 @@ test("the list shows site, claim, domain, state, registration, last change and t
   assert.deepEqual(p.shown(), ["v-main"]);
   assert.equal(rows(p).length, 2);
   const first = rows(p)[0].textContent;
-  assert.match(first, /site_a/); assert.match(first, /dom_a/); assert.match(first, /shop\.example\.test/);
+  assert.match(first, /site_a/); assert.ok(rows(p)[0].children[0].all((n) => n.hasAttribute("title")).some((n) => /site_a · dom_a/.test(n.getAttribute("title")))); assert.match(first, /shop\.example\.test/);
   assert.deepEqual(chips(rows(p)[0]), ["Live", "Registered"]);
   assert.match(first, /Nov 20, 9:00 AM/);
   assert.doesNotMatch(first, /2026/);
@@ -298,8 +298,8 @@ test("a code as a claim reason is spaced out as words; a sentence is left as wri
 });
 
 test("the store's name is the main line with the site id small under it; the id stands in when there is no name", async () => {
-  const p = await page(base([claim({ store_name: "Nena's Wellness" }), claim({ claim: "dom_b", site: "site_b" })],
-    { [LIST]: list([claim({ store_name: "Nena's Wellness" }), claim({ claim: "dom_b", site: "site_b" })], { eligible_sites: [{ site: "site_a", name: "Nena's Wellness" }, { site: "site_q", name: "" }] }) }));
+  const p = await page(base([claim({ site_name: "Nena's Wellness" }), claim({ claim: "dom_b", site: "site_b" })],
+    { [LIST]: list([claim({ site_name: "Nena's Wellness" }), claim({ claim: "dom_b", site: "site_b" })], { eligible_sites: [{ id: "site_a", name: "Nena's Wellness" }, { id: "site_q", name: "" }] }) }));
   const cell0 = rows(p)[0].children[0];
   assert.equal(cell0.all((n) => n.classList.contains("lc-id"))[0].textContent, "Nena's Wellness");
   assert.match(cell0.all((n) => n.tagName === "SMALL")[0].textContent, /site_a/);

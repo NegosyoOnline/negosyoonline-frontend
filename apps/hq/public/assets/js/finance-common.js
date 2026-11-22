@@ -84,8 +84,8 @@
      option panel directly below it, a typing filter, and textContent only. The native select stays the source of
      truth, hidden, so the form code reads its value unchanged. Escape closes the list only, never a dialog.
      describedby: the id of the message that speaks about the field. choices: [[value, words], ...], the first
-     one being the empty choice. */
-  function combo(select, label, choices, describedby) {
+     one being the empty choice. onPick: optional, called with the value after a row is chosen (a filter uses it). */
+  function combo(select, label, choices, describedby, onPick) {
     var wrap = el("div", "fin-combo"), box = el("div", "fin-combo-box"), panel = el("div", "fin-combo-panel"), rows = [], vals = [], active = -1;
     var input = el("input", "fin-combo-input");
     input.setAttribute("type", "text"); input.setAttribute("role", "combobox"); input.setAttribute("autocomplete", "off");
@@ -104,7 +104,7 @@
       rows.forEach(function (r, n) { r.classList.toggle("is-active", n === i); });
       if (i >= 0) input.setAttribute("aria-activedescendant", rows[i].id); else input.removeAttribute("aria-activedescendant");
     }
-    function pick(value) { select.value = value; input.value = chosen(); shut(); }
+    function pick(value) { select.value = value; input.value = chosen(); shut(); if (onPick) onPick(value); }
     function draw(q) {
       panel.textContent = ""; rows = []; vals = [];
       choices.forEach(function (c) {

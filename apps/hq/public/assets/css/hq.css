@@ -572,3 +572,38 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .lc-sticky .no-btn { flex: 1 1 auto; }
   .lc-table .lc-detrow td { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Domains page (ClickUp z8uq9mhgvh): the heading row with the state filter, the facts line, the sites list, and claim rows that stack
+   on a phone. The filter is the house dropdown (.fin-combo), whose focus border is the link blue. Every colour is an HQ variable. */
+.dm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; padding: 20px 20px 0; }
+.dm-head h2 { margin: 0; }
+.dm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.dm-filter { width: 220px; max-width: 100%; margin: 0; }
+.dm-facts { padding: 10px 20px 0; margin: 0; }
+.dm-ids { margin: 0; padding: 0 20px 18px; overflow-wrap: anywhere; font-weight: 600; }
+.dm-table td { white-space: normal; }
+.dm-table td .lc-id { overflow-wrap: anywhere; }
+.dm-table td .dm-chips { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.dm-table td .lc-btns { flex-direction: column; align-items: stretch; }
+.dm-table td.lc-act { width: 150px; }
+.dm-table td .lc-btns .no-btn { white-space: normal; text-align: center; line-height: 1.25; padding-top: 8px; padding-bottom: 8px; }
+.dm-table td.lc-wrap { min-width: 130px; }
+@media (max-width: 899.98px) {
+  .dm-head { padding: 16px 16px 0; }
+  .dm-filter { flex: 1 1 180px; width: auto; }
+  .dm-facts { padding: 10px 16px 0; }
+  .dm-ids { padding: 0 16px 16px; }
+  .dm-table { min-width: 0; display: block; }
+  .dm-table thead { display: none; }
+  .dm-table tbody { display: block; }
+  .dm-table tr { display: block; padding: 14px 16px; border-top: 1px solid var(--card-line); }
+  .dm-table tbody tr:first-child { border-top: 0; }
+  .dm-table td { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 5px 0; border-top: 0; white-space: normal; text-align: left; }
+  .dm-table td > .chip { justify-self: start; }
+  .dm-table td::before { content: attr(data-label); color: var(--meta); font-size: 13px; font-weight: 700; }
+  .dm-table td.lc-act { display: block; padding-top: 10px; }
+  .dm-table td.lc-act::before { content: none; }
+  .dm-table td.lc-act .lc-btns { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+  .dm-table td.lc-act { width: auto; }
+  .dm-table td.lc-act .no-btn { flex: 1 1 auto; }
+}

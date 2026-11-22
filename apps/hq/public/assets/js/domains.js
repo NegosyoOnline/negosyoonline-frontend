@@ -100,7 +100,7 @@
   /* A main line and a small grey line, each on one line with an ellipsis; the full text is in title. */
   function stack(main, small, smallTitle) {
     var b = F.el("div", "dm-stack"), m = F.el("span", "lc-id", main), t;
-    m.setAttribute("title", main);
+    m.setAttribute("title", small ? main : smallTitle || main);
     b.appendChild(m);
     if (small) {
       t = F.el("small", "", small);

@@ -83,7 +83,11 @@
   }
   function button(text) { var b = F.el("button", "no-btn no-btn-ghost", text); b.setAttribute("type", "button"); return b; }
   function call(path, body) { return H.call("POST", ROUTE + path, body); }
-  function label(c) { return c.name ? c.name : "this claim of " + c.site; }
+  function label(c) { return c.name ? c.name : "this claim of " + (c.store || c.site); }
+  /* The store's name, or its id when the backend sent no name. The field names are read leniently: store_name, site_name, display_name. */
+  function storeName(o) { return str(o.store_name) || str(o.site_name) || str(o.display_name) || str(o.store) || ""; }
+  /* "Nov 22, 4:51 PM": the Manila time without the year, on one line. */
+  function short(iso) { return F.stamp(iso).replace(/, \d{4}(?=,)/, ""); }
 
   /* ---- the table ---- */
 
@@ -107,9 +111,9 @@
   }
   /* The last confirm request: its state, the reason a refusal gave (the backend's own words, set as text) and when. */
   function confirmCell(c) {
-    var k = obj(c.confirm), at = F.stamp(k.at), why = k.state === "refused" ? confirmWhy(str(k.reason)) : "";
+    var k = obj(c.confirm), why = k.state === "refused" ? confirmWhy(str(k.reason)) : "";
     if (!own(CONFIRM, k.state)) return cell("");
-    return cell(chipStack(chip(CONFIRM, k.state), [why, at].filter(Boolean).join(" · ")), "lc-wrap");
+    return cell(chipStack(chip(CONFIRM, k.state), [why, short(k.at)].filter(Boolean).join(" · ")), "lc-wrap");
   }
 
   function act(c, key, text) {
@@ -130,11 +134,11 @@
   function claimRow(c) {
     var tr = F.el("tr", ""), name = c.name, regName = c.registration_name, labels = ["Site", "Domain", "State", "Registration", "Last change", "Confirm request"];
     var domain = name ? stack(name, regName && regName !== name ? "Registered as " + regName : "") : regName ? stack(regName, "") : "";
-    tr.appendChild(cell(stack(c.site, c.claim)));
+    tr.appendChild(cell(c.store ? stack(c.store, c.site + " · " + c.claim) : stack(c.site, c.claim)));
     tr.appendChild(cell(domain));
     tr.appendChild(cell(chipStack(chip(STATE, c.state), plainReason(c.reason)), "lc-wrap"));
     tr.appendChild(cell(c.registration ? chip(REGISTRATION, c.registration) : ""));
-    tr.appendChild(cell(F.stamp(c.state_changed_at)));
+    tr.appendChild(cell(short(c.state_changed_at)));
     tr.appendChild(confirmCell(c));
     tr.appendChild(actions(c));
     /* The phone layout stacks each row and names each value by the column it is in. */
@@ -144,13 +148,13 @@
 
   function clean(list) {
     return arr(list).filter(function (c) { return c && typeof c.claim === "string" && typeof c.site === "string"; }).map(function (c) {
-      return { claim: c.claim, site: c.site, name: str(c.name), state: str(c.state), reason: str(c.reason), state_changed_at: str(c.state_changed_at),
+      return { claim: c.claim, site: c.site, store: storeName(c), name: str(c.name), state: str(c.state), reason: str(c.reason), state_changed_at: str(c.state_changed_at),
         registration: str(c.registration), registration_name: str(c.registration_name), confirm: obj(c.confirm).state ? obj(c.confirm) : null };
     });
   }
 
   function paint() {
-    var body = $("d-rows"), shown = claims.filter(function (c) { return filter === "all" || c.state === filter; }), facts = [];
+    var body = $("d-rows"), shown = claims.filter(function (c) { return filter === "all" || c.state === filter; }), facts = [], list;
     body.textContent = "";
     shown.forEach(function (c) { body.appendChild(claimRow(c)); });
     $("d-wrap").hidden = shown.length === 0;
@@ -163,7 +167,14 @@
     if (typeof counters.purchase_enabled === "boolean") facts.push(counters.purchase_enabled ? "Buying is switched on" : "Buying is switched off");
     $("d-facts").textContent = facts.join(" · ");
     $("d-facts").hidden = !facts.length;
-    $("d-elig").textContent = eligible.join(", ");
+    list = $("d-elig");
+    list.textContent = "";
+    eligible.forEach(function (e) {
+      var li = F.el("li", "");
+      li.appendChild(F.el("span", "lc-id", e.name || e.id));
+      if (e.name) li.appendChild(F.el("small", "", e.id));
+      list.appendChild(li);
+    });
     $("d-elig-card").hidden = !eligible.length;
   }
 
@@ -172,7 +183,12 @@
   function take(data) {
     var d = obj(data);
     claims = clean(d.claims);
-    eligible = arr(d.eligible_sites).filter(function (s) { return typeof s === "string" && s; });
+    /* Each is {site, name} (or {id, name}); an older answer is a plain id string. */
+    eligible = arr(d.eligible_sites).map(function (s) {
+      if (typeof s === "string") return s ? { id: s, name: "" } : null;
+      var o = obj(s), id = str(o.site) || str(o.id) || str(o.public_id);
+      return id ? { id: id, name: storeName(o) || str(o.name) } : null;
+    }).filter(Boolean);
     counters = obj(d.counters);
   }
 

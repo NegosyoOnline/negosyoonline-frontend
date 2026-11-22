@@ -42,3 +42,10 @@ Expected `200 {"site":"<site public id>","n":"abcdefghijklmnopqrstuv"}` with `Ca
 * `apps/storefronts`: `pnpm test` (679 pass, includes 7 new), `pnpm lint` (0 errors, the 13 existing warnings), `npx tsc --noEmit` clean, `pnpm build` compiles and lists the route.
 * `apps/hq`: `pnpm test` (619 pass), `pnpm lint` clean. `npx tsc --noEmit` reports only `src/app/layout.tsx` `LayoutProps` (a Next generated type; present before this branch).
 * Browser check on a local HQ build pointed at a throwaway stub of the staff routes (not the real backend): list, filter, each dialog, the 202 then waiting row, a 409 refusal shown in the dialog, the 404 state; light and dark, 375 and 1360 px. Not yet run against the real B2 backend.
+
+## Fix round 1 (coordinator's visual check)
+
+* Store names: the page reads the store's name from a claim's `store_name` (also `site_name`, `display_name`) and from each eligible site as `{site, name}` (also `id`; a plain id string still works). The name is the main line, the site id and claim id small under it; the id stands in when there is no name. "Sites that can choose a domain" is a list of names with the id small. The field names are a guess until the B2 fix lands: confirm and adjust `storeName()` in `domains.js`.
+* Desktop: dates are short ("Nov 22, 4:51 PM", no year), padding and column widths are tighter, the actions column is 132 px with stacked, wrapping buttons. No horizontal scroll at 1360 or 1200; every label shows in full.
+* Phone: ids break inside the card (`overflow-wrap`), checked with a 75-character id; no horizontal overflow at 375.
+* Focus border: the filter box uses `var(--link)` like `.input` (measured rgb(23, 61, 184) in the light theme, the shared HQ link blue; the dark theme's is #9DB4FF). The page adds no navy focus rule.

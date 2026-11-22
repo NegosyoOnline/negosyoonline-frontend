@@ -17,12 +17,13 @@ export type LessonRow = { id: string; title: string; duration: string; image_url
 export type Module = { id: string; title: string; module_number: number; completed_lessons: number; total_lessons: number; lessons: LessonRow[] };
 export type CourseDetail = Course & { modules: Module[]; next_lesson: Ref | null };
 export type ModuleRef = Ref & { first_lesson_id: string; module_number: number };
+/** The lesson's video as the API describes it (R2): `embed_url` already names the lesson's own Bunny Stream library; the page never builds it. */
+export type Video = { kind: "stream" | "legacy" | "none"; status: string; embed_url: string; needs_video: boolean };
 export type Lesson = {
-  id: string; title: string; duration: string; description: string; video_url: string; completed: boolean;
+  id: string; title: string; duration: string; description: string; video_url: string; video: Video; completed: boolean;
   course: Ref; module: Ref & { module_number: number }; lessons: LessonRow[]; previous_lesson: Ref | null; next_lesson: Ref | null; next_lesson_locked: boolean;
   previous_module: ModuleRef | null; next_module: ModuleRef | null;
 };
-export type Completed = { lesson_id: string; course_id: string; completed: boolean; next_lesson: Ref | null; percent: number };
 export type Live = { id: string; title: string; starts_at: string; duration_minutes: number; description: string; join_url: string; thumbnail_url: string };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -56,6 +57,11 @@ function moduleOf(v: unknown): Module[] {
     id: str(v.id), title: str(v.title), module_number: num(v.module_number), completed_lessons: num(v.completed_lessons), total_lessons: num(v.total_lessons),
     lessons: Array.isArray(v.lessons) ? v.lessons.flatMap(row) : [],
   }];
+}
+function video(v: unknown): Video {
+  if (!record(v)) return { kind: "none", status: "", embed_url: "", needs_video: false };
+  const kind = v.kind === "stream" || v.kind === "legacy" ? v.kind : "none";
+  return { kind, status: str(v.status), embed_url: str(v.embed_url), needs_video: v.needs_video === true };
 }
 function live(v: unknown): Live | null {
   if (!record(v) || !str(v.id) || !str(v.title) || !str(v.starts_at)) return null;
@@ -96,7 +102,7 @@ export function memberLesson(args: Args & { id: string }, c: Calls): Promise<Pac
     if (!cr || !mr) return null;
     return {
       lesson: {
-        id: str(b.id), title: str(b.title), duration: str(b.duration), description: str(b.description), video_url: str(b.video_url),
+        id: str(b.id), title: str(b.title), duration: str(b.duration), description: str(b.description), video_url: str(b.video_url), video: video(b.video),
         completed: b.completed === true, course: cr, module: { ...mr, module_number: record(b.module) ? num(b.module.module_number) : 0 }, lessons: Array.isArray(b.lessons) ? b.lessons.flatMap(row) : [],
         previous_lesson: ref(b.previous_lesson), next_lesson: ref(b.next_lesson), next_lesson_locked: b.next_lesson_locked === true,
         previous_module: moduleRef(b.previous_module), next_module: moduleRef(b.next_module),
@@ -105,12 +111,16 @@ export function memberLesson(args: Args & { id: string }, c: Calls): Promise<Pac
   }, c);
 }
 
-export function memberLessonComplete(args: Args & { id: string }, c: Calls): Promise<PackResult<{ done: Completed }>> {
+const WATCH_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** The furthest point of a lesson's video this member has reached (0 to 100; `ended` when the player fired it). The server keeps the highest and
+    completes the lesson itself at 90 or more (or on `ended`): the answer says `completed`, and `next_unlocked` with `next_lesson_id` when the next lesson opened. */
+export type Watched = { percent: number; completed: boolean; next_unlocked: boolean; next_lesson_id: string };
+export function memberLessonWatch(args: Args & { id: string; percent: number; ended?: boolean }, c: Calls): Promise<PackResult<Watched>> {
   const { id, ...rest } = args;
-  return packPost(`member/training/lessons/${encodeURIComponent(id)}/complete`, rest, (b) => {
-    if (!record(b) || !str(b.lesson_id)) return null;
-    const progress = record(b.course) ? b.course : {};
-    return { done: { lesson_id: str(b.lesson_id), course_id: str(progress.id), completed: b.completed === true, next_lesson: ref(b.next_lesson), percent: Math.min(100, num(progress.percent)) } };
+  return packPost(`member/training/lessons/${encodeURIComponent(id)}/watch`, rest, (b) => {
+    if (!record(b)) return { percent: 0, completed: false, next_unlocked: false, next_lesson_id: "" };
+    const next = str(b.next_lesson_id);
+    return { percent: Math.min(100, num(b.percent)), completed: b.completed === true, next_unlocked: b.next_unlocked === true && WATCH_ID.test(next), next_lesson_id: WATCH_ID.test(next) ? next : "" };
   }, c);
 }
 

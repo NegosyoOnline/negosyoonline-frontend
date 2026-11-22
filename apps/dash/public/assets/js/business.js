@@ -324,7 +324,7 @@
       str(site.host) ? "This address was chosen at setup and is never given to another site. To change it, contact " + SUPPORT_EMAIL + "."
         : "Your address will show here once it is set up."));
     c.appendChild(row("Your own domain", PUB, [D.el("span", { "class": "bs-none" }, "None connected"), chip("neutral", "Not available yet")],
-      null, /* the Domain page is hidden for launch (z8uq9mek5z): no "Go to Domain" button while "/settings/domain/" is not in ROUTES */
+      null, /* the Domain page has no menu entry until Coach Ed's staging OK (z8uq9mhgvj): no "Go to Domain" button here either */
       "Connecting your own domain is not available yet. Its status will be shown here when it is."));
     return c;
   }

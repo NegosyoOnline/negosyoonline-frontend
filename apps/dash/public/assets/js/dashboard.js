@@ -23,6 +23,7 @@
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
+    "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj): reachable by its address only; no menu link until Coach Ed's staging OK (domain.js shows "not available" while the API answers 404) */
     "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */,
     "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
     "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
@@ -139,6 +140,9 @@
     var S = window.NOStorefrontSettings; /* storefront-settings.js loads after this file; same enter/leave hooks as Billing */
     if (S && shownView === "settings-shipping" && r.view !== "settings-shipping") S.hide();
     if (S && r.view === "settings-shipping" && shownView !== "settings-shipping") S.show();
+    var DM = window.NODomain; /* domain.js loads after this file; same enter/leave hooks as Shipping */
+    if (DM && shownView === "settings-domain" && r.view !== "settings-domain") DM.hide();
+    if (DM && r.view === "settings-domain" && shownView !== "settings-domain") DM.show();
     var E = window.NOEarnings; /* earnings.js loads after this file; same enter/leave hooks as Billing (E8 S1 to S5) */
     if (E && shownView === "earnings" && r.view !== "earnings") E.hide();
     if (E && r.view === "earnings" && shownView !== "earnings") E.show();

@@ -135,7 +135,7 @@ function lessonRowMarkup(l: LessonRow, courseId: string, current = "", next = ""
   const tag = l.id === current ? html`<span class="tr-now">Now</span>` : l.id === next && !l.completed ? html`<span class="tr-now">Up next</span>` : "";
   const inner = html`<span class="tr-ic" aria-hidden="true">${icon}</span><span class="tr-lt">${l.title}</span>${tag}${l.duration ? html`<span class="tr-ld">${l.duration}</span>` : ""}`;
   const cls = `tr-ls tr-ls-${state}${l.id === current ? " tr-ls-cur" : ""}`;
-  if (l.locked) return html`<div class="${cls}" data-lesson="${l.id}"><span class="sr-only">Locked: </span>${inner}</div>`;
+  if (l.locked) return html`<div class="${cls}" data-lesson="${l.id}"${current ? html` data-unlock-href="${lessonHref(l.id, courseId)}"` : ""}><span class="sr-only">Locked: </span>${inner}</div>`;
   return html`<a class="${cls}" href="${lessonHref(l.id, courseId)}" data-lesson="${l.id}"${l.id === current ? html` aria-current="page"` : ""}>${l.completed ? html`<span class="sr-only">Completed: </span>` : ""}${inner}</a>`;
 }
 
@@ -213,10 +213,14 @@ export function lessonContent(l: Lesson): Markup {
   const done = l.lessons.filter((x) => x.completed).length;
   const percent = total ? Math.round((done / total) * 100) : 0;
   const position = Math.max(1, l.lessons.findIndex((x) => x.id === l.id) + 1);
+  // TWCinc's Next Lesson: off, with "unlocks at 90% watched", until the lesson is complete; the watch script turns it into the link when the answer says completed.
+  const nextHref = l.next_lesson ? lessonHref(l.next_lesson.id, l.course.id) : "";
   const nextLesson = l.next_lesson
-    ? (l.next_lesson_locked
-      ? html`<span class="tr-btn tr-btn-off" aria-disabled="true">Next Lesson &rarr; <small>Mark this lesson complete first</small></span>`
-      : html`<a class="tr-btn tr-btn-go" href="${lessonHref(l.next_lesson.id, l.course.id)}">Next Lesson &rarr;</a>`)
+    ? (!l.completed
+      ? html`<span class="tr-btn tr-btn-off" id="tr-next-lesson" aria-disabled="true" data-next-url="${nextHref}" data-next-id="${l.next_lesson.id}">Next Lesson &rarr; <small>unlocks at 90% watched</small></span>`
+      : l.next_lesson_locked
+        ? html`<span class="tr-btn tr-btn-off" id="tr-next-lesson" aria-disabled="true">Next Lesson &rarr;</span>`
+        : html`<a class="tr-btn tr-btn-go" id="tr-next-lesson" href="${nextHref}">Next Lesson &rarr;</a>`)
     : "";
   return html`<div class="pd md-plain tr-page" data-md-page="lesson">
   <a class="tr-crumb" href="${courseHref(l.course.id)}">&larr; Back to ${l.course.title}</a>
@@ -224,9 +228,9 @@ export function lessonContent(l: Lesson): Markup {
     <div class="tr-hero-tx">
       <div class="tr-eyebrow">${l.course.title}${l.module.module_number > 0 ? html` &middot; Module ${l.module.module_number}` : ""}</div>
       <p class="tr-lhero-title">${l.module.title}</p>
-      <p class="tr-hero-meta">Lesson ${position} of ${total} &middot; ${plural(done, "lesson")} completed in this module</p>
+      <p class="tr-hero-meta">Lesson ${position} of ${total} &middot; <span id="tr-hero-done">${plural(done, "lesson")} completed</span> in this module</p>
     </div>
-    <div class="tr-ring" style="--p:${percent}" role="img" aria-label="${done} of ${total} lessons complete"><b>${done}/${total}</b></div>
+    <div class="tr-ring" id="tr-ring" style="--p:${percent}" role="img" aria-label="${done} of ${total} lessons complete" data-done="${done}" data-total="${total}"><b>${done}/${total}</b></div>
   </section>
   <div class="tr-lgrid">
     <div>
@@ -237,15 +241,14 @@ export function lessonContent(l: Lesson): Markup {
         ${l.description ? html`<p class="tr-desc">${l.description}</p>` : ""}
         <div class="tr-lnav">
           ${l.previous_lesson ? html`<a class="tr-btn" href="${lessonHref(l.previous_lesson.id, l.course.id)}">&larr; Previous Lesson</a>` : ""}
-          ${l.completed
-            ? html`<span class="tr-done" data-tr="completed">${CHECK} Completed</span>`
-            : html`<form method="post" action="${TRAINING_PATH}lesson/${encodeURIComponent(l.id)}/complete/"><button type="submit" class="md-app-btn tr-complete">Mark complete</button></form>`}
+          ${l.completed ? html`<span class="tr-done" data-tr="completed">${CHECK} Completed</span>` : ""}
           ${nextLesson}
         </div>
+        <p class="tr-unlock"><span aria-hidden="true">&#128275;</span><span>Lessons unlock in order. Watch at least 90% of this lesson to unlock the next one &mdash; your progress saves automatically.</span></p>
       </section>
     </div>
     <aside class="tr-plist" aria-label="Lessons in this module">
-      <div class="tr-plist-head"><div class="tr-eyebrow">${l.course.title}</div><h2>${l.module.title}</h2>${progressBar(percent, "Module progress")}<p class="tr-hero-meta">${done} of ${total} lessons complete</p></div>
+      <div class="tr-plist-head"><div class="tr-eyebrow">${l.course.title}</div><h2>${l.module.title}</h2>${progressBar(percent, "Module progress")}<p class="tr-hero-meta" id="tr-plist-done">${done} of ${total} lessons complete</p></div>
       ${l.lessons.map((x) => lessonRowMarkup(x, l.course.id, l.id))}
       <div class="tr-plist-foot">
         ${l.previous_module ? html`<a href="${lessonHref(l.previous_module.first_lesson_id, l.course.id)}">&larr; Prev Module${l.previous_module.module_number > 0 ? html` ${l.previous_module.module_number}` : ""}</a>` : html`<span class="tr-dis">&larr; Prev Module</span>`}

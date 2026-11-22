@@ -1,17 +1,9 @@
-/* "Mark complete", /dashboard/training/lesson/<lesson id>/complete/ (a same-origin form post). */
-import { dashFor } from "../../../../../../lib/dashboard-route.ts";
-import { lessonCompletePost } from "../../../../../../lib/training-flow.ts";
-import { forbidden, postIsSameOrigin } from "../../../../../../lib/member.ts";
+/* There is no manual "Mark complete" (Coach Ed, 2026-11-22): a video lesson completes by watching, through /dashboard/training/lesson/<id>/watch/.
+   This old address answers the neutral 404 to every method, so an old page or bookmark gets a clean answer and nothing reaches the API. */
 import { neutralNotFound } from "../../../../../../views/neutral.ts";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
-  const { id } = await context.params;
-  const d = await dashFor(request);
-  if (!d) return neutralNotFound();
-  if (!postIsSameOrigin(request)) return forbidden();
-  return lessonCompletePost(d, id);
-}
-
-export { neutralNotFound as GET, neutralNotFound as PUT, neutralNotFound as PATCH, neutralNotFound as DELETE, neutralNotFound as OPTIONS };
+export {
+  neutralNotFound as GET, neutralNotFound as POST, neutralNotFound as PUT, neutralNotFound as PATCH, neutralNotFound as DELETE, neutralNotFound as OPTIONS,
+};

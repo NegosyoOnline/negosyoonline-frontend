@@ -24,7 +24,6 @@ export type Lesson = {
   course: Ref; module: Ref & { module_number: number }; lessons: LessonRow[]; previous_lesson: Ref | null; next_lesson: Ref | null; next_lesson_locked: boolean;
   previous_module: ModuleRef | null; next_module: ModuleRef | null;
 };
-export type Completed = { lesson_id: string; course_id: string; completed: boolean; next_lesson: Ref | null; percent: number };
 export type Live = { id: string; title: string; starts_at: string; duration_minutes: number; description: string; join_url: string; thumbnail_url: string };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -112,19 +111,17 @@ export function memberLesson(args: Args & { id: string }, c: Calls): Promise<Pac
   }, c);
 }
 
-export function memberLessonComplete(args: Args & { id: string }, c: Calls): Promise<PackResult<{ done: Completed }>> {
+const WATCH_ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** The furthest point of a lesson's video this member has reached (0 to 100; `ended` when the player fired it). The server keeps the highest and
+    completes the lesson itself at 90 or more (or on `ended`): the answer says `completed`, and `next_unlocked` with `next_lesson_id` when the next lesson opened. */
+export type Watched = { percent: number; completed: boolean; next_unlocked: boolean; next_lesson_id: string };
+export function memberLessonWatch(args: Args & { id: string; percent: number; ended?: boolean }, c: Calls): Promise<PackResult<Watched>> {
   const { id, ...rest } = args;
-  return packPost(`member/training/lessons/${encodeURIComponent(id)}/complete`, rest, (b) => {
-    if (!record(b) || !str(b.lesson_id)) return null;
-    const progress = record(b.course) ? b.course : {};
-    return { done: { lesson_id: str(b.lesson_id), course_id: str(progress.id), completed: b.completed === true, next_lesson: ref(b.next_lesson), percent: Math.min(100, num(progress.percent)) } };
+  return packPost(`member/training/lessons/${encodeURIComponent(id)}/watch`, rest, (b) => {
+    if (!record(b)) return { percent: 0, completed: false, next_unlocked: false, next_lesson_id: "" };
+    const next = str(b.next_lesson_id);
+    return { percent: Math.min(100, num(b.percent)), completed: b.completed === true, next_unlocked: b.next_unlocked === true && WATCH_ID.test(next), next_lesson_id: WATCH_ID.test(next) ? next : "" };
   }, c);
-}
-
-/** The furthest point of a lesson's video this member has reached (0 to 100). The server keeps the highest and never changes "completed". */
-export function memberLessonWatch(args: Args & { id: string; percent: number }, c: Calls): Promise<PackResult<{ percent: number }>> {
-  const { id, ...rest } = args;
-  return packPost(`member/training/lessons/${encodeURIComponent(id)}/watch`, rest, (b) => ({ percent: record(b) ? Math.min(100, num(b.percent)) : 0 }), c);
 }
 
 /** The next live training that has not ended, or none. */

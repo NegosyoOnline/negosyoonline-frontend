@@ -128,3 +128,15 @@ test("the Settings page loads its scripts in order, and nothing in it is prefill
   assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", "settings"]);
   assert.doesNotMatch(html, /<input[^>]*\bvalue=/i);
 });
+
+test("the Domains page is covered, loads its scripts in order, and has no native dropdown, inline script or style", () => {
+  for (const f of ["domains.html", path.join("assets", "js", "domains.js")]) assert.ok(all.some((x) => x.name === f), f);
+  const html = all.find((x) => x.name === "domains.html").text;
+  const order = [...html.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["theme", "config", "hq", "menu", "shell", "finance-common", "domains"]);
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)/i, "no inline script");
+  assert.doesNotMatch(html, /\sstyle=|<style/i, "no inline style");
+  /* The one select is the native source of the house dropdown that domains.js wraps with NOFin.combo. */
+  assert.equal((html.match(/<select/g) || []).length, 1);
+  assert.match(all.find((x) => x.name === path.join("assets", "js", "domains.js")).text, /F\.combo\(\$\("d-state"\)/);
+});

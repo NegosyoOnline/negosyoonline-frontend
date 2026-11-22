@@ -579,3 +579,45 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .lc-sticky .no-btn { flex: 1 1 auto; }
   .lc-table .lc-detrow td { padding-left: 16px; padding-right: 16px; }
 }
+
+/* Domains page (ClickUp z8uq9mhgvh): the heading row with the state filter, the facts line, the sites list, and claim rows that stack
+   on a phone. The filter is the house dropdown (.fin-combo), whose focus border is the link blue. Every colour is an HQ variable. */
+.dm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; padding: 20px 20px 0; }
+.dm-head h2 { margin: 0; }
+.dm-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.dm-filter { width: 220px; max-width: 100%; margin: 0; }
+.dm-facts { padding: 10px 20px 0; margin: 0; }
+.dm-ids { list-style: none; margin: 0; padding: 0 20px 18px; display: flex; flex-direction: column; gap: 10px; }
+.dm-ids li { min-width: 0; }
+.dm-ids .lc-id, .dm-ids small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-ids small { color: var(--meta); font-size: 13px; }
+/* The claims table: Store | Domain | Status | Actions. Names and ids are one line with an ellipsis (the full text is in title),
+   the status wraps, the action column takes its buttons' natural width. Nothing scrolls inside the card at 1200 or 1360. */
+.dm-table { min-width: 0; table-layout: auto; }
+.dm-table th, .dm-table td { padding-left: 10px; padding-right: 10px; }
+.dm-table td.dm-trunc { width: 26%; max-width: 0; overflow: hidden; }
+.dm-stack { min-width: 0; }
+.dm-stack .lc-id, .dm-stack small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-table td.dm-st { white-space: normal; }
+.dm-status { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; }
+.dm-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.dm-table td.lc-act { width: 1%; white-space: nowrap; }
+.dm-table td .lc-btns { flex-direction: column; align-items: stretch; }
+.dm-table td .lc-btns .no-btn { white-space: nowrap; }
+@media (max-width: 899.98px) {
+  .dm-head { padding: 16px 16px 0; }
+  .dm-filter { flex: 1 1 180px; width: auto; }
+  .dm-facts { padding: 10px 16px 0; }
+  .dm-ids { padding: 0 16px 16px; }
+  .dm-table { display: block; }
+  .dm-table thead { display: none; }
+  .dm-table tbody { display: block; }
+  .dm-table tr { display: block; padding: 14px 16px; border-top: 1px solid var(--card-line); }
+  .dm-table tbody tr:first-child { border-top: 0; }
+  .dm-table td, .dm-table td.dm-trunc { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px; width: auto; max-width: none; padding: 5px 0; border-top: 0; text-align: left; }
+  .dm-table td::before { content: attr(data-label); color: var(--meta); font-size: 13px; font-weight: 700; }
+  .dm-table td.lc-act { display: block; width: auto; padding-top: 10px; }
+  .dm-table td.lc-act::before { content: none; }
+  .dm-table td.lc-act .lc-btns { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
+  .dm-table td.lc-act .no-btn { flex: 1 1 auto; }
+}

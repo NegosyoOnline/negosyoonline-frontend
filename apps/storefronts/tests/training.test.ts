@@ -352,7 +352,7 @@ test("the watch script posts the furthest percent at each 10% step and at the en
   assert.equal(w.posts.length, 5, "the end is sent once");
 });
 
-test("the first crossing of 90% is always posted, and the end is posted even when 100 was already sent; a completed answer stops further posts", async () => {
+test("the first crossing of 90% is always posted, and the end is posted even when 100 was already sent; a completed answer does not stop the later steps", async () => {
   const w = runWatch();
   w.ready();
   await w.at(89.9);
@@ -362,13 +362,19 @@ test("the first crossing of 90% is always posted, and the end is posted even whe
   await w.at(100);
   await w.ended();
   assert.deepEqual(w.posts.map((p) => [p.percent, p.ended === true]), [[80, false], [90, false], [100, false], [100, true]]);
-  // a server that says completed at 90: nothing more is sent
+  // a server that says completed at 90: later steps and the end are still posted, so the furthest percent stays true
   const done = runWatch({ answer: (p) => ({ percent: p, completed: p >= 90, next_unlocked: p >= 90, next_lesson_id: p >= 90 ? "lsn_3" : null }) });
   done.ready();
   await done.at(95);
   await done.at(100);
   await done.ended();
-  assert.deepEqual(done.posts.map((p) => p.percent), [90]);
+  assert.deepEqual(done.posts.map((p) => [p.percent, p.ended === true]), [[90, false], [100, false], [100, true]]);
+  const full = runWatch({ answer: (p) => ({ percent: p, completed: p >= 90, next_unlocked: p >= 90, next_lesson_id: p >= 90 ? "lsn_3" : null }) });
+  full.ready();
+  for (const p of [10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100]) await full.at(p);
+  await full.ended();
+  await full.ended();
+  assert.deepEqual(full.posts.map((p) => [p.percent, p.ended === true]), [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => [n, false]).concat([[100, true]]));
   // a jump straight to the end posts one 100 with ended
   const jump = runWatch();
   jump.ready();
@@ -432,6 +438,9 @@ test("when the answer says completed the page updates live: Next Lesson turns on
   const w = runWatch({ doc: p.doc, answer: (pc) => ({ percent: pc, completed: pc >= 90, next_unlocked: pc >= 90, next_lesson_id: "lsn_3" }) });
   w.ready();
   await w.at(95);
+  await w.at(100);
+  await w.ended();
+  assert.deepEqual(w.posts.map((x) => [x.percent, x.ended === true]), [[90, false], [100, false], [100, true]]);
   assert.ok(p.cur.classes.has("tr-ls-done") && !p.cur.classes.has("tr-ls-open"));
   assert.match(p.curIc.innerHTML, /<path d="M5 12\.5l4\.5 4\.5L19 7\.5"\/>/);
   const anchor = p.nav.kids.find((k) => k.tagName === "A")!;

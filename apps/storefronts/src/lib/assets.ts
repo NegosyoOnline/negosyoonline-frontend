@@ -76,7 +76,7 @@ const VERSIONS: Record<string, string> = {
   "img/reels/reel-54990aa4.jpg": "3b642baf",
   "img/reels/reel-1.jpg": "cf79141a",
   "js/pack-visit.js": "3b49b61a", // this storefront's own file: the landing page visitor ref and the video marks (ClickUp z8uq9mfw14)
-  "js/lesson-watch.js": "6ea8eb2d", // this storefront's own file: the member lesson page's watch progress and live completion (ClickUp z8uq9mhbhd, CP-1 R2)
+  "js/lesson-watch.js": "8b1f7f02", // this storefront's own file: the member lesson page's watch progress and live completion (ClickUp z8uq9mhbhd, CP-1 R2)
   "js/player.min.js": "48c4f991", // Player.js v0.0.11 (embedly, MIT), the copy TWCinc ships, self-hosted so script-src stays 'self'
   "js/pack-landing.js": "625c300d", // this storefront's own file: the landing page's inline script, moved out (the policy allows none)
   "js/pack-policy-popup.js": "9d957133",

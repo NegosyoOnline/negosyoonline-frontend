@@ -2,7 +2,7 @@
    (app/static/dashboard/subscriber/js/lesson-watch.js) and its lesson:completed handler. A Bunny Stream lesson's embed speaks the player.js
    protocol, so this follows how far the member has got (the furthest point reached) and posts it to this storefront server at each 10 percent
    step (10, 20 ... 90) and at the end (100). It always posts the first crossing of 90 percent, and the player's `ended` (sent with ended: true).
-   The server keeps the highest and completes the lesson itself at 90 or more: when the answer says `completed`, the page is updated live
+   The server keeps the highest (it never goes down) and completes the lesson itself at 90 or more: when the answer says `completed`, the page is updated live
    (Next Lesson turns on, the lesson is ticked in the list, the counts go up), with no reload. There is no "Mark complete" button.
    A step is sent once, and only once the server has taken it, so a failed post is tried again at the next step. Nothing goes to any
    third party. The Player.js library is this storefront's own copy (js/player.min.js, v0.0.11). */
@@ -26,7 +26,7 @@ return Promise.resolve(r.json?r.json():{}).then(function(d){return d||{};},funct
 }).catch(function(){return null;});
 }
 function flush(){
-if(busy||finished){return;}
+if(busy){return;}
 var step=best>=100?100:Math.floor(best/10)*10;
 var needEnd=ended&&!endSent;
 if(!needEnd&&(step<10||step<=sent)){return;}
@@ -36,7 +36,7 @@ busy=false;
 if(!d){return;}
 if(step>sent){sent=step;}
 if(needEnd){endSent=true;}
-if(d.completed===true){finished=true;completed(d);return;}
+if(d.completed===true&&!finished){finished=true;completed(d);}
 flush();
 });
 }

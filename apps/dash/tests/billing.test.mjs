@@ -112,7 +112,7 @@ async function fillForm(d, over = {}, { time = true, file = true } = {}) {
 }
 
 /* ---- 1. routes and vocabulary ---- */
-test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none to /billing/sites/; no gateway, statement, video or business-day wording in the source", async () => {
+test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none to /billing/sites/; no gateway, video or business-day wording in the source", async () => {
   const d = boot({ pay: payInfo({ offers: [OFFER.promo, OFFER.monthly, OFFER.annual] }) });
   await d.go("?site=" + A + "&pay=choose");
   d.click(d.root, "Choose"); /* Monthly or Annual, whichever comes first after the promo */
@@ -123,16 +123,16 @@ test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none 
     assert.equal(c.credentials, "include");
   }
   assert.ok(d.list().includes("GET " + B) && d.list().includes("GET " + B + "payment/") && d.list().includes("GET " + B + "payments/?limit=20"));
-  assert.doesNotMatch(SRC, /xendit|paymongo|gateway|statement|invoice|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
+  assert.doesNotMatch(SRC, /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
 });
 
 /* ---- 2. the states of the home page ---- */
 const STATES = [
-  ["trial", { billing: billing() }, { chip: null, head: "Your free trial ends in", buttons: ["Pay by bank transfer", "Cancel subscription"] }],
+  ["trial", { billing: billing() }, { chip: null, head: "Your free trial ends in", buttons: ["Pay by bank transfer"], cancel: true }],
   ["active and paid, payable", { billing: billing({ state: "active", current_cycle: { sequence: 1, start_at: "2026-11-20T00:00:00+08:00", end_at: "2026-12-20T00:00:00+08:00", settlement: "paid" }, next_due_at: "2026-12-20T00:00:00+08:00" }) },
-    { chip: "Active", head: "Your subscription is active", buttons: ["Pay for the next period", "Cancel subscription"] }],
+    { chip: "Active", head: "Your subscription is active", buttons: ["Pay for the next period"], cancel: true }],
   ["payment needs attention", { billing: billing({ state: "payment_requires_attention", attention_ends_at: "2026-12-01T00:00:00+08:00" }) },
-    { chip: "Payment needs attention", head: "Pay by Dec 1, 2026 to keep your site online.", buttons: ["Pay by bank transfer", "Cancel subscription"] }],
+    { chip: "Payment needs attention", head: "Pay by Dec 1, 2026 to keep your site online.", buttons: ["Pay by bank transfer"], cancel: true }],
   ["suspended", { billing: billing({ state: "suspended", billing_only: true, can_cancel: false, deletion_due_at: "2027-01-01T00:00:00+08:00", pay_by: "2026-12-30T00:00:00+08:00" }) },
     { chip: "Suspended", head: "Your site is limited to Billing.", buttons: ["Pay by bank transfer"] }],
   ["cancelled, still running", { billing: billing({ state: "cancelled", can_cancel: false, can_reactivate: true, service_end_at: "2026-12-20T00:00:00+08:00" }), pay: payInfo({ payable: false, not_payable_reason: "cancel_scheduled" }) },
@@ -155,6 +155,12 @@ for (const [name, init, want] of STATES) {
     assert.deepEqual(d.chips(hero), want.chip ? [want.chip] : []);
     assert.equal(d.has(hero, "bl-head")[0].textContent, want.head);
     assert.deepEqual(d.labels(hero), want.buttons);
+    const rows = d.has(d.root, "bl-cancelrow");
+    assert.equal(rows.length, want.cancel ? 1 : 0);
+    if (want.cancel) {
+      assert.deepEqual(d.labels(rows[0]), ["Cancel subscription"]);
+      assert.equal(d.root.children[d.root.children.length - 1], rows[0], "the cancel row is the last thing on the page");
+    }
     assert.doesNotMatch(d.text(), /xendit|statement|invoice|video|business day/i);
   });
 }

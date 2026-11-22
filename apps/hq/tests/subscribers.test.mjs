@@ -179,12 +179,12 @@ test("the menu draws Subscribers only after subscribers/list/ answers 200, after
     return p;
   };
   const on = await run([200, { rows: [], next: null }], "/subscribers/");
-  assert.deepEqual(on.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance", "Lifecycle", "Subscribers", "Settings"]);
-  assert.equal(on.node["side-nav"].children[3].getAttribute("aria-current"), "page");
+  assert.deepEqual(on.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance", "Lifecycle", "Domains", "Subscribers", "Settings"]);
+  assert.equal(on.node["side-nav"].children[4].getAttribute("aria-current"), "page");
   assert.deepEqual(on.calls.filter((c) => c.url.endsWith("/subscribers/list/")).map((c) => c.body), [{ filter: "all" }]);
   for (const reply of [[404], [503], [401, { error: { code: "unauthenticated", message: "x" } }]]) {
     const off = await run(reply);
-    assert.deepEqual(off.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance", "Lifecycle", "Settings"]);
+    assert.deepEqual(off.node["side-nav"].children.map((a) => a.textContent), ["Admin console", "Finance", "Lifecycle", "Domains", "Settings"]);
   }
 });
 

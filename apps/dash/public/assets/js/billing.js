@@ -47,6 +47,21 @@
   function dateShort(iso) { return iso ? fmt(iso, { month: "short", day: "numeric", year: "numeric" }) : ""; }
   function instant(iso) { return iso ? dateShort(iso) + ", " + fmt(iso, { hour: "numeric", minute: "2-digit", hour12: true }) : ""; }
   function range(a, b) { return dateShort(a) + " to " + dateShort(b); }
+  /* Plan usage (z8uq9mhbgp): "Nov 21 – Dec 20", the year only when the two dates are in different years. */
+  function dateNoYear(iso) { return iso ? fmt(iso, { month: "short", day: "numeric" }) : ""; }
+  function periodText(a, b) {
+    if (!a || !b) return "";
+    return fmt(a, { year: "numeric" }) === fmt(b, { year: "numeric" }) ? dateNoYear(a) + " – " + dateNoYear(b) : dateShort(a) + " – " + dateShort(b);
+  }
+  /* 1 GB = 1,000,000,000 bytes. The used figure has one decimal place; a whole-number limit reads "5 GB". */
+  function gbText(bytes, trim) { var t = (Math.max(0, +bytes || 0) / 1e9).toFixed(1); return (trim ? t.replace(/\.0$/, "") : t) + " GB"; }
+  /* Whole-number percent used, rounded down so "100%" is never shown before the limit is reached; null when the limit is not a positive number. */
+  function pctOf(used, limit) { return limit > 0 && used >= 0 ? Math.floor(used * 100 / limit) : null; }
+  var ORDER_SUB = {
+    billing_month: "Orders placed on your store this billing month, not counting cancelled ones.",
+    trial: "Orders placed on your store during your trial, not counting cancelled ones.",
+    calendar_month: "Orders placed on your store this month, not counting cancelled ones."
+  };
   function planOf(code) { return PLANS[code] || { name: code || "Plan", card: code || "Plan", short: code || "Plan" }; }
   function sortOffers(list) {
     var rank = function (o) { var i = ORDER.indexOf(o.plan); return i < 0 ? ORDER.length : i; };
@@ -423,13 +438,44 @@
     });
     return s;
   }
+  /* ---- Plan usage: media storage and orders against the plan's limits; display only, hidden quietly when the route is missing or fails ---- */
+  function meterEl(id, name, valText, pct, sub, period) {
+    var cls = pct >= 100 ? " pu-red" : pct >= 80 ? " pu-amber" : "", w = Math.min(100, pct);
+    var nm = attrs(h("span", "pu-name", name), { id: id });
+    if (period) add(nm, h("span", "pu-period", " " + period));
+    var val = add(h("span", "pu-val", valText + " "), h("span", "pu-pct", "(" + pct + "%)"));
+    var fill = h("div", "pu-fill"); fill.style.width = w + "%";
+    var track = attrs(h("div", "pu-track"), { role: "progressbar", "aria-labelledby": id, "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(w), "aria-valuetext": valText });
+    return add(h("div", "pu-meter" + cls), add(h("div", "pu-row"), nm, val), add(track, fill), h("p", "pu-sub", sub));
+  }
+  function usageCard(m) {
+    var st = m && m.storage, od = m && m.orders;
+    if (!st || !od) return null;
+    var sp = pctOf(st.used_bytes, st.limit_bytes), op = pctOf(od.count, od.limit);
+    if (sp === null || op === null) return null;
+    var s = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-pu" });
+    add(s, attrs(h("h2", "bl-h2", "Plan usage"), { id: "bl-pu" }),
+      meterEl("bl-pu-s", "Media storage", gbText(st.used_bytes) + " of " + gbText(st.limit_bytes, true), sp, "Images and videos in your Media Library."),
+      meterEl("bl-pu-o", "Orders this period", od.count + " of " + od.limit, op, ORDER_SUB[od.period_kind] || ORDER_SUB.billing_month, periodText(od.period_start, od.period_end)));
+    if (sp >= 100 || op >= 100) add(s, attrs(h("p", "pu-limit pu-red", "You have reached your plan’s limit."), { role: "status" }));
+    return s;
+  }
+  function paintUsage(slot, mine) {
+    api(base() + "meters/").then(function (r) {
+      if (mine !== token || !slot.parentNode || !r || !r.ok) return;
+      var card = usageCard(r.data);
+      if (card) { slot.removeAttribute("hidden"); add(clear(slot), card); }
+    }, function () { /* hidden quietly */ });
+  }
   function renderHome(r) {
     var b = S.billing;
     var hm = heroModel();
     add(r, heroEl(hm));
     if (!b.billing_exempt) {
       docsEl = h("div", "bl-docs");
-      add(r, add(h("div", "bl-two"), planCard(), payCard()), histEl(), docsEl);
+      var usage = attrs(h("div", "bl-usage"), { hidden: "" });
+      add(r, add(h("div", "bl-two"), planCard(), payCard()), usage, histEl(), docsEl);
+      paintUsage(usage, token);
       docsStart(); paintDocs();
       if (b.outstanding_centavos > 0) add(r, para("Unpaid usage: " + peso(b.outstanding_centavos), "bl-meta"));
     }
@@ -973,6 +1019,6 @@
     });
   }
 
-  window.NOBilling = { show: show, hide: hide, probe: probe, util: { peso: peso, dateShort: dateShort, instant: instant, offersLine: offersLine, offerLines: offerLines,
+  window.NOBilling = { show: show, hide: hide, probe: probe, util: { peso: peso, dateShort: dateShort, periodText: periodText, gbText: gbText, pctOf: pctOf, instant: instant, offersLine: offersLine, offerLines: offerLines,
     consentText: consentText, amountText: amountText, localStamp: localStamp, manilaNow: manilaNow, validate: validate, refusal: refusal, routeOf: routeOf, urlFor: urlFor, sortOffers: sortOffers } };
 })();

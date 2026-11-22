@@ -7,7 +7,7 @@ import { status, refusal } from "./inbox-page.mjs";
 
 const IDS = ["side-nav", "search-btn", "search-btn-2", "bell-btn", "bell-btn-2"];
 function menu(reply, { pathname = "/", noClient = false } = {}) {
-  const p = open(noClient ? ["menu.js"] : ["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => (c.url.endsWith("/contacts/status/") ? [404] : reply(c)) }); /* Contacts says no here: its own tests are in contacts-menu.test.mjs */
+  const p = open(noClient ? ["menu.js"] : ["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => (c.url.endsWith("/contacts/status/") || c.url.endsWith("/subscribers/list/") ? [404] : reply(c)) }); /* Contacts says no here: its own tests are in contacts-menu.test.mjs */
   for (const id of IDS.slice(1)) p.node[id].setAttribute("aria-disabled", "true");
   return p;
 }

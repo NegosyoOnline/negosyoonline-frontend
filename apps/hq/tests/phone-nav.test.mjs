@@ -32,7 +32,7 @@ test("the sheet is shown at phone width only, and its links and button follow th
 
 const IDS = ["side-nav", "sheet-nav"];
 const menu = async (pathname, { inbox = true, contacts = true } = {}) => {
-  const p = open(["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => (c.url.endsWith("/inbox/status/") ? (inbox ? [200, status({ unread: 4 })] : [404]) : (contacts ? [200, { read: true, change: true }] : [404])) });
+  const p = open(["hq.js", "menu.js"], { ids: IDS, pathname, answers: (c) => (c.url.endsWith("/subscribers/list/") ? [404] : c.url.endsWith("/inbox/status/") ? (inbox ? [200, status({ unread: 4 })] : [404]) : (contacts ? [200, { read: true, change: true }] : [404])) });
   await settle();
   return p;
 };

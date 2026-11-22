@@ -38,6 +38,7 @@ const nextConfig: NextConfig = {
         ...inboxPlatforms.map((name) => ({ source: `/inbox/${name}/`, destination: "/inbox-platform.html" })),
         /* The Contacts pages: one document for four addresses, none with a value in it. */
         ...["/contacts/", "/contacts/new/", "/contacts/groups/", "/contacts/upload/"].map((source) => ({ source, destination: "/contacts.html" })),
+        { source: "/subscribers/", destination: "/subscribers.html" },
         ...authPaths.map((page) => ({ source: `/${page}/`, destination: "/auth.html" })),
       ],
       afterFiles: [],
@@ -62,6 +63,7 @@ const nextConfig: NextConfig = {
       { source: "/bulk.html", destination: "/inbox/sms/bulk/", permanent: false },
       { source: "/inbox-platform.html", destination: "/inbox/sms/", permanent: false },
       { source: "/contacts.html", destination: "/contacts/", permanent: false },
+      { source: "/subscribers.html", destination: "/subscribers/", permanent: false },
       { source: "/auth.html", destination: "/sign-in/", permanent: false },
     ];
   },

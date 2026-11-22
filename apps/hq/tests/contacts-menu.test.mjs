@@ -7,7 +7,7 @@ import { open, settle, BASE } from "./page.mjs";
 
 const run = async (pathname, reply, { withClient = true } = {}) => {
   const files = withClient ? ["hq.js", "menu.js"] : ["menu.js"];
-  const p = open(files, { ids: ["side-nav"], pathname, answers: (c) => (c.url.endsWith("/inbox/status/") ? [404] : reply) });
+  const p = open(files, { ids: ["side-nav"], pathname, answers: (c) => (c.url.endsWith("/inbox/status/") || c.url.endsWith("/subscribers/list/") ? [404] : reply) });
   await settle();
   return { ...p, nav: p.node["side-nav"], labels: () => p.node["side-nav"].children.map((a) => a.textContent) };
 };
@@ -52,7 +52,7 @@ test("the status call is made once per page load, after the plain entries are dr
 test("with Inbox and Contacts both answering 200, Inbox comes first", async () => {
   {
     const p = open(["hq.js", "menu.js"], { ids: ["side-nav", "search-btn", "search-btn-2", "bell-btn", "bell-btn-2"], pathname: "/",
-      answers: (c) => (c.url.endsWith("/inbox/status/") ? [200, { unread: 0, change: false, read: true }] : [200, { read: true, change: false }]) });
+      answers: (c) => (c.url.endsWith("/subscribers/list/") ? [404] : c.url.endsWith("/inbox/status/") ? [200, { unread: 0, change: false, read: true }] : [200, { read: true, change: false }]) });
     await settle();
     assert.deepEqual(p.node["side-nav"].children.map((a) => a.getAttribute("href")), ["/", "/finance/", "/lifecycle/", "/domains/", "/inbox/sms/", "/contacts/", "/settings/"]);
   }

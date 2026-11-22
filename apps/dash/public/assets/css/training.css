@@ -79,3 +79,8 @@
 .tr-root .tr-vnote { color: var(--text-2); font-weight: 600; }
 .tr-root .tr-watch-lesson { margin: 0 0 12px; }
 .tr-root .tr-watch-lesson .tr-list { margin: 4px 0 0; }
+.tr-root .tr-vneed { margin: 0 0 12px; }
+.tr-root .tr-vneed .tr-meta, .tr-root .tr-vneed .tr-error { margin: 0 0 6px; }
+.tr-root .tr-vlist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-root .tr-vitem { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.tr-root .tr-vreq { color: var(--err-h); font-weight: 600; }

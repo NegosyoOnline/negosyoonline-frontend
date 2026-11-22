@@ -71,6 +71,19 @@
   function videoOf(l) { return l && l.video && typeof l.video === "object" ? l.video : null; }
   function hasVideo(l) { var v = videoOf(l); return v ? v.kind !== "none" : !!(l && l.video_url); }
   function needsVideo(l) { var v = videoOf(l); return !!(v ? v.needs_video : l && l.needs_video); }
+  var VIDEO_NEEDED = "Every lesson needs a video before members can see this course.";
+  var VIDEO_REQUIRED = "Video required. Upload a video before members can see this lesson.";
+  /* The lessons of a course tree that have no ready video: [{id, module, title}]. */
+  function missingVideos(c) {
+    var out = [];
+    ((c && c.modules) || []).forEach(function (m) { (m.lessons || []).forEach(function (l) { if (needsVideo(l)) out.push({ id: l.id, module: m.id, title: l.title }); }); });
+    return out;
+  }
+  /* The 400 video_required answer's lessons as [{id, title}]; a row the page cannot draw is left out. */
+  function refusedLessons(res) {
+    var d = res && res.data, list = d && Array.isArray(d.lessons) ? d.lessons : [];
+    return list.map(function (x) { return x && typeof x === "object" && typeof x.title === "string" && x.title ? { id: x.id == null ? "" : String(x.id), title: x.title } : null; }).filter(Boolean);
+  }
   function localHost(h) { return h === "localhost" || h === "127.0.0.1" || /\.negosyotest\.com$/.test(h); }
   /* An address the page may frame or send to: https, or plain http on this computer's own preview names; never a login in it. The CSP still decides. */
   function hostOk(url) {
@@ -523,6 +536,24 @@
     var desc = textarea("description", DESC_MAX, 4); desc.value = c.description || "";
     var on = checkbox("tr-active", "Show to members", c.active);
     add(s, field("tr-title", "Title", title), field("tr-description", "Description", desc, "Optional. Plain text; line breaks are kept."), on.wrap);
+    var need = h("div", "tr-vneed"); s.appendChild(need);
+    function paintNeed(list, refused) {
+      clear(need);
+      if (!list.length && !refused) return;
+      var p = h("p", refused ? "tr-error" : "tr-meta", VIDEO_NEEDED); if (refused) p.setAttribute("role", "alert");
+      need.appendChild(p);
+      if (list.length) {
+        var ul = h("ul", "tr-vlist");
+        list.forEach(function (x) {
+          var li = h("li", "tr-vitem"), mod = x.module || moduleOf(c, x.id);
+          if (mod) { var a = btn(x.title, "ghost", function () { S.lesson = { module: mod, id: x.id }; S.confirm = ""; render(); var t = byId("tr-lt"); if (t) t.focus(); }); a.setAttribute("aria-label", "Add a video to " + x.title); li.appendChild(a); }
+          else li.appendChild(h("span", "", x.title));
+          ul.appendChild(li);
+        });
+        need.appendChild(ul);
+      }
+    }
+    paintNeed(missingVideos(c), false);
     if (c.archived_at) s.appendChild(h("p", "tr-meta", "This course is archived. Restore it from the Archive tab to show it to members."));
     var pic = pictureControls(s, "cover picture", c.image_url, "tr-cover");
     var f = { title: title, description: desc, file: pic.file };
@@ -536,7 +567,14 @@
       if (c.archived_at) delete body.active; /* switching it on would bring it back from the Archive; that is Restore's job */
       D.call("PATCH", base() + "courses/" + c.id + "/", body, true).then(function (res) {
         if (res.status === 401 || mine !== token || !S) return;
-        if (!res.ok) { busy(b, false); if (res.status === 404) { missingCourse(); return; } if (!showFields(f, apiFields(res))) D.toast("That did not work", msgOf(res, "We could not save. Please try again."), "error"); return; }
+        if (!res.ok) {
+          busy(b, false);
+          if (res.status === 404) { missingCourse(); return; }
+          if (res.status === 400 && res.data && res.data.code === "video_required") { /* nothing was saved; the box goes back to what is saved and the lessons are named */
+            on.box.checked = !!c.active; paintNeed(refusedLessons(res).length ? refusedLessons(res) : missingVideos(c), true); say(VIDEO_NEEDED); return;
+          }
+          if (!showFields(f, apiFields(res))) D.toast("That did not work", msgOf(res, "We could not save. Please try again."), "error"); return;
+        }
         keepCourse(res.data);
         picture(base() + "courses/" + c.id + "/image/", chosen, pic.state.remove && !chosen, mine, function (final, failed) {
           busy(b, false);
@@ -548,6 +586,11 @@
       });
     })));
     return s;
+  }
+  function moduleOf(c, lessonId) {
+    var found = "";
+    ((c && c.modules) || []).forEach(function (m) { (m.lessons || []).forEach(function (l) { if (l.id === lessonId) found = m.id; }); });
+    return found;
   }
   function keepCourse(row) { /* the course row has no modules; keep the tree */
     var modules = S.course.modules; S.course = row; S.course.modules = modules;
@@ -636,7 +679,7 @@
     var li = h("li", "tr-lesson"); li.setAttribute("data-lesson", l.id);
     var main = add(h("div", "tr-row-main"), h("h4", "tr-lesson-title", l.title));
     var vs = VIDEOS[l.id], busyNow = !!vs && (vs.phase === "uploading" || vs.phase === "processing");
-    var bits = [l.duration || "", busyNow ? "" : hasVideo(l) ? "Video" : needsVideo(l) ? "Add your video" : "No video"].filter(Boolean);
+    var bits = [l.duration || "", busyNow ? "" : needsVideo(l) ? "Video required" : hasVideo(l) ? "Video" : "No video"].filter(Boolean);
     var meta = h("p", "tr-meta", bits.join(" · ") + (busyNow && bits.length ? " · " : ""));
     if (busyNow) { var note = h("span", "tr-vnote", videoLine(vs)); note.setAttribute("role", "status"); vs.rowNote = note; meta.appendChild(note); }
     if (!l.active) meta.appendChild(h("span", "chip chip-neutral tr-off", "Off"));
@@ -749,6 +792,7 @@
       clear(body);
       var head = h("p", "tr-label", none ? "Add your video" : "Replace with your own video"); head.setAttribute("id", "tr-lv-h");
       body.appendChild(head);
+      if (l && needsVideo(l)) body.appendChild(h("p", "tr-meta tr-vreq", VIDEO_REQUIRED));
       if (v && v.kind === "stream" && v.status === "ready" && embedOk(v.embed_url)) {
         var fr = D.el("iframe", { "class": "tr-video", src: v.embed_url, title: l.title, allowfullscreen: "" });
         fr.setAttribute("loading", "lazy"); fr.setAttribute("referrerpolicy", "strict-origin-when-cross-origin"); fr.setAttribute("allow", "fullscreen; picture-in-picture; encrypted-media");

@@ -24,7 +24,9 @@
       var v = e.fields[k];
       fields[k] = Array.isArray(v) ? v.join(" ") : String(v);
     });
-    return { code: e.code, message: e.message, fields: fields };
+    var out = { code: e.code, message: e.message, fields: fields };
+    if (Array.isArray(e.lessons)) out.lessons = e.lessons;
+    return out;
   }
 
   /* Resolves {ok, status, data}. The API's session cookie rides every call; nothing is stored here.

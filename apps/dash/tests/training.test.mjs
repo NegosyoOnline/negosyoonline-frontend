@@ -489,7 +489,7 @@ test("the lesson form has no link field: no video says Add your video, a legacy 
   const d = boot({ view: "training-course", tree: videoTree(), search: "?id=crs_1" }); await d.open();
   const row = (id) => rowOf(d, "data-lesson", id);
   assert.ok(row("les_none").textContent.includes("No video"));
-  assert.ok(row("les_need").textContent.includes("Add your video"));
+  assert.ok(row("les_need").textContent.includes("Video required") && !row("les_need").textContent.includes("Add your video"));
   assert.ok(row("les_legacy").textContent.includes("Video") && !row("les_legacy").textContent.includes("No video"));
   assert.ok(row("les_stream").textContent.includes("Video") && !row("les_stream").textContent.includes("No video"));
   await edit(d, "les_none");
@@ -797,4 +797,64 @@ test("leaving a page empties it and ignores an answer that arrives late", async 
   d.window.NOTraining.hide("training");
   await settle();
   assert.equal(d.root().firstChild, null);
+});
+
+/* ---------- video required (CP-1 R2 fix round 2) ---------- */
+
+const NEED = "Every lesson needs a video before members can see this course.";
+const REQ = "Video required. Upload a video before members can see this lesson.";
+const offTree = () => { const t = videoTree(); t.active = false; return t; };
+
+test("the lesson editor says Video required when the lesson has no ready video, and not when it has one", async () => {
+  const d = boot({ view: "training-course", tree: videoTree(), search: "?id=crs_1" }); await d.open();
+  await edit(d, "les_need");
+  assert.ok(d.root().textContent.includes(REQ));
+  assert.deepEqual(heads(d), ["Add your video"]);
+  await d.click(d.press(d.root(), "Cancel"));
+  await edit(d, "les_stream");
+  assert.ok(!d.root().textContent.includes(REQ));
+  assert.deepEqual(heads(d), ["Replace with your own video"]);
+});
+
+test("a legacy link that still needs a Bunny video keeps Replace with your own video and adds the line", async () => {
+  const t = offTree(); t.modules[0].lessons[2].video.needs_video = true;
+  const d = boot({ view: "training-course", tree: t, search: "?id=crs_1" }); await d.open();
+  assert.ok(rowOf(d, "data-lesson", "les_legacy").textContent.includes("Video required"));
+  await edit(d, "les_legacy");
+  assert.deepEqual(heads(d), ["Replace with your own video"]);
+  assert.ok(d.root().textContent.includes(REQ));
+});
+
+test("course details list the lessons missing a video under Show to members, and each opens its editor", async () => {
+  const d = boot({ view: "training-course", tree: offTree(), search: "?id=crs_1" }); await d.open();
+  assert.ok(d.root().textContent.includes(NEED));
+  const link = d.press(d.root().all((n) => n.classList.contains("tr-vneed"))[0], "Needs");
+  assert.ok(link);
+  await d.click(link);
+  assert.equal(d.$("tr-lt").value, "Needs");
+});
+
+test("with every lesson holding a video, the course details show no video note", async () => {
+  const t = course("crs_1", { active: false, modules: [module_("mod_1", [lesson("les_ok", { video: vid() })])] });
+  const d = boot({ view: "training-course", tree: t, search: "?id=crs_1" }); await d.open();
+  assert.ok(!d.root().textContent.includes(NEED));
+});
+
+test("Show to members refused with video_required shows the message and the lessons, keeps the box unticked, and nothing is applied", async () => {
+  const d = boot({ view: "training-course", tree: offTree(), search: "?id=crs_1" }); await d.open();
+  d.check("tr-active", true);
+  d.s.answer = { status: 400, body: { code: "video_required", detail: NEED, lessons: [{ id: "les_need", title: "Needs" }, { id: "les_x", title: "Other lesson" }] } };
+  await d.click(d.press(d.root(), "Save course"));
+  const text = d.root().textContent;
+  assert.ok(text.includes(NEED) && text.includes("Needs") && text.includes("Other lesson"));
+  assert.equal(d.$("tr-active").checked, false);
+  assert.equal(d.toasts.length, 0);
+  assert.equal(d.calls.filter((c) => c.method === "PATCH").length, 1);
+  assert.equal(d.calls.filter((c) => c.path.includes("/image/")).length, 0);
+});
+
+test("a copied course that is Off and has lessons without a video shows the same rule", async () => {
+  const t = offTree(); t.copied_from = "crs_src";
+  const d = boot({ view: "training-course", tree: t, search: "?id=crs_1" }); await d.open();
+  assert.ok(d.root().textContent.includes(NEED));
 });

@@ -13,3 +13,16 @@ TWCinc sources read and adapted (read only, nothing pasted):
 - /Users/edgeronilla/Dev/twcinc/app/university/templates/university/course/lesson.html (Next Lesson, unlock note, list lock states)
 - /Users/edgeronilla/Dev/twcinc/app/static/dashboard/subscriber/js/lesson-watch.js (COMPLETE_AT 0.90, `ended`, `lesson:completed` live update)
 - /Users/edgeronilla/Dev/twcinc/app/university/views/course.py and app/university/services/ (sequential unlock; the rule is the backend's)
+
+# CP-1 R2 FE, fix round 2 (ClickUp z8uq9mhbhd): video required
+
+Ruling (Coach Ed, 2026-11-22): "all lessons has video... so it must be trackable. make the video required in our lessons".
+
+Changed (apps/dash only; storefronts untouched, so no storefront change to confirm beyond that):
+- Lesson editor: a lesson with no ready video shows "Video required. Upload a video before members can see this lesson." under the heading ("Add your video", or "Replace with your own video" for a legacy link) and above "Upload video".
+- Course lesson list: a lesson needing a video shows "Video required" (was "Add your video").
+- Course details: when any lesson needs a video, under "Show to members": "Every lesson needs a video before members can see this course." with the lessons listed as buttons that open each lesson's editor. The checkbox stays usable.
+- Save with "Show to members" ticked and a 400 `video_required`: the message and the lesson titles from the response show under the box (alert), the box returns to the saved state (unticked for an Off course), no toast; the backend refuses the whole PATCH, so nothing else is applied and the typed fields stay for another try. The picture step is not reached.
+- app.js flatten() now carries `lessons` of a wrapped error; the flat `{code, detail, lessons}` body is read as is.
+- Copied courses arrive Off with the same rule; no extra hint was added.
+- Tests added in apps/dash/tests/training.test.mjs; two existing label assertions updated.

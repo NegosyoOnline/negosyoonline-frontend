@@ -164,10 +164,10 @@ test("the Media Library lists the media offer and copies with kind media", async
   e.close();
 });
 
-test("a lesson copied without its Bunny video shows Add your video", async () => {
+test("a lesson copied without its Bunny video shows Video required", async () => {
   const d = boot(); await d.open();
   /* the course editor needs its own mock; the label rule is the one line in the lesson row, so read it from the script */
-  assert.match(read("training.js"), /needsVideo\(l\) \? "Add your video"/);
+  assert.match(read("training.js"), /needsVideo\(l\) \? "Video required"/);
   d.close();
 });
 

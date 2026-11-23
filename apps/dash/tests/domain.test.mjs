@@ -75,7 +75,7 @@ test("not yet eligible (trial or no paid cycle): it says it unlocks after the fi
   assert.ok(/unlocks after your first subscription payment/.test(d.text()));
   assert.equal(d.$("dm-name"), null);
   assert.equal(d.buttons(d.$("dm-root")).length, 0);
-  assert.ok(d.text().includes("Included with your plan: one .com for your store."));
+  assert.ok(d.text().includes("Free for your first year: one .com for your store."));
 });
 
 test("a lock for another reason shows the API's own sentence", async () => {
@@ -87,7 +87,7 @@ test("a lock for another reason shows the API's own sentence", async () => {
 test("eligible: the placeholder line, a search box and Check name; the plan's ending is added when none is typed", async () => {
   const d = boot({ post: { "check/": (b) => ({ status: 200, body: answer(claim("checking", { name: b.name })) }) } });
   await d.open();
-  assert.ok(d.text().includes("Included with your plan: one .com for your store."));
+  assert.ok(d.text().includes("Free for your first year: one .com for your store."));
   assert.ok(d.press("Check name"));
   assert.equal(d.$("dm-name").tagName, "INPUT");
   await d.submit("  https://www.YourBusiness/ ");
@@ -277,14 +277,45 @@ test("an unreadable status answers a retry panel, not raw data; a 404 on a write
   assert.ok(w.text().includes("not available yet"));
 });
 
-test("no screen mentions a price, a renewal or a year", async () => {
+const HOLD = "Your address stays connected while you stay subscribed. From year 2 its renewal is paid. NegosyoOnline registers and holds it for your store.";
+test("no screen shows a price or an amount; the one hold line is the only mention of renewal or a year", async () => {
   const states = [answer(null), answer(null, { eligible: false }), answer(claim("checking")), answer(claim("quoted", { can_buy: true })), answer(claim("confirmed")),
     answer(claim("activating")), answer(claim("live")), answer(claim("attention")), answer(claim("failed", { can_retry: true })), answer(claim("conflict"))];
   for (const body of states) {
     const d = boot({ get: { status: 200, body } });
     await d.open();
     if (body.domain && body.domain.state === "quoted") await d.click(d.press("Buy this address"));
-    assert.ok(!/[₱$]|price|renew|year|\bfee\b|cost/i.test(d.text()), d.text());
+    const t = d.text().split(HOLD).join("").replace(/Free for your first year|Free first year/g, "");
+    assert.ok(!/[₱$]|\d|price|renew|year|\bfee\b|cost|999/i.test(t.replace(/yourbusiness\.com/g, "")), t);
+    assert.ok(!/included with your plan/i.test(d.text()));
+  }
+});
+
+test("registered: Free until <date> from free_until, written the dash way; nothing when it is missing or the claim is not registered yet", async () => {
+  for (const [state, shown] of [["registered", true], ["zone", true], ["connecting", true], ["activating", true], ["live", true], ["attention", true], ["registering", false], ["confirmed", false], ["quoted", false]]) {
+    const d = boot({ get: { status: 200, body: answer(claim(state, { can_buy: true, free_until: "2027-11-22T16:00:00Z" })) } });
+    await d.open();
+    assert.equal(d.text().includes("Free until Nov 23, 2027"), shown, state);
+  }
+  const plain = boot({ get: { status: 200, body: answer(claim("live", { free_until: "2027-03-05" })) } });
+  await plain.open();
+  assert.ok(plain.text().includes("Free until Mar 5, 2027"));
+  assert.ok(plain.text().includes(HOLD));
+  for (const v of [undefined, null, "", "garbage", 12345]) {
+    const d = boot({ get: { status: 200, body: answer(claim("live", { free_until: v })) } });
+    await d.open();
+    assert.ok(!/free until/i.test(d.text()), String(v));
+  }
+  const top = boot({ get: { status: 200, body: answer(claim("live"), { free_until: "2027-03-05" }) } });
+  await top.open();
+  assert.ok(top.text().includes("Free until Mar 5, 2027"));
+});
+
+test("the hold line shows on search, quoted and live", async () => {
+  for (const body of [answer(null), answer(claim("quoted", { can_buy: true })), answer(claim("live"))]) {
+    const d = boot({ get: { status: 200, body } });
+    await d.open();
+    assert.ok(d.text().includes(HOLD));
   }
 });
 

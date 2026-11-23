@@ -48,7 +48,7 @@ test("FAQ order limit: 500 orders included, PHP 5 each above, added to the next 
 test("Terms: the order clause, and the order fee row of the comparison table (z8uq9mhpaz)", () => {
   assert.match(pages["terms.html"], /<p>Each plan includes 500 orders a month\. Orders above 500 in a billing month are charged at PHP 5 per order and added to your next bill\. Cancelled orders are not counted\. NegosyoOnline does not take a share of your sales\.<\/p>/);
   const row = pages["index.html"].match(/<tr class="rd-cmp-fee"><th scope="row">Order fee<\/th>.*?<\/tr>/)[0];
-  assert.match(row, /<td class="rd-cmp-us"><b>First 500 a month included<\/b>, then PHP 5 each<\/td>/);
+  assert.match(row, /<td class="rd-cmp-us"><b>First 500 a month included<\/b><small>then PHP 5 each<\/small><\/td>/);
   assert.equal((row.match(/<td>PHP 5 per order<\/td>/g) || []).length, 3, "the competitors' cells are unchanged");
   assert.doesNotMatch(row, /<b>None<\/b>/);
 });

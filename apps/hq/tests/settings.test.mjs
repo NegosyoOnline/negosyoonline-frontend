@@ -7,7 +7,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
-  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-err", "s-when", "s-save",
+  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-store-caps", "s-store", "s-store-err", "s-allstores", "s-allstores-err", "s-err", "s-when", "s-save",
   "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-poll-at", "g-incoming",
   "g-register", "g-rotate", "g-disable", "g-refresh",
   "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",
@@ -238,4 +238,25 @@ test("the page has a label for every field, light-blue focus only, alerts as rol
   assert.match(html, /id="o-off"[^>]*>Santé settings are switched off\.</);
   assert.match(html, /id="s-off"[^>]*>SMS sending is switched off on this server\.</);
   assert.match(html, /<h2 id="s-h">SMS settings<\/h2>/);
+});
+
+test("the store caps show and save when the server sends them, and stay hidden when it does not", async () => {
+  const plain = await page(normal());
+  assert.equal(plain.node["s-store-caps"].hidden, true);
+  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }), [SSET]: policy({ store_daily_limit: 60, all_stores_daily_limit: 1000 }) }));
+  assert.equal(p.node["s-store-caps"].hidden, false);
+  assert.equal(p.node["s-store"].value, "50");
+  assert.equal(p.node["s-allstores"].value, "1000");
+  p.node["s-store"].value = "60";
+  p.node["s-form"].fire("submit");
+  await confirm(p);
+  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, store_daily_limit: 60, all_stores_daily_limit: 1000 });
+  p.node["s-allstores"].value = "x";
+  p.node["s-form"].fire("submit");
+  assert.match(text(p, "s-allstores-err"), /^Enter a whole number from 0 to 2147483647\.$/);
+  assert.equal(p.node["s-allstores"].getAttribute("aria-invalid"), "true");
+});
+
+test("the settings page says the hourly store limit is fixed at 20", () => {
+  assert.match(fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8"), /20 an hour per store, fixed\./);
 });

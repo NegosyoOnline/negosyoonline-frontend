@@ -13,6 +13,7 @@
    through textContent only. */
 (function () {
   var D = window.NODash;
+  var SMS = window.NOInboxSms; /* inbox-sms.js loads before this file; without it there is no Text (SMS) channel */
   var TZ = "Asia/Manila", MAX = 2000;
   var token = 0, tload = 0;
   var S = null; /* the screen's state; null while the page is not open */
@@ -39,6 +40,7 @@
     warn: "M12 3l10 18H2zM12 10v5M12 18h.01",
     refresh: "M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4",
     back: "M15 6l-6 6 6 6",
+    sms: "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 18h2M9 7h6M9 10h4",
     globe: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18",
     mail: "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 7l9 6 9-6",
     x: "M6 6l12 12M18 6L6 18",
@@ -134,19 +136,23 @@
     webchat: { label: "Website chat", icon: "globe" },
     email: { label: "Email", icon: "mail" },
     messenger: { label: "FB Messenger", full: "Facebook Messenger", icon: "chat" },
-    fbcomment: { label: "FB Comment", full: "Facebook comment", icon: "comment" }
+    fbcomment: { label: "FB Comment", full: "Facebook comment", icon: "comment" },
+    sms: { label: "Text (SMS)", full: "Text messages (SMS)", icon: "sms" }
   };
   var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"], ["fbcomment", "FB Comment"]];
+  /* The Channel filter's choices: Text (SMS) only while the API says the feature is there (GET .../channels/ sms_available). */
+  function filtersFor(ch) { return SMS && SMS.util.available(ch) ? FILTERS.slice(0, 4).concat([["sms", "Text (SMS)"]], FILTERS.slice(4)) : FILTERS; }
   /* A row's channel: what the API says, else what its ref says (cm_ is a Facebook comment); "" when neither names one. */
   function channelOf(x) {
     var c = x && x.channel;
-    if (c === "webchat" || c === "email" || c === "messenger") return c;
+    if (c === "webchat" || c === "email" || c === "messenger" || c === "sms") return c;
     if (x && x.provider === "messenger") return "messenger";
+    if (x && x.provider === "sms") return "sms";
     var ref = x && typeof x.ref === "string" ? x.ref : "";
-    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : ref.indexOf("fm_") === 0 ? "messenger" : ref.indexOf("cm_") === 0 ? "fbcomment" : "";
+    return ref.indexOf("wc_") === 0 ? "webchat" : ref.indexOf("em_") === 0 ? "email" : ref.indexOf("fm_") === 0 ? "messenger" : ref.indexOf("cm_") === 0 ? "fbcomment" : ref.indexOf("sm_") === 0 ? "sms" : "";
   }
   function isCommentRef(ref) { return typeof ref === "string" && ref.indexOf("cm_") === 0; }
-  function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email" || c === "messenger"; }
+  function isStored(x) { var c = channelOf(x); return c === "webchat" || c === "email" || c === "messenger" || c === "sms"; }
   function isComment(x) { return channelOf(x) === "fbcomment"; }
   function srcOf(x) { return isComment(x) ? "cm" : "conv"; }
   /* ---------- one list from two newest-first sources (ClickUp z8uq9mg9ph) ----------
@@ -254,6 +260,7 @@
   /* The delivery chip of an owner message in a stored thread: [colour, text] or null. `code` is the failure code paired to it. */
   function chipFor(channel, m, code, latestSeen) {
     if (!m || m.direction !== "out") return null;
+    if (channel === "sms") return SMS ? SMS.util.chip(m) : null; /* Sending, Sent, or Not sent with the server's own words */
     if (m.delivery_state === "failed") return ["danger", "Failed: " + failTextOf(code, channel)];
     if (channel === "messenger") {
       /* INBOX-UI U2: Sent, Delivered, and Seen on the latest seen message only (Messenger style); an older seen one shows nothing. */
@@ -510,7 +517,7 @@
     pollStart();
   }
   function hide() {
-    streamClose(); pollStop(); token++; tload++; S = null; say("");
+    closeCompose(); streamClose(); pollStop(); token++; tload++; S = null; say("");
     if (window.NOInboxComments) window.NOInboxComments.stop();
     if (document.body && document.body.classList) document.body.classList.remove("ib-fixed"); if (document.body.classList.remove) document.body.classList.remove("ib-thread");
     var root = byId("ib-root"); if (root) clear(root);
@@ -597,7 +604,10 @@
   function loadChat(mine) {
     D.call("GET", base() + "channels/", null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
+      var was = SMS ? SMS.util.available(S.chat) : false;
       S.chat = res.ok && res.data && typeof res.data === "object" ? res.data : null;
+      /* the Channel filter and the New text button depend on sms_available: the toolbar is built again when that changed */
+      if (SMS && SMS.util.available(S.chat) !== was) { var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); if (!SMS.util.available(S.chat) && S.filter === "sms") S.filter = "all"; }
       if (byId("ib-listbody")) drawList();
     });
   }
@@ -630,6 +640,7 @@
   }
   function openThread(ref, name) {
     if (S.sel === ref && S.tstate === "ready") return;
+    if (S.composing) { closeCompose(); }
     var CM = window.NOInboxComments, it = itemOf(ref);
     if (it && isComment(it) && CM) {
       if (S.sel === ref && CM.isOpen(ref)) return;
@@ -669,6 +680,15 @@
       }
       S.thread = res.data; S.tstate = "ready"; S.tfail = null; S.tsig = sigOf(res.data);
       drawThread();
+      if (!silent && SMS && channelOf(res.data.channel ? res.data : { ref: ref }) === "sms") smsStatus(ref);
+    });
+  }
+  /* The texting phone's state and this store's counts, read when a text conversation is opened (and after a send): for the offline note and "Texts left". */
+  function smsStatus(ref) {
+    D.call("GET", base() + "sms/status/", null, true).then(function (res) {
+      if (!S || res.status === 401 || S.sel !== ref) return;
+      S.smsStatus = res.ok && res.data && typeof res.data === "object" ? res.data : null;
+      drawThread(false, true);
     });
   }
 
@@ -847,8 +867,8 @@
   function draftOf() { return S.sel && Object.prototype.hasOwnProperty.call(S.drafts, S.sel) ? S.drafts[S.sel] : ""; }
   function send(b, box) {
     if (S.sending) return;
-    var text = box.value.trim();
-    if (!text || text.length > MAX) return;
+    var text = box.value.trim(), isSms = !!SMS && channelOf(S.thread || { ref: S.sel }) === "sms", limit = isSms ? SMS.util.maxOf(S.thread) : MAX;
+    if (!text || limit === null || text.length > limit || (isSms && SMS.util.problem(text, limit))) return;
     var mine = tload, ref = S.sel, key = S.key || newKey();
     var st = S; S.key = key; S.sending = true; busy(b, true);
     D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/reply/", { text: text, idempotency_key: key }, true).then(function (res) {
@@ -863,6 +883,11 @@
           S.notice = null; drawList(); drawThread(); return;
         }
         var bad = codeOf(res);
+        if (isSms) {
+          /* the text's own refusals (switch off, answers cannot arrive, opted out) turn the box off with the server's words; anything else is a note */
+          if (res.status === 409 && (bad === "sms_off" || bad === "replies_off" || bad === "opted_out") && S.thread) S.thread.reply = { open: false, reason: bad };
+          S.notice = SMS.util.refusal(res); drawThread(true); return;
+        }
         S.notice = res.status === 0
           ? "We could not confirm it was sent. Press Try again: it will not be sent twice."
           : bad === "window_closed" || bad === "token_invalid" ? failTextOf(bad, channelOf(S.thread || { ref: ref })) : msgOf(res, "The reply could not be sent.");
@@ -872,6 +897,13 @@
       var state = res.data && res.data.state;
       /* The thread now holds the owner's message with its delivery state, sent or failed: read it again. */
       var code = res.data && typeof res.data.error_code === "string" ? res.data.error_code : "";
+      if (isSms) {
+        /* never "sent" at once: Sending until a thread read says Sent or Not sent; a 200 can be a failure, with the server's own words */
+        if (state === "failed") { S.notice = typeof res.data.message === "string" && res.data.message ? res.data.message : "The text could not be sent."; S.drafts[ref] = text; }
+        else { S.drafts[ref] = ""; S.notice = null; say("Text is being sent."); }
+        drawThread(true); fetchThread(true); smsStatus(ref);
+        return;
+      }
       if (state === "sent") { S.drafts[ref] = ""; S.notice = null; say("Reply sent."); }
       else if (state === "sending") { S.notice = "Your reply is still being sent. Refresh in a moment to see it."; }
       else { S.notice = failTextOf(code, channelOf(S.thread || { ref: ref })); S.drafts[ref] = text; }
@@ -901,6 +933,8 @@
     if (actions && actions.length) { var a = h("div", "ib-actions"); actions.forEach(function (x) { a.appendChild(x); }); box.appendChild(a); }
     return box;
   }
+  /* A conversation or the New text screen fills the right pane (on a phone the list gives way to it). */
+  function paneOpen() { return !!(S && (S.sel || S.composing)); }
   function pane(label, cls) { var p = h("section", "ib-pane " + cls); p.setAttribute("aria-label", label); return p; }
 
   function drawBody() {
@@ -915,14 +949,14 @@
       wrap.appendChild(one); return;
     }
     var split = h("div", "ib-split"), right = h("div", "ib-rcol");
-    var host = h("div", "ib-tools-host" + (S.sel ? " is-hide-phone" : "")); host.setAttribute("id", "ib-tools-host");
+    var host = h("div", "ib-tools-host" + (paneOpen() ? " is-hide-phone" : "")); host.setAttribute("id", "ib-tools-host");
     add(right, host, threadPane()); /* the right column: the filter toolbar over the open-conversation card */
     add(split, listPane(), right);
     wrap.appendChild(split);
-    if (S.sel) drawThread();
+    if (S.sel) drawThread(); else if (S.composing) { smsCompose(true); }
   }
   function listPane() {
-    var p = pane("Conversations", "ib-listpane" + (S.sel ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
+    var p = pane("Conversations", "ib-listpane" + (paneOpen() ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
     var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
     var togs = h("div", "ib-togs"), at = answeredToggle(), rt = readToggle(); add(togs, at, rt); attachTip(at, togs); attachTip(rt, togs); head.appendChild(togs); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
@@ -1013,6 +1047,7 @@
       row.appendChild(channelField());
       row.appendChild(statusField());
     }
+    var nt = newTextButton(); if (nt) row.appendChild(nt);
     row.appendChild(refreshButton());
     return box;
   }
@@ -1021,7 +1056,7 @@
     var fld = h("div", "ib-fld ib-fld-ch");
     var lab = h("label", "pm-label sr-only", "Channel"); lab.setAttribute("for", "ib-filter");
     var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
-    FILTERS.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
+    filtersFor(S.chat).forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
     sel.value = S.filter;
     sel.addEventListener("change", function () {
       if (!S || sel.value === S.filter) return;
@@ -1134,6 +1169,37 @@
     b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   function syncAns(v) { var b = byId("ib-atog"); if (b && S) paintAns(b, v === undefined ? S.answered || "" : v); }
+  /* "New text": only while the API says the Text (SMS) feature is there. */
+  function newTextButton() {
+    if (!SMS || !SMS.util.available(S.chat)) return null;
+    var b = h("button", "no-btn no-btn-primary ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-newtext-btn"); b.setAttribute("aria-label", "New text");
+    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "New text"));
+    b.addEventListener("click", function () { if (S) smsCompose(false); });
+    return b;
+  }
+  /* The New text screen (inbox-sms.js) in the right pane; closeCompose() puts the pane back. */
+  function closeCompose() { if (S && S.composing) { if (S.composing.stop) S.composing.stop(); S.composing = null; } }
+  function smsCompose(again) {
+    if (!S || !SMS || !SMS.util.available(S.chat)) return;
+    var host = byId("ib-threadpane"); if (!host) return;
+    if (again && S.composing && S.composing.stop) S.composing.stop();
+    if (!again) { closeCompose(); if (S.sel) { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); } }
+    S.composing = true;
+    var handle = SMS.compose(host, {
+      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say,
+      back: function () { closeCompose(); resetPane(); drawList(); },
+      gone: function () { closeCompose(); if (S && S.chat) { S.chat.sms_available = false; S.chat.sms_enabled = false; } resetPane(); load(true); },
+      done: function (ref, name) { closeCompose(); resetPane(); if (ref) { openThread(ref, name); load(true); } else drawList(); }
+    });
+    S.composing = handle;
+    drawList();
+  }
+  function resetPane() {
+    var t = byId("ib-threadpane");
+    if (!t) return;
+    clear(t); t.setAttribute("aria-label", "Conversation");
+    t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
+  }
   function refreshButton() {
     var b = h("button", "no-btn no-btn-ghost ib-rf"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
     b.appendChild(icon(ICON.refresh)); b.appendChild(h("span", "ib-rf-t", "Refresh"));
@@ -1218,18 +1284,18 @@
     if (!body || !S) return;
     var top = S.listTop || 0; /* a click, a read mark, a poll or a chip change redraws the rows, never moves the list */
     fillList(body);
-    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", !!S.sel); /* phone: the page heading gives its room to the open thread */
-    if (p) { if (S.sel) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
-    var th = byId("ib-tools-host"); if (th) { if (S.sel) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
+    if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", paneOpen()); /* phone: the page heading gives its room to the open thread */
+    if (p) { if (paneOpen()) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
+    var th = byId("ib-tools-host"); if (th) { if (paneOpen()) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
-    if (t) { if (S.sel) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
+    if (t) { if (paneOpen()) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
     var nul = body.querySelector ? body.querySelector(".ib-list") : null;
     if (nul && top) nul.scrollTop = top; /* on the phone the list is hidden while a thread is open: its drawList on "< Inbox" restores it */
   }
   function threadPane() {
-    var p = pane(S.sel ? "Conversation with " + (S.selName || "customer") : "Conversation", "ib-threadpane" + (S.sel ? "" : " is-hide-phone"));
+    var p = pane(S.sel ? "Conversation with " + (S.selName || "customer") : "Conversation", "ib-threadpane" + (paneOpen() ? "" : " is-hide-phone"));
     p.setAttribute("id", "ib-threadpane");
-    if (!S.sel) p.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
+    if (!S.sel && !S.composing) p.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
     return p;
   }
 
@@ -1335,7 +1401,8 @@
     });
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
-    p.appendChild(replyBox(name, !closed, focusBox, windowClosed(channel, t), channel === "messenger" ? windowNotice(t, now) : ""));
+    var smsInfo = channel === "sms" && SMS ? smsInfoOf(t) : null;
+    p.appendChild(replyBox(name, !closed && !(smsInfo && smsInfo.off), focusBox, windowClosed(channel, t), channel === "messenger" ? windowNotice(t, now) : "", smsInfo));
     if (keep && !keep.bottom) msgs.scrollTop = keep.top; else msgs.scrollTop = msgs.scrollHeight;
     if (keep) {
       var back = null;
@@ -1348,9 +1415,17 @@
       }
     }
   }
+  /* What a text conversation's reply box needs: the room for the owner's own words (the server's max_length), the store-name prefix, the words when
+     the box is off (opted out, switch off, answers cannot arrive, no usable prefix) and the phone/quota lines. */
+  function smsInfoOf(t) {
+    var u = SMS.util, max = u.maxOf(t), reason = t.reply && t.reply.open === false && typeof t.reply.reason === "string" ? t.reply.reason : "";
+    var off = t.status === "closed" ? "" : reason && reason !== "closed" ? u.offText(reason) || "Texts can't be sent right now." : max === null && t.status !== "closed" ? "Texts can't be sent right now." : "";
+    return { max: max, prefix: u.prefixOf(t), off: off, offline: u.phoneOffline(S.smsStatus), quota: u.quota(S.smsStatus) };
+  }
   /* The line under the name: an email thread's address; a chat visitor's email and mobile number, as far as they left them (the chat's contact ask). */
   function subOf(channel, t) {
     if (channel === "email") return t.contact_email;
+    if (channel === "sms") return typeof t.contact_mobile === "string" ? t.contact_mobile : ""; /* masked by the server; the full number never reaches the page */
     if (channel !== "webchat") return "";
     var parts = [];
     if (typeof t.contact_email === "string" && t.contact_email) parts.push(t.contact_email);
@@ -1367,11 +1442,12 @@
     var n = h("p", "ib-note" + (info ? " ib-note-info" : "")); n.appendChild(icon(info ? ICON.chat : ICON.warn)); n.appendChild(h("span", "", text));
     return n;
   }
-  function replyBox(name, open, focusBox, windowOff, winNote) {
+  function replyBox(name, open, focusBox, windowOff, winNote, sms) {
+    var MAXL = sms && sms.max ? sms.max : MAX; /* a text's room is the server's: 160 less the store-name prefix */
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc");
-    var count = h("span", "ib-count", "0 / " + MAX); count.setAttribute("id", "ib-rc");
+    var count = h("span", "ib-count", "0 / " + MAXL); count.setAttribute("id", "ib-rc");
     var foot = h("div", "ib-rfoot");
     if (open && windowOff) {
       /* Messenger: the 24-hour window is over. The box is off and the reason is said (the account's plain rule, not an error). */
@@ -1386,7 +1462,8 @@
     if (!open) {
       /* d4: a closed conversation. The box is off and the reason is said. */
       ta.disabled = true; ta.setAttribute("aria-describedby", "ib-rn");
-      var why = h("p", "ib-closed-t"); why.setAttribute("id", "ib-rn"); add(why, h("strong", "", "This conversation is closed."), document.createTextNode(" Reopen it to reply."));
+      var why = h("p", "ib-closed-t"); why.setAttribute("id", "ib-rn");
+      if (sms && sms.off) add(why, h("strong", "", sms.off)); else add(why, h("strong", "", "This conversation is closed."), document.createTextNode(" Reopen it to reply."));
       var sendOff0 = btn("Send", "primary"); sendOff0.disabled = true; sendOff0.setAttribute("aria-disabled", "true");
       add(wrap, lab, ta, why, add(foot, count, sendOff0));
       return wrap;
@@ -1397,7 +1474,13 @@
       add(body, h("strong", "", "Your reply was not sent."), document.createTextNode(" " + S.notice + " Your text is still in the box."));
       fail.appendChild(body); wrap.appendChild(fail);
     }
-    ta.setAttribute("maxlength", String(MAX));
+    if (sms) {
+      /* the phone's state and this store's counts above the box, and the words every text starts with */
+      if (sms.offline) { var of = h("p", "ib-note ib-wnote"); of.setAttribute("role", "status"); of.appendChild(icon(ICON.warn)); of.appendChild(h("span", "", SMS.util.OFFLINE)); wrap.appendChild(of); }
+      if (sms.prefix) wrap.appendChild(h("p", "pm-hint ib-sms-prefix", "Every text starts with: " + sms.prefix));
+      if (sms.quota) wrap.appendChild(h("p", "pm-hint ib-sms-quota", sms.quota));
+    }
+    ta.setAttribute("maxlength", String(sms ? MAXL + 40 : MAX)); /* a text may run a little over so the counter and the words can say so */
     ta.value = draftOf();
     var go = btn(S.notice ? "Try again" : "Send", "primary", function (b) { send(b, ta); });
     /* U4: Enter sends, Shift+Enter is a new line, never while an IME is composing; on a phone Enter is a new line and Send is the button */
@@ -1408,12 +1491,15 @@
     });
     function sync() {
       S.drafts[S.sel] = ta.value;
-      count.textContent = ta.value.length + " / " + MAX;
-      go.disabled = !ta.value.trim() || S.sending;
+      count.textContent = ta.value.length + " / " + MAXL;
+      var bad = sms ? SMS.util.problem(ta.value, MAXL) : "";
+      if (sms) { var ep = byId("ib-rp"); if (ep) { ep.textContent = bad; ep.hidden = !bad; } }
+      go.disabled = !ta.value.trim() || S.sending || !!bad || (!!sms && !!sms.offline);
     }
     ta.addEventListener("input", sync);
     if (winNote) { var wn = h("p", "ib-note ib-note-info ib-wnote"); wn.setAttribute("role", "status"); wn.appendChild(icon(ICON.chat)); wn.appendChild(h("span", "", winNote)); wrap.insertBefore ? wrap.insertBefore(wn, wrap.firstChild) : wrap.appendChild(wn); }
-    add(wrap, lab, ta, add(foot, count, go));
+    if (sms) { var pe = h("p", "field-err", ""); pe.setAttribute("id", "ib-rp"); pe.setAttribute("role", "alert"); pe.hidden = true; add(wrap, lab, ta, pe, add(foot, count, go)); }
+    else add(wrap, lab, ta, add(foot, count, go));
     sync();
     if (focusBox) setTimeout(function () { ta.focus(); }, 0);
     return wrap;

@@ -18,6 +18,10 @@
   var LOST = "More subscribers could not be loaded. Try Load more again.";
 
   var known = false, tab = "all", query = "", cursor = null, listRun = 0, detailRun = 0, openId = null;
+  var CODE6 = /^\d{6}$/, lineMode = "", lineSite = "", busy = false, lineOn = null;
+  var dlg = F.dialogs(function () { return busy; });
+  var LINE_LOST = "That did not go through. Check the page before trying again.";
+  var CODE_REFUSED = "That code was not accepted. Use the current code from your authenticator app. If you just signed in, wait for the next code (about 30 seconds).";
 
   function show(view) { VIEWS.forEach(function (id) { $(id).hidden = id !== view; }); }
   function text(v) { return typeof v === "string" ? v : ""; }
@@ -162,10 +166,92 @@
     list.textContent = "";
     pays.forEach(function (p) { list.appendChild(payment(p)); });
     $("d-pay-empty").hidden = pays.length > 0;
+    paintLine(d.sms_line);
     $("d-loading").hidden = true;
     $("d-err").hidden = true;
     $("d-body").hidden = false;
   }
+
+  /* ---- the SMS line (SMS-INCLUDED): Disable and Re-enable ---- */
+
+  /* sms_line is null (or missing) while SMS_SITE_LINES_ENABLED is off on the server: no card, no buttons. */
+  function paintLine(l) {
+    var on = l && typeof l === "object" ? l : null, off = on && on.disabled === true, when = on ? F.stamp(on.disabled_at) : "", why = on ? text(on.reason) : "", chip = $("d-line-chip");
+    lineOn = on;
+    $("d-line").hidden = !on;
+    $("d-line-disable").hidden = !on || off;
+    $("d-line-reenable").hidden = !on || !off;
+    F.say("d-line-err", "");
+    if (!on) return;
+    chip.textContent = off ? "Disabled" : on.has_line === true ? "On" : "Not serving";
+    chip.setAttribute("class", "chip " + (off ? "chip-warn" : on.has_line === true ? "chip-ok" : "chip-neutral"));
+    $("d-line-copy").textContent = off ? "HQ disabled this line. The phone gets no texts, and the owner cannot pair or rotate."
+      : on.has_line === true ? (on.has_phone === true ? "The owner's phone is paired." : "No phone is paired yet.")
+      : "Billing is not serving this subscriber, so there is no line.";
+    $("d-line-when").textContent = off ? (when ? "Disabled " + when + ". " : "") + (why ? "Reason: " + why : "") : "";
+    $("d-line-when").hidden = !off || !$("d-line-when").textContent;
+  }
+
+  function lineLock(on) {
+    busy = on;
+    ["line-go", "line-x", "line-cancel", "line-reason", "line-code"].forEach(function (id) { $(id).disabled = on; });
+  }
+  function lineErr(msg, id) {
+    F.say("line-err", msg);
+    ["line-reason", "line-code"].forEach(function (n) { $(n).removeAttribute("aria-invalid"); });
+    if (id) $(id).setAttribute("aria-invalid", "true");
+  }
+  function lineClose(refocus) {
+    $("line-code").value = "";
+    $("line-reason").value = "";
+    lineMode = "";
+    dlg.close(refocus);
+  }
+  function lineOpen(mode, opener) {
+    var off = mode === "disable";
+    lineMode = mode;
+    lineSite = openId || "";
+    $("m-line-h").textContent = off ? "Disable SMS line?" : "Re-enable SMS line?";
+    $("m-line-sub").textContent = off ? "This phone gets no texts, and the owner cannot pair or rotate. Give a reason and enter a current code."
+      : "The owner can use the line again. Give a reason and enter a current code.";
+    $("line-go").textContent = off ? "Disable line" : "Re-enable line";
+    $("line-reason").value = "";
+    $("line-code").value = "";
+    $("line-count").textContent = "0 of 300";
+    lineErr("", "");
+    dlg.open("m-line", opener, $("line-reason"));
+  }
+  $("d-line-disable").addEventListener("click", function () { if (!busy) lineOpen("disable", $("d-line-disable")); });
+  $("d-line-reenable").addEventListener("click", function () { if (!busy) lineOpen("reenable", $("d-line-reenable")); });
+  ["line-x", "line-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!busy) lineClose(true); }); });
+  $("line-reason").addEventListener("input", function () { $("line-count").textContent = String($("line-reason").value.length) + " of 300"; });
+  $("line-go").addEventListener("click", function () {
+    var reason = String($("line-reason").value || "").trim(), code = String($("line-code").value || "").trim(), mode = lineMode, site = lineSite;
+    if (busy || !mode) return;
+    lineErr("", "");
+    if (!reason) { lineErr("Give a reason.", "line-reason"); return; }
+    if (!CODE6.test(code)) { lineErr("Enter the 6-digit code from your authenticator app.", "line-code"); return; }
+    lineLock(true);
+    H.call("POST", "subscribers/sms-line/" + (mode === "disable" ? "disable" : "reenable") + "/", { site_id: site, reason: reason, code: code }).then(function (res) {
+      lineLock(false);
+      if (F.left(res)) return;
+      if (res.ok) {
+        lineClose(true);
+        if (openId === site) { paintLine(res.data && res.data.sms_line); }
+        return;
+      }
+      /* 404: the line switch is off on this server. No controls, nothing to retry. */
+      if (res.status === 404) { lineClose(false); paintLine(null); return; }
+      if (res.status === 403 && res.code === "reauth_failed") { lineErr(CODE_REFUSED, "line-code"); return; }
+      if (res.status === 409 && (res.code === "already_disabled" || res.code === "not_disabled")) {
+        lineClose(false);
+        if (openId === site) readOne(site);
+        return;
+      }
+      if (res.status === 400 && res.fields && res.fields.reason) { lineErr("Give a reason of up to 300 characters.", "line-reason"); return; }
+      lineErr(LINE_LOST, "");
+    });
+  });
 
   function readOne(id) {
     var run = ++detailRun;

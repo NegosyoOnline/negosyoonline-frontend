@@ -316,6 +316,8 @@ test("bulk: the progress card shows the counts, the pause in plain words, the es
   for (const t of ["10", "Sent", "1", "Failed", "0", "Not sent", "84", "Waiting"]) assert.ok(card.includes(t), t);
   assert.ok(d.$("ib-bk-pause").textContent.includes("outside sending hours (8:00 am to 8:00 pm, Manila time)"));
   assert.ok(card.includes("About 34 minutes left"));
+  assert.ok(card.includes("Asked for no more texts (STOP): 5"), "left-out labels keep their wording");
+  assert.ok(card.includes("Mobile number not verified: 10"));
   await d.click(d.$("ib-bk-stop"));
   assert.equal(d.bk.seen.stop, 1, "one click stops it");
   assert.ok(d.list().includes("POST " + B + "batches/sbk_aaaaaaaa/stop/"));

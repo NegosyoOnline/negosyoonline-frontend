@@ -205,7 +205,7 @@
       var lo = leftOut(b.left_out);
       if (lo.length) {
         var ul = h("ul", "ib-bk-left");
-        lo.forEach(function (p) { ul.appendChild(h("li", "", p[1] + " " + p[0].toLowerCase())); });
+        lo.forEach(function (p) { ul.appendChild(h("li", "", p[0] + ": " + p[1])); });
         out.appendChild(h("p", "pm-hint", "Left out of this batch:")); out.appendChild(ul);
       }
       return out;

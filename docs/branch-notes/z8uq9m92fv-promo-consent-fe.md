@@ -1,10 +1,10 @@
 # z8uq9m92fv PROMO-CONSENT FE (SANTE)
 
 Branch feat/z8uq9m92fv-promo-consent-fe, apps/storefronts only. Approval source: ClickUp 1100430000616135 (Coach Ed, 23 Nov 2026, 'Just build it.. no need to be strict', relayed by the Manager).
-BE head used: origin/feat/z8uq9mbreu-promo-consent-be at cdb46fb. ClickUp subtask pending (MCP limit until ~04:40 Tue). z8uq9med6x description and the subtask were not read (no ClickUp calls).
+BE head used: origin/feat/z8uq9mbreu-promo-consent-be at de123b6. ClickUp subtask pending (MCP limit until ~04:40 Tue). z8uq9med6x description and the subtask were not read (no ClickUp calls).
 
 ## Decisions
-- Contract gap: the contact form renders before checkout/contact/, so the flag cannot come from that answer for a first-time buyer. SANTE Supervisor decision (23 Nov): read the 3 fields from GET /storefront/v1/pack/ (fetchPack, src/lib/django.ts, read on every checkout render) first, with the checkout/contact/ answer as the fallback; missing means off everywhere. HQ BE contract v1.2 (adding the 3 fields to GET pack/, omitted when off) is PENDING; until then the pack/ case is tested with mocked answers, and the box cannot show on the first render against cdb46fb.
+- Contract gap: the contact form renders before checkout/contact/, so the flag cannot come from that answer for a first-time buyer. SANTE Supervisor decision (23 Nov): read the 3 fields from GET /storefront/v1/pack/ (fetchPack, src/lib/django.ts, read on every checkout render) first, with the checkout/contact/ answer as the fallback; missing means off everywhere. HQ BE contract v1.2 (the 3 fields on GET pack/, omitted when off) is in place at de123b6 (HQ-reviewed): GET pack/ returns them when the switch is on, so the box shows on the first render. The pack/ case is tested with mocked answers.
 - Box shown on the contact step (after the Terms tick) and the payment step; unticked unless re-rendered after a refusal with the tick; label is promo_sms_text escaped, never hard-coded; ticked adds promo_sms_ok=1 to checkout/place/, unticked or switch-off sends nothing.
 - Toggle: its own card on /dashboard/account/ (no JS: a form posting to new /dashboard/account/preferences/, which calls member/preferences/ and re-renders the account page with a notice). Hidden when member/preferences/read/ answers 404 or fails. Wording 'Promotions by text from <store>'. Existing .card/.row/.badge/.btn classes, so desktop and phone match the account page. Preference calls use member_token as the contract says.
 
@@ -32,7 +32,7 @@ BE head used: origin/feat/z8uq9mbreu-promo-consent-be at cdb46fb. ClickUp subtas
 
 **Authority:** Coach Ed, 23 Nov 2026, Manager session, ClickUp 1100430000616135: PROMO-CONSENT "Just build it.. no need to be strict" (opt-in checkbox + toggle + filter; no blocking, no footer; HQ owns the BE and the filter FE; SANTE owns the checkout/profile checkbox and toggle FE; switch off; local preview to Ed). Split agreed between the HQ and SANTE Supervisors, 23 Nov.
 
-**Contract:** HQ PROMO-CONSENT BE contract v1.1 (side-session-notes/local_62a06250-5710-4ff0-bea6-ab789927bc90/promo-consent-be-contract-2026-11-23.md; also in docs/ on the BE branch). BE branch origin/feat/z8uq9mbreu-promo-consent-be, head cdb46fb (HQ-reviewed, not yet released). Switch PROMO_SMS_CONSENT_ENABLED, off by default.
+**Contract:** HQ PROMO-CONSENT BE contract v1.2 (side-session-notes/local_62a06250-5710-4ff0-bea6-ab789927bc90/promo-consent-be-contract-2026-11-23.md; also in docs/ on the BE branch). BE branch origin/feat/z8uq9mbreu-promo-consent-be, head de123b6 (HQ-reviewed, not yet released). Switch PROMO_SMS_CONSENT_ENABLED, off by default.
 
 **Repo:** negosyoonline-frontend, apps/storefronts only. Own worktree, branch feat/z8uq9m92fv-promo-consent-fe from latest origin/main.
 
@@ -134,3 +134,9 @@ When a STOP reaches a store (`apps/inquiries/sms_inbox.store_incoming`, stop=Tru
 ## FE owners
 - SANTE: the checkout checkbox (posts `promo_sms_ok=1`) and the member dashboard toggle (the two routes in section 2).
 - HQ: the dash members filter or tag (section 4).
+
+## Fix round 1 (local visual test)
+- Payment-step box: the `.pp-co-agree` rules are now one shared constant printed on both steps (payment step prints it only when the box shows); contact step unchanged. Test added.
+- Account toggle: the save answers 303 to /dashboard/account/?promo=on|off|error; the page shows the notice from the marker (works without JS; reload resubmits nothing). Member-session errors unchanged.
+- Off badge: new `.badge.off` built from existing tokens (var(--line), var(--muted)); no new colours. The page had no neutral badge.
+- Out of scope, noted: the as-you-type "already registered" contact check and the phone transfer-panel overflow (both pre-existing).

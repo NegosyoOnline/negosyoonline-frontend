@@ -39,6 +39,7 @@ body{margin:0}
 .note.bad{background:#FCE9E7;color:#7A1710}
 .badge{display:inline-block;flex:none;font-size:13px;font-weight:700;border-radius:999px;padding:2px 10px}
 .badge.ok{background:#DCEFE6;color:#0F5238}
+.badge.off{background:var(--line);color:var(--muted)}
 .badge.pend{background:var(--warnbg);color:var(--warnink)}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:0}

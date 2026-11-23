@@ -10,7 +10,7 @@
    - the receipt hint says "up to 4 MB" (TWCinc said 10 MB): a Vercel Function body is capped at 4.5 MB;
    - the inline scripts and the values they carried are js/pack-checkout.js and data- attributes on the forms;
    - the QR codes and the agreement PDF are this server's own addresses, never a private-media URL. */
-import { html, type Markup } from "../../lib/html.ts";
+import { html, safe, type Markup } from "../../lib/html.ts";
 import { asset } from "../../lib/assets.ts";
 import { icon } from "./icons.ts";
 import { CHECKOUT_PATH, LANDING_PATH, packDocument, type PackCtx } from "./pack-page.ts";
@@ -93,6 +93,9 @@ function tenDigits(raw: string): string {
 
 /** The opt-in tick (PROMO-CONSENT): unticked unless the buyer ticked it on the page just refused; the label is the
     backend's wording exactly as given. Nothing at all while the switch is off. */
+/** The tick-box rules, shared so the payment step draws the box exactly as the contact step does. */
+const AGREE_CSS = safe(".pp-co-agree{display:flex;align-items:flex-start;gap:14px;padding-left:18px;font-size:.9375rem;line-height:1.5;cursor:pointer}\n.pp-co-agree input{flex:none;width:18px;height:18px;margin-top:3px}");
+
 function promoBox(m: CheckoutModel): Markup {
   if (!m.promo) return html``;
   return html`
@@ -309,9 +312,8 @@ function contactStep(c: PackCtx, m: CheckoutModel): Markup {
 .pp-co-ok .pp-co-check{display:block}
 .pp-co-control.pp-co-ok .pp-co-input,.pp-co-phone.pp-co-ok{border-color:#2e7d32}
 .pp-co-control.pp-co-ok .pp-co-input,.pp-co-phone.pp-co-ok .pp-co-phone-input{padding-right:40px}
-.pp-co-agree{display:flex;align-items:flex-start;gap:14px;padding-left:18px;font-size:.9375rem;line-height:1.5;cursor:pointer}
+${AGREE_CSS}
 #agree-msg{padding-left:50px}
-.pp-co-agree input{flex:none;width:18px;height:18px;margin-top:3px}
 #agree-msg[hidden]{display:none}
 #contact-btn{white-space:normal;text-align:center}
 </style>
@@ -365,7 +367,9 @@ function paymentStep(c: PackCtx, m: CheckoutModel): Markup {
         <div class="pp-co-card"><fieldset class="pp-co-block min-w-0">
           <legend class="pp-co-legend">Select Payment Method</legend>
           ${payCards(c, m, m.methods.xendit ? html`<p id="xendit-panel" class="pp-co-hint"${chosenMethod(m) === "xendit" ? html`` : html` hidden`}>${PAY_ONLINE_STEP_HINT}</p>` : html``)}
-          ${promoBox(m)}
+          ${promoBox(m)}${m.promo ? html`<style>
+${AGREE_CSS}
+</style>` : html``}
           <button type="submit" id="place-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg" data-direct="Place order"${m.methods.xendit ? html` data-xendit="Pay with Xendit"` : html``}>${chosenMethod(m) === "direct" ? "Place order" : "Pay with Xendit"}</button>
           <p class="pp-co-footnote mt-3 text-center text-xs leading-snug text-ink-500">${icon("lock", "mr-1 inline-block h-3.5 w-3.5 -translate-y-px align-middle")}We never ask for card details on this page. No recurring charges are set up.</p>
         </fieldset></div>

@@ -42,7 +42,7 @@ function promoToggle(store: string, p: Preferences, notice: string): Markup {
 <h2 style="margin:0 0 4px;font-size:1.0625rem">Text promotions</h2>
 ${notice ? html`<div class="note info" role="status">${notice}</div>` : ""}
 <form method="post" action="${PREFERENCES_PATH}">
-<div class="row"><div>Promotions by text from ${store}<small>Reply STOP to any text from the store to turn this off.</small></div>${on ? html`<span class="badge ok">On</span>` : html`<span class="badge pend">Off</span>`}</div>
+<div class="row"><div>Promotions by text from ${store}<small>Reply STOP to any text from the store to turn this off.</small></div>${on ? html`<span class="badge ok">On</span>` : html`<span class="badge off">Off</span>`}</div>
 <input type="hidden" name="promo_sms_ok" value="${on ? "0" : "1"}">
 <button class="btn sm" type="submit" style="margin-top:12px">${on ? "Turn off" : "Turn on"}</button>
 </form>

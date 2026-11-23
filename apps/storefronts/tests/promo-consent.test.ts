@@ -117,6 +117,8 @@ test("the payment step shows the box too (GET with a verified token) and the pla
   const flow = { ...flowOf(f, pack), token: TOKEN };
   const page = await (await checkoutGet(flow)).text();
   assert.ok(page.includes(TEXT) && page.includes('id="place-form"'));
+  assert.match(page, /\.pp-co-agree\{display:flex;[^}]*\}/, "the payment step prints the box rules");
+  assert.match(page, /\.pp-co-agree input\{flex:none;width:18px;height:18px;margin-top:3px\}/);
   await checkoutPost(flow, { action: "place", submit_key: "k".repeat(16), pay_method: "direct", promo_sms_ok: "1", account_id: "acct_1" }, null);
   assert.equal((f.calls[1].body as FormData).get("promo_sms_ok"), "1");
 });
@@ -136,7 +138,7 @@ test("the toggle reads the preference, shows its state, and sends the member tok
   const f = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/account": [ACCOUNT], "member/preferences/read": [ok({ promo_sms_ok: false, promo_sms_at: null })] });
   const b = await (await accountPage(dashOf(f))).text();
   assert.match(b, /Promotions by text from Demo Store/);
-  assert.match(b, /<span class="badge pend">Off<\/span>/);
+  assert.match(b, /<span class="badge off">Off<\/span>/);
   assert.match(b, /<input type="hidden" name="promo_sms_ok" value="1">/);
   assert.deepEqual(f.calls[3].body, { host: "demo.negosyotest.com", visitor_ip: "", member_token: "M".repeat(43) });
 });
@@ -155,9 +157,14 @@ test("saving posts the choice with the member token and shows the saved state", 
     "member/preferences/read": [ok({ promo_sms_ok: true, promo_sms_at: "2026-11-23T01:00:00+00:00" })],
   });
   const r = await preferencesPost(dashOf(f), { promo_sms_ok: "1" });
-  assert.equal(r.status, 200);
-  const b = await r.text();
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("location"), "/dashboard/account/?promo=on");
+  const g = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/account": [ACCOUNT], "member/preferences/read": [ok({ promo_sms_ok: true, promo_sms_at: "2026-11-23T01:00:00+00:00" })] });
+  const d = dashOf(g);
+  d.call.request = new Request("http://www.santetest.com/dashboard/account/?promo=on");
+  const b = await (await accountPage(d)).text();
   assert.match(b, /Text promotions are on\./);
+  assert.ok(!(await (await accountPage(dashOf(fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/account": [ACCOUNT], "member/preferences/read": [ok({ promo_sms_ok: true, promo_sms_at: null })] })))).text()).includes("Text promotions are on."), "no marker, no notice");
   assert.match(b, /<span class="badge ok">On<\/span>/);
   assert.match(b, /name="promo_sms_ok" value="0"/);
   assert.deepEqual(f.calls.find((c) => c.path === "member/preferences")?.body, { host: "demo.negosyotest.com", visitor_ip: "", member_token: "M".repeat(43), promo_sms_ok: true });
@@ -166,5 +173,9 @@ test("saving posts the choice with the member token and shows the saved state", 
 test("saving on a 404 is the neutral page; any other value is nothing", async () => {
   const f = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [err404()] });
   assert.equal((await preferencesPost(dashOf(f), { promo_sms_ok: "1" })).status, 404);
+  const off = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [ok({ promo_sms_ok: false, promo_sms_at: null })] });
+  assert.equal((await preferencesPost(dashOf(off), { promo_sms_ok: "0" })).headers.get("location"), "/dashboard/account/?promo=off");
+  const bad = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [{ status: 500, body: {} }] });
+  assert.equal((await preferencesPost(dashOf(bad), { promo_sms_ok: "1" })).headers.get("location"), "/dashboard/account/?promo=error");
   assert.equal((await preferencesPost(dashOf(fake({ "member/me": [ME], "member/pack": [NOT_LOCKED] })), { promo_sms_ok: "yes" })).status, 404);
 });

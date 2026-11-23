@@ -54,7 +54,19 @@ function ended(d: Dash, r: { state: "unavailable" } | { state: "failed" } | Pack
   return null;
 }
 
-export async function accountPage(d: Dash, notice = ""): Promise<Response> {
+/** The notice a toggle save leaves behind: the short marker on the redirect back to this page (a reload shows it again, resubmits nothing). */
+const PROMO_NOTICES: Record<string, string> = {
+  on: "Text promotions are on.",
+  off: "Text promotions are off.",
+  error: "We could not save that. Please try again.",
+};
+function promoNotice(d: Dash): string {
+  const marker = new URL(d.call.request.url).searchParams.get("promo") ?? "";
+  return Object.hasOwn(PROMO_NOTICES, marker) ? PROMO_NOTICES[marker] : "";
+}
+
+export async function accountPage(d: Dash): Promise<Response> {
+  const notice = promoNotice(d);
   const g = await gate(d);
   if ("response" in g) return g.response;
   const a = await memberAccount(args(d), d.calls);
@@ -66,16 +78,16 @@ export async function accountPage(d: Dash, notice = ""): Promise<Response> {
   return page(d, g.name, "Account and security", accountContent(a, promo));
 }
 
-/** The toggle's save: set the choice, then show the account page again (the page reads the saved value back). */
+/** The toggle's save: set the choice, then redirect (303) to the account page, which reads the saved value back. */
 export async function preferencesPost(d: Dash, text: Record<string, string>): Promise<Response> {
   const g = await gate(d);
   if ("response" in g) return g.response;
   if (text.promo_sms_ok !== "1" && text.promo_sms_ok !== "0") return neutralNotFound();
   const r = await memberPreferencesSave({ ...args(d), promo_sms_ok: text.promo_sms_ok === "1" }, d.calls);
-  if (r.state === "ok") return accountPage(d, r.promo_sms_ok ? "Text promotions are on." : "Text promotions are off.");
+  if (r.state === "ok") return redirect(r.promo_sms_ok ? "/dashboard/account/?promo=on" : "/dashboard/account/?promo=off");
   const out = ended(d, r);
   if (out) return out;
-  return accountPage(d, "We could not save that. Please try again.");
+  return redirect("/dashboard/account/?promo=error");
 }
 
 export async function verifyEmailGet(d: Dash): Promise<Response> {

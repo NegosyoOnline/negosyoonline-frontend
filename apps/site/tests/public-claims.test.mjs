@@ -39,6 +39,13 @@ test("home page: storage-only usage, new comparison total, no removed rows", () 
   assert.match(pages["assets/js/site.js"], /Is there a limit on orders\?/);
 });
 
+test("FAQ order limit: the approved 500-orders line, no per-order or extra-charge claim (z8uq9mhk1n)", () => {
+  const js = pages["assets/js/site.js"];
+  assert.match(js, /\["Is there a limit on orders\?", "Your plan includes 500 orders a month\. We'll show your usage in your dashboard\.", 1\]/);
+  assert.doesNotMatch(js, /does not charge per order/);
+  assert.doesNotMatch(js, /500 orders[^"]*(extra|additional|overage|charge)/i);
+});
+
 test("comparison table rows add up to the stated total", () => {
   const html = pages["index.html"];
   const table = html.slice(html.indexOf('aria-label="Cost to build each NegosyoOnline feature'));

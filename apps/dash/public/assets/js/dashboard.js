@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "settings-sms-gateway", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -24,6 +24,7 @@
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
     "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj): reachable by its address only; no menu link until Coach Ed's staging OK (domain.js shows "not available" while the API answers 404) */
+    "/settings/sms-gateway/": { view: "settings-sms-gateway", title: "SMS Gateway | NegosyoOnline" },
     "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */,
     "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
     "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
@@ -116,6 +117,9 @@
     var NT = window.NONotices; /* notices.js loads after this file; same enter/leave hooks as Payments */
     if (NT && shownView === "settings-notices" && r.view !== "settings-notices") NT.hide();
     if (NT && r.view === "settings-notices" && shownView !== "settings-notices") NT.show();
+    var SG = window.NOSmsGateway; /* sms-gateway-settings.js loads after this file; same enter/leave hooks as Notices */
+    if (SG && shownView === "settings-sms-gateway" && r.view !== "settings-sms-gateway") SG.hide();
+    if (SG && r.view === "settings-sms-gateway" && shownView !== "settings-sms-gateway") SG.show();
     var TR = window.NOTraining; /* training.js loads after this file; its three views share one script, so the view name is passed */
     if (TR && shownView && shownView.indexOf("training") === 0 && r.view !== shownView) TR.hide(shownView);
     if (TR && r.view.indexOf("training") === 0 && r.view !== shownView) TR.show(r.view);
@@ -1363,6 +1367,7 @@
       checkBillingOnly();
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
+      if (window.NOSmsGateway) window.NOSmsGateway.probe(); /* shows the SMS Gateway tab only when the API answers 200 for this site */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */
       if (window.NOMedia) window.NOMedia.probe(); /* shows the Media Library links only when the API says the Media Library is open for this site */

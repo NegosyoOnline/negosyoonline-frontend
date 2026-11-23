@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="/assets/css/inbox.css?v=20261119cm23">
 <link rel="stylesheet" href="/assets/css/meta-pixel.css?v=20261116mp4">
 <link rel="stylesheet" href="/assets/css/notices.css?v=20261114nt1">
+<link rel="stylesheet" href="/assets/css/sms-gateway-settings.css?v=20261123sg1">
 <link rel="stylesheet" href="/assets/css/training.css?v=20261121r2">
 <link rel="stylesheet" href="/assets/css/media.css?v=20261115ml1">
 <link rel="stylesheet" href="/assets/css/shared-content.css?v=20261121cp1">
@@ -91,6 +92,7 @@
         <a href="/settings/billing/" data-route="settings-billing">Billing</a>
         <a href="/settings/payments/" data-route="settings-payments">Payments</a>
         <a href="/settings/inbox/" data-route="settings-inbox" data-inbox-nav hidden>Inbox</a>
+        <a href="/settings/sms-gateway/" data-route="settings-sms-gateway" data-sms-gateway-nav hidden>SMS Gateway</a>
         <a href="/settings/meta-pixel/" data-route="settings-meta-pixel" data-meta-nav hidden>Meta Pixel</a>
         <a href="/settings/notices/" data-route="settings-notices" data-notices-nav hidden>Notices</a>
       </nav>
@@ -375,6 +377,12 @@
         <div class="nt-root" id="nt-root"></div>
         <div class="bl-sr" id="nt-live" aria-live="polite"></div>
       </section>
+      <section class="view" id="view-settings-sms-gateway" aria-labelledby="h-settings-sms-gateway" hidden>
+        <h1 class="bl-sr" id="h-settings-sms-gateway" tabindex="-1">SMS Gateway</h1>
+        <div class="sg-root" id="sg-root"></div>
+        <div id="sg-dialog-slot"></div>
+        <div class="bl-sr" id="sg-live" aria-live="polite"></div>
+      </section>
       <section class="view" id="view-training" aria-labelledby="h-training" hidden>
         <header class="view-head"><p class="dash-eyebrow">For your members</p><h1 id="h-training" tabindex="-1">Training</h1></header>
         <div class="tr-root" id="tr-root"></div>
@@ -476,6 +484,7 @@
 <script src="/assets/js/inbox-rules.js?v=20261118cm22"></script>
 <script src="/assets/js/meta-pixel.js?v=20261116mp2"></script>
 <script src="/assets/js/notices.js?v=20261114nt1"></script>
+<script src="/assets/js/sms-gateway-settings.js?v=20261123sg1"></script>
 <script src="/assets/js/shared-content.js?v=20261121cp1"></script>
 <script src="/assets/js/tus.js?v=20261121r2"></script>
 <script src="/assets/js/training.js?v=20261121r2"></script>

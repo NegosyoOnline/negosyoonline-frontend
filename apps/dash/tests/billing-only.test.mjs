@@ -91,7 +91,7 @@ test("billing-only: only Billing in the sidebar and the phone tabs, no quick sea
 });
 
 test("billing-only: every operational address, and an unknown one, redirects to /settings/billing/ and ends on Billing", () => {
-  for (const path of ["/", "/orders/", "/orders/products/", "/products/", "/inbox/", "/training/", "/training/course/", "/media/", "/settings/business/", "/settings/payments/", "/settings/inbox/", "/settings/meta-pixel/", "/settings/notices/", "/account/", "/help/", "/nowhere/"]) {
+  for (const path of ["/", "/orders/", "/orders/products/", "/products/", "/inbox/", "/training/", "/training/course/", "/media/", "/settings/business/", "/settings/payments/", "/settings/inbox/", "/settings/meta-pixel/", "/settings/notices/", "/settings/sms-gateway/", "/account/", "/help/", "/nowhere/"]) {
     const p = boot(path, { billingOnly: true });
     assert.equal(p.location.pathname, "/settings/billing/", path + " lands on Billing");
     assert.ok(p.replaced.includes("/settings/billing/"), path + " rewrites the address bar");

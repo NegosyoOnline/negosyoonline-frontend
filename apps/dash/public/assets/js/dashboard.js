@@ -1371,6 +1371,7 @@
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */
       if (window.NOMedia) window.NOMedia.probe(); /* shows the Media Library links only when the API says the Media Library is open for this site */
+      if (window.NOPaused) window.NOPaused.probe(); /* shows the "Paused by NegosyoOnline" banner only when the site payload says held: true */
       if (window.NOJourney) window.NOJourney.probe(); /* shows the Journey links only when the API says the Journey is open for this site */
     };
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();

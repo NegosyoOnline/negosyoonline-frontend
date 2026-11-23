@@ -109,6 +109,13 @@ select.inp { min-height: 48px; }
 .file { display: flex; align-items: center; gap: 12px; border: 1.5px dashed var(--color-mint-300, #aed49f); border-radius: 12px; padding: 12px 14px; background: #fff; min-height: 48px; font-size: 15px; }
 .file input { max-width: 100%; }
 .file.bad { border: 2px solid #c0392b; }
+/* The transfer panel on a phone (320-430 px): grid items and flex children default to min-width:auto and push the Hour/Min/AM-PM row and the receipt box past the panel edge. */
+.acct-sheet { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.acct-sheet .pp-co-field, .pp-co-dt-row > *, .pp-co-dt-time > *, .pp-co-dt .pk-select, .pp-co-dt .pk-select-box { min-width: 0; max-width: 100%; }
+.pp-co-dt input[type="date"] { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.acct-sheet .file { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.acct-sheet .file input { width: 100%; min-width: 0; max-width: 100%; }
+@media (max-width: 430px) { .pp-co-dt-time { gap: 6px; } .pp-co-dt-time .pk-select-box { padding-left: 10px; padding-right: 22px; } .pp-co-dt-time .pk-select-caret { right: 7px; } }
 /* Buttons are clickable: the reset stylesheet leaves them on the arrow; a disabled one keeps its own (wait) cursor. */
 .pp-pack button:not(:disabled), .pp-pack .btn:not(:disabled), .pp-pack .pp-co-submit:not(:disabled) { cursor: pointer; }
 /* Terms checkbox: drawn here so its border can turn red when the agree message shows (the message follows the label). */

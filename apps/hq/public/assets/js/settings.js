@@ -137,7 +137,8 @@
   /* ---- SMS settings ---- */
 
   var SMS_FIELDS = [["platform_daily_limit", "s-platform", "s-platform-err"], ["site_daily_limit", "s-site", "s-site-err"],
-    ["sending_stopped", "s-stop", "s-stop-err"]];
+    ["sending_stopped", "s-stop", "s-stop-err"], ["store_daily_limit", "s-store", "s-store-err"],
+    ["all_stores_daily_limit", "s-allstores", "s-allstores-err"]];
   function clearSmsErrors() {
     SMS_FIELDS.forEach(function (f) { F.say(f[2], ""); $(f[1]).removeAttribute("aria-invalid"); });
     F.say("s-err", "");
@@ -147,6 +148,10 @@
     $("s-stop").checked = d.sending_stopped === true;
     $("s-platform").value = typeof d.platform_daily_limit === "number" ? String(d.platform_daily_limit) : "";
     $("s-site").value = typeof d.site_daily_limit === "number" ? String(d.site_daily_limit) : "";
+    var caps = typeof d.store_daily_limit === "number" && typeof d.all_stores_daily_limit === "number";
+    $("s-store-caps").hidden = !caps;
+    $("s-store").value = caps ? String(d.store_daily_limit) : "";
+    $("s-allstores").value = caps ? String(d.all_stores_daily_limit) : "";
     var when = F.stamp(d.updated_at);
     F.say("s-when", when ? "Last changed " + when + "." : "");
     clearSmsErrors();
@@ -190,8 +195,15 @@
     clearSmsErrors();
     if (p === null) { bad = true; F.say("s-platform-err", "Enter a whole number from 0 to " + MAX + "."); $("s-platform").setAttribute("aria-invalid", "true"); }
     if (s === null) { bad = true; F.say("s-site-err", "Enter a whole number from 0 to " + MAX + "."); $("s-site").setAttribute("aria-invalid", "true"); }
+    var capsShown = !$("s-store-caps").hidden, st = null, al = null;
+    if (capsShown) {
+      st = whole($("s-store").value); al = whole($("s-allstores").value);
+      if (st === null) { bad = true; F.say("s-store-err", "Enter a whole number from 0 to " + MAX + "."); $("s-store").setAttribute("aria-invalid", "true"); }
+      if (al === null) { bad = true; F.say("s-allstores-err", "Enter a whole number from 0 to " + MAX + "."); $("s-allstores").setAttribute("aria-invalid", "true"); }
+    }
     if (bad) return;
     var body = { sending_stopped: stopped, platform_daily_limit: p, site_daily_limit: s };
+    if (capsShown) { body.store_daily_limit = st; body.all_stores_daily_limit = al; }
     if (stopped && !(smsNow && smsNow.sending_stopped === true)) {
       ask($("s-save"), "Stop all SMS sending?", "No SMS will be sent from the platform until sending is turned back on.", "Stop sending",
         function () { return sendSms(body); });

@@ -23,7 +23,7 @@
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
-    "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj): reachable by its address only; no menu link until Coach Ed's staging OK (domain.js shows "not available" while the API answers 404) */
+    "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj, z8uq9mhpc2): its Settings tab shows only while GET /sites/{id}/domain/ answers 200 (probeDomainNav below); on 404, any error or signed out it stays hidden (domain.js shows "not available" while the API answers 404) */
     "/settings/sms-gateway/": { view: "settings-sms-gateway", title: "SMS Gateway | NegosyoOnline" },
     "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */,
     "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
@@ -1337,6 +1337,21 @@
     return card;
   }
 
+  /* The Domain tab (ClickUp z8uq9mhpc2) stays hidden until GET /sites/{id}/domain/ answers 200 for this site; a 404 (DOMAINS_ENABLED off),
+     any other answer, a failed call or a signed-out state leaves it hidden. The probe lives here because domain.js is loaded only for its page. */
+  function setDomainNav(on) { Array.prototype.forEach.call(document.querySelectorAll("[data-domain-nav]"), function (n) { n.hidden = !on; }); }
+  function probeDomainNav() {
+    if (!document.querySelectorAll("[data-domain-nav]").length) return; /* no tab in this page, nothing to ask */
+    setDomainNav(false);
+    D.call("GET", "/sites/", null, true).then(function (res) {
+      if (!res || res.status === 401) return;
+      var sites = res.ok ? D.sitesOf(res) : [];
+      if (!sites.length) return;
+      var site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
+      return D.call("GET", "/sites/" + site + "/domain/", null, true).then(function (r) { setDomainNav(!!r && r.status === 200); });
+    }).then(null, function () { setDomainNav(false); });
+  }
+
   window.NOOnboarding = { util: { setupView: setupView, step2Slot: step2Slot, countOf: countOf, siteNameError: siteNameError,
     createBody: createBody, createOutcome: createOutcome, saveOutcome: saveOutcome, prefill: prefill,
     detailsErrors: detailsErrors, liveStatus: liveStatus, suffixOf: suffixOf } };
@@ -1369,6 +1384,7 @@
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
       if (window.NOSmsGateway) window.NOSmsGateway.probe(); /* shows the SMS Gateway tab only when the API answers 200 for this site */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
+      probeDomainNav(); /* shows the Domain tab only when the API answers 200 for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */
       if (window.NOMedia) window.NOMedia.probe(); /* shows the Media Library links only when the API says the Media Library is open for this site */
       if (window.NOJourney) window.NOJourney.probe(); /* shows the Journey links only when the API says the Journey is open for this site */

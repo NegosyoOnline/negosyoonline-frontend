@@ -34,7 +34,7 @@
     past_deletion_date: "The last date to pay has passed. Email " + SUPPORT + ".",
     paid_ahead: "You have already paid for the next term."
   };
-  var NOTRIAL_NOTE = "Billing is for your site’s plan only. Nothing is charged per order or per sale.";
+  var NOTRIAL_NOTE = "Billing is for your site’s plan. It includes 500 orders a month; orders above 500 are PHP 5 each. NegosyoOnline never takes a share of your sales.";
   var TYPES = ["image/jpeg", "image/png", "application/pdf"];
 
   /* ---- pure helpers (no document access; exported as NOBilling.util and node-tested) ---- */
@@ -451,6 +451,13 @@
     var track = attrs(h("div", "pu-track"), { role: "progressbar", "aria-labelledby": id, "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(w), "aria-valuetext": valText });
     return add(h("div", "pu-meter" + cls), add(h("div", "pu-row"), nm, val), add(track, fill), h("p", "pu-sub", sub));
   }
+  /* Order overage (z8uq9mhpaz): the limit and the price come from the meters answer; any missing piece keeps the plain limit line. */
+  function overageLine(od) {
+    var c = od.overage_centavos_per_order;
+    if (od.overage_applies !== true || !(c > 0) || !(od.limit > 0)) return "";
+    var n = c / 100, price = "PHP " + (n === Math.floor(n) ? String(n) : n.toFixed(2));
+    return "You have reached your plan’s " + od.limit + " orders. Orders above " + od.limit + " are billed at " + price + " each on your next bill.";
+  }
   function usageCard(m) {
     var st = m && m.storage, od = m && m.orders;
     if (!st || !od) return null;
@@ -460,7 +467,7 @@
     add(s, attrs(h("h2", "bl-h2", "Plan usage"), { id: "bl-pu" }),
       meterEl("bl-pu-s", "Media storage", gbText(st.used_bytes) + " of " + gbText(st.limit_bytes, true), sp, "Images and videos in your Media Library."),
       meterEl("bl-pu-o", "Orders this period", od.count + " of " + od.limit, op, ORDER_SUB[od.period_kind] || ORDER_SUB.billing_month, periodText(od.period_start, od.period_end)));
-    if (sp >= 100 || op >= 100) add(s, attrs(h("p", "pu-limit pu-red", "You have reached your plan’s limit."), { role: "status" }));
+    if (sp >= 100 || op >= 100) add(s, attrs(h("p", "pu-limit pu-red", op >= 100 && overageLine(od) || "You have reached your plan’s limit."), { role: "status" }));
     return s;
   }
   function paintUsage(slot, mine) {
@@ -665,7 +672,8 @@
           ["Billed to", party(s.bill_to, ["name", "address", "email"]) + (s.bill_to && s.bill_to.tin ? "\nTIN " + s.bill_to.tin : "")]]));
         var ul = h("div", "bl-slines");
         lines.forEach(function (l) {
-          add(ul, add(h("div", "bl-sline"), h("span", "", l.description), h("span", "bl-meta", l.quantity + " × " + peso(l.unit_centavos)), h("b", "", peso(l.amount_centavos))));
+          /* An order-overage line carries its own label with the count and price, so they are not repeated beside it. */
+          add(ul, add(h("div", "bl-sline"), h("span", "", l.description), l.kind === "orders" ? null : h("span", "bl-meta", l.quantity + " × " + peso(l.unit_centavos)), h("b", "", peso(l.amount_centavos))));
         });
         add(hold, ul, add(h("div", "bl-total"), h("span", "", "Total"), h("b", "", peso(s.total_centavos))));
         if (s.is_test) add(hold, chip("neutral", "Test"));

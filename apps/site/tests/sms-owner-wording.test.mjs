@@ -7,9 +7,9 @@ const read = (p) => fs.readFileSync(new URL(`../public/${p}`, import.meta.url), 
 const privacy = read("privacy.html"), terms = read("terms.html");
 const has = (text, s) => assert.ok(text.includes(s), `missing: ${s}`);
 
-test("both pages carry the November 23, 2026 effective date", () => {
+test("Privacy carries November 23, 2026 and Terms its current effective date", () => {
   has(privacy, "Effective Date: November 23, 2026<br>");
-  has(terms, "Effective Date: November 23, 2026<br>");
+  has(terms, "Effective Date: November 24, 2026<br>");
 });
 
 test("Privacy covers store texts, the paired-phone carrier, retention and STOP", () => {

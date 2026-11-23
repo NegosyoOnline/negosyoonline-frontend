@@ -38,6 +38,8 @@ async function page(table) {
 const base = (rowOver, detailOver, extra = {}) => ({ "GET me/": [200, ME], [LIST]: [200, { rows: [row(rowOver)], next: null }],
   [DETAIL]: [200, { ...row(detailOver), payments: [], sms_line: null }], ...extra });
 const fill = (p, reason, code, ticked = true) => { p.node["hold-reason"].value = reason; p.node["hold-code"].value = code; p.node["hold-confirm"].checked = ticked; };
+/* A detail that answers the first read with `before` and every later read with `after`. */
+const seq = (before, after) => { let n = 0; return () => [200, { ...row(n++ ? after : before), payments: [], sms_line: null }]; };
 const sent = (p, key) => p.calls.filter((c) => c.method + " " + c.url.slice(BASE.length + 1) === key);
 
 test("held absent (switch dark): no hold card, no buttons, no chip", async () => {
@@ -103,8 +105,8 @@ test("the counter follows the reason", async () => {
   assert.equal(p.node["hold-count"].textContent, "5 of 500");
 });
 
-test("Suspend sends site, reason, code and confirm, then repaints the card from the 200 and closes", async () => {
-  const p = await page(base({ held: false }, { held: false }, { [SUSPEND]: [200, { ...row({ held: true, state: "active" }), payments: [], sms_line: null }] }));
+test("Suspend sends site, reason, code and confirm; the 200 is only {site_id, held}, so the detail is read again and repainted", async () => {
+  const p = await page(base({ held: false }, {}, { [DETAIL]: seq({ held: false }, { held: true, held_label: "Suspended by HQ" }), [SUSPEND]: [200, { site_id: "site_a", held: true }] }));
   p.node["d-hold-suspend"].fire("click");
   fill(p, "  " + REASON + "  ", "123456");
   p.node["hold-go"].fire("click");
@@ -112,14 +114,22 @@ test("Suspend sends site, reason, code and confirm, then repaints the card from 
   assert.deepEqual(sent(p, SUSPEND)[0].body, { site_id: "site_a", reason: REASON, code: "123456", confirm: true });
   assert.equal(p.node["m-hold"].hidden, true);
   assert.equal(p.node["hold-code"].value, "");
-  assert.equal(sent(p, DETAIL).length, 1, "repainted from the answer, not re-read");
+  assert.equal(sent(p, DETAIL).length, 2, "the detail is read again");
   assert.equal(p.node["d-held"].hidden, false);
   assert.equal(p.node["d-hold-resume"].hidden, false);
   assert.equal(p.node["d-hold-suspend"].hidden, true);
 });
 
+test("the chip text comes from held_label when present, else the fallback", async () => {
+  let p = await page(base({ held: true }, { held: true, held_label: "Suspended by HQ (spam)" }));
+  assert.equal(p.node["d-held"].textContent, "Suspended by HQ (spam)");
+  assert.equal(p.node["d-hold-chip"].textContent, "Suspended by HQ (spam)");
+  p = await page(base({ held: true }, { held: true, held_label: null }));
+  assert.equal(p.node["d-held"].textContent, "Suspended by HQ");
+});
+
 test("Resume is the same dialog without red, goes to the resume route and repaints", async () => {
-  const p = await page(base({ held: true }, { held: true }, { [RESUME]: [200, { ...row({ held: false }), payments: [], sms_line: null }] }));
+  const p = await page(base({ held: true }, {}, { [DETAIL]: seq({ held: true }, { held: false }), [RESUME]: [200, { site_id: "site_a", held: false }] }));
   p.node["d-hold-resume"].fire("click");
   assert.equal(p.node["m-hold-h"].textContent, "Resume this store?");
   assert.doesNotMatch(p.node["hold-go"].getAttribute("class"), /stop/);
@@ -134,7 +144,7 @@ test("Resume is the same dialog without red, goes to the resume route and repain
 });
 
 test("Suspend is red, and going back to the list reads the rows again after a change", async () => {
-  const p = await page(base({ held: false }, { held: false }, { [SUSPEND]: [200, { ...row({ held: true }), payments: [] }] }));
+  const p = await page(base({ held: false }, {}, { [DETAIL]: seq({ held: false }, { held: true }), [SUSPEND]: [200, { site_id: "site_a", held: true }] }));
   p.node["d-hold-suspend"].fire("click");
   assert.match(p.node["hold-go"].getAttribute("class"), /\bstop\b/);
   fill(p, REASON, "123456");
@@ -190,8 +200,18 @@ test("a 404 on the route (switch dark) hides the card and the controls", async (
   assert.equal(p.node["d-hold"].hidden, true);
 });
 
+test("400 confirm_required shows the confirm text and keeps the dialog open", async () => {
+  const p = await page(base({ held: false }, { held: false }, { [SUSPEND]: [400, refused("confirm_required")] }));
+  p.node["d-hold-suspend"].fire("click");
+  fill(p, REASON, "123456");
+  p.node["hold-go"].fire("click");
+  await settle();
+  assert.equal(p.node["m-hold"].hidden, false);
+  assert.equal(p.node["hold-err"].textContent, "Tick the box to confirm.");
+});
+
 test("a server refusal of the reason shows the reason message; a network failure keeps what was typed", async () => {
-  let p = await page(base({ held: false }, { held: false }, { [SUSPEND]: [400, { error: { code: "invalid", message: "x", fields: { reason: ["bad"] } } }] }));
+  let p = await page(base({ held: false }, { held: false }, { [SUSPEND]: [400, { error: { code: "invalid_request", message: "x", fields: { reason: ["bad"] } } }] }));
   p.node["d-hold-suspend"].fire("click");
   fill(p, REASON, "123456");
   p.node["hold-go"].fire("click");

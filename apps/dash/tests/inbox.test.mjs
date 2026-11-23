@@ -301,6 +301,17 @@ test("a reply the API refuses shows the API's own sentence and keeps the text", 
   assert.equal(d.$("ib-rb").value, "Hello");
 });
 
+test("a reply refused while HQ has paused the store (409 site_held) shows the API's sentence and keeps the text", async () => {
+  const d = boot();
+  await d.openInbox();
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  d.$("ib-rb").value = "Hello"; d.$("ib-rb").fire("input");
+  d.s.replyAnswer = { status: 409, body: { error: { code: "site_held", message: "Texting is stopped while your store is paused by NegosyoOnline." } } };
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(d.all(d.$("ib-threadpane"), "ib-fail")[0].textContent, "Your reply was not sent. Texting is stopped while your store is paused by NegosyoOnline. Your text is still in the box.");
+  assert.equal(d.$("ib-rb").value, "Hello");
+});
+
 test("the back link returns to the list on a phone; a thread that cannot be opened offers Try again", async () => {
   const d = boot();
   await d.openInbox();

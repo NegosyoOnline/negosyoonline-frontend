@@ -31,7 +31,7 @@
 
   /* H3 (ClickUp z8uq9mhpbf, contract z8uq9mhpbe): the hold's names, kept in one place. A list or detail without a
      boolean `held` has no hold card and no controls (the switch is dark, or the backend is older). */
-  var API = { held: "held", suspend: "subscribers/suspend/", resume: "subscribers/resume/", already: "already_suspended", not: "not_suspended", reauth: "reauth_failed" };
+  var API = { held: "held", label: "held_label", confirm: "confirm_required", suspend: "subscribers/suspend/", resume: "subscribers/resume/", already: "already_suspended", not: "not_suspended", reauth: "reauth_failed" };
   function heldOf(r) { return r[API.held] === true; }
 
   function fromApi(r) {
@@ -39,7 +39,7 @@
     return { id: text(r.site_id), name: text(r.business_name), address: text(r.site_address), template: text(r.template),
       plan: F.words(PLAN, r.plan), state: F.words(STATE, r.state), chip: F.words(CHIP, r.state) || "chip-neutral", trialing: r.state === "trial_active",
       trialEnds: F.dayOf(r.trial_ends_at), nextDue: F.dayOf(r.next_due_at), lastPayment: F.dayOf(r.last_payment_at),
-      email: text(r.owner_email), joined: F.dayOf(r.created_at), held: heldOf(r), heldKnown: typeof r[API.held] === "boolean" };
+      email: text(r.owner_email), joined: F.dayOf(r.created_at), held: heldOf(r), heldKnown: typeof r[API.held] === "boolean", heldLabel: text(r[API.label]) || HELD_WORDS };
   }
   function fromPayment(p) {
     p = p && typeof p === "object" ? p : {};
@@ -77,7 +77,7 @@
     if (r.state || r.held) {
       box = F.el("div", "fin-row");
       if (r.state) box.appendChild(F.el("span", "chip " + r.chip, r.state));
-      if (r.held) box.appendChild(F.el("span", "chip chip-err", HELD_WORDS));
+      if (r.held) box.appendChild(F.el("span", "chip chip-err", r.heldLabel));
       td.appendChild(box);
     } else td.textContent = DASH;
     cell(tr, "Next due").textContent = orDash(r.nextDue || (r.trialing ? r.trialEnds : ""));
@@ -165,6 +165,7 @@
     $("d-state").setAttribute("class", "chip " + r.chip);
     $("d-state").hidden = !r.state;
     $("d-site-id").textContent = r.id;
+    $("d-held").textContent = r.heldLabel;
     $("d-held").hidden = !r.held;
     paintHold(r);
     dl.textContent = "";
@@ -261,6 +262,7 @@
         if (openId === site) readOne(site);
         return;
       }
+      if (res.status === 400 && res.code === API.confirm) { holdErr("Tick the box to confirm.", "hold-confirm"); return; }
       if (res.status === 400 && res.fields && res.fields.reason) { lineErr("Give a reason of up to 300 characters.", "line-reason"); return; }
       lineErr(LINE_LOST, "");
     });
@@ -284,7 +286,7 @@
     $("d-hold-resume").hidden = !on || !r.held;
     F.say("d-hold-err", "");
     if (!on) return;
-    $("d-hold-chip").textContent = r.held ? HELD_WORDS : "Live";
+    $("d-hold-chip").textContent = r.held ? r.heldLabel : "Live";
     $("d-hold-chip").setAttribute("class", "chip " + (r.held ? "chip-err" : "chip-ok"));
     $("d-hold-copy").textContent = r.held ? "NegosyoOnline has paused this store. Its site and checkout are offline. Billing is not changed. The owner can still sign in and see their data."
       : "The store is online. Suspend takes its site and checkout offline at once. Billing is not changed.";
@@ -338,8 +340,10 @@
       holdLock(false);
       if (F.left(res)) return;
       if (res.ok) {
+        /* The 200 answers only {site_id, held}: the card is repainted from a fresh read of the subscriber. */
         holdClose(true);
-        if (openId === site) { paint(res.data || {}); changed = true; }
+        changed = true;
+        if (openId === site) readOne(site);
         return;
       }
       /* 404: the hold routes are switched off on this server. No controls, nothing to retry. */
@@ -350,6 +354,7 @@
         if (openId === site) { readOne(site, SAME[mode]); changed = true; }
         return;
       }
+      if (res.status === 400 && res.code === API.confirm) { holdErr("Tick the box to confirm.", "hold-confirm"); return; }
       if (res.status === 400 && res.fields && res.fields.reason) { holdErr(REASON_BAD, "hold-reason"); return; }
       holdErr(HOLD_LOST, "");
     });

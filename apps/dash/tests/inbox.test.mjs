@@ -15,6 +15,7 @@ const read = (f) => fs.readFileSync(path.join(JS, f), "utf8");
 const HTML = fs.readFileSync(path.join(JS, "..", "..", "index.html"), "utf8");
 const A = "site_aaaaaaaaaaaaaaaaaaaa";
 const BASE = `/sites/${A}/inquiries/`;
+const SM = "sm_dddddddddddddddddddddddd";
 const WC = "wc_aaaaaaaaaaaaaaaaaaaaaaaa", WC2 = "wc_bbbbbbbbbbbbbbbbbbbbbbbb", EM = "em_cccccccccccccccccccccccc";
 const REF = WC;
 const REF2 = WC2;
@@ -81,6 +82,9 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
       const kind = /\/(close|reopen|read)\/$/.exec(p)[1], ref = /conversations\/([^/]+)\//.exec(p)[1];
       a = s.statusAnswer || { status: 200, body: { ref, status: kind === "close" ? "closed" : "open", unread: kind === "read" ? false : false } };
     }
+    else if (p === BASE + "sms/status/" && opts.method === "GET") a = s.smsStatus ? { status: 200, body: s.smsStatus } : err(404, "not_found", "Not found.");
+    else if (p === BASE + "sms/compose/" && opts.method === "POST") a = s.composeAnswer || { status: 200, body: { ref: SM, new_conversation: true, state: "sending", error_code: "", created_at: iso(0) } };
+    else if (/^\/sites\/[^/]+\/members\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { members: s.members || [] } };
     else if (p === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
       const q = /[?&]q=([^&]*)/.exec(p);
@@ -106,6 +110,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const context = vm.createContext({ window, document: doc, Event: class { constructor(type) { this.type = type; } }, location, console, URLSearchParams, Promise, Intl, Uint8Array, Date,
     setTimeout: clock ? clock.setTimeout : inert, clearTimeout: clock ? clock.clearTimeout : inertClear, localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch, ...(EventSource ? { EventSource } : {}) });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
+  vm.runInContext(read("inbox-sms.js"), context, { filename: "inbox-sms.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
   window.NODash.toast = (title, text) => toasts.push(title + ": " + text);
@@ -804,9 +809,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261118cm21/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261118cm23/);
-  assert.match(HTML, /inbox\.css\?v=20261119cm23/);
+  assert.match(HTML, /inbox\.js\?v=20261123so1/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261123so1/);
+  assert.match(HTML, /inbox\.css\?v=20261123so1/);
   assert.match(HTML, /inbox-comments\.js\?v=20261119cm21/);
 });
 
@@ -2105,4 +2110,232 @@ test("combo (r12): a sync does not highlight the text either", async () => {
   d.$("ib-filter").value = "email"; d.$("ib-filter").ibSync(); d.$("ib-filter").ibFocus();
   assert.equal(ch.value, "Email");
   assert.equal(ch.selected, 0);
+});
+
+/* ---------- Text (SMS) channel (SMS-OWNER FE-1, z8uq9mhk1h): fake store, made-up members and numbers only ---------- */
+
+const CH_SMS = { ...CHANNELS_ON, sms_available: true, sms_enabled: true };
+const SMS_STATUS = { phone_online: true, daily_limit: 50, left_today: 37, hourly_limit: 20, left_this_hour: 20, enabled: true, prefix: "Test Store: ", max_length: 148, incoming_ready: true };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function smsList() {
+  return { items: [{ ref: SM, display_name: "Ana Reyes", snippet: "Salamat po", updated_at: iso(5), channel: "sms", status: "open", unread: false }, ...list().items], stored_next_cursor: null };
+}
+function smsThread(over = {}) {
+  return { ref: SM, display_name: "Ana Reyes", channel: "sms", source: "stored", status: "open", unread: false, contact_mobile: "+63 9** *** 1234", prefix: "Test Store: ", max_length: 148,
+    opted_out: false, reply: { open: true, reason: "" }, replies: [],
+    messages: [
+      { id: "s1", direction: "out", sender_kind: "owner", text: "Your order shipped", attachments: [], at: iso(4), delivery_state: "sent" },
+      { id: "s2", direction: "out", sender_kind: "owner", text: "Pickup?", attachments: [], at: iso(3), delivery_state: "" },
+      { id: "s3", direction: "out", sender_kind: "owner", text: "Hello", attachments: [], at: iso(2), delivery_state: "failed", error_code: "gateway_offline", error_message: "The SMS phone is offline. Nothing was sent." },
+      { id: "s4", direction: "in", sender_kind: "customer", text: "Salamat po", attachments: [], at: iso(1), delivery_state: "" }
+    ], ...over };
+}
+const MEMBERS = [
+  { id: "mem_1", full_name: "Ana Reyes", mobile_masked: "+63 9** *** 1234", mobile_state: "verified", email_state: "verified", closed: false },
+  { id: "mem_2", full_name: "Ana Pending", mobile_masked: "+63 9** *** 5678", mobile_state: "pending", email_state: "verified", closed: false },
+  { id: "mem_3", full_name: "Ana Closed", mobile_masked: "+63 9** *** 9999", mobile_state: "verified", email_state: "verified", closed: true }
+];
+const smsOpen = async (d) => { await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]); };
+
+test("sms settings: no card while sms_available is absent or false; with it, a switch that PUTs sms_enabled and the no-promotions line", async () => {
+  for (const ch of [CH_OFF, { ...CH_OFF, sms_available: false, sms_enabled: false }]) {
+    const d = boot({ channels: ch });
+    await d.openSettings();
+    assert.ok(!d.$("ibs-root").all((n) => n.tagName === "H2").some((n) => /Text messages/.test(n.textContent)));
+    assert.equal(d.$("ibs-sw-sms"), null);
+  }
+  const d = boot({ channels: { ...CH_OFF, sms_available: true, sms_enabled: false } });
+  await d.openSettings();
+  assert.ok(d.$("ibs-root").all((n) => n.tagName === "H2").some((n) => n.textContent === "Text messages (SMS)"));
+  assert.ok(d.$("ibs-root").textContent.includes("For orders and member service only. No promotions."));
+  assert.equal(d.$("ibs-sw-sms").getAttribute("aria-checked"), "false");
+  await d.click(d.$("ibs-sw-sms"));
+  const put = d.calls.filter((c) => c.method === "PUT");
+  assert.deepEqual(put.map((c) => c.body), [{ sms_enabled: true }]);
+  assert.equal(d.$("ibs-sw-sms").getAttribute("aria-checked"), "true");
+});
+
+test("sms inbox: hidden while the feature is off (no New text, no Text option, an sm_ row is not invented)", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  await d.openInbox();
+  assert.equal(d.$("ib-newtext-btn"), null);
+  comboBox(d, "ib-filter").fire("click");
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger", "FB Comment"]);
+  const off = boot({ off: true });
+  await off.openInbox();
+  assert.equal(off.$("ib-newtext-btn"), null);
+  assert.ok(!off.list().some((c) => c.includes("/sms/")), "no text route is asked for");
+});
+
+test("sms inbox: with the feature on the list has the Text (SMS) badge and filter, and New text", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS, smsStatus: SMS_STATUS });
+  d.s.smsStatus = SMS_STATUS;
+  await d.openInbox();
+  const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.deepEqual(d.all(rows[0], "ib-ch").map((n) => n.textContent), ["Text (SMS)"]);
+  assert.ok(d.$("ib-newtext-btn"));
+  comboBox(d, "ib-filter").fire("click");
+  assert.deepEqual(comboRows(d, "ib-filter"), ["All channels", "Website chat", "Email", "FB Messenger", "Text (SMS)", "FB Comment"]);
+  const u = d.window.NOInbox.util;
+  assert.equal(u.channelOf({ ref: SM }), "sms");
+  assert.equal(u.channelOf({ provider: "sms" }), "sms");
+});
+
+test("sms thread: masked mobile, delivery chips (Sending, Sent, Not sent with the server's words), the prefix, the counter from max_length and the quota", async () => {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await smsOpen(d);
+  const pane = d.$("ib-threadpane");
+  assert.ok(pane.textContent.includes("+63 9** *** 1234"));
+  assert.ok(!/\+639\d{9}/.test(pane.textContent), "no full number");
+  assert.deepEqual(d.all(pane, "chip").map((n) => n.textContent).filter((t) => /Sent|Sending|Not sent/.test(t)), ["Sent", "Sending", "Not sent: The SMS phone is offline. Nothing was sent."]);
+  assert.ok(pane.textContent.includes("Every text starts with: Test Store: "));
+  assert.ok(pane.textContent.includes("Texts left today: 37 of 50. This hour: 20 of 20."));
+  assert.equal(d.text("ib-rc"), "0 / 148");
+  assert.ok(!pane.textContent.includes("gateway_offline"), "never a code");
+  assert.equal(d.calls.filter((c) => c.path === BASE + "sms/status/").length, 1);
+});
+
+test("sms thread: a link or a non-plain character is refused before sending with the server's words, and over max_length is refused", async () => {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await smsOpen(d);
+  const box = d.$("ib-rb"), go = d.press(d.$("ib-threadpane"), "Send");
+  box.value = "see example.com"; box.fire("input");
+  assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The text must not contain a web link.");
+  box.value = "hello \u{1F600}"; box.fire("input");
+  assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The text must fit one SMS: at most 160 plain characters.");
+  box.value = "a".repeat(149); box.fire("input");
+  assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The message is over 148 characters. Shorten it to send.");
+  box.value = "a".repeat(148); box.fire("input");
+  assert.equal(go.disabled, false);
+});
+
+test("sms reply: posts text and key only, shows Sending (never Sent at once), clears the box; a failed 200 shows the server's message and keeps the text", async () => {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS, reply: { state: "sending", error_code: "", created_at: iso(0) } });
+  d.s.smsStatus = SMS_STATUS;
+  await smsOpen(d);
+  const box = d.$("ib-rb"); box.value = "Salamat din po"; box.fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  const post = d.calls.filter((c) => c.method === "POST" && c.path.endsWith("/reply/"));
+  assert.equal(post.length, 1);
+  assert.deepEqual(Object.keys(post[0].body).sort(), ["idempotency_key", "text"]);
+  assert.equal(post[0].body.text, "Salamat din po");
+  assert.equal(d.$("ib-rb").value, "");
+  assert.ok(!d.$("ib-threadpane").textContent.includes("Your reply was not sent."));
+  const f = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS, reply: { state: "failed", error_code: "site_limit", message: "Your store has used its texts for today.", created_at: iso(0) } });
+  f.s.smsStatus = SMS_STATUS;
+  await smsOpen(f);
+  const b2 = f.$("ib-rb"); b2.value = "Hello"; b2.fire("input");
+  await f.click(f.press(f.$("ib-threadpane"), "Send"));
+  assert.ok(f.$("ib-threadpane").textContent.includes("Your store has used its texts for today."));
+  assert.ok(!f.$("ib-threadpane").textContent.includes("site_limit"));
+  assert.equal(f.$("ib-rb").value, "Hello");
+});
+
+test("sms thread: opted out, switch off and answers-cannot-arrive turn the box off with words; the phone offline note disables Send", async () => {
+  for (const [reason, words] of [["opted_out", "This customer asked not to get texts from your store."], ["sms_off", "Text messages are off for your store. Turn them on in Settings > Inbox."], ["replies_off", "Texts can't be sent right now."]]) {
+    const d = boot({ listing: smsList(), reading: smsThread({ opted_out: reason === "opted_out", reply: { open: false, reason } }), channels: CH_SMS });
+    d.s.smsStatus = SMS_STATUS;
+    await smsOpen(d);
+    assert.equal(d.$("ib-rb").disabled, true, reason);
+    assert.equal(d.text("ib-rn"), words, reason);
+  }
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
+  d.s.smsStatus = { ...SMS_STATUS, phone_online: false };
+  await smsOpen(d);
+  assert.ok(d.$("ib-threadpane").textContent.includes("Your texting phone is offline. Texts can't be sent right now."));
+  d.$("ib-rb").value = "Hi"; d.$("ib-rb").fire("input");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send").disabled, true);
+});
+
+test("sms thread: a conversation with no name or number (blanked after 180 days) still opens", async () => {
+  const d = boot({ listing: { items: [{ ref: SM, display_name: "", snippet: "", updated_at: iso(5), channel: "sms", status: "open", unread: false }], stored_next_cursor: null }, reading: smsThread({ display_name: "", contact_mobile: "" }), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await smsOpen(d);
+  assert.ok(d.$("ib-threadpane").textContent.includes("Customer"));
+});
+
+test("sms New text: offers only verified, open members; sends member_id, text and a key (never a number); then opens the conversation as Sending", async () => {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
+  await d.openInbox();
+  await d.click(d.$("ib-newtext-btn"));
+  assert.ok(d.$("ib-threadpane").textContent.includes("For orders and member service only. No promotions."));
+  assert.ok(d.$("ib-threadpane").textContent.includes("Every text starts with: Test Store: "));
+  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, true);
+  d.$("ib-sms-q").value = "Ana"; d.$("ib-sms-q").fire("input");
+  await sleep(350); await settle();
+  assert.ok(d.list().includes("GET /sites/" + A + "/members/?q=Ana"));
+  const sel = d.$("ib-sms-pick");
+  assert.deepEqual(sel.children.map((o) => o.textContent), ["Choose a member", "Ana Reyes · +63 9** *** 1234"], "pending and closed members are not offered");
+  assert.equal(sel.children.length, 2);
+  sel.value = "mem_1"; sel.fire("change");
+  d.$("ib-sms-t").value = "Your order is ready"; d.$("ib-sms-t").fire("input");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, false);
+  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
+  const post = d.calls.filter((c) => c.method === "POST" && c.path === BASE + "sms/compose/");
+  assert.equal(post.length, 1);
+  assert.deepEqual(Object.keys(post[0].body).sort(), ["idempotency_key", "member_id", "text"]);
+  assert.equal(post[0].body.member_id, "mem_1");
+  assert.equal(post[0].body.text, "Your order is ready");
+  assert.match(post[0].body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
+  assert.ok(d.list().includes("GET " + BASE + `conversations/${SM}/`), "the new conversation is opened");
+  assert.equal(d.$("ib-sms-q"), null);
+});
+
+test("sms New text: there is no field for a number; typing digits in the search gives only members, never a typed recipient", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
+  await d.openInbox();
+  await d.click(d.$("ib-newtext-btn"));
+  const inputs = d.$("ib-threadpane").all((n) => n.tagName === "INPUT" || n.tagName === "TEXTAREA").map((n) => n.id);
+  assert.ok(!inputs.some((i) => /to|number|mobile|phone/i.test(i)), inputs.join());
+  d.$("ib-sms-q").value = "09171234567"; d.$("ib-sms-q").fire("input");
+  await sleep(350); await settle();
+  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, true, "nothing is picked, so nothing can be sent");
+  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
+  assert.equal(d.calls.filter((c) => c.path === BASE + "sms/compose/").length, 0);
+});
+
+test("sms New text: a refused text shows the server's words, keeps the text; one 404 says only that the member cannot be texted; offline and off are said", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
+  d.s.composeAnswer = { status: 200, body: { ref: SM, new_conversation: true, state: "failed", error_code: "site_limit", message: "Your store has used its texts for today.", created_at: iso(0) } };
+  await d.openInbox();
+  await d.click(d.$("ib-newtext-btn"));
+  d.$("ib-sms-q").value = "Ana"; d.$("ib-sms-q").fire("input"); await sleep(350); await settle();
+  d.$("ib-sms-pick").value = "mem_1"; d.$("ib-sms-pick").fire("change");
+  d.$("ib-sms-t").value = "Hi"; d.$("ib-sms-t").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
+  assert.ok(d.$("ib-threadpane").textContent.includes("Your store has used its texts for today."));
+  assert.ok(!d.$("ib-threadpane").textContent.includes("site_limit"));
+  assert.equal(d.$("ib-sms-t").value, "Hi");
+  d.s.composeAnswer = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
+  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
+  assert.ok(d.$("ib-threadpane").textContent.includes("This member cannot be texted.") || d.$("ib-threadpane").textContent.includes("Not found."));
+  const off = boot({ listing: smsList(), channels: CH_SMS });
+  off.s.smsStatus = { ...SMS_STATUS, phone_online: false };
+  await off.openInbox(); await off.click(off.$("ib-newtext-btn"));
+  assert.ok(off.$("ib-threadpane").textContent.includes("Your texting phone is offline. Texts can't be sent right now."));
+  const sw = boot({ listing: smsList(), channels: CH_SMS });
+  sw.s.smsStatus = { ...SMS_STATUS, enabled: false };
+  await sw.openInbox(); await sw.click(sw.$("ib-newtext-btn"));
+  assert.ok(sw.$("ib-threadpane").textContent.includes("Text messages are off for your store."));
+  assert.equal(sw.$("ib-sms-q"), null);
+});
+
+test("sms util: problem, pickable, quota, chip, offText, available", () => {
+  const d = boot({});
+  const u = d.window.NOInboxSms.util;
+  assert.equal(u.problem("", 100), ""); assert.equal(u.problem("hello there", 100), "");
+  assert.equal(u.problem("visit www.shop.ph", 100), "The text must not contain a web link.");
+  assert.equal(u.problem("ip 10.0.0.1 here", 100), "The text must not contain a web link.");
+  assert.equal(u.problem("call me", 3), "The message is over 3 characters. Shorten it to send.");
+  assert.deepEqual([...u.pickable(MEMBERS).map((m) => m.id)], ["mem_1"]);
+  assert.equal(u.quota(null), ""); assert.equal(u.quota(SMS_STATUS), "Texts left today: 37 of 50. This hour: 20 of 20.");
+  assert.equal(u.chip({ direction: "in" }), null);
+  assert.deepEqual([...u.chip({ direction: "out", delivery_state: "" })], ["info", "Sending"]);
+  assert.equal(u.available({ sms_available: true }), true); assert.equal(u.available({}), false); assert.equal(u.available(null), false);
+  assert.equal(u.maxOf({ max_length: null }), null); assert.equal(u.maxOf({ max_length: 128 }), 128);
 });

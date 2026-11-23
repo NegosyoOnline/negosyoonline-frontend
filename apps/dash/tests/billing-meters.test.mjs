@@ -27,7 +27,7 @@ const PAY = { payable: false, not_payable_reason: "paid_ahead", payable_from: nu
 const ok = (body) => ({ status: 200, body });
 const err = (status) => ({ status, body: { error: { code: "x", message: "x" } } });
 const meters = (over = {}, orders = {}) => ({ storage: { used_bytes: 1200000000, limit_bytes: 5000000000, ...over },
-  orders: { count: 132, limit: 500, period_start: "2026-11-21T00:00:00+08:00", period_end: "2026-12-20T00:00:00+08:00", period_kind: "billing_month", ...orders } });
+  orders: { count: 132, limit: 500, period_start: "2026-11-21T00:00:00+08:00", period_end: "2026-12-21T00:00:00+08:00", period_kind: "billing_month", ...orders } });
 
 function boot(init = {}) {
   const doc = makeDocument(), calls = [];
@@ -165,14 +165,14 @@ test("percent rounds down and the limit must be positive", () => {
 
 test("a date range in the same year: no year, the dash way", async () => {
   const { periodText } = boot().util;
-  assert.equal(periodText("2026-11-21T00:00:00+08:00", "2026-12-20T00:00:00+08:00"), "Nov 21 – Dec 20");
+  assert.equal(periodText("2026-11-21T00:00:00+08:00", "2026-12-21T00:00:00+08:00"), "Nov 21 – Dec 20");
   const d = boot(); await d.show();
   assert.match(d.text(d.card()), /Orders this period Nov 21 – Dec 20/);
 });
 
 test("a date range over a year change keeps both years", () => {
   const { periodText } = boot().util;
-  assert.equal(periodText("2026-12-21T00:00:00+08:00", "2027-01-20T00:00:00+08:00"), "Dec 21, 2026 – Jan 20, 2027");
+  assert.equal(periodText("2026-12-21T00:00:00+08:00", "2027-01-21T00:00:00+08:00"), "Dec 21, 2026 – Jan 20, 2027");
   assert.equal(periodText(null, "2027-01-20T00:00:00+08:00"), "");
 });
 
@@ -184,9 +184,22 @@ test("accessibility: each bar is a labelled progressbar and the limit line is a 
   assert.equal(d.has(d.card(), "pu-limit")[0].getAttribute("role"), "status");
 });
 
-test("a billing-exempt site shows no usage card and asks for no meters", async () => {
-  const d = boot({ billing: { ...BILLING, billing_exempt: true } }); await d.show();
+test("a billing-exempt site shows the card too (calendar month), and still hides it on 404", async () => {
+  const x = { ...BILLING, billing_exempt: true };
+  let d = boot({ billing: x, meters: ok(meters({}, { period_kind: "calendar_month", period_start: "2026-11-01T00:00:00+08:00", period_end: "2026-12-01T00:00:00+08:00" })) }); await d.show();
+  assert.ok(d.list().includes("GET " + B + "meters/"));
+  assert.ok(d.card()); assert.match(d.text(d.card()), /this month, not counting cancelled ones\./); assert.match(d.text(d.card()), /Nov 1 – Nov 30/);
+  d = boot({ billing: x, meters: { status: 404, body: {} } }); await d.show();
   assert.equal(d.card(), null);
+});
+
+test("period end is exclusive: a billing month at midnight, a calendar month, a trial ending mid-day", () => {
+  const { periodText } = boot().util;
+  assert.equal(periodText("2026-11-21T00:00:00+08:00", "2026-12-21T00:00:00+08:00"), "Nov 21 – Dec 20");
+  assert.equal(periodText("2026-11-01T00:00:00+08:00", "2026-12-01T00:00:00+08:00"), "Nov 1 – Nov 30");
+  assert.equal(periodText("2026-11-13T00:00:00+08:00", "2026-11-27T15:30:00+08:00"), "Nov 13 – Nov 27");
+  assert.equal(periodText("2026-12-21T00:00:00+08:00", "2027-01-21T00:00:00+08:00"), "Dec 21, 2026 – Jan 20, 2027");
+  assert.equal(periodText("2026-12-01T00:00:00+08:00", "2027-01-01T00:00:00+08:00"), "Dec 1 – Dec 31");
 });
 
 test("source: no innerHTML, and no hard-coded plan numbers in the meter code", () => {

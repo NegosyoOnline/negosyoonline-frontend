@@ -49,9 +49,12 @@
   function range(a, b) { return dateShort(a) + " to " + dateShort(b); }
   /* Plan usage (z8uq9mhbgp): "Nov 21 – Dec 20", the year only when the two dates are in different years. */
   function dateNoYear(iso) { return iso ? fmt(iso, { month: "short", day: "numeric" }) : ""; }
+  /* period_end is an exclusive instant: the last included day is the day of (period_end minus 1 ms). */
+  function lastDay(iso) { var t = new Date(iso).getTime(); return isNaN(t) ? iso : new Date(t - 1).toISOString(); }
   function periodText(a, b) {
     if (!a || !b) return "";
-    return fmt(a, { year: "numeric" }) === fmt(b, { year: "numeric" }) ? dateNoYear(a) + " – " + dateNoYear(b) : dateShort(a) + " – " + dateShort(b);
+    var e = lastDay(b);
+    return fmt(a, { year: "numeric" }) === fmt(e, { year: "numeric" }) ? dateNoYear(a) + " – " + dateNoYear(e) : dateShort(a) + " – " + dateShort(e);
   }
   /* 1 GB = 1,000,000,000 bytes. The used figure has one decimal place; a whole-number limit reads "5 GB". */
   function gbText(bytes, trim) { var t = (Math.max(0, +bytes || 0) / 1e9).toFixed(1); return (trim ? t.replace(/\.0$/, "") : t) + " GB"; }
@@ -471,9 +474,10 @@
     var b = S.billing;
     var hm = heroModel();
     add(r, heroEl(hm));
+    var usage = attrs(h("div", "bl-usage"), { hidden: "" });
+    if (b.billing_exempt) { add(r, usage); paintUsage(usage, token); } /* display only, so an exempt site sees it too */
     if (!b.billing_exempt) {
       docsEl = h("div", "bl-docs");
-      var usage = attrs(h("div", "bl-usage"), { hidden: "" });
       add(r, add(h("div", "bl-two"), planCard(), payCard()), usage, histEl(), docsEl);
       paintUsage(usage, token);
       docsStart(); paintDocs();

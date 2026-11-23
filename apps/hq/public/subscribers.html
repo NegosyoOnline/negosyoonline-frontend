@@ -82,6 +82,13 @@
             <p class="small" id="d-site-id"></p>
             <dl class="fin-facts" id="d-facts"></dl>
           </section>
+          <section class="dash-card" id="d-line" aria-labelledby="d-line-h" hidden>
+            <div class="batch-title"><h2 id="d-line-h">SMS line</h2><span class="chip chip-neutral" id="d-line-chip"></span></div>
+            <p class="dash-copy" id="d-line-copy"></p>
+            <p class="small" id="d-line-when" hidden></p>
+            <p class="field-err" id="d-line-err" role="alert" hidden></p>
+            <p><button type="button" class="no-btn no-btn-ghost" id="d-line-disable" hidden>Disable SMS line</button><button type="button" class="no-btn no-btn-ghost" id="d-line-reenable" hidden>Re-enable SMS line</button></p>
+          </section>
           <section class="dash-card fin-hist" aria-labelledby="d-pay-h">
             <h2 id="d-pay-h">Payments</h2>
             <ol class="list" id="d-pays"></ol>
@@ -101,11 +108,22 @@
     </main>
   </div>
 </div>
+<div class="modal" id="m-line" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="m-line-h" aria-describedby="m-line-sub">
+    <div class="modal-head"><h2 id="m-line-h"></h2><button type="button" class="icon-btn modal-x" id="line-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="dash-copy" id="m-line-sub"></p>
+    <div class="field"><label for="line-reason">Reason</label><textarea class="textarea short" id="line-reason" maxlength="300" autocomplete="off" aria-describedby="line-count line-err"></textarea><p class="small char-count" id="line-count">0 of 300</p></div>
+    <div class="field"><label for="line-code">Authenticator code</label><input class="input code" id="line-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-describedby="line-err"></div>
+    <p class="field-err" id="line-err" role="alert" hidden></p>
+    <button class="no-btn no-btn-primary fin-block" type="button" id="line-go"></button>
+    <button class="no-btn no-btn-ghost fin-block" type="button" id="line-cancel">Cancel</button>
+  </div>
+</div>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261122a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261113a"></script>
-<script src="/assets/js/subscribers.js?v=20261121a"></script>
+<script src="/assets/js/subscribers.js?v=20261123a"></script>
 </body>
 </html>

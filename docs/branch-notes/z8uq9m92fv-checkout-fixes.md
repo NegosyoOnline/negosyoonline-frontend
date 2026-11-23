@@ -15,4 +15,7 @@ ClickUp subtask pending (MCP limit). Authority: Manager routine decision, 23 Nov
 - Then no client change is needed; add a client test only if the response shape changes.
 
 ## Checks
-apps/storefronts: pnpm test 690 pass / 0 fail; pnpm lint 0 errors (13 pre-existing warnings); npx tsc --noEmit clean; pnpm build OK. src/lib/assets.ts: pack-forms.css version 19dbb659 -> 5a3943b6 (the assets test pins it; the promo-consent branch may bump the same line).
+apps/storefronts: pnpm test 690 pass / 0 fail; pnpm lint 0 errors (13 pre-existing warnings); npx tsc --noEmit clean; pnpm build OK. src/lib/assets.ts: pack-forms.css version 19dbb659 -> 67b5ecba (after the AM/PM follow-up) (the assets test pins it; the promo-consent branch may bump the same line).
+
+## Follow-up: AM/PM clipped on phones
+pack-forms.css only: at 430 px and below the three pickers use slightly smaller text (14px, 13px at 359 px and below), tighter padding and a wider AM/PM column; measured text fits its box at 320, 375 and 430 px. Above 430 px unchanged.

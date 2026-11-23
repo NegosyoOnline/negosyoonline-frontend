@@ -31,7 +31,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-dashboard.js": "582e7cca",
   "js/pack-lock.js": "ca426504", // this storefront's own file: the rejection dialog's script, inline in TWCinc
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
-  "css/pack-forms.css": "5a3943b6",
+  "css/pack-forms.css": "67b5ecba",
   "css/pack-select.css": "aac04c44",
   "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
   "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom

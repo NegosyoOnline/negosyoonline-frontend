@@ -115,7 +115,8 @@ select.inp { min-height: 48px; }
 .pp-co-dt input[type="date"] { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .acct-sheet .file { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
 .acct-sheet .file input { width: 100%; min-width: 0; max-width: 100%; }
-@media (max-width: 430px) { .pp-co-dt-time { gap: 6px; } .pp-co-dt-time .pk-select-box { padding-left: 10px; padding-right: 22px; } .pp-co-dt-time .pk-select-caret { right: 7px; } }
+@media (max-width: 430px) { .pp-co-dt .pp-co-dt-time { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 6px; } .pp-co-dt .pp-co-dt-time .pk-select-box { padding-left: 8px; padding-right: 20px; } .pp-co-dt .pp-co-dt-time .pk-select-input { font-size: 14px; } .pp-co-dt .pp-co-dt-time .pk-select-caret { right: 5px; } }
+@media (max-width: 359px) { .pp-co-dt .pp-co-dt-time { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1.35fr); gap: 4px; } .pp-co-dt .pp-co-dt-time .pk-select-box { padding-left: 6px; padding-right: 15px; } .pp-co-dt .pp-co-dt-time .pk-select-input { font-size: 13px; } .pp-co-dt .pp-co-dt-time .pk-select-caret { right: 3px; } .pp-co-dt .pp-co-dt-time .pk-select-caret:before { width: 11px; height: 11px; } }
 /* Buttons are clickable: the reset stylesheet leaves them on the arrow; a disabled one keeps its own (wait) cursor. */
 .pp-pack button:not(:disabled), .pp-pack .btn:not(:disabled), .pp-pack .pp-co-submit:not(:disabled) { cursor: pointer; }
 /* Terms checkbox: drawn here so its border can turn red when the agree message shows (the message follows the label). */

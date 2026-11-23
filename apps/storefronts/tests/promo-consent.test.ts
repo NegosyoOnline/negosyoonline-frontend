@@ -175,7 +175,7 @@ test("saving on a 404 is the neutral page; any other value is nothing", async ()
   assert.equal((await preferencesPost(dashOf(f), { promo_sms_ok: "1" })).status, 404);
   const off = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [ok({ promo_sms_ok: false, promo_sms_at: null })] });
   assert.equal((await preferencesPost(dashOf(off), { promo_sms_ok: "0" })).headers.get("location"), "/dashboard/account/?promo=off");
-  const bad = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [{ status: 500, body: {} }] });
+  const bad = fake({ "member/me": [ME], "member/pack": [NOT_LOCKED], "member/preferences": [{ status: 400, body: { error: { code: "bad", message: "no" } } }] });
   assert.equal((await preferencesPost(dashOf(bad), { promo_sms_ok: "1" })).headers.get("location"), "/dashboard/account/?promo=error");
   assert.equal((await preferencesPost(dashOf(fake({ "member/me": [ME], "member/pack": [NOT_LOCKED] })), { promo_sms_ok: "yes" })).status, 404);
 });

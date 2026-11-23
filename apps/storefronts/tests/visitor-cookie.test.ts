@@ -107,7 +107,9 @@ test("a Meta page clears no_vid after Decline, with no answer, and when the sett
     const set = metaPage(args(request)).finish(new Response("")).headers.get("set-cookie") ?? "";
     assert.ok(set.startsWith("__Host-no_vid=;") && set.includes("Max-Age=0") && set.includes("HttpOnly") && set.includes("Secure"), `${cookie} -> ${set}`);
   }
-  assert.equal(metaPage(args(req(`${ACCEPT}; ${VID}`))).finish(new Response("")).headers.get("set-cookie"), null, "accepted: kept");
+  const kept = metaPage(args(req(`${ACCEPT}; ${VID}`))).finish(new Response("")).headers.getSetCookie();
+  assert.ok(kept.every((c) => c.startsWith("_fbp=")), "accepted: no_vid kept (only Meta's _fbp is set, META-DEDUP F1)");
+  assert.equal(metaPage(args(req(`${ACCEPT}; ${VID}; _fbp=fb.1.1700000000000.1234567890`))).finish(new Response("")).headers.get("set-cookie"), null, "accepted: kept");
   assert.equal(metaPage(args(req(DECLINE))).finish(new Response("")).headers.get("set-cookie"), null, "nothing to clear: no header");
   const noPixel = metaPage({ ...args(req(`${DECLINE}; ${VID}`)), site: SITE });
   assert.ok((noPixel.finish(new Response("")).headers.get("set-cookie") ?? "").includes("Max-Age=0"), "a site with no Pixel clears it too");

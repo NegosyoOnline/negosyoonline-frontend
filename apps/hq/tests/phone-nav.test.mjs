@@ -41,27 +41,27 @@ const rows = (nav) => nav.children.map((a) => [a.getAttribute("href"), a.textCon
 test("the sheet holds the same entries as the side menu, in the same order, with the unread number, and marks the current page", async () => {
   const p = await menu("/inbox/sms/");
   assert.deepEqual(rows(p.node["sheet-nav"]), rows(p.node["side-nav"]));
-  assert.deepEqual(rows(p.node["sheet-nav"]).map((r) => r[0]), ["/", "/finance/", "/lifecycle/", "/inbox/sms/", "/contacts/", "/settings/"]);
-  assert.equal(p.node["sheet-nav"].children[3].hasAttribute("aria-current"), true);
-  assert.equal(p.node["sheet-nav"].children[3].children.find((n) => n.classList.contains("count")).textContent, "4");
+  assert.deepEqual(rows(p.node["sheet-nav"]).map((r) => r[0]), ["/", "/finance/", "/lifecycle/", "/domains/", "/inbox/sms/", "/contacts/", "/settings/"]);
+  assert.equal(p.node["sheet-nav"].children[4].hasAttribute("aria-current"), true);
+  assert.equal(p.node["sheet-nav"].children[4].children.find((n) => n.classList.contains("count")).textContent, "4");
   assert.equal(p.node["sheet-nav"].children[0].children[0].tagName, "SVG");
 });
 
 test("a gated entry that is not allowed is in neither list", async () => {
   const p = await menu("/", { inbox: false, contacts: false });
-  assert.deepEqual(rows(p.node["sheet-nav"]).map((r) => r[0]), ["/", "/finance/", "/lifecycle/", "/settings/"]);
+  assert.deepEqual(rows(p.node["sheet-nav"]).map((r) => r[0]), ["/", "/finance/", "/lifecycle/", "/domains/", "/settings/"]);
   assert.deepEqual(rows(p.node["side-nav"]), rows(p.node["sheet-nav"]));
 });
 
 test("the unread number in the sheet follows setUnread, like the side menu's", async () => {
   const p = await menu("/inbox/sms/");
   p.window.NOHqMenu.setUnread(0);
-  for (const nav of IDS) assert.equal(p.node[nav].children[3].children.find((n) => n.classList.contains("count")).hidden, true, nav);
+  for (const nav of IDS) assert.equal(p.node[nav].children[4].children.find((n) => n.classList.contains("count")).hidden, true, nav);
 });
 
 test("a page with no sheet draws the side menu as before", () => {
   const p = open(["menu.js"], { ids: ["side-nav"], pathname: "/" });
-  assert.equal(p.node["side-nav"].children.length, 4);
+  assert.equal(p.node["side-nav"].children.length, 5);
 });
 
 const SHELL = ["acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "nav-sheet", "sheet-nav", "sheet-name", "sheet-email", "sheet-out", "sign-out-err"];

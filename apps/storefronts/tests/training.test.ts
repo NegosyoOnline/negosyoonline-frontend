@@ -1,11 +1,13 @@
-/* The member Training pages (ClickUp z8uq9mezdj): the University home, the course page, the lesson player, "Mark complete",
+/* The member Training pages (ClickUp z8uq9mezdj): the University home, the course page, the lesson player (a lesson completes by watching, no "Mark complete"),
    and the Home slots. The Django answers are faked with the backend's shapes (apps/training/api.py). */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { homePage, type Dash } from "../src/lib/dashboard-flow.ts";
-import { coursePage, lessonCompletePost, lessonPage, trainingPage } from "../src/lib/training-flow.ts";
+import { WATCH_SCRIPT, coursePage, lessonPage, lessonWatchPost, trainingPage } from "../src/lib/training-flow.ts";
 import { durationText, embedUrl, liveWhen, resumeCard } from "../src/views/sante/training.ts";
 import nextConfig from "../next.config.ts";
 import { SITE } from "./site.ts";
@@ -26,8 +28,7 @@ function fake(replies: Record<string, Reply[]>) {
   };
   return { calls, fetchImpl };
 }
-function dashOf(f: ReturnType<typeof fake>, token = TOKEN): Dash {
-  const request = new Request("http://www.santetest.com/dashboard/training/");
+function dashOf(f: ReturnType<typeof fake>, token = TOKEN, request = new Request("http://www.santetest.com/dashboard/training/")): Dash {
   return {
     site: SITE, now: new Date("2026-11-14T00:00:00Z"), appUrl: "",
     call: { request, host: "demo.negosyotest.com", visitor_ip: "", member_token: token, binding: "", env },
@@ -166,7 +167,7 @@ test("a bad course id never reaches Django; an unknown course is the neutral pag
 
 /* ---- the lesson player ------------------------------------------------------------------------------------------- */
 
-test("the lesson player frames only the allowlisted embed, sandboxed and fullscreen, with the lesson list, module links and a Mark complete form", async () => {
+test("the lesson player frames only the allowlisted embed, sandboxed and fullscreen, with the lesson list, module links, a disabled Next Lesson and the unlock note, and no Mark complete", async () => {
   const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON())] })), "lsn_2", "crs_1"));
   assert.match(body, /<iframe src="https:\/\/www\.youtube\.com\/embed\/dQw4w9WgXcQ"/);
   assert.match(body, /sandbox="allow-scripts allow-same-origin allow-presentation"/);
@@ -174,27 +175,34 @@ test("the lesson player frames only the allowlisted embed, sandboxed and fullscr
   assert.match(body, /<h1>Place &lt;an&gt; order<\/h1>/);
   assert.match(body, /6:30/);
   assert.match(body, /Watch how\./);
-  assert.match(body, /<form method="post" action="\/dashboard\/training\/lesson\/lsn_2\/complete\/"><button type="submit" class="md-app-btn tr-complete">Mark complete<\/button><\/form>/);
+  assert.doesNotMatch(body, /Mark complete|Mark this lesson|\/complete\//);
+  assert.match(body, /Lessons unlock in order\. Watch at least 90% of this lesson to unlock the next one &mdash; your progress saves automatically\./);
   assert.match(body, /aria-current="page"/);
   assert.match(body, /href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Module 2 &rarr;<\/a>/);
   assert.match(body, /<div class="tr-eyebrow">How to use the &lt;App&gt; &middot; Module 1<\/div>/);
   assert.match(body, /<span class="tr-dis">&larr; Prev Module<\/span>/);
   assert.match(body, /Previous Lesson/);
   assert.match(body, /1 of 2 lessons complete/);
-  assert.match(body, /Lesson 2 of 2 &middot; 1 lesson completed in this module/);
-  assert.match(body, /class="tr-ring" style="--p:50"/);
+  assert.match(body, /Lesson 2 of 2 &middot; <span id="tr-hero-done">1 lesson completed<\/span> in this module/);
+  assert.match(body, /class="tr-ring" id="tr-ring" style="--p:50"/);
   assert.match(body, /<span class="tr-now">Now<\/span>/);
   // Next Lesson is off until this lesson is complete.
-  assert.match(body, /<span class="tr-btn tr-btn-off" aria-disabled="true">Next Lesson/);
+  assert.match(body, /<span class="tr-btn tr-btn-off" id="tr-next-lesson" aria-disabled="true" data-next-url="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1" data-next-id="lsn_3">Next Lesson &rarr; <small>unlocks at 90% watched<\/small><\/span>/);
   assert.doesNotMatch(body, /class="tr-btn tr-btn-go"/);
   assert.match(body, /Back to How to use the &lt;App&gt;/);
 });
 
-test("a completed lesson shows Completed instead of the button, and Next Lesson is a link", async () => {
+test("a completed lesson shows Completed, and Next Lesson is a link", async () => {
   const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ completed: true, next_lesson_locked: false }))] })), "lsn_2"));
   assert.match(body, /data-tr="completed"/);
   assert.doesNotMatch(body, /Mark complete/);
-  assert.match(body, /<a class="tr-btn tr-btn-go" href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Lesson/);
+  assert.match(body, /<a class="tr-btn tr-btn-go" id="tr-next-lesson" href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">Next Lesson/);
+});
+
+test("a locked row in the lesson list carries its address for the live unlock, and the course page does not", async () => {
+  const lessons = [ROW("lsn_1", { completed: true }), ROW("lsn_2"), ROW("lsn_3", { locked: true })];
+  const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ lessons }))] })), "lsn_2", "crs_1"));
+  assert.match(body, /<div class="tr-ls tr-ls-lock" data-lesson="lsn_3" data-unlock-href="\/dashboard\/training\/lesson\/lsn_3\/\?c=crs_1">/);
 });
 
 test("a video from another host is not framed", async () => {
@@ -220,24 +228,260 @@ test("a locked lesson (409) shows a plain message with the way back, and no play
   assert.match(noHint, /href="\/dashboard\/training\/">Back to Training/);
 });
 
-/* ---- Mark complete ----------------------------------------------------------------------------------------------- */
+/* ---- Stream lessons (R2) ------------------------------------------------------------------------------------------ */
 
-test("Mark complete posts host and token, then goes back to the lesson", async () => {
-  const f = fake({ ...mkBase(), "member/training/lessons/lsn_2/complete": [ok({ lesson_id: "lsn_2", completed: true, course: { id: "crs_1", completed_lessons: 2, total_lessons: 4, percent: 50 }, next_lesson: { id: "lsn_3", title: "x" } })] });
-  const r = await lessonCompletePost(dashOf(f), "lsn_2");
-  assert.equal(r.status, 303);
-  assert.equal(r.headers.get("location"), "/dashboard/training/lesson/lsn_2/?c=crs_1");
-  assert.deepEqual(f.calls.find((c) => c.path === "member/training/lessons/lsn_2/complete")!.body, { host: "demo.negosyotest.com", token: TOKEN });
+const STREAM_EMBED = "https://iframe.mediadelivery.net/embed/816560/0a1b2c3d-4e5f-6789-abcd-0123456789ab";
+const STREAM = (over: Record<string, unknown> = {}) => ({ kind: "stream", status: "ready", embed_url: STREAM_EMBED, needs_video: false, ...over });
+
+test("a ready Stream lesson plays the embed the API returns for the lesson's own library, and loads the watch script", async () => {
+  const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video: STREAM() }))] })), "lsn_2", "crs_1"));
+  assert.ok(body.includes(`<iframe src="${STREAM_EMBED}"`));
+  assert.match(body, /<div class="tr-player" data-lesson-video="lsn_2" data-watch="1">/);
+  assert.match(body, /<script src="\/assets\/sante\/js\/lesson-watch\.js\?v=[0-9a-f]{8}"><\/script>/);
+  assert.doesNotMatch(body, /Mark complete/);
+  // another store's library is simply another embed_url: the page never builds one
+  const other = "https://iframe.mediadelivery.net/embed/999001/0a1b2c3d-4e5f-6789-abcd-0123456789ab";
+  const b2 = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video: STREAM({ embed_url: other }) }))] })), "lsn_2"));
+  assert.ok(b2.includes(`<iframe src="${other}"`));
 });
 
-test("Mark complete on a locked lesson says so; a dead session goes to the store home; a bad id sends nothing", async () => {
-  const locked = await lessonCompletePost(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_3/complete": [err(409, "lesson_locked")] })), "lsn_3");
-  assert.equal(locked.status, 409);
-  assert.match(await text(locked), /Finish the lesson before this one first\./);
-  assert.equal((await lessonCompletePost(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_3/complete": [err(401)] })), "lsn_3")).headers.get("location"), "/");
-  const f = fake(mkBase());
-  assert.equal((await lessonCompletePost(dashOf(f), "a/b")).status, 404);
+test("a Stream lesson that is not ready, or whose embed is off the Stream host, shows no player and no watch script", async () => {
+  for (const video of [STREAM({ status: "processing" }), STREAM({ status: "uploading" }), STREAM({ status: "failed" }), STREAM({ embed_url: "https://evil.test/embed/816560/0a1b2c3d-4e5f-6789-abcd-0123456789ab" }), STREAM({ embed_url: "" })]) {
+    const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON({ video_url: null, video }))] })), "lsn_2"));
+    assert.doesNotMatch(body, /<iframe|lesson-watch/);
+    assert.match(body, /not available yet/);
+  }
+});
+
+test("a legacy lesson keeps playing its link, with no watch script", async () => {
+  for (const over of [{ video: { kind: "legacy", status: "", embed_url: YT, needs_video: false } }, {}]) {
+    const body = await text(await lessonPage(dashOf(fake({ ...mkBase(), "member/training/lessons/lsn_2": [ok(LESSON(over))] })), "lsn_2"));
+    assert.match(body, /<iframe src="https:\/\/www\.youtube\.com\/embed\/dQw4w9WgXcQ"/);
+    assert.doesNotMatch(body, /lesson-watch|data-watch/);
+  }
+});
+
+const watchPost = (f: ReturnType<typeof fake>, percent: unknown, id = "lsn_2", token = TOKEN) =>
+  lessonWatchPost(dashOf(f, token, new Request("http://www.santetest.com/dashboard/training/lesson/lsn_2/watch/", { method: "POST", body: typeof percent === "string" && percent.startsWith("raw:") ? percent.slice(4) : JSON.stringify({ percent }) })), id);
+
+test("the watch post passes host, token and percent to the API and answers JSON; it never reads the session first", async () => {
+  const f = fake({ "member/training/lessons/lsn_2/watch": [ok({ percent: 40 })] });
+  const r = await watchPost(f, 40);
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { percent: 40, completed: false, next_unlocked: false, next_lesson_id: null });
+  assert.deepEqual(f.calls, [{ path: "member/training/lessons/lsn_2/watch", body: { host: "demo.negosyotest.com", token: TOKEN, percent: 40 } }]);
+});
+
+test("the watch post sends ended on and answers completed, next_unlocked and next_lesson_id as the API gave them", async () => {
+  const f = fake({ "member/training/lessons/lsn_2/watch": [ok({ percent: 100, completed: true, next_unlocked: true, next_lesson_id: "lsn_3" })] });
+  const r = await lessonWatchPost(dashOf(f, TOKEN, new Request("http://www.santetest.com/dashboard/training/lesson/lsn_2/watch/", { method: "POST", body: JSON.stringify({ percent: 100, ended: true }) })), "lsn_2");
+  assert.equal(r.status, 200);
+  assert.deepEqual(await r.json(), { percent: 100, completed: true, next_unlocked: true, next_lesson_id: "lsn_3" });
+  assert.deepEqual(f.calls[0].body, { host: "demo.negosyotest.com", token: TOKEN, percent: 100, ended: true });
+  // an id that is not an id is never passed to the page script, and a bad ended is refused before Django
+  const odd = fake({ "member/training/lessons/lsn_2/watch": [ok({ percent: 95, completed: true, next_unlocked: true, next_lesson_id: "a/b" })] });
+  assert.deepEqual(await (await watchPost(odd, 95)).json(), { percent: 95, completed: true, next_unlocked: false, next_lesson_id: null });
+  const bad = fake({});
+  const rb = await lessonWatchPost(dashOf(bad, TOKEN, new Request("http://www.santetest.com/x", { method: "POST", body: JSON.stringify({ percent: 100, ended: "yes" }) })), "lsn_2");
+  assert.equal(rb.status, 400);
+  assert.equal(bad.calls.length, 0);
+});
+
+test("the old complete address answers 404 to every method and sends nothing to the API", async () => {
+  const route = await import("../src/app/dashboard/training/lesson/[id]/complete/route.ts");
+  for (const m of ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const) assert.equal((await route[m]()).status, 404, m);
+});
+
+test("the watch post refuses a bad percent, a bad body and a bad id before Django, and maps the API's refusals", async () => {
+  const f = fake({});
+  for (const bad of [-1, 101, 12.5, "50", null, "raw:not json", "raw:[]"]) assert.equal((await watchPost(f, bad)).status, 400, String(bad));
+  assert.equal((await watchPost(f, 50, "a/b")).status, 404);
+  assert.equal((await watchPost(f, 50, "lsn_2", "")).status, 401);
   assert.equal(f.calls.length, 0);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(401)] }), 50)).status, 401);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(409, "lesson_locked")] }), 50)).status, 409);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(429)] }), 50)).status, 429);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(404)] }), 50)).status, 404);
+  assert.equal((await watchPost(fake({ "member/training/lessons/lsn_2/watch": [err(500)] }), 50)).status, 503);
+});
+
+const WATCH_JS = readFileSync(path.join(import.meta.dirname, "..", "public", "assets", "sante", "js", "lesson-watch.js"), "utf8");
+
+/** Runs the watch script against a fake Player.js and a fake fetch (`ok` decides whether the server takes a post, `answer` is what it says). */
+function runWatch(opts: { stream?: boolean; ok?: () => boolean; answer?: (percent: number) => Record<string, unknown>; doc?: Record<string, unknown> } = {}) {
+  const posts: { url: string; percent: number; ended?: boolean }[] = [];
+  const handlers: Record<string, (d?: unknown) => void> = {};
+  const player = { on: (n: string, f: (d?: unknown) => void) => { handlers[n] = f; }, getDuration: (cb: (d: number) => void) => cb(200) };
+  const box = { querySelector: () => ({}), getAttribute: () => "lsn_2" };
+  const doc = opts.doc ?? { querySelector: (sel: string) => (opts.stream === false || sel !== '[data-watch="1"]' ? null : box), getElementById: () => null, head: { appendChild: (s: { onload: () => void }) => s.onload() }, createElement: () => ({}) };
+  const fetchStub = (url: string, init: { body: string }) => {
+    const sent = JSON.parse(init.body);
+    posts.push({ url, percent: sent.percent, ...(sent.ended ? { ended: true } : {}) });
+    const good = opts.ok ? opts.ok() : true;
+    return Promise.resolve({ ok: good, json: () => Promise.resolve(opts.answer ? opts.answer(sent.percent) : { percent: sent.percent, completed: false, next_unlocked: false, next_lesson_id: null }) });
+  };
+  new Function("document", "fetch", "playerjs", "setTimeout", WATCH_JS)(doc, fetchStub, { Player: function () { return player; } }, () => 0);
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  return {
+    posts, settle,
+    ready: () => handlers.ready?.(),
+    at: async (pct: number) => { handlers.timeupdate?.({ seconds: pct * 2, duration: 200 }); await settle(); },
+    ended: async () => { handlers.ended?.(); await settle(); },
+  };
+}
+
+test("the watch script posts the furthest percent at each 10% step and at the end, only ever upward", async () => {
+  assert.equal(WATCH_SCRIPT, "js/lesson-watch.js");
+  const w = runWatch();
+  w.ready();
+  for (const p of [3, 9.9]) await w.at(p);
+  assert.equal(w.posts.length, 0, "nothing below the first step");
+  await w.at(10);
+  await w.at(14);
+  await w.at(31); // a jump forward posts the step it reached
+  await w.at(20); // seeking back sends nothing
+  await w.at(5);
+  await w.at(31.5);
+  await w.at(59.9);
+  await w.at(95);
+  await w.ended();
+  assert.deepEqual(w.posts.map((p) => p.percent), [10, 30, 50, 90, 100]);
+  assert.ok(w.posts.every((p) => p.url === "/dashboard/training/lesson/lsn_2/watch/"));
+  assert.deepEqual(w.posts.map((p) => p.ended === true), [false, false, false, false, true], "only the end carries ended: true");
+  await w.ended();
+  assert.equal(w.posts.length, 5, "the end is sent once");
+});
+
+test("the first crossing of 90% is always posted, and the end is posted even when 100 was already sent; a completed answer does not stop the later steps", async () => {
+  const w = runWatch();
+  w.ready();
+  await w.at(89.9);
+  assert.deepEqual(w.posts.map((p) => p.percent), [80]);
+  await w.at(90);
+  assert.deepEqual(w.posts.map((p) => p.percent), [80, 90]);
+  await w.at(100);
+  await w.ended();
+  assert.deepEqual(w.posts.map((p) => [p.percent, p.ended === true]), [[80, false], [90, false], [100, false], [100, true]]);
+  // a server that says completed at 90: later steps and the end are still posted, so the furthest percent stays true
+  const done = runWatch({ answer: (p) => ({ percent: p, completed: p >= 90, next_unlocked: p >= 90, next_lesson_id: p >= 90 ? "lsn_3" : null }) });
+  done.ready();
+  await done.at(95);
+  await done.at(100);
+  await done.ended();
+  assert.deepEqual(done.posts.map((p) => [p.percent, p.ended === true]), [[90, false], [100, false], [100, true]]);
+  const full = runWatch({ answer: (p) => ({ percent: p, completed: p >= 90, next_unlocked: p >= 90, next_lesson_id: p >= 90 ? "lsn_3" : null }) });
+  full.ready();
+  for (const p of [10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 100]) await full.at(p);
+  await full.ended();
+  await full.ended();
+  assert.deepEqual(full.posts.map((p) => [p.percent, p.ended === true]), [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((n) => [n, false]).concat([[100, true]]));
+  // a jump straight to the end posts one 100 with ended
+  const jump = runWatch();
+  jump.ready();
+  await jump.ended();
+  assert.deepEqual(jump.posts.map((p) => [p.percent, p.ended === true]), [[100, true]]);
+});
+
+/** A small page for the live update: elements with the attributes, classes and children the script touches. `q` answers an element's own querySelector. */
+class El {
+  tagName: string; attrs: Record<string, string> = {}; classes = new Set<string>(); innerHTML = ""; textContent = ""; style: Record<string, string> & { setProperty?: (k: string, v: string) => void } = {};
+  parentNode: El | null = null; kids: El[] = []; q: Record<string, El | null> = {};
+  constructor(tag: string, init: { cls?: string; attrs?: Record<string, string>; html?: string; text?: string } = {}) {
+    this.tagName = tag.toUpperCase();
+    for (const c of (init.cls ?? "").split(" ").filter(Boolean)) this.classes.add(c);
+    Object.assign(this.attrs, init.attrs ?? {}); this.innerHTML = init.html ?? ""; this.textContent = init.text ?? "";
+    this.style.setProperty = (k, v) => { this.style[k] = v; };
+  }
+  get classList() { return { add: (c: string) => this.classes.add(c), remove: (c: string) => this.classes.delete(c), contains: (c: string) => this.classes.has(c) }; }
+  get className() { return [...this.classes].join(" "); }
+  set className(v: string) { this.classes = new Set(v.split(" ").filter(Boolean)); }
+  set id(v: string) { this.attrs.id = v; }
+  getAttribute(k: string) { return this.attrs[k] ?? null; }
+  setAttribute(k: string, v: string) { this.attrs[k] = v; }
+  querySelector(sel: string) { return this.q[sel] ?? null; }
+  add(e: El) { e.parentNode = this; this.kids.push(e); return e; }
+  appendChild(e: El) { return this.add(e); }
+  insertBefore(e: El, ref: El) { e.parentNode = this; this.kids.splice(this.kids.indexOf(ref), 0, e); return e; }
+  replaceChild(n: El, o: El) { n.parentNode = this; this.kids[this.kids.indexOf(o)] = n; return o; }
+  removeChild(e: El) { this.kids = this.kids.filter((k) => k !== e); return e; }
+}
+function livePage() {
+  const nav = new El("div");
+  const nextBtn = nav.add(new El("span", { cls: "tr-btn tr-btn-off", attrs: { "data-next-url": "/dashboard/training/lesson/lsn_3/?c=crs_1", "data-next-id": "lsn_3" } }));
+  const list = new El("aside");
+  const cur = list.add(new El("a", { cls: "tr-ls tr-ls-open tr-ls-cur" }));
+  const curIc = new El("span", { html: "PLAY" }); cur.q[".tr-ic"] = curIc;
+  const lock = list.add(new El("div", { cls: "tr-ls tr-ls-lock", attrs: { "data-lesson": "lsn_3", "data-unlock-href": "/dashboard/training/lesson/lsn_3/?c=crs_1" }, html: '<span class="sr-only">Locked: </span><span class="tr-ic">LOCK</span>' }));
+  lock.q[".tr-ic"] = new El("span"); lock.q[".sr-only"] = new El("span"); lock.q[".sr-only"]!.parentNode = new El("div");
+  const ringB = new El("b", { text: "1/2" });
+  const ring = new El("div", { attrs: { "data-done": "1", "data-total": "2" } }); ring.q.b = ringB;
+  const heroDone = new El("span", { text: "1 lesson completed" });
+  const plistDone = new El("p", { text: "1 of 2 lessons complete" });
+  const barI = new El("i"); const track = new El("div");
+  const box = { querySelector: () => ({}), getAttribute: () => "lsn_2" };
+  const known: Record<string, El> = {
+    ".tr-plist .tr-ls-cur": cur, ".tr-lnav": nav, "#tr-next-lesson": nextBtn, "#tr-ring": ring, "#tr-hero-done": heroDone, "#tr-plist-done": plistDone,
+    ".tr-plist-head .tr-bar i": barI, ".tr-plist-head .tr-bar": track, '.tr-plist .tr-ls-lock[data-lesson="lsn_3"]': lock,
+  };
+  nav.q['[data-tr="completed"]'] = null;
+  const doc = {
+    querySelector: (sel: string) => (sel === '[data-watch="1"]' ? box : known[sel] ?? null),
+    getElementById: (id: string) => known["#" + id] ?? null,
+    head: { appendChild: (s: { onload: () => void }) => s.onload() },
+    createElement: (tag: string) => new El(tag),
+  };
+  return { doc, nav, nextBtn, cur, curIc, lock, list, ring, ringB, heroDone, plistDone, barI };
+}
+
+test("when the answer says completed the page updates live: Next Lesson turns on, the lesson is ticked, the next lesson opens, the counts go up", async () => {
+  const p = livePage();
+  const w = runWatch({ doc: p.doc, answer: (pc) => ({ percent: pc, completed: pc >= 90, next_unlocked: pc >= 90, next_lesson_id: "lsn_3" }) });
+  w.ready();
+  await w.at(95);
+  await w.at(100);
+  await w.ended();
+  assert.deepEqual(w.posts.map((x) => [x.percent, x.ended === true]), [[90, false], [100, false], [100, true]]);
+  assert.ok(p.cur.classes.has("tr-ls-done") && !p.cur.classes.has("tr-ls-open"));
+  assert.match(p.curIc.innerHTML, /<path d="M5 12\.5l4\.5 4\.5L19 7\.5"\/>/);
+  const anchor = p.nav.kids.find((k) => k.tagName === "A")!;
+  assert.equal(anchor.attrs.id, "tr-next-lesson");
+  assert.equal(anchor.attrs.href, "/dashboard/training/lesson/lsn_3/?c=crs_1");
+  assert.equal(anchor.className, "tr-btn tr-btn-go");
+  assert.equal(anchor.innerHTML, "Next Lesson &rarr;");
+  assert.ok(p.nav.kids.some((k) => k.attrs["data-tr"] === "completed" && /Completed$/.test(k.innerHTML)));
+  assert.equal(p.ringB.textContent, "2/2");
+  assert.equal(p.ring.attrs["data-done"], "2");
+  assert.equal(p.ring.style["--p"], "100");
+  assert.equal(p.heroDone.textContent, "2 lessons completed");
+  assert.equal(p.plistDone.textContent, "2 of 2 lessons complete");
+  assert.equal(p.barI.style.width, "100%");
+  const opened = p.list.kids[1];
+  assert.equal(opened.tagName, "A");
+  assert.equal(opened.attrs.href, "/dashboard/training/lesson/lsn_3/?c=crs_1");
+  assert.equal(opened.className, "tr-ls tr-ls-open");
+});
+
+test("a completed answer with no next lesson ticks the lesson and the counts but leaves Next Lesson alone", async () => {
+  const p = livePage();
+  const w = runWatch({ doc: p.doc, answer: (pc) => ({ percent: pc, completed: true, next_unlocked: false, next_lesson_id: null }) });
+  w.ready();
+  await w.at(95);
+  assert.ok(p.cur.classes.has("tr-ls-done"));
+  assert.equal(p.ringB.textContent, "2/2");
+  assert.equal(p.nav.kids.find((k) => k.attrs["data-next-id"] === "lsn_3"), p.nextBtn);
+  assert.equal(p.list.kids[1], p.lock);
+});
+
+test("a step the server did not take is tried again at the next step; a page with no watch box does nothing", async () => {
+  let up = false;
+  const w = runWatch({ ok: () => up });
+  w.ready();
+  await w.at(10);
+  up = true;
+  await w.at(25);
+  assert.deepEqual(w.posts.map((p) => p.percent), [10, 20]);
+  const none = runWatch({ stream: false });
+  assert.equal(none.posts.length, 0);
 });
 
 /* ---- the Home slots ---------------------------------------------------------------------------------------------- */

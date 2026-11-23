@@ -162,10 +162,26 @@ test("the first route waits for DOMContentLoaded while the document is loading, 
 /* Launch hide set (ClickUp z8uq9mek5z; Manager 2026-11-13 under Coach Ed's ruling, log 1100430000509244; seed Ruling 8: Santé
    Site Type only). The pages below are out of ROUTES and out of every menu, tab row, sheet and quick-link list. */
 const HIDDEN = ["/orders/new/", "/storefront/", "/media-library/", "/earnings/", "/people/", "/usage/", "/subscription/", "/referral/",
-  "/settings/plans/", "/settings/shipping/", "/settings/domain/", "/settings/automation/", "/settings/notification/"];
+  "/settings/plans/", "/settings/shipping/", "/settings/automation/", "/settings/notification/"];
 const KEPT = ["/", "/orders/", "/products/", "/account/", "/help/", "/settings/business/", "/settings/billing/", "/settings/payments/", "/training/", "/training/course/", "/training/live/", "/media/", "/prospect-list/"];
 const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
 const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
+
+/* Domain (z8uq9mhgvj, plan F2): the screen ships, but no menu entry until Coach Ed's staging OK. The route is in ROUTES (reachable by its
+   address) and no link, tile or quick link in the page or the scripts reaches it. */
+test("Settings > Domain is reachable by its address and linked from nowhere", () => {
+  assert.ok(ROUTES_SRC.includes('"/settings/domain/"'), "the route exists");
+  assert.ok(/"\/settings\/domain\/": \{ view: "settings-domain"/.test(ROUTES_SRC));
+  assert.ok(!/href="\/settings\/domain\/?"/.test(HTML), "no link in index.html");
+  const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
+  assert.ok(!quick.includes("/settings/domain/"), "not a quick link");
+  for (const f of fs.readdirSync(new URL("../public/assets/js/", import.meta.url))) {
+    if (f === "dashboard.js") continue;
+    const src = fs.readFileSync(new URL("../public/assets/js/" + f, import.meta.url), "utf8");
+    assert.ok(!/["'`]\/settings\/domain\//.test(src), f + " does not link to the Domain page");
+  }
+  assert.ok(!/data-route="settings-domain"/.test(HTML), "no menu item");
+});
 
 test("the hidden pages are not in ROUTES and the kept pages are", () => {
   for (const h of HIDDEN) assert.ok(!ROUTES_SRC.includes('"' + h + '"'), h + " is not in ROUTES");

@@ -251,7 +251,8 @@ a.tr-ls:hover { background: #F2F7F4; }
 .tr-lmeta h1 { margin: 0 0 6px; font-size: 22px; }
 .tr-lnav { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
 .tr-lnav form { margin: 0; }
-.tr-complete { cursor: pointer; font-size: 15px; min-height: 44px; border-radius: 10px; }
+.tr-unlock { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 0; padding: 10px 14px; border-radius: 10px; background: #F2F7F4; border: 1px solid #E2E8F0; color: #5B6B63; font-size: 14px; line-height: 1.45; }
+.tr-btn-off { text-align: center; }
 .tr-done { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 10px; background: #DCEFE6; color: #0F5238; font-weight: 800; }
 .tr-plist { position: sticky; top: 76px; overflow: hidden; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; box-shadow: 0 1px 2px rgba(15,40,28,.05), 0 4px 14px rgba(15,40,28,.06); }
 .tr-plist-head { padding: 16px; background: linear-gradient(135deg, #00502A, #007A3D); color: #fff; }
@@ -276,7 +277,7 @@ a.tr-ls:hover { background: #F2F7F4; }
   .tr-resume-thumb { max-height: 140px; }
   .tr-bcb .tr-btn, .tr-resume .tr-btn { width: 100%; }
   .tr-hero h1 { font-size: 22px; }
-  .tr-lnav .tr-btn, .tr-lnav .tr-complete, .tr-done { width: 100%; justify-content: center; }
+  .tr-lnav .tr-btn, .tr-done { width: 100%; justify-content: center; }
   .tr-mod-h { padding: 13px 14px; gap: 10px; }
   .tr-ls { padding: 11px 12px; }
 }
@@ -308,6 +309,7 @@ html[data-theme="dark"] .tr-count-full { background: #3A3010; color: #F2DC8C; }
 html[data-theme="dark"] .tr-ls-lock, html[data-theme="dark"] .tr-dis { color: #6F7F77; }
 html[data-theme="dark"] .tr-ls-lock .tr-ic { background: #1B2420; color: #6F7F77; }
 html[data-theme="dark"] .tr-chev { border-color: #A9B8B0; }
+html[data-theme="dark"] .tr-unlock { background: #1B2420; border-color: #2C3A33; color: #9DB0A6; }
 html[data-theme="dark"] .tr-done { background: #1F3A2E; color: #8BE0B8; }
 html[data-theme="dark"] .tr-player { background: #070B09; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

@@ -125,6 +125,54 @@ export async function fetchSite(
   return { ...body, meta_pixel_id: body.meta_pixel_id ?? "", custom_host: (body.custom_host ?? "").trim().toLowerCase() };
 }
 
+const logProbe: Log = (reason) => console.error(`storefront: domain probe lookup failed: ${reason}`);
+
+/** The public id of the site this hostname is being connected for (backend GET /storefront/v1/domain-probe/?host=), or null.
+    Fails closed like fetchSite: 404 is the everyday "not a claim" answer (also what the backend gives while DOMAINS_ENABLED is off),
+    anything else wrong gives null. Only the id string is taken from the answer; nothing else the backend sends is passed on. */
+export async function fetchDomainProbe(
+  host: string,
+  env: Pick<StorefrontEnv, "apiBase" | "secret">,
+  fetchImpl: Fetch = fetch,
+  log: Log = logProbe,
+): Promise<string | null> {
+  if (!host) return null;
+  if (env.secret.length < SECRET_MIN_LENGTH) {
+    log("STOREFRONT_SERVER_SECRET is not set");
+    return null;
+  }
+  let response: Response;
+  try {
+    response = await fetchImpl(`${env.apiBase}/storefront/v1/domain-probe/?host=${encodeURIComponent(host)}`, {
+      headers: { Authorization: `Bearer ${env.secret}`, Accept: "application/json" },
+      cache: "no-store",
+      redirect: "error",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    log(name === "TimeoutError" || name === "AbortError" ? "the API did not answer in time" : "the API could not be reached");
+    return null;
+  }
+  if (response.status === 404) return null;
+  if (response.status !== 200) {
+    log(`the API answered ${response.status}`);
+    return null;
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    log("the API answer was not JSON");
+    return null;
+  }
+  if (!record(body) || typeof body.site !== "string" || !body.site || body.site.length > 64) {
+    log("the API answer had no site id");
+    return null;
+  }
+  return body.site;
+}
+
 export type ContactMessage = {
   host: string;
   visitor_ip: string;

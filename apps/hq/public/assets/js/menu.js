@@ -17,6 +17,7 @@
     { href: "/", label: "Admin console", icon: "M4 11l8-7 8 7v9H4z" },
     { href: "/finance/", label: "Finance", icon: "M3 6h18v12H3zM3 10h18M7 15h3", within: true },
     { href: "/lifecycle/", label: "Lifecycle", icon: "M4 7h16v13H4zM9 11h6M2 3h20v4H2z" },
+    { href: "/domains/", label: "Domains", icon: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9s-1 6.5-3.5 9c-2.5-2.5-3.5-5.5-3.5-9s1-6.5 3.5-9" },
   ];
   /* Settings is always drawn, and always last: the gated entries below go in front of it. */
   var SETTINGS = { href: "/settings/", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.7a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 2 1.2l.4 2.7h4l.4-2.7a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2" };

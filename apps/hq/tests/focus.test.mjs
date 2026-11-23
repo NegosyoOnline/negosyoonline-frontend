@@ -81,3 +81,12 @@ test("the Finance sub-navigation, switch and form styles use the HQ colours and 
   assert.ok(block.length > 200, "the HQ-F1 block is at the end of hq.css");
   assert.doesNotMatch(block, /#F2D99B|#C59A3B|var\(--gold\)|var\(--c-focus\)/i);
 });
+
+test("the Domains page follows the focus rule: no heading is focusable or given focus, and its dialog opens on Cancel", () => {
+  assert.ok(pages.includes("domains.html"));
+  assert.ok(scripts.includes("domains.js"));
+  const js = fs.readFileSync(PUB + "assets/js/domains.js", "utf8");
+  assert.doesNotMatch(js, /\$\("(?:h-[a-z-]+|[a-z-]+-h|d-msg|e-h)"\)\.focus/);
+  assert.match(js, /dlg\.open\("m-act", from, \$\("act-cancel"\)\)/);
+  assert.doesNotMatch(fs.readFileSync(PUB + "domains.html", "utf8"), /id="d-msg"[^>]*tabindex/i);
+});

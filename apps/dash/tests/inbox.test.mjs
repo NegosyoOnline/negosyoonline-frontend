@@ -810,7 +810,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261123so1/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261123so1/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
   assert.match(HTML, /inbox\.css\?v=20261123so2/);
   assert.match(HTML, /inbox-comments\.js\?v=20261119cm21/);
 });
@@ -2153,6 +2153,18 @@ test("sms settings: no card while sms_available is absent or false; with it, a s
   const put = d.calls.filter((c) => c.method === "PUT");
   assert.deepEqual(put.map((c) => c.body), [{ sms_enabled: true }]);
   assert.equal(d.$("ibs-sw-sms").getAttribute("aria-checked"), "true");
+});
+
+test("sms settings: the how-it-works line names text messages only when sms is available", async () => {
+  const OLD = "The inbox shows your Facebook Messenger, website chat and email conversations in one list.";
+  const NEW = "The inbox shows your Facebook Messenger, website chat, text message (SMS) and email conversations in one list.";
+  for (const [ch, want, not] of [[CH_OFF, OLD, NEW], [{ ...CH_OFF, sms_available: true, sms_enabled: false }, NEW, OLD]]) {
+    const d = boot({ channels: ch });
+    await d.openSettings();
+    const text = d.$("ibs-root").textContent;
+    assert.ok(text.includes(want));
+    assert.ok(!text.includes(not));
+  }
 });
 
 test("sms inbox: hidden while the feature is off (no New text, no Text option, an sm_ row is not invented)", async () => {

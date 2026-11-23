@@ -206,3 +206,47 @@ test("source: no innerHTML, and no hard-coded plan numbers in the meter code", (
   assert.doesNotMatch(SRC, /innerHTML/);
   assert.doesNotMatch(SRC.slice(SRC.indexOf("function usageCard")), /\b500\b|\b5000000000\b|"5 GB"/);
 });
+
+const OVER = { overage_applies: true, overage_centavos_per_order: 500 };
+const OVER_LINE = "You have reached your plan’s 500 orders. Orders above 500 are billed at PHP 5 each on your next bill.";
+const limitLine = (d) => { const l = d.has(d.card(), "pu-limit"); assert.equal(l.length, 1); return l[0]; };
+
+test("orders at 100% with overage_applies true: the orders line, from the response's limit and price (z8uq9mhpaz)", async () => {
+  const d = boot({ meters: ok(meters({}, { count: 500, ...OVER })) }); await d.show();
+  assert.equal(limitLine(d).textContent, OVER_LINE);
+  assert.ok(limitLine(d).classList.contains("pu-red"));
+  assert.ok(d.meter(1).classList.contains("pu-red"));
+  const d2 = boot({ meters: ok(meters({}, { count: 1100, limit: 1000, overage_applies: true, overage_centavos_per_order: 700 })) }); await d2.show();
+  assert.equal(limitLine(d2).textContent, "You have reached your plan’s 1000 orders. Orders above 1000 are billed at PHP 7 each on your next bill.");
+});
+
+test("orders at 100% with overage_applies false or missing: the plain limit line", async () => {
+  for (const o of [{ overage_applies: false, overage_centavos_per_order: 500 }, {}, { overage_applies: true }, { overage_centavos_per_order: 500 }]) {
+    const d = boot({ meters: ok(meters({}, { count: 520, ...o })) }); await d.show();
+    assert.equal(limitLine(d).textContent, "You have reached your plan’s limit.", JSON.stringify(o));
+  }
+});
+
+test("storage alone at 100% keeps the plain limit line, even when overage applies", async () => {
+  const d = boot({ meters: ok(meters({ used_bytes: 5000000000 }, { count: 100, ...OVER })) }); await d.show();
+  assert.equal(limitLine(d).textContent, "You have reached your plan’s limit.");
+});
+
+test("both bars at 100%: only the orders line", async () => {
+  const d = boot({ meters: ok(meters({ used_bytes: 5000000000 }, { count: 500, ...OVER })) }); await d.show();
+  assert.equal(limitLine(d).textContent, OVER_LINE);
+  assert.doesNotMatch(d.text(d.card()), /plan’s limit\./);
+});
+
+test("orders under 100% show no overage line, and the bars stay amber below 100%", async () => {
+  const d = boot({ meters: ok(meters({}, { count: 450, ...OVER })) }); await d.show();
+  assert.equal(d.has(d.card(), "pu-limit").length, 0);
+  assert.ok(d.meter(1).classList.contains("pu-amber"));
+});
+
+test("the Billing note: 500 orders included, PHP 5 each above, no share of sales", async () => {
+  const d = boot(); await d.show();
+  const t = d.text();
+  assert.ok(t.includes("Billing is for your site’s plan. It includes 500 orders a month; orders above 500 are PHP 5 each. NegosyoOnline never takes a share of your sales."));
+  assert.doesNotMatch(t, /Nothing is charged per order or per sale/);
+});

@@ -39,11 +39,26 @@ test("home page: storage-only usage, new comparison total, no removed rows", () 
   assert.match(pages["assets/js/site.js"], /Is there a limit on orders\?/);
 });
 
-test("FAQ order limit: the approved 500-orders line, no per-order or extra-charge claim (z8uq9mhk1n)", () => {
+test("FAQ order limit: 500 orders included, PHP 5 each above, added to the next bill (z8uq9mhpaz)", () => {
   const js = pages["assets/js/site.js"];
-  assert.match(js, /\["Is there a limit on orders\?", "Your plan includes 500 orders a month\. We'll show your usage in your dashboard\.", 1\]/);
+  assert.match(js, /\["Is there a limit on orders\?", "Your plan includes 500 orders a month\. Orders above 500 are PHP 5 each, added to your next bill\. We'll show your usage in your dashboard\.", 1\]/);
   assert.doesNotMatch(js, /does not charge per order/);
-  assert.doesNotMatch(js, /500 orders[^"]*(extra|additional|overage|charge)/i);
+});
+
+test("Terms: the order clause, and the order fee row of the comparison table (z8uq9mhpaz)", () => {
+  assert.match(pages["terms.html"], /<p>Each plan includes 500 orders a month\. Orders above 500 in a billing month are charged at PHP 5 per order and added to your next bill\. Cancelled orders are not counted\. NegosyoOnline does not take a share of your sales\.<\/p>/);
+  const row = pages["index.html"].match(/<tr class="rd-cmp-fee"><th scope="row">Order fee<\/th>.*?<\/tr>/)[0];
+  assert.match(row, /<td class="rd-cmp-us"><b>First 500 a month included<\/b>, then PHP 5 each<\/td>/);
+  assert.equal((row.match(/<td>PHP 5 per order<\/td>/g) || []).length, 3, "the competitors' cells are unchanged");
+  assert.doesNotMatch(row, /<b>None<\/b>/);
+});
+
+test("\"share of your sales\" appears only as a no-share statement", () => {
+  for (const [name, text] of Object.entries(pages)) {
+    for (const m of text.matchAll(/.{0,40}share of your sales.{0,10}/gi)) {
+      assert.match(m[0], /does not take a share of your sales|never takes a share of your sales/i, `${name}: ${m[0]}`);
+    }
+  }
 });
 
 test("comparison table rows add up to the stated total", () => {

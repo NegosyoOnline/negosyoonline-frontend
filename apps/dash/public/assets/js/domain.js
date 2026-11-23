@@ -4,7 +4,7 @@
    The API answers {eligible, locked_reason, extensions, registered_name, domain: {id, name, state, label, reason, can_buy, can_retry,
    quote_expires_at}}. Check runs in the worker, so after a Check the page asks again every few seconds until the name is quoted or ended.
    Every status and string comes from the API and reaches the page through textContent or D.el only; an error shows the API's own
-   message, never raw data. The page shows no price and says nothing about renewal. While the API answers 404 (DOMAINS_ENABLED is off,
+   message, never raw data. The only amount the page shows is the year-2 line on the result before Buy (domain.renewal_usd_cents); no first-year price is ever shown. While the API answers 404 (DOMAINS_ENABLED is off,
    or not a Santé site) the page says the address is not available yet. The route is reachable by its address only: no menu link
    points here until Coach Ed's staging OK. All wording is a placeholder until he approves it. Plain ES5.
    NODomain.util holds the pure helpers (tests/domain.test.mjs). */
@@ -19,8 +19,8 @@
   var POLL = { checking: 3, confirmed: 8, awaiting_gate: 8, registering: 8, registered: 8, zone: 8, connecting: 8, activating: 8, removal_pending: 8 };
   /* An error code after which the page re-reads the status, so it shows what is true now. */
   var REFRESH = { not_eligible: 1, domain_exists: 1, domain_in_progress: 1, request_in_progress: 1, purchase_not_open: 1, check_first: 1, quote_expired: 1, name_taken: 1, nothing_to_retry: 1 };
-  var LEAD = "Free for your first year: one website address for your store.";
-  /* The one plain line (FD4/FD6). No price and no renewal amount: year-2 billing is BILLING's. Placeholder until Coach Ed's OK. */
+  var LEAD = "Free for your first year: one address for your store.";
+  /* The one plain line (FD4/FD6). It carries no amount; the year-2 amount is the separate line yearTwo() builds. Placeholder until Coach Ed's OK. */
   var HOLD = "Your address stays connected while you stay subscribed. From year 2 its renewal is paid. NegosyoOnline registers and holds it for your store.";
   /* Claim states from which the domain is registered, so "Free until" can show. */
   var REGISTERED = { registered: 1, zone: 1, connecting: 1, activating: 1, live: 1, attention: 1 };
@@ -73,6 +73,12 @@
     if (!list.length) return "";
     var tail = list.length > 1 ? list.slice(0, -1).join(", ") + " or " + list[list.length - 1] : list[0];
     return "You can choose an address ending in " + tail + ".";
+  }
+  /* The year-2 line for the result before Buy, from domain.renewal_usd_cents: a positive integer shows US$X.XX; anything else, "". */
+  function yearTwo(d) {
+    var c = d && typeof d === "object" ? d.renewal_usd_cents : null;
+    if (typeof c !== "number" || !isFinite(c) || Math.floor(c) !== c || c <= 0) return "";
+    return "Free for the first year. From year 2: US$" + (c / 100).toFixed(2) + " a year, Cloudflare\u2019s renewal price with no markup, billed in pesos at the BSP rate when the renewal bill is made.";
   }
   /* "www.name" for a name that is a plain host, else "" (so nothing odd ever becomes a link). */
   function wwwOf(name) { return typeof name === "string" && HOST_RE.test(name) ? "www." + name : ""; }
@@ -254,6 +260,7 @@
   function quotedCard(a, d) {
     var s = card("quoted", "This address is available", ["ok", "Available"]);
     add(s, h("p", "dm-name", d.name), h("p", "dm-lead", LEAD), h("p", "dm-meta", HOLD));
+    var y2 = yearTwo(d); if (y2) add(s, h("p", "dm-meta dm-year2", y2));
     add(s, errorLine());
     if (S.confirm) {
       var box = h("div", "dm-confirm"); box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", "dm-confirm-h");
@@ -380,5 +387,5 @@
     });
   }
 
-  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, extHint: extHint, lockedText: lockedText, dateOf: dateOf, freeUntil: freeUntil, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
+  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, extHint: extHint, yearTwo: yearTwo, lockedText: lockedText, dateOf: dateOf, freeUntil: freeUntil, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
 })();

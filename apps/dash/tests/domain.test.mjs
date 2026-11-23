@@ -75,7 +75,7 @@ test("not yet eligible (trial or no paid cycle): it says it unlocks after the fi
   assert.ok(/unlocks after your first subscription payment/.test(d.text()));
   assert.equal(d.$("dm-name"), null);
   assert.equal(d.buttons(d.$("dm-root")).length, 0);
-  assert.ok(d.text().includes("Free for your first year: one website address for your store."));
+  assert.ok(d.text().includes("Free for your first year: one address for your store."));
 });
 
 test("a lock for another reason shows the API's own sentence", async () => {
@@ -87,7 +87,7 @@ test("a lock for another reason shows the API's own sentence", async () => {
 test("eligible: the placeholder line, a search box and Check name; the plan's ending is added when none is typed", async () => {
   const d = boot({ post: { "check/": (b) => ({ status: 200, body: answer(claim("checking", { name: b.name })) }) } });
   await d.open();
-  assert.ok(d.text().includes("Free for your first year: one website address for your store."));
+  assert.ok(d.text().includes("Free for your first year: one address for your store."));
   assert.ok(d.press("Check name"));
   assert.equal(d.$("dm-name").tagName, "INPUT");
   await d.submit("  https://www.YourBusiness/ ");
@@ -380,4 +380,35 @@ test("several endings: a name typed without one gets the first; the API's refusa
   await e.submit("pricey.xyz");
   assert.deepEqual(e.calls.at(-1), { method: "POST", path: BASE + "check/", body: { name: "pricey.xyz" } });
   assert.equal(e.$("dm-err").textContent, msg);
+});
+
+test("year-2 line: only on the result before Buy, only for a positive whole number of cents", async () => {
+  const Y = (x) => `Free for the first year. From year 2: US$${x} a year, Cloudflare\u2019s renewal price with no markup, billed in pesos at the BSP rate when the renewal bill is made.`;
+  for (const [cents, line] of [[4220, "42.20"], [1046, "10.46"]]) {
+    const d = boot({ get: { status: 200, body: answer(claim("quoted", { can_buy: true, renewal_usd_cents: cents })) } });
+    await d.open();
+    assert.ok(d.text().includes(Y(line)), line);
+    await d.click(d.press("Buy this address"));
+    assert.ok(d.text().includes(Y(line)), "also in the confirm view");
+    assert.ok(!/first[- ]year price/i.test(d.text()));
+  }
+  for (const bad of [null, undefined, 0, -5, 10.5, "4220", NaN]) {
+    const d = boot({ get: { status: 200, body: answer(claim("quoted", { can_buy: true, renewal_usd_cents: bad })) } });
+    await d.open();
+    assert.ok(!d.text().includes("US$"), "hidden for " + String(bad));
+  }
+  const m = boot({ get: { status: 200, body: answer(claim("quoted", { can_buy: true })) } });
+  await m.open();
+  assert.ok(!m.text().includes("US$"), "hidden when missing");
+  for (const st of ["checking", "confirmed", "activating", "live", "attention", "failed", "conflict"]) {
+    const d = boot({ get: { status: 200, body: answer(claim(st, { can_buy: false, renewal_usd_cents: 4220 })) } });
+    await d.open();
+    assert.ok(!d.text().includes("US$"), st);
+  }
+  const s = boot({ get: { status: 200, body: answer(null) } });
+  await s.open();
+  assert.ok(!s.text().includes("US$"), "search view");
+  const l = boot({ get: { status: 200, body: answer(null, { eligible: false, renewal_usd_cents: 4220 }) } });
+  await l.open();
+  assert.ok(!l.text().includes("US$"), "locked view");
 });

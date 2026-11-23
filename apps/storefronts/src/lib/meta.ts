@@ -37,9 +37,10 @@
    Meta's own ids (ClickUp z8uq9m92fv, META-DEDUP F1): Meta's script writes _fbp only after the first consented page has
    rendered, so that page's server event had no fbp, and an _fbc built from ?fbclid= was sent but not kept. Now, only
    with a Pixel, after Accept and not on ?cookie-settings=1, a Meta page response (finish) sets _fbp when it is absent or
-   badly shaped (Meta's format fb.1.<ms>.<10 random digits>, the same value goes to Django) and _fbc when it is absent
-   and the URL has a fbclid. First-party, Path=/, SameSite=Lax, Secure on https, 90 days, not HttpOnly and no __Host-
-   prefix, so the Pixel reads and keeps them. A well-shaped cookie is never overwritten. Decline clears both. */
+   not sent at all (Meta's format fb.1.<ms>.<10 random digits>, the same value goes to Django) and _fbc when it is not
+   sent and the URL has a fbclid. Meta's script re-writes both with a Domain, so from the second page two cookies of the
+   same name can arrive: the first well-shaped value is read, and a cookie of any shape already sent is never set again. First-party, Path=/, SameSite=Lax, Secure on https, 90 days, not HttpOnly and no __Host-
+   prefix, so the Pixel reads and keeps them. An existing cookie is never overwritten. Decline clears both. */
 import { randomBytes, randomInt } from "node:crypto";
 import { asset } from "./assets.ts";
 import { clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
@@ -147,12 +148,25 @@ function hasCookie(request: Request, name: string): boolean {
   return (request.headers.get("cookie") ?? "").split(";").some((part) => part.trim().startsWith(`${name}=`));
 }
 
+/** The first well-shaped value among the cookies of this exact name, however many are sent (Meta's script re-writes _fbp
+    and _fbc with a Domain, so a host-only copy and a domain copy can arrive together); "" when none is well shaped.
+    Only for Meta's two cookies: every other cookie read stays strict (readCookieShaped). */
+function readMetaCookie(header: string | null, name: string, shape: RegExp): string {
+  for (const part of (header ?? "").split(";")) {
+    const at = part.indexOf("=");
+    if (at < 0 || part.slice(0, at).trim() !== name) continue;
+    const value = part.slice(at + 1).trim();
+    if (shape.test(value)) return value;
+  }
+  return "";
+}
+
 /** The Pixel's own cookies, read from the request (first-party: the Pixel writes them on this host). A value of the
     wrong shape reads as "". */
 export function metaCookies(request: Request, now: Date = new Date()): { fbp: string; fbc: string } {
   const header = request.headers.get("cookie");
-  const fbp = readCookieShaped(header, "_fbp", FBP);
-  let fbc = readCookieShaped(header, "_fbc", FBC);
+  const fbp = readMetaCookie(header, FBP_COOKIE, FBP);
+  let fbc = readMetaCookie(header, FBC_COOKIE, FBC);
   if (!fbc) {
     try {
       fbc = buildFbc(new URL(request.url).searchParams.get("fbclid"), now);
@@ -271,10 +285,12 @@ export function metaPage(a: MetaPageArgs): MetaPage {
   const stale = (choice !== "accepted" || reopen) && hasCookie(a.request, cookieName(VISITOR, isSecure(a.request)));
   const dropIds = pixel && choice === "declined";
   const header = a.request.headers.get("cookie");
-  const had = { fbp: readCookieShaped(header, FBP_COOKIE, FBP), fbc: readCookieShaped(header, FBC_COOKIE, FBC) };
+  const sent = { fbp: hasCookie(a.request, FBP_COOKIE), fbc: hasCookie(a.request, FBC_COOKIE) };
+  const had = { fbp: readMetaCookie(header, FBP_COOKIE, FBP), fbc: readMetaCookie(header, FBC_COOKIE, FBC) };
   const keepIds = pixel && choice === "accepted" && !reopen;
-  const fbp = keepIds ? had.fbp || mintFbp(a.now) : "";
-  const urlFbc = keepIds && !had.fbc ? metaCookies(a.request, a.now).fbc : "";
+  const mint = keepIds && !sent.fbp;
+  const fbp = keepIds ? had.fbp || (mint ? mintFbp(a.now) : "") : "";
+  const urlFbc = keepIds && !sent.fbc ? metaCookies(a.request, a.now).fbc : "";
   const finish = (response: Response) => {
     if (stale) clearCookie(response, a.request, VISITOR);
     if (dropIds) {
@@ -282,7 +298,7 @@ export function metaPage(a: MetaPageArgs): MetaPage {
       if (hasCookie(a.request, FBC_COOKIE)) setMetaCookie(response, a.request, FBC_COOKIE, "", 0);
     }
     if (keepIds) {
-      if (!had.fbp) setMetaCookie(response, a.request, FBP_COOKIE, fbp, META_ID_MAX_AGE);
+      if (mint) setMetaCookie(response, a.request, FBP_COOKIE, fbp, META_ID_MAX_AGE);
       if (urlFbc) setMetaCookie(response, a.request, FBC_COOKIE, urlFbc, META_ID_MAX_AGE);
     }
     return response;

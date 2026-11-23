@@ -1,4 +1,4 @@
-/* Domain (/settings/domain/, ClickUp z8uq9mhgvj, design z8uq9mcyu0 R4.7): "Your website address". The one .com that comes with the
+/* Domain (/settings/domain/, ClickUp z8uq9mhgvj, design z8uq9mcyu0 R4.7): "Your website address". The one website address that comes with the
    plan: search a name, check it, buy it after a confirm step, then the setup steps until the www address is live.
    Reads GET /sites/{id}/domain/ and writes POST .../domain/check/, .../buy/ and .../retry/ (the owner routes of apps/domains).
    The API answers {eligible, locked_reason, extensions, registered_name, domain: {id, name, state, label, reason, can_buy, can_retry,
@@ -19,7 +19,7 @@
   var POLL = { checking: 3, confirmed: 8, awaiting_gate: 8, registering: 8, registered: 8, zone: 8, connecting: 8, activating: 8, removal_pending: 8 };
   /* An error code after which the page re-reads the status, so it shows what is true now. */
   var REFRESH = { not_eligible: 1, domain_exists: 1, domain_in_progress: 1, request_in_progress: 1, purchase_not_open: 1, check_first: 1, quote_expired: 1, name_taken: 1, nothing_to_retry: 1 };
-  var LEAD = "Free for your first year: one .com for your store.";
+  var LEAD = "Free for your first year: one website address for your store.";
   /* The one plain line (FD4/FD6). No price and no renewal amount: year-2 billing is BILLING's. Placeholder until Coach Ed's OK. */
   var HOLD = "Your address stays connected while you stay subscribed. From year 2 its renewal is paid. NegosyoOnline registers and holds it for your store.";
   /* Claim states from which the domain is registered, so "Free until" can show. */
@@ -59,6 +59,20 @@
       v += ext;
     }
     return v;
+  }
+  /* The plain line under the search box from the API's `extensions`: "You can choose an address ending in .com, .net or .org."
+     Only items shaped like an extension are kept; "" (no line) when none are left or the list is missing. */
+  function extHint(extensions) {
+    var list = [];
+    if (Array.isArray(extensions)) {
+      for (var i = 0; i < extensions.length; i++) {
+        var e = extensions[i];
+        if (typeof e === "string" && /^\.[a-z]{2,63}$/.test(e) && list.indexOf(e) < 0) list.push(e);
+      }
+    }
+    if (!list.length) return "";
+    var tail = list.length > 1 ? list.slice(0, -1).join(", ") + " or " + list[list.length - 1] : list[0];
+    return "You can choose an address ending in " + tail + ".";
   }
   /* "www.name" for a name that is a plain host, else "" (so nothing odd ever becomes a link). */
   function wwwOf(name) { return typeof name === "string" && HOST_RE.test(name) ? "www." + name : ""; }
@@ -215,12 +229,14 @@
     }
     var f = D.el("form", { "class": "dm-form", novalidate: "" });
     var lab = h("label", "dm-label", "Website address"); lab.setAttribute("for", "dm-name");
-    var input = D.el("input", { type: "text", id: "dm-name", "class": "dm-input", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "yourbusiness.com", "aria-describedby": "dm-hint dm-err" });
+    var extLine = extHint(a && a.extensions);
+    var input = D.el("input", { type: "text", id: "dm-name", "class": "dm-input", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "yourbusiness.com", "aria-describedby": extLine ? "dm-hint dm-ext dm-err" : "dm-hint dm-err" });
     input.value = S.typed;
     var hint = h("p", "dm-hint", "Type the name you want. We add the ending for you if you leave it out."); hint.setAttribute("id", "dm-hint");
+    var ext = extLine ? h("p", "dm-hint", extLine) : null; if (ext) ext.setAttribute("id", "dm-ext");
     var err = errorLine(); err.setAttribute("id", "dm-err");
     var go = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Check name");
-    add(f, lab, input, hint, err);
+    add(f, lab, input, hint, ext, err);
     if (why && !S.error) { var r = h("p", "dm-result dm-result-bad", why); r.setAttribute("role", "status"); add(f, r); }
     add(f, add(h("div", "dm-actions"), go));
     f.addEventListener("submit", function (e) { e.preventDefault(); S.typed = input.value; check(go, input.value); });
@@ -364,5 +380,5 @@
     });
   }
 
-  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, lockedText: lockedText, dateOf: dateOf, freeUntil: freeUntil, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
+  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, extHint: extHint, lockedText: lockedText, dateOf: dateOf, freeUntil: freeUntil, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
 })();

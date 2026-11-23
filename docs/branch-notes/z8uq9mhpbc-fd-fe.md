@@ -22,3 +22,12 @@ Route `domains/import-bridge/`, body `{site, name}`, `imports` list, `free_until
 
 ## Checks (Node 22.23.1, pnpm 11.25.0, frozen lockfile)
 dash: 758 tests pass; hq: 646 tests pass; lint clean; build compiles; tsc --noEmit exit 0 (after a build).
+
+## Fix round FD-CAP (Coach Ed, 24 Nov, ClickUp comment 1100430000629975 on z8uq9mhpbb)
+Not limited to .com any more; the backend limits by price (cap 13 USD) and offers several endings in `extensions`.
+* `apps/dash` domain.js: lead is now "Free for your first year: one website address for your store."
+* New plain line under the search box, built from the API's `extensions` (only items matching `^\.[a-z]{2,63}$`, set as text): "You can choose an address ending in .com, .net, .org or .xyz." (one item: "ending in .com."). Hidden when the list is empty or missing. Id `dm-ext`, added to the input's aria-describedby only when shown; `dm-hint` and `dm-err` unchanged.
+* cleanName unchanged: no ending typed gets `extensions[0]` (fallback .com); a typed ending is sent as typed. No client-side refusal; the API's refusal ("This name is not included. Please choose another.") shows as sent.
+* Year-2 wording, billing and "no price, no renewal" unchanged. `domain.js` cache key is now `?v=20261124fd2`.
+* HQ: no ".com only" wording found; not touched. Outside this round's files: `apps/dash/public/assets/js/dashboard.js` line ~1302 (onboarding checklist row "Your own domain: Use a .com address for your site") still says .com; left for the Supervisor to decide.
+* Checks (Node 22.23.1, pnpm 11.25.0, frozen lockfile): dash 791 tests pass, lint clean, build ok.

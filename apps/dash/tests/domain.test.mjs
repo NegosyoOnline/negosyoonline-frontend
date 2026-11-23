@@ -75,7 +75,7 @@ test("not yet eligible (trial or no paid cycle): it says it unlocks after the fi
   assert.ok(/unlocks after your first subscription payment/.test(d.text()));
   assert.equal(d.$("dm-name"), null);
   assert.equal(d.buttons(d.$("dm-root")).length, 0);
-  assert.ok(d.text().includes("Free for your first year: one .com for your store."));
+  assert.ok(d.text().includes("Free for your first year: one website address for your store."));
 });
 
 test("a lock for another reason shows the API's own sentence", async () => {
@@ -87,7 +87,7 @@ test("a lock for another reason shows the API's own sentence", async () => {
 test("eligible: the placeholder line, a search box and Check name; the plan's ending is added when none is typed", async () => {
   const d = boot({ post: { "check/": (b) => ({ status: 200, body: answer(claim("checking", { name: b.name })) }) } });
   await d.open();
-  assert.ok(d.text().includes("Free for your first year: one .com for your store."));
+  assert.ok(d.text().includes("Free for your first year: one website address for your store."));
   assert.ok(d.press("Check name"));
   assert.equal(d.$("dm-name").tagName, "INPUT");
   await d.submit("  https://www.YourBusiness/ ");
@@ -337,7 +337,47 @@ test("cleanName and errText", () => {
   assert.equal(u.cleanName("http://www.Brand.com/shop?x=1", [".com"]), "brand.com");
   assert.equal(u.cleanName("brand", [".net"]), "brand.net");
   assert.equal(u.cleanName("  ", [".com"]), "");
+  assert.equal(u.cleanName("brand", [".net", ".com", ".org"]), "brand.net", "several endings: the first one");
+  assert.equal(u.cleanName("brand", []), "brand.com");
+  assert.equal(u.cleanName("brand", undefined), "brand.com");
+  assert.equal(u.cleanName("Brand.xyz", [".net", ".com"]), "brand.xyz", "a typed ending is sent as typed");
   assert.equal(u.errText({ data: { message: "M", fields: { name: "F" } } }), "F");
   assert.equal(u.errText({ data: { message: "M" } }), "M");
   assert.equal(u.errText({ data: { detail: "x" } }), "Something went wrong. Please try again.");
+});
+
+test("the ending hint is built from the API's extensions", async () => {
+  const hint = async (extensions) => { const d = boot({ get: { status: 200, body: answer(null, { extensions }) } }); await d.open(); return d; };
+  let d = await hint([".com"]);
+  assert.ok(d.text().includes("You can choose an address ending in .com."));
+  assert.equal(d.$("dm-ext").textContent, "You can choose an address ending in .com.");
+  assert.equal(d.$("dm-name").getAttribute("aria-describedby"), "dm-hint dm-ext dm-err");
+  assert.ok(d.$("dm-hint") && d.$("dm-err"), "the old hint and error ids stay");
+  d = await hint([".com", ".net"]);
+  assert.equal(d.$("dm-ext").textContent, "You can choose an address ending in .com or .net.");
+  d = await hint([".com", ".net", ".org", ".xyz"]);
+  assert.equal(d.$("dm-ext").textContent, "You can choose an address ending in .com, .net, .org or .xyz.");
+  for (const none of [[], undefined, null, "x", [".COM", "com", ".a", "<b>", 5]]) {
+    d = await hint(none);
+    assert.equal(d.$("dm-ext"), null, "no hint for " + JSON.stringify(none));
+    assert.equal(d.$("dm-name").getAttribute("aria-describedby"), "dm-hint dm-err");
+  }
+  d = await hint([".com", "bad", ".net<i>", ".org"]);
+  assert.equal(d.$("dm-ext").textContent, "You can choose an address ending in .com or .org.", "bad items dropped");
+});
+
+test("several endings: a name typed without one gets the first; the API's refusal is shown as sent", async () => {
+  const msg = "This name is not included. Please choose another.";
+  const d = boot({
+    get: { status: 200, body: answer(null, { extensions: [".net", ".com"] }) },
+    post: { "check/": (b) => (b.name === "pricey.xyz" ? err(400, "invalid_request", msg, { name: [msg] }) : { status: 200, body: answer(claim("checking", { name: b.name })) }) },
+  });
+  await d.open();
+  await d.submit("Brand");
+  assert.deepEqual(d.calls.at(-1), { method: "POST", path: BASE + "check/", body: { name: "brand.net" } });
+  const e = boot({ get: { status: 200, body: answer(null, { extensions: [".net", ".com", ".xyz"] }) }, post: { "check/": err(400, "invalid_request", msg, { name: msg }) } });
+  await e.open();
+  await e.submit("pricey.xyz");
+  assert.deepEqual(e.calls.at(-1), { method: "POST", path: BASE + "check/", body: { name: "pricey.xyz" } });
+  assert.equal(e.$("dm-err").textContent, msg);
 });

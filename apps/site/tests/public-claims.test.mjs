@@ -134,7 +134,7 @@ test("no usage charge at launch (z8uq9memdk): usage-charge wording is gone from 
     assert.doesNotMatch(text, /Final usage settlement/i, `${name} still has Final usage settlement`);
     assert.doesNotMatch(text, /usage-only/i, `${name} still has usage-only`);
   }
-  assert.match(pages["terms.html"], /No usage charge applies at this time\./);
+  assert.match(pages["terms.html"], /No storage usage charge applies at this time\./);
   assert.match(pages["index.html"], /No usage charge at this time/);
 });
 

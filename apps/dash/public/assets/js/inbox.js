@@ -14,6 +14,7 @@
 (function () {
   var D = window.NODash;
   var SMS = window.NOInboxSms; /* inbox-sms.js loads before this file; without it there is no Text (SMS) channel */
+  var BULK = window.NOInboxBulk; /* inbox-bulk.js loads before this file; without it there is no "Text many members" button */
   var TZ = "Asia/Manila", MAX = 2000;
   var token = 0, tload = 0;
   var S = null; /* the screen's state; null while the page is not open */
@@ -609,6 +610,18 @@
       /* the Channel filter and the New text button depend on sms_available: the toolbar is built again when that changed */
       if (SMS && SMS.util.available(S.chat) !== was) { var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); if (!SMS.util.available(S.chat) && S.filter === "sms") S.filter = "all"; }
       if (byId("ib-listbody")) drawList();
+      probeBulk(mine);
+    });
+  }
+  /* "Text many members": GET .../sms/bulk/status/ once, only after sms_available is true. S.bulk is the status (available:true) or false;
+     a 404 or any error leaves the button hidden. */
+  function probeBulk(mine) {
+    if (!BULK || !S || S.bulk !== undefined || S.bulkAsked || !SMS || !SMS.util.available(S.chat)) return;
+    var st = S; st.bulkAsked = true;
+    BULK.probe(D, st.site).then(function (r) {
+      if (mine !== token || S !== st) return;
+      st.bulk = r || false;
+      if (r) { var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); if (byId("ib-listbody")) drawList(); }
     });
   }
   /* Show more: reads the next page of the source that lags (the one whose last loaded item is newer), and again while that shows nothing new. */
@@ -1048,6 +1061,7 @@
       row.appendChild(statusField());
     }
     var nt = newTextButton(); if (nt) row.appendChild(nt);
+    var bk = bulkButton(); if (bk) row.appendChild(bk);
     row.appendChild(refreshButton());
     return box;
   }
@@ -1176,6 +1190,29 @@
     b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "New text"));
     b.addEventListener("click", function () { if (S) smsCompose(false); });
     return b;
+  }
+  /* "Text many members": only while the bulk status probe said available:true. */
+  function bulkButton() {
+    if (!BULK || !S || !S.bulk || S.bulk.available !== true || !SMS || !SMS.util.available(S.chat)) return null;
+    var b = h("button", "no-btn no-btn-ghost ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-bulk-btn"); b.setAttribute("aria-label", "Text many members");
+    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "Text many members"));
+    b.addEventListener("click", function () { if (S) bulkOpen(); });
+    return b;
+  }
+  /* The Text many members screen (inbox-bulk.js) in the right pane, like the New text screen. */
+  function bulkOpen() {
+    if (!S || !BULK || !S.bulk) return;
+    var host = byId("ib-threadpane"); if (!host) return;
+    closeCompose();
+    if (S.sel) { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); }
+    S.composing = true;
+    var handle = BULK.screen(host, {
+      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say,
+      back: function () { closeCompose(); resetPane(); drawList(); },
+      gone: function () { closeCompose(); if (S) S.bulk = false; var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); resetPane(); drawList(); }
+    });
+    S.composing = handle;
+    drawList();
   }
   /* The New text screen (inbox-sms.js) in the right pane; closeCompose() puts the pane back. */
   function closeCompose() { if (S && S.composing) { if (S.composing.stop) S.composing.stop(); S.composing = null; } }

@@ -15,9 +15,10 @@
   var CHIP = { trial_active: "chip-info", active: "chip-ok", payment_requires_attention: "chip-warn", suspended: "chip-warn",
     cancelled: "chip-neutral", cancelled_no_payment_method: "chip-neutral" };
   var PAY = { submitted: "Submitted", confirmed: "Confirmed", rejected: "Rejected", replaced: "Replaced" };
+  var HELD_WORDS = "Suspended by HQ";
   var LOST = "More subscribers could not be loaded. Try Load more again.";
 
-  var known = false, tab = "all", query = "", cursor = null, listRun = 0, detailRun = 0, openId = null;
+  var known = false, tab = "all", query = "", cursor = null, listRun = 0, detailRun = 0, openId = null, changed = false;
   var CODE6 = /^\d{6}$/, lineMode = "", lineSite = "", busy = false, lineOn = null;
   var dlg = F.dialogs(function () { return busy; });
   var LINE_LOST = "That did not go through. Check the page before trying again.";
@@ -28,12 +29,17 @@
 
   /* ---- what the backend sends, as the page uses it ---- */
 
+  /* H3 (ClickUp z8uq9mhpbf, contract z8uq9mhpbe): the hold's names, kept in one place. A list or detail without a
+     boolean `held` has no hold card and no controls (the switch is dark, or the backend is older). */
+  var API = { held: "held", label: "held_label", confirm: "confirm_required", suspend: "subscribers/suspend/", resume: "subscribers/resume/", already: "already_suspended", not: "not_suspended", reauth: "reauth_failed" };
+  function heldOf(r) { return r[API.held] === true; }
+
   function fromApi(r) {
     r = r && typeof r === "object" ? r : {};
     return { id: text(r.site_id), name: text(r.business_name), address: text(r.site_address), template: text(r.template),
       plan: F.words(PLAN, r.plan), state: F.words(STATE, r.state), chip: F.words(CHIP, r.state) || "chip-neutral", trialing: r.state === "trial_active",
       trialEnds: F.dayOf(r.trial_ends_at), nextDue: F.dayOf(r.next_due_at), lastPayment: F.dayOf(r.last_payment_at),
-      email: text(r.owner_email), joined: F.dayOf(r.created_at) };
+      email: text(r.owner_email), joined: F.dayOf(r.created_at), held: heldOf(r), heldKnown: typeof r[API.held] === "boolean", heldLabel: text(r[API.label]) || HELD_WORDS };
   }
   function fromPayment(p) {
     p = p && typeof p === "object" ? p : {};
@@ -68,7 +74,12 @@
     td.appendChild(box);
     cell(tr, "Plan").textContent = orDash(r.plan);
     td = cell(tr, "State");
-    if (r.state) td.appendChild(F.el("span", "chip " + r.chip, r.state)); else td.textContent = DASH;
+    if (r.state || r.held) {
+      box = F.el("div", "fin-row");
+      if (r.state) box.appendChild(F.el("span", "chip " + r.chip, r.state));
+      if (r.held) box.appendChild(F.el("span", "chip chip-err", r.heldLabel));
+      td.appendChild(box);
+    } else td.textContent = DASH;
     cell(tr, "Next due").textContent = orDash(r.nextDue || (r.trialing ? r.trialEnds : ""));
     td = cell(tr, "Owner email");
     td.setAttribute("class", "sub-wrap");
@@ -154,6 +165,9 @@
     $("d-state").setAttribute("class", "chip " + r.chip);
     $("d-state").hidden = !r.state;
     $("d-site-id").textContent = r.id;
+    $("d-held").textContent = r.heldLabel;
+    $("d-held").hidden = !r.held;
+    paintHold(r);
     dl.textContent = "";
     fact(dl, "Site address", r.address);
     fact(dl, "Template", r.template);
@@ -248,12 +262,105 @@
         if (openId === site) readOne(site);
         return;
       }
+      if (res.status === 400 && res.code === API.confirm) { holdErr("Tick the box to confirm.", "hold-confirm"); return; }
       if (res.status === 400 && res.fields && res.fields.reason) { lineErr("Give a reason of up to 300 characters.", "line-reason"); return; }
       lineErr(LINE_LOST, "");
     });
   });
 
-  function readOne(id) {
+
+  /* ---- the store hold (H3): Suspend and Resume ---- */
+
+  var holdMode = "", holdSite = "", holdBusy = false, holdOn = false;
+  var HOLD_LOST = "That did not go through. Check the page before trying again.";
+  var REASON_BAD = "Give a reason of 10 to 500 characters.";
+  var SAME = { suspend: "This store was already suspended. The page now shows its current state.",
+    resume: "This store was not suspended. The page now shows its current state." };
+
+  /* No boolean `held` (switch dark, or an older backend): no card, no buttons. */
+  function paintHold(r) {
+    var card = $("d-hold"), on = r.heldKnown;
+    holdOn = on;
+    card.hidden = !on;
+    $("d-hold-suspend").hidden = !on || r.held;
+    $("d-hold-resume").hidden = !on || !r.held;
+    F.say("d-hold-err", "");
+    if (!on) return;
+    $("d-hold-chip").textContent = r.held ? r.heldLabel : "Live";
+    $("d-hold-chip").setAttribute("class", "chip " + (r.held ? "chip-err" : "chip-ok"));
+    $("d-hold-copy").textContent = r.held ? "NegosyoOnline has paused this store. Its site and checkout are offline. Billing is not changed. The owner can still sign in and see their data."
+      : "The store is online. Suspend takes its site and checkout offline at once. Billing is not changed.";
+  }
+  function holdLock(on) {
+    holdBusy = on;
+    ["hold-go", "hold-x", "hold-cancel", "hold-reason", "hold-code", "hold-confirm"].forEach(function (id) { $(id).disabled = on; });
+  }
+  function holdErr(msg, id) {
+    F.say("hold-err", msg);
+    ["hold-reason", "hold-code", "hold-confirm"].forEach(function (n) { $(n).removeAttribute("aria-invalid"); });
+    if (id) $(id).setAttribute("aria-invalid", "true");
+  }
+  function holdClose(refocus) {
+    $("hold-code").value = "";
+    $("hold-reason").value = "";
+    $("hold-confirm").checked = false;
+    holdMode = "";
+    dlg.close(refocus);
+  }
+  function holdOpen(mode, opener) {
+    var off = mode === "suspend";
+    holdMode = mode;
+    holdSite = openId || "";
+    $("m-hold-h").textContent = off ? "Suspend this store?" : "Resume this store?";
+    $("m-hold-sub").textContent = off ? "The owner is emailed. Give a reason (it is kept in the audit log, not emailed) and enter a current code."
+      : "The owner is emailed. Give a reason and enter a current code.";
+    $("hold-confirm-text").textContent = off ? "The store's site and checkout go offline at once" : "The store's site and checkout come back online at once";
+    $("hold-go").textContent = off ? "Suspend" : "Resume";
+    $("hold-go").setAttribute("class", "no-btn no-btn-primary fin-block" + (off ? " stop" : ""));
+    $("hold-reason").value = "";
+    $("hold-code").value = "";
+    $("hold-confirm").checked = false;
+    $("hold-count").textContent = "0 of 500";
+    holdErr("", "");
+    dlg.open("m-hold", opener, $("hold-reason"));
+  }
+  $("d-hold-suspend").addEventListener("click", function () { if (!holdBusy) holdOpen("suspend", $("d-hold-suspend")); });
+  $("d-hold-resume").addEventListener("click", function () { if (!holdBusy) holdOpen("resume", $("d-hold-resume")); });
+  ["hold-x", "hold-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!holdBusy) holdClose(true); }); });
+  $("hold-reason").addEventListener("input", function () { $("hold-count").textContent = String($("hold-reason").value.length) + " of 500"; });
+  $("hold-go").addEventListener("click", function () {
+    var reason = String($("hold-reason").value || "").trim(), code = String($("hold-code").value || "").trim(), mode = holdMode, site = holdSite;
+    if (holdBusy || !mode) return;
+    holdErr("", "");
+    if (reason.length < 10 || reason.length > 500) { holdErr(REASON_BAD, "hold-reason"); return; }
+    if (!CODE6.test(code)) { holdErr("Enter the 6-digit code from your authenticator app.", "hold-code"); return; }
+    if (!$("hold-confirm").checked) { holdErr("Tick the box to confirm.", "hold-confirm"); return; }
+    holdLock(true);
+    H.call("POST", mode === "suspend" ? API.suspend : API.resume, { site_id: site, reason: reason, code: code, confirm: true }).then(function (res) {
+      holdLock(false);
+      if (F.left(res)) return;
+      if (res.ok) {
+        /* The 200 answers only {site_id, held}: the card is repainted from a fresh read of the subscriber. */
+        holdClose(true);
+        changed = true;
+        if (openId === site) readOne(site);
+        return;
+      }
+      /* 404: the hold routes are switched off on this server. No controls, nothing to retry. */
+      if (res.status === 404) { holdClose(false); $("d-hold").hidden = true; return; }
+      if (res.status === 403 && res.code === API.reauth) { holdErr(CODE_REFUSED, "hold-code"); return; }
+      if (res.status === 409 && (res.code === API.already || res.code === API.not)) {
+        holdClose(false);
+        if (openId === site) { readOne(site, SAME[mode]); changed = true; }
+        return;
+      }
+      if (res.status === 400 && res.code === API.confirm) { holdErr("Tick the box to confirm.", "hold-confirm"); return; }
+      if (res.status === 400 && res.fields && res.fields.reason) { holdErr(REASON_BAD, "hold-reason"); return; }
+      holdErr(HOLD_LOST, "");
+    });
+  });
+
+  function readOne(id, note) {
     var run = ++detailRun;
     $("d-body").hidden = true;
     $("d-err").hidden = true;
@@ -264,6 +371,7 @@
       if (res.status === 404) { toList(); return; }
       if (!res.ok) { $("d-err").hidden = false; return; }
       paint(res.data || {});
+      if (note) F.say("d-hold-err", note);
     });
   }
 
@@ -277,6 +385,7 @@
     detailRun++;
     openId = null;
     show("v-list");
+    if (changed) { changed = false; loadList(false); } /* a hold changed: the rows read again, so the chip is right */
   }
 
   /* ---- events ---- */

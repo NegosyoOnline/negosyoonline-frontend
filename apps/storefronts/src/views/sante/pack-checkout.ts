@@ -61,13 +61,15 @@ export type CheckoutModel = {
   accounts: CheckoutAccount[];
   /** The methods this site offers buyers now (the API's pack.methods). */
   methods: { direct: boolean; xendit: boolean };
+  /** The promotional-text opt-in (PROMO-CONSENT): the backend's wording, or null while the switch is off. */
+  promo: { version: string; text: string } | null;
 };
 
 export function checkoutModel(over: Partial<CheckoutModel> & { accounts: CheckoutAccount[] }): CheckoutModel {
   return {
     step: "contact", submit_key: "", error_code: "", error_message: "", field_errors: {}, posted: {},
     first_name: "", last_name: "", email: "", mobile: "",
-    enrollment_held: false, methods: { direct: true, xendit: false },
+    enrollment_held: false, methods: { direct: true, xendit: false }, promo: null,
     ...over,
   };
 }
@@ -87,6 +89,17 @@ export function longDate(iso: string): string {
 /** The box shows 9XX XXX XXXX after a fixed +63: `cut:' '|slice:'-10:'`. */
 function tenDigits(raw: string): string {
   return raw.replace(/ /g, "").slice(-10);
+}
+
+/** The opt-in tick (PROMO-CONSENT): unticked unless the buyer ticked it on the page just refused; the label is the
+    backend's wording exactly as given. Nothing at all while the switch is off. */
+function promoBox(m: CheckoutModel): Markup {
+  if (!m.promo) return html``;
+  return html`
+          <label class="pp-co-agree mt-4" for="promo_sms_ok">
+            <input type="checkbox" id="promo_sms_ok" name="promo_sms_ok" value="1"${checked(m.posted.promo_sms_ok === "1")}>
+            <span>${m.promo.text}</span>
+          </label>`;
 }
 
 const checked = (on: boolean): Markup => (on ? html` checked` : html``);
@@ -281,6 +294,7 @@ function contactStep(c: PackCtx, m: CheckoutModel): Markup {
             <span>I have read and agree to the ${termsPath ? html`<a class="lnk" href="${termsPath}" target="_blank" rel="noopener">Website Terms &amp; Conditions</a>` : "Website Terms & Conditions"}.</span>
           </label>
           <p class="pp-co-error" id="agree-msg"${fe.agree ? html`` : html` hidden`}>${AGREE_ERROR}</p>
+          ${promoBox(m)}
 
           <button type="submit" id="contact-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg">
             <span class="pp-co-submit-label" id="contact-btn-label" data-direct="Place Order — ${c.total}"${m.methods.xendit ? html` data-xendit="Continue to Payment — ${c.total}"` : html``}>${chosenMethod(m) === "direct" ? "Place Order" : "Continue to Payment"} &mdash; ${c.total}</span>
@@ -351,6 +365,7 @@ function paymentStep(c: PackCtx, m: CheckoutModel): Markup {
         <div class="pp-co-card"><fieldset class="pp-co-block min-w-0">
           <legend class="pp-co-legend">Select Payment Method</legend>
           ${payCards(c, m, m.methods.xendit ? html`<p id="xendit-panel" class="pp-co-hint"${chosenMethod(m) === "xendit" ? html`` : html` hidden`}>${PAY_ONLINE_STEP_HINT}</p>` : html``)}
+          ${promoBox(m)}
           <button type="submit" id="place-btn" class="pp-co-submit mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-accent-500 px-3 py-3.5 text-[0.9375rem] leading-6 font-bold whitespace-nowrap text-primary-950 shadow-[var(--shadow-cta)] transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-400 active:translate-y-px disabled:cursor-wait disabled:opacity-70 tab:px-6 tab:text-lg" data-direct="Place order"${m.methods.xendit ? html` data-xendit="Pay with Xendit"` : html``}>${chosenMethod(m) === "direct" ? "Place order" : "Pay with Xendit"}</button>
           <p class="pp-co-footnote mt-3 text-center text-xs leading-snug text-ink-500">${icon("lock", "mr-1 inline-block h-3.5 w-3.5 -translate-y-px align-middle")}We never ask for card details on this page. No recurring charges are set up.</p>
         </fieldset></div>

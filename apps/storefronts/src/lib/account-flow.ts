@@ -7,7 +7,7 @@ import { lockedHome, session, type Dash } from "./dashboard-flow.ts";
 import { htmlResponse } from "./html.ts";
 import { redirect } from "./member.ts";
 import {
-  memberAccount, memberChange, memberChangeAct, memberVerifyEmail, memberVerifyEmailSend, memberVerifyEmailVerify,
+  memberAccount, memberChange, memberPreferencesRead, memberPreferencesSave, memberChangeAct, memberVerifyEmail, memberVerifyEmailSend, memberVerifyEmailVerify,
   type ChangeField, type PackRefusal,
 } from "./pack-api.ts";
 import { neutralDocument, neutralNotFound } from "../views/neutral.ts";
@@ -54,12 +54,28 @@ function ended(d: Dash, r: { state: "unavailable" } | { state: "failed" } | Pack
   return null;
 }
 
-export async function accountPage(d: Dash): Promise<Response> {
+export async function accountPage(d: Dash, notice = ""): Promise<Response> {
   const g = await gate(d);
   if ("response" in g) return g.response;
   const a = await memberAccount(args(d), d.calls);
   if (a.state !== "ok") return ended(d, a) ?? tryAgain();
-  return page(d, g.name, "Account and security", accountContent(a));
+  /* PROMO-CONSENT: the toggle shows only when the preference read answers. A 404 (the backend's switch is off) or any
+     failure hides it completely: the page is then exactly the page without the feature. */
+  const prefs = await memberPreferencesRead(args(d), d.calls);
+  const promo = prefs.state === "ok" ? { store: d.site.display_name, prefs: { promo_sms_ok: prefs.promo_sms_ok, promo_sms_at: prefs.promo_sms_at }, notice } : null;
+  return page(d, g.name, "Account and security", accountContent(a, promo));
+}
+
+/** The toggle's save: set the choice, then show the account page again (the page reads the saved value back). */
+export async function preferencesPost(d: Dash, text: Record<string, string>): Promise<Response> {
+  const g = await gate(d);
+  if ("response" in g) return g.response;
+  if (text.promo_sms_ok !== "1" && text.promo_sms_ok !== "0") return neutralNotFound();
+  const r = await memberPreferencesSave({ ...args(d), promo_sms_ok: text.promo_sms_ok === "1" }, d.calls);
+  if (r.state === "ok") return accountPage(d, r.promo_sms_ok ? "Text promotions are on." : "Text promotions are off.");
+  const out = ended(d, r);
+  if (out) return out;
+  return accountPage(d, "We could not save that. Please try again.");
 }
 
 export async function verifyEmailGet(d: Dash): Promise<Response> {

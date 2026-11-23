@@ -4,7 +4,7 @@
    off, or the host is not a served Santé site). The checkout token and the member session travel as data. Nothing a
    visitor typed, no token, code or file is ever logged. */
 import type { StorefrontEnv } from "./env.ts";
-import { SECRET_MIN_LENGTH } from "./django.ts";
+import { SECRET_MIN_LENGTH, promoOf } from "./django.ts";
 
 type Env = Pick<StorefrontEnv, "apiBase" | "secret">;
 type Fetch = (url: string, init: RequestInit) => Promise<Response>;
@@ -114,7 +114,8 @@ export function checkoutContact(args: ContactArgs, c: Calls) {
   return packPost(
     "checkout/contact",
     args,
-    (b) => (record(b) && typeof b.token === "string" && typeof b.expires_at === "string" ? { token: b.token, expires_at: b.expires_at } : null),
+    (b) => (record(b) && typeof b.token === "string" && typeof b.expires_at === "string"
+      ? { token: b.token, expires_at: b.expires_at, promo: promoOf(b) } : null),
     c,
   );
 }
@@ -692,3 +693,15 @@ export const memberChangeAct = (
   args: Member & { action: "send_current" | "verify_current" | "send_replacement" | "verify_replacement"; code?: string; new_value?: string },
   c: Calls,
 ) => packPost(`member/account/change/${field}/act`, args, (b) => (record(b) ? { changed: b.changed === true } : null), c);
+
+/* ---- the member's promotional-text preference (PROMO-CONSENT, backend apps/members/api.py) ---------------------------
+   Both routes answer 404 while the backend's switch is off, which packPost reads as "unavailable": the page hides the toggle. */
+export type Preferences = { promo_sms_ok: boolean; promo_sms_at: string | null };
+const parsePreferences = (b: unknown): Preferences | null =>
+  record(b) && typeof b.promo_sms_ok === "boolean" ? { promo_sms_ok: b.promo_sms_ok, promo_sms_at: typeof b.promo_sms_at === "string" ? b.promo_sms_at : null } : null;
+
+/** The preference routes take the member session as `member_token` (the other member calls here say `token`). */
+const prefsBody = (args: Member) => ({ host: args.host, visitor_ip: args.visitor_ip, member_token: args.token });
+export const memberPreferencesRead = (args: Member, c: Calls) => packPost("member/preferences/read", prefsBody(args), parsePreferences, c);
+export const memberPreferencesSave = (args: Member & { promo_sms_ok: boolean }, c: Calls) =>
+  packPost("member/preferences", { ...prefsBody(args), promo_sms_ok: args.promo_sms_ok }, parsePreferences, c);

@@ -13,7 +13,7 @@
    Every refusal renders the same page with TWCinc's own words, never a status page. A 429 keeps its status. */
 import { randomBytes } from "node:crypto";
 import { CHECKOUT, CHECKOUT_MAX_AGE, clearCookie, setCookie } from "./cookies.ts";
-import { packMethods, type Pack, type Site } from "./django.ts";
+import { packMethods, promoOf, type Pack, type Site } from "./django.ts";
 import { htmlResponse, type Markup } from "./html.ts";
 import { redirect } from "./member.ts";
 import { placeFields } from "./meta.ts";
@@ -50,6 +50,8 @@ export type Flow = {
   calls: Calls;
   request: Request;
   now?: Date;
+  /** The promotional-text opt-in from the checkout/contact/ answer, when the pack read (GET pack/) did not carry it. */
+  promo?: { version: string; text: string } | null;
   /** The Meta notice or Pixel markup (src/lib/meta.ts). Set by the route for a GET only, so a refused post that
       shows the page again never fires a second PageView. */
   tracking?: Markup;
@@ -83,6 +85,7 @@ function model(flow: Flow, step: CheckoutStep, over: Partial<CheckoutModel> = {}
   return checkoutModel({
     step, submit_key: submitKey(), accounts: accountsOf(flow.pack), methods: packMethods(flow.pack),
     enrollment_held: posted.enrollment_authorized === "1",
+    promo: promoOf(flow.pack) ?? flow.promo ?? null, // missing means off
     ...over,
   });
 }
@@ -167,6 +170,8 @@ function placeForm(flow: Flow, token: string, text: Record<string, string>, proo
   /* The Meta identifiers (consent "1", _fbp, _fbc, user agent, page address) go only after Accept on a site with a
      Pixel; Django reads them only with the consent, and builds Purchase and AddPaymentInfo from the order itself. */
   for (const [name, value] of Object.entries(placeFields(flow.request, flow.site, flow.now))) form.append(name, value);
+  /* PROMO-CONSENT: only when the opt-in is on and the buyer ticked it. Unticked sends nothing. */
+  if ((promoOf(flow.pack) ?? flow.promo) && text.promo_sms_ok === "1") form.append("promo_sms_ok", "1");
   if (proof && method === "direct") form.append("proof", proof, proof.name || "proof");
   return form;
 }
@@ -230,6 +235,7 @@ async function contactPost(flow: Flow, text: Record<string, string>, proof: File
     if (contact.code === "checkout_expired") return expiredPage(flow);
     return show({ error_code: contact.code, error_message: contact.message, field_errors: contact.fields }, statusOf(contact));
   }
+  if (!promoOf(flow.pack) && contact.promo) flow = { ...flow, promo: contact.promo }; // the contact answer, when GET pack/ had none
   const token = contact.token || flow.token;
   const state = await checkoutState({ ...base, token }, flow.calls);
   if (state.state !== "ok") return state.state === "unavailable" ? unavailable(flow) : slide(show({ error_code: "unavailable", error_message: TRY_AGAIN }, 503), flow, token);

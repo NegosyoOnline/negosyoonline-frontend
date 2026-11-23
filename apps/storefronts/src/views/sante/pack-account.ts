@@ -6,11 +6,12 @@
    - the Verify email / Change links always show: the backend's account answer has no data_entry_open flag (TWCinc's
      switches.bind_enforced()). */
 import { html, type Markup } from "../../lib/html.ts";
-import type { AccountInfo, ChangeField, ChangeState, VerifyEmailState } from "../../lib/pack-api.ts";
+import type { AccountInfo, ChangeField, ChangeState, Preferences, VerifyEmailState } from "../../lib/pack-api.ts";
 import { SIGN_IN_PATH } from "./member.ts";
 
 export const ACCOUNT_PATH = "/dashboard/account/";
 export const VERIFY_EMAIL_PATH = "/dashboard/account/verify-email/";
+export const PREFERENCES_PATH = "/dashboard/account/preferences/";
 export const changePath = (f: ChangeField) => `/dashboard/account/change-${f}/`;
 
 export type StepErrors = { error_message: string; error_code: string; field_errors: Record<string, string> };
@@ -34,7 +35,21 @@ ${bad ? html`<p class="err" id="code-msg" role="alert">${e.field_errors.code}</p
 </div>`;
 }
 
-export function accountContent(a: AccountInfo): Markup {
+/** The promotional-text toggle (PROMO-CONSENT): its own card, drawn only when the backend's preference read answered. */
+function promoToggle(store: string, p: Preferences, notice: string): Markup {
+  const on = p.promo_sms_ok;
+  return html`<div class="card wide" style="margin-top:16px" id="promo-sms">
+<h2 style="margin:0 0 4px;font-size:1.0625rem">Text promotions</h2>
+${notice ? html`<div class="note info" role="status">${notice}</div>` : ""}
+<form method="post" action="${PREFERENCES_PATH}">
+<div class="row"><div>Promotions by text from ${store}<small>Reply STOP to any text from the store to turn this off.</small></div>${on ? html`<span class="badge ok">On</span>` : html`<span class="badge pend">Off</span>`}</div>
+<input type="hidden" name="promo_sms_ok" value="${on ? "0" : "1"}">
+<button class="btn sm" type="submit" style="margin-top:12px">${on ? "Turn off" : "Turn on"}</button>
+</form>
+</div>`;
+}
+
+export function accountContent(a: AccountInfo, promo: { store: string; prefs: Preferences; notice?: string } | null = null): Markup {
   const badge = (state: string) => state === "verified" ? html`<span class="badge ok">Verified</span>` : html`<span class="badge pend">Not verified</span>`;
   return html`${a.hold_banner ? html`<div class="note warn" role="status"><b>${a.hold_banner}</b></div>` : ""}
 <h1>Account and security</h1>
@@ -43,7 +58,7 @@ export function accountContent(a: AccountInfo): Markup {
 <div class="row"><div>Email<small>${a.email_masked}</small></div>${badge(a.email_state)}</div>
 <div class="row"><div>Sign-in codes go to<small>${a.default_channel === "email" ? "Your email" : "Your mobile"}</small></div></div>
 <p class="links" style="margin:12px 0 0">${a.email_state !== "verified" ? html`<a class="lnk" href="${VERIFY_EMAIL_PATH}">Verify email</a> &middot; ` : ""}<a class="lnk" href="${changePath("mobile")}">Change mobile</a> &middot; <a class="lnk" href="${changePath("email")}">Change email</a> &middot; <a class="lnk" href="/dashboard/address/">Home address</a></p>
-</div>`;
+</div>${promo ? promoToggle(promo.store, promo.prefs, promo.notice ?? "") : ""}`;
 }
 
 export function verifyEmailContent(v: VerifyEmailState, e: StepErrors): Markup {

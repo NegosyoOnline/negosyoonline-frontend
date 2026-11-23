@@ -422,7 +422,22 @@ export type Pack = {
   /** The payment methods the site offers at checkout (its owner's switches AND set up). Absent in an older API answer:
       then transfer only, as before Xendit. */
   methods?: { direct: boolean; xendit: boolean };
+  /** PROMO-CONSENT (ClickUp z8uq9m92fv): the promotional-text opt-in the checkout may show. The backend omits all three
+      while its switch is off; a missing flag is off. The wording is the backend's, shown exactly as given. */
+  promo_sms_consent_enabled?: boolean;
+  promo_sms_version?: string | null;
+  promo_sms_text?: string | null;
 };
+
+/** The checkbox's wording and version when the opt-in is on, else null (missing, false or no text: off). */
+export function promoOf(
+  from: { promo_sms_consent_enabled?: unknown; promo_sms_version?: unknown; promo_sms_text?: unknown } | null | undefined,
+): { version: string; text: string } | null {
+  if (!from || from.promo_sms_consent_enabled !== true) return null;
+  const text = typeof from.promo_sms_text === "string" ? from.promo_sms_text : "";
+  if (!text) return null;
+  return { version: typeof from.promo_sms_version === "string" ? from.promo_sms_version : "", text };
+}
 
 /** The methods a pack offers, with the answer of an API that does not send them read as transfer only. */
 export function packMethods(pack: Pick<Pack, "methods">): { direct: boolean; xendit: boolean } {

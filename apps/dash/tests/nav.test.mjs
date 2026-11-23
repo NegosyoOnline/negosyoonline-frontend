@@ -47,17 +47,19 @@ test("Settings is in the sidebar and not in the profile menu", () => {
    Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
 test("Settings has three tabs (Business Settings, Billing, Payments) and the Inbox tab that stays hidden until the API opens the inbox, and no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"], ["/settings/sms-gateway/", "SMS Gateway"], ["/settings/meta-pixel/", "Meta Pixel"], ["/settings/notices/", "Notices"]]);
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"], ["/settings/sms-gateway/", "SMS Gateway"], ["/settings/meta-pixel/", "Meta Pixel"], ["/settings/notices/", "Notices"], ["/settings/domain/", "Domain"]]);
   /* G2 Unified Inbox (z8uq9md3n6): the Inbox links start hidden and inbox.js shows them only when the API says the inbox is open.
      G1 Meta Pixel (z8uq9md3n5): the same for the Meta Pixel tab and meta-pixel.js. */
   const hiddenTabs = [...SET_TABS.replace(/^<nav[^>]*>/, "").matchAll(/<a\b[^>]*\bhidden\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(hiddenTabs.length, 4, "four tabs are hidden: Inbox, SMS Gateway, Meta Pixel and Notices");
+  assert.equal(hiddenTabs.length, 5, "five tabs are hidden: Inbox, SMS Gateway, Meta Pixel, Notices and Domain");
   assert.ok(hiddenTabs[0].includes('href="/settings/inbox/"') && hiddenTabs[0].includes("data-inbox-nav"));
   /* SMS Gateway (z8uq9mhk1k): right after Inbox, hidden until the API answers 200 (sms-gateway-settings.js). */
   assert.ok(hiddenTabs[1].includes('href="/settings/sms-gateway/"') && hiddenTabs[1].includes("data-sms-gateway-nav"));
   assert.ok(hiddenTabs[2].includes('href="/settings/meta-pixel/"') && hiddenTabs[2].includes("data-meta-nav"));
   /* Member notices (z8uq9mezdh): the same for the Notices tab and notices.js. */
   assert.ok(hiddenTabs[3].includes('href="/settings/notices/"') && hiddenTabs[3].includes("data-notices-nav"));
+  /* Domain (z8uq9mhpc2): the same for the Domain tab and the dashboard.js probe. */
+  assert.ok(hiddenTabs[4].includes('href="/settings/domain/"') && hiddenTabs[4].includes("data-domain-nav"));
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
   assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments", "Inbox"]);
   /* The Help Center articles (z8uq9mekvc) are text on /help/ and name Santé; they are not a menu entry, so they are left out here. */
@@ -169,12 +171,14 @@ const KEPT = ["/", "/orders/", "/products/", "/account/", "/help/", "/settings/b
 const DASHJS = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
 const ROUTES_SRC = DASHJS.slice(DASHJS.indexOf("var ROUTES = {"), DASHJS.indexOf("};", DASHJS.indexOf("var ROUTES = {")));
 
-/* Domain (z8uq9mhgvj, plan F2): the screen ships, but no menu entry until Coach Ed's staging OK. The route is in ROUTES (reachable by its
-   address) and no link, tile or quick link in the page or the scripts reaches it. */
-test("Settings > Domain is reachable by its address and linked from nowhere", () => {
+/* Domain (z8uq9mhgvj, plan F2; tab z8uq9mhpc2): the route is in ROUTES; its only link is the Settings tab, which is hidden in the markup and
+   shown by the dashboard.js probe only on a 200 (tests/domain-nav.test.mjs). No tile, quick link or other script reaches it. */
+test("Settings > Domain is reachable by its address and linked only from the hidden Settings tab", () => {
   assert.ok(ROUTES_SRC.includes('"/settings/domain/"'), "the route exists");
   assert.ok(/"\/settings\/domain\/": \{ view: "settings-domain"/.test(ROUTES_SRC));
-  assert.ok(!/href="\/settings\/domain\/?"/.test(HTML), "no link in index.html");
+  const tabs = HTML.match(/<a [^>]*href="\/settings\/domain\/?"[^>]*>/g) || [];
+  assert.equal(tabs.length, 1, "one link in index.html");
+  assert.ok(/ hidden[ >]/.test(tabs[0]) && /data-domain-nav/.test(tabs[0]) && /data-route="settings-domain"/.test(tabs[0]), "the tab is hidden until the probe shows it");
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   assert.ok(!quick.includes("/settings/domain/"), "not a quick link");
   for (const f of fs.readdirSync(new URL("../public/assets/js/", import.meta.url))) {
@@ -182,7 +186,7 @@ test("Settings > Domain is reachable by its address and linked from nowhere", ()
     const src = fs.readFileSync(new URL("../public/assets/js/" + f, import.meta.url), "utf8");
     assert.ok(!/["'`]\/settings\/domain\//.test(src), f + " does not link to the Domain page");
   }
-  assert.ok(!/data-route="settings-domain"/.test(HTML), "no menu item");
+  assert.equal((HTML.match(/data-route="settings-domain"/g) || []).length, 1, "no menu item besides the tab");
 });
 
 test("the hidden pages are not in ROUTES and the kept pages are", () => {

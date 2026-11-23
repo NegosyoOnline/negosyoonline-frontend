@@ -173,7 +173,7 @@
 
   function render() {
     var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
-    add(root, channelsCard(), messengerCard(), S.rulesBox, emailCard(), howCard());
+    add(root, channelsCard(), smsCard(), messengerCard(), S.rulesBox, emailCard(), howCard());
   }
 
   /* ---------- the channel cards (d6) ---------- */
@@ -359,9 +359,23 @@
       var again = byId(focusId); if (again && again.focus) again.focus();
     });
   }
+  /* ---------- the Text messages (SMS) card (SMS-OWNER FE-1, ClickUp z8uq9mhk1h) ----------
+     Shown only while GET .../channels/ says sms_available is true; with the feature off (or an old API) the field is absent and there is no
+     card. The switch is the store's own (PUT sms_enabled); the PUT answers 404 if the feature went away, and putChannels shows the page as unavailable. */
+  function smsCard() {
+    var ch = S.ch;
+    if (!ch || ch.sms_available !== true) return null;
+    var on = ch.sms_enabled === true;
+    var s = card("sms", "Text messages (SMS)", on ? ["ok", "On"] : ["neutral", "Off"]);
+    add(s, line("Text your members from the Inbox", "ibs-sw-sms-l", "For orders and member service only. No promotions.",
+      swtch("ibs-sw-sms", "ibs-sw-sms-l", on, function (b, next) { putChannels(b, { sms_enabled: next }, next ? "Text messages are on." : "Text messages are off.", "ibs-sw-sms"); })));
+    return s;
+  }
   function howCard() {
     var s = card("how", "How the inbox works"), ul = h("ul", "mk-list");
-    ["The inbox shows your Facebook Messenger, website chat and email conversations in one list.",
+    [S.ch && S.ch.sms_available === true
+      ? "The inbox shows your Facebook Messenger, website chat, text message (SMS) and email conversations in one list."
+      : "The inbox shows your Facebook Messenger, website chat and email conversations in one list.",
       "Press Refresh to see new messages.",
       "You can reply to a Facebook Messenger conversation within 24 hours of the customer's last message.",
       "Answer a website chat or an email from the conversation. A closed conversation can be reopened."].forEach(function (t) { ul.appendChild(h("li", "", t)); });

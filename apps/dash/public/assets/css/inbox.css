@@ -376,3 +376,12 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 #view-inbox .ib-top-cm .cm-st { flex: none; }
 #view-settings-inbox .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }
+
+/* Text (SMS) channel (SMS-OWNER FE-1, z8uq9mhk1h): the New text screen and the lines above a text reply box. The focus border stays the light blue of the other Inbox fields. */
+#view-inbox .ib-sms-new { gap: 14px; }
+#view-inbox .ib-sms-new .pm-input.ib-input { display: block; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+#view-inbox .ib-sms-new .pm-input.ib-input:focus, #view-inbox .ib-sms-new .pm-input.ib-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-sms-new .pm-field { display: flex; flex-direction: column; gap: 6px; }
+#view-inbox .ib-sms-prefix, #view-inbox .ib-sms-quota { margin: 0; }
+#view-inbox .ib-reply .field-err, #view-inbox .ib-sms-new .field-err { margin: 0; }
+#view-inbox .ib-nt { white-space: nowrap; }

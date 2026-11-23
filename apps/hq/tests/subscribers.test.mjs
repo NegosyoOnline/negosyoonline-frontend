@@ -9,6 +9,7 @@ const IDS = ["boot", "v-list", "v-detail", "v-closed", "v-down", "retry", "tab-a
   "s-form", "s-q", "s-go", "s-err", "s-card", "s-body", "s-loading", "s-empty", "s-more-row", "s-more", "back", "d-loading", "d-err", "d-retry",
   "d-body", "d-name", "d-state", "d-site-id", "d-facts", "d-pays", "d-pay-empty", "d-pay-h",
   "d-line", "d-line-chip", "d-line-copy", "d-line-when", "d-line-err", "d-line-disable", "d-line-reenable", "m-line", "m-line-h", "m-line-sub", "line-x", "line-reason", "line-count", "line-code", "line-err", "line-go", "line-cancel",
+  "d-held", "d-hold", "d-hold-chip", "d-hold-copy", "d-hold-err", "d-hold-suspend", "d-hold-resume", "m-hold", "m-hold-h", "m-hold-sub", "hold-x", "hold-reason", "hold-count", "hold-code", "hold-confirm", "hold-confirm-text", "hold-err", "hold-go", "hold-cancel",
   "acct-row", "acct-ini", "acct-name", "acct-btn", "acct-menu", "menu-ini", "menu-name", "menu-email", "menu-theme", "menu-sun",
   "menu-moon", "menu-theme-label", "sign-out", "sign-out-0", "sign-out-2", "sign-out-err", "theme-toggle", "theme-toggle-2"];
 const VIEWS = ["boot", "v-list", "v-detail", "v-closed", "v-down"];

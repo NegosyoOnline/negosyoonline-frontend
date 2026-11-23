@@ -182,7 +182,7 @@
       return n;
     }
     function head(title, sub, backFn, backLabel) {
-      var row = h("div", "ib-thead"), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
+      var row = h("div", "ib-thead" + (backLabel ? " ib-bk-head" : "")), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
       back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", backLabel || "Inbox"));
       back.addEventListener("click", backFn);
       var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", title)); if (sub) nm.appendChild(h("p", "ib-sub", sub));

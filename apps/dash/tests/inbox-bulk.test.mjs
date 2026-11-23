@@ -354,12 +354,15 @@ test("bulk: history pages with the cursor and opens a batch; the recipients are 
   const hist = (tail) => { pages.push(tail); return tail.includes("cursor=sbk_bbbb") ? ok({ items: [batch({ id: "sbk_cccccccc", state: "stopped" })], next_cursor: null }) : ok({ items: [batch({ state: "finished" })], next_cursor: "sbk_bbbb" }); };
   const d = await openBulk({ history: hist });
   await d.click(d.$("ib-bk-history"));
+  assert.ok(d.$("ib-back").parentNode.classList.contains("ib-bk-head"), "History's back button is marked to show at every width");
+  assert.equal(d.$("ib-back").textContent, "Back");
   assert.ok(pane(d).textContent.includes("95 members"));
   assert.ok(pane(d).textContent.includes("Sent 10, Failed 1, Not sent 0"));
   await d.click(d.press(pane(d), "Show more"));
   assert.deepEqual(pages, ["batches/?limit=20", "batches/?limit=20&cursor=sbk_bbbb"]);
   assert.equal(pane(d).all((n) => n.classList.contains("ib-bk-row")).length, 2);
   await d.click(pane(d).all((n) => n.classList.contains("ib-bk-row"))[0]);
+  assert.ok(d.$("ib-back").parentNode.classList.contains("ib-bk-head") && d.$("ib-back").textContent === "History", "Batch has a visible way back to History");
   const t = pane(d).textContent;
   assert.ok(d.list().includes("GET " + B + "batches/sbk_aaaaaaaa/?limit=50"));
   assert.ok(t.includes("Maria Santos") && t.includes("+63917***4567") && t.includes("Sent"));

@@ -401,7 +401,9 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-bk-tick input:focus-visible { outline: 2px solid var(--link, #6C8CFF); outline-offset: 2px; }
 #view-inbox .ib-bk-confirm { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 #view-inbox .ib-bk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-#view-inbox .ib-bk-top h3 { margin: 0; font-size: 18px; }
+#view-inbox .ib-bk-top h3 { margin: 0; font-size: 18px; color: var(--text); }
+/* History and Batch have no other way back: their back button shows at every width (the Inbox thread's own is phone-only) */
+#view-inbox .ib-bk-head .ib-back { display: inline-flex; }
 #view-inbox .ib-bk-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 #view-inbox .ib-bk-count { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 8px; background: var(--chip-info-bg); color: var(--chip-info); }
 #view-inbox .ib-bk-n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }

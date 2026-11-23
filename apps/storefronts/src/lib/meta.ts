@@ -32,8 +32,16 @@
    after Accept, HttpOnly, SameSite=Lax, Path=/, Secure with the __Host- prefix on https, for the same 180 days as the
    consent cookie. It is sent only with the server events, and only while the choice is Accept and the value has the
    ref's shape; every Meta page response clears it when the choice is Decline, unset or being reopened. The browser
-   Pixel never sees it, and it is never logged. */
-import { randomBytes } from "node:crypto";
+   Pixel never sees it, and it is never logged.
+
+   Meta's own ids (ClickUp z8uq9m92fv, META-DEDUP F1): Meta's script writes _fbp only after the first consented page has
+   rendered, so that page's server event had no fbp, and an _fbc built from ?fbclid= was sent but not kept. Now, only
+   with a Pixel, after Accept and not on ?cookie-settings=1, a Meta page response (finish) sets _fbp when it is absent or
+   not sent at all (Meta's format fb.1.<ms>.<10 random digits>, the same value goes to Django) and _fbc when it is not
+   sent and the URL has a fbclid. Meta's script re-writes both with a Domain, so from the second page two cookies of the
+   same name can arrive: the first well-shaped value is read, and a cookie of any shape already sent is never set again. First-party, Path=/, SameSite=Lax, Secure on https, 90 days, not HttpOnly and no __Host-
+   prefix, so the Pixel reads and keeps them. An existing cookie is never overwritten. Decline clears both. */
+import { randomBytes, randomInt } from "node:crypto";
 import { asset } from "./assets.ts";
 import { clearCookie, cookieName, isSecure, readCookieShaped, setCookie } from "./cookies.ts";
 import { SECRET_MIN_LENGTH, type Pack, type Site } from "./django.ts";
@@ -74,6 +82,9 @@ const FBP = /^fb\.[0-9]\.[0-9]{10,14}\.[A-Za-z0-9_.-]{1,150}$/; // backend event
 const FBC = /^fb\.[0-9]\.[0-9]{10,14}\.[A-Za-z0-9_-]{1,200}$/; // backend events.FBC_RE
 const FBCLID = /^[A-Za-z0-9_-]{1,200}$/;
 const EVENTS_TIMEOUT_MS = 2000;
+export const FBP_COOKIE = "_fbp";
+export const FBC_COOKIE = "_fbc";
+export const META_ID_MAX_AGE = 90 * 24 * 3600;
 
 /** A fresh deduplication id: "pv_", "vc_" or "ic_" + 16 hex (the backend accepts 16 to 32). */
 export function metaEventId(name: MetaEvent): string {
@@ -89,6 +100,18 @@ export function dataBlock(data: unknown): Markup {
     .replace(new RegExp("\\" + "u2028", "g"), "\\" + "u2028") // built from pieces so no line separator sits in this source
     .replace(new RegExp("\\" + "u2029", "g"), "\\" + "u2029");
   return safe(`<script type="application/json" id="no-meta">${json}</script>`);
+}
+
+/** A fresh _fbp in Meta's documented format: fb.1.<unix ms>.<random 10-digit integer>. */
+export function mintFbp(now: Date = new Date()): string {
+  return `fb.1.${now.getTime()}.${randomInt(1_000_000_000, 10_000_000_000)}`;
+}
+
+/** Appends one of Meta's first-party cookies to a response: plain name, readable by the Pixel (not HttpOnly). */
+function setMetaCookie(response: Response, request: Request, name: string, value: string, maxAge: number): void {
+  const parts = [`${name}=${value}`, "Path=/", `Max-Age=${maxAge}`, "SameSite=Lax"];
+  if (isSecure(request)) parts.push("Secure");
+  response.headers.append("Set-Cookie", parts.join("; "));
 }
 
 /** Meta's click cookie value from a ?fbclid= (fb.1.<ms>.<fbclid>), or "" when there is none or it has an odd shape. */
@@ -125,12 +148,25 @@ function hasCookie(request: Request, name: string): boolean {
   return (request.headers.get("cookie") ?? "").split(";").some((part) => part.trim().startsWith(`${name}=`));
 }
 
+/** The first well-shaped value among the cookies of this exact name, however many are sent (Meta's script re-writes _fbp
+    and _fbc with a Domain, so a host-only copy and a domain copy can arrive together); "" when none is well shaped.
+    Only for Meta's two cookies: every other cookie read stays strict (readCookieShaped). */
+function readMetaCookie(header: string | null, name: string, shape: RegExp): string {
+  for (const part of (header ?? "").split(";")) {
+    const at = part.indexOf("=");
+    if (at < 0 || part.slice(0, at).trim() !== name) continue;
+    const value = part.slice(at + 1).trim();
+    if (shape.test(value)) return value;
+  }
+  return "";
+}
+
 /** The Pixel's own cookies, read from the request (first-party: the Pixel writes them on this host). A value of the
     wrong shape reads as "". */
 export function metaCookies(request: Request, now: Date = new Date()): { fbp: string; fbc: string } {
   const header = request.headers.get("cookie");
-  const fbp = readCookieShaped(header, "_fbp", FBP);
-  let fbc = readCookieShaped(header, "_fbc", FBC);
+  const fbp = readMetaCookie(header, FBP_COOKIE, FBP);
+  let fbc = readMetaCookie(header, FBC_COOKIE, FBC);
   if (!fbc) {
     try {
       fbc = buildFbc(new URL(request.url).searchParams.get("fbclid"), now);
@@ -214,11 +250,9 @@ export type MetaPage = {
   markup: Markup;
   /** The server events call, to run after the response (Next's after()), or null when nothing is to be sent. */
   send: (() => Promise<void>) | null;
-  /** Adds the visitor-cookie clearing to the response when the choice is not Accept (or is being reopened) and the cookie is there. */
+  /** Adds the cookie changes to the response: the visitor-cookie clearing, _fbp/_fbc cleared on Decline, and _fbp/_fbc kept after Accept. */
   finish: (response: Response) => Response;
 };
-
-const keep = (response: Response) => response;
 
 export type MetaPageArgs = {
   request: Request;
@@ -246,8 +280,29 @@ function reopenRequested(request: Request): boolean {
 
 export function metaPage(a: MetaPageArgs): MetaPage {
   const choice = consentChoice(a.request);
-  const stale = (choice !== "accepted" || reopenRequested(a.request)) && hasCookie(a.request, cookieName(VISITOR, isSecure(a.request)));
-  const finish = stale ? (response: Response) => { clearCookie(response, a.request, VISITOR); return response; } : keep;
+  const pixel = PIXEL_ID.test(a.site.meta_pixel_id);
+  const reopen = reopenRequested(a.request);
+  const stale = (choice !== "accepted" || reopen) && hasCookie(a.request, cookieName(VISITOR, isSecure(a.request)));
+  const dropIds = pixel && choice === "declined";
+  const header = a.request.headers.get("cookie");
+  const sent = { fbp: hasCookie(a.request, FBP_COOKIE), fbc: hasCookie(a.request, FBC_COOKIE) };
+  const had = { fbp: readMetaCookie(header, FBP_COOKIE, FBP), fbc: readMetaCookie(header, FBC_COOKIE, FBC) };
+  const keepIds = pixel && choice === "accepted" && !reopen;
+  const mint = keepIds && !sent.fbp;
+  const fbp = keepIds ? had.fbp || (mint ? mintFbp(a.now) : "") : "";
+  const urlFbc = keepIds && !sent.fbc ? metaCookies(a.request, a.now).fbc : "";
+  const finish = (response: Response) => {
+    if (stale) clearCookie(response, a.request, VISITOR);
+    if (dropIds) {
+      if (hasCookie(a.request, FBP_COOKIE)) setMetaCookie(response, a.request, FBP_COOKIE, "", 0);
+      if (hasCookie(a.request, FBC_COOKIE)) setMetaCookie(response, a.request, FBC_COOKIE, "", 0);
+    }
+    if (keepIds) {
+      if (mint) setMetaCookie(response, a.request, FBP_COOKIE, fbp, META_ID_MAX_AGE);
+      if (urlFbc) setMetaCookie(response, a.request, FBC_COOKIE, urlFbc, META_ID_MAX_AGE);
+    }
+    return response;
+  };
   if (!PIXEL_ID.test(a.site.meta_pixel_id)) return { markup: safe(""), send: null, finish };
   /* "?cookie-settings=1": the visitor asked to choose again. Only the notice is drawn, whatever the cookie says, with no
      data block, no Pixel and no server call, so nothing goes to Meta from this page; the notice's script then writes
@@ -267,7 +322,7 @@ export function metaPage(a: MetaPageArgs): MetaPage {
   });
   const block = dataBlock({ pixel_id: a.site.meta_pixel_id, checkout: a.checkout === true, events });
   const markup = html`${block}<script src="${asset("js/meta-pixel.js")}"></script>`;
-  const cookies = metaCookies(a.request, a.now);
+  const cookies = { fbp, fbc: had.fbc || urlFbc };
   const ref = visitorRef(a.request);
   const body = {
     host: a.host,

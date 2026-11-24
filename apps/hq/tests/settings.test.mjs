@@ -7,7 +7,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
-  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-store-caps", "s-store", "s-store-err", "s-allstores", "s-allstores-err", "s-err", "s-when", "s-save",
+  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-store-caps", "s-store", "s-store-err", "s-allstores", "s-allstores-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-when", "s-save",
   "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-poll-at", "g-incoming",
   "g-register", "g-rotate", "g-disable", "g-refresh",
   "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",
@@ -259,4 +259,30 @@ test("the store caps show and save when the server sends them, and stay hidden w
 
 test("the settings page says the hourly store limit is fixed at 20", () => {
   assert.match(fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8"), /20 an hour per store, fixed\./);
+});
+
+test("the bulk texts a day per store field shows with the default, saves with the other caps, and stays hidden when the server does not send it", async () => {
+  const none = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }) }));
+  assert.equal(none.node["s-bulk-field"].hidden, true, "an older server: no bulk field");
+  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 2000 }), [SSET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 1500 }) }));
+  assert.equal(p.node["s-bulk-field"].hidden, false);
+  assert.equal(p.node["s-bulk"].value, "2000");
+  assert.match(fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8"), /<label for="s-bulk">Bulk texts a day per store<\/label>/);
+  p.node["s-bulk"].value = "1500";
+  p.node["s-form"].fire("submit");
+  await confirm(p);
+  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 1500 });
+  assert.equal(p.node["s-bulk"].value, "1500", "the saved answer is painted back");
+  p.node["s-bulk"].value = "-1";
+  p.node["s-form"].fire("submit");
+  assert.match(text(p, "s-bulk-err"), /^Enter a whole number from 0 to 2147483647\.$/);
+  assert.equal(p.node["s-bulk"].getAttribute("aria-invalid"), "true");
+});
+
+test("a 400 puts the bulk cap's message under the bulk field", async () => {
+  const fields = { store_bulk_daily_limit: ["Bulk message."] };
+  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 2000 }), [SSET]: [400, { error: { code: "invalid_request", message: "x", fields } }] }));
+  p.node["s-form"].fire("submit");
+  await confirm(p);
+  assert.equal(text(p, "s-bulk-err"), "Bulk message.");
 });

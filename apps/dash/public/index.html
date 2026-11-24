@@ -22,10 +22,11 @@
 <link rel="stylesheet" href="/assets/css/shop-orders.css?v=20261113so1">
 <link rel="stylesheet" href="/assets/css/help.css?v=20261113hc2">
 <link rel="stylesheet" href="/assets/css/products.css?v=20261114prod14">
-<link rel="stylesheet" href="/assets/css/inbox.css?v=20261123so2">
+<link rel="stylesheet" href="/assets/css/inbox.css?v=20261124r11">
 <link rel="stylesheet" href="/assets/css/meta-pixel.css?v=20261116mp4">
 <link rel="stylesheet" href="/assets/css/notices.css?v=20261114nt1">
-<link rel="stylesheet" href="/assets/css/sms-gateway-settings.css?v=20261123sg1">
+<link rel="stylesheet" href="/assets/css/sms-gateway-settings.css?v=20261124ml11">
+<link rel="stylesheet" href="/assets/css/contacts.css?v=20261124r9b">
 <link rel="stylesheet" href="/assets/css/training.css?v=20261121r2">
 <link rel="stylesheet" href="/assets/css/media.css?v=20261115ml1">
 <link rel="stylesheet" href="/assets/css/shared-content.css?v=20261121cp1">
@@ -55,6 +56,8 @@
       <a href="/orders/" data-route="orders"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h3"/></svg>Orders</a>
       <a href="/products/" data-route="products"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8l8-4 8 4-8 4zM4 8v8l8 4 8-4V8"/></svg>Products</a>
       <a href="/inbox/" data-route="inbox" data-inbox-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"/></svg>Inbox</a>
+      <a href="/sms/" data-route="sms" data-sms-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 18h2M9 7h6M9 10h4"/></svg>SMS Marketing</a>
+      <a href="/contacts/" data-route="contacts" data-contacts-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.5a3 3 0 0 1 0 5.7M18 14.2c1.8.8 3 2.6 3 4.8"/></svg>Contacts</a>
       <a href="/training/" data-route="training" data-training-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 9l10-5 10 5-10 5zM6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/></svg>Training</a>
       <a href="/media/" data-route="media" data-media-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/></svg>Media Library</a>
       <a href="/prospect-list/" data-route="journey" data-journey-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg>Prospect List</a>
@@ -91,8 +94,6 @@
         <a href="/settings/business/" data-route="settings-general">Business Settings</a>
         <a href="/settings/billing/" data-route="settings-billing">Billing</a>
         <a href="/settings/payments/" data-route="settings-payments">Payments</a>
-        <a href="/settings/inbox/" data-route="settings-inbox" data-inbox-nav hidden>Inbox</a>
-        <a href="/settings/sms-gateway/" data-route="settings-sms-gateway" data-sms-gateway-nav hidden>SMS Gateway</a>
         <a href="/settings/meta-pixel/" data-route="settings-meta-pixel" data-meta-nav hidden>Meta Pixel</a>
         <a href="/settings/notices/" data-route="settings-notices" data-notices-nav hidden>Notices</a>
         <a href="/settings/domain/" data-route="settings-domain" data-domain-nav hidden>Domain</a>
@@ -152,7 +153,21 @@
         <h1 class="bl-sr" id="h-inbox" tabindex="-1">Inbox</h1>
         <div id="ib-root"></div>
         <div class="bl-sr" id="ib-live" aria-live="polite"></div>
+        <div class="ib-settings" id="ib-settings" hidden>
+          <div class="pm-root" id="ibs-root" hidden></div>
+          <div class="bl-sr" id="ibs-live" aria-live="polite"></div>
+          <div class="pm-root" id="ibs-sms-root" hidden></div>
+          <div class="sg-root" id="sg-root" hidden></div>
+          <div id="sg-dialog-slot"></div>
+          <div class="bl-sr" id="sg-live" aria-live="polite"></div>
+        </div>
       </section>
+      <section class="view" id="view-contacts" aria-labelledby="h-contacts" hidden>
+        <h1 class="bl-sr" id="h-contacts" tabindex="-1">Contacts</h1>
+        <div id="ct-root" aria-busy="true"></div>
+        <div class="bl-sr" id="ct-live" aria-live="polite"></div>
+      </section>
+      <div id="ct-dialog-slot"></div>
       <section class="view" id="view-storefront" aria-labelledby="h-storefront" hidden>
         <header class="view-head"><p class="dash-eyebrow">Storefront</p><h1 id="h-storefront" tabindex="-1">Storefront</h1></header>
         <section class="dash-card ph-card" aria-labelledby="h-storefront-ph">
@@ -366,11 +381,6 @@
         <div id="pm-dialog-slot"></div>
         <div class="bl-sr" id="pm-live" aria-live="polite"></div>
       </section>
-      <section class="view" id="view-settings-inbox" aria-labelledby="h-settings-inbox" hidden>
-        <h1 class="bl-sr" id="h-settings-inbox" tabindex="-1">Inbox</h1>
-        <div class="pm-root" id="ibs-root"></div>
-        <div class="bl-sr" id="ibs-live" aria-live="polite"></div>
-      </section>
       <section class="view" id="view-settings-meta-pixel" aria-labelledby="h-settings-meta-pixel" hidden>
         <h1 class="bl-sr" id="h-settings-meta-pixel" tabindex="-1">Meta Pixel</h1>
         <div class="pm-root" id="mp-root"></div>
@@ -380,12 +390,6 @@
         <h1 class="bl-sr" id="h-settings-notices" tabindex="-1">Notices</h1>
         <div class="nt-root" id="nt-root"></div>
         <div class="bl-sr" id="nt-live" aria-live="polite"></div>
-      </section>
-      <section class="view" id="view-settings-sms-gateway" aria-labelledby="h-settings-sms-gateway" hidden>
-        <h1 class="bl-sr" id="h-settings-sms-gateway" tabindex="-1">SMS Gateway</h1>
-        <div class="sg-root" id="sg-root"></div>
-        <div id="sg-dialog-slot"></div>
-        <div class="bl-sr" id="sg-live" aria-live="polite"></div>
       </section>
       <section class="view" id="view-training" aria-labelledby="h-training" hidden>
         <header class="view-head"><p class="dash-eyebrow">For your members</p><h1 id="h-training" tabindex="-1">Training</h1></header>
@@ -454,6 +458,10 @@
 </nav>
 <dialog class="sheet dash-chrome" id="more-sheet" aria-label="More">
   <div class="sheet-inner">
+    <h3 class="sheet-label" data-sms-nav hidden>SMS Marketing</h3>
+    <div class="sheet-grid" data-sms-nav hidden><a class="sheet-tile" href="/sms/" data-sheet-close data-sms-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM11 18h2M9 7h6M9 10h4"/></svg>SMS Marketing</a></div>
+    <h3 class="sheet-label" data-contacts-nav hidden>Contacts</h3>
+    <div class="sheet-grid" data-contacts-nav hidden><a class="sheet-tile" href="/contacts/" data-sheet-close data-contacts-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 5.5a3 3 0 0 1 0 5.7M18 14.2c1.8.8 3 2.6 3 4.8"/></svg>Contacts</a></div>
     <h3 class="sheet-label" data-training-nav hidden>Training</h3>
     <div class="sheet-grid" data-training-nav hidden><a class="sheet-tile" href="/training/" data-sheet-close data-training-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 9l10-5 10 5-10 5zM6 11.5V16c0 1.4 2.7 3 6 3s6-1.6 6-3v-4.5M22 9v6"/></svg>Training</a></div>
     <h3 class="sheet-label" data-media-nav hidden>Media Library</h3>
@@ -461,13 +469,13 @@
     <h3 class="sheet-label" data-journey-nav hidden>Prospect List</h3>
     <div class="sheet-grid" data-journey-nav hidden><a class="sheet-tile" href="/prospect-list/" data-sheet-close data-journey-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg>Prospect List</a></div>
     <h3 class="sheet-label">Settings</h3>
-    <div class="sheet-grid"><a class="sheet-tile" href="/settings/business/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Business Settings</a><a class="sheet-tile" href="/settings/billing/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Billing</a><a class="sheet-tile" href="/settings/payments/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Payments</a><a class="sheet-tile" href="/settings/inbox/" data-sheet-close data-inbox-nav hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 5h16v11H9l-5 4z"/></svg>Inbox</a></div>
+    <div class="sheet-grid"><a class="sheet-tile" href="/settings/business/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>Business Settings</a><a class="sheet-tile" href="/settings/billing/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Billing</a><a class="sheet-tile" href="/settings/payments/" data-sheet-close><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></svg>Payments</a></div>
     <button type="button" class="no-btn no-btn-ghost no-btn-block" data-sheet-close>Close</button>
   </div>
 </dialog>
 <script src="/assets/js/config.js?v=20261028zy"></script>
 <script src="/assets/js/app.js?v=20261113ht1"></script>
-<script src="/assets/js/dashboard.js?v=20261124fd3"></script>
+<script src="/assets/js/dashboard.js?v=20261124r9b"></script>
 <script src="/assets/js/account.js?v=20261113ht4"></script>
 <script src="/assets/js/billing.js?v=20261123ov1"></script>
 <script src="/assets/vendor/cropperjs/cropper.min.js?v=162"></script>
@@ -482,14 +490,17 @@
 <script src="/assets/js/shop-orders.js?v=20261116bo1"></script>
 <script src="/assets/js/help.js?v=20261113hc2"></script>
 <script src="/assets/js/products.js?v=20261118cm19"></script>
-<script src="/assets/js/inbox-sms.js?v=20261123so1"></script>
-<script src="/assets/js/inbox.js?v=20261123so1"></script>
-<script src="/assets/js/inbox-comments.js?v=20261119cm21"></script>
-<script src="/assets/js/inbox-settings.js?v=20261123so2"></script>
+<script src="/assets/js/inbox-sms.js?v=20261124ml13"></script>
+<script src="/assets/js/inbox-bulk.js?v=20261124r11"></script>
+<script src="/assets/js/inbox-schedule.js?v=20261124r11"></script>
+<script src="/assets/js/inbox.js?v=20261124r9b"></script>
+<script src="/assets/js/inbox-comments.js?v=20261124ml1"></script>
+<script src="/assets/js/inbox-settings.js?v=20261124ml12"></script>
 <script src="/assets/js/inbox-rules.js?v=20261118cm22"></script>
 <script src="/assets/js/meta-pixel.js?v=20261116mp2"></script>
 <script src="/assets/js/notices.js?v=20261114nt1"></script>
 <script src="/assets/js/sms-gateway-settings.js?v=20261123sg1"></script>
+<script src="/assets/js/contacts.js?v=20261124r9b"></script>
 <script src="/assets/js/shared-content.js?v=20261121cp1"></script>
 <script src="/assets/js/tus.js?v=20261121r2"></script>
 <script src="/assets/js/training.js?v=20261121r2"></script>

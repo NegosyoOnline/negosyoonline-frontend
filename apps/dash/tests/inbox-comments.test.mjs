@@ -70,6 +70,10 @@ const q = (p) => new URLSearchParams(p.indexOf("?") >= 0 ? p.slice(p.indexOf("?"
 
 /* The stand-in API. `s` holds what the routes answer. s.convPage(params) / s.cmPage(params) answer a list read (params: the query string);
    a route set to {status, body} answers that. The comments routes answer 404 while s.on is false (the switch is off). */
+/* The Answered, Read and Open/Closed buttons each cycle one filter: all -> first -> second -> all (Coach Ed 2026-11-24). `cycleTo` clicks the
+   button the right number of times to reach a value. */
+const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
+const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["open", "closed"] };
 function boot({ on = true, convs = [], clock = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [];
   const make = doc.createElement;
@@ -86,7 +90,7 @@ function boot({ on = true, convs = [], clock = null } = {}) {
     calls.push({ method: opts.method, path: p, body });
     let a = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
     if (opts.method === "GET" && p === "/sites/") a = { status: 200, body: { items: [{ id: A, template: "sante" }], next_cursor: null } };
-    else if (p === `/sites/${A}/inquiries/unread/`) a = { status: 200, body: { count: s.convUnread } };
+    else if (p.split("?")[0] === `/sites/${A}/inquiries/unread/`) a = { status: 200, body: { count: s.convUnread } };
     else if (p === `/sites/${A}/inquiries/channels/`) a = { status: 200, body: { webchat_enabled: false } };
     else if (opts.method === "GET" && (p === CV || p.indexOf(CV + "?") === 0)) {
       a = { status: 200, body: s.convPage ? s.convPage(q(p)) : { items: s.convItems, stored_next_cursor: null, unread_total: s.convUnread } };
@@ -126,7 +130,12 @@ function boot({ on = true, convs = [], clock = null } = {}) {
     names: () => d.rows().map((r) => all(r, "ib-name")[0].textContent),
     async openRow(i) { await d.click(d.rows()[i]); },
     async type(id, v) { const n = $(id); n.value = v; n.fire("input"); await settle(); },
-    async pick(id, v) { const n = $(id); n.value = v; n.fire("change"); await settle(); },
+    /* the Channel dropdown is now the channel tabs and the Status dropdown the Open / Closed chips (z8uq9mj6ch); "all" turns the chip that is on off */
+    async pick(id, v) {
+      if (id === "ib-filter") { $("ib-tab-" + v).fire("click"); await settle(); return; }
+      if (id === "ib-status") { const o = ORDERS["ib-b-status"], want = v === "all" ? "open" : v, b = $("ib-b-status"); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + o.length) % o.length; n > 0; n--) { b.fire("click"); await settle(); } return; }
+      const n = $(id); n.value = v; n.fire("change"); await settle();
+    },
     shown: (id) => !$(id).hidden };
   return d;
 }
@@ -141,8 +150,8 @@ test("one Inbox page: no Conversations | Comments tabs, and a comment is a row o
   assert.equal(d.$("ib-cwrap"), null);
   assert.equal(d.rows().length, 4, "1 conversation and 3 comments in the same list");
   const row = d.rows()[1];
-  assert.equal(d.all(row, "ib-ch").map(text)[0], "FB Comment");
-  assert.equal(d.all(d.rows()[0], "ib-ch").map(text)[0], "Website chat", "the conversation row is as before");
+  assert.equal(d.all(row, "ib-cdot").map(text)[0], "FB Comment");
+  assert.equal(d.all(d.rows()[0], "ib-cdot").map(text)[0], "Website chat", "the conversation row is as before");
 });
 
 test("a comment row has the avatar, name, comment, time, unread state, the post line, the Ad badge and Unanswered / Answered", async () => {
@@ -183,7 +192,7 @@ test("comments off (404): the list is the conversations, no error, and the comme
   await d.pick("ib-filter", "fbcomment");
   assert.equal(d.rows().length, 0);
   assert.ok(text(d.$("ib-listbody")).includes("No comments yet."));
-  assert.ok(d.$("ib-filter"), "the toolbar stays");
+  assert.ok(d.$("ib-tab-all"), "the toolbar stays");
   assert.equal(d.all(d.$("ib-listbody"), "ib-err").length, 0);
 });
 
@@ -200,15 +209,14 @@ test("FB Comment alone, and the read fails: a message, the old channel comes bac
   await d.openInbox();
   d.s.listAnswer = { status: 500, body: { error: { code: "server", message: "x" } } };
   await d.pick("ib-filter", "fbcomment");
-  assert.ok(d.toasts.length === 1 && d.$("ib-filter").value === "all", "the old channel comes back");
+  assert.ok(d.toasts.length === 1 && d.$("ib-tab-all").getAttribute("aria-selected") === "true" && d.$("ib-tab-fbcomment").getAttribute("aria-selected") === "false", "the old channel comes back");
   assert.equal(d.rows().length, 4, "the list stays");
 });
 
 test("Channel filter: FB Comment after FB Messenger; FB Comment reads only comments, a conversation channel only conversations, All both", async () => {
   const d = boot({ convs: [conv(1, 5)] });
   await d.openInbox();
-  const opts = d.$("ib-filter").all((n) => n.tagName === "OPTION").map(text);
-  assert.deepEqual(opts, ["All channels", "Website chat", "Email", "FB Messenger", "FB Comment"]);
+  assert.deepEqual(d.all(d.$("ib-tabs-host"), "ib-tab").map(text), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Settings"]);
   let n = d.calls.length;
   await d.pick("ib-filter", "fbcomment");
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB]);
@@ -216,11 +224,11 @@ test("Channel filter: FB Comment after FB Messenger; FB Comment reads only comme
   assert.ok(d.rows().every((r) => text(r).includes("FB Comment")));
   n = d.calls.length;
   await d.pick("ib-filter", "webchat");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?channel=nosms&status=open"]);
   assert.deepEqual(d.names(), ["Buyer 1"]);
   n = d.calls.length;
   await d.pick("ib-filter", "all");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
   assert.equal(d.rows().length, 4);
 });
 
@@ -231,23 +239,23 @@ test("search goes to both APIs, Unread/Read maps to the comments' unread=1/0, an
   d.s.searcher = (t) => listing({ items: [item({ author_name: "Match " + t })] });
   let n = d.calls.length;
   await d.type("ib-q", "ma"); await clock.advance(300);
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?q=ma", "GET " + CV + "?q=ma"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?q=ma", "GET " + CV + "?channel=nosms&q=ma&status=open"]);
   assert.ok(d.names().includes("Match ma"));
   await d.type("ib-q", ""); await clock.advance(300);
   n = d.calls.length;
-  await d.click(d.$("ib-rtog"));
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=1", "GET " + CV + "?unread=1"]);
+  await d.click(d.$("ib-b-read"));
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=1", "GET " + CV + "?channel=nosms&status=open&unread=1"]);
   n = d.calls.length;
-  await d.click(d.$("ib-rtog"));
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=0", "GET " + CV + "?unread=0"]);
-  await d.click(d.$("ib-rtog"));
+  await d.click(d.$("ib-b-read"));
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=0", "GET " + CV + "?channel=nosms&status=open&unread=0"]);
+  await d.click(d.$("ib-b-read"));
   n = d.calls.length;
-  await d.pick("ib-status", "closed");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?status=closed"], "comments have no closed state");
+  await d.pick("ib-status", "closed"); /* Open is the default; one press shows Closed */
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?channel=nosms&status=closed"], "comments have no closed state");
   assert.ok(d.rows().every((r) => !text(r).includes("FB Comment")));
   n = d.calls.length;
-  await d.pick("ib-status", "open");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?status=open"]);
+  await d.pick("ib-status", "open"); /* Closed -> Open is one press (INBOX-FIX-7: two states only) */
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
   assert.ok(d.rows().some((r) => text(r).includes("FB Comment")));
 });
 
@@ -277,7 +285,7 @@ test("Show more with two cursors: the lagging source is read, nothing older than
     stage.push(d.names());
   }
   /* the comments lag first (B3 40 is newer than A3 50): comments m2; then conversations lag (A3 50 vs B5 100): c2; then comments m3 */
-  assert.deepEqual(seq, ["GET " + CB + "?cursor=m2", "GET " + CV + "?stored_cursor=c2", "GET " + CB + "?cursor=m3"]);
+  assert.deepEqual(seq, ["GET " + CB + "?cursor=m2", "GET " + CV + "?channel=nosms&stored_cursor=c2&status=open", "GET " + CB + "?cursor=m3"]);
   for (let i = 1; i < stage.length; i++) assert.deepEqual(stage[i].slice(0, stage[i - 1].length), stage[i - 1], "stage " + i + " keeps every shown row in place");
   const last = stage[stage.length - 1];
   assert.deepEqual(last, ["Buyer 1", "Commenter 1", "Buyer 2", "Commenter 2", "Commenter 3", "Buyer 3", "Commenter 4", "Buyer 4", "Commenter 5", "Buyer 5", "Commenter 6"]);
@@ -300,7 +308,7 @@ test("the list keeps its scroll on a row click, a read mark, Show more and Back 
   assert.equal(d.$("ib-list").scrollTop, 420);
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
   assert.equal(d.$("ib-list").scrollTop, 420, "Show more appends below without a jump");
-  await d.pick("ib-status", "open");
+  await d.click(d.$("ib-b-read"));
   assert.equal(d.$("ib-list").scrollTop || 0, 0, "a new filter starts at the top");
 });
 
@@ -675,14 +683,16 @@ test("an own comment: every action is off with the same single note", async () =
 /* ---------- switch off while in use ---------- */
 
 
-test("Refresh reads the list and the open comment again; leaving the Inbox stops every read", async () => {
+test("Refresh reads the list again and closes the open comment (INBOX-FIX-7: like a fresh page load); leaving the Inbox stops every read", async () => {
   const clock = makeClock();
   const d = boot({ clock });
   await d.openInbox();
   await d.openRow(0);
   const n = d.calls.length;
   await d.click(d.$("ib-refresh-btn"));
-  assert.ok(d.since(n).includes("GET " + CB) && d.since(n).includes("GET " + CB + R1 + "/"));
+  assert.ok(d.since(n).includes("GET " + CB), "the list is read again");
+  assert.ok(!d.since(n).includes("GET " + CB + R1 + "/"), "the comment is not opened again: nothing is selected after Refresh");
+  assert.ok(text(d.$("ib-threadpane")).includes("Choose a conversation"), "the right pane is back to its empty state");
   d.window.NOInbox.hide();
   const before = d.calls.length;
   await clock.advance(120000);
@@ -819,30 +829,26 @@ test("comment threads space their message blocks 24px apart; the shared .ib-msgs
 
 function NOUtil(d) { return d.window.NOInboxComments.util; }
 
-test("read-state envelope: unread = closed, filled, accent, aria Unread; read = open, muted, aria Read; opening switches it at once", async () => {
+test("read-state: unread = a blue dot, aria Unread; read = nothing to see but aria Read; opening switches it at once", async () => {
   const d = boot();
   await d.openInbox();
-  const d0 = (row) => d.all(row, "ib-rs")[0].all((n) => n.tagName.toLowerCase() === "path")[0].getAttribute("d");
-  const u = d.all(d.rows()[0], "ib-rs")[0], closed = d0(d.rows()[0]);
+  const u = d.all(d.rows()[0], "ib-rs")[0];
   assert.ok(u.classList.contains("ib-rs-u") && u.getAttribute("aria-label") === "Unread" && u.getAttribute("title") === "Unread");
   const r = d.all(d.rows()[1], "ib-rs")[0];
   assert.ok(r.classList.contains("ib-rs-r") && r.getAttribute("aria-label") === "Read");
-  assert.notEqual(d0(d.rows()[1]), closed, "the read one is the open envelope");
   await d.openRow(0);
   const now = d.all(d.rows()[0], "ib-rs")[0];
   assert.ok(now.classList.contains("ib-rs-r") && now.getAttribute("aria-label") === "Read", "marked read by opening it");
-  assert.equal(d0(d.rows()[0]), d0(d.rows()[1]));
   const css = fs.readFileSync(path.join(JS, "../css/inbox.css"), "utf8");
-  assert.match(css, /\.ib-rs-u svg \{[^}]*fill: currentColor/);
-  assert.match(css, /\.ib-item\.is-sel \.ib-rs-u svg \{[^}]*stroke:/, "the selected-row tint has its own envelope outline");
+  assert.match(css, /\.ib-rs-u \{[^}]*background: var\(--link\)/, "the dot is the accent");
 });
 
 /* ---------- round 9: envelope colours, Answered toggle, tooltips on every disabled send button ---------- */
 
-test("r9: the read envelope is house green (--ov-green, defined for both themes), the unread one stays accent blue", () => {
+test("r9: the unread dot is the accent blue (--link) and the read marker is visually hidden; --ov-green stays defined for both themes", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  assert.match(css, /^#view-inbox \.ib-rs-r \{ color: var\(--ov-green\); \}/m);
-  assert.match(css, /^#view-inbox \.ib-rs-u \{ color: var\(--link\); \}/m);
+  assert.match(css, /^#view-inbox \.ib-rs-u \{[^}]*background: var\(--link\)/m);
+  assert.match(css, /^#view-inbox \.ib-rs-r \{[^}]*clip: rect\(0, 0, 0, 0\)/m);
   const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
   assert.match(dash, /^body\.dash-app \{ --ov-green: #5FD3A2;/m, "dark");
   assert.match(dash, /html\[data-theme="light"\] body\.dash-app \{ --ov-green: #1F8A5B;/, "light");
@@ -856,44 +862,64 @@ test("r9: the list rows carry no Answered / Unanswered pill; the thread header k
   assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
 });
 
-test("r12: the Answered toggle sits beside the Read toggle, cycles All > Answered > Unanswered > All, and sends answered= to the conversations and the comments routes", async () => {
-  const d = boot({ convs: [conv(1, 5, { answered: true })] });
-  await d.openInbox();
-  const t = () => d.$("ib-atog"), st = () => [t().getAttribute("aria-label"), t().getAttribute("title"), t().getAttribute("aria-pressed"), t().classList.contains("is-on")];
-  const api = (n) => d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort();
-  assert.equal(t().tagName, "BUTTON");
-  assert.deepEqual(st(), ["Showing answered and unanswered", null, "false", false]);
-  let n = d.calls.length;
-  await d.click(t());
-  assert.deepEqual(st(), ["Showing answered only", null, "true", true]);
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?answered=answered"], "both routes");
-  assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
-  n = d.calls.length;
-  await d.click(t());
-  assert.deepEqual(st(), ["Showing unanswered only", null, "true", true]);
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?answered=unanswered"]);
-  n = d.calls.length;
-  await d.click(t());
-  assert.deepEqual(st(), ["Showing answered and unanswered", null, "false", false]);
-  assert.deepEqual(api(n), ["GET " + CB, "GET " + CV]);
-  /* it combines with Read/Unread and Open/Closed, and is not the status dropdown */
-  await d.click(t());
-  n = d.calls.length;
-  await d.click(d.$("ib-rtog"));
-  assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?unread=1&answered=answered"]);
-  n = d.calls.length;
-  await d.pick("ib-status", "closed");
-  assert.deepEqual(api(n), ["GET " + CV + "?status=closed&unread=1&answered=answered"], "Closed reads no comments");
-  assert.equal(d.$("ib-atog").getAttribute("aria-pressed"), "true");
+test("r9: the unread dot is the accent blue (--link) and the read marker is visually hidden; --ov-green stays defined for both themes", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /^#view-inbox \.ib-rs-u \{[^}]*background: var\(--link\)/m);
+  assert.match(css, /^#view-inbox \.ib-rs-r \{[^}]*clip: rect\(0, 0, 0, 0\)/m);
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(dash, /^body\.dash-app \{ --ov-green: #5FD3A2;/m, "dark");
+  assert.match(dash, /html\[data-theme="light"\] body\.dash-app \{ --ov-green: #1F8A5B;/, "light");
 });
 
-test("r9: a failed read puts the Answered toggle back", async () => {
+test("r9: the list rows carry no Answered / Unanswered pill; the thread header keeps its chip", async () => {
+  const d = boot();
+  await d.openInbox();
+  d.rows().forEach((r) => { assert.equal(d.all(r, "chip").filter((c) => /nswered/.test(text(c))).length, 0); });
+  await d.openRow(1);
+  assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
+});
+
+test("r12: the Answered / Unanswered chips are toggles (aria-pressed), one on at a time, and send answered= to the conversations and the comments routes", async () => {
+  const d = boot({ convs: [conv(1, 5, { answered: true })] });
+  await d.openInbox();
+  const on = (k) => String(d.$(CYC[k][0]).getAttribute("data-v") === CYC[k][1]);
+  const api = (n) => d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort();
+  assert.equal(d.$("ib-b-answered").tagName, "BUTTON");
+  assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"]);
+  let n = d.calls.length;
+  await d.click(d.$("ib-b-answered"));
+  assert.deepEqual([on("answered"), on("unanswered")], ["false", "true"], "the first press shows the unanswered");
+  assert.equal(d.$("ib-b-answered").classList.contains("is-on"), true);
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?channel=nosms&status=open&answered=unanswered"], "both routes");
+  assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
+  n = d.calls.length;
+  await d.click(d.$("ib-b-answered"));
+  assert.deepEqual([on("answered"), on("unanswered")], ["true", "false"], "one at a time");
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?channel=nosms&status=open&answered=answered"]);
+  n = d.calls.length;
+  await d.click(d.$("ib-b-answered"));
+  assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"], "pressing the one that is on turns it off");
+  assert.deepEqual(api(n), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
+  /* it combines with Unread and Open/Closed, and is not the status */
+  await d.click(d.$("ib-b-answered")); await d.click(d.$("ib-b-answered"));
+  n = d.calls.length;
+  await d.click(d.$("ib-b-read"));
+  assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?channel=nosms&status=open&unread=1&answered=answered"]);
+  await d.pick("ib-status", "open");
+  n = d.calls.length;
+  await d.pick("ib-status", "closed");
+  assert.deepEqual(api(n), ["GET " + CV + "?channel=nosms&status=closed&unread=1&answered=answered"], "Closed reads no comments");
+  assert.equal(on("answered"), "true");
+});
+
+test("r9: a failed read puts the Answered chip back", async () => {
   const d = boot();
   await d.openInbox();
   await d.pick("ib-filter", "fbcomment"); /* comments are the only source, so their failure is a failed read */
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Try later." } } };
-  await d.click(d.$("ib-atog"));
-  assert.equal(d.$("ib-atog").getAttribute("aria-label"), "Showing answered and unanswered");
+  await d.click(d.$("ib-b-answered"));
+  assert.equal(d.$("ib-b-answered").getAttribute("aria-pressed"), "false");
+  assert.equal(d.toasts.length, 1);
 });
 
 /* One check per disabled state of each send button: the button is aria-disabled (never natively), describedby its tooltip, shows the text on
@@ -998,10 +1024,10 @@ test("r11: every FB Comment row has a status icon right after the name (check = 
   assert.equal(d.all(rows[0], "cm-st").length, 0, "a conversation row has no status icon");
   const want = [[1, "Unanswered", "cm-st-no", "M12 7.5v5"], [2, "Answered", "cm-st-ok", "M8 12l3 3 5-6"], [3, "Unanswered", "cm-st-no", "M12 7.5v5"]];
   for (const [i, label, cls, dpart] of want) {
-    const top = d.all(rows[i], "ib-top")[0], badges = d.all(rows[i], "ib-badges")[0];
+    const top = d.all(rows[i], "ib-top")[0], badges = d.all(rows[i], "ib-badges")[0] || d.doc.createElement("span");
     assert.deepEqual(top.children.map((n) => n.classList.contains("ib-name") ? "name" : n.classList.contains("cm-st") ? "icon" : "?"), ["name", "icon"], "name, then the icon");
     assert.equal(d.all(badges, "cm-st").length, 0, "not in the pill line");
-    assert.deepEqual(badges.children.map((n) => text(n)).slice(0, 1), ["FB Comment"]);
+    assert.equal(text(d.all(rows[i], "ib-cdot")[0]), "FB Comment", "the channel is the badge on the avatar");
     const st = top.children[1];
     assert.ok(st.classList.contains(cls));
     assert.equal(st.getAttribute("aria-label"), label);
@@ -1086,7 +1112,7 @@ test("r12: every channel's row has the status icon after the name from item.answ
     assert.ok(st && st.classList.contains(cls), name);
     assert.equal(st.getAttribute("aria-label"), label);
     assert.equal(d.all(rowOf(name), "ib-top")[0].children[0].classList.contains("ib-name"), true, "right after the name");
-    assert.equal(d.all(d.all(rowOf(name), "ib-badges")[0], "cm-st").length, 0, "not in the pill line");
+    assert.equal(d.all(rowOf(name), "ib-badges").length === 0 ? 0 : d.all(d.all(rowOf(name), "ib-badges")[0], "cm-st").length, 0, "not in the pill line");
     const tip = d.$(st.getAttribute("aria-describedby"));
     st.fire("focus"); assert.ok(tip.classList.contains("is-open")); st.fire("blur");
     let stopped = 0; st.fire("click", { stopPropagation() { stopped++; } }); assert.equal(stopped, 1, "a tap never opens the row");
@@ -1097,77 +1123,11 @@ test("r12: every channel's row has the status icon after the name from item.answ
 });
 
 /* ---------- round 12 addition 2: one dark house tooltip, on the title toggles too ---------- */
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test("r12: the title toggles have no native title; they get the house tooltip: hover after ~120 ms, focus at once, tap toggles; aria-label kept", async () => {
-  const d = boot();
-  await d.openInbox();
-  for (const id of ["ib-atog", "ib-rtog"]) {
-    const b = d.$(id), tip = d.$(id + "-tip");
-    assert.equal(b.getAttribute("title"), null, id + ": no native title");
-    assert.ok(b.getAttribute("aria-label"), "aria-label kept");
-    assert.equal(b.getAttribute("aria-describedby"), id + "-tip");
-    assert.equal(tip.getAttribute("role"), "tooltip");
-    assert.ok(tip.classList.contains("cm-tip"), "the one shared tooltip class");
-    assert.ok(!tip.classList.contains("is-open"));
-    b.fire("mouseenter");
-    assert.ok(!tip.classList.contains("is-open"), "not at once on hover");
-    await sleep(160);
-    assert.ok(tip.classList.contains("is-open"), "open after ~120 ms");
-    assert.equal(text(tip), b.getAttribute("aria-label"));
-    b.fire("mouseleave"); assert.ok(!tip.classList.contains("is-open"));
-    b.fire("mouseenter"); b.fire("mouseleave"); await sleep(160);
-    assert.ok(!tip.classList.contains("is-open"), "leaving before the delay cancels it");
-    b.fire("focus"); assert.ok(tip.classList.contains("is-open"), "focus: at once");
-    b.fire("keydown", { key: "Escape" }); assert.ok(!tip.classList.contains("is-open"));
-    b.fire("blur");
-    const tap = () => { b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter"); b.fire("click"); };
-    tap(); assert.ok(tip.classList.contains("is-open"), "a tap opens it");
-    await sleep(160); assert.ok(tip.classList.contains("is-open"), "the touch mouseenter does not close or reopen it");
-    tap(); assert.ok(!tip.classList.contains("is-open"), "a second tap closes it");
-    b.fire("blur");
-  }
-});
 
-test("r12: a phone tap on a title toggle applies the filter AND keeps the tooltip open with the NEW state through the reload, until a scroll, Escape, blur or outside click", async () => {
-  for (const id of ["ib-rtog", "ib-atog"]) {
-    const d = boot();
-    await d.openInbox();
-    const b = d.$(id), tip = d.$(id + "-tip"), before = b.getAttribute("aria-label");
-    const fireDoc = (type, e) => (d.doc.listeners[type] || []).slice().forEach((fn) => fn(e));
-    const reloads = d.paths().length;
-    b.fire("pointerdown", { pointerType: "touch" }); b.fire("focus"); b.fire("mouseenter");
-    /* the icon is repainted inside the click, so the click target is gone from the page when the click reaches the document */
-    const gone = d.doc.createElement("span"); d.doc.contains = (n) => n !== gone;
-    b.fire("click"); fireDoc("click", { target: gone });
-    await settle();
-    assert.ok(d.paths().length > reloads, id + ": the filter was applied (list read again)");
-    assert.notEqual(b.getAttribute("aria-label"), before);
-    assert.ok(tip.classList.contains("is-open"), id + ": tooltip open after the reload resolved");
-    assert.equal(text(tip), b.getAttribute("aria-label"), "it shows the NEW state");
-    fireDoc("scroll", { target: d.doc.body }); /* the list's own scroll reset while the reload settles */
-    assert.ok(tip.classList.contains("is-open"), "the reload's scroll reset does not close it");
-    await sleep(300);
-    fireDoc("scroll", { target: d.doc.body }); /* a user scroll later may close it */
-    assert.ok(!tip.classList.contains("is-open"), "a user scroll closes it");
-    b.fire("pointerdown", { pointerType: "touch" }); b.fire("click"); await settle();
-    assert.ok(tip.classList.contains("is-open"));
-    fireDoc("click", { target: d.doc.body }); assert.ok(!tip.classList.contains("is-open"), "an outside click closes it");
-  }
-});
 
-test("r12: the toggle tooltip text follows the state after a click", async () => {
-  const d = boot();
-  await d.openInbox();
-  const b = d.$("ib-rtog"), tip = d.$("ib-rtog-tip");
-  b.fire("focus");
-  assert.equal(text(tip), "Showing all messages");
-  await d.click(b);
-  assert.equal(b.getAttribute("aria-label"), "Showing unread");
-  assert.equal(text(tip), "Showing unread");
-});
 
-test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row icons, toggles), and only one open at a time", async () => {
+test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row icons), and only one open at a time", async () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const rule = /^#view-inbox \.cm-tip \{([^}]*)\}/m.exec(css)[1];
   assert.match(rule, /background: #1B2236; color: #F2F5FC;/, "dark background, light text, in both themes");
@@ -1179,10 +1139,10 @@ test("r12: one dark tooltip style for every Inbox tooltip (send buttons, row ico
   assert.ok(ratio >= 4.5, "contrast " + ratio.toFixed(1));
   const d = boot();
   await d.openInbox();
-  const t1 = d.$("ib-atog-tip"), st = d.all(d.rows()[0], "cm-st")[0], t2 = d.$(st.getAttribute("aria-describedby"));
+  const st = d.all(d.rows()[0], "cm-st")[0], t2 = d.$(st.getAttribute("aria-describedby")), st2 = d.all(d.rows()[1], "cm-st")[0], t3 = d.$(st2.getAttribute("aria-describedby"));
   assert.ok(t2.classList.contains("cm-tip"));
-  d.$("ib-atog").fire("focus"); assert.ok(t1.classList.contains("is-open"));
-  st.fire("focus"); assert.ok(t2.classList.contains("is-open") && !t1.classList.contains("is-open"), "one at a time across toggles and row icons");
+  st.fire("focus"); assert.ok(t2.classList.contains("is-open"));
+  st2.fire("focus"); assert.ok(t3.classList.contains("is-open") && !t2.classList.contains("is-open"), "one at a time across row icons");
   await d.openRow(0);
   d.$("cm-rb").value = ""; d.$("cm-rb").fire("input");
   const pb = d.press(d.$("ib-threadpane"), "Send private message"), pt = d.$("cm-priv-tip");

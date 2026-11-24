@@ -45,23 +45,21 @@ test("Settings is in the sidebar and not in the profile menu", () => {
 
 /* Santé setup (ClickUp z8uq9m92ez): Coach Ed's ruling of 2026-11-11 moved it into Business Settings, so it has no
    Settings tab, no More tile and no quick link. Settings is back to its eight tabs. */
-test("Settings has three tabs (Business Settings, Billing, Payments) and the Inbox tab that stays hidden until the API opens the inbox, and no Santé setup entry anywhere in the menus or the quick links", () => {
+test("Settings has three tabs (Business Settings, Billing, Payments) then the Meta Pixel, Notices and Domain tabs that stay hidden until their API opens; the Inbox and SMS Gateway cards moved to the Inbox and SMS Marketing pages (INBOX-FIX-6); no Santé setup entry anywhere in the menus or the quick links", () => {
   const SET_TABS = one(/<nav class="set-tabs" id="set-tabs"[\s\S]*?<\/nav>/g, "the Settings tab row");
-  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/inbox/", "Inbox"], ["/settings/sms-gateway/", "SMS Gateway"], ["/settings/meta-pixel/", "Meta Pixel"], ["/settings/notices/", "Notices"], ["/settings/domain/", "Domain"]]);
+  assert.deepEqual(links(SET_TABS), [["/settings/business/", "Business Settings"], ["/settings/billing/", "Billing"], ["/settings/payments/", "Payments"], ["/settings/meta-pixel/", "Meta Pixel"], ["/settings/notices/", "Notices"], ["/settings/domain/", "Domain"]]);
   /* G2 Unified Inbox (z8uq9md3n6): the Inbox links start hidden and inbox.js shows them only when the API says the inbox is open.
      G1 Meta Pixel (z8uq9md3n5): the same for the Meta Pixel tab and meta-pixel.js. */
   const hiddenTabs = [...SET_TABS.replace(/^<nav[^>]*>/, "").matchAll(/<a\b[^>]*\bhidden\b[^>]*>/g)].map((m) => m[0]);
-  assert.equal(hiddenTabs.length, 5, "five tabs are hidden: Inbox, SMS Gateway, Meta Pixel, Notices and Domain");
-  assert.ok(hiddenTabs[0].includes('href="/settings/inbox/"') && hiddenTabs[0].includes("data-inbox-nav"));
-  /* SMS Gateway (z8uq9mhk1k): right after Inbox, hidden until the API answers 200 (sms-gateway-settings.js). */
-  assert.ok(hiddenTabs[1].includes('href="/settings/sms-gateway/"') && hiddenTabs[1].includes("data-sms-gateway-nav"));
-  assert.ok(hiddenTabs[2].includes('href="/settings/meta-pixel/"') && hiddenTabs[2].includes("data-meta-nav"));
+  assert.equal(hiddenTabs.length, 3, "three tabs are hidden: Meta Pixel, Notices and Domain; no empty tab is left");
+  assert.ok(!SET_TABS.includes("/settings/inbox/") && !SET_TABS.includes("/settings/sms-gateway/") && !HTML.includes("data-sms-gateway-nav"));
+  assert.ok(hiddenTabs[0].includes('href="/settings/meta-pixel/"') && hiddenTabs[0].includes("data-meta-nav"));
   /* Member notices (z8uq9mezdh): the same for the Notices tab and notices.js. */
-  assert.ok(hiddenTabs[3].includes('href="/settings/notices/"') && hiddenTabs[3].includes("data-notices-nav"));
+  assert.ok(hiddenTabs[1].includes('href="/settings/notices/"') && hiddenTabs[1].includes("data-notices-nav"));
   /* Domain (z8uq9mhpc2): the same for the Domain tab and the dashboard.js probe. */
-  assert.ok(hiddenTabs[4].includes('href="/settings/domain/"') && hiddenTabs[4].includes("data-domain-nav"));
+  assert.ok(hiddenTabs[2].includes('href="/settings/domain/"') && hiddenTabs[2].includes("data-domain-nav"));
   const settingsGroup = MORE.split('<h3 class="sheet-label">Settings</h3>')[1];
-  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments", "Inbox"]);
+  assert.deepEqual(links(settingsGroup).map((l) => l[1]), ["Business Settings", "Billing", "Payments"]);
   /* The Help Center articles (z8uq9mekvc) are text on /help/ and name Santé; they are not a menu entry, so they are left out here. */
   assert.ok(!/sante|santé/i.test(HTML.replace(/<script src="\/assets\/js\/sante\.js[^>]*><\/script>/, "").replace(/<section class="view" id="view-help"[\s\S]*?<section class="view" id="view-referral"/, "")), "only the script that draws the Sponsor ID row names Santé");
   assert.ok(!HTML.includes("data-sante"));
@@ -101,6 +99,37 @@ test("the old address /settings/sante/ lands on /settings/business/ and keeps it
   const direct = run("/settings/business/", "");
   assert.deepEqual(direct.history.replaced, [], "the new address is left alone");
   assert.equal(direct.nodes["view-settings-general"].hidden, false);
+});
+
+/* INBOX-FIX-6: the Inbox and SMS Gateway cards moved onto the Inbox and SMS Marketing pages. The old addresses redirect (query kept); each tab's address
+   opens the right page and tab through the real route(). */
+test("the old /settings/inbox/ and /settings/sms-gateway/ addresses redirect to the Inbox and SMS Settings tabs; the tab addresses open their page and tab", async () => {
+  const vm = await import("node:vm");
+  const DASH = fs.readFileSync(new URL("../public/assets/js/dashboard.js", import.meta.url), "utf8");
+  const run = (pathname, search) => {
+    const nodes = {}, log = [];
+    const node = (id) => (nodes[id] = nodes[id] || { id, hidden: false, textContent: "", focus() {}, setAttribute() {}, removeAttribute() {}, appendChild() {}, addEventListener() {} });
+    const location = { pathname, search };
+    const history = { replaced: [], replaceState(a, b, url) { this.replaced.push(url); const q = url.indexOf("?"); location.pathname = q < 0 ? url : url.slice(0, q); location.search = q < 0 ? "" : url.slice(q); }, pushState() {} };
+    const document = { title: "", getElementById: node, querySelectorAll: () => [], addEventListener() {}, createElement: () => node("x") };
+    const window = { addEventListener() {}, NOInbox: { probe() {}, show(page, tab) { log.push("show " + page + " " + JSON.stringify(tab)); }, hide() { log.push("hide"); }, setTab(tab) { log.push("tab " + JSON.stringify(tab)); } },
+      NODash: { el: () => node("x"), requireAccount: () => ({ then(fn) { window.start = fn; } }), cfg: {}, call: () => new Promise(() => {}) } };
+    const ctx = vm.createContext({ window, document, location, history, console, Intl, Promise, setTimeout, clearTimeout });
+    vm.runInContext(DASH, ctx, { filename: "dashboard.js" });
+    window.start({ first_name: "Nena" });
+    return { history, document, nodes, log };
+  };
+  const inbox = run("/settings/inbox/", "?messenger=pick");
+  assert.deepEqual(inbox.history.replaced, ["/inbox/settings/?messenger=pick"], "the old link and its query");
+  assert.deepEqual(inbox.log, ['show inbox "settings"']); assert.equal(inbox.nodes["view-inbox"].hidden, false);
+  const gw = run("/settings/sms-gateway/", "");
+  assert.deepEqual(gw.history.replaced, ["/sms/settings/"]); assert.deepEqual(gw.log, ['show sms "settings"']);
+  assert.equal(gw.document.title, "SMS Settings | NegosyoOnline");
+  assert.deepEqual(run("/sms/bulk/", "").log, ['show sms "bulk"']);
+  assert.deepEqual(run("/sms/schedule/", "").log, ['show sms "schedule"']);
+  assert.deepEqual(run("/sms/", "").log, ['show sms ""']);
+  assert.deepEqual(run("/inbox/", "").log, ['show inbox ""']);
+  assert.equal(run("/settings/inbox/", "").nodes["view-settings-general"].hidden, true, "no Settings view is opened");
 });
 
 /* The first route waits for the page's script tags (ClickUp z8uq9me2uu). The page modules (business.js, billing.js
@@ -199,7 +228,12 @@ test("no link in the page and no quick link reaches a hidden page", () => {
   for (const h of HIDDEN) assert.ok(!hrefs.includes(h), h + " has no link in index.html");
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   for (const h of HIDDEN) assert.ok(!quick.includes('"' + h + '"'), h + " is not a quick link");
-  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox", "Training", "Media Library", "Prospect List", "Settings", "Billing"]);
+  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox", "SMS Marketing", "Contacts", "Training", "Media Library", "Prospect List", "Settings", "Billing"]);
+  /* Contacts (z8uq9mj9rw): right after SMS Marketing (right after SMS Marketing); both links start hidden until contacts/status/ answers 200 with contacts true (contacts.js). */
+  const hiddenContacts = [...HTML.matchAll(/<a\b[^>]*href="\/contacts\/"[^>]*>/g)].map((m) => m[0]);
+  assert.equal(hiddenContacts.length, 2);
+  for (const t of hiddenContacts) assert.ok(/data-contacts-nav/.test(t) && /\bhidden\b/.test(t), "hidden Contacts link: " + t);
+  assert.deepEqual(links(MORE).filter(([href]) => href === "/contacts/"), [["/contacts/", "Contacts"]], "the More sheet has a Contacts tile");
   /* Training (z8uq9mezdj): the sidebar link and the More sheet tile both start hidden until the training probe answers 200 (training.js). */
   const hiddenTraining = [...HTML.matchAll(/<a\b[^>]*href="\/training\/"[^>]*>/g)].map((m) => m[0]);
   assert.equal(hiddenTraining.length, 2);

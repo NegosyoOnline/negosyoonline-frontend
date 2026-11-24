@@ -325,30 +325,30 @@ test("Disable asks first, then POSTs disable with no body and shows the Disabled
   assert.deepEqual(d.toasts, ["Phone disabled: Your store’s texts no longer go out from this phone."]);
 });
 
-test("dashboard.js knows the sms gateway view", () => {
+test("the card is the Settings tab of the SMS Marketing page: dashboard.js has no view of its own, /settings/sms-gateway/ redirects to /sms/settings/ (INBOX-FIX-6)", () => {
   const src = read("dashboard.js");
-  assert.ok(src.includes("settings-sms-gateway"));
-  assert.ok(src.includes("NOSmsGateway"));
+  assert.ok(!src.includes("settings-sms-gateway"));
+  assert.ok(src.includes('"/settings/sms-gateway/": "/sms/settings/"'));
+  assert.ok(src.includes('"/sms/settings/": { view: "inbox", page: "sms", tab: "settings"'));
+  assert.ok(read("inbox.js").includes("window.NOSmsGateway") && read("inbox.js").includes("SG.show()"), "inbox.js mounts the card with the module's own show() and hide()");
 });
 
-test("the tab sits right after Inbox and starts hidden; the view, slot and live region exist; the new link and script come after the notices ones", () => {
+test("no Settings tab or view any more; the card root, slot and live region sit in #ib-settings inside the Inbox section; the script comes after the notices one", () => {
   const at = (needle) => HTML.indexOf(needle);
-  assert.ok(at("data-inbox-nav hidden>Inbox") !== -1);
-  assert.ok(at("data-sms-gateway-nav hidden>SMS Gateway") > at("data-inbox-nav hidden>Inbox"));
-  assert.ok(at("data-sms-gateway-nav hidden>SMS Gateway") < at("data-meta-nav hidden>Meta Pixel"));
-  assert.equal(HTML.split("data-sms-gateway-nav").length, 2, "one tab only");
-  for (const id of ["view-settings-sms-gateway", "sg-root", "sg-dialog-slot", "sg-live"]) assert.ok(HTML.includes('id="' + id + '"'), id);
+  assert.equal(HTML.split("data-sms-gateway-nav").length, 1, "no Settings tab");
+  assert.ok(!HTML.includes("view-settings-sms-gateway"));
+  for (const id of ["sg-root", "sg-dialog-slot", "sg-live"]) { assert.ok(HTML.includes('id="' + id + '"'), id); assert.ok(at('id="' + id + '"') > at('id="ib-settings"') && at('id="' + id + '"') < at('id="view-storefront"'), id + " is inside #ib-settings"); }
   assert.ok(at("sms-gateway-settings.css") > at("notices.css"));
   assert.ok(at("sms-gateway-settings.js") > at("notices.js"));
   assert.ok(at("sms-gateway-settings.js") > at("assets/js/dashboard.js"), "it loads after dashboard.js, like the other settings pages");
 });
 
 test("styles: scoped to the view, light-blue focus (no gold), a phone layout, no native select", () => {
-  assert.ok(CSS.includes("#view-settings-sms-gateway .sg-card"));
+  assert.ok(CSS.includes("#ib-settings .sg-card"));
   const bare = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
   const rules = [...bare.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => [m[1].trim(), m[2]]);
   const plain = rules.filter(([sel]) => !sel.includes("@media"));
-  for (const [sel] of plain) assert.ok(sel.split(",").every((x) => x.trim().startsWith("#view-settings-sms-gateway")), sel);
+  for (const [sel] of plain) assert.ok(sel.split(",").every((x) => x.trim().startsWith("#ib-settings")), sel);
   const focus = plain.filter(([sel]) => sel.includes(":focus"));
   assert.ok(focus.length >= 3);
   for (const [sel, body] of focus) assert.ok(!/c59a3b|c9a227|d4af37|gold|f2d99b/i.test(body), "gold in a focus rule: " + sel);

@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "settings-inbox", "inbox", "settings-meta-pixel", "settings-notices", "settings-sms-gateway", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification", "contacts"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -21,10 +21,13 @@
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
     "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
-    "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
+    "/sms/": { view: "inbox", page: "sms", nav: "sms", title: "SMS Marketing | NegosyoOnline" }, /* SMS Marketing (SMS-MENU, Coach Ed 2026-11-24): the inbox module in its "sms" mode, in the same section; its links show only while the API says sms_available (inbox.js probe) */
+    "/inbox/settings/": { view: "inbox", page: "inbox", tab: "settings", nav: "inbox", title: "Inbox Settings | NegosyoOnline" }, /* the Inbox's own Settings tab (INBOX-FIX-6); /settings/inbox/ moved here (MOVED) */
+    "/sms/bulk/": { view: "inbox", page: "sms", tab: "bulk", nav: "sms", title: "Bulk SMS | NegosyoOnline" },
+    "/sms/schedule/": { view: "inbox", page: "sms", tab: "schedule", nav: "sms", title: "Schedule SMS | NegosyoOnline" },
+    "/sms/settings/": { view: "inbox", page: "sms", tab: "settings", nav: "sms", title: "SMS Settings | NegosyoOnline" }, /* the SMS Gateway card; /settings/sms-gateway/ moved here (MOVED) */
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
     "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj, z8uq9mhpc2): its Settings tab shows only while GET /sites/{id}/domain/ answers 200 (probeDomainNav below); on 404, any error or signed out it stays hidden (domain.js shows "not available" while the API answers 404) */
-    "/settings/sms-gateway/": { view: "settings-sms-gateway", title: "SMS Gateway | NegosyoOnline" },
     "/settings/notices/": { view: "settings-notices", title: "Notices | NegosyoOnline" } /* Member notices (z8uq9mezdh): its tab shows only while the API says notices are open (notices.js probe) */,
     "/training/": { view: "training", title: "Training | NegosyoOnline" }, /* Training editor (z8uq9mezdj): its links show only while the API says Training is open (training.js probe) */
     "/training/course/": { view: "training-course", nav: "training", title: "Course | Training | NegosyoOnline" }, /* the course is named by ?id= */
@@ -32,9 +35,11 @@
     "/media/": { view: "media", title: "Media Library | NegosyoOnline" }, /* Media Library editor (z8uq9mezdk): its links show only while the API says the Media Library is open (media.js probe) */
     "/prospect-list/": { view: "journey", title: "Prospect List | NegosyoOnline" } /* Santé Prospect List (z8uq9meyqk, z8uq9mfw14), once the Journey at /journey/ (see MOVED): its links show only while the API says it is open (journey.js probe) */
   };
+  /* Contacts (z8uq9mj9rw): reached from the sidebar and the More sheet; its links show only while the API says contacts are open (contacts.js probe) */
+  ROUTES["/contacts/"] = { view: "contacts", title: "Contacts | NegosyoOnline" };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
-  var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/" };
+  var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/", "/settings/inbox/": "/inbox/settings/", "/settings/sms-gateway/": "/sms/settings/" }; /* the Inbox and SMS Gateway cards moved onto the Inbox and SMS Marketing pages (INBOX-FIX-6): the old links and bookmarks keep working, with their query */
   var has = function (o, k) { return Object.prototype.hasOwnProperty.call(o, k); };
 
   function messageOf(res, fallback) {
@@ -78,7 +83,7 @@
       if (currentPath() !== BILLING_PATH) route(false); /* lands on Billing; route() redirects while billingOnly */
     });
   }
-  var shownView = null;
+  var shownView = null, shownIb = "";
   function route(initial) {
     var p = currentPath();
     if (has(MOVED, p)) p = MOVED[p]; /* the replaceState below puts the new address, with its query string, in the bar */
@@ -106,20 +111,20 @@
     if (P && shownView === "settings-payments" && r.view !== "settings-payments") P.hide();
     if (P && r.view === "settings-payments" && shownView !== "settings-payments") P.show();
     var IB = window.NOInbox; /* inbox.js loads after this file; same enter/leave hooks as Payments */
-    if (IB && shownView === "inbox" && r.view !== "inbox") IB.hide();
-    if (IB && r.view === "inbox" && shownView !== "inbox") IB.show();
-    var IS = window.NOInboxSettings; /* inbox-settings.js loads after this file; same enter/leave hooks as Payments */
-    if (IS && shownView === "settings-inbox" && r.view !== "settings-inbox") IS.hide();
-    if (IS && r.view === "settings-inbox" && shownView !== "settings-inbox") IS.show();
+    var ibPage = r.view === "inbox" ? (r.page === "sms" ? "sms" : "inbox") : ""; /* /inbox/ and /sms/ share one section and one script, in two modes */
+    if (IB && shownIb && shownIb !== ibPage) IB.hide();
+    if (IB && ibPage && shownIb !== ibPage) IB.show(ibPage, r.tab || "");
+    else if (IB && ibPage && IB.setTab) IB.setTab(r.tab || ""); /* the same page, another of its tabs */
+    shownIb = ibPage;
     var MP = window.NOMetaPixel; /* meta-pixel.js loads after this file; same enter/leave hooks as Payments */
     if (MP && shownView === "settings-meta-pixel" && r.view !== "settings-meta-pixel") MP.hide();
     if (MP && r.view === "settings-meta-pixel" && shownView !== "settings-meta-pixel") MP.show();
     var NT = window.NONotices; /* notices.js loads after this file; same enter/leave hooks as Payments */
     if (NT && shownView === "settings-notices" && r.view !== "settings-notices") NT.hide();
     if (NT && r.view === "settings-notices" && shownView !== "settings-notices") NT.show();
-    var SG = window.NOSmsGateway; /* sms-gateway-settings.js loads after this file; same enter/leave hooks as Notices */
-    if (SG && shownView === "settings-sms-gateway" && r.view !== "settings-sms-gateway") SG.hide();
-    if (SG && r.view === "settings-sms-gateway" && shownView !== "settings-sms-gateway") SG.show();
+    var CT = window.NOContacts; /* contacts.js loads after this file; same enter/leave hooks as Media Library */
+    if (CT && shownView === "contacts" && r.view !== "contacts") CT.hide();
+    if (CT && r.view === "contacts" && shownView !== "contacts") CT.show();
     var TR = window.NOTraining; /* training.js loads after this file; its three views share one script, so the view name is passed */
     if (TR && shownView && shownView.indexOf("training") === 0 && r.view !== shownView) TR.hide(shownView);
     if (TR && r.view.indexOf("training") === 0 && r.view !== shownView) TR.show(r.view);
@@ -1382,7 +1387,7 @@
       checkBillingOnly();
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
-      if (window.NOSmsGateway) window.NOSmsGateway.probe(); /* shows the SMS Gateway tab only when the API answers 200 for this site */
+      if (window.NOContacts) window.NOContacts.probe(); /* shows the Contacts links only while GET /sites/{id}/contacts/status/ answers 200 with contacts true */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
       probeDomainNav(); /* shows the Domain tab only when the API answers 200 for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */

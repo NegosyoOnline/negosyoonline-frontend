@@ -241,7 +241,7 @@ test("pure helpers, script and style wiring, no innerHTML and no native select l
   assert.match(HTML, /inbox-rules\.js\?v=\d+cm\d+/);
   assert.ok(!/innerHTML|insertAdjacentHTML|outerHTML/.test(read("inbox-rules.js")));
   assert.ok(!/gold|#d4a|#c9a/i.test(CSS.slice(CSS.indexOf("/* ---- Comment auto-replies"), CSS.indexOf("/* the house dropdown"))));
-  assert.match(CSS, /#view-settings-inbox \[hidden\] \{ display: none !important; \}/);
+  assert.match(CSS, /#ib-settings \[hidden\] \{ display: none !important; \}/);
 });
 
 test("Edit and Add rule move the focus to the form's first control and bring the form into view; spintax samples are set in code", async () => {

@@ -14,6 +14,7 @@
 (function () {
   var D = window.NODash;
   var SMS = window.NOInboxSms; /* inbox-sms.js loads before this file; without it there is no Text (SMS) channel */
+  var SCHED = window.NOInboxSchedule; /* inbox-schedule.js loads before this file too; without it there is no "Schedule SMS" tab */
   var BULK = window.NOInboxBulk; /* inbox-bulk.js loads before this file; without it there is no "Bulk SMS" button */
   var TZ = "Asia/Manila", MAX = 2000;
   var token = 0, tload = 0;
@@ -542,7 +543,7 @@
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      mode: MODE, tab: "", setOn: "", bulkTab: null, q: "", qText: "", qTimer: null, status: "open", unread: "", answered: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
+      mode: MODE, tab: "", setOn: "", bulkTab: null, schedTab: null, q: "", qText: "", qTimer: null, status: "open", unread: "", answered: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -575,13 +576,13 @@
   }
 
   /* The page's own tabs (Coach Ed 2026-11-24, INBOX-FIX-6). Inbox page: the channel tabs, then Settings ("" is the list, "settings" the Inbox settings card).
-     SMS Marketing page: Inbox | Bulk SMS | Settings ("" the texts, "bulk" the Bulk SMS sends, "settings" the SMS Gateway card). Each tab has its own address. */
-  var PAGE_PATHS = { inbox: { "": "/inbox/", settings: "/inbox/settings/" }, sms: { "": "/sms/", bulk: "/sms/bulk/", settings: "/sms/settings/" } };
-  function normTab(mode, tab) { return tab === "settings" || (tab === "bulk" && mode === "sms") ? tab : ""; }
+     SMS Marketing page: Inbox | Bulk SMS | Schedule SMS | Settings ("" the texts, "bulk" the Bulk SMS sends, "schedule" the Schedule SMS list, "settings" the SMS Gateway card). Each tab has its own address. */
+  var PAGE_PATHS = { inbox: { "": "/inbox/", settings: "/inbox/settings/" }, sms: { "": "/sms/", bulk: "/sms/bulk/", schedule: "/sms/schedule/", settings: "/sms/settings/" } };
+  function normTab(mode, tab) { return tab === "settings" || ((tab === "bulk" || tab === "schedule") && mode === "sms") ? tab : ""; }
   function pathOf(mode, tab) { return PAGE_PATHS[mode === "sms" ? "sms" : "inbox"][normTab(mode, tab)]; }
   /* The tab list of a page: [key, label]; "" is the main tab. */
   function pageTabs(mode) {
-    return mode === "sms" ? [["", "Inbox"], ["bulk", "Bulk SMS"], ["settings", "Settings"]] : TABS.concat([["settings", "Settings"]]);
+    return mode === "sms" ? [["", "Inbox"], ["bulk", "Bulk SMS"], ["schedule", "Schedule SMS"], ["settings", "Settings"]] : TABS.concat([["settings", "Settings"]]);
   }
   function show(mode, tab) {
     MODE = mode === "sms" ? "sms" : "inbox";
@@ -624,7 +625,7 @@
     var next = normTab(S.mode, tab);
     if (next === S.tab) return;
     S.tab = next;
-    closeCompose(); if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; }
+    closeCompose(); if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; } if (S.schedTab) { S.schedTab.stop(); S.schedTab = null; }
     if (S.sel) { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); }
     if (next !== "settings") stopSettings();
     fixedSync();
@@ -638,7 +639,7 @@
     if (D.go) D.go(path); else setTab(to);
   }
   function hide() {
-    stopSettings(); stashSettings(); if (S && S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; }
+    stopSettings(); stashSettings(); if (S && S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; } if (S && S.schedTab) { S.schedTab.stop(); S.schedTab = null; }
     closeCompose(); streamClose(); pollStop(); token++; tload++; S = null; say("");
     if (window.NOInboxComments) window.NOInboxComments.stop();
     if (document.body && document.body.classList) document.body.classList.remove("ib-fixed"); if (document.body.classList.remove) document.body.classList.remove("ib-thread");
@@ -709,6 +710,7 @@
     if (!refresh) { S.listTop = 0; S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
       if (S.tab === "bulk" && !S.bulkTab) mountBulk(); /* a deep link to /sms/bulk/: the site is known now */
+      if (S.tab === "schedule" && !S.schedTab) mountSchedule();
       streamOpen();
       /* SMS Marketing: GET .../channels/ comes first. When the store's texts are off or unavailable the page is locked exactly like the 404 page
          (same gate as the New SMS button had: sms_available), and no conversation is read. */
@@ -764,7 +766,7 @@
       if (mine !== token || S !== st) return;
       st.bulk = r || false;
       var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode");
-      if (!r && st.tab === "bulk") { try { history.replaceState(null, "", PAGE_PATHS.sms[""] + location.search); } catch (e) { /* the address stays */ } setTab(""); return; } /* the Bulk SMS tab is not there for this store */
+      if (!r && (st.tab === "bulk" || st.tab === "schedule")) { try { history.replaceState(null, "", PAGE_PATHS.sms[""] + location.search); } catch (e) { /* the address stays */ } setTab(""); return; } /* the Bulk SMS tab is not there for this store */
       if (r && byId("ib-listbody")) drawList(); else if (byId("ib-listbody")) syncTools();
     });
   }
@@ -1120,7 +1122,7 @@
 
   function drawBody() {
     var wrap = byId("ib-wrap"); if (!wrap || !S) return;
-    stashSettings(); if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; }
+    stashSettings(); if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; } if (S.schedTab) { S.schedTab.stop(); S.schedTab = null; }
     clear(wrap);
     var f = S.fail;
     if (singlePane()) {
@@ -1136,17 +1138,18 @@
     split.setAttribute("id", "ib-split");
     add(split, listPane(), threadPane(), contactPane());
     var bp = pane("Bulk SMS", "ib-bulkpane"); bp.setAttribute("id", "ib-bulkpane");
-    add(wrap, thost, host, split, bp);
+    var sp = pane("Schedule SMS", "ib-bulkpane ib-schedpane"); sp.setAttribute("id", "ib-schedpane");
+    add(wrap, thost, host, split, bp, sp);
     var sn = settingsNode(); if (sn) wrap.appendChild(sn);
     syncPanels();
     syncTools();
     if (S.sel) { drawContact(); drawThread(); } else if (S.composing) { smsCompose(true); }
-    if (S.tab === "settings") startSettings(); else if (S.tab === "bulk" && S.site) mountBulk();
+    if (S.tab === "settings") startSettings(); else if (S.tab === "bulk" && S.site) mountBulk(); else if (S.tab === "schedule" && S.site) mountSchedule();
   }
   /* Only the panel of the chosen tab is visible: the list and thread (main), the Bulk SMS sends, or the settings card. */
   function syncPanels() {
     var main = !S || S.tab === "";
-    [["ib-split", main], ["ib-tools-host", main], ["ib-bulkpane", !!S && S.tab === "bulk"], ["ib-settings", !!S && S.tab === "settings"]].forEach(function (p) { var n = byId(p[0]); if (n) n.hidden = !p[1]; });
+    [["ib-split", main], ["ib-tools-host", main], ["ib-bulkpane", !!S && S.tab === "bulk"], ["ib-schedpane", !!S && S.tab === "schedule"], ["ib-settings", !!S && S.tab === "settings"]].forEach(function (p) { var n = byId(p[0]); if (n) n.hidden = !p[1]; });
   }
   /* The Bulk SMS tab: the screen of inbox-bulk.js in the tab's own pane: the progress card while a batch is sending, the History table, and the Send Bulk SMS button
      that opens the composer inside the same pane (INBOX-FIX-7). */
@@ -1155,6 +1158,17 @@
     var host = byId("ib-bulkpane"); if (!host || !S.site) return;
     if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; }
     S.bulkTab = BULK.screen(host, {
+      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say,
+      gone: function () { if (S) S.bulk = false; try { history.replaceState(null, "", PAGE_PATHS.sms[""] + location.search); } catch (e) { /* the address stays */ } setTab(""); }
+    });
+  }
+  /* The Schedule SMS tab (INBOX-FIX-9): the screen of inbox-schedule.js in its own pane: the scheduled list and the schedule form. It sits behind the same
+     bulk switch as the Bulk SMS tab. */
+  function mountSchedule() {
+    if (!S || !SCHED || S.tab !== "schedule") return;
+    var host = byId("ib-schedpane"); if (!host || !S.site) return;
+    if (S.schedTab) { S.schedTab.stop(); S.schedTab = null; }
+    S.schedTab = SCHED.screen(host, {
       D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say,
       gone: function () { if (S) S.bulk = false; try { history.replaceState(null, "", PAGE_PATHS.sms[""] + location.search); } catch (e) { /* the address stays */ } setTab(""); }
     });
@@ -1269,7 +1283,10 @@
      Inbox | Bulk SMS | Settings (Bulk SMS only while the bulk probe says it is there). */
   function tabKey(mode, k) { return mode === "sms" && k === "" ? "inbox" : k; }
   function visibleTabs() {
-    return pageTabs(S.mode).filter(function (t) { return t[0] !== "bulk" || (!!BULK && (S.bulk ? S.bulk.available === true : S.tab === "bulk" && S.bulk === undefined)); });
+    return pageTabs(S.mode).filter(function (t) {
+      if (t[0] === "schedule" && !SCHED) return false;
+      return (t[0] !== "bulk" && t[0] !== "schedule") || (!!BULK && (S.bulk ? S.bulk.available === true : S.tab === t[0] && S.bulk === undefined));
+    });
   }
   function tabOn(k) { return S.mode === "sms" ? k === (S.tab === "" ? "inbox" : S.tab) : S.tab === "settings" ? k === "settings" : k === S.filter; }
   function tabBar() {

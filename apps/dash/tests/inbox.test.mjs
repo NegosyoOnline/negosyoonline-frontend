@@ -1795,7 +1795,7 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const wrap = d.$("ib-wrap"), split = d.all(wrap, "ib-split")[0];
-  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tabs-host", "ib-tools-host", "ib-split", "ib-bulkpane", "ib-settings"], "the tabs at the top, the toolbar directly above the card; the Bulk SMS pane and the settings card are the other tab panels, hidden");
+  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tabs-host", "ib-tools-host", "ib-split", "ib-bulkpane", "ib-schedpane", "ib-settings"], "the tabs at the top, the toolbar directly above the card; the Bulk SMS pane and the settings card are the other tab panels, hidden");
   assert.deepEqual(split.children.map((n) => n.id), ["ib-listpane", "ib-threadpane", "ib-cpane"], "list, thread, contact panel");
   assert.equal(d.all(split, "ib-rcol").length, 0);
   assert.equal(d.all(d.$("ib-tabs-host"), "ib-tabs").length, 1, "the tabs are in the top slot");
@@ -3028,7 +3028,8 @@ test("INBOX-FIX-6 deep link: opening on the settings tab draws the tabs and the 
   const u = d.window.NOInbox.util;
   assert.deepEqual([u.pathOf("inbox", ""), u.pathOf("inbox", "settings"), u.pathOf("inbox", "bulk")], ["/inbox/", "/inbox/settings/", "/inbox/"], "no Bulk SMS tab on the Inbox page");
   assert.deepEqual([u.pathOf("sms", ""), u.pathOf("sms", "bulk"), u.pathOf("sms", "settings")], ["/sms/", "/sms/bulk/", "/sms/settings/"]);
-  assert.deepEqual(Array.from(u.pageTabs("sms"), (t) => t[1]), ["Inbox", "Bulk SMS", "Settings"]);
+  assert.deepEqual(Array.from(u.pageTabs("sms"), (t) => t[1]), ["Inbox", "Bulk SMS", "Schedule SMS", "Settings"]);
+  assert.equal(u.pathOf("sms", "schedule"), "/sms/schedule/"); assert.equal(u.pathOf("inbox", "schedule"), "/inbox/");
 });
 
 test("INBOX-FIX-6 SMS page: Inbox | Settings with Bulk SMS once the probe says so; New SMS and Bulk SMS on the same row; the SMS Gateway card in Settings", async () => {
@@ -3060,7 +3061,7 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
   assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261124r9b/); assert.match(HTML, /dashboard\.js\?v=20261124ml13/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261124r9b/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });

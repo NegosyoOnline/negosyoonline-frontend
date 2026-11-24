@@ -443,7 +443,7 @@ const comboInput = (d, id) => d.$(id).parentNode.all((n) => n.classList.contains
 const comboRows = (d, id) => d.$(id).parentNode.all((n) => n.classList.contains("ib-combo-opt")).map((n) => n.textContent);
 const rowsOf = (d) => d.all(d.$("ib-list"), "ib-item");
 /* Meta layout (z8uq9mj6ch): the channel tabs and the quick chips replace the Channel and Status dropdowns and the two toggles */
-const tabLabels = (d) => d.all(d.$("ib-tools-host"), "ib-tab").map((t) => t.textContent);
+const tabLabels = (d) => d.all(d.$("ib-tabs-host"), "ib-tab").map((t) => t.textContent);
 const pickTab = async (d, v) => { d.$("ib-tab-" + v).fire("click"); await settle(); };
 /* The filter buttons cycle (all -> first -> second -> all); `pickChip` clicks the right number of times to reach a state, `pickOff` back to all. */
 const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
@@ -474,7 +474,8 @@ test("d1: the channel tabs replace the Channel dropdown: All messages first, Ema
   await d.openInbox();
   assert.equal(d.$("ib-filter"), null, "no Channel dropdown any more");
   assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
-  const bar = d.all(d.$("ib-tools-host"), "ib-tabs")[0];
+  const bar = d.all(d.$("ib-tabs-host"), "ib-tabs")[0];
+  assert.ok(bar.classList.contains("set-tabs"), "the dash Settings menu class");
   assert.equal(bar.getAttribute("role"), "tablist");
   assert.equal(bar.getAttribute("aria-label"), "Channel");
   assert.deepEqual(d.all(bar, "ib-tab").map((t) => [t.getAttribute("role"), t.getAttribute("aria-selected"), t.getAttribute("tabindex")]), [["tab", "true", "0"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"]]);
@@ -822,9 +823,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml6/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml7/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml6/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml7/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1025,11 +1026,12 @@ test("inbox: window_closed and token_invalid outcomes use the reply error UI", a
   }
 });
 
-test("the Inbox page has a visible header: the title Inbox and a one-line subtitle (Meta layout, z8uq9mj6ch)", () => {
+test("fix 4: the Inbox page shows no title or subtitle; the h1 stays for screen readers only", () => {
   const view = HTML.slice(HTML.indexOf('id="view-inbox"'), HTML.indexOf('id="view-storefront"'));
   assert.ok(!view.includes("dash-eyebrow"), "no eyebrow");
   assert.ok(!view.includes("Facebook Messenger, website chat and email"));
-  assert.match(view, /<header class="view-head ib-head"><h1 id="h-inbox" tabindex="-1">Inbox<\/h1><p class="ib-lede">Reply to your customers\u2019 messages in one place\.<\/p><\/header>/);
+  assert.match(view, /<h1 class="bl-sr" id="h-inbox" tabindex="-1">Inbox<\/h1>/);
+  assert.ok(!view.includes("ib-lede") && !view.includes("one place") && !view.includes('class="view-head'), "no visible title or subtitle");
   assert.ok(!view.includes('id="ib-refresh'), "Refresh lives in the toolbar now");
 });
 
@@ -1773,13 +1775,12 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const wrap = d.$("ib-wrap"), split = d.all(wrap, "ib-split")[0];
-  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tools-host", "ib-split"], "the toolbar directly above the card");
+  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tabs-host", "ib-tools-host", "ib-split"], "the tabs at the top, the toolbar directly above the card");
   assert.deepEqual(split.children.map((n) => n.id), ["ib-listpane", "ib-threadpane", "ib-cpane"], "list, thread, contact panel");
   assert.equal(d.all(split, "ib-rcol").length, 0);
-  const tools = d.all(d.$("ib-tools-host"), "ib-tools")[0];
-  const parts = d.all(tools, "ib-trow")[0].children;
-  assert.deepEqual(parts.map((n) => (n.classList.contains("ib-tabs") ? "tabs" : n.classList.contains("ib-acts") ? "acts" : n.id)), ["tabs", "acts"]);
-  assert.deepEqual(parts[1].children.map((n) => n.id), [], "no SMS: no action buttons; Refresh moved to the filter row");
+  assert.equal(d.all(d.$("ib-tabs-host"), "ib-tabs").length, 1, "the tabs are in the top slot");
+  assert.equal(d.all(d.$("ib-tools-host"), "ib-tabs").length, 0, "and no longer in the toolbar");
+  assert.equal(d.all(d.$("ib-tools-host"), "ib-tools").length, 0, "no SMS: no action buttons, so no toolbar row; Refresh moved to the filter row");
   assert.equal(d.$("ib-tools-host").querySelector ? d.$("ib-tools-host").querySelector("#ib-refresh-btn") : null, null, "no Refresh in the toolbar");
   const head = d.$("ib-lhead");
   const bar = head.children[0];
@@ -1860,6 +1861,7 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   assert.equal(none.$("ib-q"), null);
   assert.equal(none.$("ib-b-status"), null);
   assert.equal(none.$("ib-tab-all"), null, "no tabs while there is nothing to filter");
+  assert.equal(none.all(none.$("ib-tabs-host"), "ib-tab").length, 0);
 });
 
 test("the list column starts with one row of five icon buttons (Search, Answered, Read, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
@@ -1913,30 +1915,32 @@ test("Finding 1: on a phone the cards reach the bottom bar: only the bar and a s
 test("the toolbar CSS: the tabs row and the actions; phone: tabs on their own line, then icon-only buttons; the toolbar sits over the list on a phone", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   assert.match(css, /#view-inbox \.ib-trow \{ display: flex; flex-wrap: wrap;[^}]*align-items: center;/);
-  assert.match(css, /#view-inbox \.ib-tabs \{ display: flex;[^}]*overflow-x: auto;/, "the tabs scroll inside their own row, never the page");
   assert.match(css, /\.ib-qs:focus-within \{[^}]*border-color: var\(--link/);
   assert.match(css, /#view-inbox \.ib-split \{ display: grid; grid-template-columns: minmax\(280px, 340px\) minmax\(0, 1fr\) auto;/, "three columns: list, thread, contact panel");
   assert.doesNotMatch(css, /ib-rcol/, "the right column is gone");
   const phone = css.slice(css.indexOf("@media (max-width: 899px)"));
   assert.match(phone, /\.ib-split \{ display: flex; flex-direction: column;/);
-  assert.match(phone, /\.ib-tabs \{ flex: 1 1 100%; \}/);
   assert.match(phone, /\.ib-split \.is-hide-phone \{ display: none/, "the toolbar goes with the list while a conversation is open");
   assert.match(phone, /\.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important; \}/, "no contact panel on a phone");
   assert.doesNotMatch(css, /container-type|@container/, "containment would trap the fixed dropdown panel");
-  assert.doesNotMatch(css.replace(/#view-inbox \.ib-tabs \{[^}]*\}/, ""), /overflow-x: ?(scroll|auto)/, "no sideways scroll anywhere else");
+  assert.doesNotMatch(css, /overflow-x: ?(scroll|auto)/, "no sideways scroll anywhere else");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.match(css, /\.ib-fbtn:focus-visible \{[^}]*border-color: var\(--link\)/, "light-blue focus on the filter buttons");
   assert.match(css, /\.ib-fbtn \{[^}]*width: 44px; height: 44px;[^}]*border: 1px solid var\(--card-line\); border-radius: 8px/, "the top-bar button look");
   assert.match(css, /\.ib-fbtn\[aria-pressed="true"\][^{]*\{[^}]*var\(--link\)/, "light blue when a filter is on");
-  assert.match(css, /\.ib-tab:focus-visible \{[^}]*var\(--link\)/, "and on the tabs");
+  assert.match(css, /\.ib-tabs button:focus-visible \{[^}]*var\(--link\)/, "and on the tabs");
 });
 
-test("the page header sits where the F1 row used to be: no extra padding-top any more, the head is the view's own", () => {
+test("the channel tabs sit at the top beside the top-bar icons, in the dash Settings menu look; no page header rules remain", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
   assert.doesNotMatch(css, /#view-inbox:not\(\[hidden\]\) \{ padding-top: 72px; \}/);
-  assert.match(css, /#view-inbox \.ib-head \{ flex: none;/);
-  assert.match(css, /body\.dash-app\.ib-thread \.ib-head \{ display: none; \}/, "a phone gives the header's room to the open thread");
+  assert.doesNotMatch(css, /ib-head|ib-lede/);
+  assert.match(css, /body\.dash-app #view-inbox \.ib-tabs button \{[^}]*border-bottom: 2px solid transparent/, "the Settings menu underline look");
+  assert.match(css, /body\.dash-app #view-inbox \.ib-tabs button\.is-on \{[^}]*border-bottom-color: var\(--primary/);
+  assert.match(css, /@media \(min-width: 900px\) \{ #view-inbox \.ib-tabs-host \{ padding-right: 164px; \} \}/, "clear of the search, theme and bell buttons");
+  const dashCss = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(dashCss, /body\.dash-app \.set-tabs:not\(\[hidden\]\) \{ display: flex;[^}]*overflow-x: auto/, "the shared menu scrolls sideways on a phone, not the page");
   assert.match(dash, /body\.dash-app \.notif-col:not\(\[hidden\]\) \{[^}]*position: absolute; top: 32px/);
   assert.match(dash, /body\.dash-app \.notif-btn \{[^}]*height: 44px/);
 });
@@ -2556,7 +2560,7 @@ test("the toolbar keeps New SMS and Bulk SMS in the actions beside the tabs; Ref
 test("INBOX-META-LOOK fix 1: on a phone the toolbar host hides with the list while a conversation is open", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const phone = css.slice(css.indexOf("@media (max-width: 899px)"));
-  assert.match(phone, /#view-inbox \.ib-tools-host\.is-hide-phone \{ display: none; \}/);
+  assert.match(phone, /#view-inbox \.ib-tools-host\.is-hide-phone, #view-inbox \.ib-tabs-host\.is-hide-phone \{ display: none; \}/);
   assert.doesNotMatch(css.split("@media")[0], /\.ib-tools-host\.is-hide-phone/);
 });
 
@@ -2711,4 +2715,19 @@ test("fix 3: with reduced motion the switch is instant; focus moves to the box a
   await d.click(d.$("ib-sclose"));
   assert.deepEqual([row.hidden, field.hidden, row.getAttribute("inert"), field.getAttribute("inert")], [false, true, null, ""]);
   assert.equal(d.doc.activeElement, sb);
+});
+
+test("fix 4: the channel tabs are in the top slot (Settings menu look): SMS tab only when available, keyboard arrows, filter per channel, rebuilt with the SMS probe", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await d.openInbox();
+  const bar = d.all(d.$("ib-tabs-host"), "ib-tabs")[0];
+  assert.ok(bar.classList.contains("set-tabs"));
+  assert.equal(bar.getAttribute("role"), "tablist");
+  assert.ok(d.$("ib-tab-sms"), "the SMS tab is there when SMS is");
+  d.$("ib-tab-all").fire("keydown", { key: "ArrowRight", preventDefault() {} });
+  assert.equal(d.doc.activeElement, d.$("ib-tab-webchat"), "arrow keys move between the tabs");
+  await pickTab(d, "sms");
+  assert.equal(d.$("ib-tab-sms").getAttribute("aria-selected"), "true");
+  assert.deepEqual(d.all(d.$("ib-tools-host"), "ib-acts")[0].children.map((n) => n.id).includes("ib-newtext-btn"), true, "New SMS stays in the toolbar row above the card, right-aligned");
 });

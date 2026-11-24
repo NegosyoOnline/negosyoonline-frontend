@@ -94,3 +94,13 @@ Coach Ed's words: "once hover the tooltip must show immediately; change 'showing
 * Stale tooltip after a click: the list reload resets the list scroll, and the tooltip's scroll listener closed it. Scrolls of `#ib-listbody` no longer close it, and `paintCycle`/`paintSearchBtn` refresh the open tooltip text in place. A user scroll elsewhere still closes it.
 * Texts (all state): "Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages". Other states unchanged.
 * Cache keys `?v=20261124ml6`. Tests 823/823 (one new), lint clean, build passes. No visual browser check run.
+
+## Fix round 4 addition 2: header removed, channel tabs at the top (Coach Ed, Tue 2026-11-24, relayed by the Supervisor)
+
+Coach Ed's words: "image 1 - delete this / image 2 - transfer this to the top along with the search icon, and code it like the settings horizontal menu".
+
+* The visible "Inbox" title and its subtitle are gone; the h1 `#h-inbox` stays as `.bl-sr` (screen readers). The `.ib-head`/`.ib-lede` CSS is removed.
+* The channel tabs now live in a new inbox-only slot `#ib-tabs-host` at the top of `#ib-wrap` (where the title was), beside the top-bar icons. They are the dash Settings menu: class `set-tabs` (dash.css: underline, hover, horizontal scroll on a phone, no page scroll) plus `.ib-tabs` buttons styled like the Products editor tab bar (same precedent). Active tab: `.is-on` (underline in `--primary`). Keyboard unchanged (arrows, Home, End, roving tabindex). On desktop the slot has 164 px right padding (the same as `.view-head`) so it stays clear of search, theme and bell. Other pages untouched.
+* Decision to flag: New SMS / Bulk SMS stay in `#ib-tools-host`, the row directly above the card, now right-aligned and alone (the tabs left that row). With no SMS the row is not built.
+* Phone: the tabs slot hides with the toolbar while a conversation is open (U6 unchanged).
+* Cache keys `?v=20261124ml7`. Tests 824/824, lint clean, build passes. No visual browser check run.

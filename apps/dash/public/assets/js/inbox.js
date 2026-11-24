@@ -1005,11 +1005,12 @@
       else one.appendChild(stateBox(ICON.warn, "The inbox is not open for you", f.message, null, true));
       wrap.appendChild(one); return;
     }
+    var thost = h("div", "ib-tabs-host" + (paneOpen() ? " is-hide-phone" : "")); thost.setAttribute("id", "ib-tabs-host"); /* the channel tabs: the top of the page, beside the top-bar icons */
     var host = h("div", "ib-tools-host" + (paneOpen() ? " is-hide-phone" : "")); host.setAttribute("id", "ib-tools-host");
     var split = h("div", "ib-split" + (cpOpen() ? "" : " ib-cp-off"));
     split.setAttribute("id", "ib-split");
     add(split, listPane(), threadPane(), contactPane());
-    add(wrap, host, split);
+    add(wrap, thost, host, split);
     syncTools();
     if (S.sel) { drawContact(); drawThread(); } else if (S.composing) { smsCompose(true); }
   }
@@ -1102,14 +1103,14 @@
     var mode = S.state === "ready" ? "full" : S.state === "empty" ? "lite" : "none";
     if (host.getAttribute("data-mode") === mode) return;
     clear(host); host.setAttribute("data-mode", mode);
-    if (mode !== "none") { var tb = toolbar(mode === "lite"); if (mode === "full" || tb.querySelector(".ib-acts").children.length) host.appendChild(tb); }
+    var th = byId("ib-tabs-host"); if (th) { clear(th); if (mode === "full") th.appendChild(tabBar()); }
+    if (mode !== "none") { var tb = toolbar(mode === "lite"); if (tb.querySelector(".ib-acts").children.length) host.appendChild(tb); }
     var lh = byId("ib-lhead");
     if (lh) { clear(lh); if (mode === "full") add(lh, filterBar()); else if (mode === "lite") add(lh, liteBar()); }
   }
   function toolbar(lite) {
     var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow"), acts = h("div", "ib-acts");
     box.appendChild(row);
-    if (!lite) row.appendChild(tabBar());
     var nt = newTextButton(); if (nt) acts.appendChild(nt);
     var bk = bulkButton(); if (bk) acts.appendChild(bk);
     row.appendChild(acts);
@@ -1117,7 +1118,7 @@
   }
   /* The channel tabs: one tab per channel the store has (tabsFor), the same filter value the Channel dropdown set. */
   function tabBar() {
-    var bar = h("div", "ib-tabs"); bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", "Channel");
+    var bar = h("div", "set-tabs ib-tabs"); bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", "Channel");
     var tabs = [];
     tabsFor(S.chat).forEach(function (t) {
       var b = h("button", "ib-tab", t[1]); b.setAttribute("type", "button"); b.setAttribute("role", "tab"); b.setAttribute("data-ch", t[0]); b.setAttribute("id", "ib-tab-" + t[0]);
@@ -1393,7 +1394,7 @@
     fillList(body);
     if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", paneOpen()); /* phone: the page heading gives its room to the open thread */
     if (p) { if (paneOpen()) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
-    var th = byId("ib-tools-host"); if (th) { if (paneOpen()) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
+    ["ib-tools-host", "ib-tabs-host"].forEach(function (id) { var th = byId(id); if (th) { if (paneOpen()) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); } });
     var t = byId("ib-threadpane");
     if (t) { if (paneOpen()) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
     drawContact();

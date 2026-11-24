@@ -216,7 +216,7 @@ test("FB Comment alone, and the read fails: a message, the old channel comes bac
 test("Channel filter: FB Comment after FB Messenger; FB Comment reads only comments, a conversation channel only conversations, All both", async () => {
   const d = boot({ convs: [conv(1, 5)] });
   await d.openInbox();
-  assert.deepEqual(d.all(d.$("ib-tools-host"), "ib-tab").map(text), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
+  assert.deepEqual(d.all(d.$("ib-tabs-host"), "ib-tab").map(text), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
   let n = d.calls.length;
   await d.pick("ib-filter", "fbcomment");
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CB]);

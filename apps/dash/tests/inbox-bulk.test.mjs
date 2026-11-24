@@ -266,7 +266,8 @@ test("round 9 R9-2: the View top block is the icon and the state words with the 
     ["finished", { finished_at: "2026-11-23T11:00:00Z" }, "Finished on Nov 23, 2026"],
     ["sending", {}, "Sending since Nov 23, 2026"],
     ["waiting", {}, "Waiting to start since Nov 23, 2026"],
-    ["ended", { finished_at: "2026-11-23T11:00:00Z" }, "Ended on Nov 23, 2026"]];
+    ["ended", { finished_at: "2026-11-23T11:00:00Z" }, "Ended on Nov 23, 2026"],
+    ["ended", { finished_at: "2026-11-23T11:00:00Z", end_message: "Your phone went offline." }, "Ended on Nov 23, 2026, 7:00 PM: Your phone went offline."]];
   for (const [state, extra, want] of cases) {
     const b = batch({ state, sent: 2, failed: 0, not_sent: 7, waiting: 0, ...extra });
     const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }), detail: () => ok({ ...b, results: [], next: null }) }, {}, { form: false });
@@ -280,6 +281,7 @@ test("round 9 R9-2: the View top block is the icon and the state words with the 
     assert.ok(!/Left out/i.test(box.textContent), "no Left out line");
     assert.ok(!/STOPPED NOV|STOPPED\b/.test(box.textContent), "no caps line");
     assert.ok(!box.textContent.includes("You stopped this batch."), "only the three lines");
+    if (!extra.end_message || state !== "ended") assert.ok(!box.children[0].textContent.includes(":") || /\d:\d\d/.test(box.children[0].textContent), "no reason after the date");
   }
   const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.ok(!/\.ib-bk-fh \{[^}]*uppercase/.test(CSS), "the head line is not capitalised");
@@ -734,6 +736,25 @@ test("round 9 R9-4: picking All my members clears the picks; removing every chip
   assert.equal(sendTo(d).value, "All my members");
   assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "all" });
   assert.equal(d.$("ib-bk-count").textContent, "Will send to 95 members");
+});
+
+test("bulk pick: closing the Send to box after typing without a pick shows the current choice again (Escape, or a click outside)", async () => {
+  const d = await openPick();
+  await typeTo(d, "zzz");
+  assert.equal(d.$("ib-bk-to").value, "all");
+  sendTo(d).fire("keydown", { key: "Escape", stopPropagation() {} });
+  assert.equal(sendTo(d).value, "All my members", "Escape");
+  assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }], "nothing was picked");
+  await typeTo(d, "Reg");
+  d.doc.fire("click", { target: d.$("ib-bk-t") });
+  assert.equal(sendTo(d).value, "All my members", "click outside");
+  cBox(d, "ib-bk-to").fire("click");
+  assert.equal(optLabels(d)[0], "All my members", "the list is whole again");
+  await typeText(d, "Sale"); await pickTo(d, "VIP");
+  await typeTo(d, "xyz");
+  sendTo(d).fire("keydown", { key: "Tab" });
+  assert.equal(sendTo(d).value, "", "with a pick the box is empty with its placeholder, the chips show the choice");
+  assert.deepEqual(chips(d).map((t) => t.replace("\u00D7", "")), ["VIP (3)"]);
 });
 
 test("bulk pick: removing one of two chips counts again and the last count is the one shown", async () => {

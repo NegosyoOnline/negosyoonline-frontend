@@ -93,7 +93,7 @@
   function headline(b) {
     var st = b && b.state, d = when(st === "stopped" ? b.stopped_at || b.created_at : (st === "finished" || st === "ended") ? b.finished_at || b.stopped_at || b.created_at : b && b.created_at);
     var w = st === "stopped" ? "Stopped by you on " : st === "finished" ? "Finished on " : st === "sending" ? "Sending since " : st === "ended" ? "Ended on " : "Waiting to start since ";
-    return w + d;
+    return w + d + (st === "ended" && typeof b.end_message === "string" && b.end_message ? ": " + b.end_message : "");
   }
   function when(iso) {
     if (!iso) return "";
@@ -437,6 +437,16 @@
       });
       ui.combo(sel, "Send to", { blankEmpty: true, remote: function (q) { st.q = String(q || ""); fillSend(sel); sel.ibRedraw(); if (st.contactsOn) searchContacts(q); },
         emptyText: function (q) { return st.contactsOn && String(q || "").trim().length < 2 ? "Type at least 2 letters of a name or number" : "No groups or contacts found."; } });
+      /* Closing the box after typing without picking shows the current choice again (All my members, or the chips). */
+      var wrapEl = sel.parentNode, inEl = wrapEl.all ? wrapEl.all(function (n) { return n.tagName === "INPUT"; })[0] : wrapEl.querySelector("input");
+      function resetQ() { if (!st.q) return; st.q = ""; fillSend(sel); if (sel.ibSync) sel.ibSync(); }
+      if (inEl) inEl.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.key === "Tab") resetQ(); });
+      function onOut(e) {
+        if (!document.getElementById("ib-bk-to")) { document.removeEventListener("click", onOut); return; }
+        if (wrapEl.contains && wrapEl.contains(e.target)) return;
+        resetQ();
+      }
+      document.addEventListener("click", onOut);
       /* 2. the text */
       var f3 = h("div", "pm-field");
       var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);

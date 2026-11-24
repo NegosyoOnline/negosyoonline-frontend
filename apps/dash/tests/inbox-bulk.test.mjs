@@ -337,12 +337,12 @@ test("bulk: the count line and the left-out groups with plain labels; never a li
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent));
 });
 
-test("bulk: no prefix line, the room-left counter (160, even from old data with a prefix) and the debounced preview with the exact text; no Promotional tick", async () => {
+test("bulk: no prefix line, the N / 160 counter (160, even from old data with a prefix) and the debounced preview with the exact text; no Promotional tick", async () => {
   const d = await openBulk();
   assert.ok(!pane(d).textContent.includes("Every text starts with"), "no prefix line even though the status still carries a prefix key");
-  assert.equal(d.$("ib-bk-c").textContent, "160 characters left");
+  assert.equal(d.$("ib-bk-c").textContent, "0 / 160");
   await typeText(d, "Sale this weekend");
-  assert.equal(d.$("ib-bk-c").textContent, "143 characters left");
+  assert.equal(d.$("ib-bk-c").textContent, "17 / 160");
   assert.deepEqual(d.bk.seen.preview, [{ text: "Sale this weekend" }], "one preview call after the pause");
   assert.ok(d.$("ib-bk-preview").textContent.includes("Test Store: Sale this weekend"));
   assert.equal(d.$("ib-bk-promo"), null, "no Promotional tick");

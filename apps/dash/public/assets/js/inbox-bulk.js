@@ -40,11 +40,10 @@
   }
   /* Always 160 and only the typed text (no store-name prefix, even from old data); null when the payload has no usable max_length. */
   function maxOf(x) { return x && typeof x.max_length === "number" && isFinite(x.max_length) && x.max_length > 0 ? 160 : null; }
-  /* The room-left counter for the owner's words. */
+  /* The counter for the owner's words, the same "N / 160" as New SMS and replies. */
   function roomLeft(len, max) {
     if (max === null || max === undefined) return "";
-    var r = max - len;
-    return r >= 0 ? r + " characters left" : "Over by " + (-r) + " characters";
+    return len + " / " + max;
   }
   /* What is wrong with a text before the server sees it, or ""; the same plain-SMS and no-link rules as inbox-sms.js. The server decides. */
   function problem(text, max) {
@@ -437,13 +436,13 @@
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
-      var count = h("span", "ib-count", roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
+      var count = h("span", "ib-count" + (max !== null && st.text.length > max ? " is-over" : ""), roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
       wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
       ta.addEventListener("input", function () {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.sure = false; st.key = null; st.preview = null; st.prevErr = "";
-        count.textContent = roomLeft(ta.value.length, max);
+        count.textContent = roomLeft(ta.value.length, max); count.classList.toggle("is-over", max !== null && ta.value.length > max);
         fieldErr(); drawPreview(); drawConfirm(); schedulePreview();
       });
       /* audience: "All my members" first and the default (Coach Ed's ruling D1); "Chosen groups and contacts" only while contacts are on */

@@ -107,6 +107,7 @@ body.dash-app #view-inbox .ib-tabs button:focus-visible { outline: 2px solid var
 #view-inbox .pm-input.ib-ta:disabled { opacity: .55; cursor: not-allowed; min-height: 56px; }
 #view-inbox .ib-rfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #view-inbox .ib-count { color: var(--meta); font-size: 14px; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-count.is-over { color: var(--bl-chip-danger); }
 #view-inbox .ib-fail { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--err-line); border-radius: 12px; background: var(--err-bg); color: var(--err-text); font-size: 15px; line-height: 1.45; }
 #view-inbox .ib-fail svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--err-h); }
 #view-inbox .ib-fail strong { color: var(--err-h); }
@@ -564,14 +565,15 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 
 /* INBOX-FIX-8 (Coach Ed 2026-11-24): New SMS and the text thread. */
 /* Desktop: the right pane's head bottom line sits on the same y as the left column's divider (#ib-lhead: 14 + 44 filter row + 10 + 1 border = 69px).
-   The thread head (44 px avatar + 12 + 12 + 1) is 69px by itself now that it carries no mobile line; the New SMS head (title + subtitle + button) is
-   pinned to the same 69px with a one-line subtitle. */
+   Both heads (the conversation head: avatar, name, badges; the New SMS head: title, subtitle, button) are pinned to exactly 69px: border-box, height 69,
+   6px top and bottom, so the 1px border-bottom ends at the same y as .ib-lhead's (the name + badges column is 23 + 2 + 26 = 51px, inside 69 - 12 - 1 = 56). */
 @media (min-width: 900px) {
   #view-inbox .ib-lhead { box-sizing: border-box; min-height: 69px; }
-  #view-inbox .ib-thead { box-sizing: border-box; min-height: 69px; }
-  #view-inbox .ib-thead.ib-thead-new { height: 69px; padding-top: 6px; padding-bottom: 6px; flex-wrap: nowrap; }
+  #view-inbox .ib-thead { box-sizing: border-box; height: 69px; padding-top: 6px; padding-bottom: 6px; flex-wrap: nowrap; }
+  #view-inbox .ib-thead .ib-tname { gap: 2px; }
+  #view-inbox .ib-thead .ib-chrow { flex-wrap: nowrap; }
   #view-inbox .ib-thead-new .ib-tname { gap: 0; }
-  #view-inbox .ib-thead-new .ib-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+  #view-inbox .ib-thead .ib-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 }
 #view-inbox .ib-thead-new .ib-hacts .no-btn { min-height: 44px; white-space: nowrap; }
 /* the body box of New SMS: a visible border in light and dark (the dash input border token), light-blue focus */

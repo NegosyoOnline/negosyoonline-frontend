@@ -2481,8 +2481,8 @@ test("sms util: problem, pickable, items, composeBody, 160 whatever the old data
 test("INBOX-FIX-8 look: the New SMS head and the thread head share the left divider's 69px at desktop; the body box has a border; the thread head has no mobile line", () => {
   const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.ok(/min-width: 900px\) \{[^}]*#view-inbox \.ib-lhead \{ box-sizing: border-box; min-height: 69px;/.test(CSS));
-  assert.ok(/#view-inbox \.ib-thead \{ box-sizing: border-box; min-height: 69px; \}/.test(CSS));
-  assert.ok(/#view-inbox \.ib-thead\.ib-thead-new \{ height: 69px;/.test(CSS));
+  assert.ok(/#view-inbox \.ib-thead \{ box-sizing: border-box; height: 69px; padding-top: 6px; padding-bottom: 6px; flex-wrap: nowrap; \}/.test(CSS), "every desktop head is exactly the divider's 69px");
+  assert.ok(!/ib-thead\.ib-thead-new \{ height/.test(CSS), "no separate New SMS height any more");
   assert.ok(/#view-inbox \.ib-sms-new \.pm-input\.ib-ta \{[^}]*border: 1px solid var\(--bl-select-line\)/.test(CSS), "visible textarea border, the dash input token");
   assert.ok(!/ib-sms-prefix|ib-sms-quota/.test(CSS));
   const src = read("inbox.js") + read("inbox-sms.js") + read("inbox-bulk.js");

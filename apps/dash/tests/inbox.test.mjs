@@ -57,7 +57,8 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const page = doc.body.appendChild(doc.createElement("div"));
   for (const id of ["ib-root", "ib-live", "ibs-root", "ibs-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
-  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : []);
+  const smsNav = [0, 1].map(() => { const a = doc.createElement("a"); a.setAttribute("data-sms-nav", ""); a.hidden = true; page.appendChild(a); return a; });
+  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : []);
   const s = { cmStatus, listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
     channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null,
     messenger: messenger === null ? null : { ...messenger }, pages, pagesAnswer: null, connectAnswer: null, deleteAnswer: null };
@@ -85,7 +86,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     else if (p === BASE + "sms/status/" && opts.method === "GET") a = s.smsStatus ? { status: 200, body: s.smsStatus } : err(404, "not_found", "Not found.");
     else if (p === BASE + "sms/compose/" && opts.method === "POST") a = s.composeAnswer || { status: 200, body: { ref: SM, new_conversation: true, state: "sending", error_code: "", created_at: iso(0) } };
     else if (/^\/sites\/[^/]+\/members\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { members: s.members || [] } };
-    else if (p === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
+    else if (p.split("?")[0] === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
       const q = /[?&]q=([^&]*)/.exec(p);
       const st = /[?&]status=([^&]*)/.exec(p), un = /[?&]unread=([^&]*)/.exec(p);
@@ -121,11 +122,12 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   /* an icon button (Close / Reopen conversation) has its name as the aria-label, a text button as its text */
   const press = (n, label) => buttons(n).find((b) => b.textContent === label || b.getAttribute("aria-label") === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, window, page,
+  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, smsNav, window, page,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
     async openInbox() { window.NOInbox.show(); await settle(); },
+    async openSms() { window.NOInbox.show("sms"); await settle(); },
     async click(node) { node.fire("click"); await settle(); } };
 }
 
@@ -159,7 +161,7 @@ test("settings while the API answers 404 (switch off): a plain note, no cards, t
 test("b1: the list shows each customer with a snippet and time, a channel badge, and no chip on an open conversation", async () => {
   const d = boot();
   await d.openInbox();
-  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "conversations/", "GET " + BASE + "channels/"]);
+  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "conversations/?channel=nosms", "GET " + BASE + "channels/"]);
   const rows = d.all(d.$("ib-list"), "ib-item");
   assert.equal(rows.length, 2);
   assert.deepEqual(d.all(rows[0], "ib-name").map((n) => n.textContent), ["Maria Santos"]);
@@ -185,7 +187,7 @@ test("b2: an empty list says so; Show more conversations appears only with a sto
   await d.openInbox();
   d.s.listing = { items: [{ ref: "wc_dddddddddddddddddddddddd", display_name: "Liza R.", snippet: "Thanks", updated_at: iso(90), channel: "webchat", source: "stored", status: "open", unread: false }], stored_next_cursor: null };
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
-  assert.ok(d.list().includes("GET " + BASE + "conversations/?stored_cursor=30"));
+  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=30"));
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 3);
   assert.equal(d.press(d.$("ib-listbody"), "Show more conversations"), undefined);
 });
@@ -405,7 +407,8 @@ test("the router knows both addresses and calls the pages' show and hide", () =>
   assert.ok(DASH.includes('"/settings/inbox/": { view: "settings-inbox"'));
   assert.ok(/VIEWS = \[[^\]]*"inbox"[^\]]*"settings-inbox"|VIEWS = \[[^\]]*"settings-inbox"[^\]]*"inbox"/.test(DASH.replace(/\s+/g, " ")));
   assert.ok(/TAB_VIEWS = \[[^\]]*"inbox"/.test(DASH));
-  assert.ok(DASH.includes("IB.show()") && DASH.includes("IB.hide()") && DASH.includes("IS.show()") && DASH.includes("IS.hide()"));
+  assert.ok(DASH.includes('"/sms/": { view: "inbox", page: "sms", nav: "sms"'), "SMS Marketing has its own route, in the inbox section");
+  assert.ok(DASH.includes("IB.show(ibPage)") && DASH.includes("IB.hide()") && DASH.includes("IS.show()") && DASH.includes("IS.hide()"));
   assert.ok(DASH.includes("window.NOInbox.probe()"));
 });
 
@@ -413,10 +416,15 @@ test("the probe shows the Inbox links only when the channels read is not a 404",
   const on = boot({ channels: CHANNELS_ON });
   on.window.NOInbox.probe(); await settle();
   assert.deepEqual(on.nav.map((n) => n.hidden), [false, false, false]);
-  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "channels/", "GET " + BASE + "unread/"], "and the Inbox count is read once (INBOX-UI U5)");
+  assert.deepEqual(on.list(), ["GET /sites/", "GET " + BASE + "channels/", "GET " + BASE + "unread/?channel=nosms"], "and the Inbox count is read once (INBOX-UI U5), without the texts");
+  assert.deepEqual(on.smsNav.map((n) => n.hidden), [true, true], "no sms_available: the SMS Marketing links stay hidden");
+  const sms = boot({ channels: CH_SMS });
+  sms.window.NOInbox.probe(); await settle();
+  assert.deepEqual(sms.smsNav.map((n) => n.hidden), [false, false], "sms_available shows the SMS Marketing links (side nav and More sheet)");
   const off = boot({ off: true, channels: CHANNELS_ON });
   off.window.NOInbox.probe(); await settle();
   assert.deepEqual(off.nav.map((n) => n.hidden), [true, true, true]);
+  assert.deepEqual(off.smsNav.map((n) => n.hidden), [true, true]);
 });
 
 /* ---------- G3 PR3 (ClickUp z8uq9mfj12): website chat and email. Mockups d1 to d7. ---------- */
@@ -694,7 +702,7 @@ test("the stored channels' own pages: Show more conversations follows stored_nex
   const d = boot({ listing, channels: CHANNELS_ON });
   await d.openInbox();
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
-  assert.ok(d.list().includes("GET " + BASE + "conversations/?stored_cursor=1700000000000000_12") || d.list().some((c) => c.includes("stored_cursor=")), d.list().join("\n"));
+  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=1700000000000000_12") || d.list().some((c) => c.includes("stored_cursor=")), d.list().join("\n"));
 });
 
 /* ---------- Settings > Inbox channels (d6) ---------- */
@@ -823,10 +831,11 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml8/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml9/);
+  assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml8/);
-  assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml9/);
+  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
 
@@ -1070,7 +1079,7 @@ function makeClock() {
   };
   return c;
 }
-const THREAD_PATH = BASE + "conversations/" + REF + "/", LIST_PATH = BASE + "conversations/";
+const THREAD_PATH = BASE + "conversations/" + REF + "/", LIST_PATH = BASE + "conversations/?channel=nosms";
 const gets = (d, p) => d.calls.filter((c) => c.method === "GET" && c.path === p).length;
 /* Give every stand-in node the scroll numbers a browser has (a 300 px box over 1000 px of messages). */
 function scrollable(d) {
@@ -1288,7 +1297,7 @@ test("poll: leaving the Inbox view stops it, and a read in flight is dropped", a
   d.window.NOInbox.hide();
   assert.equal(clock.pending(), 0, "every timer is cleared");
   release(); await settle();
-  const quiet = () => d.calls.filter((c) => !c.path.endsWith("/unread/")).length; /* the nav count (U5) is read on leaving, then every 60 s */
+  const quiet = () => d.calls.filter((c) => !c.path.includes("/unread/")).length; /* the nav count (U5) is read on leaving, then every 60 s */
   const n = quiet();
   await clock.advance(300000);
   assert.equal(quiet(), n, "no thread or list request after leaving");
@@ -1661,7 +1670,7 @@ test("U5: on other views the count is read at once and every 60 s while the tab 
   const clock = makeClock(), d = boot({ clock, channels: CHANNELS_ON });
   asInbox(d); d.s.unread = 4;
   d.window.NOInbox.probe(); await settle();
-  const reads = () => d.calls.filter((c) => c.path === BASE + "unread/").length;
+  const reads = () => d.calls.filter((c) => c.path === BASE + "unread/?channel=nosms").length;
   assert.equal(reads(), 1);
   assert.equal(navNb(d)[0].textContent, "4");
   d.s.unread = 5;
@@ -1707,7 +1716,7 @@ test("U5: search asks the API 300 ms after the last key, needs 2 characters, sho
   assert.equal(qCalls().length, 0, "debounced");
   inp.value = "Jun"; inp.fire("input"); await clock.advance(299); assert.equal(qCalls().length, 0);
   await clock.advance(1);
-  assert.deepEqual(qCalls().map((c) => c.path), [LIST_PATH + "?q=Jun"], "one request, with the last text");
+  assert.deepEqual(qCalls().map((c) => c.path), [LIST_PATH + "&q=Jun"], "one request, with the last text");
   const rows = d.all(d.$("ib-list"), "ib-item");
   assert.equal(rows.length, 1);
   assert.equal(d.$("ib-q"), inp, "the box and its cursor stay while the rows change");
@@ -1810,24 +1819,24 @@ test("C2: the Open / Closed chips send ?status=open or closed, nothing when off,
   assert.equal(reads().at(-1), LIST_PATH, "no chip on: no status parameter");
   assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["false", "false"]);
   await pickChip(d, "closed");
-  assert.equal(reads().at(-1), LIST_PATH + "?status=closed");
+  assert.equal(reads().at(-1), LIST_PATH + "&status=closed");
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 1);
   assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["false", "true"]);
   await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "?status=open");
+  assert.equal(reads().at(-1), LIST_PATH + "&status=open");
   assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["true", "false"], "one status at a time");
   const inp = d.$("ib-q");
   inp.value = "Mar"; inp.fire("input"); await clock.advance(300);
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "search and status together");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "search and status together");
   assert.equal(d.$("ib-q"), inp, "the search box stays while the rows change");
   await clock.advance(15000);
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "the list poll keeps both");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "the list poll keeps both");
   await pickOff(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar", "the third press goes back to all and drops the parameter");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar", "the third press goes back to all and drops the parameter");
   await pickChip(d, "closed");
   await pickTab(d, "email");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match \u201CMar\u201D."), "the channel is still a filter on the rows (and a search is on)");
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=closed", "the channel adds nothing to the address");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=closed", "the channel adds nothing to the address");
   assert.equal(d.calls.filter((c) => /status=[^&]*(all|invalid)/.test(c.path)).length, 0);
 });
 
@@ -1974,21 +1983,21 @@ test("R4-4: the Unread / Read chips send unread=1 / unread=0 / nothing, one at a
   const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
   assert.equal(reads().at(-1), LIST_PATH, "no chip on: no unread parameter");
   await pickChip(d, "unread");
-  assert.equal(reads().at(-1), LIST_PATH + "?unread=1");
+  assert.equal(reads().at(-1), LIST_PATH + "&unread=1");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["true", "false"]);
   await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "?status=open&unread=1", "status and unread together");
+  assert.equal(reads().at(-1), LIST_PATH + "&status=open&unread=1", "status and unread together");
   const inp = d.$("ib-q");
   inp.value = "Mar"; inp.fire("input"); await clock.advance(300);
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=1", "search, status and unread together");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=1", "search, status and unread together");
   await clock.advance(15000);
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=1", "the list poll keeps all three");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=1", "the list poll keeps all three");
   await pickChip(d, "read");
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=0");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=0");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "true"], "Read replaces Unread");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"), "an empty filtered list says so");
   await pickOff(d, "read");
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "pressing it again drops the parameter");
+  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "pressing it again drops the parameter");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "false"]);
   assert.equal(d.calls.filter((c) => /unread=(all|invalid|true)/.test(c.path)).length, 0);
 });
@@ -2161,7 +2170,7 @@ const MEMBERS = [
   { id: "mem_2", full_name: "Ana Pending", mobile_masked: "+63 9** *** 5678", mobile_state: "pending", email_state: "verified", closed: false },
   { id: "mem_3", full_name: "Ana Closed", mobile_masked: "+63 9** *** 9999", mobile_state: "verified", email_state: "verified", closed: true }
 ];
-const smsOpen = async (d) => { await d.openInbox(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]); };
+const smsOpen = async (d) => { await d.openSms(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]); };
 
 test("sms settings: no card while sms_available is absent or false; with it, a switch that PUTs sms_enabled and the no-promotions line", async () => {
   for (const ch of [CH_OFF, { ...CH_OFF, sms_available: false, sms_enabled: false }]) {
@@ -2205,14 +2214,24 @@ test("sms inbox: hidden while the feature is off (no New text, no Text tab, an s
   assert.ok(!off.list().some((c) => c.includes("/sms/")), "no text route is asked for");
 });
 
-test("sms inbox: with the feature on the list has the Text (SMS) badge and tab, and New text", async () => {
+test("sms inbox: with the feature on the SMS Marketing page lists only texts with the Text (SMS) badge and has New SMS; the Inbox has none of it", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS, smsStatus: SMS_STATUS });
   d.s.smsStatus = SMS_STATUS;
-  await d.openInbox();
+  await d.openSms();
   const rows = d.all(d.$("ib-list"), "ib-item");
+  assert.equal(rows.length, 1, "the stand-in API ignores ?channel=sms, so the client-side filter keeps only the text");
   assert.deepEqual(d.all(rows[0], "ib-cdot").map((n) => n.textContent), ["Text (SMS)"]);
   assert.ok(d.$("ib-newtext-btn"));
-  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Text (SMS)"]);
+  assert.equal(d.$("ib-tabs-host").textContent, "SMS Marketing", "a plain page head, no channel tabs");
+  assert.equal(d.$("ib-tab-all"), null);
+  const inbox = boot({ listing: smsList(), channels: CH_SMS, smsStatus: SMS_STATUS });
+  await inbox.openInbox();
+  assert.equal(inbox.$("ib-newtext-btn"), null, "no New SMS in the Inbox");
+  assert.equal(inbox.$("ib-bulk-btn"), null, "no Bulk SMS in the Inbox");
+  assert.equal(inbox.$("ib-tab-sms"), null, "no Text (SMS) tab");
+  assert.equal(inbox.all(inbox.$("ib-list"), "ib-item").length, 2, "the text is not listed in All messages");
+  assert.ok(!inbox.all(inbox.$("ib-list"), "ib-cdot").some((n) => n.textContent === "Text (SMS)"));
+  assert.equal(inbox.$("ib-tools-host").children.length, 0, "the row that held New SMS and Bulk SMS is empty (and hidden by CSS)");
   const u = d.window.NOInbox.util;
   assert.equal(u.channelOf({ ref: SM }), "sms");
   assert.equal(u.channelOf({ provider: "sms" }), "sms");
@@ -2296,7 +2315,7 @@ test("sms thread: a conversation with no name or number (blanked after 180 days)
 test("sms New text: offers only verified, open members; sends member_id, text and a key (never a number); then opens the conversation as Sending", async () => {
   const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
-  await d.openInbox();
+  await d.openSms();
   await d.click(d.$("ib-newtext-btn"));
   assert.ok(d.$("ib-threadpane").textContent.includes("For orders and member service only. No promotions."));
   assert.ok(d.$("ib-threadpane").textContent.includes("Every text starts with: Test Store: "));
@@ -2324,7 +2343,7 @@ test("sms New text: offers only verified, open members; sends member_id, text an
 test("sms New text: there is no field for a number; typing digits in the search gives only members, never a typed recipient", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
-  await d.openInbox();
+  await d.openSms();
   await d.click(d.$("ib-newtext-btn"));
   const inputs = d.$("ib-threadpane").all((n) => n.tagName === "INPUT" || n.tagName === "TEXTAREA").map((n) => n.id);
   assert.ok(!inputs.some((i) => /to|number|mobile|phone/i.test(i)), inputs.join());
@@ -2339,7 +2358,7 @@ test("sms New text: a refused text shows the server's words, keeps the text; one
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
   d.s.composeAnswer = { status: 200, body: { ref: SM, new_conversation: true, state: "failed", error_code: "site_limit", message: "Your store has used its texts for today.", created_at: iso(0) } };
-  await d.openInbox();
+  await d.openSms();
   await d.click(d.$("ib-newtext-btn"));
   d.$("ib-sms-q").value = "Ana"; d.$("ib-sms-q").fire("input"); await sleep(350); await settle();
   d.$("ib-sms-pick").value = "mem_1"; d.$("ib-sms-pick").fire("change");
@@ -2353,11 +2372,11 @@ test("sms New text: a refused text shows the server's words, keeps the text; one
   assert.ok(d.$("ib-threadpane").textContent.includes("This member cannot be texted.") || d.$("ib-threadpane").textContent.includes("Not found."));
   const off = boot({ listing: smsList(), channels: CH_SMS });
   off.s.smsStatus = { ...SMS_STATUS, phone_online: false };
-  await off.openInbox(); await off.click(off.$("ib-newtext-btn"));
+  await off.openSms(); await off.click(off.$("ib-newtext-btn"));
   assert.ok(off.$("ib-threadpane").textContent.includes("Your texting phone is offline. Texts can't be sent right now."));
   const sw = boot({ listing: smsList(), channels: CH_SMS });
   sw.s.smsStatus = { ...SMS_STATUS, enabled: false };
-  await sw.openInbox(); await sw.click(sw.$("ib-newtext-btn"));
+  await sw.openSms(); await sw.click(sw.$("ib-newtext-btn"));
   assert.ok(sw.$("ib-threadpane").textContent.includes("Text messages are off for your store."));
   assert.equal(sw.$("ib-sms-q"), null);
 });
@@ -2379,15 +2398,15 @@ test("sms util: problem, pickable, quota, chip, offText, available", () => {
 
 /* ---------- Meta Business Inbox look (ClickUp z8uq9mj6ch): tabs, chips, placeholders, the contact panel ---------- */
 
-test("util: tabsFor lists the channels, Text (SMS) last and only while sms_available; cycleNext/filterNext step one filter button; placeholderFor; contactOf", async () => {
+test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext step one filter button; placeholderFor; contactOf", async () => {
   const d = boot({ channels: CHANNELS_ON });
   const u = d.window.NOInbox.util;
   const labels = (ch) => Array.from(u.tabsFor(ch), (t) => t[1]);
   assert.deepEqual(labels(null), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
   assert.deepEqual(labels(CHANNELS_ON), labels(null));
   assert.deepEqual(labels({ ...CHANNELS_ON, sms_available: false }), labels(null));
-  assert.deepEqual(labels(CH_SMS), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Text (SMS)"]);
-  assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment", "sms"], "the filter values the dropdown used");
+  assert.deepEqual(labels(CH_SMS), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"], "no Text (SMS) tab even with sms_available: texts live on SMS Marketing");
+  assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
   /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
   assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "answered", "unanswered"]], ["unread", ["", "1", "0"]], ["status", ["", "open", "closed"]]]);
@@ -2418,17 +2437,72 @@ test("util: tabsFor lists the channels, Text (SMS) last and only while sms_avail
   assert.deepEqual({ ...u.contactOf("webchat", null) }, { email: "", mobile: "" });
 });
 
-test("the Text (SMS) tab shows only while the API says sms_available, is the last tab, and filters to texts", async () => {
-  const d = boot({ listing: smsList(), channels: CH_SMS });
-  d.s.smsStatus = SMS_STATUS;
-  await d.openInbox();
-  assert.equal(tabLabels(d).at(-1), "Text (SMS)");
-  await pickTab(d, "sms");
-  assert.deepEqual(rowsOf(d).map((r) => d.all(r, "ib-name")[0].textContent), ["Ana Reyes"]);
-  assert.equal(d.$("ib-tab-sms").getAttribute("aria-selected"), "true");
-  const off = boot({ listing: smsList(), channels: { ...CH_SMS, sms_available: false } });
-  await off.openInbox();
-  assert.equal(off.$("ib-tab-sms"), null);
+test("SMS-MENU: the channel param is sent (nosms in the Inbox, sms on SMS Marketing) and the client-side filter keeps each page to its own channel", async () => {
+  const inbox = boot({ listing: smsList(), channels: CH_SMS });
+  await inbox.openInbox();
+  assert.ok(inbox.list().includes("GET " + BASE + "conversations/?channel=nosms"));
+  assert.ok(!inbox.list().some((c) => c.includes("channel=sms")));
+  assert.deepEqual(rowsOf(inbox).map((r) => inbox.all(r, "ib-name")[0].textContent), ["Maria Santos", "Jun Dela Cruz"], "a server that ignores the param still shows no text");
+  const sms = boot({ listing: smsList(), channels: CH_SMS });
+  sms.s.smsStatus = SMS_STATUS;
+  await sms.openSms();
+  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms"));
+  assert.ok(!sms.list().some((c) => c.includes("/comments/")), "no comments are asked for on SMS Marketing");
+  assert.deepEqual(rowsOf(sms).map((r) => sms.all(r, "ib-name")[0].textContent), ["Ana Reyes"], "only the text is shown");
+  /* search, filters and Show more keep the param */
+  sms.$("ib-q").value = "Ana"; sms.$("ib-q").fire("input"); await sleep(350); await settle();
+  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms&q=Ana"));
+  const u = sms.window.NOInbox.util;
+  assert.equal(u.chanParam("sms"), "sms"); assert.equal(u.chanParam("inbox"), "nosms");
+  assert.deepEqual(Array.from(u.modeItems([{ ref: SM }, { ref: WC }, { ref: "cm_x" }], "sms"), (i) => i.ref), [SM]);
+  assert.deepEqual(Array.from(u.modeItems([{ ref: SM }, { ref: WC }, { ref: "cm_x" }, { channel: "sms", ref: "x" }], "inbox"), (i) => i.ref), [WC, "cm_x"]);
+  assert.deepEqual({ ...u.sourcesFor("all", "", "sms") }, { conv: true, cm: false });
+  assert.deepEqual({ ...u.sourcesFor("all", "", "inbox") }, { conv: true, cm: true });
+  /* Show more filters too */
+  const more = boot({ listing: { ...smsList(), stored_next_cursor: "30" }, channels: CH_SMS });
+  more.s.smsStatus = SMS_STATUS;
+  await more.openSms();
+  more.s.listing = { items: [{ ref: WC, display_name: "Late chat", snippet: "x", updated_at: iso(90), channel: "webchat", status: "open", unread: false }, { ref: "sm_eeeeeeeeeeeeeeeeeeeeeeee", display_name: "Late text", snippet: "x", updated_at: iso(91), channel: "sms", status: "open", unread: false }], stored_next_cursor: null };
+  await more.click(more.press(more.$("ib-listbody"), "Show more conversations"));
+  assert.ok(more.list().includes("GET " + BASE + "conversations/?channel=sms&stored_cursor=30"));
+  assert.deepEqual(rowsOf(more).map((r) => more.all(r, "ib-name")[0].textContent), ["Ana Reyes", "Late text"]);
+});
+
+test("SMS-MENU: the SMS Marketing page is locked like the 404 page when texts are off or unavailable, and no conversation is read", async () => {
+  for (const channels of [CHANNELS_ON, { ...CH_SMS, sms_available: false }]) {
+    const d = boot({ listing: smsList(), channels });
+    await d.openSms();
+    assert.deepEqual(d.all(d.$("ib-root"), "ib-state").map((n) => n.all((x) => x.tagName === "H2")[0].textContent), ["SMS Marketing is not available yet"]);
+    assert.ok(!d.list().some((c) => c.includes("/conversations/")), "no list read while locked");
+    assert.equal(d.$("ib-newtext-btn"), null);
+    assert.deepEqual(d.smsNav.map((n) => n.hidden), [true, true], "the menu item is hidden too");
+  }
+  const gone = boot({ off: true });
+  await gone.openSms();
+  assert.deepEqual(gone.all(gone.$("ib-root"), "ib-state").map((n) => n.all((x) => x.tagName === "H2")[0].textContent), ["SMS Marketing is not available yet"]);
+  const ok = boot({ listing: smsList(), channels: CH_SMS });
+  ok.s.smsStatus = SMS_STATUS;
+  await ok.openSms();
+  assert.deepEqual(ok.smsNav.map((n) => n.hidden), [false, false]);
+  assert.equal(ok.calls.filter((c) => c.path === BASE + "channels/").length, 1, "channels is read once on the way in");
+  /* the Inbox count is not lowered by opening a text, and the page heading, back words and empty text name SMS Marketing */
+  assert.equal(ok.window.NOInbox.util.pageName("sms"), "SMS Marketing");
+  const e = boot({ listing: { items: [], stored_next_cursor: null }, channels: CH_SMS });
+  await e.openSms();
+  assert.ok(e.$("ib-listbody").textContent.includes("When a customer replies to your text"));
+  assert.ok(e.$("ib-newtext-btn"), "New SMS is offered on an empty page");
+});
+
+test("SMS-MENU: the nav item, the More sheet tile and the route are in index.html under Inbox, gated and unreordered; cache keys ml9", () => {
+  const side = HTML.slice(HTML.indexOf('<nav class="side-nav"'), HTML.indexOf("</nav>", HTML.indexOf('<nav class="side-nav"')));
+  const order = [...side.matchAll(/data-route="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order.slice(0, 5), ["overview", "orders", "products", "inbox", "sms"], "right under Inbox, nothing reordered");
+  assert.match(side, /<a href="\/sms\/" data-route="sms" data-sms-nav hidden>[\s\S]*?SMS Marketing<\/a>/);
+  const sheet = HTML.slice(HTML.indexOf('id="more-sheet"'));
+  assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
+  assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
+  assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
+  assert.match(HTML, /inbox\.js\?v=20261124ml9/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/); assert.match(HTML, /inbox\.css\?v=20261124ml9/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2547,7 +2621,7 @@ test("the contact panel's text comes through textContent only (a hostile name or
 test("the toolbar keeps New SMS and Bulk SMS in the actions beside the tabs; Refresh is not there; the contact panel and its toggle are hidden by CSS on a phone", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
-  await d.openInbox();
+  await d.openSms();
   const acts = d.all(d.$("ib-tools-host"), "ib-acts")[0];
   assert.deepEqual(acts.children.map((n) => n.id), ["ib-newtext-btn"], "bulk needs its own probe; New SMS is there, Refresh moved");
   assert.equal(d.$("ib-newtext-btn").getAttribute("aria-label"), "New SMS");
@@ -2627,7 +2701,7 @@ test("fix 2: the three buttons combine, and a failed read puts each back to its 
   await d.openInbox();
   const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
   await pickChip(d, "unread"); await pickChip(d, "answered"); await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "?status=open&unread=1&answered=answered", "all three together");
+  assert.equal(reads().at(-1), LIST_PATH + "&status=open&unread=1&answered=answered", "all three together");
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
   d.$("ib-b-read").fire("click"); await settle();
   assert.equal(d.$("ib-b-read").getAttribute("data-v"), "1", "back to Unread only");
@@ -2718,17 +2792,17 @@ test("fix 3: with reduced motion the switch is instant; focus moves to the box a
   assert.equal(d.doc.activeElement, sb);
 });
 
-test("fix 4: the channel tabs are in the top slot (Settings menu look): SMS tab only when available, keyboard arrows, filter per channel, rebuilt with the SMS probe", async () => {
+test("fix 4: the channel tabs are in the top slot (Settings menu look): no SMS tab, keyboard arrows, filter per channel, rebuilt with the SMS probe", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
   await d.openInbox();
   const bar = d.all(d.$("ib-tabs-host"), "ib-tabs")[0];
   assert.ok(bar.classList.contains("set-tabs"));
   assert.equal(bar.getAttribute("role"), "tablist");
-  assert.ok(d.$("ib-tab-sms"), "the SMS tab is there when SMS is");
+  assert.equal(d.$("ib-tab-sms"), null, "no SMS tab, even when SMS is available");
   d.$("ib-tab-all").fire("keydown", { key: "ArrowRight", preventDefault() {} });
   assert.equal(d.doc.activeElement, d.$("ib-tab-webchat"), "arrow keys move between the tabs");
-  await pickTab(d, "sms");
-  assert.equal(d.$("ib-tab-sms").getAttribute("aria-selected"), "true");
-  assert.deepEqual(d.all(d.$("ib-tools-host"), "ib-acts")[0].children.map((n) => n.id).includes("ib-newtext-btn"), true, "New SMS stays in the toolbar row above the card, right-aligned");
+  await pickTab(d, "email");
+  assert.equal(d.$("ib-tab-email").getAttribute("aria-selected"), "true");
+  assert.equal(d.$("ib-newtext-btn"), null, "New SMS is not in the Inbox");
 });

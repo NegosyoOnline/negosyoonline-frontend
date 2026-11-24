@@ -21,6 +21,7 @@
     "/settings/billing/": { view: "settings-billing", title: "Billing | NegosyoOnline" },
     "/settings/payments/": { view: "settings-payments", title: "Payments | NegosyoOnline" },
     "/inbox/": { view: "inbox", title: "Inbox | NegosyoOnline" }, /* G2 Unified Inbox (z8uq9md3n6): its links show only while the API says the inbox is open (inbox.js probe) */
+    "/sms/": { view: "inbox", page: "sms", nav: "sms", title: "SMS Marketing | NegosyoOnline" }, /* SMS Marketing (SMS-MENU, Coach Ed 2026-11-24): the inbox module in its "sms" mode, in the same section; its links show only while the API says sms_available (inbox.js probe) */
     "/settings/inbox/": { view: "settings-inbox", title: "Inbox | NegosyoOnline" },
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
     "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj, z8uq9mhpc2): its Settings tab shows only while GET /sites/{id}/domain/ answers 200 (probeDomainNav below); on 404, any error or signed out it stays hidden (domain.js shows "not available" while the API answers 404) */
@@ -78,7 +79,7 @@
       if (currentPath() !== BILLING_PATH) route(false); /* lands on Billing; route() redirects while billingOnly */
     });
   }
-  var shownView = null;
+  var shownView = null, shownIb = "";
   function route(initial) {
     var p = currentPath();
     if (has(MOVED, p)) p = MOVED[p]; /* the replaceState below puts the new address, with its query string, in the bar */
@@ -106,8 +107,10 @@
     if (P && shownView === "settings-payments" && r.view !== "settings-payments") P.hide();
     if (P && r.view === "settings-payments" && shownView !== "settings-payments") P.show();
     var IB = window.NOInbox; /* inbox.js loads after this file; same enter/leave hooks as Payments */
-    if (IB && shownView === "inbox" && r.view !== "inbox") IB.hide();
-    if (IB && r.view === "inbox" && shownView !== "inbox") IB.show();
+    var ibPage = r.view === "inbox" ? (r.page === "sms" ? "sms" : "inbox") : ""; /* /inbox/ and /sms/ share one section and one script, in two modes */
+    if (IB && shownIb && shownIb !== ibPage) IB.hide();
+    if (IB && ibPage && shownIb !== ibPage) IB.show(ibPage);
+    shownIb = ibPage;
     var IS = window.NOInboxSettings; /* inbox-settings.js loads after this file; same enter/leave hooks as Payments */
     if (IS && shownView === "settings-inbox" && r.view !== "settings-inbox") IS.hide();
     if (IS && r.view === "settings-inbox" && shownView !== "settings-inbox") IS.show();

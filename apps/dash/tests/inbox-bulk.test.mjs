@@ -87,7 +87,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     else if (p === BASE + "sms/compose/" && opts.method === "POST") a = s.composeAnswer || { status: 200, body: { ref: SM, new_conversation: true, state: "sending", error_code: "", created_at: iso(0) } };
     else if (/^\/sites\/[^/]+\/members\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { members: s.members || [] } };
     else if (p.indexOf(BASE + "sms/bulk/") === 0) a = s.bulk ? s.bulk(opts.method, p.slice((BASE + "sms/bulk/").length), body) || err(404, "not_found", "Not found.") : err(404, "not_found", "Not found.");
-    else if (p === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
+    else if (p.split("?")[0] === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
       const q = /[?&]q=([^&]*)/.exec(p);
       const st = /[?&]status=([^&]*)/.exec(p), un = /[?&]unread=([^&]*)/.exec(p);
@@ -127,7 +127,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
-    async openInbox() { window.NOInbox.show(); await settle(); },
+    async openInbox() { window.NOInbox.show("sms"); await settle(); },
     async click(node) { node.fire("click"); await settle(); } };
 }
 

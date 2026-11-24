@@ -44,6 +44,9 @@ body.dash-app #view-inbox .ib-tabs button.is-on { color: var(--text); border-bot
 body.dash-app #view-inbox .ib-tabs button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
 @media (min-width: 900px) { #view-inbox .ib-tabs-host { padding-right: 164px; } }
 #view-inbox .ib-tools-host { flex: none; margin-bottom: 12px; }
+#view-inbox .ib-tools-host:empty { display: none; }
+#view-inbox .ib-pagehead { padding: 12px 0; }
+#view-inbox .ib-pagetitle { font-size: 20px; font-weight: 700; color: var(--text); }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
 #view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; }
 #view-inbox .ib-lhead:empty { display: none; }

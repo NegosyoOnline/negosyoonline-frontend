@@ -99,7 +99,7 @@
     }
     function head() {
       var row = h("div", "ib-thead"), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
-      back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", "Inbox"));
+      back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", ui.home || "Inbox"));
       back.addEventListener("click", function () { stop(); ui.back(); });
       var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", "New SMS"));
       nm.appendChild(h("p", "ib-sub", "Text one of your members. For orders and member service only. No promotions."));

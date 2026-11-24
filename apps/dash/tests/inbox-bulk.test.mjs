@@ -55,7 +55,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
-  const page = doc.body.appendChild(doc.createElement("div"));
+  const page = doc.body.appendChild(doc.createElement("div")); page.setAttribute("id", "view-inbox");
   for (const id of ["ib-root", "ib-live", "ibs-root", "ibs-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : []);
@@ -323,10 +323,10 @@ test("bulk: the pause reasons and the estimate in plain words", () => {
   assert.equal(u.willSend(1), "Will send to 1 member");
 });
 
-test("bulk: blocked states show blocked_message; no_line adds the link to Settings > SMS Gateway; the form is not offered", async () => {
+test("bulk: blocked states show blocked_message; no_line adds the link to SMS Settings; the form is not offered", async () => {
   const d = await openBulk({ status: ok({ ...BULK_STATUS, blocked: "no_line", blocked_message: "Pair your phone in Settings → SMS Gateway to text many members." }) });
   assert.ok(pane(d).textContent.includes("Pair your phone in Settings → SMS Gateway to text many members."));
-  assert.equal(d.$("ib-bk-gw").getAttribute("href"), "/settings/sms-gateway/");
+  assert.equal(d.$("ib-bk-gw").getAttribute("href"), "/sms/settings/");
   assert.equal(d.$("ib-bk-t"), null);
   const h = await openBulk({ status: ok({ ...BULK_STATUS, blocked: "site_held", blocked_message: "Your store is on hold." }) });
   assert.ok(pane(h).textContent.includes("Your store is on hold."));
@@ -380,6 +380,39 @@ test("bulk: a 404 from any bulk route hides the button and closes the screen", a
   assert.ok(gone);
   assert.equal(d.$("ib-bulk-btn"), null);
   assert.ok(pane(d).textContent.includes("Choose a conversation"));
+});
+
+test("INBOX-FIX-6: the Bulk SMS tab opens on the sends so far (History), no composer; the Bulk SMS button on that tab opens the composer; a store without bulk has no tab", async () => {
+  const d = boot({ listing: list(), channels: CH_SMS }); d.s.smsStatus = SMS_STATUS;
+  const bk = api({}); d.s.bulk = bk; d.bk = bk;
+  d.window.NODash.go = (href) => d.window.NOInbox.setTab(/bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
+  await d.openInbox(); await settle();
+  const labels = () => d.all(d.$("ib-tabs-host"), "ib-tab").map((n) => n.textContent);
+  assert.deepEqual(labels(), ["Inbox", "Bulk SMS", "Settings"], "order: Inbox | Bulk SMS | Settings, with New SMS and Bulk SMS in the same row");
+  assert.ok(d.$("ib-newtext-btn") && d.$("ib-bulk-btn"));
+  d.$("ib-tab-bulk").fire("click"); await settle(); await settle();
+  assert.equal(d.$("ib-tab-bulk").getAttribute("aria-selected"), "true");
+  assert.equal(d.$("ib-bulkpane").hidden, false); assert.equal(d.$("ib-split").hidden, true);
+  assert.ok(d.$("ib-bulkpane").textContent.includes("History") && d.$("ib-bulkpane").textContent.includes("Your batches, newest first."), "the sends so far");
+  assert.equal(d.$("ib-bk-t"), null, "not the composer");
+  assert.ok(d.list().some((c) => c.indexOf("GET " + B + "batches/?limit=20") === 0), "reads the history only");
+  d.$("ib-bulk-btn").fire("click"); await settle(); await settle();
+  assert.ok(d.$("ib-bk-t"), "the Bulk SMS button opens the composer");
+  d.$("ib-tab-inbox").fire("click"); await settle();
+  assert.equal(d.$("ib-split").hidden, false); assert.equal(d.$("ib-bulkpane").hidden, true);
+  const none = boot({ listing: list(), channels: CH_SMS }); none.s.smsStatus = SMS_STATUS;
+  await none.openInbox(); await settle();
+  assert.deepEqual(none.all(none.$("ib-tabs-host"), "ib-tab").map((n) => n.textContent), ["Inbox", "Settings"], "bulk not open: no Bulk SMS tab");
+});
+
+test("INBOX-FIX-6: a deep link to /sms/bulk/ opens the History; if bulk is not open it falls back to the Inbox tab", async () => {
+  const d = boot({ listing: list(), channels: CH_SMS }); d.s.smsStatus = SMS_STATUS;
+  const bk = api({}); d.s.bulk = bk; d.bk = bk;
+  d.window.NOInbox.show("sms", "bulk"); await settle(); await settle();
+  assert.ok(d.$("ib-bulkpane").textContent.includes("Your batches, newest first."));
+  const off = boot({ listing: list(), channels: CH_SMS }); off.s.smsStatus = SMS_STATUS;
+  off.window.NOInbox.show("sms", "bulk"); await settle(); await settle();
+  assert.equal(off.$("ib-split").hidden, false, "back on the Inbox tab");
 });
 
 function loadUtil() {

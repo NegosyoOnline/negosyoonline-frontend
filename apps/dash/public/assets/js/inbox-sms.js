@@ -127,7 +127,7 @@
       var s = st.status;
       if (s.enabled === false) {
         body.appendChild(note(OFF_TEXT, true));
-        var l = h("a", "no-btn no-btn-ghost", "Open Settings > Inbox"); l.setAttribute("href", "/settings/inbox/"); body.appendChild(l);
+        var l = h("a", "no-btn no-btn-ghost", "Open Inbox Settings"); l.setAttribute("href", "/inbox/settings/"); body.appendChild(l);
         return;
       }
       if (phoneOffline(s)) body.appendChild(note(OFFLINE, true));

@@ -104,7 +104,7 @@
 
   /* ---------- the screen ---------- */
 
-  /* ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, back(), gone() }. host: the thread pane. */
+  /* ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, start ("history" or omitted), back(), gone() }. host: the thread pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
     var st = { view: "loading", status: null, audience: "all", aud: null, audLoading: false, text: "", preview: null, prevErr: "",
@@ -231,7 +231,7 @@
       var blocked = blockedText(s);
       if (blocked) {
         body.appendChild(note(blocked, true));
-        if (s.blocked === "no_line") { var l = h("a", "no-btn no-btn-ghost", "Open Settings > SMS Gateway"); l.setAttribute("href", "/settings/sms-gateway/"); l.setAttribute("id", "ib-bk-gw"); body.appendChild(l); }
+        if (s.blocked === "no_line") { var l = h("a", "no-btn no-btn-ghost", "Open SMS Settings"); l.setAttribute("href", "/sms/settings/"); l.setAttribute("id", "ib-bk-gw"); body.appendChild(l); }
         if (!active(s.active_batch)) return;
       }
       if (active(s.active_batch)) { body.appendChild(progressCard(s.active_batch)); body.appendChild(costLine(s)); return; }
@@ -391,7 +391,7 @@
       if (st.poll) { clearTimeout(st.poll); st.poll = null; }
       draw(); loadHistory(null);
     }
-    function backToMain() { st.view = "main"; st.det = null; st.aud = null; readStatus(); draw(); }
+    function backToMain() { st.view = st.status ? "main" : "loading"; st.det = null; st.aud = null; readStatus(); draw(); }
     function loadHistory(cursor) {
       var h0 = st.hist; h0.loading = true; h0.failed = false;
       D.call("GET", b0 + "batches/?limit=20" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""), null, true).then(function (res) {
@@ -463,7 +463,7 @@
       if (d0.next) body.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadDetail(d0.next); }));
     }
 
-    readStatus();
+    if (ui.start === "history") openHistory(); else readStatus(); /* the Bulk SMS tab opens on the sends so far (History); the button opens the composer */
     return { stop: stop };
   }
 

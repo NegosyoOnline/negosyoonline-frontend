@@ -1,30 +1,30 @@
 /* Inbox (ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox). Two screens: /inbox/ (#view-inbox: conversation list and thread)
-   and /settings/inbox/ (#view-settings-inbox: the inbox channels). Built to the approved mockups; colours come from the
+   and /settings/inbox/ (#ib-settings: the inbox channels). Built to the approved mockups; colours come from the
    dash tokens in dash.css. The settings card repeats the Payments card look, scoped to its own view id. */
 
 /* ---- settings tab: the Payments card look ---- */
-#view-settings-inbox .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
-#view-settings-inbox .pm-root > .pm-card, #view-settings-inbox .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
-#view-settings-inbox .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
-#view-settings-inbox .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
-#view-settings-inbox .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
-#view-settings-inbox .pm-head .pm-h2 { margin: 0; }
-#view-settings-inbox .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
-#view-settings-inbox .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
-#view-settings-inbox .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
-#view-settings-inbox .chip { min-height: 26px; }
-#view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
-#view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
-#view-settings-inbox .pm-field { margin: 0 0 14px; }
-#view-settings-inbox .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
-#view-settings-inbox .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
-#view-settings-inbox .pm-input:focus, #view-settings-inbox .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
-#view-settings-inbox .pm-danger { color: var(--err-h); }
-#view-settings-inbox .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
-#view-settings-inbox .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
-#view-settings-inbox .mk-list li { margin-bottom: 6px; }
+#ib-settings .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+#ib-settings .pm-root > .pm-card, #ib-settings .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
+#ib-settings .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
+#ib-settings .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#ib-settings .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+#ib-settings .pm-head .pm-h2 { margin: 0; }
+#ib-settings .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#ib-settings .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+#ib-settings .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
+#ib-settings .chip { min-height: 26px; }
+#ib-settings .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#ib-settings .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#ib-settings .pm-field { margin: 0 0 14px; }
+#ib-settings .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+#ib-settings .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+#ib-settings .pm-input:focus, #ib-settings .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#ib-settings .pm-danger { color: var(--err-h); }
+#ib-settings .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
+#ib-settings .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
+#ib-settings .mk-list li { margin-bottom: 6px; }
 @media (max-width: 640px) {
-  #view-settings-inbox .pm-card { padding: 18px 16px; }
+  #ib-settings .pm-card { padding: 18px 16px; }
 }
 
 /* ---- inbox: header, split, list ---- */
@@ -35,20 +35,18 @@
 #view-inbox .ib-split > .ib-listpane { border-right: 1px solid var(--card-line); }
 /* The channel tabs are the dash Settings menu (.set-tabs, dash.css) with buttons for links, at the top of the page where the title was, beside the search,
    theme and bell buttons (the Products editor does the same). Same underline look; the tabs scroll inside their own row, never the page. */
-#view-inbox .ib-tabs-host { flex: none; min-width: 0; }
+#view-inbox .ib-tabs-host { flex: none; min-width: 0; margin-bottom: 16px; } /* the same room under the page head as the other dash pages (.view gap: 16px, 24px from 900px) */
 #view-inbox .ib-tabs-host:empty { display: none; }
 body.dash-app #view-inbox .ib-tabs:not([hidden]) { width: fit-content; max-width: 100%; margin: 0; }
 body.dash-app #view-inbox .ib-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
 body.dash-app #view-inbox .ib-tabs button:hover { color: var(--text); }
 body.dash-app #view-inbox .ib-tabs button.is-on { color: var(--text); border-bottom-color: var(--primary, #2A50D0); }
 body.dash-app #view-inbox .ib-tabs button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
-@media (min-width: 900px) { #view-inbox .ib-tabs-host { padding-right: 164px; } }
+@media (min-width: 900px) { #view-inbox .ib-tabs-host { padding-right: 164px; margin-bottom: 24px; } }
 #view-inbox .ib-tools-host { flex: none; margin-bottom: 12px; }
 #view-inbox .ib-tools-host:empty { display: none; }
-#view-inbox .ib-pagehead { padding: 12px 0; }
-#view-inbox .ib-pagetitle { font-size: 20px; font-weight: 700; color: var(--text); }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
-#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; border-bottom: 1px solid var(--card-line); } /* the divider under the filter row, the full width of the column */
+#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; border-bottom: 1px solid var(--bl-select-line); } /* the divider under the filter row, the full width of the column */
 #view-inbox .ib-lhead:empty { display: none; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -183,53 +181,53 @@ body.dash-app .ib-note-info { background: var(--chip-info-bg); color: var(--chip
 .mk-sw:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 8px; }
 .mk-sw[disabled] { opacity: .6; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .mk-sw-track, .mk-sw-track::after { transition: none; } }
-#view-settings-inbox .mk-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 4px 0; }
-#view-settings-inbox .mk-line + .mk-line { border-top: 1px solid var(--card-line); margin-top: 8px; padding-top: 12px; }
-#view-settings-inbox .mk-line-t { min-width: 0; flex: 1 1 240px; }
-#view-settings-inbox .mk-line-t b { display: block; font-size: 16px; color: var(--text); }
-#view-settings-inbox .mk-line-t span { display: block; font-size: 14px; color: var(--text-2); margin-top: 2px; }
-#view-settings-inbox .mk-pause { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
-#view-settings-inbox .mk-pause > div { flex: 0 1 260px; min-width: 200px; }
-#view-settings-inbox :is(.pm-hint, .pm-lead, .pm-field) + .mk-pause { margin-top: 12px; }
-#view-settings-inbox .mk-pause .no-btn { flex: 0 0 auto; }
-#view-settings-inbox .mk-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
-#view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
-#view-settings-inbox .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
-#view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
-@media (max-width: 640px) { #view-settings-inbox .mk-pause > div { flex: 1 1 100%; } #view-settings-inbox .mk-pause .no-btn { width: 100%; } }
+#ib-settings .mk-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 4px 0; }
+#ib-settings .mk-line + .mk-line { border-top: 1px solid var(--card-line); margin-top: 8px; padding-top: 12px; }
+#ib-settings .mk-line-t { min-width: 0; flex: 1 1 240px; }
+#ib-settings .mk-line-t b { display: block; font-size: 16px; color: var(--text); }
+#ib-settings .mk-line-t span { display: block; font-size: 14px; color: var(--text-2); margin-top: 2px; }
+#ib-settings .mk-pause { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+#ib-settings .mk-pause > div { flex: 0 1 260px; min-width: 200px; }
+#ib-settings :is(.pm-hint, .pm-lead, .pm-field) + .mk-pause { margin-top: 12px; }
+#ib-settings .mk-pause .no-btn { flex: 0 0 auto; }
+#ib-settings .mk-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
+#ib-settings .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#ib-settings .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
+#ib-settings .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+@media (max-width: 640px) { #ib-settings .mk-pause > div { flex: 1 1 100%; } #ib-settings .mk-pause .no-btn { width: 100%; } }
 
 /* ---- Comment auto-replies (ClickUp z8uq9mg9pk, C4): rules list, rule form, live preview, post picker ---- */
-#view-settings-inbox [hidden] { display: none !important; }
-#view-settings-inbox .ibr-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--bl-chip-warn); border-radius: 12px; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); font-size: 15px; line-height: 1.45; }
-#view-settings-inbox .ibr-banner p { margin: 0; color: inherit; }
-#view-settings-inbox .ibr-banner p + p { margin-top: 4px; }
-#view-settings-inbox .ibr-ready { margin: 0 0 14px; }
-#view-settings-inbox .ibr-counters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
-#view-settings-inbox .ibr-list { margin: 0 0 14px; }
-#view-settings-inbox .ibr-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-rule-t { min-width: 0; }
-#view-settings-inbox .ibr-rule-t b { display: block; font-size: 16px; color: var(--text); overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-rule-t span { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-excerpt { color: var(--meta); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-#view-settings-inbox .ibr-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-#view-settings-inbox .ibr-acts .pm-hint { margin: 0; }
-#view-settings-inbox .ibr-form { scroll-margin-top: 96px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-h3 { font-size: 17px; }
-#view-settings-inbox .ibr-ta { min-height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.45; }
-#view-settings-inbox .ibr-err { color: var(--err-h); }
-#view-settings-inbox .ibr-prev { margin-top: 6px; }
-#view-settings-inbox .ibr-samples { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-chosen { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
-#view-settings-inbox .ibr-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--card-line); border-radius: 8px; font-size: 14px; color: var(--text); }
-#view-settings-inbox .ibr-pick > span { min-width: 0; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-posts-list { display: flex; flex-direction: column; max-height: 260px; margin: 8px 0; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 8px; }
-#view-settings-inbox .ibr-post { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; color: var(--text); cursor: pointer; }
-#view-settings-inbox .ibr-post + .ibr-post { border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-post input { flex: none; margin-top: 3px; width: 18px; height: 18px; accent-color: var(--link); }
-#view-settings-inbox .ibr-post input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-#view-settings-inbox .ibr-post-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-add, #view-settings-inbox .ibr-save { margin-top: 4px; }
-@media (max-width: 640px) { #view-settings-inbox .ibr-rule { grid-template-columns: minmax(0, 1fr); } #view-settings-inbox .ibr-rule .mk-sw { justify-self: start; } }
+#ib-settings [hidden] { display: none !important; }
+#ib-settings .ibr-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--bl-chip-warn); border-radius: 12px; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); font-size: 15px; line-height: 1.45; }
+#ib-settings .ibr-banner p { margin: 0; color: inherit; }
+#ib-settings .ibr-banner p + p { margin-top: 4px; }
+#ib-settings .ibr-ready { margin: 0 0 14px; }
+#ib-settings .ibr-counters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+#ib-settings .ibr-list { margin: 0 0 14px; }
+#ib-settings .ibr-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-rule-t { min-width: 0; }
+#ib-settings .ibr-rule-t b { display: block; font-size: 16px; color: var(--text); overflow-wrap: anywhere; }
+#ib-settings .ibr-rule-t span { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
+#ib-settings .ibr-excerpt { color: var(--meta); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#ib-settings .ibr-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#ib-settings .ibr-acts .pm-hint { margin: 0; }
+#ib-settings .ibr-form { scroll-margin-top: 96px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-h3 { font-size: 17px; }
+#ib-settings .ibr-ta { min-height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.45; }
+#ib-settings .ibr-err { color: var(--err-h); }
+#ib-settings .ibr-prev { margin-top: 6px; }
+#ib-settings .ibr-samples { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+#ib-settings .ibr-chosen { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+#ib-settings .ibr-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--card-line); border-radius: 8px; font-size: 14px; color: var(--text); }
+#ib-settings .ibr-pick > span { min-width: 0; overflow-wrap: anywhere; }
+#ib-settings .ibr-posts-list { display: flex; flex-direction: column; max-height: 260px; margin: 8px 0; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 8px; }
+#ib-settings .ibr-post { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; color: var(--text); cursor: pointer; }
+#ib-settings .ibr-post + .ibr-post { border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-post input { flex: none; margin-top: 3px; width: 18px; height: 18px; accent-color: var(--link); }
+#ib-settings .ibr-post input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+#ib-settings .ibr-post-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#ib-settings .ibr-add, #ib-settings .ibr-save { margin-top: 4px; }
+@media (max-width: 640px) { #ib-settings .ibr-rule { grid-template-columns: minmax(0, 1fr); } #ib-settings .ibr-rule .mk-sw { justify-self: start; } }
 
 /* the house dropdown (the pr-combo of Products, renamed ib-): the Channel filter and "Pause for". Focus is the light blue, never gold. */
 body.dash-app .ib-combo { position: relative; }
@@ -407,7 +405,7 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 #view-inbox .ib-top-cm .cm-st { flex: none; }
-#view-settings-inbox .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }
+#ib-settings .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }
 
 /* Text (SMS) channel (SMS-OWNER FE-1, z8uq9mhk1h): the New text screen and the lines above a text reply box. The focus border stays the light blue of the other Inbox fields. */
 #view-inbox .ib-sms-new { gap: 14px; }
@@ -480,3 +478,29 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 /* the contact panel needs room: below 1100 px the panel and its toggle are not shown */
 @media (max-width: 1099px) { #view-inbox .ib-cpane, #view-inbox .ib-ctog { display: none !important; } #view-inbox .ib-split { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); } }
 #view-inbox .ib-split.ib-cp-off { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+
+/* ---- INBOX-FIX-6 (Coach Ed 2026-11-24): the page tabs row, the settings tabs, spacing, the dark divider and tooltip ---- */
+/* The top line of a page: the tabs at the left, on the SMS Marketing page New SMS and Bulk SMS at the right of the same row. On a phone the row wraps:
+   the tabs on the first line (they scroll inside their own box), the two buttons on the second line, left-aligned; the page never scrolls sideways. */
+#view-inbox .ib-toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; min-width: 0; }
+#view-inbox .ib-toprow > .ib-tabs { flex: 1 1 100%; min-width: 0; }
+#view-inbox .ib-toprow > .ib-acts { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
+@media (min-width: 900px) {
+  #view-inbox .ib-toprow > .ib-tabs { flex: 0 1 auto; }
+  #view-inbox .ib-toprow > .ib-acts { flex: 0 0 auto; justify-content: flex-end; margin-left: auto; }
+}
+/* a hidden tab panel stays hidden whatever display its class sets */
+#view-inbox .ib-split[hidden], #view-inbox .ib-tools-host[hidden], #view-inbox .ib-bulkpane[hidden], #view-inbox .ib-settings[hidden] { display: none !important; }
+#view-inbox .ib-bulkpane { min-height: 320px; }
+/* the Settings cards (Inbox, SMS Gateway) sit on the page background under the tabs, like the dash Settings pages */
+#view-inbox .ib-settings { min-width: 0; }
+/* The filter tooltip in the dark theme: a light bubble with dark text (the Billing tooltip tokens, 16:1) so it shows on the dark tabs row and the dark card.
+   The dash is dark by default; light is html[data-theme="light"], or a light device when no theme is set. Light stays the dark bubble above. */
+html:not([data-theme="light"]) body.dash-app .ib-ftip { background: var(--bl-tip-bg, #F4F6FF); color: var(--bl-tip-text, #0E1530); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+html:not([data-theme="light"]) body.dash-app .ib-ftip.is-above::after { border-top-color: var(--bl-tip-bg, #F4F6FF); }
+html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-bottom-color: var(--bl-tip-bg, #F4F6FF); }
+@media (prefers-color-scheme: light) {
+  html:not([data-theme]) body.dash-app .ib-ftip { background: #1B2236; color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+  html:not([data-theme]) body.dash-app .ib-ftip.is-above::after { border-top-color: #1B2236; }
+  html:not([data-theme]) body.dash-app .ib-ftip.is-below::after { border-bottom-color: #1B2236; }
+}

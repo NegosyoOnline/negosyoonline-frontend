@@ -468,7 +468,7 @@ test("Santé setup is no longer a page: no view, tab, tile, quick link or styles
   assert.ok(!dash.includes("settings-sante") && !dash.includes("NOSante"), "no view and no page hooks");
   assert.match(dash, /var VIEWS = \[[^\]]*"settings-general", "settings-plans"/);
   /* The old address: not a page of its own, rewritten to Business Settings before the route is looked up. */
-  assert.ok(dash.includes('var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/" };'));
+  assert.ok(dash.includes('var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/", "/settings/inbox/": "/inbox/settings/", "/settings/sms-gateway/": "/sms/settings/" };'));
   assert.ok(dash.includes("if (has(MOVED, p)) p = MOVED[p];"));
   assert.ok(!/"\/settings\/sante\/":\s*\{/.test(dash), "it is not in ROUTES");
   const scripts = [...HTML.matchAll(/<script src="\/assets\/js\/([a-z-]+)\.js/g)].map((m) => m[1]);

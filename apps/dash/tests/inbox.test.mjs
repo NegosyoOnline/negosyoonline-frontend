@@ -54,8 +54,11 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
-  const page = doc.body.appendChild(doc.createElement("div"));
-  for (const id of ["ib-root", "ib-live", "ibs-root", "ibs-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
+  const page = doc.body.appendChild(doc.createElement("div")); page.setAttribute("id", "view-inbox");
+  const setBox = doc.createElement("div"); setBox.setAttribute("id", "ib-settings"); setBox.hidden = true;
+  for (const id of ["ib-root", "ib-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
+  for (const id of ["ibs-root", "ibs-live", "sg-root", "sg-live", "sg-dialog-slot"]) { const n = doc.createElement("div"); n.setAttribute("id", id); if (id === "ibs-root" || id === "sg-root") n.hidden = true; setBox.appendChild(n); }
+  page.appendChild(setBox);
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   const smsNav = [0, 1].map(() => { const a = doc.createElement("a"); a.setAttribute("data-sms-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : []);
@@ -114,6 +117,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   vm.runInContext(read("inbox-sms.js"), context, { filename: "inbox-sms.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
+  vm.runInContext(read("sms-gateway-settings.js"), context, { filename: "sms-gateway-settings.js" });
   window.NODash.toast = (title, text) => toasts.push(title + ": " + text);
   const $ = (id) => doc.getElementById(id);
   const where = location;
@@ -390,10 +394,10 @@ test("helpers: days in Manila time, initials, key shape and failure text", async
 
 test("the markup: both views, the refresh header, the hidden Inbox links in all four places, and the scripts in order", () => {
   assert.ok(/<section class="view" id="view-inbox" aria-labelledby="h-inbox" hidden>/.test(HTML));
-  assert.ok(/<section class="view" id="view-settings-inbox" aria-labelledby="h-settings-inbox" hidden>/.test(HTML));
-  for (const id of ["h-inbox", "h-settings-inbox", "ib-root", "ib-live", "ibs-root", "ibs-live"]) assert.equal((HTML.match(new RegExp(`id="${id}"`, "g")) || []).length, 1, id + " is in the page once");
+  assert.ok(!/id="view-settings-inbox"/.test(HTML), "the Inbox settings view is gone: its card is the Settings tab of the Inbox page (INBOX-FIX-6)");
+  for (const id of ["h-inbox", "ib-root", "ib-live", "ib-settings", "ibs-root", "ibs-live"]) assert.equal((HTML.match(new RegExp(`id="${id}"`, "g")) || []).length, 1, id + " is in the page once");
   const navLinks = [...HTML.matchAll(/<a\b[^>]*data-inbox-nav[^>]*>/g)].map((m) => m[0]);
-  assert.deepEqual(navLinks.map((a) => /href="([^"]+)"/.exec(a)[1]), ["/inbox/", "/settings/inbox/", "/inbox/", "/settings/inbox/"], "sidebar, Settings tab, bottom tabs and More tile");
+  assert.deepEqual(navLinks.map((a) => /href="([^"]+)"/.exec(a)[1]), ["/inbox/", "/inbox/"], "sidebar and bottom tabs (the Settings tab and the More tile for Inbox settings went with the card, INBOX-FIX-6)");
   for (const a of navLinks) assert.ok(/\shidden[\s>]/.test(a), "starts hidden: " + a);
   assert.ok(HTML.indexOf("/assets/js/inbox.js") > HTML.indexOf("/assets/js/dashboard.js"));
   assert.ok(HTML.indexOf("/assets/js/inbox-settings.js") > HTML.indexOf("/assets/js/inbox.js"));
@@ -404,11 +408,11 @@ test("the markup: both views, the refresh header, the hidden Inbox links in all 
 test("the router knows both addresses and calls the pages' show and hide", () => {
   const DASH = read("dashboard.js");
   assert.ok(DASH.includes('"/inbox/": { view: "inbox"'));
-  assert.ok(DASH.includes('"/settings/inbox/": { view: "settings-inbox"'));
-  assert.ok(/VIEWS = \[[^\]]*"inbox"[^\]]*"settings-inbox"|VIEWS = \[[^\]]*"settings-inbox"[^\]]*"inbox"/.test(DASH.replace(/\s+/g, " ")));
+  assert.ok(DASH.includes('"/inbox/settings/": { view: "inbox", page: "inbox", tab: "settings"'));
+  assert.ok(!/"settings-inbox"/.test(DASH), "no settings-inbox view any more");
   assert.ok(/TAB_VIEWS = \[[^\]]*"inbox"/.test(DASH));
   assert.ok(DASH.includes('"/sms/": { view: "inbox", page: "sms", nav: "sms"'), "SMS Marketing has its own route, in the inbox section");
-  assert.ok(DASH.includes("IB.show(ibPage)") && DASH.includes("IB.hide()") && DASH.includes("IS.show()") && DASH.includes("IS.hide()"));
+  assert.ok(DASH.includes('IB.show(ibPage, r.tab || "")') && DASH.includes("IB.hide()") && DASH.includes("IB.setTab"));
   assert.ok(DASH.includes("window.NOInbox.probe()"));
 });
 
@@ -481,12 +485,12 @@ test("d1: the channel tabs replace the Channel dropdown: All messages first, Ema
   const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
   await d.openInbox();
   assert.equal(d.$("ib-filter"), null, "no Channel dropdown any more");
-  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
+  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Settings"]);
   const bar = d.all(d.$("ib-tabs-host"), "ib-tabs")[0];
   assert.ok(bar.classList.contains("set-tabs"), "the dash Settings menu class");
   assert.equal(bar.getAttribute("role"), "tablist");
   assert.equal(bar.getAttribute("aria-label"), "Channel");
-  assert.deepEqual(d.all(bar, "ib-tab").map((t) => [t.getAttribute("role"), t.getAttribute("aria-selected"), t.getAttribute("tabindex")]), [["tab", "true", "0"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"]]);
+  assert.deepEqual(d.all(bar, "ib-tab").map((t) => [t.getAttribute("role"), t.getAttribute("aria-selected"), t.getAttribute("tabindex")]), [["tab", "true", "0"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"], ["tab", "false", "-1"]]);
   const before = d.list().length;
   await pickTab(d, "email");
   assert.deepEqual(rowsOf(d).map((r) => d.all(r, "ib-name")[0].textContent), ["Jun Dela Cruz (test)"]);
@@ -529,7 +533,7 @@ test("d5: paused and limit reached are one banner at a time, the limit first; no
   assert.match(paused.list[0].textContent, /^Website chat is paused until today, \d{1,2}:\d{2} [AP]M\. Visitors see that chat is not available and are pointed to the contact form\./);
   const link = paused.d.links(paused.list[0])[0];
   assert.equal(link.textContent, "Resume or change in Settings");
-  assert.equal(link.getAttribute("href"), "/settings/inbox/");
+  assert.equal(link.getAttribute("href"), "/inbox/settings/");
   for (const ch of [{ ...CHANNELS_ON, webchat_enabled: false, paused_until: until, chat_limit_reached: true }, { ...CHANNELS_ON, webchat_available: false, paused_until: until },
     { ...CHANNELS_ON, paused_until: new Date(Date.now() - 60000).toISOString() }, CHANNELS_ON, null]) {
     assert.equal((await banners(ch)).list.length, 0, JSON.stringify(ch));
@@ -831,11 +835,11 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml10/);
-  assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml11/);
+  assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml10/);
-  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml11/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
 
@@ -1001,7 +1005,7 @@ test("inbox: a messenger row has the FB Messenger badge on the avatar (full name
   assert.equal(rows.length, 3);
   assert.deepEqual(d.all(rows[0], "ib-cdot").map((n) => n.textContent), ["FB Messenger"]);
   assert.deepEqual(d.all(rows[0], "ib-cdot").map((n) => n.getAttribute("title")), ["Facebook Messenger"]);
-  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
+  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Settings"]);
   const u = d.window.NOInbox.util;
   assert.equal(u.channelOf({ ref: FM }), "messenger");
   assert.equal(u.filterItems(msgrList().items, "messenger").length, 1);
@@ -1784,7 +1788,7 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const wrap = d.$("ib-wrap"), split = d.all(wrap, "ib-split")[0];
-  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tabs-host", "ib-tools-host", "ib-split"], "the tabs at the top, the toolbar directly above the card");
+  assert.deepEqual(wrap.children.map((n) => n.id), ["ib-tabs-host", "ib-tools-host", "ib-split", "ib-bulkpane", "ib-settings"], "the tabs at the top, the toolbar directly above the card; the Bulk SMS pane and the settings card are the other tab panels, hidden");
   assert.deepEqual(split.children.map((n) => n.id), ["ib-listpane", "ib-threadpane", "ib-cpane"], "list, thread, contact panel");
   assert.equal(d.all(split, "ib-rcol").length, 0);
   assert.equal(d.all(d.$("ib-tabs-host"), "ib-tabs").length, 1, "the tabs are in the top slot");
@@ -1869,8 +1873,8 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   assert.equal(none.$("ib-refresh-btn").parentNode.parentNode.parentNode, none.$("ib-lhead"), "Refresh alone in the list head");
   assert.equal(none.$("ib-q"), null);
   assert.equal(none.$("ib-b-status"), null);
-  assert.equal(none.$("ib-tab-all"), null, "no tabs while there is nothing to filter");
-  assert.equal(none.all(none.$("ib-tabs-host"), "ib-tab").length, 0);
+  assert.ok(none.$("ib-tab-settings"), "the tabs stay while the list is empty, so Settings can be reached (INBOX-FIX-6)");
+  assert.equal(none.all(none.$("ib-tabs-host"), "ib-tab").length, 6, "the tabs stay while the list is empty so Settings can be reached");
 });
 
 test("the list column starts with one row of five icon buttons (Search, Answered, Read, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
@@ -1947,7 +1951,7 @@ test("the channel tabs sit at the top beside the top-bar icons, in the dash Sett
   assert.doesNotMatch(css, /ib-head|ib-lede/);
   assert.match(css, /body\.dash-app #view-inbox \.ib-tabs button \{[^}]*border-bottom: 2px solid transparent/, "the Settings menu underline look");
   assert.match(css, /body\.dash-app #view-inbox \.ib-tabs button\.is-on \{[^}]*border-bottom-color: var\(--primary/);
-  assert.match(css, /@media \(min-width: 900px\) \{ #view-inbox \.ib-tabs-host \{ padding-right: 164px; \} \}/, "clear of the search, theme and bell buttons");
+  assert.match(css, /@media \(min-width: 900px\) \{ #view-inbox \.ib-tabs-host \{ padding-right: 164px; margin-bottom: 24px; \} \}/, "clear of the search, theme and bell buttons");
   const dashCss = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
   assert.match(dashCss, /body\.dash-app \.set-tabs:not\(\[hidden\]\) \{ display: flex;[^}]*overflow-x: auto/, "the shared menu scrolls sideways on a phone, not the page");
   assert.match(dash, /body\.dash-app \.notif-col:not\(\[hidden\]\) \{[^}]*position: absolute; top: 32px/);
@@ -2206,7 +2210,7 @@ test("sms inbox: hidden while the feature is off (no New text, no Text tab, an s
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   assert.equal(d.$("ib-newtext-btn"), null);
-  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments"]);
+  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Settings"]);
   assert.equal(d.$("ib-tab-sms"), null);
   const off = boot({ off: true });
   await off.openInbox();
@@ -2222,8 +2226,9 @@ test("sms inbox: with the feature on the SMS Marketing page lists only texts wit
   assert.equal(rows.length, 1, "the stand-in API ignores ?channel=sms, so the client-side filter keeps only the text");
   assert.deepEqual(d.all(rows[0], "ib-cdot").map((n) => n.textContent), ["Text (SMS)"]);
   assert.ok(d.$("ib-newtext-btn"));
-  assert.equal(d.$("ib-tabs-host").textContent, "SMS Marketing", "a plain page head, no channel tabs");
-  assert.equal(d.$("ib-tab-all"), null);
+  assert.ok(!/SMS Marketing/.test(d.$("ib-tabs-host").textContent), "no visible SMS Marketing title any more (INBOX-FIX-6)");
+  assert.equal(d.$("ib-tab-all"), null, "no channel tabs");
+  assert.deepEqual(d.all(d.$("ib-tabs-host"), "ib-tab").map((n) => n.textContent), ["Inbox", "Settings"], "Inbox | Bulk SMS | Settings; Bulk SMS only while the bulk probe says so");
   const inbox = boot({ listing: smsList(), channels: CH_SMS, smsStatus: SMS_STATUS });
   await inbox.openInbox();
   assert.equal(inbox.$("ib-newtext-btn"), null, "no New SMS in the Inbox");
@@ -2232,6 +2237,7 @@ test("sms inbox: with the feature on the SMS Marketing page lists only texts wit
   assert.equal(inbox.all(inbox.$("ib-list"), "ib-item").length, 2, "the text is not listed in All messages");
   assert.ok(!inbox.all(inbox.$("ib-list"), "ib-cdot").some((n) => n.textContent === "Text (SMS)"));
   assert.equal(inbox.$("ib-tools-host").children.length, 0, "the row that held New SMS and Bulk SMS is empty (and hidden by CSS)");
+  assert.equal(inbox.all(inbox.$("ib-tabs-host"), "ib-acts").length, 0, "and no buttons beside the Inbox tabs");
   const u = d.window.NOInbox.util;
   assert.equal(u.channelOf({ ref: SM }), "sms");
   assert.equal(u.channelOf({ provider: "sms" }), "sms");
@@ -2493,7 +2499,7 @@ test("SMS-MENU: the SMS Marketing page is locked like the 404 page when texts ar
   assert.ok(e.$("ib-newtext-btn"), "New SMS is offered on an empty page");
 });
 
-test("SMS-MENU: the nav item, the More sheet tile and the route are in index.html under Inbox, gated and unreordered; cache keys ml9", () => {
+test("SMS-MENU: the nav item, the More sheet tile and the route are in index.html under Inbox, gated and unreordered; cache keys ml11", () => {
   const side = HTML.slice(HTML.indexOf('<nav class="side-nav"'), HTML.indexOf("</nav>", HTML.indexOf('<nav class="side-nav"')));
   const order = [...side.matchAll(/data-route="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order.slice(0, 5), ["overview", "orders", "products", "inbox", "sms"], "right under Inbox, nothing reordered");
@@ -2502,7 +2508,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261124ml10/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/); assert.match(HTML, /inbox\.css\?v=20261124ml10/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml11/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml11/); assert.match(HTML, /inbox\.css\?v=20261124ml11/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2622,7 +2628,8 @@ test("the toolbar keeps New SMS and Bulk SMS in the actions beside the tabs; Ref
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
   await d.openSms();
-  const acts = d.all(d.$("ib-tools-host"), "ib-acts")[0];
+  const acts = d.all(d.$("ib-tabs-host"), "ib-acts")[0];
+  assert.equal(acts.parentNode, d.all(d.$("ib-tabs-host"), "ib-toprow")[0], "on the same row as the tabs (INBOX-FIX-6)");
   assert.deepEqual(acts.children.map((n) => n.id), ["ib-newtext-btn"], "bulk needs its own probe; New SMS is there, Refresh moved");
   assert.equal(d.$("ib-newtext-btn").getAttribute("aria-label"), "New SMS");
   assert.equal(d.all(d.$("ib-newtext-btn"), "ib-rf-t")[0].textContent, "New SMS");
@@ -2831,15 +2838,14 @@ test("round 5: the filter tooltip is centred on its button, above with the arrow
   assert.equal(ax(), "14px", "bubble left 8 + arrow 14 = 22, the button centre: the arrow does not move with the clamp");
 });
 
-test("round 5: the tooltip CSS is a dark bubble with a white text and a triangle arrow, the same in light and dark; the list head has a 1px divider", () => {
+test("round 5: the tooltip CSS is a dark bubble with a white text and a triangle arrow in the light theme (dark theme: see the next test); the list head has a 1px divider", () => {
   const css = cssText();
   const rule = /\n\.ib-ftip \{([^}]*)\}/.exec(css)[1];
   assert.match(rule, /background: #1B2236/); assert.match(rule, /color: #fff/); assert.match(rule, /border-radius: 10px/); assert.match(rule, /position: fixed/);
-  assert.doesNotMatch(css, /html\[data-theme="light"\] \.ib-ftip|prefers-color-scheme: light\) \{ html:not\(\[data-theme\]\) \.ib-ftip/, "no separate light look");
   assert.match(css, /\.ib-ftip::after \{[^}]*left: var\(--ax, 50%\)[^}]*border: 6px solid transparent/);
   assert.match(css, /\.ib-ftip\.is-above::after \{[^}]*top: 100%;[^}]*border-top-color: #1B2236/, "arrow down under a bubble above the button");
   assert.match(css, /\.ib-ftip\.is-below::after \{[^}]*bottom: 100%;[^}]*border-bottom-color: #1B2236/, "arrow up over a bubble below the button");
-  assert.match(css, /#view-inbox \.ib-lhead \{[^}]*border-bottom: 1px solid var\(--card-line\)/, "the divider in the house border colour");
+  assert.match(css, /#view-inbox \.ib-lhead \{[^}]*border-bottom: 1px solid var\(--bl-select-line\)/, "the divider: the select/input border token, which shows in dark (#6474B0) and light (#C5CDE0), unlike --card-line");
   assert.match(css, /#view-inbox \.ib-lhead:empty \{ display: none; \}/, "no divider when there is no filter row");
 });
 
@@ -2857,4 +2863,111 @@ test("round 5: the filter words are short and Answered shows the unanswered firs
   await d.click(b); assert.equal(b.getAttribute("aria-label"), "Answered only");
   assert.ok(d.list().filter((c) => c.includes("answered=")).at(-1).endsWith("answered=answered"));
   await d.click(b); assert.equal(b.getAttribute("aria-label"), "Showing answered and unanswered"); assert.equal(b.getAttribute("data-v"), "");
+});
+
+/* ---------- INBOX-FIX-6 (Coach Ed 2026-11-24) ---------- */
+const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+test("INBOX-FIX-6 dark tooltip: in the dark theme the filter tooltip is a near-white bubble with navy text and a same-colour arrow; light stays the dark bubble", () => {
+  const css = cssText();
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  /* the dash is dark by default; light is html[data-theme="light"] or a light device with no theme: the dark rule is "not light", the light device restores the dark bubble */
+  const dark = /html:not\(\[data-theme="light"\]\) body\.dash-app \.ib-ftip \{([^}]*)\}/.exec(css);
+  assert.ok(dark, "a dark-theme rule");
+  assert.match(dark[1], /background: var\(--bl-tip-bg, #F4F6FF\)/); assert.match(dark[1], /color: var\(--bl-tip-text, #0E1530\)/);
+  assert.match(css, /html:not\(\[data-theme="light"\]\) body\.dash-app \.ib-ftip\.is-above::after \{ border-top-color: var\(--bl-tip-bg, #F4F6FF\); \}/);
+  assert.match(css, /html:not\(\[data-theme="light"\]\) body\.dash-app \.ib-ftip\.is-below::after \{ border-bottom-color: var\(--bl-tip-bg, #F4F6FF\); \}/);
+  assert.match(css, /@media \(prefers-color-scheme: light\) \{\s*html:not\(\[data-theme\]\) body\.dash-app \.ib-ftip \{ background: #1B2236; color: #fff;/, "a light device with no chosen theme keeps the dark bubble");
+  /* the tokens the dash itself defines for the dark theme (body.dash-app default) */
+  const m = /body\.dash-app \{\s*--bl-chip-warn-bg[^}]*--bl-tip-bg: (#[0-9A-Fa-f]{6}); --bl-tip-text: (#[0-9A-Fa-f]{6})/.exec(dash);
+  assert.ok(m, "the dark tip tokens"); assert.deepEqual([m[1].toUpperCase(), m[2].toUpperCase()], ["#F4F6FF", "#0E1530"]);
+  assert.ok(ratio(m[1], m[2]) >= 4.5, "text on the bubble: " + ratio(m[1], m[2]).toFixed(1) + ":1");
+  assert.ok(ratio(m[1], "#111B44") >= 3 && ratio(m[1], "#0A1230") >= 3, "the bubble stands out from the dark card and the dark page");
+  /* shape, placement and arrow stay the base rule's */
+  const base = /\n\.ib-ftip \{([^}]*)\}/.exec(css)[1];
+  assert.match(base, /border-radius: 10px/); assert.match(base, /position: fixed/);
+});
+
+test("INBOX-FIX-6 spacing and divider: the tab row leaves the dash's gap above the body (16, 24 from 900px); the divider uses the select border token", () => {
+  const raw = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8"), css = cssText();
+  assert.match(css, /#view-inbox \.ib-tabs-host \{[^}]*margin-bottom: 16px/);
+  assert.match(css, /@media \(min-width: 900px\) \{ #view-inbox \.ib-tabs-host \{ padding-right: 164px; margin-bottom: 24px; \} \}/);
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(dash, /body\.dash-app \.col-main, body\.dash-app \.view \{ gap: 24px; \}/, "24px is the dash's own page gap from 900px");
+  assert.match(dash, /body\.dash-app \.view \{ display: flex; flex-direction: column; gap: 16px; \}/);
+  assert.doesNotMatch(raw.replace(/\/\*[\s\S]*?\*\//g, "").split("#view-inbox .ib-lhead {")[1].split("}")[0], /--card-line/, "not the barely visible card line");
+  assert.match(dash, /--bl-select-line: #6474B0/); assert.ok(ratio("#6474B0", "#111B44") >= 3, "visible on the dark card");
+});
+
+test("INBOX-FIX-6 Inbox page: the tabs are the channels then Settings; Settings hides the filter row and list and shows the Inbox card; the address is /inbox/settings/", async () => {
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  const routed = [];
+  d.window.NODash.go = (href) => { routed.push(href); d.window.NOInbox.setTab(/settings/.test(href) ? "settings" : ""); };
+  await d.openInbox();
+  assert.deepEqual(tabLabels(d), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Settings"], "Settings is last, after FB Comments");
+  assert.equal(d.$("ib-settings").hidden, true); assert.equal(d.$("ib-split").hidden, false);
+  d.$("ib-tab-settings").fire("click"); await settle();
+  assert.deepEqual(routed, ["/inbox/settings/"]);
+  assert.equal(d.$("ib-tab-settings").getAttribute("aria-selected"), "true"); assert.equal(d.$("ib-tab-all").getAttribute("aria-selected"), "false");
+  assert.equal(d.$("ib-split").hidden, true, "the list is hidden"); assert.equal(d.$("ib-tools-host").hidden, true);
+  assert.equal(d.$("ib-settings").hidden, false); assert.equal(d.$("ibs-root").hidden, false); assert.equal(d.$("sg-root").hidden, true);
+  assert.ok(d.list().some((c) => c === "GET " + BASE + "channels/"), "the Inbox settings card read its channels (same card, same calls)");
+  assert.ok(d.$("ibs-root").textContent.includes("Inbox channels"), "the Inbox card is drawn into the tab");
+  assert.equal(d.$("ib-settings").parentNode, d.$("ib-wrap"), "inside the page body, under the tabs");
+  /* a channel tab on the settings tab goes back to the list with that channel on */
+  d.$("ib-tab-email").fire("click"); await settle();
+  assert.deepEqual(routed, ["/inbox/settings/", "/inbox/"]);
+  assert.equal(d.$("ib-split").hidden, false); assert.equal(d.$("ib-settings").hidden, true); assert.equal(d.$("ibs-root").children.length, 0, "the card is emptied when its tab is left");
+  assert.equal(d.$("ib-tab-email").getAttribute("aria-selected"), "true");
+  d.window.NOInbox.hide(); await settle();
+  assert.equal(d.$("ibs-root").children.length, 0);
+});
+
+test("INBOX-FIX-6 deep link: opening on the settings tab draws the tabs and the card straight away; the page scrolls (no ib-fixed) there", async () => {
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  d.window.NOInbox.show("inbox", "settings"); await settle();
+  assert.equal(d.$("ib-tab-settings").getAttribute("aria-selected"), "true");
+  assert.ok(d.$("ibs-root").textContent.includes("Inbox channels"));
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), false);
+  d.window.NOInbox.setTab(""); await settle();
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), true);
+  const u = d.window.NOInbox.util;
+  assert.deepEqual([u.pathOf("inbox", ""), u.pathOf("inbox", "settings"), u.pathOf("inbox", "bulk")], ["/inbox/", "/inbox/settings/", "/inbox/"], "no Bulk SMS tab on the Inbox page");
+  assert.deepEqual([u.pathOf("sms", ""), u.pathOf("sms", "bulk"), u.pathOf("sms", "settings")], ["/sms/", "/sms/bulk/", "/sms/settings/"]);
+  assert.deepEqual(Array.from(u.pageTabs("sms"), (t) => t[1]), ["Inbox", "Bulk SMS", "Settings"]);
+});
+
+test("INBOX-FIX-6 SMS page: Inbox | Settings with Bulk SMS once the probe says so; New SMS and Bulk SMS on the same row; the SMS Gateway card in Settings", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS, smsStatus: SMS_STATUS });
+  d.s.smsStatus = SMS_STATUS;
+  d.s.bulkStatus = { available: true };
+  const routed = [];
+  d.window.NODash.go = (href) => { routed.push(href); d.window.NOInbox.setTab(/settings/.test(href) ? "settings" : /bulk/.test(href) ? "bulk" : ""); };
+  await d.openSms();
+  const row = d.all(d.$("ib-tabs-host"), "ib-toprow")[0];
+  assert.deepEqual(row.children.map((n) => n.classList.contains("ib-tabs") ? "tabs" : n.classList.contains("ib-acts") ? "acts" : "?"), ["tabs", "acts"], "tabs at the left, the buttons at the right of one row");
+  assert.equal(d.$("ib-tabs-host").textContent.includes("SMS Marketing"), false, "no visible page title");
+  assert.deepEqual(d.all(row, "ib-tab").map((n) => n.textContent), d.$("ib-bulk-btn") ? ["Inbox", "Bulk SMS", "Settings"] : ["Inbox", "Settings"]);
+  assert.equal(d.$("ib-tab-inbox").getAttribute("aria-selected"), "true");
+  d.$("ib-tab-settings").fire("click"); await settle();
+  assert.deepEqual(routed, ["/sms/settings/"]);
+  assert.equal(d.$("sg-root").hidden, false); assert.equal(d.$("ibs-root").hidden, true); assert.equal(d.$("ib-split").hidden, true);
+  assert.ok(d.list().some((c) => c.includes("/sms-gateway/")), "the gateway card read its own API: same card, same calls");
+  assert.ok(d.$("ib-newtext-btn") && d.$("ib-newtext-btn").parentNode.parentNode === d.all(d.$("ib-tabs-host"), "ib-toprow")[0], "New SMS stays on the row on every tab");
+});
+
+test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to the tabs; the old views are gone; Settings has no empty tab", () => {
+  const DASH = read("dashboard.js");
+  assert.match(DASH, /"\/settings\/inbox\/": "\/inbox\/settings\/"/); assert.match(DASH, /"\/settings\/sms-gateway\/": "\/sms\/settings\/"/);
+  assert.ok(DASH.includes('"/sms/bulk/": { view: "inbox", page: "sms", tab: "bulk", nav: "sms"'));
+  assert.ok(DASH.includes('"/sms/settings/": { view: "inbox", page: "sms", tab: "settings", nav: "sms"'));
+  assert.ok(!/ROUTES[\s\S]{0,3000}"\/settings\/(inbox|sms-gateway)\/": \{/.test(DASH.slice(0, DASH.indexOf("var MOVED"))), "no route of their own");
+  assert.ok(!/settings-sms-gateway|settings-inbox/.test(DASH));
+  assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
+  assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
+  assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml11/); assert.match(HTML, /dashboard\.js\?v=20261124ml11/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
+  assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });

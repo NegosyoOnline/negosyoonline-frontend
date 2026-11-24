@@ -17,14 +17,14 @@ const typed = async (p, text = "Sample announcement") => {
   await submit(p);
 };
 
-test("the counter counts the text plus the opt-out line and marks it over 160 without disabling the check", async () => {
+test("the counter counts only the typed text and marks it over 160 without disabling the check", async () => {
   const p = bulk();
   await settle();
-  assert.equal(p.text("b-count"), "22 / 160");
-  p.type("b-text", "x".repeat(138));
+  assert.equal(p.text("b-count"), "0 / 160");
+  p.type("b-text", "x".repeat(160));
   assert.equal(p.text("b-count"), "160 / 160");
   assert.equal(p.node["b-check"].disabled, false);
-  p.type("b-text", "x".repeat(139));
+  p.type("b-text", "x".repeat(161));
   assert.equal(p.text("b-count"), "161 / 160");
   assert.equal(p.node["b-count"].classList.contains("over"), true);
   assert.equal(p.node["b-check"].disabled, false, "the check is not silently disabled");
@@ -44,23 +44,22 @@ test("an empty message and a message over the limit are flagged in the field bef
   p.type("b-text", "  ");
   await submit(p);
   assert.equal(p.text("b-text-err"), "Write the message to send.");
-  p.type("b-text", "x".repeat(139));
+  p.type("b-text", "x".repeat(161));
   assert.equal(p.shown("b-text-err"), false, "typing clears the error");
   assert.equal(p.node["b-text"].hasAttribute("aria-invalid"), false);
   await submit(p);
   assert.equal(p.text("b-text-err"), "The message is 1 character too long for one SMS. Shorten it.");
   assert.equal(p.node["b-text"].getAttribute("aria-invalid"), "true");
   assert.equal(p.calls_to("bulk/check/").length, 0);
-  p.type("b-text", "x".repeat(138));
+  p.type("b-text", "x".repeat(160));
   await submit(p);
   assert.equal(p.calls_to("bulk/check/").length, 1);
 });
 
-test("the opt-out line is drawn from the status and is not an editable field; the reserve figures follow the status", async () => {
+test("there is no opt-out box and the reserve figures follow the status", async () => {
   const p = bulk({ "bulk/status/": () => [200, { ...BULK, reserved_for_codes: 400 }] });
   await settle();
-  assert.equal(p.text("b-optout-text"), "Reply STOP to opt out");
-  assert.notEqual(p.node["b-optout-text"].tagName, "TEXTAREA");
+  assert.equal(p.node["b-optout-text"], undefined);
   assert.equal(p.text("b-rule-reserve"), "400 texts a day are kept for sign-in codes. Bulk SMS stops at 1,600.");
 });
 
@@ -132,10 +131,10 @@ test("a file over 1,048,576 bytes sends nothing", async () => {
 });
 
 test("invalid_text shows the backend's field message under the field; other refusals get fixed words", async () => {
-  const p = bulk({ "bulk/check/": () => [400, refusal("invalid_text", "The text can be up to 138 characters.", { text: ["The text can be up to 138 characters."] })] });
+  const p = bulk({ "bulk/check/": () => [400, refusal("invalid_text", "The text can be up to 160 characters.", { text: ["The text can be up to 160 characters."] })] });
   await settle();
   await typed(p);
-  assert.equal(p.text("b-text-err"), "The text can be up to 138 characters.");
+  assert.equal(p.text("b-text-err"), "The text can be up to 160 characters.");
   assert.equal(p.shown("b-step2"), false);
   const q = bulk({ "bulk/check/": () => [500, refusal("boom", "RAW WORDS")] });
   await settle();

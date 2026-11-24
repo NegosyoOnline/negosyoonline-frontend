@@ -17,7 +17,7 @@
   /* The four reasons the backend gives for a refused line, in words, keyed on its sentences. */
   var REASONS = {
     "This line has fewer than three columns.": "Fewer than three columns",
-    "The first name is missing or too long.": "First name missing or too long",
+    "The first name is too long or has odd characters.": "First name too long or has odd characters",
     "The last name is too long.": "Last name too long",
     "The mobile number is not a Philippine mobile.": "Not a Philippine mobile number"
   };
@@ -61,7 +61,8 @@
     if (place === "sign-in") { location.replace("/sign-in/"); return true; }
     return false;
   }
-  function name(c) { return (text(c.first_name) + " " + text(c.last_name)).trim(); }
+  /* A contact added from a number-only line has no name: the row shows "No name" over its masked number. */
+  function name(c) { return (text(c.first_name) + " " + text(c.last_name)).trim() || "No name"; }
   function groupName(id) {
     for (var i = 0; i < groups.length; i++) if (groups[i].id === id) return groups[i].name;
     return "";

@@ -621,3 +621,5 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .dm-table td.lc-act .lc-btns { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
   .dm-table td.lc-act .no-btn { flex: 1 1 auto; }
 }
+/* Refused-line reasons (contacts upload, bulk SMS): a long reason wraps inside the card on a phone. */
+#u-results .chip, #b-refused .chip { white-space: normal; max-width: 100%; overflow-wrap: anywhere; border-radius: 16px; }

@@ -297,3 +297,8 @@ test("some lines can be added and some are shortened: the normal summary and one
   await check(none);
   assert.equal(none.node["u-sentence"].textContent.includes("Excel"), false);
 });
+
+test("a long refused-line reason wraps inside the card on a phone", () => {
+  const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "public", "assets", "css", "hq.css"), "utf8");
+  assert.match(css, /#u-results \.chip, #b-refused \.chip \{[^}]*white-space: normal;[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere/);
+});

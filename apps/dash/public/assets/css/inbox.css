@@ -385,3 +385,45 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-sms-prefix, #view-inbox .ib-sms-quota { margin: 0; }
 #view-inbox .ib-reply .field-err, #view-inbox .ib-sms-new .field-err { margin: 0; }
 #view-inbox .ib-nt { white-space: nowrap; }
+
+/* Text many members (store bulk SMS, z8uq9mbreu): the screen opened from the Inbox toolbar. Same fields, notes and light-blue focus as the New text screen. */
+#view-inbox .ib-bk { gap: 14px; }
+#view-inbox .ib-bk-bar { display: flex; justify-content: flex-end; }
+#view-inbox .ib-bk-form { display: flex; flex-direction: column; gap: 14px; }
+#view-inbox .ib-bk-box, #view-inbox .ib-bk-card { border: 1px solid var(--card-line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#view-inbox .ib-bk-box:empty { display: none; }
+#view-inbox .ib-bk-box p, #view-inbox .ib-bk-card p { margin: 0; }
+#view-inbox .ib-bk-will { font-size: 18px; font-weight: 600; }
+#view-inbox .ib-bk-left { margin: 0; padding-left: 20px; color: var(--meta); font-size: 15px; line-height: 1.5; }
+#view-inbox .ib-bk-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.45; }
+#view-inbox .ib-bk-tick { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; cursor: pointer; }
+#view-inbox .ib-bk-tick input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+#view-inbox .ib-bk-tick input:focus-visible { outline: 2px solid var(--link, #6C8CFF); outline-offset: 2px; }
+#view-inbox .ib-bk-confirm { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+#view-inbox .ib-bk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+#view-inbox .ib-bk-top h3 { margin: 0; font-size: 18px; color: var(--text); }
+/* History and Batch have no other way back: their back button shows at every width (the Inbox thread's own is phone-only) */
+#view-inbox .ib-bk-head .ib-back { display: inline-flex; }
+#view-inbox .ib-bk-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#view-inbox .ib-bk-count { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 8px; background: var(--chip-info-bg); color: var(--chip-info); }
+#view-inbox .ib-bk-n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-l { font-size: 13px; }
+#view-inbox .ib-bk-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; background: var(--chip-info-bg); color: var(--chip-info); }
+#view-inbox .ib-bk-chip.is-finished, #view-inbox .ib-bk-chip.is-r-sent { background: var(--chip-ok-bg); color: var(--chip-ok); }
+#view-inbox .ib-bk-chip.is-stopped, #view-inbox .ib-bk-chip.is-ended, #view-inbox .ib-bk-chip.is-r-failed, #view-inbox .ib-bk-chip.is-r-not_sent { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-hist, #view-inbox .ib-bk-rec { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#view-inbox .ib-bk-row { display: flex; flex-direction: column; gap: 4px; width: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--card-line); border-radius: 10px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+#view-inbox .ib-bk-row:hover { background: var(--ghost-hover); }
+#view-inbox .ib-bk-row:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-bk-rtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+#view-inbox .ib-bk-when { font-weight: 600; }
+#view-inbox .ib-bk-rsum, #view-inbox .ib-bk-mob, #view-inbox .ib-bk-reason { color: var(--meta); font-size: 14px; }
+#view-inbox .ib-bk-rtext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-inbox .ib-bk-recrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--card-line); }
+#view-inbox .ib-bk-recwho, #view-inbox .ib-bk-recst { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+#view-inbox .ib-bk-recst { align-items: flex-end; text-align: right; }
+#view-inbox .ib-bk .ib-fld { flex: none; }
+@media (max-width: 640px) {
+  #view-inbox .ib-bk-counts { grid-template-columns: repeat(2, 1fr); }
+  #view-inbox .ib-bk-confirm .no-btn, #view-inbox .ib-bk-form > .no-btn { width: 100%; }
+}

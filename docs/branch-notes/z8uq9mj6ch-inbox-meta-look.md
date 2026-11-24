@@ -62,3 +62,15 @@ Coach Ed's words: "convert this filters to button just like image 2, add button 
 * Tests: `pnpm run test` 820/820, `pnpm lint` clean, `pnpm build` passes (Node 22.23.1, pnpm 11.25.0). Old chip tests moved to the cycle buttons (helpers `pickChip`/`pickOff` click the right number of times); new tests cover cycling, icons, labels, combining, failed-read revert, search expand/collapse/Esc/X, hostile text, the CSS.
 * Choices for Coach Ed to judge: (1) the Search button itself is hidden while the box is open (the box has its own magnifier); (2) the house tooltip is on buttons 2-4 only, Search has title and aria-label; (3) the "all" state of Open/Closed shows a folder icon, and Closing the box empties the search text.
 * Not run: a visual check in a browser (no server started).
+
+## Fix round 3 (Coach Ed, Tue 2026-11-24, relayed by the Manager)
+
+Coach Ed's words: "the filter, right align it then put animation when the search button is clicked".
+
+* The four filter buttons are right-aligned in `#ib-lhead` (`.ib-fbar` and `.ib-frow` are `justify-content: flex-end`); order unchanged.
+* Search animates with CSS transitions on a state class (`.is-search` on `.ib-fbar`): the box grows from width 0 to 100% (220 ms, ease, with a fade) while the button row shrinks (`max-width`), fades and slides right; X or Esc reverses it. `prefers-reduced-motion: reduce` turns the transitions off in CSS, and `show()` in `inbox.js` then switches `hidden` at once (matchMedia read).
+* Keyboard and screen readers: the leaving part gets `inert` at once and `hidden` 260 ms later (one timer, cleared on a quick toggle); the part coming back is un-hidden and un-inerted before the class changes. Focus goes to the input on open and to the Search button on close, as before. The input is still built once; debounce and search unchanged. The initial state is set without motion.
+* Row has 2 px padding and -2 px margin so its overflow clip does not cut the light-blue focus ring; the padding goes to 0 while collapsed.
+* Cache keys: `inbox.js` and `inbox.css` both `?v=20261124ml4`.
+* Tests: 822/822, lint clean, build passes. Two new tests (CSS rules; reduced motion, focus, inert) and the search tests now advance 260 ms.
+* Not run: a visual check in a browser (no server started).

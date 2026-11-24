@@ -822,9 +822,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml3/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml4/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml3/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml4/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -2599,12 +2599,19 @@ test("fix 2: Search hides the other buttons and shows the box at the full width,
   const sb = d.$("ib-b-search"), row = d.$("ib-frow"), field = d.all(d.$("ib-lhead"), "ib-search")[0], inp = d.$("ib-q");
   assert.deepEqual([row.hidden, field.hidden, sb.getAttribute("aria-expanded")], [false, true, "false"]);
   await d.click(sb);
-  assert.deepEqual([row.hidden, field.hidden, sb.getAttribute("aria-expanded")], [true, false, "true"], "the buttons are hidden, the box is shown");
+  assert.deepEqual([row.hidden, field.hidden, sb.getAttribute("aria-expanded")], [false, false, "true"], "both are in the layout while the motion runs");
+  assert.equal(row.getAttribute("inert"), "", "the leaving buttons cannot be reached at once");
+  await clock.advance(260);
+  assert.deepEqual([row.hidden, field.hidden], [true, false], "after the transition the buttons are hidden, the box is shown");
   assert.equal(d.doc.activeElement, inp, "the box has the focus");
   assert.ok(d.$("ib-lhead").children[0].classList.contains("is-search"));
   inp.value = "Jun"; inp.fire("input"); await clock.advance(300);
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 1, "the same debounced search as before");
   inp.fire("keydown", { key: "Escape", stopPropagation() {} }); await settle();
+  assert.equal(d.$("ib-lhead").children[0].classList.contains("is-search"), false);
+  assert.equal(field.getAttribute("inert"), "", "the closing box cannot be reached");
+  assert.equal(row.getAttribute("inert"), null);
+  await clock.advance(260);
   assert.deepEqual([row.hidden, field.hidden], [false, true], "Esc closes the box and brings the buttons back");
   assert.equal(inp.value, ""); assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "an emptied text is the normal list again");
   assert.equal(d.doc.activeElement, sb, "the focus goes back to the Search button");
@@ -2612,7 +2619,7 @@ test("fix 2: Search hides the other buttons and shows the box at the full width,
   /* closing with nothing typed changes no filter */
   await pickChip(d, "unread");
   const n = d.calls.length;
-  await d.click(sb); await d.click(d.$("ib-sclose"));
+  await d.click(sb); await d.click(d.$("ib-sclose")); await clock.advance(260);
   assert.equal(d.calls.length, n, "no read for an open and close with no text");
   assert.equal(d.$("ib-b-read").getAttribute("data-v"), "1");
   assert.deepEqual([row.hidden, field.hidden], [false, true]);
@@ -2634,8 +2641,33 @@ test("fix 2: the Search button shows the light-blue state and the text in its la
 
 test("fix 2: the CSS: Search box at 100%, the closed parts hidden, the phone row fits (four 44 px buttons)", () => {
   const css = cssText();
-  assert.match(css, /\.ib-search \{[^}]*width: 100%/);
+  assert.match(css, /\.ib-fbar\.is-search \.ib-search \{ width: 100%/);
   assert.match(css, /\.ib-frow\[hidden\], #view-inbox \.ib-search\[hidden\] \{ display: none; \}/);
-  assert.match(css, /\.ib-frow \{ display: flex; align-items: center; gap: 8px; \}/);
+  assert.match(css, /\.ib-fbar \{[^}]*justify-content: flex-end/, "the buttons sit at the right");
+  assert.match(css, /\.ib-frow \{ display: flex;[^}]*gap: 8px/);
   assert.doesNotMatch(css, /\.ib-chip\b|\.ib-chips\b/, "no chip rules are left");
+});
+
+test("fix 3: the CSS: transitions on the row and the box, a state class, a reduced-motion rule, light-blue focus", () => {
+  const css = cssText();
+  assert.match(css, /\.ib-frow \{[^}]*transition: max-width \.22s ease, opacity/);
+  assert.match(css, /\.ib-search \{[^}]*width: 0;[^}]*transition: width \.22s ease/);
+  assert.match(css, /\.ib-fbar\.is-search \.ib-frow \{ max-width: 0;[^}]*opacity: 0/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ #view-inbox \.ib-frow, #view-inbox \.ib-search \{ transition: none; \} \}/);
+  assert.match(css, /\.ib-fbtn:focus-visible \{[^}]*var\(--link\)/);
+});
+
+test("fix 3: with reduced motion the switch is instant; focus moves to the box and back; closed parts are inert and then hidden", async () => {
+  const clock = makeClock(), d = boot({ clock, channels: CHANNELS_ON });
+  asInbox(d);
+  d.window.matchMedia = (q) => ({ matches: q === "(prefers-reduced-motion: reduce)" });
+  await d.openInbox();
+  const sb = d.$("ib-b-search"), row = d.$("ib-frow"), field = d.all(d.$("ib-lhead"), "ib-search")[0], inp = d.$("ib-q");
+  assert.equal(field.getAttribute("inert"), "", "the closed box is not reachable");
+  await d.click(sb);
+  assert.deepEqual([row.hidden, field.hidden, row.getAttribute("inert")], [true, false, ""], "instant, no timer");
+  assert.equal(d.doc.activeElement, inp);
+  await d.click(d.$("ib-sclose"));
+  assert.deepEqual([row.hidden, field.hidden, row.getAttribute("inert"), field.getAttribute("inert")], [false, true, null, ""]);
+  assert.equal(d.doc.activeElement, sb);
 });

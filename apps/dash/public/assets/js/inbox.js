@@ -1295,8 +1295,18 @@
     var inp = D.el("input", { "class": "ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });
     inp.value = st.qText;
     var x = h("button", "ib-sclear"); x.setAttribute("type", "button"); x.setAttribute("id", "ib-sclose"); x.setAttribute("aria-label", "Close search"); x.setAttribute("title", "Close search"); x.appendChild(icon(ICON.x));
-    function show(on) {
-      st.sOpen = on; row.hidden = on; field.hidden = !on; sb.setAttribute("aria-expanded", on ? "true" : "false"); wrap.classList.toggle("is-search", on);
+    var tm = null;
+    function reduced() { try { return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; } }
+    /* The CSS does the motion (.is-search on the bar). The part that is leaving gets inert at once and `hidden` after the transition (260 ms, or at once
+       with reduced motion), so nobody tabs into a hidden button or the closed box. */
+    function show(on, still) {
+      st.sOpen = on; sb.setAttribute("aria-expanded", on ? "true" : "false");
+      if (tm !== null) { clearTimeout(tm); tm = null; }
+      var fast = still || reduced(), gone = on ? row : field, back = on ? field : row;
+      back.hidden = false; back.removeAttribute("inert"); gone.setAttribute("inert", "");
+      if (!fast) { try { void wrap.offsetWidth; } catch (e) { /* no layout */ } }
+      wrap.classList.toggle("is-search", on);
+      if (fast) gone.hidden = true; else tm = setTimeout(function () { tm = null; gone.hidden = true; }, 260);
     }
     function later() { if (st.qTimer !== null) clearTimeout(st.qTimer); st.qTimer = setTimeout(function () { st.qTimer = null; if (S === st) searchNow(); }, 300); }
     function close() {
@@ -1313,7 +1323,7 @@
     });
     x.addEventListener("click", close);
     add(box, mag, inp, x); add(field, lab, box); add(wrap, row, field);
-    show(open);
+    show(open, true);
     return wrap;
   }
   function searchNow() {

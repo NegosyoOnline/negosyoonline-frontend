@@ -30,7 +30,7 @@
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function audienceName(a) { for (var i = 0; i < AUDIENCES.length; i++) if (AUDIENCES[i][0] === a) return AUDIENCES[i][1]; return AUDIENCES[0][1]; }
   /* "Will send to 95 members". */
-  function willSend(n) { return "Will send to " + plural(num(n), "member", "members"); }
+  function willSend(n, aud) { return "Will send to " + (aud === "pick" ? plural(num(n), "recipient", "recipients") : plural(num(n), "member", "members")); }
   /* The groups left out of a count, [label, n] for each non-zero one. */
   function leftOut(lo) {
     var out = [];
@@ -193,7 +193,7 @@
     /* Contacts are offered only while GET /sites/{id}/contacts/status/ answers; a 404 (STORE_CONTACTS_ENABLED off) or any error hides the option. */
     function readContacts() {
       D.call("GET", "/sites/" + ui.site + "/contacts/status/", null, true).then(function (res) {
-        if (st.dead || !(res && res.ok && res.data && typeof res.data === "object")) return;
+        if (st.dead || !(res && res.ok && res.data && res.data.contacts === true)) return;
         st.contactsOn = true; if (st.view === "form") draw();
       });
     }
@@ -507,7 +507,7 @@
       if (st.audLoading || !st.aud) { box.appendChild(h("p", "pm-meta", "Counting members…")); return; }
       if (st.aud.failed) { box.appendChild(h("p", "pm-meta", "We could not count your members just now.")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); return; }
       var n = num(st.aud.will_send);
-      box.appendChild(h("p", "ib-bk-will", willSend(n)));
+      box.appendChild(h("p", "ib-bk-will", willSend(n, st.audience)));
       var lo = leftOut(st.aud.left_out);
       if (lo.length) {
         box.appendChild(h("p", "pm-hint", "Left out:"));
@@ -533,7 +533,7 @@
       var n = st.aud && !st.aud.failed ? num(st.aud.will_send) : 0;
       if (!n || !textOk() || !st.preview) return;
       var tick = h("label", "ib-bk-tick"), c = D.el("input", { type: "checkbox", id: "ib-bk-sure" }); c.checked = st.sure;
-      add(tick, c, h("span", "", "Send to " + plural(n, "member", "members") + " from your phone?"));
+      add(tick, c, h("span", "", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "member", "members")) + " from your phone?"));
       var go = ui.btn("Start sending", "primary", function (x) { confirmSend(x, n); }); go.setAttribute("id", "ib-bk-go"); go.disabled = !st.sure || st.sending;
       c.addEventListener("change", function () { st.sure = !!c.checked; go.disabled = !st.sure || st.sending; });
       box.appendChild(tick); box.appendChild(go);

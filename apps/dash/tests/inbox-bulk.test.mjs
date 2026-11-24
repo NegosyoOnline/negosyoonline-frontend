@@ -462,6 +462,9 @@ test("bulk: the pause reasons and the estimate in plain words", () => {
   assert.equal(u.estimate(0), ""); assert.equal(u.estimate(30), "Less than a minute left");
   assert.equal(u.estimate(3900), "About 1 hour 5 minutes left"); assert.equal(u.estimate(7200), "About 2 hours left");
   assert.equal(u.willSend(1), "Will send to 1 member");
+  assert.equal(u.willSend(1, "all"), "Will send to 1 member");
+  assert.equal(u.willSend(1, "pick"), "Will send to 1 recipient");
+  assert.equal(u.willSend(14, "pick"), "Will send to 14 recipients");
 });
 
 test("bulk: blocked states show blocked_message; no_line adds the link to SMS Settings; Send Bulk SMS and the form are not offered", async () => {
@@ -582,6 +585,40 @@ test("bulk pick: the option is hidden completely when contacts/status/ answers 4
   assert.ok(!d.calls.some((c) => c.path === CT + "groups/"), "groups never asked");
 });
 
+test("bulk pick: contacts/status/ must say contacts: true; 200 with contacts:false or no contacts field keeps the option hidden", async () => {
+  for (const body of [{ contacts: false, count: 0, max: 20000 }, { count: 2, max: 20000 }]) {
+    const d = await openPick({}, (p) => (p === CT + "status/" ? ok(body) : contactsApi()(p)));
+    assert.equal(d.$("ib-bk-to-pick"), null);
+    assert.ok(!pane(d).textContent.includes("Chosen groups and contacts"));
+  }
+  const on = await openPick();
+  assert.ok(on.$("ib-bk-to-pick"));
+  assert.ok(pane(on).textContent.includes("Chosen groups and contacts"));
+});
+
+test("bulk pick: the count says recipients for chosen groups and contacts, members for all; the confirm line matches", async () => {
+  const d = await openPick();
+  await pickRadio(d); await typeText(d, "Sale");
+  cBox(d, "ib-bk-gsel").fire("click"); pickRow(d, "ib-bk-gsel", "Regulars"); await settle(); await settle();
+  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 14 recipients"));
+  assert.ok(!d.$("ib-bk-count").textContent.includes("member"));
+  assert.ok(d.$("ib-bk-confirm").textContent.includes("Send to 14 recipients from your phone?"));
+});
+
+test("bulk: the counter gets is-over above the limit and loses it when back under", async () => {
+  const d = await openBulk();
+  const c = d.$("ib-bk-c");
+  assert.ok(!c.classList.contains("is-over"));
+  await typeText(d, "x".repeat(161));
+  assert.ok(d.$("ib-bk-c").classList.contains("is-over"));
+  await typeText(d, "x".repeat(160));
+  assert.ok(!d.$("ib-bk-c").classList.contains("is-over"));
+  await typeText(d, "x".repeat(200));
+  assert.ok(d.$("ib-bk-c").classList.contains("is-over"));
+  await typeText(d, "short");
+  assert.ok(!d.$("ib-bk-c").classList.contains("is-over"));
+});
+
 test("bulk pick: nothing picked shows no count and no Send; picking groups and contacts shows chips (masked numbers only) and posts the pick body", async () => {
   const d = await openPick();
   await pickRadio(d);
@@ -607,7 +644,7 @@ test("bulk pick: nothing picked shows no count and no Send; picking groups and c
   assert.ok(cRows(d, "ib-bk-csel").some((n) => n.textContent.includes("Lito Cruz \u00B7 0918 *** 5678")));
   pickRow(d, "ib-bk-csel", "Lito Cruz"); await settle(); await settle();
   assert.deepEqual(d.bk.seen.audience[2], { audience: "pick", groups: ["g1"], contacts: ["c1"] });
-  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 14 members"));
+  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 14 recipients"));
   assert.ok(d.$("ib-bk-count").textContent.includes("Asked for no more texts (STOP): 1"));
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent), "never a full number");
   /* send */
@@ -623,7 +660,7 @@ test("bulk pick: removing a chip counts again (the newest answer wins) and with 
   const d = await openPick();
   await pickRadio(d); await typeText(d, "Sale");
   cBox(d, "ib-bk-gsel").fire("click"); pickRow(d, "ib-bk-gsel", "VIP"); await settle(); await settle();
-  assert.ok(d.$("ib-bk-confirm").textContent.includes("Send to 14 members from your phone?"));
+  assert.ok(d.$("ib-bk-confirm").textContent.includes("Send to 14 recipients from your phone?"));
   const n = d.bk.seen.audience.length;
   const x = d.$("ib-bk-gchips").all((q) => q.tagName === "BUTTON")[0];
   assert.equal(x.getAttribute("aria-label"), "Remove VIP");
@@ -644,7 +681,7 @@ test("bulk pick: every change of the pick counts again and the last count is the
   cBox(d, "ib-bk-gsel").fire("click"); pickRow(d, "ib-bk-gsel", "Regulars"); await settle(); await settle();
   cBox(d, "ib-bk-gsel").fire("click"); pickRow(d, "ib-bk-gsel", "VIP"); await settle(); await settle();
   assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "pick", groups: ["g1", "g2"], contacts: [] });
-  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 14 members"));
+  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 14 recipients"));
 });
 
 test("bulk pick: 400 invalid_audience shows the server's message as it is; 409 audience_changed counts again", async () => {

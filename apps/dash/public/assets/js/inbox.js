@@ -50,7 +50,10 @@
     stack: "M3 13l3-8h12l3 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 13h5l1 3h6l1-3h5",
     comment: "M4 4h16v12H9l-5 4zM8 8.5h8M8 11.5h5",
     check: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6",
-    unans: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16h.01"
+    unans: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16h.01",
+    reopen: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
+    panel: "M4 5h16v14H4zM15 5v14",
+    users: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 14a6.5 6.5 0 0 1 3 6"
   };
   function btn(label, kind, fn, iconPath) {
     var b = h("button", "no-btn " + (kind === "primary" ? "no-btn-primary" : "no-btn-ghost"));
@@ -140,9 +143,40 @@
     fbcomment: { label: "FB Comment", full: "Facebook comment", icon: "comment" },
     sms: { label: "Text (SMS)", full: "Text messages (SMS)", icon: "sms" }
   };
-  var FILTERS = [["all", "All channels"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"], ["fbcomment", "FB Comment"]];
-  /* The Channel filter's choices: Text (SMS) only while the API says the feature is there (GET .../channels/ sms_available). */
-  function filtersFor(ch) { return SMS && SMS.util.available(ch) ? FILTERS.slice(0, 4).concat([["sms", "Text (SMS)"]], FILTERS.slice(4)) : FILTERS; }
+  /* The channel tabs across the top (they set the same filter value the Channel dropdown used to). Text (SMS) only while the API says the feature
+     is there (GET .../channels/ sms_available). No Instagram or WhatsApp. */
+  var TABS = [["all", "All messages"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"], ["fbcomment", "FB Comments"]];
+  function tabsFor(ch) { return SMS && SMS.util.available(ch) ? TABS.concat([["sms", "Text (SMS)"]]) : TABS; }
+  /* The quick chips of the list: toggle buttons over the EXISTING filters. `dim` is the S field they set (status, unread, answered), `val` its
+     value. Within one dim only one chip is on; pressing the one that is on turns the dim off (All). Nothing new is asked of the API. */
+  var CHIPS = [
+    { key: "unread", label: "Unread", dim: "unread", val: "1" },
+    { key: "read", label: "Read", dim: "unread", val: "0" },
+    { key: "unanswered", label: "Unanswered", dim: "answered", val: "unanswered" },
+    { key: "answered", label: "Answered", dim: "answered", val: "answered" },
+    { key: "open", label: "Open", dim: "status", val: "open" },
+    { key: "closed", label: "Closed", dim: "status", val: "closed" }
+  ];
+  function chipOn(q, chip) { return !!q && q[chip.dim] === chip.val; }
+  /* The query that pressing `chip` leads to: the current one with that chip's dim switched on, or off when it was on. */
+  function chipNext(q, chip) {
+    var n = { q: q.q || "", status: q.status || "", unread: q.unread || "", answered: q.answered || "", filter: q.filter || "all" };
+    n[chip.dim] = chipOn(q, chip) ? "" : chip.val;
+    return n;
+  }
+  /* The reply box's grey words, by the thread's channel. */
+  var PLACEHOLDER = { messenger: "Reply in Messenger\u2026", email: "Reply by email\u2026", webchat: "Reply in website chat\u2026", sms: "Reply by text\u2026", fbcomment: "Reply to comment\u2026" };
+  function placeholderFor(channel) { return has(PLACEHOLDER, channel) ? PLACEHOLDER[channel] : "Write a reply\u2026"; }
+  /* The contact panel's lines, from the data the thread already has and by the same rules as the line under the name:
+     an email thread its address, a text its (server-masked) mobile number, a website chat whatever of the two the visitor left. */
+  function contactOf(channel, t) {
+    var email = t && typeof t.contact_email === "string" && t.contact_email ? t.contact_email : "";
+    var mobile = t && typeof t.contact_mobile === "string" && t.contact_mobile ? t.contact_mobile : "";
+    if (channel === "email") return { email: email, mobile: "" };
+    if (channel === "sms") return { email: "", mobile: mobile };
+    if (channel === "webchat") return { email: email, mobile: mobile };
+    return { email: "", mobile: "" };
+  }
   /* A row's channel: what the API says, else what its ref says (cm_ is a Facebook comment); "" when neither names one. */
   function channelOf(x) {
     var c = x && x.channel;
@@ -961,17 +995,19 @@
       else one.appendChild(stateBox(ICON.warn, "The inbox is not open for you", f.message, null, true));
       wrap.appendChild(one); return;
     }
-    var split = h("div", "ib-split"), right = h("div", "ib-rcol");
     var host = h("div", "ib-tools-host" + (paneOpen() ? " is-hide-phone" : "")); host.setAttribute("id", "ib-tools-host");
-    add(right, host, threadPane()); /* the right column: the filter toolbar over the open-conversation card */
-    add(split, listPane(), right);
-    wrap.appendChild(split);
-    if (S.sel) drawThread(); else if (S.composing) { smsCompose(true); }
+    var split = h("div", "ib-split" + (cpOpen() ? "" : " ib-cp-off"));
+    split.setAttribute("id", "ib-split");
+    add(split, listPane(), threadPane(), contactPane());
+    add(wrap, host, split);
+    syncTools();
+    if (S.sel) { drawContact(); drawThread(); } else if (S.composing) { smsCompose(true); }
   }
+  /* The left column: the search box and the quick chips (built by syncTools() once there is something to filter), then the list. */
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (paneOpen() ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
-    var head = h("div", "ib-pane-head ib-lhead"); head.appendChild(h("h2", "ib-h", "Conversations"));
-    var togs = h("div", "ib-togs"), at = answeredToggle(), rt = readToggle(); add(togs, at, rt); attachTip(at, togs); attachTip(rt, togs); head.appendChild(togs); p.appendChild(head);
+    p.appendChild(h("h2", "sr-only", "Conversations"));
+    var head = h("div", "ib-lhead"); head.setAttribute("id", "ib-lhead"); p.appendChild(head);
     var body = h("div", "ib-listbody"); body.setAttribute("id", "ib-listbody"); p.appendChild(body);
     fillList(body);
     return p;
@@ -1007,9 +1043,11 @@
       var cmRow = isComment(it) && window.NOInboxComments ? window.NOInboxComments.row(it) : null;
       var rowName = cmRow ? cmRow.name : nameOf(it.display_name);
       var av = cmRow ? avatarNode(rowName, it.avatar_url) : avatarNode(it.display_name, it.avatar_url);
+      /* Meta style: the round avatar with a small channel badge at its bottom-right; the channel's name stays for screen readers and the tooltip */
+      var avw = h("span", "ib-avw"); avw.appendChild(av); var cdot = channelDot(channelOf(it)); if (cdot) avw.appendChild(cdot);
       var text = h("span", "ib-it"), top = h("span", "ib-top"), nm = h("span", "ib-name");
       nm.appendChild(document.createTextNode(rowName));
-      var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: closed envelope unread, open envelope read */
+      var side = h("span", "ib-side"), rs = h("span", "ib-rs " + (unread ? "ib-rs-u" : "ib-rs-r")); /* the time, and under it the read state: a blue dot when unread */
       rs.setAttribute("role", "img"); rs.setAttribute("aria-label", unread ? "Unread" : "Read"); rs.setAttribute("title", unread ? "Unread" : "Read");
       rs.appendChild(icon(unread ? ICON.mail : ICON.mailOpen));
       add(side, h("span", "ib-time", listTime(cmRow ? it.created_at : it.updated_at, now)), rs);
@@ -1017,12 +1055,11 @@
       /* the answered state icon, right after the name, on every channel: a comment has its own state, a conversation its item.answered (none when the API does not send it) */
       var stIcon = cmRow ? cmRow.status : window.NOInboxComments ? window.NOInboxComments.statusIcon(it) : null;
       if (stIcon) { top.classList.add("ib-top-cm"); nm.classList.add("ib-name-cm"); top.appendChild(stIcon); }
-      var badges = h("span", "ib-badges");
-      add(badges, channelBadge(channelOf(it)));
-      if (cmRow) cmRow.chips.forEach(function (c) { badges.appendChild(c); });
-      if (it.status === "closed") badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed"));
-      add(text, top, h("span", "ib-snip", cmRow ? it.text || "" : it.snippet || ""), cmRow ? cmRow.line : null, badges);
-      add(b, av, text, side);
+      var badges = h("span", "ib-badges"), extra = false;
+      if (cmRow) cmRow.chips.forEach(function (c) { badges.appendChild(c); extra = true; });
+      if (it.status === "closed") { badges.appendChild(h("span", "chip chip-neutral ib-mini", "Closed")); extra = true; }
+      add(text, top, h("span", "ib-snip", cmRow ? it.text || "" : it.snippet || ""), cmRow ? cmRow.line : null, extra ? badges : null);
+      add(b, avw, text, side);
       b.setAttribute("data-ref", it.ref);
       b.addEventListener("click", function () { openThread(it.ref, rowName); });
       li.appendChild(b); ul.appendChild(li);
@@ -1039,150 +1076,97 @@
     if (c.full) { b.setAttribute("aria-label", c.full); b.setAttribute("title", c.full); } /* the short label is shown; the full name stays for screen readers and the tooltip */
     return b;
   }
-  var STATUSES = [["all", "All status"], ["open", "Open"], ["closed", "Closed"]];
-  /* The filter toolbar (Coach Ed 2026-11-17, built like the Products toolbar): a row ABOVE the open-conversation card, in the right column,
-     [Search] [Channel] [Open/Closed] [Refresh]. It filters the list on the left. On a phone it sits above the list and goes while a
-     conversation is open. It is one self-contained block (toolbar()) that syncTools() puts into #ib-tools-host, so it can move with
-     one change. lite: Refresh alone, for a list with nothing to filter yet. It is rebuilt only when that mode changes, so the cursor
-     stays in the search box while the rows change. */
+  /* The small round channel badge on a row's avatar: an icon only (the words are for screen readers and the tooltip). */
+  function channelDot(channel) {
+    var c = CHANNEL[channel]; if (!c) return null;
+    var d = h("span", "ib-cdot ib-cdot-" + channel); d.setAttribute("title", c.full || c.label);
+    d.appendChild(icon(ICON[c.icon])); d.appendChild(h("span", "sr-only", c.label));
+    return d;
+  }
+  /* The toolbar above the card (Meta Business Inbox layout, ClickUp z8uq9mj6ch): the channel TABS at the left, New text, Text many members and
+     Refresh at the right. The search box and the quick chips are the head of the list column (#ib-lhead). Both are built by syncTools()
+     only when the mode changes (full: something to filter; lite: Refresh and the buttons alone), so the cursor stays in the search box
+     while the rows change. The toolbar goes while a conversation is open on a phone. */
   function syncTools() {
     var host = byId("ib-tools-host"); if (!host || !S) return;
     var mode = S.state === "ready" ? "full" : S.state === "empty" ? "lite" : "none";
     if (host.getAttribute("data-mode") === mode) return;
     clear(host); host.setAttribute("data-mode", mode);
     if (mode !== "none") host.appendChild(toolbar(mode === "lite"));
+    var lh = byId("ib-lhead");
+    if (lh) { clear(lh); if (mode === "full") add(lh, searchBox(), chipRow()); }
   }
   function toolbar(lite) {
-    var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow");
+    var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow"), acts = h("div", "ib-acts");
     box.appendChild(row);
-    if (!lite) {
-      row.appendChild(searchBox());
-      row.appendChild(channelField());
-      row.appendChild(statusField());
-    }
-    var nt = newTextButton(); if (nt) row.appendChild(nt);
-    var bk = bulkButton(); if (bk) row.appendChild(bk);
-    row.appendChild(refreshButton());
+    if (!lite) row.appendChild(tabBar());
+    var nt = newTextButton(); if (nt) acts.appendChild(nt);
+    var bk = bulkButton(); if (bk) acts.appendChild(bk);
+    acts.appendChild(refreshButton());
+    row.appendChild(acts);
     return box;
   }
-  /* The Channel filter: the house dropdown, showing its real default "All channels". */
-  function channelField() {
-    var fld = h("div", "ib-fld ib-fld-ch");
-    var lab = h("label", "pm-label sr-only", "Channel"); lab.setAttribute("for", "ib-filter");
-    var sel = D.el("select", { "class": "ib-input", id: "ib-filter" });
-    filtersFor(S.chat).forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === S.filter) op.selected = true; sel.appendChild(op); });
-    sel.value = S.filter;
-    sel.addEventListener("change", function () {
-      if (!S || sel.value === S.filter) return;
-      var a = sourcesFor(S.filter, S.status), b = sourcesFor(sel.value, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
-      if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = sel.value; S.listTop = 0; fillList(byId("ib-listbody")); var again = byId("ib-filter"); if (again && again.ibFocus) again.ibFocus(); return; }
-      /* FB Comment reads only comments, the other channels only conversations, All both: a change between those asks the APIs again */
-      applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: sel.value }, sel, S.filter);
+  /* The channel tabs: one tab per channel the store has (tabsFor), the same filter value the Channel dropdown set. */
+  function tabBar() {
+    var bar = h("div", "ib-tabs"); bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", "Channel");
+    var tabs = [];
+    tabsFor(S.chat).forEach(function (t) {
+      var b = h("button", "ib-tab", t[1]); b.setAttribute("type", "button"); b.setAttribute("role", "tab"); b.setAttribute("data-ch", t[0]); b.setAttribute("id", "ib-tab-" + t[0]);
+      b.addEventListener("click", function () { setChannel(t[0]); });
+      b.addEventListener("keydown", function (e) {
+        var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0, i = tabs.indexOf(b);
+        if (e.key === "Home") { d = -i; } else if (e.key === "End") { d = tabs.length - 1 - i; }
+        if (!d) return;
+        e.preventDefault();
+        var to = tabs[(i + d + tabs.length) % tabs.length]; if (to) to.focus();
+      });
+      tabs.push(b); bar.appendChild(b);
     });
-    add(fld, lab, sel);
-    combo(sel, "Channel");
-    return fld;
+    paintTabs(tabs);
+    return bar;
   }
-  /* The Open/Closed filter: the same house dropdown. Open and Closed ask the API (?status=); All status sends nothing. */
-  function statusField() {
-    var fld = h("div", "ib-fld ib-fld-st");
-    var lab = h("label", "pm-label sr-only", "Status"); lab.setAttribute("for", "ib-status");
-    var sel = D.el("select", { "class": "ib-input", id: "ib-status" });
-    var cur = S.status || "all";
-    STATUSES.forEach(function (f) { var op = D.el("option", { value: f[0] }, f[1]); if (f[0] === cur) op.selected = true; sel.appendChild(op); });
-    sel.value = cur;
-    sel.addEventListener("change", function () {
-      var v = sel.value === "open" || sel.value === "closed" ? sel.value : "";
-      if (S && v !== S.status) applyQuery({ q: S.q, status: v, unread: S.unread, answered: S.answered, filter: S.filter }, sel, S.status || "all");
+  function paintTabs(tabs) {
+    tabs.forEach(function (b) {
+      var on = b.getAttribute("data-ch") === S.filter;
+      b.classList.toggle("is-on", on); b.setAttribute("aria-selected", on ? "true" : "false"); b.setAttribute("tabindex", on ? "0" : "-1");
     });
-    add(fld, lab, sel);
-    combo(sel, "Status");
-    return fld;
   }
-  /* The Read/Unread filter (Coach Ed 2026-11-17): one icon toggle in the Conversations header, All -> Unread -> Read -> All. Unread sends
-     unread=1, Read sends unread=0; All sends nothing. S.unread is "" | "1" | "0". */
-  /* The house tooltip for an icon button: dark, fixed under the button (so no scroll box clips it), opens on hover after about 120 ms, at once
-     on focus, and on tap (a touch tap toggles it from what it was before the tap, like the other Inbox tooltips). Its words are the button's
-     aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
-  var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
-  function attachTip(btnEl, host) {
-    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false, held = false, heldT = null;
-    tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id); host.appendChild(tip);
-    function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
-    function place() {
-      if (!btnEl.getBoundingClientRect) return;
-      var r = btnEl.getBoundingClientRect(), w = tip.offsetWidth || 160, vw = window.innerWidth || 375;
-      tip.style.top = Math.round(r.bottom + 6) + "px"; tip.style.left = Math.round(Math.max(8, Math.min(r.right - w, vw - w - 8))) + "px";
-    }
-    function shut() {
-      if (timer) { clearTimeout(timer); timer = null; }
-      tip.classList.remove("is-open"); if (TIP.close === shut) TIP.close = null;
-      if (document.removeEventListener) { document.removeEventListener("click", outside); document.removeEventListener("scroll", onScroll, true); }
-    }
-    /* A toggle repaints its icon inside its own click, so the click target is already out of the page when the click reaches the document: that
-       is not an outside click. The list reload and its scroll reset (held by ibTipHold) are not a user scroll either. */
-    function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; if (t && document.contains && !document.contains(t)) return; shut(); }
-    function onScroll() { if (held) return; shut(); }
-    function open() {
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (TIP.close && TIP.close !== shut) TIP.close();
-      refresh(); tip.classList.add("is-open"); TIP.close = shut; place();
-      if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", onScroll, true); }
-    }
-    btnEl.ibTipHold = function (on) { if (heldT) { clearTimeout(heldT); heldT = null; } if (on) held = true; else heldT = setTimeout(function () { held = false; heldT = null; }, 250); };
-    btnEl.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
-    btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open") || timer) return; timer = setTimeout(function () { timer = null; open(); }, 120); });
-    btnEl.addEventListener("mouseleave", function () { if (timer) { clearTimeout(timer); timer = null; } if (!document.activeElement || document.activeElement !== btnEl) shut(); });
-    btnEl.addEventListener("focus", open);
-    btnEl.addEventListener("blur", shut);
-    btnEl.addEventListener("keydown", function (e) { if (e.key === "Escape") shut(); });
-    btnEl.addEventListener("click", function () { if (touchTap) { if (wasOpen) shut(); else open(); touchTap = false; } else if (tip.classList.contains("is-open")) refresh(); else open(); });
-    btnEl.ibTipRefresh = function () { if (tip.classList.contains("is-open")) { refresh(); place(); } };
+  function syncTabs() {
+    if (!S) return;
+    paintTabs(tabsFor(S.chat).map(function (t) { return byId("ib-tab-" + t[0]); }).filter(Boolean));
   }
-  var READS = { "": { icon: "stack", text: "Showing all messages", next: "1" }, "1": { icon: "mail", text: "Showing unread", next: "0" }, "0": { icon: "mailOpen", text: "Showing read", next: "" } };
-  function readToggle() {
-    var b = h("button", "ib-rtog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-rtog");
-    b.addEventListener("click", function () {
-      if (!S) return;
-      var v = READS[S.unread || ""].next;
-      syncRead(v); /* the new state shows at once; applyQuery puts it back when the read fails */
-      if (b.ibTipHold) b.ibTipHold(true);
-      applyQuery({ q: S.q, status: S.status, unread: v, answered: S.answered, filter: S.filter }, null, "");
+  /* A tab was chosen: the filter changes at once when the same sources serve it; FB Comments reads only comments, the other channels only
+     conversations, All both, so a change between those asks the APIs again (applyQuery puts the tab back when that read fails). */
+  function setChannel(v) {
+    if (!S || v === S.filter) return;
+    var a = sourcesFor(S.filter, S.status), b = sourcesFor(v, S.status), live = !NB.cmOff && !!window.NOInboxComments; /* no comments to read: nothing to ask again */
+    if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = v; S.listTop = 0; fillList(byId("ib-listbody")); syncTabs(); return; }
+    applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: v }, null, "");
+  }
+  /* The quick chips (CHIPS): toggle buttons, aria-pressed. Pressing one shows its state at once; applyQuery puts it back when the read fails. */
+  function chipRow() {
+    var row = h("div", "ib-chips"); row.setAttribute("role", "group"); row.setAttribute("aria-label", "Quick filters"); row.setAttribute("id", "ib-chips");
+    CHIPS.forEach(function (c) {
+      var b = h("button", "ib-chip", c.label); b.setAttribute("type", "button"); b.setAttribute("data-chip", c.key); b.setAttribute("id", "ib-chip-" + c.key);
+      b.setAttribute("aria-pressed", chipOn(S, c) ? "true" : "false"); b.classList.toggle("is-on", chipOn(S, c));
+      b.addEventListener("click", function () {
+        if (!S) return;
+        var next = chipNext(S, c);
+        paintChips(next);
+        applyQuery(next, null, "");
+      });
+      row.appendChild(b);
     });
-    paintRead(b, S.unread || "");
-    return b;
+    return row;
   }
-  function paintRead(b, v) {
-    var r = READS[v] || READS[""];
-    clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
-    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
-  }
-  /* Shows v on the toggle, or the real S.unread when v is left out. */
-  function syncRead(v) { var b = byId("ib-rtog"); if (b && S) paintRead(b, v === undefined ? S.unread || "" : v); }
-  /* The Answered/Unanswered filter (Coach Ed 2026-11-18): the same kind of icon toggle as Read/Unread, beside it in the Conversations header,
-     All -> Answered -> Unanswered -> All. It sends answered=answered|unanswered to the conversations list and the comments list; All sends nothing.
-     It is not the Open/Closed status. S.answered is "" | "answered" | "unanswered". */
-  var ANSWERS = { "": { icon: "comment", text: "Showing answered and unanswered", next: "answered" }, answered: { icon: "check", text: "Showing answered only", next: "unanswered" }, unanswered: { icon: "unans", text: "Showing unanswered only", next: "" } };
-  function answeredToggle() {
-    var b = h("button", "ib-rtog ib-atog"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-atog");
-    b.addEventListener("click", function () {
-      if (!S) return;
-      var v = ANSWERS[S.answered || ""].next;
-      paintAns(b, v); /* the new state shows at once; applyQuery puts it back when the read fails */
-      if (b.ibTipHold) b.ibTipHold(true);
-      applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: v, filter: S.filter }, null, "");
+  function paintChips(q) {
+    var row = byId("ib-chips"); if (!row) return;
+    CHIPS.forEach(function (c) {
+      var b = byId("ib-chip-" + c.key); if (!b) return;
+      var on = chipOn(q, c); b.setAttribute("aria-pressed", on ? "true" : "false"); b.classList.toggle("is-on", on);
     });
-    paintAns(b, S.answered || "");
-    return b;
   }
-  function paintAns(b, v) {
-    var r = ANSWERS[v] || ANSWERS[""];
-    clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.setAttribute("aria-pressed", v ? "true" : "false");
-    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
-  }
-  function syncAns(v) { var b = byId("ib-atog"); if (b && S) paintAns(b, v === undefined ? S.answered || "" : v); }
+  function syncChips() { if (S) paintChips(S); }
   /* "New text": only while the API says the Text (SMS) feature is there. */
   function newTextButton() {
     if (!SMS || !SMS.util.available(S.chat)) return null;
@@ -1195,7 +1179,7 @@
   function bulkButton() {
     if (!BULK || !S || !S.bulk || S.bulk.available !== true || !SMS || !SMS.util.available(S.chat)) return null;
     var b = h("button", "no-btn no-btn-ghost ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-bulk-btn"); b.setAttribute("aria-label", "Text many members");
-    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "Text many members"));
+    b.appendChild(icon(ICON.users)); b.appendChild(h("span", "ib-rf-t", "Text many members"));
     b.addEventListener("click", function () { if (S) bulkOpen(); });
     return b;
   }
@@ -1271,10 +1255,9 @@
     if (q === S.q) return;
     applyQuery({ q: q, status: S.status, unread: S.unread, answered: S.answered, filter: S.filter }, null, "");
   }
-  /* A new search text, status, Read/Unread or Channel: one read of the first page of the sources it needs; S changes only when the read worked
+  /* A new search text, status, Read/Unread, Answered or Channel (tab): one read of the first page of the sources it needs; S changes only when the read worked
      (else `box`, the dropdown, goes back to `revert`). The search goes to both APIs, Read/Unread maps to the comments' unread=1/0, and
      Closed reads no comments (they have no closed state). */
-  function holdOff() { ["ib-rtog", "ib-atog"].forEach(function (i) { var b = byId(i); if (b && b.ibTipHold) b.ibTipHold(false); }); }
   function applyQuery(next, box, revert) {
     var mine = ++token, st = S;
     readFirst(sourcesFor(next.filter, next.status), next).then(function (r) {
@@ -1282,15 +1265,15 @@
       if (!r.ok) {
         D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");
         if (box) { box.value = revert || "all"; if (box.ibSync) box.ibSync(); }
-        syncRead(); syncAns(); holdOff();
+        syncChips(); syncTabs();
         return;
       }
       S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.answered = next.answered || ""; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
-      fillList(byId("ib-listbody")); syncRead(); syncAns(); holdOff();
-      if (box && box.ibFocus) box.ibFocus(); /* focus stays on the combo that was used (the Channel or the Status one) */
+      fillList(byId("ib-listbody")); syncChips(); syncTabs();
+      if (box && box.ibFocus) box.ibFocus();
       say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
@@ -1326,6 +1309,7 @@
     var th = byId("ib-tools-host"); if (th) { if (paneOpen()) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); }
     var t = byId("ib-threadpane");
     if (t) { if (paneOpen()) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
+    drawContact();
     var nul = body.querySelector ? body.querySelector(".ib-list") : null;
     if (nul && top) nul.scrollTop = top; /* on the phone the list is hidden while a thread is open: its drawList on "< Inbox" restores it */
   }
@@ -1336,8 +1320,65 @@
     return p;
   }
 
-  /* The thread's head: back (phone), avatar, name with its channel badge and state chip, an optional address, and the action:
-     Close or Reopen conversation (mockups d2 to d4). */
+  /* ---------- the contact panel (right column) ----------
+     Built only from what the open conversation already has loaded: name, photo, channel, status, and the email / mobile as the head
+     shows them (masked by the server). Collapsible; the state is kept in localStorage (a convenience: it works without it). Not shown on a phone. */
+  var CP_KEY = "no-ib-contact";
+  var CP = null;
+  function cpOpen() {
+    if (CP === null) { CP = true; try { if (window.localStorage && window.localStorage.getItem(CP_KEY) === "0") CP = false; } catch (e) { CP = true; } }
+    return CP;
+  }
+  function cpToggle() {
+    CP = !cpOpen();
+    try { if (window.localStorage) window.localStorage.setItem(CP_KEY, CP ? "1" : "0"); } catch (e) { /* storage is off: the choice lasts until the page is left */ }
+    var sp = byId("ib-split"); if (sp) sp.classList.toggle("ib-cp-off", !CP);
+    var b = byId("ib-ctog"); if (b) paintCtog(b);
+    drawContact();
+    var after = CP ? byId("ib-cclose") : byId("ib-ctog"); if (after && after.focus) { try { after.focus({ preventScroll: true }); } catch (e2) { after.focus(); } }
+  }
+  function paintCtog(b) {
+    var on = cpOpen(), label = on ? "Hide contact details" : "Show contact details";
+    b.setAttribute("aria-expanded", on ? "true" : "false"); b.setAttribute("aria-label", label); b.setAttribute("title", label);
+    b.classList.toggle("is-on", on);
+  }
+  function contactPane() {
+    var p = h("aside", "ib-cpane"); p.setAttribute("id", "ib-cpane"); p.setAttribute("aria-label", "Contact details");
+    return p;
+  }
+  /* What the panel shows for the open conversation, or null. A comment has no thread read: its row's data is used. */
+  function contactSource() {
+    if (!S || !S.sel) return null;
+    var it = itemOf(S.sel), t = S.tstate === "ready" && S.thread ? S.thread : null;
+    var channel = channelOf(t && t.channel ? t : it || { ref: S.sel }), c = contactOf(channel, t);
+    var status = t ? t.status : it && typeof it.status === "string" ? it.status : "";
+    return { name: nameOf((t && t.display_name) || S.selName || (it && it.display_name)), channel: channel, status: status === "closed" || status === "open" ? status : "", email: c.email, mobile: c.mobile,
+      avatar: t && typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) };
+  }
+  function drawContact() {
+    var p = byId("ib-cpane"); if (!p || !S) return;
+    clear(p);
+    var d = contactSource();
+    p.hidden = !d || !cpOpen();
+    if (!d || !cpOpen()) return;
+    var head = h("div", "ib-chead"), close = h("button", "ib-ibtn ib-cclose"); close.setAttribute("type", "button"); close.setAttribute("id", "ib-cclose");
+    close.setAttribute("aria-label", "Hide contact details"); close.setAttribute("title", "Hide contact details"); close.setAttribute("aria-expanded", "true"); close.appendChild(icon(ICON.x));
+    close.addEventListener("click", cpToggle);
+    add(head, h("h3", "ib-ch3", "Contact"), close);
+    var who = h("div", "ib-cwho"), av = avatarNode(d.name, d.avatar); av.classList.add("ib-av-lg");
+    add(who, av, h("p", "ib-cname", d.name));
+    var row = h("div", "ib-chrow"); add(row, channelBadge(d.channel));
+    if (d.status) row.appendChild(h("span", "chip ib-mini " + (d.status === "closed" ? "chip-neutral" : "chip-ok"), d.status === "closed" ? "Closed" : "Open"));
+    who.appendChild(row);
+    var dl = h("dl", "ib-cdl");
+    function line(label, value) { if (value) add(dl, h("dt", "", label), h("dd", "", value)); }
+    line("Email", d.email); line("Mobile", d.mobile);
+    var ch = CHANNEL[d.channel]; line("Channel", ch ? ch.full || ch.label : "");
+    add(p, head, who, dl.firstChild ? dl : null);
+  }
+
+  /* The thread's head: back (phone), avatar, name with its channel badge and state chip, an optional address, and the actions as icon
+     buttons (Close or Reopen conversation; the contact panel toggle on a wide screen) (mockups d2 to d4). */
   function threadHead(name, o) {
     o = o || {};
     var head = h("div", "ib-thead");
@@ -1355,7 +1396,12 @@
     } else if (o.chip) nm.appendChild(o.chip);
     if (o.sub) nm.appendChild(h("p", "ib-sub", o.sub));
     add(head, back, av, nm);
-    if (o.action) head.appendChild(o.action);
+    var acts = h("div", "ib-hacts");
+    if (o.action) acts.appendChild(o.action);
+    var tg = h("button", "ib-ibtn ib-ctog"); tg.setAttribute("type", "button"); tg.setAttribute("id", "ib-ctog"); tg.appendChild(icon(ICON.panel)); paintCtog(tg);
+    tg.addEventListener("click", cpToggle);
+    acts.appendChild(tg);
+    head.appendChild(acts);
     return head;
   }
   /* ---------- close and reopen ---------- */
@@ -1381,9 +1427,13 @@
       say(status === "closed" ? "Conversation closed." : "Conversation reopened.");
     });
   }
+  /* Close / Reopen conversation as one icon button: its name is the aria-label and the tooltip. */
   function statusButton(closed) {
-    var b = btn(closed ? "Reopen conversation" : "Close conversation", closed ? "primary" : "ghost", function (x) { setStatus(x, closed ? "open" : "closed"); });
-    b.classList.add("ib-open");
+    var label = closed ? "Reopen conversation" : "Close conversation";
+    var b = h("button", "ib-ibtn ib-open" + (closed ? " is-primary" : "")); b.setAttribute("type", "button");
+    b.setAttribute("aria-label", label); b.setAttribute("title", label);
+    b.appendChild(icon(closed ? ICON.reopen : ICON.check));
+    b.addEventListener("click", function () { setStatus(b, closed ? "open" : "closed"); });
     return b;
   }
 
@@ -1391,6 +1441,7 @@
   function drawThread(focusBox, keepView) {
     var p = byId("ib-threadpane"); if (!p || !S || !S.sel) return;
     if (isCommentRef(S.sel)) { if (window.NOInboxComments) window.NOInboxComments.draw(); return; }
+    drawContact();
     var keep = null;
     if (keepView) {
       var om = p.querySelector ? p.querySelector(".ib-msgs") : null, ae = document.activeElement;
@@ -1439,7 +1490,7 @@
     if (!list.length) msgs.appendChild(h("p", "pm-meta", "No messages to show."));
     p.appendChild(msgs);
     var smsInfo = channel === "sms" && SMS ? smsInfoOf(t) : null;
-    p.appendChild(replyBox(name, !closed && !(smsInfo && smsInfo.off), focusBox, windowClosed(channel, t), channel === "messenger" ? windowNotice(t, now) : "", smsInfo));
+    p.appendChild(replyBox(name, !closed && !(smsInfo && smsInfo.off), focusBox, windowClosed(channel, t), channel === "messenger" ? windowNotice(t, now) : "", smsInfo, channel));
     if (keep && !keep.bottom) msgs.scrollTop = keep.top; else msgs.scrollTop = msgs.scrollHeight;
     if (keep) {
       var back = null;
@@ -1461,12 +1512,9 @@
   }
   /* The line under the name: an email thread's address; a chat visitor's email and mobile number, as far as they left them (the chat's contact ask). */
   function subOf(channel, t) {
-    if (channel === "email") return t.contact_email;
-    if (channel === "sms") return typeof t.contact_mobile === "string" ? t.contact_mobile : ""; /* masked by the server; the full number never reaches the page */
-    if (channel !== "webchat") return "";
-    var parts = [];
-    if (typeof t.contact_email === "string" && t.contact_email) parts.push(t.contact_email);
-    if (typeof t.contact_mobile === "string" && t.contact_mobile) parts.push(t.contact_mobile);
+    var c = contactOf(channel, t), parts = [];
+    if (c.email) parts.push(c.email);
+    if (c.mobile) parts.push(c.mobile);
     return parts.join(" \u00B7 ");
   }
   /* The note under a stored thread's head: no email given (chat), or the contact-form address nobody confirmed (email). A note only (P1). */
@@ -1479,11 +1527,11 @@
     var n = h("p", "ib-note" + (info ? " ib-note-info" : "")); n.appendChild(icon(info ? ICON.chat : ICON.warn)); n.appendChild(h("span", "", text));
     return n;
   }
-  function replyBox(name, open, focusBox, windowOff, winNote, sms) {
+  function replyBox(name, open, focusBox, windowOff, winNote, sms, channel) {
     var MAXL = sms && sms.max ? sms.max : MAX; /* a text's room is the server's: 160 less the store-name prefix */
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
-    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc");
+    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc"); ta.setAttribute("placeholder", placeholderFor(channel));
     var count = h("span", "ib-count", "0 / " + MAXL); count.setAttribute("id", "ib-rc");
     var foot = h("div", "ib-rfoot");
     if (open && windowOff) {
@@ -1555,6 +1603,7 @@
       failCodes: failCodes, failTextOf: failTextOf, chatBanner: chatBanner, windowClosed: windowClosed,
       grouped: grouped, windowNotice: windowNotice, badgeText: badgeText,
       timeOf: timeOf, sortNewest: sortNewest, horizonOf: horizonOf, visibleOf: visibleOf, nextSource: nextSource, mergeSource: mergeSource,
-      sourcesFor: sourcesFor, commentQuery: commentQuery, unreadSum: unreadSum },
+      sourcesFor: sourcesFor, commentQuery: commentQuery, unreadSum: unreadSum,
+      tabsFor: tabsFor, chips: CHIPS, chipOn: chipOn, chipNext: chipNext, placeholderFor: placeholderFor, contactOf: contactOf },
     combo: combo };
 })();

@@ -17,8 +17,6 @@ body.dash-app :is(#view-contacts, #ct-dialog-slot) .ct-tabs button:focus-visible
 :is(#view-contacts, #ct-dialog-slot) .ct-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
 :is(#view-contacts, #ct-dialog-slot) .ct-note { margin: 0; padding: 12px 0; color: var(--text-2); font-size: 16px; }
 :is(#view-contacts, #ct-dialog-slot) .ct-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
-:is(#view-contacts, #ct-dialog-slot) .ct-toolbar { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; }
-:is(#view-contacts, #ct-dialog-slot) .ct-toolbar .ct-field, :is(#view-contacts, #ct-dialog-slot) .ct-toolbar .ct-tool { margin: 0; }
 :is(#view-contacts, #ct-dialog-slot) .ct-field { position: relative; margin: 0 0 14px; min-width: 0; }
 :is(#view-contacts, #ct-dialog-slot) .ct-label { display: block; margin: 0 0 6px; padding: 0; font-size: 14px; font-weight: 600; color: var(--text-2); }
 :is(#view-contacts, #ct-dialog-slot) .ct-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
@@ -33,7 +31,6 @@ body.dash-app :is(#view-contacts, #ct-dialog-slot) .ct-tabs button:focus-visible
 :is(#view-contacts, #ct-dialog-slot) .ct-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
 :is(#view-contacts, #ct-dialog-slot) .ct-error[hidden] { display: none; }
 :is(#view-contacts, #ct-dialog-slot) .ct-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
-:is(#view-contacts, #ct-dialog-slot) .ct-actions .no-btn, :is(#view-contacts, #ct-dialog-slot) .ct-row .no-btn, :is(#view-contacts, #ct-dialog-slot) .ct-toolbar .no-btn { min-height: 44px; }
 :is(#view-contacts, #ct-dialog-slot) .ct-danger { color: var(--err-h); }
 :is(#view-contacts, #ct-dialog-slot) .no-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 :is(#view-contacts, #ct-dialog-slot) .ct-list { margin: 0; padding: 0; list-style: none; }
@@ -72,12 +69,54 @@ body.dash-app :is(#view-contacts, #ct-dialog-slot) .ct-tabs button:focus-visible
 :is(#view-contacts, #ct-dialog-slot) .ct-combo-opt:hover, :is(#view-contacts, #ct-dialog-slot) .ct-combo-opt.is-active { background: color-mix(in srgb, var(--link) 12%, transparent); }
 :is(#view-contacts, #ct-dialog-slot) .ct-combo-opt.is-selected { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
 :is(#view-contacts, #ct-dialog-slot) .ct-combo-opt.is-disabled { background: none; color: var(--meta); cursor: default; }
+/* the contacts app: groups | A-Z list | detail, one bordered card in the dash colours */
+:is(#view-contacts, #ct-dialog-slot) .ct-app { display: grid; grid-template-columns: 230px minmax(260px, 340px) minmax(0, 1fr); height: clamp(480px, calc(100vh - 190px), 820px); min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); overflow: hidden; }
+:is(#view-contacts, #ct-dialog-slot) .ct-col { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow-y: auto; padding: 14px; box-sizing: border-box; }
+:is(#view-contacts, #ct-dialog-slot) .ct-col-groups { border-right: 1px solid var(--card-line); background: color-mix(in srgb, var(--link) 4%, var(--card)); }
+:is(#view-contacts, #ct-dialog-slot) .ct-col-list { border-right: 1px solid var(--card-line); padding: 0; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; font-size: 15px; text-align: left; cursor: pointer; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-btn:hover { background: color-mix(in srgb, var(--link) 10%, transparent); }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-btn.is-on { background: color-mix(in srgb, var(--link) 20%, transparent); color: var(--link); font-weight: 600; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-btn:focus-visible, :is(#view-contacts, #ct-dialog-slot) .ct-row-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--link, #6C8CFF); }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-name { min-width: 0; overflow-wrap: anywhere; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-count { color: var(--meta); font-size: 13px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-foot { margin-top: 12px; display: grid; gap: 8px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-side-foot .no-btn { min-height: 40px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-list-head { display: flex; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid var(--card-line); }
+:is(#view-contacts, #ct-dialog-slot) .ct-list-head .ct-search { flex: 1; margin: 0; }
+:is(#view-contacts, #ct-dialog-slot) .ct-plus { min-width: 44px; padding: 0; font-size: 22px; line-height: 1; }
+:is(#view-contacts, #ct-dialog-slot) .ct-back { display: none; }
+:is(#view-contacts, #ct-dialog-slot) .ct-results { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-sec { margin: 0; }
+:is(#view-contacts, #ct-dialog-slot) .ct-letter { position: sticky; top: 0; z-index: 1; margin: 0; padding: 8px 4px 4px; background: var(--card); color: var(--meta); font-size: 13px; font-weight: 700; }
+:is(#view-contacts, #ct-dialog-slot) .ct-row-btn { display: grid; gap: 2px; width: 100%; min-height: 48px; padding: 6px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+:is(#view-contacts, #ct-dialog-slot) .ct-row-btn:hover { background: color-mix(in srgb, var(--link) 10%, transparent); }
+:is(#view-contacts, #ct-dialog-slot) .ct-row-btn.is-on { background: color-mix(in srgb, var(--link) 20%, transparent); }
+:is(#view-contacts, #ct-dialog-slot) .ct-col-detail { padding: 24px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-empty { margin: auto; text-align: center; color: var(--meta); }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-top { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-avatar { display: grid; place-items: center; flex: none; width: 64px; height: 64px; border-radius: 50%; background: color-mix(in srgb, var(--link) 22%, var(--card)); color: var(--link); font-size: 22px; font-weight: 700; }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-name { margin: 0 0 12px; font-size: 24px; font-weight: 700; line-height: 1.25; color: var(--text); overflow-wrap: anywhere; }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-top .ct-d-name { margin: 0; }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-name.is-none { color: var(--meta); font-style: italic; font-weight: 500; }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-fields { margin: 0 0 16px; display: grid; gap: 14px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-field dt { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--meta); }
+:is(#view-contacts, #ct-dialog-slot) .ct-d-field dd { margin: 0; font-size: 16px; color: var(--text); }
+:is(#view-contacts, #ct-dialog-slot) .ct-sample { color: var(--link); font-size: 15px; font-weight: 600; text-decoration: underline; }
+:is(#view-contacts, #ct-dialog-slot) .ct-sample:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--link, #6C8CFF); border-radius: 4px; }
+:is(#view-contacts, #ct-dialog-slot) .ct-input::placeholder, :is(#view-contacts, #ct-dialog-slot) .ct-combo-input::placeholder { color: var(--meta); opacity: 1; }
 /* dialogs */
 :is(#view-contacts, #ct-dialog-slot) .ct-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(5,10,30,.66); }
 :is(#view-contacts, #ct-dialog-slot) .ct-dialog { box-sizing: border-box; max-height: calc(100vh - 48px); overflow-y: auto; width: min(480px, 100%); padding: 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); color: var(--text); }
 :is(#view-contacts, #ct-dialog-slot) .ct-dialog .ct-h2 { margin-bottom: 16px; }
 @media (max-width: 720px) {
-  :is(#view-contacts, #ct-dialog-slot) .ct-toolbar { grid-template-columns: minmax(0, 1fr); }
+  :is(#view-contacts, #ct-dialog-slot) .ct-app { display: block; height: auto; min-height: 60vh; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-col { display: none; border-right: 0; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="groups"] .ct-col-groups, :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="list"] .ct-col-list, :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="detail"] .ct-col-detail { display: flex; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-col-detail .ct-back { margin-bottom: 8px; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-list-head .ct-back { flex: none; }
       :is(#view-contacts, #ct-dialog-slot) .ct-card { padding: 16px; }
   :is(#view-contacts, #ct-dialog-slot) .ct-row { align-items: flex-start; flex-wrap: wrap; }
   :is(#view-contacts, #ct-dialog-slot) .ct-row-actions { width: 100%; }

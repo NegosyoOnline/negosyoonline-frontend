@@ -320,7 +320,6 @@
   function paintStatus() {
     var kept = num(status.reserved_for_codes), cap = 2000;
     $("b-rule-reserve").textContent = fmt(kept) + " texts a day are kept for sign-in codes. Bulk SMS stops at " + fmt(cap - kept) + ".";
-    $("b-optout-text").textContent = text(status.opt_out_line).trim();
     paintCount();
   }
   /* Reads the list and the status again, then the open batch. */
@@ -350,9 +349,9 @@
 
   /* ---- step 1: write the text and choose who gets it ---- */
 
-  function textLimit() { return num(status.text_max) + text(status.opt_out_line).length; }
+  function textLimit() { return num(status.text_max); }
   function paintCount() {
-    var n = String($("b-text").value || "").length + text(status.opt_out_line).length, max = textLimit() || 160;
+    var n = String($("b-text").value || "").length, max = textLimit() || 160;
     $("b-count").textContent = fmt(n) + " / " + max;
     $("b-count").classList.toggle("over", n > max);
     /* Over the limit is said when the check is pressed, not by a button that does nothing. */
@@ -360,7 +359,7 @@
   }
   /* An empty or too long message is flagged in the field before anything is sent. Returns true when it is flagged. */
   function badText() {
-    var typed = String($("b-text").value || ""), n = typed.length + text(status.opt_out_line).length, max = textLimit() || 160, words = "";
+    var typed = String($("b-text").value || ""), n = typed.length, max = textLimit() || 160, words = "";
     $("b-text").removeAttribute("aria-invalid");
     if (!typed.trim()) words = "Write the message to send.";
     else if (n > max) words = "The message is " + fmt(n - max) + (n - max === 1 ? " character" : " characters") + " too long for one SMS. Shorten it.";

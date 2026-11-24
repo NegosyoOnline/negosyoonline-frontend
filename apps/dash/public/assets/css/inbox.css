@@ -1,52 +1,67 @@
 /* Inbox (ClickUp z8uq9md3n6 and z8uq9mfj12, Unified Inbox). Two screens: /inbox/ (#view-inbox: conversation list and thread)
-   and /settings/inbox/ (#view-settings-inbox: the inbox channels). Built to the approved mockups; colours come from the
+   and /settings/inbox/ (#ib-settings: the inbox channels). Built to the approved mockups; colours come from the
    dash tokens in dash.css. The settings card repeats the Payments card look, scoped to its own view id. */
 
 /* ---- settings tab: the Payments card look ---- */
-#view-settings-inbox .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
-#view-settings-inbox .pm-root > .pm-card, #view-settings-inbox .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
-#view-settings-inbox .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
-#view-settings-inbox .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
-#view-settings-inbox .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
-#view-settings-inbox .pm-head .pm-h2 { margin: 0; }
-#view-settings-inbox .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
-#view-settings-inbox .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
-#view-settings-inbox .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
-#view-settings-inbox .chip { min-height: 26px; }
-#view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
-#view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
-#view-settings-inbox .pm-field { margin: 0 0 14px; }
-#view-settings-inbox .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
-#view-settings-inbox .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
-#view-settings-inbox .pm-input:focus, #view-settings-inbox .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
-#view-settings-inbox .pm-danger { color: var(--err-h); }
-#view-settings-inbox .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
-#view-settings-inbox .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
-#view-settings-inbox .mk-list li { margin-bottom: 6px; }
+#ib-settings .pm-root { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+#ib-settings .pm-root > .pm-card, #ib-settings .pm-root > #ibs-rules > .pm-card { margin-bottom: 16px; }
+#ib-settings .pm-card { min-width: 0; padding: 22px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
+#ib-settings .pm-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#ib-settings .pm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+#ib-settings .pm-head .pm-h2 { margin: 0; }
+#ib-settings .pm-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#ib-settings .pm-meta { margin: 2px 0 8px; color: var(--meta); font-size: 14px; line-height: 1.45; }
+#ib-settings .pm-hint { margin: 6px 0 0; color: var(--meta); font-size: 14px; line-height: 1.4; }
+#ib-settings .chip { min-height: 26px; }
+#ib-settings .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#ib-settings .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#ib-settings .pm-field { margin: 0 0 14px; }
+#ib-settings .pm-label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--text-2); }
+#ib-settings .pm-input { display: block; width: 100%; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
+#ib-settings .pm-input:focus, #ib-settings .pm-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#ib-settings .pm-danger { color: var(--err-h); }
+#ib-settings .mk-small { min-height: 34px !important; padding: 0 12px !important; font-size: 14px; }
+#ib-settings .mk-list { margin: 0; padding-left: 20px; color: var(--text-2); font-size: 16px; line-height: 1.6; }
+#ib-settings .mk-list li { margin-bottom: 6px; }
 @media (max-width: 640px) {
-  #view-settings-inbox .pm-card { padding: 18px 16px; }
+  #ib-settings .pm-card { padding: 18px 16px; }
 }
 
 /* ---- inbox: header, split, list ---- */
-#view-inbox .ib-lhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #view-inbox .no-btn svg { width: 18px; height: 18px; flex: none; }
-#view-inbox .ib-split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 16px; flex: 1 1 0; min-height: 0; height: 100%; }
-#view-inbox .ib-rcol { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
-#view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; }
-#view-inbox .ib-tools-host { flex: none; }
+/* Meta Business Inbox layout (ClickUp z8uq9mj6ch): one card of three columns: the list, the thread, the contact panel. Only the look changed. */
+#view-inbox .ib-split { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) auto; gap: 0; grid-template-rows: minmax(0, 1fr); flex: 1 1 0; min-height: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
+#view-inbox .ib-split > .ib-pane { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+#view-inbox .ib-split > .ib-listpane { border-right: 1px solid var(--card-line); }
+/* The channel tabs are the dash Settings menu (.set-tabs, dash.css) with buttons for links, at the top of the page where the title was, beside the search,
+   theme and bell buttons (the Products editor does the same). Same underline look; the tabs scroll inside their own row, never the page. */
+#view-inbox .ib-tabs-host { flex: none; min-width: 0; margin-bottom: 16px; } /* the same room under the page head as the other dash pages (.view gap: 16px, 24px from 900px) */
+#view-inbox .ib-tabs-host:empty { display: none; }
+body.dash-app #view-inbox .ib-tabs:not([hidden]) { width: fit-content; max-width: 100%; margin: 0; }
+body.dash-app #view-inbox .ib-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+body.dash-app #view-inbox .ib-tabs button:hover { color: var(--text); }
+body.dash-app #view-inbox .ib-tabs button.is-on { color: var(--text); border-bottom-color: var(--primary, #2A50D0); }
+body.dash-app #view-inbox .ib-tabs button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+@media (min-width: 900px) { #view-inbox .ib-tabs-host { padding-right: 164px; margin-bottom: 24px; } }
+#view-inbox .ib-tools-host { flex: none; margin-bottom: 12px; }
+#view-inbox .ib-tools-host:empty { display: none; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
+#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; border-bottom: 1px solid var(--bl-select-line); } /* the divider under the filter row, the full width of the column */
+#view-inbox .ib-lhead:empty { display: none; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
-#view-inbox .ib-list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; min-height: 0; }
-#view-inbox .ib-item { display: flex; gap: 12px; align-items: flex-start; width: 100%; box-sizing: border-box; padding: 12px; border: 0; border-radius: 10px; background: transparent; font: inherit; text-align: left; text-decoration: none; color: var(--text); cursor: pointer; }
+#view-inbox .ib-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; }
+#view-inbox .ib-item { position: relative; display: flex; gap: 12px; align-items: flex-start; width: 100%; box-sizing: border-box; padding: 12px 14px; border: 0; border-radius: 0; background: transparent; font: inherit; text-align: left; text-decoration: none; color: var(--text); cursor: pointer; }
 #view-inbox .ib-item:hover { background: var(--ghost-hover); }
-#view-inbox .ib-item.is-sel { background: color-mix(in srgb, var(--link) 16%, transparent); }
-#view-inbox .ib-av { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--tile); color: var(--tile-ink); font-size: 14px; font-weight: 700; }
+#view-inbox .ib-item:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--link); }
+#view-inbox .ib-item.is-sel { background: color-mix(in srgb, var(--link) 12%, transparent); box-shadow: inset 3px 0 0 var(--link); }
+#view-inbox .ib-item.is-sel:focus-visible { box-shadow: inset 3px 0 0 var(--link), inset 0 0 0 2px var(--link); }
+#view-inbox .ib-av { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--tile); color: var(--tile-ink); font-size: 14px; font-weight: 700; }
 #view-inbox .ib-it { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-#view-inbox .ib-top { display: flex; justify-content: space-between; gap: 8px; }
-#view-inbox .ib-name { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
+#view-inbox .ib-top { display: flex; justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
+#view-inbox .ib-name { font-weight: 500; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 #view-inbox .ib-time { color: var(--meta); font-size: 13px; flex: none; }
-#view-inbox .ib-snip { color: var(--text-2); font-size: 14px; line-height: 1.4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+#view-inbox .ib-snip { display: block; color: var(--text-2); font-size: 14px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #view-inbox .ib-mini { min-height: 22px; padding: 0 10px; font-size: 12px; align-self: flex-start; margin-top: 4px; }
 #view-inbox .ib-more { margin: 6px; }
 #view-inbox .ib-loading { margin: 0; padding: 16px 18px; color: var(--meta); font-size: 14px; }
@@ -64,7 +79,15 @@
 #view-inbox .ib-thead { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--card-line); flex-wrap: wrap; }
 #view-inbox .ib-tname { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 #view-inbox .ib-tname h2 { font-size: 18px; margin: 0; overflow-wrap: anywhere; }
-#view-inbox .ib-open { min-height: 38px; padding: 0 14px; font-size: 14px; }
+/* the head's actions: round-cornered icon buttons (Meta style); the name is the aria-label and the tooltip */
+#view-inbox .ib-hacts { display: flex; align-items: center; gap: 8px; flex: none; }
+#view-inbox .ib-ibtn { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-ibtn svg { width: 20px; height: 20px; }
+#view-inbox .ib-ibtn:hover { background: var(--ghost-hover); color: var(--text); }
+#view-inbox .ib-ibtn:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-ibtn[aria-pressed="true"], #view-inbox .ib-ibtn.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); }
+#view-inbox .ib-ibtn.is-primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+#view-inbox .ib-ibtn:disabled { opacity: .55; cursor: not-allowed; }
 #view-inbox .ib-back { display: none; align-items: center; gap: 2px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--link); font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
 #view-inbox .ib-back svg { width: 20px; height: 20px; }
 #view-inbox .ib-msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
@@ -72,16 +95,19 @@
 #view-inbox .ib-msg { display: flex; flex-direction: column; max-width: 78%; gap: 4px; }
 #view-inbox .ib-msg-in { align-self: flex-start; }
 #view-inbox .ib-msg-out { align-self: flex-end; align-items: flex-end; }
-#view-inbox .ib-bub { margin: 0; padding: 10px 14px; border-radius: 16px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+#view-inbox .ib-bub { margin: 0; padding: 10px 14px; border-radius: 18px; font-size: 15px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 #view-inbox .ib-msg-in .ib-bub { background: var(--tile); color: var(--text); border-bottom-left-radius: 4px; }
 #view-inbox .ib-msg-out .ib-bub { background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
 #view-inbox .ib-meta { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--meta); }
-#view-inbox .ib-reply { border-top: 1px solid var(--card-line); padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
-#view-inbox .pm-input.ib-ta { display: block; width: 100%; box-sizing: border-box; height: auto; min-height: 84px; padding: 10px 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; line-height: 1.45; resize: vertical; }
-#view-inbox .pm-input.ib-ta:focus, #view-inbox .pm-input.ib-ta:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-reply { margin: 0 16px 16px; padding: 10px 12px; border: 1px solid var(--card-line); border-radius: 16px; display: flex; flex-direction: column; gap: 8px; }
+#view-inbox .ib-reply:focus-within { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .pm-input.ib-ta { display: block; width: 100%; box-sizing: border-box; height: auto; min-height: 64px; padding: 6px 4px; border: 0; border-radius: 8px; background: transparent; color: var(--bl-select-text); font: inherit; font-size: 16px; line-height: 1.45; resize: vertical; }
+#view-inbox .pm-input.ib-ta:focus, #view-inbox .pm-input.ib-ta:focus-visible { outline: none; box-shadow: none; }
+#view-inbox .pm-input.ib-ta::placeholder { color: var(--meta); opacity: 1; }
 #view-inbox .pm-input.ib-ta:disabled { opacity: .55; cursor: not-allowed; min-height: 56px; }
 #view-inbox .ib-rfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #view-inbox .ib-count { color: var(--meta); font-size: 14px; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-count.is-over { color: var(--bl-chip-danger); }
 #view-inbox .ib-fail { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--err-line); border-radius: 12px; background: var(--err-bg); color: var(--err-text); font-size: 15px; line-height: 1.45; }
 #view-inbox .ib-fail svg { width: 20px; height: 20px; flex: none; margin-top: 2px; color: var(--err-h); }
 #view-inbox .ib-fail strong { color: var(--err-h); }
@@ -92,18 +118,17 @@
 #view-inbox .ib-reply .pm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 
 @media (max-width: 899px) {
-  /* a phone: the toolbar over the list (it filters the list; it goes while a conversation is open), then one card; the right column dissolves */
-  #view-inbox .ib-split { display: flex; flex-direction: column; gap: 10px; }
-  #view-inbox .ib-rcol { display: contents; }
-  #view-inbox .ib-tools-host { order: -1; }
-  #view-inbox .ib-split > .ib-pane, #view-inbox .ib-rcol > .ib-pane { flex: 1 1 0; min-height: 0; height: auto; }
+  /* a phone: the toolbar over the list (it goes while a conversation is open), then one panel at a time; the contact panel is not shown */
+  #view-inbox .ib-split { display: flex; flex-direction: column; gap: 0; border-radius: 14px; }
+  #view-inbox .ib-split > .ib-pane { flex: 1 1 0; min-height: 0; height: auto; }
+  #view-inbox .ib-split > .ib-listpane { border-right: 0; }
   #view-inbox .ib-split .is-hide-phone { display: none; }
-  #view-inbox .ib-pane { border-radius: 14px; }
+  #view-inbox .ib-tools-host.is-hide-phone, #view-inbox .ib-tabs-host.is-hide-phone { display: none; }
+  #view-inbox .ib-cpane, #view-inbox .ib-ctog { display: none !important; }
   #view-inbox .ib-back { display: inline-flex; flex: 0 0 100%; margin-left: -6px; }
   #view-inbox .ib-thead { gap: 10px; }
   #view-inbox .ib-msgs { padding: 14px; }
   #view-inbox .ib-msg { max-width: 88%; }
-  #view-inbox .ib-open { flex: 0 0 100%; justify-content: center; }
   #view-inbox .ib-tname { min-width: 150px; }
   #view-inbox .ib-tname .chip { white-space: nowrap; }
   #view-inbox .ib-rfoot .no-btn { min-width: 110px; }
@@ -121,21 +146,12 @@ body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 #view-inbox .ib-unread .ib-snip { color: var(--text); }
 /* R4-2: a 1px divider between the rows (the theme card-line token), none after the last */
 #view-inbox .ib-list > li + li { border-top: 1px solid var(--card-line); }
-/* R4-1: the time with the read state under it, at the right of every row. Unread: a filled closed envelope in --link. Read: an open envelope in --meta. */
-#view-inbox .ib-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; }
+/* R4-1: the time with the read state under it, at the right of every row. Unread: a blue dot. Read: nothing to see (the "Read" label stays for screen readers). */
+#view-inbox .ib-side { display: flex; flex: none; flex-direction: column; align-items: flex-end; gap: 6px; padding-top: 2px; }
 #view-inbox .ib-rs { display: inline-flex; line-height: 0; }
-#view-inbox .ib-rs svg { width: 18px; height: 18px; }
-#view-inbox .ib-rs-r { color: var(--ov-green); }
-#view-inbox .ib-rs-u { color: var(--link); }
-#view-inbox .ib-rs-u svg { fill: currentColor; stroke: var(--card); stroke-width: 2.4; }
-#view-inbox .ib-item.is-sel .ib-rs-u svg { stroke: color-mix(in srgb, var(--link) 16%, var(--card)); }
-/* R4-4: the Read/Unread toggle in the Conversations header (All, Unread, Read); on, it shows the light-blue ring and fill like the house focus */
-#view-inbox .ib-rtog { flex: none; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0; border: 1px solid var(--bl-select-line); border-radius: 8px; background: transparent; color: var(--text-2); cursor: pointer; }
-#view-inbox .ib-togs { display: inline-flex; align-items: center; gap: 8px; flex: none; }
-#view-inbox .ib-rtog svg { width: 20px; height: 20px; }
-#view-inbox .ib-rtog:hover { background: var(--ghost-hover); }
-#view-inbox .ib-rtog.is-on { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); box-shadow: 0 0 0 1px var(--link); }
-#view-inbox .ib-rtog:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-rs svg { display: none; }
+#view-inbox .ib-rs-u { width: 10px; height: 10px; border-radius: 50%; background: var(--link); }
+#view-inbox .ib-rs-r { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
 body.dash-app .ib-sub { margin: 0; font-size: 14px; color: var(--meta); overflow-wrap: anywhere; }
@@ -166,53 +182,53 @@ body.dash-app .ib-note-info { background: var(--chip-info-bg); color: var(--chip
 .mk-sw:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; border-radius: 8px; }
 .mk-sw[disabled] { opacity: .6; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .mk-sw-track, .mk-sw-track::after { transition: none; } }
-#view-settings-inbox .mk-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 4px 0; }
-#view-settings-inbox .mk-line + .mk-line { border-top: 1px solid var(--card-line); margin-top: 8px; padding-top: 12px; }
-#view-settings-inbox .mk-line-t { min-width: 0; flex: 1 1 240px; }
-#view-settings-inbox .mk-line-t b { display: block; font-size: 16px; color: var(--text); }
-#view-settings-inbox .mk-line-t span { display: block; font-size: 14px; color: var(--text-2); margin-top: 2px; }
-#view-settings-inbox .mk-pause { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
-#view-settings-inbox .mk-pause > div { flex: 0 1 260px; min-width: 200px; }
-#view-settings-inbox :is(.pm-hint, .pm-lead, .pm-field) + .mk-pause { margin-top: 12px; }
-#view-settings-inbox .mk-pause .no-btn { flex: 0 0 auto; }
-#view-settings-inbox .mk-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
-#view-settings-inbox .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
-#view-settings-inbox .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
-#view-settings-inbox .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
-@media (max-width: 640px) { #view-settings-inbox .mk-pause > div { flex: 1 1 100%; } #view-settings-inbox .mk-pause .no-btn { width: 100%; } }
+#ib-settings .mk-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 4px 0; }
+#ib-settings .mk-line + .mk-line { border-top: 1px solid var(--card-line); margin-top: 8px; padding-top: 12px; }
+#ib-settings .mk-line-t { min-width: 0; flex: 1 1 240px; }
+#ib-settings .mk-line-t b { display: block; font-size: 16px; color: var(--text); }
+#ib-settings .mk-line-t span { display: block; font-size: 14px; color: var(--text-2); margin-top: 2px; }
+#ib-settings .mk-pause { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+#ib-settings .mk-pause > div { flex: 0 1 260px; min-width: 200px; }
+#ib-settings :is(.pm-hint, .pm-lead, .pm-field) + .mk-pause { margin-top: 12px; }
+#ib-settings .mk-pause .no-btn { flex: 0 0 auto; }
+#ib-settings .mk-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; margin: 14px 0 0; }
+#ib-settings .chip-danger { background: var(--bl-chip-danger-bg); color: var(--bl-chip-danger); }
+#ib-settings .chip-info { background: var(--chip-info-bg); color: var(--chip-info); }
+#ib-settings .chip-warn { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+@media (max-width: 640px) { #ib-settings .mk-pause > div { flex: 1 1 100%; } #ib-settings .mk-pause .no-btn { width: 100%; } }
 
 /* ---- Comment auto-replies (ClickUp z8uq9mg9pk, C4): rules list, rule form, live preview, post picker ---- */
-#view-settings-inbox [hidden] { display: none !important; }
-#view-settings-inbox .ibr-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--bl-chip-warn); border-radius: 12px; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); font-size: 15px; line-height: 1.45; }
-#view-settings-inbox .ibr-banner p { margin: 0; color: inherit; }
-#view-settings-inbox .ibr-banner p + p { margin-top: 4px; }
-#view-settings-inbox .ibr-ready { margin: 0 0 14px; }
-#view-settings-inbox .ibr-counters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
-#view-settings-inbox .ibr-list { margin: 0 0 14px; }
-#view-settings-inbox .ibr-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-rule-t { min-width: 0; }
-#view-settings-inbox .ibr-rule-t b { display: block; font-size: 16px; color: var(--text); overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-rule-t span { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-excerpt { color: var(--meta); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-#view-settings-inbox .ibr-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-#view-settings-inbox .ibr-acts .pm-hint { margin: 0; }
-#view-settings-inbox .ibr-form { scroll-margin-top: 96px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-h3 { font-size: 17px; }
-#view-settings-inbox .ibr-ta { min-height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.45; }
-#view-settings-inbox .ibr-err { color: var(--err-h); }
-#view-settings-inbox .ibr-prev { margin-top: 6px; }
-#view-settings-inbox .ibr-samples { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-chosen { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
-#view-settings-inbox .ibr-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--card-line); border-radius: 8px; font-size: 14px; color: var(--text); }
-#view-settings-inbox .ibr-pick > span { min-width: 0; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-posts-list { display: flex; flex-direction: column; max-height: 260px; margin: 8px 0; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 8px; }
-#view-settings-inbox .ibr-post { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; color: var(--text); cursor: pointer; }
-#view-settings-inbox .ibr-post + .ibr-post { border-top: 1px solid var(--card-line); }
-#view-settings-inbox .ibr-post input { flex: none; margin-top: 3px; width: 18px; height: 18px; accent-color: var(--link); }
-#view-settings-inbox .ibr-post input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
-#view-settings-inbox .ibr-post-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-#view-settings-inbox .ibr-add, #view-settings-inbox .ibr-save { margin-top: 4px; }
-@media (max-width: 640px) { #view-settings-inbox .ibr-rule { grid-template-columns: minmax(0, 1fr); } #view-settings-inbox .ibr-rule .mk-sw { justify-self: start; } }
+#ib-settings [hidden] { display: none !important; }
+#ib-settings .ibr-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--bl-chip-warn); border-radius: 12px; background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); font-size: 15px; line-height: 1.45; }
+#ib-settings .ibr-banner p { margin: 0; color: inherit; }
+#ib-settings .ibr-banner p + p { margin-top: 4px; }
+#ib-settings .ibr-ready { margin: 0 0 14px; }
+#ib-settings .ibr-counters { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+#ib-settings .ibr-list { margin: 0 0 14px; }
+#ib-settings .ibr-rule { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-rule-t { min-width: 0; }
+#ib-settings .ibr-rule-t b { display: block; font-size: 16px; color: var(--text); overflow-wrap: anywhere; }
+#ib-settings .ibr-rule-t span { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
+#ib-settings .ibr-excerpt { color: var(--meta); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#ib-settings .ibr-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+#ib-settings .ibr-acts .pm-hint { margin: 0; }
+#ib-settings .ibr-form { scroll-margin-top: 96px; margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-h3 { font-size: 17px; }
+#ib-settings .ibr-ta { min-height: 88px; padding: 10px 12px; resize: vertical; line-height: 1.45; }
+#ib-settings .ibr-err { color: var(--err-h); }
+#ib-settings .ibr-prev { margin-top: 6px; }
+#ib-settings .ibr-samples { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+#ib-settings .ibr-chosen { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+#ib-settings .ibr-pick { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--card-line); border-radius: 8px; font-size: 14px; color: var(--text); }
+#ib-settings .ibr-pick > span { min-width: 0; overflow-wrap: anywhere; }
+#ib-settings .ibr-posts-list { display: flex; flex-direction: column; max-height: 260px; margin: 8px 0; overflow-y: auto; border: 1px solid var(--card-line); border-radius: 8px; }
+#ib-settings .ibr-post { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; font-size: 14px; color: var(--text); cursor: pointer; }
+#ib-settings .ibr-post + .ibr-post { border-top: 1px solid var(--card-line); }
+#ib-settings .ibr-post input { flex: none; margin-top: 3px; width: 18px; height: 18px; accent-color: var(--link); }
+#ib-settings .ibr-post input:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+#ib-settings .ibr-post-t { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+#ib-settings .ibr-add, #ib-settings .ibr-save { margin-top: 4px; }
+@media (max-width: 640px) { #ib-settings .ibr-rule { grid-template-columns: minmax(0, 1fr); } #ib-settings .ibr-rule .mk-sw { justify-self: start; } }
 
 /* the house dropdown (the pr-combo of Products, renamed ib-): the Channel filter and "Pause for". Focus is the light blue, never gold. */
 body.dash-app .ib-combo { position: relative; }
@@ -238,8 +254,7 @@ body.dash-app.ib-fixed .app { height: 100vh; height: 100dvh; min-height: 0; over
 body.dash-app.ib-fixed .col { flex: 1 1 0; min-height: 0; overflow-y: auto; }
 body.dash-app.ib-fixed .col-main { flex: 1 1 0; min-height: 0; }
 body.dash-app.ib-fixed #view-inbox:not([hidden]) { flex: 1 1 0; min-height: 0; }
-/* F1: on a desktop the dash top-bar buttons (quick-links search, theme, bell: .desk-switch / .notif-col, 44 px tall, absolute at 32 px from the top of the column) float over the content. With no page header the Inbox would start under them, so it reserves that row (44 px + 28 px gap) like the other views do with their header. */
-@media (min-width: 900px) { body.dash-app.ib-fixed #view-inbox:not([hidden]) { padding-top: 72px; } }
+/* The page header (Inbox and its one-line subtitle). On a desktop the dash top-bar buttons float at the right of it, as on the other views. */
 body.dash-app.ib-fixed #ib-root { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
 body.dash-app.ib-fixed #ib-wrap > .ib-split, body.dash-app.ib-fixed #ib-wrap > .ib-pane { flex: 1 1 0; min-height: 280px; }
@@ -268,17 +283,27 @@ body.dash-app .tabs a { position: relative; }
 body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
 @media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
 
-/* The filter toolbar (Coach Ed 2026-11-17, built like the Products toolbar): a row ABOVE the open-conversation card, in the right column
-   (.ib-rcol). [Search: the magnifier inside, live, no button] [Channel] [All status] [Refresh: an outlined button]. The dropdowns are the
-   plain house dropdown. Not a container query (its containment would trap the fixed dropdown panel). */
-#view-inbox .ib-trow { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
-#view-inbox .ib-trow > .ib-search { flex: 1 1 220px; min-width: 0; }
-#view-inbox .ib-trow > .ib-fld { flex: 0 0 170px; min-width: 0; }
-#view-inbox .ib-trow > .ib-rf { flex: 0 0 auto; min-height: 44px; padding: 0 14px; font-size: 14px; white-space: nowrap; }
-#view-inbox .ib-tools.is-lite .ib-trow { justify-content: flex-end; }
-#view-inbox .ib-tools .ib-combo-input { text-overflow: ellipsis; }
+/* The toolbar above the card: the channel tabs at the left, New SMS / Bulk SMS at the right. Not a container query (its
+   containment would trap the fixed dropdown panel of the New text screen). */
+#view-inbox .ib-trow { display: flex; flex-wrap: wrap; gap: 10px 10px; align-items: center; justify-content: space-between; }
+#view-inbox .ib-acts { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+#view-inbox .ib-acts > .ib-rf { flex: 0 0 auto; min-height: 44px; padding: 0 12px; font-size: 14px; white-space: nowrap; }
 #view-inbox .ib-tools-host:empty { display: none; }
+/* the filter buttons: one row of square icon buttons in the dash top-bar style (.notif-btn / .qs-btn: 44px, thin card-line border, 8px corners); light blue when a filter is on */
+/* right-aligned in the list head; Search opens by growing the box to the full width while the buttons fade out (the JS adds .is-search, then hides the closed part after the transition) */
+#view-inbox .ib-fbar { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
+#view-inbox .ib-frow { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: 8px; box-sizing: border-box; min-width: 0; max-width: 300px; padding: 2px; margin: -2px; overflow: hidden; opacity: 1; transform: translateX(0); transition: max-width .22s ease, opacity .16s ease, transform .22s ease, padding .22s ease, margin .22s ease; }
+#view-inbox .ib-fbar.is-search .ib-frow { max-width: 0; padding: 0; margin: 0; opacity: 0; transform: translateX(12px); }
+#view-inbox .ib-frow[hidden], #view-inbox .ib-search[hidden] { display: none; }
+#view-inbox .ib-fbtn { flex: none; display: grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-fbtn svg { width: 22px; height: 22px; }
+#view-inbox .ib-fbtn:hover { background: var(--ghost-hover); color: var(--text); }
+#view-inbox .ib-fbtn.is-on, #view-inbox .ib-fbtn[aria-pressed="true"] { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); }
+#view-inbox .ib-fbtn:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 /* the search box: the Products one (pr-qs): magnifier inside, a light-blue border on focus (never gold), a clear button */
+#view-inbox .ib-search { box-sizing: border-box; flex: 0 1 auto; min-width: 0; width: 0; max-width: 100%; overflow: hidden; opacity: 0; transition: width .22s ease, opacity .2s ease; }
+#view-inbox .ib-fbar.is-search .ib-search { width: 100%; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #view-inbox .ib-frow, #view-inbox .ib-search { transition: none; } }
 #view-inbox .ib-qs { display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 44px; padding: 0 4px 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
 #view-inbox .ib-qs:focus-within { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 #view-inbox .ib-qs .ib-si { flex: none; width: 20px; height: 20px; }
@@ -295,9 +320,8 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 @media (max-width: 899px) {
   body.dash-app.ib-fixed #view-inbox .ib-pane-head { padding: 10px 16px; }
   #view-inbox .ib-trow { gap: 8px; }
-  #view-inbox .ib-trow > .ib-search { flex: 1 1 100%; }
-  #view-inbox .ib-trow > .ib-fld { flex: 1 1 0; }
-  #view-inbox .ib-tools:not(.is-lite) .ib-trow > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
+  #view-inbox .ib-acts { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
+  #view-inbox .ib-tools:not(.is-lite) .ib-acts > .ib-rf { flex: 0 0 44px; width: 44px; padding: 0; justify-content: center; }
   #view-inbox .ib-tools:not(.is-lite) .ib-rf-t { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 }
 /* ---- COMMENTS C3 (ClickUp z8uq9mg9ph): a Facebook comment is a row and a detail of the one Inbox list. The rows, toolbar, panes and house
@@ -329,7 +353,7 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 #view-inbox .cm-compose .pm-input.ib-ta { min-height: 64px; }
 #view-inbox .cm-confirm-actions .no-btn { min-height: 38px; padding: 0 14px; font-size: 14px; }
 @media (max-width: 899px) {
-  #view-inbox .cm-hide { margin-left: 0; grid-area: act; min-height: 36px; padding: 0 12px; }
+  #view-inbox .cm-hide { margin-left: 0; min-height: 36px; padding: 0 12px; }
   #view-inbox .cm-confirm { margin: 8px 12px 0; }
 }
 
@@ -341,7 +365,7 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
   body.dash-app.ib-fixed .col-main { padding-bottom: 0; }
   #view-inbox .ib-thead { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "back back act" "av name name"; align-items: center; padding: 4px 12px 10px; gap: 2px 10px; }
   #view-inbox .ib-back { grid-area: back; justify-self: start; min-height: 40px; }
-  #view-inbox .ib-thead .ib-open { grid-area: act; min-height: 36px; padding: 0 12px; margin: 0; }
+  #view-inbox .ib-thead .ib-hacts { grid-area: act; }
   #view-inbox .ib-thead .ib-av { grid-area: av; }
   #view-inbox .ib-thead .ib-tname { grid-area: name; min-width: 0; }
   #view-inbox .ib-reply { padding: 10px 12px 12px; gap: 8px; }
@@ -371,17 +395,275 @@ html[data-theme="light"] #view-inbox .cm-kind-pub { border-color: #D9A21B; backg
 html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 @media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-st-no { color: #A87A00; } }
 #view-inbox .cm-tip.cm-tip-b { position: fixed; right: auto; bottom: auto; white-space: nowrap; }
+/* The filter-row tips sit on the body (outside the transformed, clipped row), so they carry the tip look themselves. */
+.ib-ftip { position: fixed; right: auto; bottom: auto; width: max-content; max-width: min(260px, calc(100vw - 16px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #fff; border: 0; box-shadow: 0 6px 18px rgba(0,0,0,.28); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 1000; }
+.ib-ftip.is-open { opacity: 1; visibility: visible; }
+/* The arrow: a CSS triangle, centred over the button (--ax is set by the code), pointing down when the bubble is above the button and up when below. The same in light and dark. */
+.ib-ftip::after { content: ""; position: absolute; left: var(--ax, 50%); width: 0; height: 0; margin-left: -6px; border: 6px solid transparent; }
+.ib-ftip.is-above::after { top: 100%; border-top-color: #1B2236; border-bottom-width: 0; }
+.ib-ftip.is-below::after { bottom: 100%; border-bottom-color: #1B2236; border-top-width: 0; }
 /* A comment row's name line: the name shortens with an ellipsis before the icon, which never wraps or moves. */
 #view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 #view-inbox .ib-top-cm .cm-st { flex: none; }
-#view-settings-inbox .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }
+#ib-settings .ibr-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: inherit; background: none; padding: 0; }
 
 /* Text (SMS) channel (SMS-OWNER FE-1, z8uq9mhk1h): the New text screen and the lines above a text reply box. The focus border stays the light blue of the other Inbox fields. */
 #view-inbox .ib-sms-new { gap: 14px; }
 #view-inbox .ib-sms-new .pm-input.ib-input { display: block; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
 #view-inbox .ib-sms-new .pm-input.ib-input:focus, #view-inbox .ib-sms-new .pm-input.ib-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 #view-inbox .ib-sms-new .pm-field { display: flex; flex-direction: column; gap: 6px; }
-#view-inbox .ib-sms-prefix, #view-inbox .ib-sms-quota { margin: 0; }
 #view-inbox .ib-reply .field-err, #view-inbox .ib-sms-new .field-err { margin: 0; }
 #view-inbox .ib-nt { white-space: nowrap; }
+
+/* Text many members (store bulk SMS, z8uq9mbreu): the screen opened from the Inbox toolbar. Same fields, notes and light-blue focus as the New text screen. */
+#view-inbox .ib-bk { gap: 14px; }
+#view-inbox .ib-bk-form { display: flex; flex-direction: column; gap: 14px; }
+#view-inbox .ib-bk-box, #view-inbox .ib-bk-card { border: 1px solid var(--card-line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#view-inbox .ib-bk-box:empty { display: none; }
+#view-inbox .ib-bk-box p, #view-inbox .ib-bk-card p { margin: 0; }
+#view-inbox .ib-bk-will { font-size: 18px; font-weight: 600; }
+#view-inbox .ib-bk-left { margin: 0; padding-left: 20px; color: var(--meta); font-size: 15px; line-height: 1.5; }
+#view-inbox .ib-bk-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.45; }
+#view-inbox .ib-bk-tick { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; cursor: pointer; }
+#view-inbox .ib-bk-tick input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+#view-inbox .ib-bk-tick input:focus-visible { outline: 2px solid var(--link, #6C8CFF); outline-offset: 2px; }
+#view-inbox .ib-bk-confirm { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+#view-inbox .ib-bk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+#view-inbox .ib-bk-top h3 { margin: 0; font-size: 18px; color: var(--text); }
+#view-inbox .ib-bk-counts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#view-inbox .ib-bk-count { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; border-radius: 8px; background: var(--chip-info-bg); color: var(--chip-info); }
+#view-inbox .ib-bk-n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-l { font-size: 13px; }
+#view-inbox .ib-bk-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; background: var(--chip-info-bg); color: var(--chip-info); }
+#view-inbox .ib-bk-chip.is-finished, #view-inbox .ib-bk-chip.is-r-sent { background: var(--chip-ok-bg); color: var(--chip-ok); }
+#view-inbox .ib-bk-chip.is-stopped, #view-inbox .ib-bk-chip.is-ended, #view-inbox .ib-bk-chip.is-r-failed, #view-inbox .ib-bk-chip.is-r-not_sent { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-recrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--card-line); }
+#view-inbox .ib-bk-recwho, #view-inbox .ib-bk-recst { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+#view-inbox .ib-bk-recst { align-items: flex-end; text-align: right; }
+#view-inbox .ib-bk .ib-fld { flex: none; }
+@media (max-width: 640px) {
+  #view-inbox .ib-bk-counts { grid-template-columns: repeat(2, 1fr); }
+  #view-inbox .ib-bk-confirm .no-btn, #view-inbox .ib-bk-form > .no-btn { width: 100%; }
+}
+
+/* ---- Meta Business Inbox look (ClickUp z8uq9mj6ch): the avatar's channel badge, the contact panel ---- */
+#view-inbox .ib-avw { position: relative; flex: none; display: inline-flex; }
+#view-inbox .ib-cdot { position: absolute; right: -3px; bottom: -3px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 20px; height: 20px; border: 2px solid var(--card); border-radius: 50%; background: var(--link); color: #fff; }
+#view-inbox .ib-cdot svg { width: 11px; height: 11px; }
+#view-inbox .ib-item.is-sel .ib-cdot { border-color: color-mix(in srgb, var(--link) 12%, var(--card)); }
+#view-inbox .ib-cpane { box-sizing: border-box; width: 280px; min-width: 0; padding: 16px; border-left: 1px solid var(--card-line); overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+#view-inbox .ib-cpane[hidden] { display: none; }
+#view-inbox .ib-chead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#view-inbox .ib-ch3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
+#view-inbox .ib-cwho { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+#view-inbox .ib-cwho .ib-chrow { justify-content: center; }
+#view-inbox .ib-av.ib-av-lg { width: 72px; height: 72px; font-size: 24px; }
+#view-inbox .ib-cname { margin: 0; font-size: 18px; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+#view-inbox .ib-cdl { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding-top: 12px; border-top: 1px solid var(--card-line); }
+#view-inbox .ib-cdl dt { margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); }
+#view-inbox .ib-cdl dt:first-child { margin-top: 0; }
+#view-inbox .ib-cdl dd { margin: 0; font-size: 15px; color: var(--text); overflow-wrap: anywhere; }
+/* the contact panel needs room: below 1100 px the panel and its toggle are not shown */
+@media (max-width: 1099px) { #view-inbox .ib-cpane, #view-inbox .ib-ctog { display: none !important; } #view-inbox .ib-split { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); } }
+#view-inbox .ib-split.ib-cp-off { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+
+/* ---- INBOX-FIX-6 (Coach Ed 2026-11-24): the page tabs row, the settings tabs, spacing, the dark divider and tooltip ---- */
+/* The top line of a page: the tabs at the left, on the SMS Marketing page New SMS and Bulk SMS at the right of the same row. On a phone the row wraps:
+   the tabs on the first line (they scroll inside their own box), the two buttons on the second line, left-aligned; the page never scrolls sideways. */
+#view-inbox .ib-toprow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 12px; min-width: 0; }
+#view-inbox .ib-toprow > .ib-tabs { flex: 1 1 100%; min-width: 0; }
+#view-inbox .ib-toprow > .ib-acts { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
+@media (min-width: 900px) {
+  #view-inbox .ib-toprow > .ib-tabs { flex: 0 1 auto; }
+  #view-inbox .ib-toprow > .ib-acts { flex: 0 0 auto; justify-content: flex-end; margin-left: auto; }
+}
+/* a hidden tab panel stays hidden whatever display its class sets */
+#view-inbox .ib-split[hidden], #view-inbox .ib-tools-host[hidden], #view-inbox .ib-bulkpane[hidden], #view-inbox .ib-settings[hidden] { display: none !important; }
+#view-inbox .ib-bulkpane { min-height: 320px; }
+/* the Settings cards (Inbox, SMS Gateway) sit on the page background under the tabs, like the dash Settings pages */
+#view-inbox .ib-settings { min-width: 0; }
+/* The filter tooltip in the dark theme: a light bubble with dark text (the Billing tooltip tokens, 16:1) so it shows on the dark tabs row and the dark card.
+   The dash is dark by default; light is html[data-theme="light"], or a light device when no theme is set. Light stays the dark bubble above. */
+html:not([data-theme="light"]) body.dash-app .ib-ftip { background: var(--bl-tip-bg, #F4F6FF); color: var(--bl-tip-text, #0E1530); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+html:not([data-theme="light"]) body.dash-app .ib-ftip.is-above::after { border-top-color: var(--bl-tip-bg, #F4F6FF); }
+html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-bottom-color: var(--bl-tip-bg, #F4F6FF); }
+@media (prefers-color-scheme: light) {
+  html:not([data-theme]) body.dash-app .ib-ftip { background: #1B2236; color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+  html:not([data-theme]) body.dash-app .ib-ftip.is-above::after { border-top-color: #1B2236; }
+  html:not([data-theme]) body.dash-app .ib-ftip.is-below::after { border-bottom-color: #1B2236; }
+}
+
+/* ---- INBOX-FIX-7 (Coach Ed 2026-11-24): Send New SMS on a phone, the Bulk SMS tab (progress card, history table, compose form) ---- */
+/* The SMS page's Send New SMS at the top of the list: only where the right pane is hidden until something is chosen (a phone). */
+#view-inbox .ib-tools-host .ib-nt-phone { min-height: 44px; }
+@media (min-width: 900px) { #view-inbox .ib-nt-phone { display: none; } #view-inbox .ib-tools-host:has(> .ib-nt-phone) { display: none; } }
+/* The Bulk SMS tab has no pane card of its own: its cards sit on the page background, like the Settings cards */
+#view-inbox .ib-pane.ib-bulkpane { min-height: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+#view-inbox .ib-bk-page { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+#view-inbox .ib-bk-dc { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+#view-inbox .ib-bk-dh { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--card-line); }
+#view-inbox .ib-bk-dh h2 { margin: 0; }
+#view-inbox .ib-bk-dc > p { margin: 0; }
+/* the progress card: the Site readiness card layout (gold edge, title and chip, divider, two columns of rows) */
+#view-inbox .ib-bk-run { border-color: var(--ov-gold); box-shadow: inset 4px 0 0 var(--ov-gold); }
+#view-inbox .ib-bk-bar2 { height: 10px; border-radius: 5px; background: var(--card-line); overflow: hidden; }
+#view-inbox .ib-bk-bar2 > span { display: block; height: 100%; border-radius: 5px; background: var(--primary, #2A50D0); }
+#view-inbox .ib-bk-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+#view-inbox .ib-bk-rows li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px 0; border-top: 1px solid var(--card-line); font-weight: 600; }
+#view-inbox .ib-bk-rows li:nth-child(-n+2) { border-top: 0; }
+#view-inbox .ib-bk-rows li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+#view-inbox .ib-bk-v { color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+#view-inbox .ib-bk-v.is-ok { color: var(--chip-ok); }
+#view-inbox .ib-bk-v.is-warn { color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
+/* the history table: scrolls inside its own box, never the page */
+#view-inbox .ib-bk-tbox { position: relative; min-width: 0; overflow-x: auto; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); } /* B2: the table is the card */
+#view-inbox .ib-bk-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 15px; }
+#view-inbox .ib-bk-table th { padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); border-bottom: 1px solid var(--card-line); white-space: nowrap; }
+#view-inbox .ib-bk-table td { padding: 10px 12px; border-top: 1px solid var(--card-line); vertical-align: middle; }
+#view-inbox .ib-bk-table tbody tr:first-child td { border-top: 0; }
+#view-inbox .ib-bk-table td.ib-bk-when { font-weight: 600; white-space: nowrap; }
+#view-inbox .ib-bk-table td.ib-bk-nums { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-table td.ib-bk-aud { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-inbox .ib-bk-table td.ib-bk-rtext { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+#view-inbox .ib-bk-table td.ib-bk-act { width: 1%; white-space: nowrap; text-align: right; }
+#view-inbox .ib-bk-view { min-height: 36px; padding: 0 14px; }
+#view-inbox .ib-bk-tr.is-open td { border-bottom: 0; }
+#view-inbox .ib-bk-dr > td { padding: 0; display: table-cell; border-top: 0; }
+#view-inbox .ib-bk-dwrap { position: sticky; left: 0; box-sizing: border-box; max-width: calc(100vw - 96px); } /* the details stay in view while the table scrolls inside its box */
+#view-inbox .ib-bk-rec { list-style: none; margin: 8px 0 8px; padding: 0; display: flex; flex-direction: column; } /* a divider above the first row, none under the last */
+#view-inbox .ib-bk-rsum, #view-inbox .ib-bk-mob, #view-inbox .ib-bk-reason { color: var(--meta); font-size: 14px; }
+/* the compose form: the form and the rules side by side (HQ's layout), one column on a phone */
+#view-inbox .ib-bk-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 16px; align-items: start; }
+#view-inbox .ib-bk-colmain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+#view-inbox .ib-bk-aside { min-width: 0; }
+#view-inbox .ib-bk-rules .ib-bk-left { color: var(--text-2); }
+#view-inbox .ib-bk-sendto { min-width: 0; }
+#view-inbox .ib-bk-pick { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+#view-inbox .ib-bk-pick[hidden] { display: none; }
+#view-inbox .ib-bk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+#view-inbox .ib-bk-chips:not(:empty) { margin-top: 8px; }
+#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 6px 2px 12px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 14px; font-weight: 600; }
+#view-inbox .ib-bk-pchip-x { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+#view-inbox .ib-bk-pchip-x:hover, #view-inbox .ib-bk-pchip-x:focus-visible { background: color-mix(in srgb, var(--link) 22%, transparent); outline: none; }
+#view-inbox .ib-bk-sendto legend { padding: 0; }
+#view-inbox .ib-bk-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--link, #6C8CFF); border-radius: 10px; font-weight: 600; cursor: pointer; }
+#view-inbox .ib-bk-opt input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }
+#view-inbox .ib-bk-form .pm-input.ib-ta { display: block; width: 100%; box-sizing: border-box; min-height: 104px; padding: 10px 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); resize: vertical; }
+#view-inbox .ib-bk-form .pm-input.ib-ta:focus, #view-inbox .ib-bk-form .pm-input.ib-ta:focus-visible { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-inbox .ib-bk-form .ib-rfoot { align-items: flex-start; }
+#view-inbox .ib-bk-form .ib-rfoot .pm-hint { flex: 1 1 auto; min-width: 0; margin: 0; }
+#view-inbox .ib-bk-form .ib-count { flex: none; white-space: nowrap; }
+#view-inbox .ib-bk-dc > .no-btn { align-self: flex-start; }
+#view-inbox .ib-bk-formfoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+@media screen and (max-width: 899px) {
+  #view-inbox .ib-bk-cols { grid-template-columns: minmax(0, 1fr); }
+  #view-inbox .ib-bk-rows { grid-template-columns: minmax(0, 1fr); }
+  #view-inbox .ib-bk-rows li:nth-child(2) { border-top: 1px solid var(--card-line); }
+  #view-inbox .ib-bk-dh > .no-btn { flex: 1 1 100%; }
+}
+
+/* INBOX-FIX-8 (Coach Ed 2026-11-24): New SMS and the text thread. */
+/* Desktop: the right pane's head bottom line sits on the same y as the left column's divider (#ib-lhead: 14 + 44 filter row + 10 + 1 border = 69px).
+   Both heads (the conversation head: avatar, name, badges; the New SMS head: title, subtitle, button) are pinned to exactly 69px: border-box, height 69,
+   6px top and bottom, so the 1px border-bottom ends at the same y as .ib-lhead's (the name + badges column is 23 + 2 + 26 = 51px, inside 69 - 12 - 1 = 56). */
+@media (min-width: 900px) {
+  #view-inbox .ib-lhead { box-sizing: border-box; min-height: 69px; }
+  #view-inbox .ib-thead { box-sizing: border-box; height: 69px; padding-top: 6px; padding-bottom: 6px; flex-wrap: nowrap; }
+  #view-inbox .ib-thead .ib-tname { gap: 2px; }
+  #view-inbox .ib-thead .ib-chrow { flex-wrap: nowrap; }
+  #view-inbox .ib-thead-new .ib-tname { gap: 0; }
+  #view-inbox .ib-thead .ib-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+}
+#view-inbox .ib-thead-new .ib-hacts .no-btn { min-height: 44px; white-space: nowrap; }
+/* Round 9 check fix F5: the conversation head stays 69px (its bottom line is level with the list's) but its three lines (name, chips, email) now fit
+   inside it with explicit line heights, so the name never touches or clips at the top: 3 + 20 + 1 + 22 + 1 + 16 + 3 + 1 border = 67 of 69. */
+@media (min-width: 900px) {
+  #view-inbox .ib-thead:not(.ib-thead-new) { padding-top: 3px; padding-bottom: 3px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-tname { gap: 1px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-tname h2 { font-size: 17px; line-height: 20px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-chrow .chip { min-height: 22px; line-height: 20px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-sub { line-height: 16px; }
+}
+/* the body box of New SMS: a visible border in light and dark (the dash input border token), light-blue focus */
+#view-inbox .ib-sms-new .pm-input.ib-ta { padding: 10px 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); }
+#view-inbox .ib-sms-new .pm-input.ib-ta:focus, #view-inbox .ib-sms-new .pm-input.ib-ta:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+/* the member/contact tag on a picker row */
+body.dash-app .ib-combo-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 12px; font-weight: 600; }
+
+/* INBOX-FIX-8 B1-B4: the Bulk SMS history has no outer card (the title and the button are a plain row above the table) and the View detail is flat. */
+#view-inbox .ib-bk-histsec .ib-bk-dh { padding-bottom: 0; border-bottom: 0; }
+/* round 11: the Scheduled SMS and Bulk SMS history headings are a section title, the size of the card title "How scheduled sending works" (.dash-card h2: 18px, 700, 1.3) */
+#view-inbox .ib-bk-histsec h2 { font-size: 18px; font-weight: 700; line-height: 1.3; }
+#view-inbox .ib-bk-dr > td { background: color-mix(in srgb, var(--link) 7%, transparent); }
+#view-inbox .ib-bk-flat { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 14px; font-size: 15px; color: var(--text); }
+#view-inbox .ib-bk-flat p { margin: 0; }
+#view-inbox .ib-bk-fh { display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--text); }
+#view-inbox .ib-bk-fh strong { font-weight: 700; }
+#view-inbox .ib-bk-fh svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#view-inbox .ib-bk-stat { font-weight: 600; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-endl { display: flex; align-items: center; gap: 8px; color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-endl svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#view-inbox .ib-bk-flat .ib-bk-text { font-size: 15px; color: var(--text-2); }
+#view-inbox .ib-bk-lo { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--meta); }
+#view-inbox .ib-bk-lo-t { font-weight: 600; }
+#view-inbox .ib-bk-dr .ib-bk-rec, #view-inbox .ib-bk-dr > td > .pm-meta, #view-inbox .ib-bk-dr > td > .no-btn, #view-inbox .ib-bk-more { margin-left: 12px; margin-right: 12px; margin-bottom: 12px; }
+@media (width < 900px) { #view-inbox .ib-bk-histsec .ib-bk-dh > .no-btn { flex: 1 1 100%; } }
+/* Round 9: the compact Sending now card, the one-line count with two buttons, the confirm dialog */
+#view-inbox .ib-bk-run { gap: 8px; }
+#view-inbox .ib-bk-prog { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin: 0; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-est { color: var(--meta); font-size: 14px; }
+#view-inbox .ib-bk-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+#view-inbox .ib-bk-actions .ib-bk-will { margin: 0; font-size: 14px; font-weight: 500; color: var(--meta); }
+#view-inbox .ib-bk-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Round 9 check fix F1: the confirm is a modal like the Add contact dialog (the same scrim and card): the page behind is covered and dimmed. */
+#view-inbox .ib-bk-dlg { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(5, 10, 30, .66); }
+#view-inbox .ib-bk-dlg-box { box-sizing: border-box; width: min(420px, 100%); padding: 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: var(--card-shadow); }
+#view-inbox .ib-bk-dlg-h { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#view-inbox .ib-bk-dlg-t { margin: 0 0 16px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#view-inbox .ib-bk-dlg-btns { display: flex; justify-content: flex-end; gap: 12px; }
+#view-inbox .ib-bk-dlg .no-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+@media (width < 900px) { #view-inbox .ib-bk-btns, #view-inbox .ib-bk-btns .no-btn { flex: 1 1 100%; } }
+@media (width < 480px) { #view-inbox .ib-bk-dlg-box { padding: 18px; } #view-inbox .ib-bk-dlg-btns .no-btn { flex: 1 1 0; } }
+/* F3: the View top block's icon is a round state icon as tall as the text line, in the state's chip colour */
+#view-inbox .ib-bk-fh svg { width: 1.25em; height: 1.25em; }
+#view-inbox .ib-bk-fh svg.is-finished { color: var(--chip-ok); }
+#view-inbox .ib-bk-fh svg.is-stopped, #view-inbox .ib-bk-fh svg.is-ended { color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-fh svg.is-waiting, #view-inbox .ib-bk-fh svg.is-sending { color: var(--chip-info); }
+/* F2: below 700px each History row is a stacked card row (date and status, audience, counts, message and View); no inner scroll, and the View detail spans the card. */
+@media (width < 700px) {
+  #view-inbox .ib-bk-tbox { overflow: hidden; }
+  #view-inbox .ib-bk-table { display: block; min-width: 0; }
+  #view-inbox .ib-bk-table thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  #view-inbox .ib-bk-table tbody { display: block; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when chip" "aud aud" "nums nums" "msg act"; align-items: center; gap: 4px 12px; padding: 12px 14px; border-top: 1px solid var(--card-line); }
+  #view-inbox .ib-bk-table tbody tr:first-child { border-top: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td { display: block; min-width: 0; padding: 0; border: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-when { grid-area: when; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(2) { grid-area: aud; max-width: none; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums { grid-area: nums; font-size: 14px; color: var(--text-2); }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums::before { content: "Sent / Failed / Not sent: "; color: var(--meta); }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(4) { grid-area: chip; justify-self: end; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-rtext { grid-area: msg; max-width: none; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-act { grid-area: act; width: auto; }
+  #view-inbox .ib-bk-table tr.ib-bk-dr { display: block; border-top: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-dr > td { display: block; padding: 0; border: 0; }
+  #view-inbox .ib-bk-dwrap { position: static; max-width: none; width: 100%; }
+}
+
+/* INBOX-FIX-9 (round 9, Coach Ed 2026-11-24): the Schedule SMS tab. It reuses the Bulk look (.ib-bk-*); only the date and time row and the table's small bits are new.
+   Focus stays the light blue (the Bulk and combo rules above), never gold. */
+#view-inbox .ib-sc-when { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#view-inbox .ib-sc-when .pm-field { min-width: 0; }
+#view-inbox .ib-sc-acts { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; }
+#view-inbox .ib-sc-why { display: block; margin-top: 4px; color: var(--meta); font-size: 13px; line-height: 1.35; max-width: 260px; white-space: normal; }
+#view-inbox .ib-sc-table td.ib-bk-rtext { max-width: 240px; }
+#view-inbox .ib-sc-form .ib-bk-btns { justify-content: flex-end; }
+#view-inbox .ib-sc-form .ib-sc-why { margin: 6px 0 0 auto; text-align: right; }
+@media (width < 900px) { #view-inbox .ib-sc-form .ib-sc-why { margin-left: 0; text-align: left; } }
+@media (width < 600px) { #view-inbox .ib-sc-when { grid-template-columns: minmax(0, 1fr); } }
+#view-inbox .ib-sc-backlink { align-self: flex-start; color: var(--link); font-size: 15px; font-weight: 600; text-decoration: none; }
+#view-inbox .ib-sc-backlink:hover { text-decoration: underline; }
+#view-inbox .ib-sc-backlink:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }

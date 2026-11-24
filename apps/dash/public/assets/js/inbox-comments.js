@@ -309,7 +309,7 @@
     /* The counter shows the smaller limit while both sends are possible (500), else the limit of the one that is. */
     var limit = pubOff ? MAX["private"] : MAX["public"];
     var lab = h("label", "pm-label sr-only", T.reply); lab.setAttribute("for", "cm-rb");
-    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "cm-rb"); ta.setAttribute("rows", "2"); ta.setAttribute("aria-describedby", "cm-rc");
+    var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "cm-rb"); ta.setAttribute("rows", "2"); ta.setAttribute("placeholder", U.placeholderFor ? U.placeholderFor("fbcomment") : "Reply to comment\u2026"); ta.setAttribute("aria-describedby", "cm-rc");
     ta.setAttribute("maxlength", String(privOff ? MAX["public"] : MAX["private"]));
     var count = h("span", "ib-count", "0 / " + limit); count.setAttribute("id", "cm-rc");
     var foot = h("div", "ib-rfoot"), btns = h("div", "cm-sends");

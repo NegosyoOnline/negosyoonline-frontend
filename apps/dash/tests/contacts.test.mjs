@@ -468,3 +468,28 @@ test("no page title block: no kicker, title or subtitle; the sr-only h1 stays; t
   assert.deepEqual(d.root().children[0].children[0].children.map((b) => b.classList.contains("is-on")), [false, true]);
   assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ :is\(#view-contacts, #ct-dialog-slot\) \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
 });
+
+test("INBOX-FIX-9 F8: the Upload CSV intro has no plain 'Download the sample file' sentence; the Download sample CSV link stays", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(d.press(d.root(), "Upload CSV"));
+  const t = d.root().textContent;
+  assert.ok(!/Download the sample file/.test(t) && !/Not sure how to fill/.test(t));
+  assert.ok(t.includes("Up to 1 MB."));
+  assert.equal(d.root().all((n) => n.tagName === "A" && n.textContent === "Download sample CSV").length, 1);
+});
+
+test("INBOX-FIX-9 F6: on a phone the groups pane is one continuous card (no tinted block) and changing pane puts the page at the top, so the tab row does not move", async () => {
+  assert.match(CSS, /\.ct-col-groups \{ background: transparent; flex: 1 1 auto; \}/);
+  const d = boot();
+  const tops = [];
+  d.window.scrollTo = (x, y) => tops.push([x, y]);
+  await d.open();
+  const app = byClass(d, "ct-app")[0];
+  await d.click(byClass(d, "ct-back")[0]);
+  assert.equal(app.getAttribute("data-pane"), "groups");
+  assert.deepEqual(tops, [[0, 0]], "the page goes to the top when the pane changes");
+  await d.click(byClass(d, "ct-side-btn")[0]);
+  assert.equal(app.getAttribute("data-pane"), "list");
+  assert.equal(tops.length, 2);
+});

@@ -576,6 +576,15 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
   #view-inbox .ib-thead .ib-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
 }
 #view-inbox .ib-thead-new .ib-hacts .no-btn { min-height: 44px; white-space: nowrap; }
+/* INBOX-FIX-9 F5: the conversation head stays 69px (its bottom line is level with the list's) but its three lines (name, chips, email) now fit
+   inside it with explicit line heights, so the name never touches or clips at the top: 3 + 20 + 1 + 22 + 1 + 16 + 3 + 1 border = 67 of 69. */
+@media (min-width: 900px) {
+  #view-inbox .ib-thead:not(.ib-thead-new) { padding-top: 3px; padding-bottom: 3px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-tname { gap: 1px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-tname h2 { font-size: 17px; line-height: 20px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-chrow .chip { min-height: 22px; line-height: 20px; }
+  #view-inbox .ib-thead:not(.ib-thead-new) .ib-sub { line-height: 16px; }
+}
 /* the body box of New SMS: a visible border in light and dark (the dash input border token), light-blue focus */
 #view-inbox .ib-sms-new .pm-input.ib-ta { padding: 10px 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); }
 #view-inbox .ib-sms-new .pm-input.ib-ta:focus, #view-inbox .ib-sms-new .pm-input.ib-ta:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
@@ -606,8 +615,37 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-bk-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
 #view-inbox .ib-bk-actions .ib-bk-will { margin: 0; font-size: 14px; font-weight: 500; color: var(--meta); }
 #view-inbox .ib-bk-btns { display: flex; flex-wrap: wrap; gap: 10px; }
-#view-inbox .ib-bk-dlg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
-#view-inbox .ib-bk-dlg-box { width: min(100%, 380px); box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 16px; background: var(--card); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
-#view-inbox .ib-bk-dlg-t { margin: 0; font-size: 17px; font-weight: 600; color: var(--text); }
-#view-inbox .ib-bk-dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
+/* INBOX-FIX-9 F1: the confirm is a modal like the Add contact dialog (the same scrim and card): the page behind is covered and dimmed. */
+#view-inbox .ib-bk-dlg { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(5, 10, 30, .66); }
+#view-inbox .ib-bk-dlg-box { box-sizing: border-box; width: min(420px, 100%); padding: 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: var(--card-shadow); }
+#view-inbox .ib-bk-dlg-h { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
+#view-inbox .ib-bk-dlg-t { margin: 0 0 16px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+#view-inbox .ib-bk-dlg-btns { display: flex; justify-content: flex-end; gap: 12px; }
+#view-inbox .ib-bk-dlg .no-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 @media (width < 900px) { #view-inbox .ib-bk-btns, #view-inbox .ib-bk-btns .no-btn { flex: 1 1 100%; } }
+@media (width < 480px) { #view-inbox .ib-bk-dlg-box { padding: 18px; } #view-inbox .ib-bk-dlg-btns .no-btn { flex: 1 1 0; } }
+/* F3: the View top block's icon is a round state icon as tall as the text line, in the state's chip colour */
+#view-inbox .ib-bk-fh svg { width: 1.25em; height: 1.25em; }
+#view-inbox .ib-bk-fh svg.is-finished { color: var(--chip-ok); }
+#view-inbox .ib-bk-fh svg.is-stopped, #view-inbox .ib-bk-fh svg.is-ended { color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-fh svg.is-waiting, #view-inbox .ib-bk-fh svg.is-sending { color: var(--chip-info); }
+/* F2: below 700px each History row is a stacked card row (date and status, audience, counts, message and View); no inner scroll, and the View detail spans the card. */
+@media (width < 700px) {
+  #view-inbox .ib-bk-tbox { overflow: hidden; }
+  #view-inbox .ib-bk-table { display: block; min-width: 0; }
+  #view-inbox .ib-bk-table thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  #view-inbox .ib-bk-table tbody { display: block; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when chip" "aud aud" "nums nums" "msg act"; align-items: center; gap: 4px 12px; padding: 12px 14px; border-top: 1px solid var(--card-line); }
+  #view-inbox .ib-bk-table tbody tr:first-child { border-top: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td { display: block; min-width: 0; padding: 0; border: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-when { grid-area: when; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(2) { grid-area: aud; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums { grid-area: nums; font-size: 14px; color: var(--text-2); }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums::before { content: "Sent / Failed / Not sent: "; color: var(--meta); }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(4) { grid-area: chip; justify-self: end; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-rtext { grid-area: msg; max-width: none; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-act { grid-area: act; width: auto; }
+  #view-inbox .ib-bk-table tr.ib-bk-dr { display: block; border-top: 0; }
+  #view-inbox .ib-bk-table tr.ib-bk-dr > td { display: block; padding: 0; border: 0; }
+  #view-inbox .ib-bk-dwrap { position: static; max-width: none; width: 100%; }
+}

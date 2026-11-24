@@ -420,7 +420,12 @@
     var a = String((c && c.first_name) || "").trim().charAt(0), b = String((c && c.last_name) || "").trim().charAt(0);
     return (a + b).toUpperCase() || "#";
   }
-  function setPane(p) { S.pane = p; var g = byId("ct-app"); if (g) g.setAttribute("data-pane", p); }
+  /* A phone shows one pane at a time. Changing pane puts the page back at the top, so the tab row is where it is on every pane (INBOX-FIX-9 F6). */
+  function pageTop() {
+    try { window.scrollTo(0, 0); } catch (e) { /* no window to scroll */ }
+    for (var n = byId("ct-root"); n && n.parentNode; n = n.parentNode) if (n.scrollTop) n.scrollTop = 0;
+  }
+  function setPane(p) { var was = S.pane; S.pane = p; var g = byId("ct-app"); if (g) g.setAttribute("data-pane", p); if (was !== p) pageTop(); }
   function resetPaging() { S.cursor = ""; S.rows = []; S.next = null; }
 
   function listPanel(panel) {
@@ -707,7 +712,7 @@
   function uploadPanel(panel) {
     var U = S.upload = { text: "", group: "", checked: null, run: 0 };
     var form = h("form", "ct-card"); form.setAttribute("novalidate", "novalidate"); form.setAttribute("aria-label", "Upload contacts");
-    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Not sure how to fill it in? Download the sample file. Up to 1 MB. Nothing is saved until you check it and confirm."));
+    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
     /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
     var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
     var fFile = field("CSV file", file); /* field() puts the input in its box; it moves into the picker below, directly before its label */

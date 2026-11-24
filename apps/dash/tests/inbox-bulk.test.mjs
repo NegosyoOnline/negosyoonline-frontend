@@ -442,7 +442,8 @@ test("bulk: Start Sending opens a confirm dialog first; Back sends nothing; conf
   assert.equal(d.$("ib-bk-dlg"), null);
   await d.click(d.$("ib-bk-go"));
   const dlg = d.$("ib-bk-dlg");
-  assert.ok(dlg && dlg.getAttribute("role") === "dialog" && dlg.getAttribute("aria-modal") === "true");
+  const box = dlg && dlg.all((n) => n.getAttribute("role") === "dialog")[0];
+  assert.ok(box && box.getAttribute("aria-modal") === "true", "the dialog card sits inside the scrim");
   assert.ok(dlg.textContent.includes("Send to 95 members from your phone?"));
   assert.equal(d.bk.seen.batches.length, 0, "nothing sent yet");
   await d.click(d.$("ib-bk-dlg-back"));
@@ -794,4 +795,131 @@ test("bulk pick: History and View name a pick batch Chosen groups and contacts; 
   await d.click(viewBtns(d)[0]); await settle();
   const t = pane(d).textContent;
   assert.ok(t.includes("This contact was removed.") && t.includes("Their number changed."));
+});
+
+/* ---------- INBOX-FIX-9 check fixes (Supervisor headless check, round 9) ---------- */
+
+const CSS9 = () => fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const btnsIn = (n) => n.all((x) => x.tagName === "BUTTON");
+
+test("INBOX-FIX-9 F1: Start Sending opens a real modal: a scrim, a title, the question, exactly Back and Yes, send; Escape and the scrim are Back; Tab stays inside; focus returns to Start Sending", async () => {
+  const d = await openBulk();
+  await typeText(d, "Sale this weekend");
+  await d.click(d.$("ib-bk-go"));
+  const over = d.$("ib-bk-dlg");
+  assert.ok(over.classList.contains("ib-bk-dlg"), "the scrim is the outer layer");
+  const box = over.all((n) => n.getAttribute("role") === "dialog")[0];
+  assert.equal(box.getAttribute("aria-modal"), "true");
+  assert.equal(box.all((n) => n.tagName === "H2")[0].textContent, "Start sending?");
+  assert.equal(box.getAttribute("aria-labelledby"), "ib-bk-dlg-h");
+  assert.ok(box.textContent.includes("Send to 95 members from your phone?"));
+  assert.deepEqual(btnsIn(over).map((b) => b.textContent), ["Back", "Yes, send"], "exactly two buttons, no stray Close");
+  assert.equal(d.doc.activeElement, d.$("ib-bk-dlg-back"), "focus starts on Back");
+  /* Tab wraps inside the card */
+  let e = d.doc.fire("keydown", { key: "Tab", shiftKey: false }); assert.equal(e.prevented, false, "Back to Yes, send is free");
+  d.$("ib-bk-dlg-go").focus(); e = d.doc.fire("keydown", { key: "Tab", shiftKey: false });
+  assert.ok(e.prevented); assert.equal(d.doc.activeElement, d.$("ib-bk-dlg-back"), "Tab from the last goes to the first");
+  d.$("ib-bk-dlg-back").focus(); e = d.doc.fire("keydown", { key: "Tab", shiftKey: true });
+  assert.ok(e.prevented); assert.equal(d.doc.activeElement, d.$("ib-bk-dlg-go"), "Shift+Tab from the first goes to the last");
+  /* Escape is Back */
+  d.doc.fire("keydown", { key: "Escape" });
+  assert.equal(d.$("ib-bk-dlg"), null); assert.equal(d.doc.activeElement, d.$("ib-bk-go"), "focus returns to Start Sending");
+  assert.equal(d.bk.seen.batches.length, 0);
+  /* a click on the scrim is Back; a click inside the card is not */
+  await d.click(d.$("ib-bk-go"));
+  d.$("ib-bk-dlg").all((n) => n.getAttribute("role") === "dialog")[0].fire("click");
+  assert.ok(d.$("ib-bk-dlg"), "a click inside the card keeps it open");
+  d.$("ib-bk-dlg").fire("click");
+  assert.equal(d.$("ib-bk-dlg"), null, "the scrim closes it"); assert.equal(d.bk.seen.batches.length, 0);
+  /* the key listener is gone after closing: Escape does nothing and nothing throws */
+  d.doc.fire("keydown", { key: "Escape" });
+  const css = CSS9();
+  assert.match(css, /#view-inbox \.ib-bk-dlg \{[^}]*position: fixed; inset: 0;[^}]*background: rgba\(5, 10, 30, \.66\);/, "the same scrim as the Add contact dialog");
+  assert.match(css, /#view-inbox \.ib-bk-dlg-box \{[^}]*background: var\(--card\)/);
+});
+
+test("INBOX-FIX-9 F2: below 700px each History row is a stacked card row with no inner scroll, and the View detail spans the card; the desktop table is unchanged", () => {
+  const raw = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const m = /@media \(width < 700px\) \{([\s\S]*?)\n\}\n/.exec(raw);
+  assert.ok(m, "a phone block");
+  const ph = m[1];
+  assert.match(ph, /\.ib-bk-tbox \{ overflow: hidden; \}/, "no inner horizontal scroll");
+  assert.match(ph, /\.ib-bk-table \{ display: block; min-width: 0; \}/);
+  assert.match(ph, /tr\.ib-bk-tr \{ display: grid;[^}]*"when chip" "aud aud" "nums nums" "msg act"/, "date and status, audience, counts, message and View");
+  assert.match(ph, /td\.ib-bk-rtext \{ grid-area: msg; max-width: none; \}/);
+  assert.match(ph, /td\.ib-bk-act \{ grid-area: act;/);
+  assert.match(ph, /\.ib-bk-dwrap \{ position: static; max-width: none; width: 100%; \}/, "the detail spans the card");
+  assert.match(ph, /\.ib-bk-nums::before \{ content: "Sent \/ Failed \/ Not sent: "/);
+  /* the desktop rules are the ones outside the block */
+  assert.match(raw, /#view-inbox \.ib-bk-tbox \{[^}]*overflow-x: auto;/);
+  assert.match(raw, /#view-inbox \.ib-bk-table \{[^}]*min-width: 680px;/);
+  assert.match(raw, /#view-inbox \.ib-bk-table td\.ib-bk-rtext \{[^}]*text-overflow: ellipsis; white-space: nowrap;/, "the message stays one line, ellipsized");
+});
+
+test("INBOX-FIX-9 F2: each History row keeps its six cells in the order the phone grid relies on (date, audience, counts, status, message, View)", async () => {
+  const d = await openBulk({}, {}, { form: false });
+  const cells = rowsOf(d)[0].all((n) => n.tagName === "TD");
+  assert.deepEqual(cells.map((c) => c.classList.contains("ib-bk-when") ? "when" : c.classList.contains("ib-bk-nums") ? "nums" : c.classList.contains("ib-bk-rtext") ? "msg" : c.classList.contains("ib-bk-act") ? "act" : "plain"),
+    ["when", "plain", "nums", "plain", "msg", "act"]);
+  assert.ok(cells[3].children[0].classList.contains("ib-bk-chip"), "the status chip is the 4th cell");
+});
+
+test("INBOX-FIX-9 F3: the View top block shows a round state icon (stop-circle, check-circle, clock, alert) in the state colour", async () => {
+  const want = { stopped: "9.5 9.5h5v5h-5z", finished: "M8 12l3 3 5-6", sending: "M12 7v5l3 2", waiting: "M12 7v5l3 2", ended: "M12 7.5v5M12 16h.01" };
+  for (const state of Object.keys(want)) {
+    const b = batch({ state, sent: 2, failed: 0, not_sent: 7, waiting: 0, stopped_at: "2026-11-24T08:08:00Z", finished_at: "2026-11-23T11:00:00Z" });
+    const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }), detail: () => ok({ ...b, results: [], next: null }) }, {}, { form: false });
+    await d.click(viewBtns(d)[0]);
+    const head = pane(d).all((n) => n.classList && n.classList.contains("ib-bk-fh"))[0];
+    const svg = head.all((n) => String(n.tagName).toLowerCase() === "svg")[0];
+    assert.ok(svg, state + ": an icon");
+    assert.ok(svg.classList.contains("is-" + state), state + ": coloured by state");
+    const dpath = svg.all((n) => String(n.tagName).toLowerCase() === "path")[0].getAttribute("d");
+    assert.ok(dpath.startsWith("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"), state + ": the round frame");
+    assert.ok(dpath.includes(want[state]), state + ": its own mark");
+  }
+  const css = CSS9();
+  assert.match(css, /\.ib-bk-fh svg \{ width: 1\.25em; height: 1\.25em; \}/, "as tall as the text line");
+  assert.match(css, /\.ib-bk-fh svg\.is-finished \{ color: var\(--chip-ok\); \}/);
+  assert.match(css, /\.ib-bk-fh svg\.is-stopped, #view-inbox \.ib-bk-fh svg\.is-ended \{ color: var\(--bl-chip-warn\); \}/);
+});
+
+test("INBOX-FIX-9 F7: while a contact search is on its way the list says Searching, never No groups or contacts found; Rina is found by Rina even with a group picked; a failed search says so; the newest answer wins", async () => {
+  const mk = (id, f, l, g) => ({ id, first_name: f, last_name: l, mobile_masked: "0917 *** 1234", groups: g || [], opted_out: false });
+  const ALL = [mk("c1", "Ed", "Geronilla"), mk("c3", "Rina", "Menu12358", ["g1"])];
+  let hold = null, fail = false;
+  const contacts = (p) => {
+    if (p === CT + "status/") return ok({ contacts: true, count: 2, max: 20000 });
+    if (p === CT + "groups/") return ok(GROUPS);
+    if (p.indexOf(CT + "?q=") === 0) {
+      const q = decodeURIComponent(p.slice((CT + "?q=").length)).toLowerCase();
+      if (fail) return bad(500, "server_error", "Oops.");
+      return ok({ results: ALL.filter((c) => (c.first_name + " " + c.last_name).toLowerCase().includes(q)), next: null });
+    }
+    return null;
+  };
+  const d = await openPick({}, contacts);
+  await typeText(d, "Sale"); await pickTo(d, "Regulars");
+  const empties = () => cRows(d, "ib-bk-to").filter((n) => n.classList.contains("is-disabled")).map((n) => n.textContent);
+  cBox(d, "ib-bk-to").fire("click");
+  const i = sendTo(d); i.value = "Rina"; i.fire("input");
+  assert.deepEqual(empties(), ["Searching\u2026"], "before the answer: Searching, not 'No groups or contacts found'");
+  await sleep(350); await settle();
+  assert.deepEqual(optLabels(d), ["Rina Menu12358 \u00B7 0917 *** 1234"], "found by first name although Rina is in the picked group");
+  assert.deepEqual(empties(), []);
+  /* a name that is nowhere: Searching, then the plain empty words */
+  i.value = "Zzzz"; i.fire("input");
+  assert.deepEqual(empties(), ["Searching\u2026"]);
+  await sleep(350); await settle();
+  assert.deepEqual(empties(), ["No groups or contacts found."]);
+  /* a failed search says so */
+  fail = true; i.value = "Rina"; i.fire("input"); await sleep(350); await settle();
+  assert.deepEqual(empties(), ["We could not search just now. Please try again."]);
+  fail = false;
+  /* typing on: only the newest answer is used (Ri, Rin and Rina in quick succession ask once) */
+  const before = d.list().filter((c) => c.includes("?q=")).length;
+  for (const q of ["Ed", "Edx", "Ed"]) { i.value = q; i.fire("input"); }
+  await sleep(350); await settle();
+  assert.equal(d.list().filter((c) => c.includes("?q=")).length, before + 1);
+  assert.ok(optLabels(d).some((t) => t.startsWith("Ed Geronilla")));
 });

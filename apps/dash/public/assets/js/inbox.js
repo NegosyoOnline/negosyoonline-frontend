@@ -1032,8 +1032,14 @@
 
   /* The box is kept per conversation, in memory only. */
   function draftOf() { return S.sel && Object.prototype.hasOwnProperty.call(S.drafts, S.sel) ? S.drafts[S.sel] : ""; }
-  function markAnswered(ref) {
-    S.items.forEach(function (i) { if (i.ref === ref && typeof i.answered === "boolean") i.answered = true; });
+  /* An accepted reply also shows in the row at once (INBOX-FIX-9 F4): the preview becomes the reply's words and the time is now; the next list read confirms both. */
+  function markAnswered(ref, text) {
+    var at = new Date().toISOString();
+    S.items.forEach(function (i) {
+      if (i.ref !== ref) return;
+      if (typeof i.answered === "boolean") i.answered = true;
+      if (typeof text === "string" && text) { i.snippet = text; i.updated_at = at; }
+    });
     if (S.thread && S.thread.ref === ref && typeof S.thread.answered === "boolean") S.thread.answered = true;
     if (byId("ib-listbody")) drawList();
   }
@@ -1068,7 +1074,7 @@
       S.key = null;
       var state = res.data && res.data.state;
       /* INBOX-FIX-9: an accepted reply answers the conversation at once: its row turns from the "!" to the check without a list read (the next list read confirms it). A refused or failed reply changes nothing. */
-      if (state !== "failed") markAnswered(ref);
+      if (state !== "failed") markAnswered(ref, text);
       /* The thread now holds the owner's message with its delivery state, sent or failed: read it again. */
       var code = res.data && typeof res.data.error_code === "string" ? res.data.error_code : "";
       if (isSms) {

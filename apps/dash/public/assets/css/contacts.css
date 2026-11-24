@@ -113,6 +113,9 @@ body.dash-app :is(#view-contacts, #ct-dialog-slot) .ct-tabs button:focus-visible
 @media (max-width: 720px) {
   :is(#view-contacts, #ct-dialog-slot) .ct-app { display: block; height: auto; min-height: 60vh; }
   :is(#view-contacts, #ct-dialog-slot) .ct-col { display: none; border-right: 0; }
+  /* INBOX-FIX-9 F6: on a phone the groups pane is part of the one card: no lighter block that ends where its content ends */
+  :is(#view-contacts, #ct-dialog-slot) .ct-col-groups { background: transparent; flex: 1 1 auto; }
+  :is(#view-contacts, #ct-dialog-slot) .ct-app { background: var(--card); }
   :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="groups"] .ct-col-groups, :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="list"] .ct-col-list, :is(#view-contacts, #ct-dialog-slot) .ct-app[data-pane="detail"] .ct-col-detail { display: flex; }
   :is(#view-contacts, #ct-dialog-slot) .ct-back { display: inline-flex; align-self: flex-start; min-height: 40px; }
   :is(#view-contacts, #ct-dialog-slot) .ct-col-detail .ct-back { margin-bottom: 8px; }

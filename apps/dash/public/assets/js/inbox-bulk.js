@@ -89,7 +89,8 @@
   }
   /* The top line of a batch's View: the icon path and the plain words, by state ("Stopped by you on <date>"). The date is the one the state
      happened (stopped_at, finished_at), else the day it was created. */
-  var HEAD_ICON = { stopped: "M7 7h10v10H7z", finished: "M5 13l4 4L19 7", sending: "M12 6v6l4 2", waiting: "M12 6v6l4 2", ended: "M12 3l10 18H2zM12 10v5M12 18h.01" };
+  var CIRCLE = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z"; /* the round frame of the dash's own state icons (inbox.js ICON.check and ICON.unans) */
+  var HEAD_ICON = { stopped: CIRCLE + "M9.5 9.5h5v5h-5z", finished: CIRCLE + "M8 12l3 3 5-6", sending: CIRCLE + "M12 7v5l3 2", waiting: CIRCLE + "M12 7v5l3 2", ended: CIRCLE + "M12 7.5v5M12 16h.01" };
   function headline(b) {
     var st = b && b.state, d = when(st === "stopped" ? b.stopped_at || b.created_at : (st === "finished" || st === "ended") ? b.finished_at || b.stopped_at || b.created_at : b && b.created_at);
     var w = st === "stopped" ? "Stopped by you on " : st === "finished" ? "Finished on " : st === "sending" ? "Sending since " : st === "ended" ? "Ended on " : "Waiting to start since ";
@@ -141,11 +142,11 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
       hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
-    function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
+    function stop() { st.dead = true; closeDialog(false); if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
 
@@ -216,19 +217,31 @@
         var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
       });
     }
-    /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. */
+    /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. Until that answer is in, the list says
+       "Searching..." (INBOX-FIX-9 F7: it used to say "No groups or contacts found" for the 300 ms and the round trip, so a name that exists looked missing);
+       a search that failed says so instead of an empty list. */
     function searchContacts(raw) {
       if (st.ctimer) clearTimeout(st.ctimer);
       var q = String(raw || "").trim(), run = ++st.csrun, sel = document.getElementById("ib-bk-to");
-      if (q.length < 2) { st.found = []; if (sel) { fillSend(sel); sel.ibRedraw(); } return; }
+      st.searchErr = false;
+      if (q.length < 2) { st.found = []; st.searching = false; if (sel) { fillSend(sel); sel.ibRedraw(); } return; }
+      st.searching = true; st.found = []; /* the last query's contacts are not shown under the new one */
+      if (sel) { fillSend(sel); sel.ibRedraw(); }
       st.ctimer = setTimeout(function () {
         st.ctimer = null;
         D.call("GET", "/sites/" + ui.site + "/contacts/?q=" + encodeURIComponent(q), null, true).then(function (res) {
           if (st.dead || run !== st.csrun || (res && res.status === 401)) return;
-          st.found = res && res.ok && res.data ? contactItems(res.data.results) : [];
+          st.searching = false; st.searchErr = !(res && res.ok && res.data);
+          st.found = st.searchErr ? [] : contactItems(res.data.results);
           var s2 = document.getElementById("ib-bk-to"); if (s2) { fillSend(s2); s2.ibRedraw(); }
         });
       }, 300);
+    }
+    function emptyText(q) {
+      if (!st.contactsOn) return "No groups or contacts found.";
+      if (String(q || "").trim().length < 2) return "Type at least 2 letters of a name or number";
+      if (st.searching) return "Searching\u2026";
+      return st.searchErr ? "We could not search just now. Please try again." : "No groups or contacts found.";
     }
     /* ONE dropdown for who gets it (Coach Ed 2026-11-24 round 9): "All my members" first and selected by default, then the groups, then the contacts
        found by the search, mixed in one list. The first (blank) option is the grey placeholder shown once something is picked. Values: "all", "g:<id>", "c:<id>". */
@@ -310,6 +323,7 @@
     /* ----- drawing ----- */
     function draw() {
       if (st.dead) return;
+      if (dlgKey) closeDialog(false); /* a redraw wipes the pane, and the dialog with it */
       ui.clear(host); host.classList.remove("is-hide-phone"); host.setAttribute("aria-label", "Bulk SMS");
       var body = h("div", "ib-bk ib-bk-page"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
       if (st.view === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Opening…")); return; }
@@ -389,7 +403,7 @@
     }
 
     /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
-    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.dlg = false; draw(); readAudience(); }
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; st.searching = false; st.searchErr = false; st.q = ""; st.dlg = false; draw(); readAudience(); }
     function closeForm() { st.view = "main"; st.err = ""; draw(); }
     function drawForm(body) {
       var s = st.status;
@@ -436,7 +450,7 @@
         if (g) pickChanged();
       });
       ui.combo(sel, "Send to", { blankEmpty: true, remote: function (q) { st.q = String(q || ""); fillSend(sel); sel.ibRedraw(); if (st.contactsOn) searchContacts(q); },
-        emptyText: function (q) { return st.contactsOn && String(q || "").trim().length < 2 ? "Type at least 2 letters of a name or number" : "No groups or contacts found."; } });
+        emptyText: emptyText });
       /* Closing the box after typing without picking shows the current choice again (All my members, or the chips). */
       var wrapEl = sel.parentNode, inEl = wrapEl.all ? wrapEl.all(function (n) { return n.tagName === "INPUT"; })[0] : wrapEl.querySelector("input");
       function resetQ() { if (!st.q) return; st.q = ""; fillSend(sel); if (sel.ibSync) sel.ibSync(); }
@@ -496,18 +510,38 @@
       if (go) go.disabled = !ok || !readyCount() || st.sending;
     }
     function readyCount() { return !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
-    /* Start Sending asks once more in a small dialog, so a batch cannot go by mistake. */
-    function closeDialog() { var d = document.getElementById("ib-bk-dlg"); if (d && d.parentNode) d.parentNode.removeChild(d); st.dlg = false; }
+    /* Start Sending asks once more in a modal (INBOX-FIX-9 F1), built like the Add contact dialog: a scrim over the page, a card with a title, the
+       question and exactly two buttons, Back and Yes, send. Escape and a click on the scrim are Back; Tab stays inside; focus goes to Back on open
+       and back to Start Sending when it is closed without sending. */
+    var dlgKey = null;
+    function closeDialog(returnFocus) {
+      var d = document.getElementById("ib-bk-dlg"); if (d && d.parentNode) d.parentNode.removeChild(d);
+      if (dlgKey) { document.removeEventListener("keydown", dlgKey); dlgKey = null; }
+      st.dlg = false;
+      if (returnFocus) { var go = document.getElementById("ib-bk-go"); if (go && go.focus) go.focus(); }
+    }
     function openDialog() {
       if (st.sending || !readyCount() || !textOk() || !st.preview || document.getElementById("ib-bk-dlg")) return;
-      var n = num(st.aud.will_send), back = ui.btn("Back", "ghost", function () { closeDialog(); }); back.setAttribute("id", "ib-bk-dlg-back");
-      var yes = ui.btn("Yes, send", "primary", function (x) { closeDialog(); confirmSend(x, n); }); yes.setAttribute("id", "ib-bk-dlg-go");
-      var dlg = h("div", "ib-bk-dlg"); dlg.setAttribute("id", "ib-bk-dlg"); dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "ib-bk-dlg-t");
+      var n = num(st.aud.will_send), back = ui.btn("Back", "ghost", function () { closeDialog(true); }); back.setAttribute("id", "ib-bk-dlg-back");
+      var yes = ui.btn("Yes, send", "primary", function (x) { closeDialog(false); confirmSend(x, n); }); yes.setAttribute("id", "ib-bk-dlg-go");
+      var over = h("div", "ib-bk-dlg"); over.setAttribute("id", "ib-bk-dlg");
+      var box = h("div", "ib-bk-dlg-box"); box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "ib-bk-dlg-h"); box.setAttribute("aria-describedby", "ib-bk-dlg-t");
+      var ttl = h("h2", "ib-bk-dlg-h", "Start sending?"); ttl.setAttribute("id", "ib-bk-dlg-h");
       var q = h("p", "ib-bk-dlg-t", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "member", "members")) + " from your phone?"); q.setAttribute("id", "ib-bk-dlg-t");
-      var panel = add(h("div", "ib-bk-dlg-box"), q, add(h("div", "ib-bk-dlg-btns"), back, yes));
-      dlg.appendChild(panel);
-      dlg.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); closeDialog(); } });
-      host.appendChild(dlg); st.dlg = true; if (back.focus) back.focus();
+      add(box, ttl, q, add(h("div", "ib-bk-dlg-btns"), back, yes));
+      over.appendChild(box);
+      over.addEventListener("click", function (e) { if (e.target === over) closeDialog(true); });
+      dlgKey = function (e) {
+        if (e.key === "Escape") { e.preventDefault(); closeDialog(true); return; }
+        if (e.key !== "Tab") return;
+        var items = [back, yes].filter(function (b) { return !b.disabled; }), now = document.activeElement;
+        if (!items.length) return;
+        var first = items[0], last = items[items.length - 1];
+        if (e.shiftKey && (now === first || items.indexOf(now) === -1)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (now === last || items.indexOf(now) === -1)) { e.preventDefault(); first.focus(); }
+      };
+      document.addEventListener("keydown", dlgKey);
+      host.appendChild(over); st.dlg = true; if (back.focus) back.focus();
     }
     function sendTest(x) {
       if (st.testing || !textOk()) return;
@@ -609,7 +643,7 @@
        and one stat line; then the recipients, 5 at a time (the server pages with ?limit=5 and next), a divider above each row and none under the last. */
     function drawDetail(td, d0) {
       var b = d0.batch, box = h("div", "ib-bk-flat");
-      var hd = h("p", "ib-bk-fh"); hd.appendChild(ui.icon(HEAD_ICON[b.state] || HEAD_ICON.waiting)); hd.appendChild(h("strong", "", headline(b)));
+      var hd = h("p", "ib-bk-fh"); hd.appendChild(ui.icon(HEAD_ICON[b.state] || HEAD_ICON.waiting, "is-" + (HEAD_ICON[b.state] ? b.state : "waiting"))); hd.appendChild(h("strong", "", headline(b)));
       box.appendChild(hd);
       if (b.text) box.appendChild(h("p", "ib-bk-text", b.text));
       box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));

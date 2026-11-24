@@ -623,7 +623,9 @@
       else if (hs.failed) card.appendChild(h("p", "pm-meta", "We could not load more."));
     }
     function toggle(b) {
-      if (st.open[b.id]) { delete st.open[b.id]; draw(); return; }
+      /* One batch open at a time (round 10): opening another discards the previous detail (a late load of it finds st.open changed and does nothing); Hide closes. */
+      if (st.open[b.id]) { st.open = {}; draw(); return; }
+      st.open = {};
       st.open[b.id] = { batch: b, results: [], next: null, loading: true, failed: false };
       draw(); loadDetail(b.id, null);
     }

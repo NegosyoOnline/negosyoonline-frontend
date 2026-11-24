@@ -76,16 +76,17 @@
     if (ms > now + DAYS * 86400000) return { code: "too_far", text: FALLBACK.too_far };
     return null;
   }
-  /* The dates the picker offers: today and the next 30 days, Manila. [value, label]. */
+  /* The dates the picker offers: today and the next 30 days, Manila, leaving out a day with no time left to pick (Today, late in the evening). [value, label]. */
   function dateOptions(now) {
     var out = [];
-    for (var i = 0; i <= DAYS; i++) { var k = dateKey(manila(now + i * 86400000)); out.push([k, (i === 0 ? "Today, " : i === 1 ? "Tomorrow, " : "") + dateLabel(k)]); }
+    for (var i = 0; i <= DAYS; i++) { var k = dateKey(manila(now + i * 86400000)); if (timeOptions(now, k).length) out.push([k, (i === 0 ? "Today, " : i === 1 ? "Tomorrow, " : "") + dateLabel(k)]); }
     return out;
   }
-  /* The times the picker offers: every 15 minutes from 8:00 am to 7:45 pm (the window is 08:00 up to, not including, 20:00). [value, label]. */
-  function timeOptions() {
+  /* The times the picker offers: every 15 minutes from 8:00 am to 7:45 pm (the window is 08:00 up to, not including, 20:00). [value, label].
+     With now and a date: only the times that pass slotProblem for that day (Today: at least 10 minutes ahead). */
+  function timeOptions(now, date) {
     var out = [];
-    for (var m = FROM; m < TO; m += STEP) { var k = pad(Math.floor(m / 60)) + ":" + pad(m % 60); out.push([k, timeLabel(k)]); }
+    for (var m = FROM; m < TO; m += STEP) { var k = pad(Math.floor(m / 60)) + ":" + pad(m % 60); if (date && slotProblem(date, k, now)) continue; out.push([k, timeLabel(k)]); }
     return out;
   }
   function when(iso) {
@@ -122,11 +123,11 @@
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
     var st = { view: "list", status: null, edit: null, audience: "all", needPick: false, keepAud: false, pickG: [], pickC: [], groups: null, found: [], q: "", contactsOn: false,
-      csrun: 0, ctimer: null, aud: null, audLoading: false, arun: 0, text: "", preview: null, prevErr: "", prun: 0, timer: null, date: "", time: "", slotErr: "",
+      csrun: 0, ctimer: null, stimer: null, aud: null, audLoading: false, arun: 0, text: "", preview: null, prevErr: "", prun: 0, timer: null, date: "", time: "", slotErr: "",
       key: null, errField: "", origDate: "", origTime: "", saving: false, testing: false, testNote: "", err: "", note: "", confirm: null, dead: false,
       hist: { items: [], next: null, loading: false, failed: false } };
 
-    function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.ctimer = null; }
+    function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.ctimer) clearTimeout(st.ctimer); if (st.stimer) clearTimeout(st.stimer); st.timer = st.ctimer = st.stimer = null; }
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
     function el(id) { return document.getElementById(id); }
@@ -425,15 +426,19 @@
       /* 3. when: a date and a time, both house dropdowns, Manila time */
       var row = h("div", "ib-sc-when");
       var fd = h("div", "pm-field"), ld = h("label", "pm-label", "Date"); ld.setAttribute("for", "ib-sc-date"); fd.appendChild(ld);
+      fixSlot(false);
       var sd = D.el("select", { "class": "ib-input", id: "ib-sc-date" }); setOptions(sd, dateOptions(Date.now()), "Choose a date", st.date); fd.appendChild(sd);
       var ft = h("div", "pm-field"), lt = h("label", "pm-label", "Time (Manila)"); lt.setAttribute("for", "ib-sc-time"); ft.appendChild(lt);
-      var stm = D.el("select", { "class": "ib-input", id: "ib-sc-time" }); setOptions(stm, timeOptions(), "Choose a time", st.time); ft.appendChild(stm);
+      var stm = D.el("select", { "class": "ib-input", id: "ib-sc-time" }); setOptions(stm, timeOptions(Date.now(), st.date), "Choose a time", st.time); ft.appendChild(stm);
       add(row, fd, ft); wrap.appendChild(row);
       ui.combo(sd, "Date", { blankEmpty: true }); ui.combo(stm, "Time", { blankEmpty: true });
       var de = h("p", "field-err", ""); de.setAttribute("id", "ib-sc-de"); de.setAttribute("role", "alert"); de.hidden = true; wrap.appendChild(de);
       wrap.appendChild(h("p", "pm-hint", "Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
-      function slotChanged() { st.date = sd.value; st.time = stm.value; st.slotErr = ""; st.err = ""; st.key = null; fieldErr(); drawPreview(); }
-      sd.addEventListener("change", slotChanged); stm.addEventListener("change", slotChanged);
+      function slotChanged(userDate) { st.date = sd.value; st.time = stm.value; st.slotErr = ""; st.err = ""; st.key = null; if (userDate === true) refreshSlot(true); fieldErr(); drawPreview(); }
+      /* a new date: the time stays when that day offers it, else the first time of that day; a stale list is rebuilt when the owner comes back to it or each half minute */
+      sd.addEventListener("change", function () { slotChanged(true); }); stm.addEventListener("change", function () { slotChanged(false); });
+      ["focusin", "mousedown", "touchstart"].forEach(function (ev) { if (row.addEventListener) row.addEventListener(ev, function () { refreshSlot(false); }); });
+      tickSlot();
       /* 4. one small count line and the buttons */
       var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-sc-count"); cnt.setAttribute("aria-live", "polite");
       var tb = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); tb.setAttribute("id", "ib-sc-test");
@@ -441,6 +446,7 @@
       var fe = h("p", "field-err", ""); fe.setAttribute("id", "ib-sc-fe"); fe.setAttribute("role", "alert"); fe.hidden = true;
       var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-sc-testnote"); tn.setAttribute("role", "status");
       wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), tb, go)));
+      var why = h("p", "pm-hint ib-sc-why", ""); why.setAttribute("id", "ib-sc-why"); why.setAttribute("role", "status"); why.setAttribute("aria-live", "polite"); why.hidden = true; wrap.appendChild(why);
       wrap.appendChild(fe); wrap.appendChild(tn);
       return wrap;
     }
@@ -456,6 +462,43 @@
     /* an edit that keeps its saved time is not checked again, here or by the server (it checks the time only when sent) */
     function same() { return !!st.edit && st.date === st.origDate && st.time === st.origTime; }
     function slotOk() { return !!st.date && !!st.time && (same() || !slotProblem(st.date, st.time, Date.now())); }
+    /* Choose the date and the time that are offered now (no DOM). A new form starts on the first day with a time left and its first time; a time the
+       chosen day does not offer becomes that day's first time. An edit keeps its saved date and time. userDate: the owner just chose the date, so it stays. */
+    function fixSlot(userDate) {
+      if (same()) return;
+      var now = Date.now();
+      if (!userDate) { var dopts = dateOptions(now); if (!dopts.some(function (o) { return o[0] === st.date; })) st.date = dopts.length ? dopts[0][0] : ""; }
+      if (st.date) { var topts = timeOptions(now, st.date); if (topts.length && !topts.some(function (o) { return o[0] === st.time; })) st.time = topts[0][0]; }
+    }
+    function refreshSlot(userDate) {
+      var sd = el("ib-sc-date"), stm = el("ib-sc-time"); if (!sd || !stm) return;
+      if (userDate !== true) { st.date = sd.value || st.date; st.time = stm.value || st.time; } else st.date = sd.value;
+      fixSlot(userDate === true);
+      setOptions(sd, dateOptions(Date.now()), "Choose a date", st.date); setOptions(stm, timeOptions(Date.now(), st.date), "Choose a time", st.time);
+      if (sd.ibSync) sd.ibSync(); if (stm.ibSync) stm.ibSync();
+      st.slotErr = ""; fieldErr(); drawPreview();
+    }
+    function tickSlot() {
+      if (st.stimer) clearTimeout(st.stimer);
+      st.stimer = setTimeout(function () { st.stimer = null; if (st.dead || st.view !== "form" || !el("ib-sc-date")) return; refreshSlot(false); tickSlot(); }, 30000);
+      if (st.stimer && typeof st.stimer.unref === "function") st.stimer.unref();
+    }
+    /* Why Schedule is off, in a few plain words next to the button (empty when it is on). */
+    function whyOff() {
+      if (st.saving) return "";
+      if (!st.text.trim()) return "Add a message.";
+      var tp = textProblem(); if (tp) return tp;
+      if (!st.preview) return "Checking the message\u2026";
+      if (!st.keepAud) {
+        if (st.needPick) return "Choose who gets this text.";
+        if (st.audLoading || !st.aud) return "Counting members\u2026";
+        if (st.aud.failed) return "We could not count your members just now.";
+        if (!(num(st.aud.will_send) > 0)) return "No members can be texted yet.";
+      }
+      if (!st.date || !st.time) return "Choose a date and a time.";
+      if (!same()) { var sp = slotProblem(st.date, st.time, Date.now()); if (sp) return sp.text; }
+      return "";
+    }
     function drawCount() {
       var box = el("ib-sc-count"); if (!box) return;
       ui.clear(box);
@@ -471,6 +514,7 @@
       var ok = textOk() && !!st.preview, tb = el("ib-sc-test"), go = el("ib-sc-go");
       if (tb) tb.disabled = !ok || st.testing;
       if (go) go.disabled = !ok || !readyCount() || !slotOk() || st.saving;
+      var why = el("ib-sc-why"); if (why) { var w = go && go.disabled ? whyOff() : ""; why.textContent = w; why.hidden = !w; }
     }
     function sendTest(x) {
       if (st.testing || !textOk()) return;

@@ -22,7 +22,7 @@ const settle = async () => { for (let i = 0; i < 8; i++) await tick(); };
 /* A fixed clock for this whole file (task z8uq9mfvx7): the page shows "today, H:MM" or a date form depending on the Manila time of day,
    so a real clock made tests fail in the evening. Date() and Date.now() answer 10:00 Manila (02:00 UTC) on 2026-11-16 unless
    INBOX_TEST_NOW (an ISO instant) moves it, which is how the evening case is checked. Every test file runs in its own process. */
-const FIXED_NOW = Date.parse(process.env.INBOX_TEST_NOW || "2026-11-16T02:00:00Z");
+let FIXED_NOW = Date.parse(process.env.INBOX_TEST_NOW || "2026-11-16T02:00:00Z");
 const RealDate = Date;
 globalThis.Date = class extends RealDate {
   constructor(...a) { if (a.length === 0) super(FIXED_NOW); else super(...a); }
@@ -382,7 +382,9 @@ test("schedule form: the date and time pickers offer today and 30 days, and 8:00
   assert.equal(dates[30], "Wed, Dec 16");
   cBox(d, "ib-sc-time").fire("click");
   const times = cRows(d, "ib-sc-time").map((n) => n.textContent);
-  assert.equal(times[0], "8:00 am"); assert.equal(times[1], "8:15 am"); assert.equal(times.at(-1), "7:45 pm"); assert.equal(times.length, 48, "20:00 is not offered: the window ends before it");
+  assert.equal(times[0], "10:15 am", "Today: only times at least 10 minutes ahead (it is 10:00)"); assert.equal(times.at(-1), "7:45 pm"); assert.equal(times.length, 39);
+  const all = d.window.NOInboxSchedule.util.timeOptions().map((o) => o[1]);
+  assert.equal(all[0], "8:00 am"); assert.equal(all[1], "8:15 am"); assert.equal(all.at(-1), "7:45 pm"); assert.equal(all.length, 48, "20:00 is not offered: the window ends before it");
   assert.ok(pane(d).textContent.includes("Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
   const u = d.window.NOInboxSchedule.util, now = Date.now();
   assert.equal(u.slotProblem("2026-11-16", "10:05", now).code, "too_soon");
@@ -399,7 +401,7 @@ test("schedule form: the date and time pickers offer today and 30 days, and 8:00
 test("schedule form: a slot that is too soon shows a hint on the date and time field and keeps Schedule off; a good slot turns it on", async () => {
   const d = await openSched({}, { form: true });
   await typeText(d, "Sale this weekend.");
-  assert.equal(d.$("ib-sc-go").disabled, true, "no date yet");
+  assert.equal(d.$("ib-sc-go").disabled, false, "the date and time start on the first good slot");
   await setSlot(d, "2026-11-16", "10:00");
   assert.ok(d.$("ib-sc-de").textContent.includes("at least 10 minutes from now") && d.$("ib-sc-de").hidden === false);
   assert.equal(d.$("ib-sc-go").disabled, true);
@@ -577,4 +579,94 @@ test("schedule: no gold focus, light blue only; no horizontal page scroll on a p
   assert.ok(/\.ib-sc-when \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/.test(mine));
   assert.ok(/@media \(width < 600px\) \{ #view-inbox \.ib-sc-when \{ grid-template-columns: minmax\(0, 1fr\); \} \}/.test(mine), "date and time stack on a phone");
   assert.doesNotMatch(mine, /overflow-x: ?(scroll|auto)/);
+});
+
+/* ---------- round 10 (Coach Ed 2026-11-24, R10-2): the Schedule form never starts on a slot that has already passed ---------- */
+const withNow = async (iso, fn) => { const keep = FIXED_NOW; FIXED_NOW = Date.parse(iso); try { await fn(); } finally { FIXED_NOW = keep; } };
+const timesOf = (d) => { cBox(d, "ib-sc-time").fire("click"); return cRows(d, "ib-sc-time").map((n) => n.textContent); };
+const datesOf = (d) => { cBox(d, "ib-sc-date").fire("click"); return cRows(d, "ib-sc-date").map((n) => n.textContent); };
+
+test("round 10: Today lists only times at least 10 minutes ahead; the date and time start on Today and its first time; 30 days stay", async () => {
+  const u = (await openSched({}, {})).window.NOInboxSchedule.util, now = Date.now();
+  assert.equal(u.timeOptions(now, "2026-11-16")[0][1], "10:15 am"); /* 10:00 now: 10:10 is the earliest, the grid is 15 minutes */
+  assert.equal(u.timeOptions(now, "2026-11-16").length, 39);
+  assert.equal(u.timeOptions(now, "2026-11-17").length, 48, "another day offers the whole window");
+  assert.equal(u.timeOptions(Date.parse("2026-11-16T02:05:00Z"), "2026-11-16")[0][1], "10:15 am", "exactly 10 minutes ahead is allowed");
+  assert.equal(u.timeOptions(Date.parse("2026-11-16T02:06:00Z"), "2026-11-16")[0][1], "10:30 am");
+  const d = await openSched({}, { form: true });
+  assert.equal(d.$("ib-sc-date").value, "2026-11-16"); assert.equal(cInput(d, "ib-sc-date").value, "Today, Mon, Nov 16");
+  assert.equal(d.$("ib-sc-time").value, "10:15"); assert.equal(cInput(d, "ib-sc-time").value, "10:15 am");
+  assert.equal(datesOf(d).length, 31);
+});
+
+test("round 10: Today is left out of the date list once no time is left today (after 7:35 pm Manila); Tomorrow keeps its label and is the default with its first time", async () => {
+  await withNow("2026-11-16T11:36:00Z", async () => { /* 19:36 Manila: 19:46 is the earliest, past the last time 19:45 */
+    const d = await openSched({}, { form: true });
+    const dates = datesOf(d);
+    assert.equal(dates[0], "Tomorrow, Tue, Nov 17"); assert.ok(!dates.some((x) => x.startsWith("Today")));
+    assert.equal(d.$("ib-sc-date").value, "2026-11-17"); assert.equal(d.$("ib-sc-time").value, "08:00");
+    assert.equal(timesOf(d).length, 48);
+  });
+  await withNow("2026-11-16T11:35:00Z", async () => { /* 19:35 Manila: 19:45 is still allowed */
+    const d = await openSched({}, { form: true });
+    assert.equal(datesOf(d)[0], "Today, Mon, Nov 16"); assert.equal(d.$("ib-sc-time").value, "19:45");
+  });
+});
+
+test("round 10: changing the Date keeps the Time when that day offers it, else selects the first valid time of that day", async () => {
+  const d = await openSched({}, { form: true });
+  d.$("ib-sc-date").value = "2026-11-17"; d.$("ib-sc-date").fire("change"); await settle();
+  assert.equal(d.$("ib-sc-time").value, "10:15", "tomorrow offers 10:15");
+  d.$("ib-sc-time").value = "08:00"; d.$("ib-sc-time").fire("change"); await settle();
+  assert.equal(d.$("ib-sc-time").value, "08:00");
+  d.$("ib-sc-date").value = "2026-11-16"; d.$("ib-sc-date").fire("change"); await settle();
+  assert.equal(d.$("ib-sc-time").value, "10:15", "today does not offer 8:00 am: the first valid time is chosen"); assert.equal(cInput(d, "ib-sc-time").value, "10:15 am");
+});
+
+test("round 10: Schedule shows the reason next to it while it is off (message, who, time) and hides it when it is on", async () => {
+  const d = await openSched({}, { form: true });
+  const why = () => d.$("ib-sc-why");
+  assert.equal(d.$("ib-sc-go").disabled, true); assert.equal(why().hidden, false); assert.equal(why().textContent, "Add a message.");
+  await typeText(d, "Sale this weekend.");
+  assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(why().hidden, true); assert.equal(why().textContent, "");
+  await setSlot(d, "2026-11-16", "10:00");
+  assert.equal(d.$("ib-sc-go").disabled, true);
+  assert.equal(why().hidden, false); assert.equal(why().textContent, "Choose a time at least 10 minutes from now.");
+  assert.ok(d.$("ib-sc-go").parentNode.parentNode.parentNode.all((n) => n === why()).length === 1, "the reason sits in the same form block, right under the buttons");
+  await setSlot(d, "2026-11-17", "09:30");
+  assert.equal(why().hidden, true);
+  await typeText(d, "http://x.example.com");
+  assert.equal(d.$("ib-sc-go").disabled, true); assert.ok(why().textContent.length > 0 && why().hidden === false, "a text problem is the reason too");
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.ok(/\.ib-sc-why \{[^}]*margin: 0/.test(CSS) && !/\.ib-sc-why \{[^}]*#[0-9a-f]{3,6}/i.test(CSS), "plain hint colours only");
+});
+
+test("round 10: a slot that goes stale while the form is open is replaced on the next touch of the Date or Time; the button does not stay off silently", async () => {
+  await withNow("2026-11-16T02:00:00Z", async () => {
+    const d = await openSched({}, { form: true });
+    await typeText(d, "Sale this weekend.");
+    assert.equal(d.$("ib-sc-time").value, "10:15"); assert.equal(d.$("ib-sc-go").disabled, false);
+    FIXED_NOW = Date.parse("2026-11-16T02:20:00Z"); /* 18 minutes later: 10:15 has passed */
+    const row = pane(d).all((n) => has(n, "ib-sc-when"))[0];
+    row.fire("focusin"); await settle();
+    assert.equal(d.$("ib-sc-time").value, "10:30", "re-filtered: the first time 10 minutes ahead of 10:20");
+    assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(d.$("ib-sc-why").hidden, true);
+    FIXED_NOW = Date.parse("2026-11-16T11:40:00Z"); /* the evening: Today has no time left */
+    row.fire("focusin"); await settle();
+    assert.equal(d.$("ib-sc-date").value, "2026-11-17"); assert.equal(d.$("ib-sc-time").value, "10:30", "Today is gone: the next day, the same time as that day offers it"); assert.equal(d.$("ib-sc-go").disabled, false);
+    /* if the stale slot is still chosen when the button is checked, the reason shows */
+    d.$("ib-sc-date").value = "2026-11-16"; d.$("ib-sc-date").fire("change"); await settle();
+    assert.equal(d.$("ib-sc-go").disabled, true); assert.equal(d.$("ib-sc-why").hidden, false);
+  });
+});
+
+test("round 10: editing keeps the saved date and time selectable and Save changes on, even when that time has passed or is not on the list", async () => {
+  const d = await openSched({ detail: () => ok(sched({ text: "Old text", scheduled_at: "2026-11-16T09:40:00+08:00" })) });
+  await d.click(pane(d).all((n) => has(n, "ib-sc-edit"))[0]);
+  assert.equal(d.$("ib-sc-date").value, "2026-11-16"); assert.equal(d.$("ib-sc-time").value, "09:40");
+  assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(d.$("ib-sc-why").hidden, true);
+  pane(d).all((n) => has(n, "ib-sc-when"))[0].fire("focusin"); await settle();
+  assert.equal(d.$("ib-sc-time").value, "09:40", "a touch of the field does not move a saved time");
+  await typeText(d, "New text"); await d.click(d.$("ib-sc-go"));
+  assert.deepEqual(d.bk.seen.patched[0].body, { audience: "all", text: "New text" }, "the time is not sent when it did not change");
 });

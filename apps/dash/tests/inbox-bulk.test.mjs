@@ -923,3 +923,23 @@ test("INBOX-FIX-9 F7: while a contact search is on its way the list says Searchi
   assert.equal(d.list().filter((c) => c.includes("?q=")).length, before + 1);
   assert.ok(optLabels(d).some((t) => t.startsWith("Ed Geronilla")));
 });
+
+test("round 10 R10-1: only one batch View is open at a time: opening another closes the first; Hide closes; a late load of a closed one does not bring it back", async () => {
+  const b1 = batch({ id: "sbk_aaaaaaaa", state: "finished" }), b2 = batch({ id: "sbk_bbbbbbbb", state: "finished", text: "Second batch." });
+  const detail = (tail) => (ok({ ...(tail.includes("sbk_bbbbbbbb") ? b2 : b1), results: [{ name: tail.includes("sbk_bbbbbbbb") ? "Second Person" : "First Person", mobile: "+63917***4567", state: "sent", reason: "", reason_text: "" }], next: null }));
+  const d = await openBulk({ history: () => ok({ items: [b1, b2], next_cursor: null }), detail }, {}, { form: false });
+  const drows = () => pane(d).all((n) => n.classList && n.classList.contains("ib-bk-dr"));
+  assert.equal(viewBtns(d).length, 2);
+  await d.click(viewBtns(d)[0]); await settle();
+  assert.equal(drows().length, 1); assert.ok(drows()[0].textContent.includes("First Person"));
+  await d.click(viewBtns(d)[1]); await settle();
+  assert.equal(drows().length, 1, "the first one closed when the second opened");
+  assert.ok(drows()[0].textContent.includes("Second Person") && !pane(d).textContent.includes("First Person"));
+  assert.deepEqual(viewBtns(d).map((v) => v.getAttribute("aria-expanded")), ["false", "true"]);
+  assert.deepEqual(viewBtns(d).map((v) => v.textContent), ["View", "Hide"]);
+  await d.click(viewBtns(d)[1]); await settle();
+  assert.equal(drows().length, 0, "Hide closes it"); assert.deepEqual(viewBtns(d).map((v) => v.textContent), ["View", "View"]);
+  /* both opened before either answers: the first load finds it was closed and must not bring it back */
+  viewBtns(d)[0].fire("click"); viewBtns(d)[1].fire("click"); await settle(); await settle();
+  assert.equal(drows().length, 1); assert.ok(drows()[0].textContent.includes("Second Person") && !pane(d).textContent.includes("First Person"), "the discarded load does not revive it");
+});

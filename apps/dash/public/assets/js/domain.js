@@ -1,10 +1,10 @@
-/* Domain (/settings/domain/, ClickUp z8uq9mhgvj, design z8uq9mcyu0 R4.7): "Your website address". The one .com that comes with the
+/* Domain (/settings/domain/, ClickUp z8uq9mhgvj, design z8uq9mcyu0 R4.7): "Your website address". The one website address that comes with the
    plan: search a name, check it, buy it after a confirm step, then the setup steps until the www address is live.
    Reads GET /sites/{id}/domain/ and writes POST .../domain/check/, .../buy/ and .../retry/ (the owner routes of apps/domains).
    The API answers {eligible, locked_reason, extensions, registered_name, domain: {id, name, state, label, reason, can_buy, can_retry,
    quote_expires_at}}. Check runs in the worker, so after a Check the page asks again every few seconds until the name is quoted or ended.
    Every status and string comes from the API and reaches the page through textContent or D.el only; an error shows the API's own
-   message, never raw data. The page shows no price and says nothing about renewal. While the API answers 404 (DOMAINS_ENABLED is off,
+   message, never raw data. The only amount the page shows is the year-2 line on the result before Buy (domain.renewal_usd_cents); no first-year price is ever shown. While the API answers 404 (DOMAINS_ENABLED is off,
    or not a Santé site) the page says the address is not available yet. The route is reachable by its address only: no menu link
    points here until Coach Ed's staging OK. All wording is a placeholder until he approves it. Plain ES5.
    NODomain.util holds the pure helpers (tests/domain.test.mjs). */
@@ -19,7 +19,11 @@
   var POLL = { checking: 3, confirmed: 8, awaiting_gate: 8, registering: 8, registered: 8, zone: 8, connecting: 8, activating: 8, removal_pending: 8 };
   /* An error code after which the page re-reads the status, so it shows what is true now. */
   var REFRESH = { not_eligible: 1, domain_exists: 1, domain_in_progress: 1, request_in_progress: 1, purchase_not_open: 1, check_first: 1, quote_expired: 1, name_taken: 1, nothing_to_retry: 1 };
-  var LEAD = "Included with your plan: one .com for your store.";
+  var LEAD = "Free for your first year: one address for your store.";
+  /* The one plain line (FD4/FD6). It carries no amount; the year-2 amount is the separate line yearTwo() builds. Placeholder until Coach Ed's OK. */
+  var HOLD = "Your address stays connected while you stay subscribed. From year 2 its renewal is paid. NegosyoOnline registers and holds it for your store.";
+  /* Claim states from which the domain is registered, so "Free until" can show. */
+  var REGISTERED = { registered: 1, zone: 1, connecting: 1, activating: 1, live: 1, attention: 1 };
   var LOCKED_FALLBACK = "Your own website address unlocks after your first subscription payment is approved.";
 
   function byId(id) { return document.getElementById(id); }
@@ -56,6 +60,26 @@
     }
     return v;
   }
+  /* The plain line under the search box from the API's `extensions`: "You can choose an address ending in .com, .net or .org."
+     Only items shaped like an extension are kept; "" (no line) when none are left or the list is missing. */
+  function extHint(extensions) {
+    var list = [];
+    if (Array.isArray(extensions)) {
+      for (var i = 0; i < extensions.length; i++) {
+        var e = extensions[i];
+        if (typeof e === "string" && /^\.[a-z]{2,63}$/.test(e) && list.indexOf(e) < 0) list.push(e);
+      }
+    }
+    if (!list.length) return "";
+    var tail = list.length > 1 ? list.slice(0, -1).join(", ") + " or " + list[list.length - 1] : list[0];
+    return "You can choose an address ending in " + tail + ".";
+  }
+  /* The year-2 line for the result before Buy, from domain.renewal_usd_cents: a positive integer shows US$X.XX; anything else, "". */
+  function yearTwo(d) {
+    var c = d && typeof d === "object" ? d.renewal_usd_cents : null;
+    if (typeof c !== "number" || !isFinite(c) || Math.floor(c) !== c || c <= 0) return "";
+    return "Free for the first year. From year 2: US$" + (c / 100).toFixed(2) + " a year, Cloudflare\u2019s renewal price with no markup, billed in pesos at the BSP rate when the renewal bill is made.";
+  }
   /* "www.name" for a name that is a plain host, else "" (so nothing odd ever becomes a link). */
   function wwwOf(name) { return typeof name === "string" && HOST_RE.test(name) ? "www." + name : ""; }
   function lockedText(reason) {
@@ -79,6 +103,23 @@
       case "removal_pending": return "removing";
       default: return "search"; /* ended, or a state this page does not know */
     }
+  }
+  /* "Nov 22, 2027" (Manila time, like billing). A date-only value is kept as written; anything else is "". */
+  var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dateOf(v) {
+    if (typeof v !== "string" || !v) return "";
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (m) return +m[2] >= 1 && +m[2] <= 12 ? MON[+m[2] - 1] + " " + (+m[3]) + ", " + m[1] : "";
+    var t = new Date(v);
+    if (isNaN(t.getTime())) return "";
+    try { return new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" }).format(t).replace(/[\u00a0\u202f]/g, " "); } catch (e) { return ""; }
+  }
+  /* "Free until <date>" for a registered domain whose answer carries free_until; "" otherwise (nothing shows). */
+  function freeUntil(a) {
+    var d = a && a.domain;
+    if (!d || typeof d !== "object" || !Object.prototype.hasOwnProperty.call(REGISTERED, d.state)) return "";
+    var t = dateOf(d.free_until != null ? d.free_until : a.free_until);
+    return t ? "Free until " + t : "";
   }
   function stepOf(a) { var d = a && a.domain; return d && Object.prototype.hasOwnProperty.call(STEP_OF, d.state) ? STEP_OF[d.state] : -1; }
   function pollSeconds(a) { var d = isAnswer(a) && a.eligible && a.domain; return d && Object.prototype.hasOwnProperty.call(POLL, d.state) ? POLL[d.state] : 0; }
@@ -170,8 +211,8 @@
     if (k === "checking") root.appendChild(checkingCard(d));
     else if (k === "quoted") root.appendChild(quotedCard(a, d));
     else if (k === "progress") root.appendChild(progressCard(d, a));
-    else if (k === "live") root.appendChild(liveCard(d));
-    else if (k === "attention") root.appendChild(attentionCard(d));
+    else if (k === "live") root.appendChild(liveCard(d, a));
+    else if (k === "attention") root.appendChild(attentionCard(d, a));
     else if (k === "failed") root.appendChild(failedCard(d));
     else if (k === "conflict") root.appendChild(conflictCard(d));
     else if (k === "removing") root.appendChild(removingCard(d));
@@ -185,21 +226,23 @@
 
   /* The search box and "Check name". `note`: the result line of a name that did not pass (the API's reason). */
   function searchCard(a, note) {
-    var s = card("search", "Find your address", ["neutral", "Included"]);
+    var s = card("search", "Find your address", ["neutral", "Free first year"]);
     var d = a && a.domain, why = note || (d && d.state === "ended" && typeof d.reason === "string" ? d.reason : "");
-    add(s, h("p", "dm-lead", LEAD));
+    add(s, h("p", "dm-lead", LEAD), h("p", "dm-meta", HOLD));
     if (a && typeof a.registered_name === "string" && a.registered_name) {
       add(s, h("p", "dm-meta", "Your registered name is " + a.registered_name + ". Check it to connect it to your store again."));
       if (!S.typed) S.typed = a.registered_name;
     }
     var f = D.el("form", { "class": "dm-form", novalidate: "" });
     var lab = h("label", "dm-label", "Website address"); lab.setAttribute("for", "dm-name");
-    var input = D.el("input", { type: "text", id: "dm-name", "class": "dm-input", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "yourbusiness.com", "aria-describedby": "dm-hint dm-err" });
+    var extLine = extHint(a && a.extensions);
+    var input = D.el("input", { type: "text", id: "dm-name", "class": "dm-input", autocomplete: "off", autocapitalize: "none", spellcheck: "false", placeholder: "yourbusiness.com", "aria-describedby": extLine ? "dm-hint dm-ext dm-err" : "dm-hint dm-err" });
     input.value = S.typed;
     var hint = h("p", "dm-hint", "Type the name you want. We add the ending for you if you leave it out."); hint.setAttribute("id", "dm-hint");
+    var ext = extLine ? h("p", "dm-hint", extLine) : null; if (ext) ext.setAttribute("id", "dm-ext");
     var err = errorLine(); err.setAttribute("id", "dm-err");
     var go = D.el("button", { type: "submit", "class": "no-btn no-btn-primary" }, "Check name");
-    add(f, lab, input, hint, err);
+    add(f, lab, input, hint, ext, err);
     if (why && !S.error) { var r = h("p", "dm-result dm-result-bad", why); r.setAttribute("role", "status"); add(f, r); }
     add(f, add(h("div", "dm-actions"), go));
     f.addEventListener("submit", function (e) { e.preventDefault(); S.typed = input.value; check(go, input.value); });
@@ -216,7 +259,8 @@
 
   function quotedCard(a, d) {
     var s = card("quoted", "This address is available", ["ok", "Available"]);
-    add(s, h("p", "dm-name", d.name), h("p", "dm-lead", LEAD));
+    add(s, h("p", "dm-name", d.name), h("p", "dm-lead", LEAD), h("p", "dm-meta", HOLD));
+    var y2 = yearTwo(d); if (y2) add(s, h("p", "dm-meta dm-year2", y2));
     add(s, errorLine());
     if (S.confirm) {
       var box = h("div", "dm-confirm"); box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", "dm-confirm-h");
@@ -244,27 +288,28 @@
     });
     return ol;
   }
+  function freeLine(a) { var t = freeUntil(a); return t ? h("p", "dm-meta dm-free", t) : null; }
   function progressCard(d, a) {
     var s = card("progress", "Setting up your address", ["neutral", "In progress"]);
     s.setAttribute("aria-busy", "true");
-    add(s, h("p", "dm-name", d.name), stepList(stepOf(a)), h("p", "dm-lead", typeof d.label === "string" ? d.label : ""), h("p", "dm-meta", "You can leave this page. We keep going."));
+    add(s, h("p", "dm-name", d.name), freeLine(a), stepList(stepOf(a)), h("p", "dm-lead", typeof d.label === "string" ? d.label : ""), h("p", "dm-meta", "You can leave this page. We keep going."));
     return s;
   }
 
-  function liveCard(d) {
+  function liveCard(d, a) {
     var s = card("live", "Your website address is live", ["ok", "Live"]);
     var www = wwwOf(d.name);
     if (www) {
       var link = D.el("a", { "class": "dm-link", href: "https://" + www, target: "_blank", rel: "noopener noreferrer" }, www);
       add(s, add(h("p", "dm-name"), link));
     } else add(s, h("p", "dm-name", d.name));
-    return add(s, h("p", "dm-meta", "Your store answers at this address."));
+    return add(s, freeLine(a), h("p", "dm-meta", "Your store answers at this address."), h("p", "dm-meta", HOLD));
   }
 
-  function attentionCard(d) {
+  function attentionCard(d, a) {
     var s = card("attention", "Your website is not answering yet", ["warn", "Needs a look"]);
     var www = wwwOf(d.name);
-    return add(s, www ? h("p", "dm-name", www) : null, h("p", "dm-lead", typeof d.label === "string" && d.label ? d.label : "Your website is not answering yet."), h("p", "dm-meta", "We keep checking it."));
+    return add(s, www ? h("p", "dm-name", www) : null, freeLine(a), h("p", "dm-lead", typeof d.label === "string" && d.label ? d.label : "Your website is not answering yet."), h("p", "dm-meta", "We keep checking it."));
   }
 
   function failedCard(d) {
@@ -342,5 +387,5 @@
     });
   }
 
-  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, lockedText: lockedText, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
+  window.NODomain = { show: show, hide: hide, util: { errText: errText, cleanName: cleanName, wwwOf: wwwOf, extHint: extHint, yearTwo: yearTwo, lockedText: lockedText, dateOf: dateOf, freeUntil: freeUntil, stage: stage, stepOf: stepOf, pollSeconds: pollSeconds, isAnswer: isAnswer } };
 })();

@@ -1299,7 +1299,7 @@
     ["Add your socials", "Links to your social media pages", "/settings/business/"],
     ["See your Santé products", "The Santé catalog your site sells", "/products/"],
     ["Set up Billing", "Your plan and payment method", "/settings/billing/"],
-    ["Your own domain", "Use a .com address for your site", ""],
+    ["Your own domain", "Use your own website address for your site", ""],
     ["Launch checklist", "See what's left before you go live", ""]
   ];
   function optionalCard() { /* never counted, no dismiss (design 5.9); a row without a live page is not a link (spec C9) */

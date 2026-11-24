@@ -56,6 +56,7 @@
             <div class="dm-tools">
               <div class="field dm-filter"><label class="sr-only" for="d-state">Show claims in state</label><select class="input" id="d-state"><option value="all">All states</option><option value="checking">Checking</option><option value="quoted">Quoted</option><option value="confirmed">Confirmed</option><option value="awaiting_gate">Waiting for payment</option><option value="registering">Registering</option><option value="registered">Registered</option><option value="zone">Setting up DNS</option><option value="connecting">Connecting</option><option value="activating">Activating</option><option value="live">Live</option><option value="attention">Needs attention</option><option value="failed">Failed</option><option value="conflict">Conflict</option><option value="removal_pending">Being removed</option><option value="ended">Ended</option></select></div>
               <button type="button" class="no-btn no-btn-ghost" id="d-refresh">Refresh</button>
+              <button type="button" class="no-btn no-btn-primary" id="d-import">Import a domain bought by hand</button>
             </div>
           </div>
           <p class="small dm-facts" id="d-facts" hidden></p>
@@ -68,6 +69,11 @@
           </div>
           <p class="dash-copy fin-note" id="d-empty" hidden></p>
           <p class="field-err fin-note" id="d-err" role="alert" hidden></p>
+        </section>
+        <section class="dash-card list-card" id="d-imp-card" aria-labelledby="i-h" hidden>
+          <div class="list-head"><h2 id="i-h">Imports of hand-bought domains</h2></div>
+          <p class="dash-copy fin-note">The latest import for each site.</p>
+          <ul class="dm-ids" id="d-imps"></ul>
         </section>
         <section class="dash-card list-card" id="d-elig-card" aria-labelledby="e-h" hidden>
           <div class="list-head"><h2 id="e-h">Sites that can choose a domain</h2></div>
@@ -97,11 +103,22 @@
     <button class="no-btn no-btn-ghost fin-block" type="button" id="act-cancel">Cancel</button>
   </div>
 </div>
+<div class="modal" id="m-imp" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="m-imp-h" aria-describedby="m-imp-sub">
+    <div class="modal-head"><h2 id="m-imp-h">Import a domain bought by hand</h2><button type="button" class="icon-btn modal-x" id="imp-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="dash-copy" id="m-imp-sub">Bring one domain that was bought in the registrar account by hand into the system for one site, so it is tracked like the rest. Nothing is bought. A background worker reads the registrar and records the result.</p>
+    <div class="field"><label for="imp-site">Site ID</label><input class="input" id="imp-site" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="64" placeholder="site_..." aria-describedby="imp-e"></div>
+    <div class="field"><label for="imp-name">Domain</label><input class="input" id="imp-name" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="253" placeholder="yourstore.com" aria-describedby="imp-e"></div>
+    <p class="field-err" id="imp-e" role="alert" hidden></p>
+    <button class="no-btn no-btn-primary fin-block" type="button" id="imp-go">Import domain</button>
+    <button class="no-btn no-btn-ghost fin-block" type="button" id="imp-cancel">Cancel</button>
+  </div>
+</div>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261122a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261122a"></script>
-<script src="/assets/js/domains.js?v=20261122e"></script>
+<script src="/assets/js/domains.js?v=20261123fd1"></script>
 </body>
 </html>

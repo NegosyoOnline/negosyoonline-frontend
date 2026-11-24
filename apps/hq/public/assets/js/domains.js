@@ -1,7 +1,7 @@
 /* The Domains page: operators see every domain claim, with its state, its registration, its last change and the last
    "confirmed registered" request, and can retry, disconnect, cancel a request or ask for a registration to be confirmed
    (ClickUp z8uq9mhgvh, design z8uq9mcyu0, backend apps/domains/staff.py). One address, no value in it.
-   The page calls the five staff routes and nothing else, with no timer. It decides nothing: the backend refuses what is wrong
+   The page calls the five staff routes and the import route (FD6) and nothing else, with no timer. It decides nothing: the backend refuses what is wrong
    and says why in its own words; this page shows that message as it is. Buttons are drawn only where an action can apply, to
    save a round trip. A 404 from the list means the routes are switched off: "Domains is not available".
    "Confirmed registered" answers 202 "requested": a worker reads the provider later, so the result is read from the list
@@ -61,7 +61,7 @@
         return data && data.status === "pending" ? "A request is already waiting. Refresh to see its result."
           : "Requested. The registrar is read in the background. Refresh to see the result in the Confirm request column."; } } };
 
-  var known = false, run = 0, busy = false, claims = [], eligible = [], counters = {}, filter = "all", pending = null;
+  var known = false, run = 0, busy = false, claims = [], imports = [], eligible = [], counters = {}, filter = "all", pending = null;
   var dlg = F.dialogs(function () { return busy; });
 
   function stateChoices() {
@@ -200,6 +200,9 @@
       return id ? { id: id, name: str(o.name) } : null;
     }).filter(Boolean);
     counters = obj(d.counters);
+    imports = arr(d.imports).map(obj).filter(function (i) { return str(i.site) && own(IMPORT, i.state); }).map(function (i) {
+      return { site: str(i.site), site_name: str(i.site_name), name: str(i.name), state: i.state, reason: str(i.reason), at: str(i.at) };
+    });
   }
 
   function load(first) {
@@ -220,6 +223,7 @@
       take(res.data);
       show("v-main");
       paint();
+      paintImports();
     });
   }
 
@@ -261,6 +265,85 @@
       $("act-cancel").focus();
     });
   }
+
+  /* ---- import a domain bought by hand (FD3/FD6, staff route domains/import-bridge/) ---- */
+
+  var IMPORT_PATH = "import-bridge/";
+  var IMPORT_WRONG = "That did not go through. Refresh the list and check before trying again.";
+  /* Why an import was refused: the request's codes (409 import_refused, fields.reason) and the worker's (an import row's reason). */
+  var IMPORT_WHY = { name_refused: "That name cannot be used: a platform name, a subdomain, an unknown ending or one already connected.",
+    site_off: "That site is deleted or not a Santé site.", no_subscription: "That site has no subscription.",
+    exempt: "That site is billing-exempt.", has_registration: "That site already has a domain, or an import is waiting for another name.",
+    has_claim: "That site has an open domain claim.", name_held: "Another site holds that name.",
+    not_in_our_account: "The name is not in our registrar account.", no_expiry: "The registrar shows no end date for the name.",
+    paused: "The provider is paused.", provider_unavailable: "The provider is not available.", not_pending: "The import was no longer waiting.",
+    not_allowed: "The name is not allowed." };
+  var IMPORT = { pending: ["chip-info", "Requested, waiting"], done: ["chip-ok", "Imported"], refused: ["chip-warn", "Refused"] };
+  function importWhy(code) {
+    var known = own(IMPORT_WHY, code);
+    if (known) return known;
+    if (/^read_failed_/.test(code)) return "The provider could not be read.";
+    if (/^status_failed_/.test(code)) return "The registration status could not be read.";
+    if (/^status_[a-z_]+$/.test(code)) return "The registrar shows the registration as " + code.slice(7).replace(/_/g, " ") + ".";
+    return plainReason(code);
+  }
+  function lockImp(on) {
+    busy = on;
+    ["imp-go", "imp-x", "imp-cancel", "imp-site", "imp-name"].forEach(function (id) { $(id).disabled = on; });
+  }
+  /* The refusal's own words: the reason codes in words, the field messages as written, else its message; never raw data. */
+  function refusalText(res) {
+    var out = [], f = obj(res.fields);
+    arr(f.reason).concat(typeof f.reason === "string" ? [f.reason] : []).forEach(function (c) { if (typeof c === "string" && c) out.push(importWhy(c)); });
+    ["name", "site"].forEach(function (k) {
+      (Array.isArray(f[k]) ? f[k] : typeof f[k] === "string" ? [f[k]] : []).forEach(function (m) { if (typeof m === "string" && m && out.indexOf(m) < 0) out.push(m); });
+    });
+    if (!out.length && res.message) out.push(res.message);
+    return out.join(" ");
+  }
+  function openImport(from) {
+    if (busy) return;
+    ["imp-site", "imp-name"].forEach(function (id) { $(id).value = ""; });
+    F.say("imp-e", "");
+    dlg.open("m-imp", from, $("imp-site"));
+  }
+  function doImport() {
+    var site = $("imp-site").value.trim(), name = $("imp-name").value.trim().toLowerCase();
+    if (busy) return;
+    if (!site || !name) { F.say("imp-e", "Fill in the site ID and the domain."); return; }
+    F.say("imp-e", "");
+    lockImp(true);
+    call(IMPORT_PATH, { site: site, name: name }).then(function (res) {
+      lockImp(false);
+      if (F.left(res)) return;
+      if (res.ok) {
+        dlg.close(false);
+        F.say("d-msg", res.data && res.data.status === "pending" ? "An import of that name is already waiting. Refresh to see its result."
+          : "Requested. The registrar is read in the background. Refresh to see the result under Imports.");
+        load(false);
+        return;
+      }
+      if (res.status === 404 && !res.code) { dlg.close(false); F.say("d-msg", ""); load(false); return; }
+      if (res.status === 404) { F.say("imp-e", "That site was not found."); $("imp-cancel").focus(); return; }
+      F.say("imp-e", res.status >= 400 && res.status < 500 && refusalText(res) ? refusalText(res) : IMPORT_WRONG);
+      $("imp-cancel").focus();
+    });
+  }
+  function paintImports() {
+    var list = $("d-imps");
+    list.textContent = "";
+    imports.forEach(function (i) {
+      var li = F.el("li", ""), line = F.el("span", "lc-id", i.name || i.site), why = i.state === "refused" && i.reason ? importWhy(i.reason) : "";
+      li.appendChild(line);
+      li.appendChild(chip(IMPORT, i.state));
+      li.appendChild(F.el("small", "", [i.site_name || i.site, why, short(i.at)].filter(Boolean).join(" · ")));
+      list.appendChild(li);
+    });
+    $("d-imp-card").hidden = !imports.length;
+  }
+  $("d-import").addEventListener("click", function () { openImport($("d-import")); });
+  $("imp-go").addEventListener("click", doImport);
+  ["imp-x", "imp-cancel"].forEach(function (id) { $(id).addEventListener("click", function () { if (!busy) dlg.close(true); }); });
 
   /* ---- wiring ---- */
 

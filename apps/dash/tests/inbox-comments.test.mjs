@@ -862,6 +862,23 @@ test("r9: the list rows carry no Answered / Unanswered pill; the thread header k
   assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
 });
 
+test("r9: the unread dot is the accent blue (--link) and the read marker is visually hidden; --ov-green stays defined for both themes", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(css, /^#view-inbox \.ib-rs-u \{[^}]*background: var\(--link\)/m);
+  assert.match(css, /^#view-inbox \.ib-rs-r \{[^}]*clip: rect\(0, 0, 0, 0\)/m);
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.match(dash, /^body\.dash-app \{ --ov-green: #5FD3A2;/m, "dark");
+  assert.match(dash, /html\[data-theme="light"\] body\.dash-app \{ --ov-green: #1F8A5B;/, "light");
+});
+
+test("r9: the list rows carry no Answered / Unanswered pill; the thread header keeps its chip", async () => {
+  const d = boot();
+  await d.openInbox();
+  d.rows().forEach((r) => { assert.equal(d.all(r, "chip").filter((c) => /nswered/.test(text(c))).length, 0); });
+  await d.openRow(1);
+  assert.ok(text(d.all(d.$("ib-threadpane"), "ib-thead")[0]).includes("Unanswered"));
+});
+
 test("r12: the Answered / Unanswered chips are toggles (aria-pressed), one on at a time, and send answered= to the conversations and the comments routes", async () => {
   const d = boot({ convs: [conv(1, 5, { answered: true })] });
   await d.openInbox();
@@ -871,20 +888,20 @@ test("r12: the Answered / Unanswered chips are toggles (aria-pressed), one on at
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"]);
   let n = d.calls.length;
   await d.click(d.$("ib-b-answered"));
-  assert.deepEqual([on("answered"), on("unanswered")], ["true", "false"]);
+  assert.deepEqual([on("answered"), on("unanswered")], ["false", "true"], "the first press shows the unanswered");
   assert.equal(d.$("ib-b-answered").classList.contains("is-on"), true);
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?channel=nosms&answered=answered"], "both routes");
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?channel=nosms&answered=unanswered"], "both routes");
   assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
   n = d.calls.length;
   await d.click(d.$("ib-b-answered"));
-  assert.deepEqual([on("answered"), on("unanswered")], ["false", "true"], "one at a time");
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?channel=nosms&answered=unanswered"]);
+  assert.deepEqual([on("answered"), on("unanswered")], ["true", "false"], "one at a time");
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?channel=nosms&answered=answered"]);
   n = d.calls.length;
   await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"], "pressing the one that is on turns it off");
   assert.deepEqual(api(n), ["GET " + CB, "GET " + CV + "?channel=nosms"]);
   /* it combines with Unread and Open/Closed, and is not the status */
-  await d.click(d.$("ib-b-answered"));
+  await d.click(d.$("ib-b-answered")); await d.click(d.$("ib-b-answered"));
   n = d.calls.length;
   await d.click(d.$("ib-b-read"));
   assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?channel=nosms&unread=1&answered=answered"]);

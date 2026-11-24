@@ -455,7 +455,7 @@ const tabLabels = (d) => d.all(d.$("ib-tabs-host"), "ib-tab").map((t) => t.textC
 const pickTab = async (d, v) => { d.$("ib-tab-" + v).fire("click"); await settle(); };
 /* The filter buttons cycle (all -> first -> second -> all); `pickChip` clicks the right number of times to reach a state, `pickOff` back to all. */
 const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
-const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
+const ORDERS = { "ib-b-answered": ["", "unanswered", "answered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
 const cycleTo = async (d, id, want) => { const o = ORDERS[id], b = d.$(id); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + 3) % 3; n > 0; n--) { b.fire("click"); await settle(); } };
 const pickChip = (d, k) => cycleTo(d, CYC[k][0], CYC[k][1]);
 const pickOff = (d, k) => cycleTo(d, CYC[k][0], "");
@@ -831,10 +831,10 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml9/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml10/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml9/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml10/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1879,7 +1879,7 @@ test("the list column starts with one row of five icon buttons (Search, Answered
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
   assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
   assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === null));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages", "Refresh"]);
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing read and unread", "Showing open and closed", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -2409,13 +2409,13 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
   assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
   /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
-  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "answered", "unanswered"]], ["unread", ["", "1", "0"]], ["status", ["", "open", "closed"]]]);
-  assert.deepEqual(["", "answered", "unanswered", ""].map((v) => u.cycleNext("answered", v)), ["answered", "unanswered", "", "answered"]);
+  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "unanswered", "answered"]], ["unread", ["", "1", "0"]], ["status", ["", "open", "closed"]]]);
+  assert.deepEqual(["", "unanswered", "answered", ""].map((v) => u.cycleNext("answered", v)), ["unanswered", "answered", "", "unanswered"]);
   assert.deepEqual(["", "1", "0"].map((v) => u.cycleNext("unread", v)), ["1", "0", ""]);
   assert.deepEqual(["", "open", "closed"].map((v) => u.cycleNext("status", v)), ["open", "closed", ""]);
   assert.equal(u.cycleNext("status", "weird"), "", "an unknown value goes back to all");
   assert.equal(u.cycleNext("nope", "x"), "");
-  assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing read and unread messages"]);
+  assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing read and unread"]);
   assert.deepEqual([u.cycleLook("answered", "answered").text, u.cycleLook("answered", "unanswered").text], ["Answered only", "Unanswered only"]);
   assert.deepEqual([u.cycleLook("status", "open").text, u.cycleLook("status", "closed").text], ["Open only", "Closed only"]);
   assert.equal(new Set(["", "answered", "unanswered"].map((v) => u.cycleLook("answered", v).icon)).size, 3, "a distinct icon per state");
@@ -2425,7 +2425,7 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
   assert.deepEqual({ ...u.filterNext(base, "unread") }, { q: "ma", status: "", unread: "1", answered: "", filter: "email" });
   assert.deepEqual({ ...u.filterNext({ ...base, unread: "1" }, "unread") }, { ...base, unread: "0" });
   assert.deepEqual({ ...u.filterNext({ ...base, unread: "0" }, "unread") }, base, "the third press is back to all");
-  assert.deepEqual({ ...u.filterNext({ ...base, status: "closed" }, "answered") }, { ...base, status: "closed", answered: "answered" }, "other dimensions are kept");
+  assert.deepEqual({ ...u.filterNext({ ...base, status: "closed" }, "answered") }, { ...base, status: "closed", answered: "unanswered" }, "other dimensions are kept");
   /* placeholders */
   assert.deepEqual(["messenger", "email", "webchat", "sms", "fbcomment"].map(u.placeholderFor), ["Reply in Messenger…", "Reply by email…", "Reply in website chat…", "Reply by text…", "Reply to comment…"]);
   assert.equal(u.placeholderFor(""), "Write a reply…", "no channel known: a plain line");
@@ -2502,7 +2502,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261124ml9/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/); assert.match(HTML, /inbox\.css\?v=20261124ml9/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml10/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml9/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml9/); assert.match(HTML, /inbox\.css\?v=20261124ml10/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2646,7 +2646,7 @@ test("fix 2: the Answered / Read / Open-Closed buttons cycle all -> first -> sec
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
   const look = (id) => { const b = d.$(id); return [b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("aria-label"), b.getAttribute("aria-pressed"), b.classList.contains("is-on"), b.innerHTML]; };
-  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered messages"], ["answered", "Answered only"], ["unanswered", "Unanswered only"]]], ["ib-b-read", [["", "Showing read and unread messages"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed messages"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
+  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered"], ["unanswered", "Unanswered only"], ["answered", "Answered only"]]], ["ib-b-read", [["", "Showing read and unread"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
     const seen = [];
     for (let i = 0; i < 4; i++) {
       const l = look(id), [v, words] = steps[i % 3];
@@ -2682,8 +2682,8 @@ test("fix 4: every filter-row button shows the house tooltip at once on hover (n
     assert.equal(tipOf(id).classList.contains("is-open"), false, id + ": closes on leave");
     b.fire("focus"); assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": opens on focus"); b.fire("blur");
   }
-  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("aria-label")), ["Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages"]);
-  for (const [id, steps] of [["ib-b-answered", ["Answered only", "Unanswered only", "Showing answered and unanswered messages"]], ["ib-b-read", ["Unread only", "Read only", "Showing read and unread messages"]], ["ib-b-status", ["Open only", "Closed only", "Showing open and closed messages"]]]) {
+  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("aria-label")), ["Showing answered and unanswered", "Showing read and unread", "Showing open and closed"]);
+  for (const [id, steps] of [["ib-b-answered", ["Unanswered only", "Answered only", "Showing answered and unanswered"]], ["ib-b-read", ["Unread only", "Read only", "Showing read and unread"]], ["ib-b-status", ["Open only", "Closed only", "Showing open and closed"]]]) {
     d.$(id).fire("mouseenter");
     for (const words of steps) {
       d.$(id).fire("click"); await settle();
@@ -2805,4 +2805,56 @@ test("fix 4: the channel tabs are in the top slot (Settings menu look): no SMS t
   await pickTab(d, "email");
   assert.equal(d.$("ib-tab-email").getAttribute("aria-selected"), "true");
   assert.equal(d.$("ib-newtext-btn"), null, "New SMS is not in the Inbox");
+});
+
+/* ---------- Round 5 addition (Coach Ed 2026-11-24): tooltip bubble with an arrow, shorter words, a divider under the filters, unanswered first ---------- */
+
+test("round 5: the filter tooltip is centred on its button, above with the arrow down, below with the arrow up when there is no room, clamped with the arrow kept over the button", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  await d.openInbox();
+  const b = d.$("ib-b-read"), tip = d.$("ib-b-read-tip");
+  const rect = (left, top) => { b.getBoundingClientRect = () => ({ left, right: left + 44, top, bottom: top + 44, width: 44, height: 44 }); };
+  tip.offsetWidth = 120; tip.offsetHeight = 34;
+  const ax = () => (tip.style.getPropertyValue ? tip.style.getPropertyValue("--ax") : "") || tip.style["--ax"];
+  rect(100, 120); b.fire("mouseenter");
+  assert.equal(tip.classList.contains("is-above"), true); assert.equal(tip.classList.contains("is-below"), false);
+  assert.equal(tip.style.left, "62px", "centred: 100 + 22 - 60");
+  assert.equal(tip.style.top, "76px", "above the button: 120 - 34 - 10");
+  assert.equal(ax(), "60px", "the arrow is at the middle of the bubble, over the button centre");
+  b.fire("mouseleave");
+  rect(100, 20); b.fire("mouseenter");
+  assert.equal(tip.classList.contains("is-below"), true, "no room above: below, arrow up"); assert.equal(tip.classList.contains("is-above"), false);
+  assert.equal(tip.style.top, "74px", "below the button: 20 + 44 + 10");
+  b.fire("mouseleave");
+  rect(0, 120); b.fire("mouseenter");
+  assert.equal(tip.style.left, "8px", "clamped inside the viewport");
+  assert.equal(ax(), "14px", "bubble left 8 + arrow 14 = 22, the button centre: the arrow does not move with the clamp");
+});
+
+test("round 5: the tooltip CSS is a dark bubble with a white text and a triangle arrow, the same in light and dark; the list head has a 1px divider", () => {
+  const css = cssText();
+  const rule = /\n\.ib-ftip \{([^}]*)\}/.exec(css)[1];
+  assert.match(rule, /background: #1B2236/); assert.match(rule, /color: #fff/); assert.match(rule, /border-radius: 10px/); assert.match(rule, /position: fixed/);
+  assert.doesNotMatch(css, /html\[data-theme="light"\] \.ib-ftip|prefers-color-scheme: light\) \{ html:not\(\[data-theme\]\) \.ib-ftip/, "no separate light look");
+  assert.match(css, /\.ib-ftip::after \{[^}]*left: var\(--ax, 50%\)[^}]*border: 6px solid transparent/);
+  assert.match(css, /\.ib-ftip\.is-above::after \{[^}]*top: 100%;[^}]*border-top-color: #1B2236/, "arrow down under a bubble above the button");
+  assert.match(css, /\.ib-ftip\.is-below::after \{[^}]*bottom: 100%;[^}]*border-bottom-color: #1B2236/, "arrow up over a bubble below the button");
+  assert.match(css, /#view-inbox \.ib-lhead \{[^}]*border-bottom: 1px solid var\(--card-line\)/, "the divider in the house border colour");
+  assert.match(css, /#view-inbox \.ib-lhead:empty \{ display: none; \}/, "no divider when there is no filter row");
+});
+
+test("round 5: the filter words are short and Answered shows the unanswered first", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.statuser = (st) => byStatus(st);
+  await d.openInbox();
+  const u = d.window.NOInbox.util;
+  assert.deepEqual(["answered", "unread", "status"].map((k) => u.cycleLook(k, "").text), ["Showing answered and unanswered", "Showing read and unread", "Showing open and closed"]);
+  assert.ok(!["answered", "unread", "status"].some((k) => /messages/.test(u.cycleLook(k, "").text)), "no 'messages'");
+  const b = d.$("ib-b-answered");
+  await d.click(b); assert.equal(b.getAttribute("aria-label"), "Unanswered only"); assert.equal(b.getAttribute("data-v"), "unanswered");
+  assert.ok(d.list().filter((c) => c.includes("answered=")).at(-1).includes("answered=unanswered"), "the filter sent matches the label");
+  await d.click(b); assert.equal(b.getAttribute("aria-label"), "Answered only");
+  assert.ok(d.list().filter((c) => c.includes("answered=")).at(-1).endsWith("answered=answered"));
+  await d.click(b); assert.equal(b.getAttribute("aria-label"), "Showing answered and unanswered"); assert.equal(b.getAttribute("data-v"), "");
 });

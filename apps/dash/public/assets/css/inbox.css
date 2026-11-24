@@ -48,7 +48,7 @@ body.dash-app #view-inbox .ib-tabs button:focus-visible { outline: 2px solid var
 #view-inbox .ib-pagehead { padding: 12px 0; }
 #view-inbox .ib-pagetitle { font-size: 20px; font-weight: 700; color: var(--text); }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
-#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; }
+#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; border-bottom: 1px solid var(--card-line); } /* the divider under the filter row, the full width of the column */
 #view-inbox .ib-lhead:empty { display: none; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -397,8 +397,12 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 @media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-st-no { color: #A87A00; } }
 #view-inbox .cm-tip.cm-tip-b { position: fixed; right: auto; bottom: auto; white-space: nowrap; }
 /* The filter-row tips sit on the body (outside the transformed, clipped row), so they carry the tip look themselves. */
-.ib-ftip { position: fixed; right: auto; bottom: auto; width: max-content; max-width: min(260px, calc(100vw - 16px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #F2F5FC; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 1000; }
+.ib-ftip { position: fixed; right: auto; bottom: auto; width: max-content; max-width: min(260px, calc(100vw - 16px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #fff; border: 0; box-shadow: 0 6px 18px rgba(0,0,0,.28); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 1000; }
 .ib-ftip.is-open { opacity: 1; visibility: visible; }
+/* The arrow: a CSS triangle, centred over the button (--ax is set by the code), pointing down when the bubble is above the button and up when below. The same in light and dark. */
+.ib-ftip::after { content: ""; position: absolute; left: var(--ax, 50%); width: 0; height: 0; margin-left: -6px; border: 6px solid transparent; }
+.ib-ftip.is-above::after { top: 100%; border-top-color: #1B2236; border-bottom-width: 0; }
+.ib-ftip.is-below::after { bottom: 100%; border-bottom-color: #1B2236; border-top-width: 0; }
 /* A comment row's name line: the name shortens with an ellipsis before the icon, which never wraps or moves. */
 #view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }

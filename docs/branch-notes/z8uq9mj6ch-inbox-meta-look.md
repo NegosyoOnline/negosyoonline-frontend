@@ -124,3 +124,14 @@ Ruling SMS-MENU, verbatim: "for the New SMS and Bulk SMS, we need to create anot
 * No SMS nav badge (an unread count for texts needs `unread?channel=sms`, which an ignoring backend would answer with the all-channel total: wrong number). Left for after the backend param; say if wanted.
 * Cache keys `?v=20261124ml9` on `inbox.js`, `inbox.css`, `inbox-sms.js`, `inbox-bulk.js`.
 * Tests: 826/826, lint clean, build passes (Node 22.23.1, pnpm 11.25.0). Not run: a visual check in a browser.
+
+## Round 5 addition: filter tooltip, short words, divider, unanswered first (Coach Ed, Tue 2026-11-24, relayed by the Coordinator)
+
+Coach Ed's words: "image 1 - the design of the tooltip must be like this / image 2: * all our filters, remove the text messages to make it short. * put divider below the filter * in the answered/unanswered, the first it will show is the unanswered". Applies to the Inbox and SMS Marketing (shared filter row).
+
+* Tooltip: dark bubble (`#1B2236`, white text, 10 px corners, no border) with a CSS triangle arrow, the same in light and dark. `place()` centres it on the button, above with the arrow down (`.is-above`), below with the arrow up (`.is-below`) when there is no room above; the bubble is clamped to the viewport and the arrow (`--ax`) stays over the button centre. Instant open, live text update, focus, body-append and `purgeTips` unchanged.
+* Words: "Showing answered and unanswered", "Showing read and unread", "Showing open and closed" (aria-label equals the tip text, as before). Single states unchanged.
+* Divider: 1px `--card-line` bottom border on `#ib-lhead` (full width of the list column; gone with the head when there is no filter row).
+* Answered button: all -> Unanswered only -> Answered only -> all (`CYCLES` order); the query sent matches the label at each step.
+* Cache keys: this is a separate push after ml9, so `inbox.js` and `inbox.css` are `?v=20261124ml10` (`inbox-sms.js`, `inbox-bulk.js` stay ml9).
+* Tests: 831/831, lint clean, build passes. Not run: a visual check in a browser.

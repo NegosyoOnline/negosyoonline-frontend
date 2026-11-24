@@ -162,12 +162,12 @@
   /* The filter buttons of the list (Coach Ed 2026-11-24): three icon buttons, each cycling one EXISTING filter: all -> first -> second -> all.
      `dim` is the S field it sets (answered, unread, status), `order` its values in turn, `by` the icon and words of each. Nothing new is asked of the API. */
   var CYCLES = [
-    { dim: "answered", id: "ib-b-answered", order: ["", "answered", "unanswered"], by: {
-      "": { icon: "comment", text: "Showing answered and unanswered messages" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
+    { dim: "answered", id: "ib-b-answered", order: ["", "unanswered", "answered"], by: {
+      "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
     { dim: "unread", id: "ib-b-read", order: ["", "1", "0"], by: {
-      "": { icon: "stack", text: "Showing read and unread messages" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
+      "": { icon: "stack", text: "Showing read and unread" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
     { dim: "status", id: "ib-b-status", order: ["", "open", "closed"], by: {
-      "": { icon: "folder", text: "Showing open and closed messages" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
+      "": { icon: "folder", text: "Showing open and closed" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
   ];
   function cycleOf(dim) { for (var i = 0; i < CYCLES.length; i++) if (CYCLES[i].dim === dim) return CYCLES[i]; return null; }
   /* The value after `v` in the dimension's turn (an unknown value goes back to all). */
@@ -1211,8 +1211,14 @@
     function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
     function place() {
       if (!btnEl.getBoundingClientRect) return;
-      var r = btnEl.getBoundingClientRect(), w = tip.offsetWidth || 160, vw = window.innerWidth || 375;
-      tip.style.top = Math.round(r.bottom + 6) + "px"; tip.style.left = Math.round(Math.max(8, Math.min(r.right - w, vw - w - 8))) + "px";
+      /* Centred on the button, above it with the arrow pointing down; below it with the arrow pointing up when there is no room above. A clamp to
+         the viewport moves the bubble, never the arrow: the arrow (--ax) stays over the button's centre. */
+      var r = btnEl.getBoundingClientRect(), w = tip.offsetWidth || 160, hg = tip.offsetHeight || 34, vw = window.innerWidth || 375;
+      var cx = r.left + (r.width || 0) / 2, left = Math.round(Math.max(8, Math.min(cx - w / 2, vw - w - 8))), above = r.top - hg - 10 >= 8;
+      tip.style.top = Math.round(above ? r.top - hg - 10 : r.bottom + 10) + "px"; tip.style.left = left + "px";
+      tip.classList.toggle("is-above", above); tip.classList.toggle("is-below", !above);
+      var ax = Math.round(Math.max(14, Math.min(cx - left, w - 14)));
+      if (tip.style.setProperty) tip.style.setProperty("--ax", ax + "px"); else tip.style["--ax"] = ax + "px";
     }
     function shut() {
       if (timer) { clearTimeout(timer); timer = null; }

@@ -104,3 +104,9 @@ Coach Ed's words: "image 1 - delete this / image 2 - transfer this to the top al
 * Decision to flag: New SMS / Bulk SMS stay in `#ib-tools-host`, the row directly above the card, now right-aligned and alone (the tabs left that row). With no SMS the row is not built.
 * Phone: the tabs slot hides with the toolbar while a conversation is open (U6 unchanged).
 * Cache keys `?v=20261124ml7`. Tests 824/824, lint clean, build passes. No visual browser check run.
+
+## Fix round 4c: tooltips were invisible (Coordinator, Tue 2026-11-24)
+
+* Cause: the tips were children of `#ib-frow`, which has `transform` (round 3 animation) and `overflow: hidden`; the transform made `position: fixed` resolve against the row and clipped the tip.
+* Fix: every filter-row tip is now appended to `document.body` (class `ib-ftip`, own full tip look in inbox.css, z-index 1000); `place()` still uses viewport coordinates. `purgeTips()` removes the tips (and closes an open one) whenever the toolbar is rebuilt (`syncTools`) or a button's tip is re-attached, so none leak. Instant hover, live text update, focus, `aria-describedby` and the close on search-open are unchanged.
+* Test: the tip's ancestors include no `.ib-frow` / `.ib-fbar`. Cache keys `?v=20261124ml8`. Tests 824/824, lint clean, build passes. Not checked in a real browser by me.

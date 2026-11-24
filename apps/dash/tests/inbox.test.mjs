@@ -823,9 +823,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml7/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml8/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml7/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml8/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -2599,6 +2599,7 @@ test("fix 4: every filter-row button shows the house tooltip at once on hover (n
     assert.equal(b.getAttribute("title"), null, id + ": no native title");
     assert.ok(tipOf(id), id + ": has a house tooltip");
     assert.equal(tipOf(id).getAttribute("role"), "tooltip");
+    for (let n = tipOf(id).parentNode; n; n = n.parentNode) assert.ok(!(n.classList && (n.classList.contains("ib-frow") || n.classList.contains("ib-fbar"))), id + ": the tip is outside the transformed, clipped filter row");
     assert.equal(tipOf(id).classList.contains("is-open"), false);
     b.fire("mouseenter"); /* no clock advance: it must open in the same tick */
     assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": open at once");

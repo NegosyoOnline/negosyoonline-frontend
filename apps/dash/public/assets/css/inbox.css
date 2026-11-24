@@ -393,6 +393,9 @@ html[data-theme="light"] #view-inbox .cm-kind-pub { border-color: #D9A21B; backg
 html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 @media (prefers-color-scheme: light) { html:not([data-theme]) #view-inbox .cm-st-no { color: #A87A00; } }
 #view-inbox .cm-tip.cm-tip-b { position: fixed; right: auto; bottom: auto; white-space: nowrap; }
+/* The filter-row tips sit on the body (outside the transformed, clipped row), so they carry the tip look themselves. */
+.ib-ftip { position: fixed; right: auto; bottom: auto; width: max-content; max-width: min(260px, calc(100vw - 16px)); box-sizing: border-box; padding: 8px 12px; border-radius: 10px; background: #1B2236; color: #F2F5FC; border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; white-space: nowrap; opacity: 0; visibility: hidden; pointer-events: none; z-index: 1000; }
+.ib-ftip.is-open { opacity: 1; visibility: visible; }
 /* A comment row's name line: the name shortens with an ellipsis before the icon, which never wraps or moves. */
 #view-inbox .ib-top-cm { justify-content: flex-start; align-items: center; gap: 6px; min-width: 0; }
 #view-inbox .ib-name-cm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }

@@ -1102,7 +1102,7 @@
     var host = byId("ib-tools-host"); if (!host || !S) return;
     var mode = S.state === "ready" ? "full" : S.state === "empty" ? "lite" : "none";
     if (host.getAttribute("data-mode") === mode) return;
-    clear(host); host.setAttribute("data-mode", mode);
+    clear(host); host.setAttribute("data-mode", mode); purgeTips();
     var th = byId("ib-tabs-host"); if (th) { clear(th); if (mode === "full") th.appendChild(tabBar()); }
     if (mode !== "none") { var tb = toolbar(mode === "lite"); if (tb.querySelector(".ib-acts").children.length) host.appendChild(tb); }
     var lh = byId("ib-lhead");
@@ -1157,9 +1157,16 @@
      on focus, and on tap (a touch tap toggles it from what it was before the tap, like the other Inbox tooltips). Its words are the button's
      aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
   var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
+  /* Removes the tips of buttons that were replaced (the toolbar is rebuilt), so none leak onto the body. */
+  function purgeTips(id) {
+    var b = document.body; if (!b || !b.children) return;
+    Array.prototype.slice.call(b.children).forEach(function (n) { if (n.classList && n.classList.contains("ib-ftip") && (!id || n.id === id)) { if (TIP.close) { var c = TIP.close; TIP.close = null; c(); } b.removeChild(n); } });
+  }
   function attachTip(btnEl, host) {
-    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false, held = false, heldT = null;
-    tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id); host.appendChild(tip);
+    var tip = h("span", "cm-tip cm-tip-b ib-ftip"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false, held = false, heldT = null;
+    tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id);
+    /* The tip lives on the body, never inside the filter row: that row has a transform (so position: fixed would resolve against it) and clips its overflow. */
+    purgeTips(id); (document.body || host).appendChild(tip);
     function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
     function place() {
       if (!btnEl.getBoundingClientRect) return;

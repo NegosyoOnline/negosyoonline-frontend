@@ -22,7 +22,11 @@
 #view-contacts .ct-area { min-height: 140px; padding: 10px 12px; resize: vertical; }
 #view-contacts .ct-input:focus, #view-contacts .ct-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 #view-contacts .ct-input[aria-invalid="true"] { border-color: var(--err-line); }
-#view-contacts .ct-file { display: block; max-width: 100%; color: var(--text-2); font: inherit; font-size: 15px; }
+#view-contacts .ct-req { color: var(--err-h); }
+#view-contacts .ct-filepick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-width: 0; }
+#view-contacts .ct-filebtn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; cursor: pointer; }
+#view-contacts .ct-file:focus-visible + .ct-filebtn { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+#view-contacts .ct-filename { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 #view-contacts .ct-error { margin: 6px 0 0; color: var(--err-h); font-size: 14px; line-height: 1.4; }
 #view-contacts .ct-error[hidden] { display: none; }
 #view-contacts .ct-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
@@ -78,6 +82,7 @@
   #view-contacts .ct-row-actions { width: 100%; }
   #view-contacts .ct-facts { grid-template-columns: minmax(0, 1fr); }
   #view-contacts .ct-actions .no-btn { flex: 1 1 100%; }
+  #view-contacts .ct-filebtn { flex: 1 1 100%; }
   #view-contacts .ct-dialog { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { #view-contacts .ct-combo-caret { transition: none; } }

@@ -31,3 +31,8 @@ SMS Marketing is not on main, so the Contacts link sits right after Inbox. When 
 
 ## Checks (apps/dash, Node 22.23.1, pnpm 11.25.0)
 `pnpm test` 806 pass (14 new in contacts.test.mjs), `pnpm lint` clean, `pnpm build` ok. Not run: a real-browser visual check (Supervisor's local test, desktop and phone, light and dark).
+
+## Fix round 1 (SANTE, tested against HQ BE 4d8cb6f)
+- First name is required on Add (label "First name *", `aria-required`, message "Enter a first name"), and on Edit only when the contact already has a first name; a no-name contact can be saved with none, or given a name. Last name stays optional. Number-only contacts come in through CSV only. `contactError` checks the first name (when `requireFirst`) then the mobile.
+- The CSV file picker is a dash secondary button: the native input is visually hidden, a `label.no-btn.no-btn-ghost` opens it, the chosen file name shows beside it, and keyboard focus gets the light-blue ring (dark and light via the dash tokens).
+- Tests: 808 pass (2 new).

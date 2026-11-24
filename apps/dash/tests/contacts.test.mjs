@@ -95,6 +95,9 @@ test("pure helpers: names, query rule, list path, body shapes", () => {
   assert.deepEqual(J(u.contactBody({ first: " A ", last: "", mobile: " 0917 ", groups: ["g1"] })), { first_name: "A", last_name: "", mobile: "0917", groups: ["g1"] });
   assert.equal(u.contactError({ mobile: "  " }), "Enter a mobile number.");
   assert.equal(u.contactError({ mobile: "0917" }), "");
+  assert.equal(u.contactError({ requireFirst: true, first: " ", mobile: "0917" }), "Enter a first name");
+  assert.equal(u.contactError({ requireFirst: true, first: "A", mobile: "" }), "Enter a mobile number.");
+  assert.equal(u.contactError({ requireFirst: false, first: "", mobile: "0917" }), "", "a no-name contact may stay without a name");
   assert.equal(u.groupNameError(""), "Enter a group name.");
   assert.equal(u.groupNameError("x".repeat(61)), "Use 60 characters or fewer.");
   assert.equal(u.fileError({ size: 1048577 }), "The file is over 1 MB.");
@@ -187,8 +190,11 @@ test("add a contact: mobile is required; the body carries names, mobile and grou
   await d.click(d.press(d.root(), "Add contact"));
   const dlg = d.slot();
   assert.ok(dlg.textContent.includes("Add contact") && dlg.textContent.includes("Regulars") && dlg.textContent.includes("VIP"));
+  assert.ok(d.$("ct-first").getAttribute("aria-required") === "true" && dlg.textContent.includes("First name *"));
+  assert.ok(!dlg.textContent.includes("Last name *"));
   await d.click(d.press(dlg, "Add contact"));
-  assert.ok(dlg.textContent.includes("Enter a mobile number."));
+  assert.ok(dlg.textContent.includes("Enter a first name") && dlg.textContent.includes("Enter a mobile number."));
+  d.$("ct-first").value = "Lito";
   assert.ok(!d.list().some((c) => c.startsWith("POST " + BASE)));
   d.$("ct-first").value = " Lito "; d.$("ct-mobile").value = " 0917 111 2222 ";
   dlg.all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox")[1].checked = true;
@@ -204,6 +210,7 @@ test("add: the API's field errors and a duplicate number land on the field", asy
   d.s.post = err(400, "invalid_request", "Check it.", { mobile: ["Not a Philippine mobile number."] });
   await d.open();
   await d.click(d.press(d.root(), "Add contact"));
+  d.$("ct-first").value = "Lito";
   d.$("ct-mobile").value = "123";
   await d.click(d.press(d.slot(), "Add contact"));
   assert.ok(d.slot().textContent.includes("Not a Philippine mobile number."));
@@ -354,4 +361,36 @@ test("safety and look: no innerHTML or markup writes; light-blue focus; phone ru
   assert.ok(!/overflow-x:\s*(scroll|auto)/.test(CSS));
   const rules = CSS.split("\n").filter((l) => /\{/.test(l) && !/^\s*(\/\*|@)/.test(l));
   for (const l of rules) assert.ok(/^\s*#view-contacts/.test(l), "scoped: " + l.slice(0, 60));
+});
+
+test("edit: a contact with no name can be saved with none; a named one must keep its first name", async () => {
+  const d = boot();
+  d.s.detail = { ...ROWS[1], mobile: "09180000000" };
+  await d.open();
+  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
+  assert.ok(!d.slot().textContent.includes("First name *"));
+  await d.click(d.press(d.slot(), "Save contact"));
+  assert.deepEqual(d.calls.find((c) => c.method === "PATCH").body, { first_name: "", last_name: "", mobile: "09180000000", groups: [] });
+  const e = boot();
+  await e.open();
+  await e.click(e.buttons(e.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
+  assert.ok(e.slot().textContent.includes("First name *"));
+  e.$("ct-first").value = " ";
+  await e.click(e.press(e.slot(), "Save contact"));
+  assert.ok(e.slot().textContent.includes("Enter a first name"));
+  assert.ok(!e.calls.some((c) => c.method === "PATCH"));
+});
+
+test("CSV file picker: the native input is hidden behind a dash secondary button label, with the light-blue focus", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(d.press(d.root(), "Upload CSV"));
+  const file = d.$("ct-file");
+  assert.ok(file.classList.contains("ct-sr"), "native control visually hidden");
+  const lab = d.root().all((n) => n.tagName === "LABEL" && n.classList.contains("ct-filebtn"))[0];
+  assert.equal(lab.textContent, "Choose file");
+  assert.ok(lab.classList.contains("no-btn") && lab.classList.contains("no-btn-ghost"));
+  assert.equal(lab.getAttribute("for"), "ct-file");
+  assert.ok(d.root().textContent.includes("No file chosen"));
+  assert.ok(/\.ct-file:focus-visible \+ \.ct-filebtn \{[^}]*var\(--link/.test(CSS));
 });

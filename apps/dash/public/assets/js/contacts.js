@@ -58,7 +58,11 @@
     var b = { first_name: String(v.first || "").trim(), last_name: String(v.last || "").trim(), mobile: String(v.mobile || "").trim(), groups: (v.groups || []).slice() };
     return b;
   }
-  function contactError(v) { return String(v.mobile || "").trim() ? "" : "Enter a mobile number."; }
+  /* The API wants a first name on create, and on edit when the contact already has one (v.requireFirst). A contact with no name can be
+     saved with none (number-only contacts come in through the CSV upload only). */
+  function firstError(v) { return v.requireFirst && !String(v.first || "").trim() ? "Enter a first name" : ""; }
+  function mobileError(v) { return String(v.mobile || "").trim() ? "" : "Enter a mobile number."; }
+  function contactError(v) { return firstError(v) || mobileError(v); }
   function groupNameError(v) { var n = String(v || "").trim(); return n ? (n.length > 60 ? "Use 60 characters or fewer." : "") : "Enter a group name."; }
   function fileError(f) {
     if (!f) return "Choose a file.";
@@ -196,8 +200,9 @@
   function title(text, id) { var t = h("h2", "ct-h2", text); t.setAttribute("id", "ct-h-" + id); return t; }
   function errBox() { var e = h("p", "ct-error"); e.setAttribute("role", "alert"); e.hidden = true; return e; }
   function showErr(box, text) { box.textContent = text; box.hidden = !text; }
-  function field(labelText, input, hint) {
+  function field(labelText, input, hint, required) {
     var f = h("div", "ct-field"), lab = h("label", "ct-label", labelText);
+    if (required) { var star = h("span", "ct-req", " *"); star.setAttribute("aria-hidden", "true"); lab.appendChild(star); input.setAttribute("aria-required", "true"); }
     lab.setAttribute("for", input.getAttribute("id"));
     add(f, lab, input);
     var err = errBox(); err.setAttribute("id", input.getAttribute("id") + "-err"); input.setAttribute("aria-describedby", err.getAttribute("id"));
@@ -407,11 +412,11 @@
     });
   }
   function formDialog(c, opener) {
-    var editing = !!c;
+    var editing = !!c, requireFirst = !editing || !!String(c.first_name || "").trim();
     dialog("contact", opener, function (dlg, close) {
       var first = textInput("ct-first", c && c.first_name), last = textInput("ct-last", c && c.last_name);
       var mobile = textInput("ct-mobile", c && c.mobile, { inputmode: "tel" });
-      var fFirst = field("First name", first), fLast = field("Last name", last), fMobile = field("Mobile number", mobile, "A Philippine mobile number. One contact per number.");
+      var fFirst = field("First name", first, null, requireFirst), fLast = field("Last name", last), fMobile = field("Mobile number", mobile, "A Philippine mobile number. One contact per number.");
       var fs = h("fieldset", "ct-checks"), lg = h("legend", "ct-label", "Groups"), have = groupIds(c).map(String), boxes = [];
       add(fs, lg);
       if (!S.groups.length) add(fs, h("p", "ct-meta", "No groups yet. Add one on the Groups tab."));
@@ -426,9 +431,11 @@
       var del = editing ? btn("Delete contact", "danger", function (b) { confirmDelete(c, b); }) : null;
       save.addEventListener("click", function () {
         showErr(err, ""); showErr(gerr, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
-        var v = { first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
-        var m = contactError(v);
-        if (m) { bad(fMobile, m, mobile); mobile.focus(); return; }
+        var v = { requireFirst: requireFirst, first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
+        var fe = firstError(v), me = mobileError(v);
+        if (fe) bad(fFirst, fe, first);
+        if (me) bad(fMobile, me, mobile);
+        if (fe || me) { (fe ? first : mobile).focus(); return; }
         v.groups = v.groups.map(function (id) { var g = S.groups.filter(function (x) { return String(x.id) === id; })[0]; return g ? g.id : id; });
         busy(save, true);
         var mine = run;
@@ -542,8 +549,12 @@
     var U = S.upload = { text: "", group: "", checked: null, run: 0 };
     var form = h("form", "ct-card"); form.setAttribute("novalidate", "novalidate"); form.setAttribute("aria-label", "Upload contacts");
     add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
-    var file = D.el("input", { id: "ct-file", "class": "ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
-    var fFile = field("CSV file", file);
+    /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
+    var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
+    var pick = h("div", "ct-filepick"), pickBtn = h("label", "no-btn no-btn-ghost ct-filebtn", "Choose file"), pickName = h("span", "ct-meta ct-filename", "No file chosen");
+    pickBtn.setAttribute("for", "ct-file");
+    add(pick, file, pickBtn, pickName);
+    var fFile = field("CSV file", file); fFile.insertBefore(pick, fFile.err);
     var area = D.el("textarea", { id: "ct-paste", "class": "ct-input ct-area", rows: "6", spellcheck: "false", placeholder: "Maria,Santos,0917 123 4567" });
     var fPaste = field("Or paste the lines here", area);
     var grp = dropdown("ct-ugroup", "Add them to this group", groupOptions("No group"), "", function (v) { U.group = v; drop(); });
@@ -554,6 +565,7 @@
     file.addEventListener("change", function () {
       showErr(fFile.err, ""); drop();
       var f = file.files && file.files[0], m = f ? fileError(f) : "";
+      pickName.textContent = f && f.name ? String(f.name) : "No file chosen";
       if (m) { showErr(fFile.err, m); return; }
       if (!f) return;
       var rd = typeof f.text === "function" ? f.text() : new Promise(function (ok, no) { var r = new FileReader(); r.onload = function () { ok(String(r.result)); }; r.onerror = no; r.readAsText(f); });
@@ -624,5 +636,5 @@
 
   window.NOContacts = { show: show, hide: hide, probe: probe,
     util: { nameOf: nameOf, queryMode: queryMode, listPath: listPath, groupsOf: groupsOf, groupIds: groupIds, fieldMessage: fieldMessage, contactBody: contactBody,
-      contactError: contactError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
+      contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
 })();

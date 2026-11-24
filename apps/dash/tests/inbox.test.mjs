@@ -822,9 +822,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml5/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml6/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml5/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml6/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1787,7 +1787,7 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"], "Search, Answered, Read, Open/Closed, Refresh");
   const rb = d.$("ib-refresh-btn");
   assert.equal(rb.parentNode, d.$("ib-frow"), "Refresh sits in the filter row, last");
-  assert.deepEqual([rb.getAttribute("aria-label"), rb.getAttribute("title"), rb.textContent], ["Refresh", "Refresh", ""]);
+  assert.deepEqual([rb.getAttribute("aria-label"), rb.getAttribute("title") === null, rb.textContent], ["Refresh", true, ""]);
   assert.deepEqual(d.all(head, "pm-label").map((l) => [l.textContent, l.getAttribute("for"), l.classList.contains("sr-only")]), [["Search", "ib-q", true]]);
   assert.equal(d.all(head, "ib-si").length, 1, "the magnifier inside the search box");
   assert.equal(d.all(head, "ib-qs").length, 1);
@@ -1867,8 +1867,8 @@ test("the list column starts with one row of five icon buttons (Search, Answered
   await d.openInbox();
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
   assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
-  assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === c.getAttribute("aria-label")));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing all messages", "Showing open and closed", "Refresh"]);
+  assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === null));
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -2392,7 +2392,7 @@ test("util: tabsFor lists the channels, Text (SMS) last and only while sms_avail
   assert.deepEqual(["", "open", "closed"].map((v) => u.cycleNext("status", v)), ["open", "closed", ""]);
   assert.equal(u.cycleNext("status", "weird"), "", "an unknown value goes back to all");
   assert.equal(u.cycleNext("nope", "x"), "");
-  assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing all messages"]);
+  assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing read and unread messages"]);
   assert.deepEqual([u.cycleLook("answered", "answered").text, u.cycleLook("answered", "unanswered").text], ["Answered only", "Unanswered only"]);
   assert.deepEqual([u.cycleLook("status", "open").text, u.cycleLook("status", "closed").text], ["Open only", "Closed only"]);
   assert.equal(new Set(["", "answered", "unanswered"].map((v) => u.cycleLook("answered", v).icon)).size, 3, "a distinct icon per state");
@@ -2567,8 +2567,8 @@ test("fix 2: the Answered / Read / Open-Closed buttons cycle all -> first -> sec
   asInbox(d);
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
-  const look = (id) => { const b = d.$(id); return [b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("title"), b.getAttribute("aria-pressed"), b.classList.contains("is-on"), b.innerHTML]; };
-  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered"], ["answered", "Answered only"], ["unanswered", "Unanswered only"]]], ["ib-b-read", [["", "Showing all messages"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
+  const look = (id) => { const b = d.$(id); return [b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("aria-label"), b.getAttribute("aria-pressed"), b.classList.contains("is-on"), b.innerHTML]; };
+  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered messages"], ["answered", "Answered only"], ["unanswered", "Unanswered only"]]], ["ib-b-read", [["", "Showing read and unread messages"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed messages"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
     const seen = [];
     for (let i = 0; i < 4; i++) {
       const l = look(id), [v, words] = steps[i % 3];
@@ -2581,6 +2581,39 @@ test("fix 2: the Answered / Read / Open-Closed buttons cycle all -> first -> sec
   }
   const sent = d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH)).map((c) => c.path.slice(LIST_PATH.length));
   assert.ok(sent.includes("?answered=answered") && sent.includes("?answered=unanswered") && sent.includes("?unread=1") && sent.includes("?unread=0") && sent.includes("?status=open") && sent.includes("?status=closed") || sent.some((p) => /answered=unanswered/.test(p)), "the same query values the chips sent");
+});
+
+test("fix 4: every filter-row button shows the house tooltip at once on hover (no delay, no native title); a click updates the open tooltip text in place", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.statuser = (st) => byStatus(st);
+  await d.openInbox();
+  const ids = ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"];
+  const tipOf = (id) => d.$(id + "-tip");
+  for (const id of ids) {
+    const b = d.$(id);
+    assert.equal(b.getAttribute("title"), null, id + ": no native title");
+    assert.ok(tipOf(id), id + ": has a house tooltip");
+    assert.equal(tipOf(id).getAttribute("role"), "tooltip");
+    assert.equal(tipOf(id).classList.contains("is-open"), false);
+    b.fire("mouseenter"); /* no clock advance: it must open in the same tick */
+    assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": open at once");
+    assert.equal(tipOf(id).textContent, b.getAttribute("aria-label"), id + ": the aria-label words");
+    b.fire("mouseleave");
+    assert.equal(tipOf(id).classList.contains("is-open"), false, id + ": closes on leave");
+    b.fire("focus"); assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": opens on focus"); b.fire("blur");
+  }
+  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("aria-label")), ["Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages"]);
+  for (const [id, steps] of [["ib-b-answered", ["Answered only", "Unanswered only", "Showing answered and unanswered messages"]], ["ib-b-read", ["Unread only", "Read only", "Showing read and unread messages"]], ["ib-b-status", ["Open only", "Closed only", "Showing open and closed messages"]]]) {
+    d.$(id).fire("mouseenter");
+    for (const words of steps) {
+      d.$(id).fire("click"); await settle();
+      assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": still open after the click");
+      assert.equal(tipOf(id).textContent, words, id + ": new words at once, pointer still on the button");
+      assert.equal(d.$(id).getAttribute("aria-label"), words);
+    }
+    d.$(id).fire("mouseleave");
+  }
 });
 
 test("fix 2: the three buttons combine, and a failed read puts each back to its previous state with a toast", async () => {

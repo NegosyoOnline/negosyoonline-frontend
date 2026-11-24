@@ -84,3 +84,13 @@ Coach Ed's words: "update this actions: 1. New SMS 2. Bulk SMS 3. remove this re
 * Decision: while there is nothing to filter (empty list) there is no filter row, but the empty text says "Press Refresh", so the list head then shows Refresh alone, right-aligned (`liteBar`). The toolbar row above the card is only built when it has something in it (tabs, New SMS, Bulk SMS); with no SMS and an empty list it is not rendered.
 * Cache keys: `inbox.js` and `inbox.css` both `?v=20261124ml5`.
 * Tests: 822/822 (existing tests updated, hide-on-search assertions added), lint clean, build passes (Node 22.23.1). Not run: a visual check in a browser.
+
+## Fix round 4 addition (Coach Ed, Tue 2026-11-24, relayed by the Supervisor)
+
+Coach Ed's words: "once hover the tooltip must show immediately; change 'showing all messages' to 'Showing read and unread messages'; once the filter is clicked, the next tooltip must display (no mouse-out/in needed)".
+
+* Hover opens the house tooltip at once (the 120 ms timer is gone); focus still opens it. The native `title` is removed from all five buttons (it caused a second, delayed native tooltip); `aria-label` stays and is kept in sync.
+* Search now has the house tooltip too (it had none). It closes when the search box opens. The lite-bar Refresh also has it.
+* Stale tooltip after a click: the list reload resets the list scroll, and the tooltip's scroll listener closed it. Scrolls of `#ib-listbody` no longer close it, and `paintCycle`/`paintSearchBtn` refresh the open tooltip text in place. A user scroll elsewhere still closes it.
+* Texts (all state): "Showing answered and unanswered messages", "Showing read and unread messages", "Showing open and closed messages". Other states unchanged.
+* Cache keys `?v=20261124ml6`. Tests 823/823 (one new), lint clean, build passes. No visual browser check run.

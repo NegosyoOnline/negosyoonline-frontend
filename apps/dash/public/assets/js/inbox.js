@@ -154,11 +154,11 @@
      `dim` is the S field it sets (answered, unread, status), `order` its values in turn, `by` the icon and words of each. Nothing new is asked of the API. */
   var CYCLES = [
     { dim: "answered", id: "ib-b-answered", order: ["", "answered", "unanswered"], by: {
-      "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
+      "": { icon: "comment", text: "Showing answered and unanswered messages" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
     { dim: "unread", id: "ib-b-read", order: ["", "1", "0"], by: {
-      "": { icon: "stack", text: "Showing all messages" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
+      "": { icon: "stack", text: "Showing read and unread messages" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
     { dim: "status", id: "ib-b-status", order: ["", "open", "closed"], by: {
-      "": { icon: "folder", text: "Showing open and closed" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
+      "": { icon: "folder", text: "Showing open and closed messages" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
   ];
   function cycleOf(dim) { for (var i = 0; i < CYCLES.length; i++) if (CYCLES[i].dim === dim) return CYCLES[i]; return null; }
   /* The value after `v` in the dimension's turn (an unknown value goes back to all). */
@@ -1152,7 +1152,7 @@
     if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = v; S.listTop = 0; fillList(byId("ib-listbody")); syncTabs(); return; }
     applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: v }, null, "");
   }
-  /* The house tooltip for an icon button: dark, fixed under the button (so no scroll box clips it), opens on hover after about 120 ms, at once
+  /* The house tooltip for an icon button: dark, fixed under the button (so no scroll box clips it), opens on hover at once (no delay), at once
      on focus, and on tap (a touch tap toggles it from what it was before the tap, like the other Inbox tooltips). Its words are the button's
      aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
   var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
@@ -1173,7 +1173,7 @@
     /* A toggle repaints its icon inside its own click, so the click target is already out of the page when the click reaches the document: that
        is not an outside click. The list reload and its scroll reset (held by ibTipHold) are not a user scroll either. */
     function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; if (t && document.contains && !document.contains(t)) return; shut(); }
-    function onScroll() { if (held) return; shut(); }
+    function onScroll(e) { var t = e && e.target; if (held || (t && t.id === "ib-listbody")) return; shut(); } /* the list reload resets the list scroll: not a user scroll, the tip stays */
     function open() {
       if (timer) { clearTimeout(timer); timer = null; }
       if (TIP.close && TIP.close !== shut) TIP.close();
@@ -1182,12 +1182,13 @@
     }
     btnEl.ibTipHold = function (on) { if (heldT) { clearTimeout(heldT); heldT = null; } if (on) held = true; else heldT = setTimeout(function () { held = false; heldT = null; }, 250); };
     btnEl.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
-    btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open") || timer) return; timer = setTimeout(function () { timer = null; open(); }, 120); });
+    btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open")) return; open(); });
     btnEl.addEventListener("mouseleave", function () { if (timer) { clearTimeout(timer); timer = null; } if (!document.activeElement || document.activeElement !== btnEl) shut(); });
     btnEl.addEventListener("focus", open);
     btnEl.addEventListener("blur", shut);
     btnEl.addEventListener("keydown", function (e) { if (e.key === "Escape") shut(); });
     btnEl.addEventListener("click", function () { if (touchTap) { if (wasOpen) shut(); else open(); touchTap = false; } else if (tip.classList.contains("is-open")) refresh(); else open(); });
+    btnEl.ibTipShut = shut;
     btnEl.ibTipRefresh = function () { if (tip.classList.contains("is-open")) { refresh(); place(); } };
   }
   /* The cycle buttons: Answered, Read, Open/Closed. Pressing one shows its next state at once; applyQuery puts it back when the read fails. */
@@ -1206,12 +1207,12 @@
   function paintCycle(b, c, v) {
     var r = cycleLook(c.dim, v);
     clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false"); b.setAttribute("data-v", v || "");
+    b.setAttribute("aria-label", r.text); b.removeAttribute("title"); b.setAttribute("aria-pressed", v ? "true" : "false"); b.setAttribute("data-v", v || "");
     b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   function paintSearchBtn(b) {
     var t = S && S.qText ? S.qText.trim() : "", words = t ? "Search: " + t : "Search";
-    b.setAttribute("aria-label", words); b.setAttribute("title", words); b.setAttribute("aria-pressed", t ? "true" : "false"); b.classList.toggle("is-on", !!t);
+    b.setAttribute("aria-label", words); b.removeAttribute("title"); b.setAttribute("aria-pressed", t ? "true" : "false"); b.classList.toggle("is-on", !!t); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   /* Shows the cycle buttons for q (a query), or the real S when q is left out; the Search button follows the text typed. */
   function syncFilters(q) {
@@ -1276,7 +1277,7 @@
   /* Refresh: the fifth square icon button of the filter row (same handler as the old toolbar button). */
   function refreshButton() {
     var b = h("button", "ib-fbtn"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
-    b.setAttribute("aria-label", "Refresh"); b.setAttribute("title", "Refresh"); b.appendChild(icon(ICON.refresh));
+    b.setAttribute("aria-label", "Refresh"); b.appendChild(icon(ICON.refresh));
     b.addEventListener("click", function () { if (S) refreshAll(b); });
     return b;
   }
@@ -1284,7 +1285,7 @@
   function liteBar() {
     var wrap = h("div", "ib-fbar"), row = h("div", "ib-frow");
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Refresh");
-    row.appendChild(refreshButton()); wrap.appendChild(row);
+    var lb = refreshButton(); row.appendChild(lb); attachTip(lb, row); wrap.appendChild(row);
     return wrap;
   }
   /* The head of the list column (Coach Ed 2026-11-24): ONE row of five square icon buttons: Search, Answered, Read, Open/Closed, Refresh. Pressing Search
@@ -1295,7 +1296,7 @@
     var st = S, wrap = h("div", "ib-fbar"), row = h("div", "ib-frow"), open = !!st.sOpen;
     row.setAttribute("role", "group"); row.setAttribute("aria-label", "Filters"); row.setAttribute("id", "ib-frow");
     var sb = h("button", "ib-fbtn"); sb.setAttribute("type", "button"); sb.setAttribute("id", "ib-b-search"); sb.setAttribute("aria-expanded", "false"); sb.appendChild(icon(ICON.search));
-    paintSearchBtn(sb); row.appendChild(sb);
+    paintSearchBtn(sb); row.appendChild(sb); attachTip(sb, row);
     CYCLES.forEach(function (c) { var b = cycleButton(c); row.appendChild(b); attachTip(b, row); });
     var rb = refreshButton(); row.appendChild(rb); attachTip(rb, row);
     var field = h("div", "ib-search"), lab = h("label", "pm-label sr-only", "Search"); lab.setAttribute("for", "ib-q");
@@ -1308,7 +1309,7 @@
     /* The CSS does the motion (.is-search on the bar). The part that is leaving gets inert at once and `hidden` after the transition (260 ms, or at once
        with reduced motion), so nobody tabs into a hidden button or the closed box. */
     function show(on, still) {
-      st.sOpen = on; sb.setAttribute("aria-expanded", on ? "true" : "false");
+      st.sOpen = on; if (sb.ibTipShut) sb.ibTipShut(); sb.setAttribute("aria-expanded", on ? "true" : "false");
       if (tm !== null) { clearTimeout(tm); tm = null; }
       var fast = still || reduced(), gone = on ? row : field, back = on ? field : row;
       back.hidden = false; back.removeAttribute("inert"); gone.setAttribute("inert", "");

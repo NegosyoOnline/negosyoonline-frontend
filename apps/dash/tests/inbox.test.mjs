@@ -49,7 +49,7 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ contacts = false, listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null } = {}) {
+function boot({ contacts = false, listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null, withComments = false } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
@@ -121,6 +121,7 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(read("inbox-sms.js"), context, { filename: "inbox-sms.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
+  if (withComments) vm.runInContext(read("inbox-comments.js"), context, { filename: "inbox-comments.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
   vm.runInContext(read("sms-gateway-settings.js"), context, { filename: "sms-gateway-settings.js" });
   if (contacts) vm.runInContext(read("contacts.js"), context, { filename: "contacts.js" });
@@ -3196,4 +3197,58 @@ test("INBOX-FIX-7 Refresh on SMS Marketing: back to the empty state with Send Ne
   assert.equal(d.$("ib-sms-t"), null, "the New SMS form is closed");
   assert.ok(d.$("ib-newtext-btn"), "the invitation is back");
   assert.equal(d.$("ib-b-status").getAttribute("data-v"), "open");
+});
+
+/* ---------- Round 9 (Coach Ed 2026-11-24): a reply turns the Unanswered "!" into the check at once ---------- */
+const stOf = (d, i) => d.all(rowsOf(d)[i], "cm-st")[0];
+const unansList = () => list({ items: list().items.map((i) => ({ ...i, answered: false })) });
+const bangs = (d) => rowsOf(d).filter((r) => d.all(r, "cm-st-no").length).length;
+
+test("round 9: a reply sent in an Unanswered conversation turns its row's ! into the check without a list reload", async () => {
+  const d = boot({ withComments: true, listing: unansList() });
+  await d.openInbox();
+  assert.equal(bangs(d), 2, "both rows start Unanswered");
+  await d.click(rowsOf(d)[0]);
+  d.$("ib-rb").value = "Opo, available pa."; d.$("ib-rb").fire("input");
+  const lists = () => d.list().filter((c) => c.startsWith("GET " + BASE + "conversations/?")).length;
+  const before = lists();
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(stOf(d, 0).getAttribute("aria-label"), "Answered");
+  assert.ok(d.all(rowsOf(d)[0], "cm-st-ok").length === 1 && d.all(rowsOf(d)[0], "cm-st-no").length === 0, "the row shows the check");
+  assert.equal(stOf(d, 1).getAttribute("aria-label"), "Unanswered", "the other row is untouched");
+  assert.equal(bangs(d), 1, "the Unanswered count dropped by one");
+  assert.equal(lists(), before, "no list read was needed");
+});
+
+test("round 9: a reply that failed leaves the row Unanswered", async () => {
+  const d = boot({ withComments: true, listing: unansList(), reply: { state: "failed", error_code: "email_failed", created_at: iso(0) } });
+  await d.openInbox();
+  await d.click(rowsOf(d)[0]);
+  d.$("ib-rb").value = "Opo."; d.$("ib-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(bangs(d), 2);
+  assert.equal(stOf(d, 0).getAttribute("aria-label"), "Unanswered");
+});
+
+test("round 9: a refused reply (HTTP error) leaves the row Unanswered", async () => {
+  const d = boot({ withComments: true, listing: unansList() });
+  await d.openInbox();
+  await d.click(rowsOf(d)[0]);
+  d.s.replyAnswer = { status: 422, body: { error: { code: "invalid", message: "No." } } };
+  d.$("ib-rb").value = "Opo."; d.$("ib-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(bangs(d), 2);
+});
+
+test("round 9: with the Unanswered filter on, the replied row stays (as a check) until the filter changes, and the count of ! drops", async () => {
+  const d = boot({ withComments: true, listing: unansList() });
+  await d.openInbox();
+  await pickChip(d, "unanswered");
+  assert.equal(bangs(d), 2);
+  await d.click(rowsOf(d)[1]);
+  d.$("ib-rb").value = "Opo."; d.$("ib-rb").fire("input");
+  await d.click(d.press(d.$("ib-threadpane"), "Send"));
+  assert.equal(rowsOf(d).length, 2, "the row is not yanked from under the user");
+  assert.equal(bangs(d), 1);
+  assert.equal(stOf(d, 1).getAttribute("aria-label"), "Answered");
 });

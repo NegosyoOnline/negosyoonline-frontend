@@ -1032,6 +1032,11 @@
 
   /* The box is kept per conversation, in memory only. */
   function draftOf() { return S.sel && Object.prototype.hasOwnProperty.call(S.drafts, S.sel) ? S.drafts[S.sel] : ""; }
+  function markAnswered(ref) {
+    S.items.forEach(function (i) { if (i.ref === ref && typeof i.answered === "boolean") i.answered = true; });
+    if (S.thread && S.thread.ref === ref && typeof S.thread.answered === "boolean") S.thread.answered = true;
+    if (byId("ib-listbody")) drawList();
+  }
   function send(b, box) {
     if (S.sending) return;
     var text = box.value.trim(), isSms = !!SMS && channelOf(S.thread || { ref: S.sel }) === "sms", limit = isSms ? SMS.util.maxOf(S.thread) : MAX;
@@ -1062,6 +1067,8 @@
       }
       S.key = null;
       var state = res.data && res.data.state;
+      /* INBOX-FIX-9: an accepted reply answers the conversation at once: its row turns from the "!" to the check without a list read (the next list read confirms it). A refused or failed reply changes nothing. */
+      if (state !== "failed") markAnswered(ref);
       /* The thread now holds the owner's message with its delivery state, sent or failed: read it again. */
       var code = res.data && typeof res.data.error_code === "string" ? res.data.error_code : "";
       if (isSms) {

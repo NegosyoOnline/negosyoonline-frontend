@@ -943,3 +943,11 @@ test("round 10 R10-1: only one batch View is open at a time: opening another clo
   viewBtns(d)[0].fire("click"); viewBtns(d)[1].fire("click"); await settle(); await settle();
   assert.equal(drows().length, 1); assert.ok(drows()[0].textContent.includes("Second Person") && !pane(d).textContent.includes("First Person"), "the discarded load does not revive it");
 });
+
+test("round 11 R11-1: the Bulk history Audience cell names the groups then the contacts; missing fields keep the old label", async () => {
+  const d = await openBulk({ history: () => ok({ items: [batch({ id: "sbk_aaaaaaaa", audience: "pick", groups: [{ id: "g1", name: "VIP" }], contacts: [{ id: "c1", first_name: "Maria", last_name: "Santos", mobile_masked: "0917 *** 1234" }, { id: "c2", first_name: "", last_name: "", mobile_masked: "0918 *** 5678" }] }), batch({ id: "sbk_bbbbbbbb", audience: "pick" }), batch({ id: "sbk_cccccccc", audience: "all" })], next_cursor: null }) }, {}, { form: false });
+  const cells = rowsOf(d).map((r) => r.all((n) => n.tagName === "TD")[1]);
+  assert.equal(cells[0].textContent, "VIP, Maria Santos, 0918 *** 5678"); assert.equal(cells[0].getAttribute("title"), cells[0].textContent);
+  assert.ok(cells[0].classList.contains("ib-bk-aud"));
+  assert.equal(cells[1].textContent, "Chosen groups and contacts"); assert.equal(cells[2].textContent, "All my members");
+});

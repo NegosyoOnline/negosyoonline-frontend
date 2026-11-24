@@ -29,6 +29,27 @@
   function num(n) { return typeof n === "number" && isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function audienceName(a) { for (var i = 0; i < AUDIENCES.length; i++) if (AUDIENCES[i][0] === a) return AUDIENCES[i][1]; return AUDIENCES[0][1]; }
+  /* The Audience cell of a history row (round 11): "All my members", or for a chosen audience the group names then the contact names, comma-separated
+     (a contact is first and last name, else its masked number). Until the list endpoints send groups and contacts it is the plain "Chosen groups and contacts". */
+  function audienceText(row) {
+    var a = row && row.audience;
+    if (a !== "pick") return audienceName(a);
+    var out = [];
+    (Array.isArray(row.groups) ? row.groups : []).forEach(function (g) { var n = g && typeof g.name === "string" ? g.name.trim() : ""; if (n) out.push(n); });
+    (Array.isArray(row.contacts) ? row.contacts : []).forEach(function (c) {
+      if (!c || typeof c !== "object") return;
+      var n = [c.first_name, c.last_name].filter(function (x) { return typeof x === "string" && x.trim(); }).map(function (x) { return x.trim(); }).join(" ");
+      if (!n && typeof c.mobile_masked === "string") n = c.mobile_masked.trim();
+      if (n) out.push(n);
+    });
+    return out.length ? out.join(", ") : audienceName("pick");
+  }
+  /* The cell itself: one line with an ellipsis (like the Message column), the whole list in the title. */
+  function audienceCell(h, row) {
+    var t = audienceText(row), td = h("td", "ib-bk-aud", t);
+    if (row && row.audience === "pick") td.setAttribute("title", t);
+    return td;
+  }
   /* "Will send to 95 members". */
   function willSend(n, aud) { return "Will send to " + (aud === "pick" ? plural(num(n), "recipient", "recipients") : plural(num(n), "member", "members")); }
   /* The groups left out of a count, [label, n] for each non-zero one. */
@@ -606,7 +627,7 @@
       items.forEach(function (b) {
         var open = !!st.open[b.id], tr = h("tr", "ib-bk-tr" + (open ? " is-open" : ""));
         tr.appendChild(h("td", "ib-bk-when", when(b.created_at)));
-        tr.appendChild(h("td", "", audienceName(b.audience)));
+        tr.appendChild(audienceCell(h, b));
         tr.appendChild(h("td", "ib-bk-nums", num(b.sent) + " / " + num(b.failed) + " / " + num(b.not_sent)));
         var sc = h("td", ""); sc.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), stateText(b.state))); tr.appendChild(sc);
         tr.appendChild(h("td", "ib-bk-rtext", b.text || ""));
@@ -669,7 +690,7 @@
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
-    util: { available: available, audienceName: audienceName, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
+    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

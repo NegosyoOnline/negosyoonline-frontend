@@ -670,3 +670,33 @@ test("round 10: editing keeps the saved date and time selectable and Save change
   await typeText(d, "New text"); await d.click(d.$("ib-sc-go"));
   assert.deepEqual(d.bk.seen.patched[0].body, { audience: "all", text: "New text" }, "the time is not sent when it did not change");
 });
+
+/* ---------- round 11 (Coach Ed 2026-11-24): the Audience column names the groups and the contacts; the two list headings are section-title size ---------- */
+test("round 11 R11-1: the Audience cell is All my members, or the groups then the contacts (name, else masked number), one line with an ellipsis and the full list in the title", async () => {
+  const rows = [
+    sched({ id: "sch_1", audience: "all" }),
+    sched({ id: "sch_2", audience: "pick", groups: [{ id: "g1", name: "VIP" }, { id: "g2", name: "Manila" }], contacts: [{ id: "c1", first_name: "Maria", last_name: "Santos", mobile_masked: "0917 *** 1234" }, { id: "c2", first_name: "", last_name: "", mobile_masked: "0918 *** 5678" }, { id: "c3", first_name: "Jun", last_name: "", mobile_masked: "x" }] }),
+    sched({ id: "sch_3", audience: "pick" }),
+    sched({ id: "sch_4", audience: "pick", groups: [], contacts: [] }),
+    sched({ id: "sch_5", audience: "pick", groups: [{ id: "g9", name: "<img src=x onerror=alert(1)>" }], contacts: [] })
+  ];
+  const d = await openSched({ list: () => ok({ items: rows, next_cursor: null }) });
+  const cells = rowsOf(d).map((r) => r.all((n) => n.tagName === "TD")[1]);
+  assert.equal(cells[0].textContent, "All my members");
+  assert.equal(cells[1].textContent, "VIP, Manila, Maria Santos, 0918 *** 5678, Jun");
+  assert.equal(cells[1].getAttribute("title"), "VIP, Manila, Maria Santos, 0918 *** 5678, Jun");
+  assert.ok(has(cells[1], "ib-bk-aud"), "the one-line ellipsis class");
+  assert.equal(cells[2].textContent, "Chosen groups and contacts", "no names sent: the old label");
+  assert.equal(cells[3].textContent, "Chosen groups and contacts", "empty lists: the old label");
+  assert.equal(cells[4].textContent, "<img src=x onerror=alert(1)>", "text, never markup");
+  assert.equal(cells[4].all((n) => n.tagName === "IMG").length, 0);
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.ok(/td\.ib-bk-aud \{[^}]*overflow: hidden[^}]*text-overflow: ellipsis[^}]*white-space: nowrap/.test(CSS));
+  assert.equal(d.window.NOInboxBulk.util.audienceText({ audience: "pick", groups: [{ name: "  " }], contacts: [null, { mobile_masked: " 0917 *** 1 " }] }), "0917 *** 1");
+});
+
+test("round 11 R11-2: the Scheduled SMS and Bulk SMS history headings are section-title size (18px, 700, 1.3), the same as the card title; nothing else changed", () => {
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8"), DASH = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
+  assert.ok(/dash-card h2 \{[^}]*font-size: 18px; font-weight: 700; line-height: 1\.3/.test(DASH), "the reference");
+  assert.ok(/\.ib-bk-histsec h2 \{ font-size: 18px; font-weight: 700; line-height: 1\.3; \}/.test(CSS));
+});

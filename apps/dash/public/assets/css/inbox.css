@@ -525,6 +525,7 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-table tbody tr:first-child td { border-top: 0; }
 #view-inbox .ib-bk-table td.ib-bk-when { font-weight: 600; white-space: nowrap; }
 #view-inbox .ib-bk-table td.ib-bk-nums { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-table td.ib-bk-aud { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #view-inbox .ib-bk-table td.ib-bk-rtext { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 #view-inbox .ib-bk-table td.ib-bk-act { width: 1%; white-space: nowrap; text-align: right; }
 #view-inbox .ib-bk-view { min-height: 36px; padding: 0 14px; }
@@ -594,6 +595,8 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 
 /* INBOX-FIX-8 B1-B4: the Bulk SMS history has no outer card (the title and the button are a plain row above the table) and the View detail is flat. */
 #view-inbox .ib-bk-histsec .ib-bk-dh { padding-bottom: 0; border-bottom: 0; }
+/* round 11: the Scheduled SMS and Bulk SMS history headings are a section title, the size of the card title "How scheduled sending works" (.dash-card h2: 18px, 700, 1.3) */
+#view-inbox .ib-bk-histsec h2 { font-size: 18px; font-weight: 700; line-height: 1.3; }
 #view-inbox .ib-bk-dr > td { background: color-mix(in srgb, var(--link) 7%, transparent); }
 #view-inbox .ib-bk-flat { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 14px; font-size: 15px; color: var(--text); }
 #view-inbox .ib-bk-flat p { margin: 0; }
@@ -639,7 +642,7 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
   #view-inbox .ib-bk-table tbody tr:first-child { border-top: 0; }
   #view-inbox .ib-bk-table tr.ib-bk-tr td { display: block; min-width: 0; padding: 0; border: 0; }
   #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-when { grid-area: when; }
-  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(2) { grid-area: aud; }
+  #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(2) { grid-area: aud; max-width: none; }
   #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums { grid-area: nums; font-size: 14px; color: var(--text-2); }
   #view-inbox .ib-bk-table tr.ib-bk-tr td.ib-bk-nums::before { content: "Sent / Failed / Not sent: "; color: var(--meta); }
   #view-inbox .ib-bk-table tr.ib-bk-tr td:nth-child(4) { grid-area: chip; justify-self: end; }

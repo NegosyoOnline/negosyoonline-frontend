@@ -264,7 +264,7 @@
       items.forEach(function (b) {
         var tr = h("tr", "ib-bk-tr ib-sc-tr");
         tr.appendChild(h("td", "ib-bk-when", when(b.scheduled_at) + " (Manila)"));
-        tr.appendChild(h("td", "", BU.audienceName(b.audience)));
+        tr.appendChild(BU.audienceCell(h, b));
         tr.appendChild(h("td", "ib-bk-rtext", b.text || ""));
         var sc = h("td", ""); sc.appendChild(h("span", "ib-bk-chip is-" + (CHIP[b.state] || "waiting"), stateText(b.state)));
         var why = reasonText(b); if (why) sc.appendChild(h("span", "ib-sc-why", why));

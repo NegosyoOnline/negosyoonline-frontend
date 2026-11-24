@@ -258,3 +258,10 @@ test("every line refused: says no line could be read and leaves out the already-
   assert.equal(p.node["u-sentence"].textContent.includes("already in contacts"), false);
   assert.equal(p.node["u-save"].disabled, true);
 });
+
+test("a number-only file is a normal summary, and a too-long first name shows its own words", async () => {
+  const p = await up({ [R.uc]: [200, { ...CHECK, new: 3, existing: 0, repeated: 0, refused: [{ line: 5, reason: "The first name is too long or has odd characters." }], refused_count: 1 }] });
+  await check(p);
+  assert.equal(p.node["u-sentence"].textContent.startsWith("3 new contacts will be added to Launch list B."), true);
+  assert.deepEqual(p.node["u-results"].children.map((li) => li.textContent), ["Line 5First name too long or has odd characters"]);
+});

@@ -1,7 +1,7 @@
 /* inbox-bulk.js: "Text many members" (store bulk SMS, ClickUp z8uq9mbreu), the screen the dash Inbox opens from its toolbar.
    Exposes window.NOInboxBulk { probe(D, site), screen(host, ui), util }. Routes (apps/inquiries store_bulk.py, contract
    store-bulk-sms-be-api-2026-11-23), all under /sites/{id}/inquiries/sms/bulk/: GET status/, POST audience/ {audience}, POST preview/ {text},
-   POST test/ {text, idempotency_key}, POST batches/ {text, audience, promotional, idempotency_key, confirm, expected_count}, GET batches/,
+   POST test/ {text, idempotency_key}, POST batches/ {text, audience, idempotency_key, confirm, expected_count}, GET batches/,
    GET batches/{id}/, POST batches/{id}/stop/. Every one answers 404 while the feature is off: probe() then says null and the button stays hidden.
    Ruling D1 (Coach Ed, 2026-11-23): "All my members" is the first and default audience; there is NO consent nudge, warning or consent
    wording anywhere on this screen. The page never shows a list of numbers: only counts, and masked mobiles in a batch's recipients.
@@ -11,10 +11,10 @@
 
   /* ---------- pure helpers ---------- */
 
-  var AUDIENCES = [["all", "All my members"], ["promo", "Members who agreed to promo texts"]];
+  var AUDIENCES = [["all", "All my members"]];
   /* The plain labels for the groups left out of the count, in the order the API counts them. */
   var LEFT_OUT = [["unverified", "Mobile number not verified"], ["invalid_number", "Test number"], ["opted_out", "Asked for no more texts (STOP)"],
-    ["not_promo", "Not agreed to promo texts"], ["duplicates", "Repeated number"]];
+    ["duplicates", "Repeated number"]];
   var STATES = { waiting: "Waiting to start", sending: "Sending", finished: "Finished", stopped: "Stopped", ended: "Ended" };
   var RSTATES = { waiting: "Waiting", queued: "With your phone", sent: "Sent", failed: "Failed", not_sent: "Not sent" };
   var PAUSES = {
@@ -107,7 +107,7 @@
   /* ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, back(), gone() }. host: the thread pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", aud: null, audLoading: false, text: "", promo: false, preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null, ptimer: null,
       hist: { items: [], next: null, loading: false, failed: false }, det: null, dead: false, arun: 0, prun: 0 };
 
@@ -272,15 +272,10 @@
       var wrap = h("div", "ib-bk-form");
       var q = typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : "";
       if (q) wrap.appendChild(h("p", "pm-hint ib-sms-quota", q));
-      /* audience: the house dropdown, All my members first */
+      /* audience: the only one is all members (Coach Ed, 2026-11-24), shown as a plain line */
       var f1 = h("div", "pm-field ib-fld");
-      var l1 = h("label", "pm-label", "Who gets the text"); l1.setAttribute("for", "ib-bk-aud");
-      var sel = D.el("select", { "class": "ib-input", id: "ib-bk-aud" });
-      AUDIENCES.forEach(function (a) { sel.appendChild(D.el("option", { value: a[0] }, a[1])); });
-      sel.value = st.audience;
-      sel.addEventListener("change", function () { st.audience = sel.value === "promo" ? "promo" : "all"; st.sure = false; st.key = null; readAudience(); });
-      add(f1, l1, sel); wrap.appendChild(f1);
-      ui.combo(sel, "Who gets the text");
+      var l1 = h("span", "pm-label", "Who gets the text");
+      add(f1, l1, h("p", "pm-hint", audienceName("all"))); wrap.appendChild(f1);
       var cnt = h("div", "ib-bk-box"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite"); wrap.appendChild(cnt);
       /* the text */
       var max = maxOf(s), pre = prefixOf(s);
@@ -292,11 +287,8 @@
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
       var count = h("span", "ib-count", roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
-      var pr = h("label", "ib-bk-tick"), prc = D.el("input", { type: "checkbox", id: "ib-bk-promo" }); prc.checked = st.promo;
-      prc.addEventListener("change", function () { st.promo = !!prc.checked; st.key = null; });
-      add(pr, prc, h("span", "", "Promotional"));
       wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), count, pr));
+      wrap.appendChild(add(h("div", "ib-rfoot"), count));
       ta.addEventListener("input", function () {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.sure = false; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = roomLeft(ta.value.length, max);
@@ -373,7 +365,7 @@
     function confirmSend(x, n) {
       if (st.sending || !st.sure) return;
       var key = st.key || ui.newKey(); st.key = key; st.sending = true; st.err = ""; ui.busy(x, true);
-      D.call("POST", b0 + "batches/", { text: st.text.trim(), audience: st.audience, promotional: st.promo, idempotency_key: key, confirm: true, expected_count: n }, true).then(function (res) {
+      D.call("POST", b0 + "batches/", { text: st.text.trim(), audience: "all", idempotency_key: key, confirm: true, expected_count: n }, true).then(function (res) {
         st.sending = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
@@ -452,7 +444,7 @@
       host.appendChild(head("Batch", when(b.created_at), function () { st.view = "history"; st.det = null; draw(); }, "History"));
       var body = h("div", "ib-msgs ib-sms-new ib-bk"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
       var card = h("div", "ib-bk-card");
-      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), audienceName(b.audience) + (b.promotional ? " · Promotional" : "")));
+      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), audienceName(b.audience)));
       card.appendChild(top); card.appendChild(countsRow(b));
       if (typeof b.end_message === "string" && b.end_message) card.appendChild(note(b.end_message, true));
       card.appendChild(lines(b));

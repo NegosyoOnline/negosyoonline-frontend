@@ -137,16 +137,13 @@ const CHANNELS_ON = { webchat_enabled: true, paused_until: null, chat_limit_reac
 const CH_SMS = { ...CHANNELS_ON, sms_available: true, sms_enabled: true };
 const SMS_STATUS = { phone_online: true, daily_limit: 50, left_today: 37, hourly_limit: 20, left_this_hour: 20, enabled: true, prefix: "Test Store: ", max_length: 148, incoming_ready: true };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const comboBox = (d, id) => d.$(id).parentNode.all((n) => n.classList.contains("ib-combo-box"))[0];
-const comboRows = (d, id) => d.$(id).parentNode.all((n) => n.classList.contains("ib-combo-opt")).map((n) => n.textContent);
 const B = "/sites/" + A + "/inquiries/sms/bulk/";
 const BULK_STATUS = { available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, used_today: 0, left_today: 2000, prefix: "Test Store: ", max_length: 147,
   window: { start: "08:00", end: "20:00", timezone: "Asia/Manila" }, in_window: true, seconds_between: { min: 18, max: 25 },
   cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply.", active_batch: null };
-const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, not_promo: 0, duplicates: 8 } };
-const AUD_PROMO = { audience: "promo", total_members: 120, will_send: 40, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, not_promo: 55, duplicates: 8 } };
-const batch = (over = {}) => ({ id: "sbk_aaaaaaaa", state: "sending", created_at: "2026-11-23T10:00:00+08:00", audience: "all", promotional: false, text: "Test Store: Sale this weekend.",
-  size: 95, sent: 10, failed: 1, not_sent: 0, waiting: 84, left_out: { unverified: 10, invalid_number: 0, opted_out: 5, not_promo: 0, duplicates: 0 },
+const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, duplicates: 8 } };
+const batch = (over = {}) => ({ id: "sbk_aaaaaaaa", state: "sending", created_at: "2026-11-23T10:00:00+08:00", audience: "all", text: "Test Store: Sale this weekend.",
+  size: 95, sent: 10, failed: 1, not_sent: 0, waiting: 84, left_out: { unverified: 10, invalid_number: 0, opted_out: 5, duplicates: 0 },
   end_reason: "", end_message: "", paused_reason: "", seconds_left: 2042, stopped_at: null, finished_at: null, ...over });
 const ok = (body, status = 200) => ({ status, body });
 const bad = (status, code, message, fields) => ({ status, body: { error: { code, message, ...(fields ? { fields } : {}) } } });
@@ -156,7 +153,7 @@ function api(o = {}) {
   const seen = { audience: [], preview: [], test: [], batches: [], stop: 0 };
   const fn = (method, tail, body) => {
     if (method === "GET" && tail === "status/") return o.status || ok({ ...BULK_STATUS });
-    if (method === "POST" && tail === "audience/") { seen.audience.push(body); return o.audience ? o.audience(body, seen) : ok(body.audience === "promo" ? AUD_PROMO : AUD_ALL); }
+    if (method === "POST" && tail === "audience/") { seen.audience.push(body); return o.audience ? o.audience(body, seen) : ok(AUD_ALL); }
     if (method === "POST" && tail === "preview/") {
       seen.preview.push(body);
       if (o.preview) return o.preview(body);
@@ -210,15 +207,14 @@ test("bulk: with available:true the toolbar shows Text many members", async () =
   assert.equal(d.$("ib-bulk-btn").textContent, "Text many members");
 });
 
-test("bulk: All my members is selected first and is the default; the audience is read with it; no consent wording anywhere", async () => {
+test("bulk: the audience is a plain All my members line (no dropdown); it is read with all; no promo or consent wording anywhere", async () => {
   const d = await openBulk();
-  assert.equal(d.$("ib-bk-aud").value, "all");
-  assert.deepEqual(d.$("ib-bk-aud").children.map((o) => o.textContent), ["All my members", "Members who agreed to promo texts"]);
-  comboBox(d, "ib-bk-aud").fire("click");
-  assert.deepEqual(comboRows(d, "ib-bk-aud"), ["All my members", "Members who agreed to promo texts"]);
+  assert.equal(d.$("ib-bk-aud"), null, "no audience dropdown");
+  assert.ok(pane(d).textContent.includes("Who gets the text"));
+  assert.ok(pane(d).textContent.includes("All my members"));
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   const all = pane(d).textContent;
-  assert.ok(!/consent|agree(?!d to promo)|warning|opt-in|permission|allowed to text/i.test(all.replace("Members who agreed to promo texts", "").replace("Not agreed to promo texts", "")), "no consent nudge: " + all);
+  assert.ok(!/promo|consent|agree|warning|opt-in|permission|allowed to text/i.test(all), "no promo or consent wording: " + all);
 });
 
 test("bulk: the count line and the left-out groups with plain labels; never a list of numbers", async () => {
@@ -229,15 +225,11 @@ test("bulk: the count line and the left-out groups with plain labels; never a li
   assert.ok(box.includes("Test number: 2"));
   assert.ok(box.includes("Asked for no more texts (STOP): 5"));
   assert.ok(box.includes("Repeated number: 8"));
-  assert.ok(!box.includes("Not agreed to promo texts"), "zero groups are not shown");
+  assert.ok(!/promo/i.test(box), "no promo group");
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent));
-  const sel = d.$("ib-bk-aud"); sel.value = "promo"; sel.fire("change"); await settle();
-  assert.ok(d.$("ib-bk-count").textContent.includes("Will send to 40 members"));
-  assert.ok(d.$("ib-bk-count").textContent.includes("Not agreed to promo texts: 55"));
-  assert.deepEqual(d.bk.seen.audience[1], { audience: "promo" });
 });
 
-test("bulk: the prefix, the room-left counter and the debounced preview with the exact text; the Promotional tick is a label only", async () => {
+test("bulk: the prefix, the room-left counter and the debounced preview with the exact text; no Promotional tick", async () => {
   const d = await openBulk();
   assert.ok(pane(d).textContent.includes("Every text starts with: Test Store: "));
   assert.equal(d.$("ib-bk-c").textContent, "147 characters left");
@@ -245,9 +237,8 @@ test("bulk: the prefix, the room-left counter and the debounced preview with the
   assert.equal(d.$("ib-bk-c").textContent, "130 characters left");
   assert.deepEqual(d.bk.seen.preview, [{ text: "Sale this weekend" }], "one preview call after the pause");
   assert.ok(d.$("ib-bk-preview").textContent.includes("Test Store: Sale this weekend"));
-  assert.equal(d.$("ib-bk-promo").checked, false);
-  d.$("ib-bk-promo").checked = true; d.$("ib-bk-promo").fire("change");
-  assert.ok(!/consent|warning/i.test(pane(d).textContent));
+  assert.equal(d.$("ib-bk-promo"), null, "no Promotional tick");
+  assert.ok(!/promotional|consent|warning/i.test(pane(d).textContent));
 });
 
 test("bulk: a link is refused inline (the server's words) and nothing can be tested or confirmed", async () => {
@@ -278,19 +269,18 @@ test("bulk: send a test to my phone posts text and a key", async () => {
   assert.equal(e.$("ib-bk-testnote").textContent, "Add a verified mobile number to your account first.");
 });
 
-test("bulk: confirm needs the tick; the payload has confirm:true, expected_count, audience, promotional and a key; the progress card then shows", async () => {
+test("bulk: confirm needs the tick; the payload has confirm:true, expected_count, audience and a key; the progress card then shows", async () => {
   const d = await openBulk();
   await typeText(d, "Sale this weekend");
   assert.ok(d.$("ib-bk-confirm").textContent.includes("Send to 95 members from your phone?"));
   assert.equal(d.$("ib-bk-go").disabled, true, "not before the tick");
-  d.$("ib-bk-promo").checked = true; d.$("ib-bk-promo").fire("change");
   d.$("ib-bk-sure").checked = true; d.$("ib-bk-sure").fire("change");
   assert.equal(d.$("ib-bk-go").disabled, false);
   await d.click(d.$("ib-bk-go"));
   assert.equal(d.bk.seen.batches.length, 1);
   const p = d.bk.seen.batches[0];
-  assert.deepEqual(Object.keys(p).sort(), ["audience", "confirm", "expected_count", "idempotency_key", "promotional", "text"]);
-  assert.equal(p.confirm, true); assert.equal(p.expected_count, 95); assert.equal(p.audience, "all"); assert.equal(p.promotional, true); assert.equal(p.text, "Sale this weekend");
+  assert.deepEqual(Object.keys(p).sort(), ["audience", "confirm", "expected_count", "idempotency_key", "text"]);
+  assert.equal(p.confirm, true); assert.equal(p.expected_count, 95); assert.equal(p.audience, "all"); assert.equal(p.text, "Sale this weekend");
   assert.match(p.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(d.$("ib-bk-progress"), "the progress card shows");
   assert.equal(d.$("ib-bk-t"), null, "the form is gone while a batch runs");

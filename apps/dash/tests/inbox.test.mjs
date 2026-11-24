@@ -819,7 +819,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
   assert.match(HTML, /inbox\.js\?v=20261124ml1/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml1/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml2/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -2525,4 +2525,11 @@ test("the toolbar keeps New text, Text many members and Refresh in the actions b
   const css = cssText();
   assert.match(css, /@media \(max-width: 899px\) \{[^@]*\.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important; \}/);
   assert.match(css, /@media \(max-width: 1099px\) \{ #view-inbox \.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important;/, "too narrow for three columns");
+});
+
+test("INBOX-META-LOOK fix 1: on a phone the toolbar host hides with the list while a conversation is open", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const phone = css.slice(css.indexOf("@media (max-width: 899px)"));
+  assert.match(phone, /#view-inbox \.ib-tools-host\.is-hide-phone \{ display: none; \}/);
+  assert.doesNotMatch(css.split("@media")[0], /\.ib-tools-host\.is-hide-phone/);
 });

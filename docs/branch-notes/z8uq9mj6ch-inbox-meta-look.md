@@ -43,3 +43,10 @@ Not run: a visual check in a browser (the Supervisor's local visual test, deskto
 * Nothing existing was dropped on purpose. The Read/Unread and Answered tooltips (`NOInboxTip` for the toggles) went with the toggles; the comment rows' own tooltips are unchanged.
 * The old Conversations card header ("Conversations" title) is now a screen-reader-only heading; the card has no visible title any more.
 * `docs`: merge `main` again (merge, never rebase) once HQ's bulk branch lands; conflicts would be in `inbox.js`, `inbox.css` and `index.html`.
+
+## Fix round 1 (Supervisor's local visual test)
+
+* F1 (phone): `#view-inbox .ib-tools-host.is-hide-phone { display: none; }` added inside the max-width 899px block of `inbox.css` (the host sits outside `.ib-split`, so the old `.ib-split .is-hide-phone` rule did not reach it). Phone shows one panel at a time again: list view = header, tabs, buttons, list; thread view = only the thread. Desktop unaffected (rule is phone-only). New test checks the rule is inside the phone block only.
+* F2 (laptop): toolbar tightened so tabs and buttons share one row at 1280px+ with the side nav: tab padding 14 to 10 px, tab font 15 to 14 px, tab gap 4 to 2 px, button padding 14 to 12 px, button gap 9 to 8 px, row gap 12 to 10 px. The row still wraps when it truly does not fit; phone rules unchanged. Not measured in a browser by me (no server started); the Supervisor's visual test should confirm.
+* Cache key: `inbox.css?v=20261124ml2` (`inbox.js` unchanged, stays `ml1`; the existing version test updated).
+* Checks: `pnpm run test` 815/815, `pnpm lint` clean, `pnpm build` passes (Node 22.23.1, pnpm 11.25.0).

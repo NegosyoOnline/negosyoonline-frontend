@@ -537,7 +537,14 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-colmain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 #view-inbox .ib-bk-aside { min-width: 0; }
 #view-inbox .ib-bk-rules .ib-bk-left { color: var(--text-2); }
-#view-inbox .ib-bk-sendto { margin: 0; padding: 0; border: 0; min-width: 0; }
+#view-inbox .ib-bk-sendto { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+#view-inbox .ib-bk-pick { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
+#view-inbox .ib-bk-pick[hidden] { display: none; }
+#view-inbox .ib-bk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+#view-inbox .ib-bk-chips:not(:empty) { margin-top: 8px; }
+#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 6px 2px 12px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 14px; font-weight: 600; }
+#view-inbox .ib-bk-pchip-x { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+#view-inbox .ib-bk-pchip-x:hover, #view-inbox .ib-bk-pchip-x:focus-visible { background: color-mix(in srgb, var(--link) 22%, transparent); outline: none; }
 #view-inbox .ib-bk-sendto legend { padding: 0; }
 #view-inbox .ib-bk-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--link, #6C8CFF); border-radius: 10px; font-weight: 600; cursor: pointer; }
 #view-inbox .ib-bk-opt input { width: 20px; height: 20px; flex: none; accent-color: var(--primary); }

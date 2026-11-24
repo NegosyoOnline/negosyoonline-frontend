@@ -11,7 +11,7 @@
 
   /* ---------- pure helpers ---------- */
 
-  var AUDIENCES = [["all", "All my members"]];
+  var AUDIENCES = [["all", "All my members"], ["pick", "Chosen groups and contacts"]];
   /* The plain labels for the groups left out of the count, in the order the API counts them. */
   var LEFT_OUT = [["unverified", "Mobile number not verified"], ["invalid_number", "Test number"], ["opted_out", "Asked for no more texts (STOP)"],
     ["duplicates", "Repeated number"]];
@@ -93,6 +93,28 @@
     try { return new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
   }
   function base(site) { return "/sites/" + site + "/inquiries/sms/bulk/"; }
+  /* The ids of a pick (groups or contacts), for the audience and batch bodies. */
+  function idsOf(list) { return list.map(function (x) { return x.id; }); }
+  /* The contacts the picker offers (GET /sites/{id}/contacts/?q= results): { id, name, label (name and the MASKED mobile), optedOut }. A full number is never shown. */
+  function contactItems(list) {
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (c) {
+      if (!c || (typeof c.id !== "string" && typeof c.id !== "number") || c.id === "") return;
+      var name = [c.first_name, c.last_name].map(function (x) { return typeof x === "string" ? x.trim() : ""; }).filter(Boolean).join(" ") || "Contact";
+      var mob = maskMobile(c.mobile_masked);
+      out.push({ id: c.id, name: name, label: mob ? name + " \u00B7 " + mob : name, optedOut: c.opted_out === true });
+    });
+    return out;
+  }
+  /* The groups the picker offers (GET /sites/{id}/contacts/groups/): { id, name, label (name and its count) }. */
+  function groupItems(list) {
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (g) {
+      if (!g || (typeof g.id !== "string" && typeof g.id !== "number") || g.id === "" || typeof g.name !== "string" || !g.name) return;
+      out.push({ id: g.id, name: g.name, label: typeof g.count === "number" ? g.name + " (" + num(g.count) + ")" : g.name });
+    });
+    return out;
+  }
 
   /* The button shows only when this answers a status with available:true. D.call: the host app's fetch. Resolves the status object, or null
      on a 404 (feature off), any error or a status that does not say available. */
@@ -112,11 +134,11 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", aud: null, audLoading: false, text: "", preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], csrun: 0, ctimer: null, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
       hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
-    function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); st.timer = st.poll = null; }
+    function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
 
@@ -152,15 +174,92 @@
         });
       }, 5000);
     }
+    function picked() { return st.pickG.length + st.pickC.length > 0; }
+    /* The audience body: all, or the chosen groups and contacts (ids only). */
+    function audBody() { return st.audience === "pick" ? { audience: "pick", groups: idsOf(st.pickG), contacts: idsOf(st.pickC) } : { audience: "all" }; }
     function readAudience() {
-      var run = ++st.arun, a = st.audience;
-      st.audLoading = true; st.aud = null; drawCount();
-      D.call("POST", b0 + "audience/", { audience: a }, true).then(function (res) {
+      var run = ++st.arun;
+      st.aud = null;
+      /* nothing picked: no count, nothing to ask */
+      if (st.audience === "pick" && !picked()) { st.audLoading = false; drawCount(); return; }
+      st.audLoading = true; drawCount();
+      D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
-        draw();
+        if (document.getElementById("ib-bk-count")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
+      });
+    }
+    /* Contacts are offered only while GET /sites/{id}/contacts/status/ answers; a 404 (STORE_CONTACTS_ENABLED off) or any error hides the option. */
+    function readContacts() {
+      D.call("GET", "/sites/" + ui.site + "/contacts/status/", null, true).then(function (res) {
+        if (st.dead || !(res && res.ok && res.data && typeof res.data === "object")) return;
+        st.contactsOn = true; if (st.view === "form") draw();
+      });
+    }
+    function readGroups() {
+      if (st.groups) return;
+      st.groups = { list: [], loading: true, failed: false };
+      var g0 = st.groups;
+      D.call("GET", "/sites/" + ui.site + "/contacts/groups/", null, true).then(function (res) {
+        if (st.dead || st.groups !== g0) return;
+        g0.loading = false;
+        if (res && res.ok && res.data) g0.list = groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
+        var sel = document.getElementById("ib-bk-gsel"); if (sel) { fillGroups(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+      });
+    }
+    /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. */
+    function searchContacts(raw) {
+      if (st.ctimer) clearTimeout(st.ctimer);
+      var q = String(raw || "").trim(), run = ++st.csrun, sel = document.getElementById("ib-bk-csel");
+      if (q.length < 2) { st.found = []; if (sel) { fillContacts(sel); sel.ibRedraw(); } return; }
+      st.ctimer = setTimeout(function () {
+        st.ctimer = null;
+        D.call("GET", "/sites/" + ui.site + "/contacts/?q=" + encodeURIComponent(q), null, true).then(function (res) {
+          if (st.dead || run !== st.csrun || (res && res.status === 401)) return;
+          st.found = res && res.ok && res.data ? contactItems(res.data.results) : [];
+          var s2 = document.getElementById("ib-bk-csel"); if (s2) { fillContacts(s2); s2.ibRedraw(); }
+        });
+      }, 300);
+    }
+    function fillGroups(sel) {
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      sel.appendChild(D.el("option", { value: "" }, "Choose a group"));
+      ((st.groups && st.groups.list) || []).forEach(function (g) {
+        if (!st.pickG.some(function (x) { return x.id === g.id; })) sel.appendChild(D.el("option", { value: String(g.id) }, g.label));
+      });
+      sel.value = "";
+    }
+    function fillContacts(sel) {
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      sel.appendChild(D.el("option", { value: "" }, "Search a contact by name or number"));
+      st.found.forEach(function (c) {
+        if (st.pickC.some(function (x) { return x.id === c.id; })) return;
+        var o = D.el("option", { value: String(c.id) }, c.label); if (c.optedOut) o.setAttribute("data-tag", "No texts"); sel.appendChild(o);
+      });
+      sel.value = "";
+    }
+    /* The picks changed: show the chips, ask for the count again (the newest answer wins) and ask for a new tick. */
+    function pickChanged() {
+      st.sure = false; st.key = null; st.err = "";
+      drawChips(); readAudience(); fieldErr();
+    }
+    function drawChips() {
+      [["ib-bk-gchips", st.pickG, "group"], ["ib-bk-cchips", st.pickC, "contact"]].forEach(function (t) {
+        var box = document.getElementById(t[0]); if (!box) return;
+        ui.clear(box);
+        t[1].forEach(function (it) {
+          var chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
+          var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
+          x.addEventListener("click", function () {
+            var arr = t[1]; arr.splice(arr.indexOf(it), 1);
+            var gs = document.getElementById("ib-bk-gsel"), cs = document.getElementById("ib-bk-csel");
+            if (gs) fillGroups(gs); if (cs) fillContacts(cs);
+            pickChanged();
+          });
+          chip.appendChild(x); box.appendChild(chip);
+        });
       });
     }
     /* The preview and its inline error: 400 ms after the last key. A 422 (a web link, a character, too long) shows on the field. */
@@ -295,7 +394,7 @@
     }
 
     /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
-    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; draw(); if (!st.audLoading) readAudience(); }
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; draw(); readAudience(); }
     function closeForm() { st.view = "main"; st.err = ""; draw(); }
     function drawForm(body) {
       var s = st.status;
@@ -327,7 +426,7 @@
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);
-      drawCount(); drawPreview(); drawConfirm();
+      drawChips(); drawCount(); drawPreview(); drawConfirm();
     }
     function form(s) {
       var wrap = h("div", "ib-bk-form");
@@ -347,11 +446,46 @@
         count.textContent = roomLeft(ta.value.length, max);
         fieldErr(); drawPreview(); drawConfirm(); schedulePreview();
       });
-      /* audience: the only one is all members (Coach Ed, 2026-11-24), as the one option of "Send to" */
+      /* audience: "All my members" first and the default (Coach Ed's ruling D1); "Chosen groups and contacts" only while contacts are on */
       var fs = h("fieldset", "ib-bk-sendto"); fs.appendChild(h("legend", "pm-label", "Send to"));
-      var opt = h("label", "ib-bk-opt"), r = D.el("input", { type: "radio", name: "ib-bk-to", id: "ib-bk-to-all", value: "all" }); r.checked = true; r.setAttribute("checked", "checked");
-      add(opt, r, h("span", "", audienceName("all")));
-      fs.appendChild(opt); wrap.appendChild(fs);
+      var pickBox = h("div", "ib-bk-pick"); pickBox.setAttribute("id", "ib-bk-pick"); pickBox.hidden = st.audience !== "pick";
+      AUDIENCES.forEach(function (a) {
+        if (a[0] === "pick" && !st.contactsOn) return;
+        var opt = h("label", "ib-bk-opt"), r = D.el("input", { type: "radio", name: "ib-bk-to", id: "ib-bk-to-" + a[0], value: a[0] });
+        if (st.audience === a[0]) { r.checked = true; r.setAttribute("checked", "checked"); }
+        r.addEventListener("change", function () {
+          if (!r.checked || st.audience === a[0]) return;
+          st.audience = a[0]; st.sure = false; st.key = null; st.err = "";
+          pickBox.hidden = a[0] !== "pick";
+          if (a[0] === "pick") readGroups();
+          readAudience(); fieldErr();
+        });
+        add(opt, r, h("span", "", a[1]));
+        fs.appendChild(opt);
+      });
+      if (st.contactsOn) {
+        var gf = h("div", "pm-field"), gl = h("label", "pm-label", "Groups"); gl.setAttribute("for", "ib-bk-gsel");
+        var gsel = D.el("select", { "class": "ib-input", id: "ib-bk-gsel" });
+        fillGroups(gsel); var gch = h("div", "ib-bk-chips"); gch.setAttribute("id", "ib-bk-gchips"); add(gf, gl, gsel, gch);
+        var cf = h("div", "pm-field"), cl = h("label", "pm-label", "Contacts"); cl.setAttribute("for", "ib-bk-csel");
+        var csel = D.el("select", { "class": "ib-input", id: "ib-bk-csel" });
+        fillContacts(csel); var cch = h("div", "ib-bk-chips"); cch.setAttribute("id", "ib-bk-cchips"); add(cf, cl, csel, cch);
+        add(pickBox, gf, cf); fs.appendChild(pickBox); wrap.appendChild(fs);
+        gsel.addEventListener("change", function () {
+          var g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === gsel.value; })[0];
+          if (!g) return;
+          st.pickG.push(g); fillGroups(gsel); if (gsel.ibSync) gsel.ibSync(); pickChanged();
+        });
+        csel.addEventListener("change", function () {
+          var c = st.found.filter(function (x) { return String(x.id) === csel.value; })[0];
+          if (!c) return;
+          st.pickC.push(c); fillContacts(csel); if (csel.ibSync) csel.ibSync(); pickChanged();
+        });
+        ui.combo(gsel, "Group", { blankEmpty: true });
+        ui.combo(csel, "Contact", { blankEmpty: true, remote: function (q) { searchContacts(q); }, emptyText: function (q) { return String(q || "").trim().length < 2 ? "Type at least 2 letters of a name or number" : "No contacts found."; } });
+        drawChips();
+        if (st.audience === "pick") readGroups();
+      } else wrap.appendChild(fs);
       var foot = h("div", "ib-bk-formfoot"); foot.appendChild(h("span", "pm-hint", "Nothing is sent at this step."));
       var cancel = ui.btn("Cancel", "ghost", function () { closeForm(); }); cancel.setAttribute("id", "ib-bk-cancel"); foot.appendChild(cancel);
       wrap.appendChild(foot);
@@ -370,6 +504,7 @@
     function drawCount() {
       var box = document.getElementById("ib-bk-count"); if (!box) return;
       ui.clear(box);
+      if (st.audience === "pick" && !picked()) { box.appendChild(h("p", "pm-meta", "Choose at least one group or contact to see who gets it.")); drawConfirm(); return; }
       if (st.audLoading || !st.aud) { box.appendChild(h("p", "pm-meta", "Counting members…")); return; }
       if (st.aud.failed) { box.appendChild(h("p", "pm-meta", "We could not count your members just now.")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); return; }
       var n = num(st.aud.will_send);
@@ -421,7 +556,7 @@
     function confirmSend(x, n) {
       if (st.sending || !st.sure) return;
       var key = st.key || ui.newKey(); st.key = key; st.sending = true; st.err = ""; ui.busy(x, true);
-      D.call("POST", b0 + "batches/", { text: st.text.trim(), audience: "all", idempotency_key: key, confirm: true, expected_count: n }, true).then(function (res) {
+      D.call("POST", b0 + "batches/", Object.assign(audBody(), { text: st.text.trim(), idempotency_key: key, confirm: true, expected_count: n }), true).then(function (res) {
         st.sending = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
@@ -533,12 +668,12 @@
       if (d0.next) td.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadDetail(b.id, d0.next); }));
     }
 
-    loadHistory(null, true); readStatus(); /* the Bulk SMS tab: the status (a running batch's card) and the history table */
+    readContacts(); loadHistory(null, true); readStatus(); /* the Bulk SMS tab: the status (a running batch's card) and the history table */
     return { stop: stop };
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
     util: { available: available, audienceName: audienceName, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
       estimate: estimate, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
-      refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
+      contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

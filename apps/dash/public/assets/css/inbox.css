@@ -588,4 +588,4 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-bk-lo { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--meta); }
 #view-inbox .ib-bk-lo-t { font-weight: 600; }
 #view-inbox .ib-bk-dr .ib-bk-rec, #view-inbox .ib-bk-dr > td > .pm-meta, #view-inbox .ib-bk-dr > td > .no-btn { margin-left: 12px; margin-right: 12px; margin-bottom: 12px; }
-@media (max-width: 899px) { #view-inbox .ib-bk-histsec .ib-bk-dh > .no-btn { flex: 1 1 100%; } }
+@media (width < 900px) { #view-inbox .ib-bk-histsec .ib-bk-dh > .no-btn { flex: 1 1 100%; } }

@@ -38,8 +38,8 @@
     LEFT_OUT.forEach(function (p) { var n = num(lo[p[0]]); if (n > 0) out.push([p[1], n]); });
     return out;
   }
-  function maxOf(x) { return x && typeof x.max_length === "number" && isFinite(x.max_length) && x.max_length > 0 ? Math.floor(x.max_length) : null; }
-  function prefixOf(x) { return x && typeof x.prefix === "string" ? x.prefix : ""; }
+  /* Always 160 and only the typed text (no store-name prefix, even from old data); null when the payload has no usable max_length. */
+  function maxOf(x) { return x && typeof x.max_length === "number" && isFinite(x.max_length) && x.max_length > 0 ? 160 : null; }
   /* The room-left counter for the owner's words. */
   function roomLeft(len, max) {
     if (max === null || max === undefined) return "";
@@ -186,13 +186,6 @@
       n.appendChild(ui.icon(warn ? "M12 3l10 18H2zM12 10v5M12 18h.01" : "M4 5h16v11H9l-5 4z")); n.appendChild(h("span", "", text));
       return n;
     }
-    function countsRow(b) {
-      var row = h("div", "ib-bk-counts");
-      [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].forEach(function (p) {
-        var c = h("div", "ib-bk-count"); c.appendChild(h("span", "ib-bk-n", String(num(p[1])))); c.appendChild(h("span", "ib-bk-l", p[0])); row.appendChild(c);
-      });
-      return row;
-    }
     function lines(b) {
       var out = h("div", "ib-bk-lines");
       if (b.text) out.appendChild(h("p", "ib-bk-text", b.text));
@@ -240,7 +233,10 @@
       /* the History card; its Send Bulk SMS button is hidden while a batch is sending (and while the line is blocked) */
       var side = null;
       if (!running && !blocked) { side = ui.btn("Send Bulk SMS", "primary", function () { openForm(); }); side.setAttribute("id", "ib-bk-send"); }
-      var card = dcard("ib-bk-h-hist", "Bulk SMS history", side);
+      /* B1-B3: no outer card; the title and the button sit above the table, in one row; only the table box is the card */
+      var card = h("section", "ib-bk-dc ib-bk-histsec"); card.setAttribute("aria-labelledby", "ib-bk-h-hist");
+      var ht = h("h2", "", "Bulk SMS history"); ht.setAttribute("id", "ib-bk-h-hist");
+      card.appendChild(add(h("div", "ib-bk-dh"), ht, side || null));
       card.setAttribute("id", "ib-bk-hist");
       body.appendChild(card);
       drawHistory(card, running ? s.active_batch.id : "");
@@ -336,10 +332,9 @@
     function form(s) {
       var wrap = h("div", "ib-bk-form");
       /* the text */
-      var max = maxOf(s), pre = prefixOf(s);
+      var max = maxOf(s);
       var f3 = h("div", "pm-field");
       var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
-      if (pre) f3.appendChild(h("p", "pm-hint ib-sms-prefix", "Every text starts with: " + pre));
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
@@ -506,13 +501,24 @@
         if (st.view === "main") draw();
       });
     }
+    /* B4: a flat inline detail under the row (no card, no tiles): the state and date as a small header, one stat line, the end reason as a plain
+       icon + text line, the message, the left-out reasons as a short inline list. */
     function drawDetail(td, d0) {
-      var b = d0.batch, card = h("div", "ib-bk-card");
-      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), when(b.created_at)));
-      card.appendChild(top); card.appendChild(countsRow(b));
-      if (typeof b.end_message === "string" && b.end_message) card.appendChild(note(b.end_message, true));
-      card.appendChild(lines(b));
-      td.appendChild(card);
+      var b = d0.batch, box = h("div", "ib-bk-flat");
+      var hd = h("p", "ib-bk-fh"); hd.appendChild(h("strong", "", stateText(b.state))); hd.appendChild(h("span", "ib-bk-fd", when(b.created_at)));
+      box.appendChild(hd);
+      box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));
+      if (typeof b.end_message === "string" && b.end_message) {
+        var em = h("p", "ib-bk-endl"); em.appendChild(ui.icon("M12 3l10 18H2zM12 10v5M12 18h.01")); em.appendChild(h("span", "", b.end_message)); box.appendChild(em);
+      }
+      if (b.text) box.appendChild(h("p", "ib-bk-text", b.text));
+      var lo = leftOut(b.left_out);
+      if (lo.length) {
+        var ul = h("ul", "ib-bk-lo"); ul.appendChild(h("li", "ib-bk-lo-t", "Left out:"));
+        lo.forEach(function (p) { ul.appendChild(h("li", "", p[0] + ": " + p[1])); });
+        box.appendChild(ul);
+      }
+      td.appendChild(box);
       if (d0.failed && !d0.results.length) { td.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); td.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(b.id, null); draw(); })); return; }
       if (d0.loading && !d0.results.length) { td.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
       var ul = h("ul", "ib-bk-rec");
@@ -532,7 +538,7 @@
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
-    util: { available: available, audienceName: audienceName, willSend: willSend, leftOut: leftOut, maxOf: maxOf, prefixOf: prefixOf, roomLeft: roomLeft, problem: problem,
+    util: { available: available, audienceName: audienceName, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
       estimate: estimate, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

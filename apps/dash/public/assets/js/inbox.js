@@ -390,10 +390,12 @@
      truth. With o.blankEmpty the empty option is not typed into the box: the box stays empty and shows that option's text as its grey
      placeholder, so nothing is selected when it opens (the "Pause for" field). Without it the box shows the chosen option ("All
      channels"). select.ibSync() redraws the box after the code sets select.value; select.ibFocus() puts the cursor in the box.
-     Focus is the light blue (--link), never gold. Also used by Settings > Inbox (inbox-settings.js, NOInbox.combo). */
+     o.remote(q) (INBOX-FIX-8, the New SMS picker): typing asks the page for new options instead of filtering the ones there; the page
+     rewrites the select and calls select.ibRedraw(); o.emptyText(q) is the words of an empty list; an option's data-tag shows as a small
+     tag on its row. Focus is the light blue (--link), never gold. Also used by Settings > Inbox (inbox-settings.js, NOInbox.combo). */
   function combo(select, label, o) {
     o = o || {};
-    var wrap = h("div", "ib-combo"), box = h("div", "ib-combo-box"), panel = h("div", "ib-combo-panel"), rows = [], active = -1;
+    var wrap = h("div", "ib-combo"), box = h("div", "ib-combo-box"), panel = h("div", "ib-combo-panel"), rows = [], active = -1, lastQ = "";
     var input = D.el("input", { "class": "ib-combo-input", type: "text", role: "combobox", autocomplete: "off", spellcheck: "false", "aria-label": label, "aria-autocomplete": "list", "aria-expanded": "false", "aria-controls": select.id + "-list" });
     if (o.describedby) input.setAttribute("aria-describedby", o.describedby);
     panel.setAttribute("id", select.id + "-list"); panel.setAttribute("role", "listbox");
@@ -415,17 +417,18 @@
     }
     function announce() { if (typeof Event === "function" && select.dispatchEvent) select.dispatchEvent(new Event("change", { bubbles: true })); }
     function draw(q) {
-      clear(panel); rows = [];
+      clear(panel); rows = []; lastQ = q;
       opts().forEach(function (op) {
         if (o.blankEmpty && op.value === "") return; /* the placeholder is not a choice */
-        if (q && op.textContent.toLowerCase().indexOf(q) < 0) return;
+        if (q && !o.remote && op.textContent.toLowerCase().indexOf(q) < 0) return;
         var on = op.value === select.value && !(o.blankEmpty && op.value === "");
-        var row = h("div", "ib-combo-opt" + (on ? " is-selected" : ""), op.textContent);
+        var row = h("div", "ib-combo-opt" + (on ? " is-selected" : ""), op.textContent), tag = op.getAttribute ? op.getAttribute("data-tag") : "";
+        if (tag) row.appendChild(h("span", "ib-combo-tag", tag));
         row.setAttribute("id", select.id + "-opt-" + rows.length); row.setAttribute("role", "option"); row.setAttribute("aria-selected", String(on));
         row.addEventListener("click", function () { select.value = op.value; input.value = chosen(); announce(); shut(); picked(); });
         rows.push(row); panel.appendChild(row);
       });
-      if (!rows.length) panel.appendChild(h("div", "ib-combo-opt is-disabled", "No matches"));
+      if (!rows.length) panel.appendChild(h("div", "ib-combo-opt is-disabled", o.remote && o.emptyText ? o.emptyText(q) : "No matches"));
       mark(-1);
     }
     /* Fixed, so the page's scrolling cannot clip it; opens upward only when there is no room below. */
@@ -453,13 +456,14 @@
     select.addEventListener("focus", function () { input.focus(); });
     select.addEventListener("change", function () { input.value = chosen(); });
     select.ibSync = function () { input.value = chosen(); };
+    select.ibRedraw = function () { if (isOpen()) { draw(lastQ); place(); } else input.value = chosen(); };
     select.ibFocus = function () { input.focus(); };
     /* The text is never highlighted: focus puts the caret at the end. The first printable key typed while the box still shows the chosen label
        starts a fresh query (the label is cleared before the key lands), so it never appends to "Website chat". */
     function caretEnd() { var n = input.value.length; if (input.setSelectionRange) { try { input.setSelectionRange(n, n); } catch (e) { /* not selectable */ } } }
     function picked() { input.focus(); caretEnd(); } /* after a pick the focus stays on the combo that was used */
     input.addEventListener("focus", caretEnd);
-    input.addEventListener("input", function () { show(); draw(input.value.trim().toLowerCase()); });
+    input.addEventListener("input", function () { show(); var q = input.value.trim().toLowerCase(); draw(q); if (o.remote) o.remote(input.value.trim()); });
     input.addEventListener("keydown", function (e) {
       if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && input.value !== "" && input.value === chosen()) input.value = "";
       if (e.key === "Tab") { shut(); return; }
@@ -1750,15 +1754,16 @@
       }
     }
   }
-  /* What a text conversation's reply box needs: the room for the owner's own words (the server's max_length), the store-name prefix, the words when
-     the box is off (opted out, switch off, answers cannot arrive, no usable prefix) and the phone/quota lines. */
+  /* What a text conversation's reply box needs: the room for the text (160, no prefix), the words when
+     the box is off (opted out, switch off, answers cannot arrive, no usable prefix) and the phone line. */
   function smsInfoOf(t) {
     var u = SMS.util, max = u.maxOf(t), reason = t.reply && t.reply.open === false && typeof t.reply.reason === "string" ? t.reply.reason : "";
     var off = t.status === "closed" ? "" : reason && reason !== "closed" ? u.offText(reason) || "Texts can't be sent right now." : max === null && t.status !== "closed" ? "Texts can't be sent right now." : "";
-    return { max: max, prefix: u.prefixOf(t), off: off, offline: u.phoneOffline(S.smsStatus), quota: u.quota(S.smsStatus) };
+    return { max: max, off: off, offline: u.phoneOffline(S.smsStatus) };
   }
   /* The line under the name: an email thread's address; a chat visitor's email and mobile number, as far as they left them (the chat's contact ask). */
   function subOf(channel, t) {
+    if (channel === "sms") return ""; /* INBOX-FIX-8: a text thread's head shows no mobile (the Contact panel keeps it), so its line aligns with the list's */
     var c = contactOf(channel, t), parts = [];
     if (c.email) parts.push(c.email);
     if (c.mobile) parts.push(c.mobile);
@@ -1775,7 +1780,7 @@
     return n;
   }
   function replyBox(name, open, focusBox, windowOff, winNote, sms, channel) {
-    var MAXL = sms && sms.max ? sms.max : MAX; /* a text's room is the server's: 160 less the store-name prefix */
+    var MAXL = sms && sms.max ? sms.max : MAX; /* a text's room is the server's: 160, no prefix */
     var wrap = h("div", "ib-reply" + (open ? "" : " is-closed"));
     var lab = h("label", "pm-label sr-only", open ? "Reply to " + name : "Reply"); lab.setAttribute("for", "ib-rb");
     var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-rb"); ta.setAttribute("rows", open ? "3" : "2"); ta.setAttribute("aria-describedby", "ib-rc"); ta.setAttribute("placeholder", placeholderFor(channel));
@@ -1809,8 +1814,6 @@
     if (sms) {
       /* the phone's state and this store's counts above the box, and the words every text starts with */
       if (sms.offline) { var of = h("p", "ib-note ib-wnote"); of.setAttribute("role", "status"); of.appendChild(icon(ICON.warn)); of.appendChild(h("span", "", SMS.util.OFFLINE)); wrap.appendChild(of); }
-      if (sms.prefix) wrap.appendChild(h("p", "pm-hint ib-sms-prefix", "Every text starts with: " + sms.prefix));
-      if (sms.quota) wrap.appendChild(h("p", "pm-hint ib-sms-quota", sms.quota));
     }
     ta.setAttribute("maxlength", String(sms ? MAXL + 40 : MAX)); /* a text may run a little over so the counter and the words can say so */
     ta.value = draftOf();

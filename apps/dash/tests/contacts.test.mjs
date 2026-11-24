@@ -197,7 +197,10 @@ test("add a contact: mobile is required; the body carries names, mobile and grou
   d.$("ct-first").value = "Lito";
   assert.ok(!d.list().some((c) => c.startsWith("POST " + BASE)));
   d.$("ct-first").value = " Lito "; d.$("ct-mobile").value = " 0917 111 2222 ";
-  dlg.all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox")[1].checked = true;
+  assert.ok(!dlg.all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox").length, "Add has a Group dropdown, not checkboxes");
+  assert.equal(d.$("ct-agroup").tagName, "SELECT");
+  assert.equal(d.$("ct-agroup").children[0].textContent, "No group");
+  d.$("ct-agroup").value = "g2";
   await d.click(d.press(dlg, "Add contact"));
   const post = d.calls.find((c) => c.method === "POST" && c.path === BASE);
   assert.deepEqual(post.body, { first_name: "Lito", last_name: "", mobile: "0917 111 2222", groups: ["g2"] });
@@ -360,7 +363,7 @@ test("safety and look: no innerHTML or markup writes; light-blue focus; phone ru
   assert.ok(/\.ct-toolbar \{ grid-template-columns: minmax\(0, 1fr\)/.test(CSS), "one column on a phone");
   assert.ok(!/overflow-x:\s*(scroll|auto)/.test(CSS));
   const rules = CSS.split("\n").filter((l) => /\{/.test(l) && !/^\s*(\/\*|@)/.test(l));
-  for (const l of rules) assert.ok(/^\s*(body\.dash-app )?#view-contacts|^@media[^{]*\{ #view-contacts/.test(l), "scoped: " + l.slice(0, 60));
+  for (const l of rules) assert.ok(/^\s*(body\.dash-app )?:is\(#view-contacts, #ct-dialog-slot\)|^@media[^{]*\{ :is\(#view-contacts, #ct-dialog-slot\)/.test(l), "scoped: " + l.slice(0, 60));
 });
 
 test("edit: a contact with no name can be saved with none; a named one must keep its first name", async () => {
@@ -428,5 +431,5 @@ test("no page title block: no kicker, title or subtitle; the sr-only h1 stays; t
   assert.ok(saved.parentNode.parentNode.getAttribute("id") === "ct-results", "inside the list card");
   await d.click(bar.children[1]);
   assert.deepEqual(d.root().children[0].children[0].children.map((b) => b.classList.contains("is-on")), [false, true, false]);
-  assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ #view-contacts \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
+  assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ :is\(#view-contacts, #ct-dialog-slot\) \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
 });

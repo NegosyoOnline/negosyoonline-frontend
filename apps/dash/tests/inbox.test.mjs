@@ -49,13 +49,14 @@ function list(over = {}) {
 }
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
-function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null } = {}) {
+function boot({ contacts = false, listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
   const page = doc.body.appendChild(doc.createElement("div")); page.setAttribute("id", "view-inbox");
   const setBox = doc.createElement("div"); setBox.setAttribute("id", "ib-settings"); setBox.hidden = true;
+  if (contacts) { const ds = doc.createElement("div"); ds.setAttribute("id", "ct-dialog-slot"); doc.body.appendChild(ds); }
   for (const id of ["ib-root", "ib-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
   for (const id of ["ibs-root", "ibs-live", "ibs-sms-root", "sg-root", "sg-live", "sg-dialog-slot"]) { const n = doc.createElement("div"); n.setAttribute("id", id); if (id === "ibs-root" || id === "ibs-sms-root" || id === "sg-root") n.hidden = true; setBox.appendChild(n); }
   page.appendChild(setBox);
@@ -72,6 +73,10 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     const err = (status, code, message) => ({ status, body: { error: { code, message } } });
     if (opts.method === "GET" && p === "/sites/") a = { status: 200, body: { items: [{ id: A, template: "sante" }], next_cursor: null } };
     else if (s.off) a = err(404, "not_found", "Not found.");
+    else if (p === "/sites/" + A + "/contacts/status/" && opts.method === "GET") a = contacts ? { status: 200, body: { contacts: true, count: 1, max: 20000 } } : err(404, "not_found", "Not found.");
+    else if (p === "/sites/" + A + "/contacts/groups/" && opts.method === "GET") a = { status: 200, body: s.groups || [{ id: "g1", name: "Regulars", count: 2 }, { id: "g2", name: "VIP", count: 0 }] };
+    else if (/^\/sites\/[^/]+\/contacts\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { results: s.contactRows || [], count: (s.contactRows || []).length, next: null } };
+    else if (p === "/sites/" + A + "/contacts/" && opts.method === "POST") a = s.contactPost || { status: 201, body: { id: "c9", first_name: body.first_name, last_name: body.last_name, mobile_masked: "0917 *** 2222", groups: [] } };
     else if (p === BASE + "messenger/connection/" && opts.method === "GET") a = s.messenger ? { status: 200, body: s.messenger } : err(404, "not_found", "Not found.");
     else if (p === BASE + "comments/status/" && opts.method === "GET") a = s.cmStatus ? { status: 200, body: s.cmStatus } : err(404, "not_found", "Not found.");
     else if (p === BASE + "messenger/pages/" && opts.method === "GET") a = s.pagesAnswer || (s.pages ? { status: 200, body: { items: s.pages } } : { status: 410, body: { error: { code: "pick_expired", message: "Gone." } } });
@@ -118,6 +123,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
   vm.runInContext(read("sms-gateway-settings.js"), context, { filename: "sms-gateway-settings.js" });
+  if (contacts) vm.runInContext(read("contacts.js"), context, { filename: "contacts.js" });
   window.NODash.toast = (title, text) => toasts.push(title + ": " + text);
   const $ = (id) => doc.getElementById(id);
   const where = location;
@@ -834,11 +840,11 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
-  assert.match(HTML, /inbox\.js\?v=20261124ml12/);
-  assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml13/);
+  assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml12/);
-  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml12/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml13/);
+  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
 
@@ -2249,17 +2255,17 @@ test("sms inbox: with the feature on the SMS Marketing page lists only texts wit
   assert.equal(u.channelOf({ provider: "sms" }), "sms");
 });
 
-test("sms thread: masked mobile, delivery chips (Sending, Sent, Not sent with the server's words), the prefix, the counter from max_length and the quota", async () => {
+test("sms thread: no mobile under the name, delivery chips (Sending, Sent, Not sent with the server's words), no prefix and no quota line, the counter 0 / 160", async () => {
   const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
   await smsOpen(d);
   const pane = d.$("ib-threadpane");
-  assert.ok(pane.textContent.includes("+63 9** *** 1234"));
+  assert.ok(!pane.textContent.includes("+63 9** *** 1234"), "INBOX-FIX-8: the thread head drops the masked mobile (the Contact panel keeps it)");
   assert.ok(!/\+639\d{9}/.test(pane.textContent), "no full number");
   assert.deepEqual(d.all(pane, "chip").map((n) => n.textContent).filter((t) => /Sent|Sending|Not sent/.test(t)), ["Sent", "Sending", "Not sent: The SMS phone is offline. Nothing was sent."]);
-  assert.ok(pane.textContent.includes("Every text starts with: Test Store: "));
-  assert.ok(pane.textContent.includes("Texts left today: 37 of 50. This hour: 20 of 20."));
-  assert.equal(d.text("ib-rc"), "0 / 148");
+  assert.ok(!pane.textContent.includes("Every text starts with"), "no prefix line even though the thread still carries a prefix key");
+  assert.ok(!pane.textContent.includes("Texts left today") && !pane.textContent.includes("This hour"), "no quota line");
+  assert.equal(d.text("ib-rc"), "0 / 160", "the counter counts only the typed text against 160");
   assert.ok(!pane.textContent.includes("gateway_offline"), "never a code");
   assert.equal(d.calls.filter((c) => c.path === BASE + "sms/status/").length, 1);
 });
@@ -2273,9 +2279,9 @@ test("sms thread: a link or a non-plain character is refused before sending with
   assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The text must not contain a web link.");
   box.value = "hello \u{1F600}"; box.fire("input");
   assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The text must fit one SMS: at most 160 plain characters.");
-  box.value = "a".repeat(149); box.fire("input");
-  assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The message is over 148 characters. Shorten it to send.");
-  box.value = "a".repeat(148); box.fire("input");
+  box.value = "a".repeat(161); box.fire("input");
+  assert.equal(go.disabled, true); assert.equal(d.text("ib-rp"), "The message is over 160 characters. Shorten it to send.");
+  box.value = "a".repeat(160); box.fire("input");
   assert.equal(go.disabled, false);
 });
 
@@ -2324,64 +2330,124 @@ test("sms thread: a conversation with no name or number (blanked after 180 days)
   assert.ok(d.$("ib-threadpane").textContent.includes("Customer"));
 });
 
-test("sms New text: offers only verified, open members; sends member_id, text and a key (never a number); then opens the conversation as Sending", async () => {
-  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
-  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
-  await d.openSms();
-  await d.click(d.$("ib-newtext-btn"));
-  assert.ok(d.$("ib-threadpane").textContent.includes("For orders and member service only. No promotions."));
-  assert.ok(d.$("ib-threadpane").textContent.includes("Every text starts with: Test Store: "));
-  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, true);
-  d.$("ib-sms-q").value = "Ana"; d.$("ib-sms-q").fire("input");
-  await sleep(350); await settle();
-  assert.ok(d.list().includes("GET /sites/" + A + "/members/?q=Ana"));
+/* ---------- New SMS (INBOX-FIX-8): ONE house dropdown for members and contacts, no prefix, no quota, 0 / 160, Add contact popup ---------- */
+const CONTACT_ROWS = [{ id: "c1", first_name: "Lito", last_name: "Cruz", mobile_masked: "0918 *** 5678", groups: [{ id: "g1", name: "Regulars" }] }];
+const pickCombo = (d) => d.$("ib-sms-pick").parentNode;
+const pickRows = (d) => pickCombo(d).all((n) => n.classList.contains("ib-combo-opt"));
+async function newSms(o = {}) {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS, ...o });
+  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS; d.s.contactRows = CONTACT_ROWS;
+  await d.openSms(); await d.click(d.$("ib-newtext-btn")); await settle();
+  return d;
+}
+async function typePick(d, q) { const inp = comboInput(d, "ib-sms-pick"); inp.value = q; inp.fire("input"); await sleep(350); await settle(); }
+const clickRow = (d, starts) => pickRows(d).find((n) => n.textContent.startsWith(starts)).fire("click");
+
+test("sms New text: no prefix line, no quota line, no default words, counter 0 / 160 even when the status still carries a prefix and 148", async () => {
+  const d = await newSms();
+  const pane = d.$("ib-threadpane");
+  assert.ok(pane.textContent.includes("For orders and member service only. No promotions."));
+  assert.ok(!pane.textContent.includes("Every text starts with"), "no prefix line");
+  assert.ok(!pane.textContent.includes("Texts left today") && !pane.textContent.includes("This hour"), "no quota line");
+  assert.equal(d.$("ib-sms-t").value, "", "nothing is typed for the owner");
+  assert.equal(d.text("ib-sms-c"), "0 / 160");
+  d.$("ib-sms-t").value = "Hello"; d.$("ib-sms-t").fire("input");
+  assert.equal(d.text("ib-sms-c"), "5 / 160", "only the typed text is counted");
+  d.$("ib-sms-t").value = "a".repeat(161); d.$("ib-sms-t").fire("input");
+  assert.equal(d.text("ib-sms-e"), "The message is over 160 characters. Shorten it to send.");
+});
+
+test("sms New text: the picker is ONE house dropdown (no separate search box); opening it selects nothing; members and contacts are tagged; short queries ask nothing", async () => {
+  const d = await newSms({ contacts: true });
+  assert.equal(d.$("ib-sms-q"), null, "no separate text box");
+  const inputs = d.$("ib-threadpane").all((n) => n.tagName === "INPUT").map((n) => n.classList.contains("ib-combo-input"));
+  assert.deepEqual(inputs, [true], "the only input is the combo's");
+  const inp = comboInput(d, "ib-sms-pick");
+  assert.equal(inp.getAttribute("placeholder"), "Choose a member or contact");
+  assert.equal(inp.value, "");
+  comboBox(d, "ib-sms-pick").fire("click");
+  assert.equal(d.$("ib-sms-pick").value, "", "opening selects nothing");
+  assert.ok(pickRows(d)[0].textContent.includes("Type at least 2 letters"));
+  inp.value = "A"; inp.fire("input"); await sleep(350); await settle();
+  assert.ok(!d.list().some((c) => c.includes("/members/?q=") || c.includes("/contacts/?q=")), "one letter asks nothing");
+  await typePick(d, "Ana");
+  assert.ok(d.list().includes("GET /sites/" + A + "/members/?q=Ana") && d.list().includes("GET /sites/" + A + "/contacts/?q=Ana"));
   const sel = d.$("ib-sms-pick");
-  assert.deepEqual(sel.children.map((o) => o.textContent), ["Choose a member", "Ana Reyes · +63 9** *** 1234"], "pending and closed members are not offered");
-  assert.equal(sel.children.length, 2);
-  sel.value = "mem_1"; sel.fire("change");
+  assert.deepEqual(sel.children.map((o) => o.textContent), ["Choose a member or contact", "Ana Reyes · +63 9** *** 1234", "Lito Cruz · 0918 *** 5678"]);
+  assert.deepEqual(sel.children.map((o) => o.getAttribute("data-tag")), [null, "Member", "Contact"]);
+  const rows = pickRows(d);
+  assert.ok(rows[0].textContent.endsWith("Member") && rows[1].textContent.endsWith("Contact"));
+  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, true);
+});
+
+test("sms New text: sending to a member posts member_id only; to a contact posts contact_id only; no number is ever sent", async () => {
+  const d = await newSms({ contacts: true });
+  await typePick(d, "Ana"); clickRow(d, "Ana Reyes");
   d.$("ib-sms-t").value = "Your order is ready"; d.$("ib-sms-t").fire("input");
-  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, false);
   await d.click(d.press(d.$("ib-threadpane"), "Send text"));
-  const post = d.calls.filter((c) => c.method === "POST" && c.path === BASE + "sms/compose/");
-  assert.equal(post.length, 1);
+  let post = d.calls.filter((c) => c.method === "POST" && c.path === BASE + "sms/compose/");
   assert.deepEqual(Object.keys(post[0].body).sort(), ["idempotency_key", "member_id", "text"]);
   assert.equal(post[0].body.member_id, "mem_1");
-  assert.equal(post[0].body.text, "Your order is ready");
-  assert.match(post[0].body.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(d.list().includes("GET " + BASE + `conversations/${SM}/`), "the new conversation is opened");
-  assert.equal(d.$("ib-sms-q"), null);
+  const c = await newSms({ contacts: true });
+  await typePick(c, "Lito"); clickRow(c, "Lito Cruz");
+  c.$("ib-sms-t").value = "Hi Lito"; c.$("ib-sms-t").fire("input");
+  await c.click(c.press(c.$("ib-threadpane"), "Send text"));
+  post = c.calls.filter((x) => x.method === "POST" && x.path === BASE + "sms/compose/");
+  assert.deepEqual(Object.keys(post[0].body).sort(), ["contact_id", "idempotency_key", "text"]);
+  assert.equal(post[0].body.contact_id, "c1");
 });
 
-test("sms New text: there is no field for a number; typing digits in the search gives only members, never a typed recipient", async () => {
-  const d = boot({ listing: smsList(), channels: CH_SMS });
-  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
-  await d.openSms();
-  await d.click(d.$("ib-newtext-btn"));
-  const inputs = d.$("ib-threadpane").all((n) => n.tagName === "INPUT" || n.tagName === "TEXTAREA").map((n) => n.id);
-  assert.ok(!inputs.some((i) => /to|number|mobile|phone/i.test(i)), inputs.join());
-  d.$("ib-sms-q").value = "09171234567"; d.$("ib-sms-q").fire("input");
-  await sleep(350); await settle();
-  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, true, "nothing is picked, so nothing can be sent");
-  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
-  assert.equal(d.calls.filter((c) => c.path === BASE + "sms/compose/").length, 0);
+test("sms New text: contacts are not searched and there is no Add contact button while the contacts status is off", async () => {
+  const d = await newSms();
+  assert.equal(d.$("ib-addc"), null);
+  await typePick(d, "Ana");
+  assert.ok(d.list().includes("GET /sites/" + A + "/members/?q=Ana"));
+  assert.ok(!d.list().some((c) => c.includes("/contacts/")), "no contacts call at all (the status read is not even made without contacts.js)");
+  assert.deepEqual(d.$("ib-sms-pick").children.map((o) => o.textContent), ["Choose a member or contact", "Ana Reyes · +63 9** *** 1234"]);
 });
 
-test("sms New text: a refused text shows the server's words, keeps the text; one 404 says only that the member cannot be texted; offline and off are said", async () => {
-  const d = boot({ listing: smsList(), channels: CH_SMS });
-  d.s.smsStatus = SMS_STATUS; d.s.members = MEMBERS;
+test("sms New text: Add contact at the right of the title opens the popup (first name required, last name, contact number, Group dropdown); Save posts and picks the new contact", async () => {
+  const d = await newSms({ contacts: true });
+  const add = d.$("ib-addc");
+  assert.ok(add && add.textContent === "Add contact");
+  assert.ok(add.parentNode.classList.contains("ib-hacts") && add.parentNode.parentNode.classList.contains("ib-thead"), "in the head, after the title");
+  await d.click(add); await settle();
+  const slot = d.$("ct-dialog-slot");
+  assert.ok(slot.textContent.includes("First name") && slot.textContent.includes("Last name") && slot.textContent.includes("Contact number") && slot.textContent.includes("Group"));
+  assert.equal(d.$("ct-agroup").tagName, "SELECT");
+  assert.deepEqual(d.$("ct-agroup").children.map((o) => o.textContent), ["No group", "Regulars", "VIP"]);
+  assert.ok(d.calls.some((c) => c.path === "/sites/" + A + "/contacts/groups/"));
+  await d.click(d.press(slot, "Add contact"));
+  assert.ok(slot.textContent.includes("Enter a first name"), "first name is required, inline");
+  assert.equal(d.calls.filter((c) => c.method === "POST" && c.path === "/sites/" + A + "/contacts/").length, 0);
+  d.$("ct-first").value = " Lito "; d.$("ct-mobile").value = "0917 111 2222"; d.$("ct-agroup").value = "g2";
+  await d.click(d.press(slot, "Add contact")); await settle();
+  const post = d.calls.find((c) => c.method === "POST" && c.path === "/sites/" + A + "/contacts/");
+  assert.deepEqual(post.body, { first_name: "Lito", last_name: "", mobile: "0917 111 2222", groups: ["g2"] });
+  assert.equal(slot.children.length, 0, "popup closed");
+  assert.equal(d.$("ib-sms-pick").value, "c:c9", "the new contact is selected in the picker");
+  assert.equal(comboInput(d, "ib-sms-pick").value, "Lito · 0917 *** 2222");
+  d.$("ib-sms-t").value = "Welcome"; d.$("ib-sms-t").fire("input");
+  assert.equal(d.press(d.$("ib-threadpane"), "Send text").disabled, false);
+});
+
+test("sms New text: a refused text (200 failed, any code) shows the server's words as-is and keeps the typed text; a 409 shows its message too; one 404 says only that the person cannot be texted", async () => {
+  const d = await newSms();
   d.s.composeAnswer = { status: 200, body: { ref: SM, new_conversation: true, state: "failed", error_code: "site_limit", message: "Your store has used its texts for today.", created_at: iso(0) } };
-  await d.openSms();
-  await d.click(d.$("ib-newtext-btn"));
-  d.$("ib-sms-q").value = "Ana"; d.$("ib-sms-q").fire("input"); await sleep(350); await settle();
-  d.$("ib-sms-pick").value = "mem_1"; d.$("ib-sms-pick").fire("change");
+  await typePick(d, "Ana"); clickRow(d, "Ana Reyes");
   d.$("ib-sms-t").value = "Hi"; d.$("ib-sms-t").fire("input");
-  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
+  await d.click(d.press(d.$("ib-threadpane"), "Send text")); await settle();
   assert.ok(d.$("ib-threadpane").textContent.includes("Your store has used its texts for today."));
   assert.ok(!d.$("ib-threadpane").textContent.includes("site_limit"));
-  assert.equal(d.$("ib-sms-t").value, "Hi");
+  assert.equal(d.$("ib-sms-t").value, "Hi", "the typed text stays for a retry");
+  assert.equal(d.$("ib-sms-pick").value, "m:mem_1", "and so does the chosen person");
+  d.s.composeAnswer = { status: 409, body: { error: { code: "site_held", message: "Texting is paused for your store." } } };
+  await d.click(d.press(d.$("ib-threadpane"), "Send text")); await settle();
+  assert.ok(d.$("ib-threadpane").textContent.includes("Texting is paused for your store."));
   d.s.composeAnswer = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
-  await d.click(d.press(d.$("ib-threadpane"), "Send text"));
-  assert.ok(d.$("ib-threadpane").textContent.includes("This member cannot be texted.") || d.$("ib-threadpane").textContent.includes("Not found."));
+  await d.click(d.press(d.$("ib-threadpane"), "Send text")); await settle();
+  assert.ok(d.$("ib-threadpane").textContent.includes("This person cannot be texted.") || d.$("ib-threadpane").textContent.includes("Not found."));
   const off = boot({ listing: smsList(), channels: CH_SMS });
   off.s.smsStatus = { ...SMS_STATUS, phone_online: false };
   await off.openSms(); await off.click(off.$("ib-newtext-btn"));
@@ -2390,10 +2456,10 @@ test("sms New text: a refused text shows the server's words, keeps the text; one
   sw.s.smsStatus = { ...SMS_STATUS, enabled: false };
   await sw.openSms(); await sw.click(sw.$("ib-newtext-btn"));
   assert.ok(sw.$("ib-threadpane").textContent.includes("Text messages are off for your store."));
-  assert.equal(sw.$("ib-sms-q"), null);
+  assert.equal(sw.$("ib-sms-pick"), null);
 });
 
-test("sms util: problem, pickable, quota, chip, offText, available", () => {
+test("sms util: problem, pickable, items, composeBody, 160 whatever the old data says, chip, offText, available", () => {
   const d = boot({});
   const u = d.window.NOInboxSms.util;
   assert.equal(u.problem("", 100), ""); assert.equal(u.problem("hello there", 100), "");
@@ -2401,11 +2467,27 @@ test("sms util: problem, pickable, quota, chip, offText, available", () => {
   assert.equal(u.problem("ip 10.0.0.1 here", 100), "The text must not contain a web link.");
   assert.equal(u.problem("call me", 3), "The message is over 3 characters. Shorten it to send.");
   assert.deepEqual([...u.pickable(MEMBERS).map((m) => m.id)], ["mem_1"]);
-  assert.equal(u.quota(null), ""); assert.equal(u.quota(SMS_STATUS), "Texts left today: 37 of 50. This hour: 20 of 20.");
+  assert.deepEqual([...u.memberItems(MEMBERS).map((m) => m.key)], ["m:mem_1"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(u.contactItems(CONTACT_ROWS))), [{ key: "c:c1", kind: "contact", id: "c1", name: "Lito Cruz", label: "Lito Cruz · 0918 *** 5678" }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(u.composeBody({ kind: "member", id: "m1" }, "Hi", "k"))), { member_id: "m1", text: "Hi", idempotency_key: "k" });
+  assert.deepEqual(JSON.parse(JSON.stringify(u.composeBody({ kind: "contact", id: "c1" }, "Hi", "k"))), { contact_id: "c1", text: "Hi", idempotency_key: "k" });
+  assert.equal(u.quota, undefined, "no quota line any more"); assert.equal(u.prefixOf, undefined, "no prefix reader any more");
   assert.equal(u.chip({ direction: "in" }), null);
   assert.deepEqual([...u.chip({ direction: "out", delivery_state: "" })], ["info", "Sending"]);
   assert.equal(u.available({ sms_available: true }), true); assert.equal(u.available({}), false); assert.equal(u.available(null), false);
-  assert.equal(u.maxOf({ max_length: null }), null); assert.equal(u.maxOf({ max_length: 128 }), 128);
+  assert.equal(u.maxOf({ max_length: null }), null); assert.equal(u.maxOf({ max_length: 128, prefix: "Store: " }), 160); assert.equal(u.maxOf({ max_length: 160, prefix: "" }), 160);
+});
+
+test("INBOX-FIX-8 look: the New SMS head and the thread head share the left divider's 69px at desktop; the body box has a border; the thread head has no mobile line", () => {
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.ok(/min-width: 900px\) \{[^}]*#view-inbox \.ib-lhead \{ box-sizing: border-box; min-height: 69px;/.test(CSS));
+  assert.ok(/#view-inbox \.ib-thead \{ box-sizing: border-box; min-height: 69px; \}/.test(CSS));
+  assert.ok(/#view-inbox \.ib-thead\.ib-thead-new \{ height: 69px;/.test(CSS));
+  assert.ok(/#view-inbox \.ib-sms-new \.pm-input\.ib-ta \{[^}]*border: 1px solid var\(--bl-select-line\)/.test(CSS), "visible textarea border, the dash input token");
+  assert.ok(!/ib-sms-prefix|ib-sms-quota/.test(CSS));
+  const src = read("inbox.js") + read("inbox-sms.js") + read("inbox-bulk.js");
+  assert.ok(!/Every text starts with|Texts left today|This hour:/.test(src));
+  assert.ok(/function subOf\(channel, t\) \{\s*if \(channel === "sms"\) return "";/.test(read("inbox.js")));
 });
 
 /* ---------- Meta Business Inbox look (ClickUp z8uq9mj6ch): tabs, chips, placeholders, the contact panel ---------- */
@@ -2508,7 +2590,7 @@ test("SMS-MENU: the SMS Marketing page is locked like the 404 page when texts ar
   assert.ok(e.$("ib-newtext-btn"), "New SMS is offered on an empty page");
 });
 
-test("SMS-MENU: the nav item, the More sheet tile and the route are in index.html under Inbox, gated and unreordered; cache keys ml11", () => {
+test("SMS-MENU: the nav item, the More sheet tile and the route are in index.html under Inbox, gated and unreordered; cache keys ml13", () => {
   const side = HTML.slice(HTML.indexOf('<nav class="side-nav"'), HTML.indexOf("</nav>", HTML.indexOf('<nav class="side-nav"')));
   const order = [...side.matchAll(/data-route="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order.slice(0, 5), ["overview", "orders", "products", "inbox", "sms"], "right under Inbox, nothing reordered");
@@ -2517,7 +2599,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261124ml12/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml12/); assert.match(HTML, /inbox\.css\?v=20261124ml12/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml13/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml13/); assert.match(HTML, /inbox\.css\?v=20261124ml13/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2977,7 +3059,7 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
   assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261124ml12/); assert.match(HTML, /dashboard\.js\?v=20261124ml11/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml13/); assert.match(HTML, /dashboard\.js\?v=20261124ml13/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });

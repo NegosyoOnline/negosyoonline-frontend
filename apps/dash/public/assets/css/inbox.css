@@ -412,7 +412,6 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-sms-new .pm-input.ib-input { display: block; width: 100%; box-sizing: border-box; min-height: 44px; padding: 0 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); color: var(--bl-select-text); font: inherit; font-size: 16px; }
 #view-inbox .ib-sms-new .pm-input.ib-input:focus, #view-inbox .ib-sms-new .pm-input.ib-input:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 #view-inbox .ib-sms-new .pm-field { display: flex; flex-direction: column; gap: 6px; }
-#view-inbox .ib-sms-prefix, #view-inbox .ib-sms-quota { margin: 0; }
 #view-inbox .ib-reply .field-err, #view-inbox .ib-sms-new .field-err { margin: 0; }
 #view-inbox .ib-nt { white-space: nowrap; }
 
@@ -518,7 +517,7 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-v.is-warn { color: var(--bl-chip-warn); }
 #view-inbox .ib-bk-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 /* the history table: scrolls inside its own box, never the page */
-#view-inbox .ib-bk-tbox { position: relative; min-width: 0; overflow-x: auto; border: 1px solid var(--card-line); border-radius: 10px; }
+#view-inbox .ib-bk-tbox { position: relative; min-width: 0; overflow-x: auto; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); } /* B2: the table is the card */
 #view-inbox .ib-bk-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 15px; }
 #view-inbox .ib-bk-table th { padding: 10px 12px; text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); border-bottom: 1px solid var(--card-line); white-space: nowrap; }
 #view-inbox .ib-bk-table td { padding: 10px 12px; border-top: 1px solid var(--card-line); vertical-align: middle; }
@@ -529,8 +528,7 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-table td.ib-bk-act { width: 1%; white-space: nowrap; text-align: right; }
 #view-inbox .ib-bk-view { min-height: 36px; padding: 0 14px; }
 #view-inbox .ib-bk-tr.is-open td { border-bottom: 0; }
-#view-inbox .ib-bk-dr > td { padding: 0 12px 14px; display: table-cell; }
-#view-inbox .ib-bk-dr .ib-bk-card { margin-bottom: 8px; }
+#view-inbox .ib-bk-dr > td { padding: 0; display: table-cell; border-top: 0; }
 #view-inbox .ib-bk-dwrap { position: sticky; left: 0; box-sizing: border-box; max-width: calc(100vw - 96px); } /* the details stay in view while the table scrolls inside its box */
 #view-inbox .ib-bk-rec { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; }
 #view-inbox .ib-bk-rsum, #view-inbox .ib-bk-mob, #view-inbox .ib-bk-reason { color: var(--meta); font-size: 14px; }
@@ -556,3 +554,38 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
   #view-inbox .ib-bk-rows li:nth-child(2) { border-top: 1px solid var(--card-line); }
   #view-inbox .ib-bk-dh > .no-btn { flex: 1 1 100%; }
 }
+
+/* INBOX-FIX-8 (Coach Ed 2026-11-24): New SMS and the text thread. */
+/* Desktop: the right pane's head bottom line sits on the same y as the left column's divider (#ib-lhead: 14 + 44 filter row + 10 + 1 border = 69px).
+   The thread head (44 px avatar + 12 + 12 + 1) is 69px by itself now that it carries no mobile line; the New SMS head (title + subtitle + button) is
+   pinned to the same 69px with a one-line subtitle. */
+@media (min-width: 900px) {
+  #view-inbox .ib-lhead { box-sizing: border-box; min-height: 69px; }
+  #view-inbox .ib-thead { box-sizing: border-box; min-height: 69px; }
+  #view-inbox .ib-thead.ib-thead-new { height: 69px; padding-top: 6px; padding-bottom: 6px; flex-wrap: nowrap; }
+  #view-inbox .ib-thead-new .ib-tname { gap: 0; }
+  #view-inbox .ib-thead-new .ib-sub { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; overflow-wrap: normal; }
+}
+#view-inbox .ib-thead-new .ib-hacts .no-btn { min-height: 44px; white-space: nowrap; }
+/* the body box of New SMS: a visible border in light and dark (the dash input border token), light-blue focus */
+#view-inbox .ib-sms-new .pm-input.ib-ta { padding: 10px 12px; border: 1px solid var(--bl-select-line); border-radius: 8px; background: var(--bl-select-bg); }
+#view-inbox .ib-sms-new .pm-input.ib-ta:focus, #view-inbox .ib-sms-new .pm-input.ib-ta:focus-visible { outline: none; border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
+/* the member/contact tag on a picker row */
+body.dash-app .ib-combo-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 12px; font-weight: 600; }
+
+/* INBOX-FIX-8 B1-B4: the Bulk SMS history has no outer card (the title and the button are a plain row above the table) and the View detail is flat. */
+#view-inbox .ib-bk-histsec .ib-bk-dh { padding-bottom: 0; border-bottom: 0; }
+#view-inbox .ib-bk-dr > td { background: color-mix(in srgb, var(--link) 7%, transparent); }
+#view-inbox .ib-bk-flat { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 14px; font-size: 15px; color: var(--text); }
+#view-inbox .ib-bk-flat p { margin: 0; }
+#view-inbox .ib-bk-fh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); }
+#view-inbox .ib-bk-fh strong { color: var(--text); font-weight: 700; }
+#view-inbox .ib-bk-stat { font-weight: 600; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-endl { display: flex; align-items: center; gap: 8px; color: var(--bl-chip-warn); }
+#view-inbox .ib-bk-endl svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#view-inbox .ib-bk-flat .ib-bk-text { font-size: 15px; color: var(--text-2); }
+#view-inbox .ib-bk-lo { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--meta); }
+#view-inbox .ib-bk-lo-t { font-weight: 600; }
+#view-inbox .ib-bk-dr .ib-bk-rec, #view-inbox .ib-bk-dr > td > .pm-meta, #view-inbox .ib-bk-dr > td > .no-btn { margin-left: 12px; margin-right: 12px; margin-bottom: 12px; }
+@media (max-width: 899px) { #view-inbox .ib-bk-histsec .ib-bk-dh > .no-btn { flex: 1 1 100%; } }

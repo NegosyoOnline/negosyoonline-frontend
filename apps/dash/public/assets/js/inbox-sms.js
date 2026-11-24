@@ -1,10 +1,10 @@
 /* Inbox, Text (SMS) channel (SMS-OWNER FE-1, ClickUp z8uq9mhk1h). The pieces inbox.js and inbox-settings.js use for the store's own texts
    to its members: the pure helpers (tests/inbox-sms.test.mjs) and the "New text" screen. Routes (apps/inquiries, contract
    sms-owner-z8uq9mhbf4): GET .../inquiries/channels/ (sms_available, sms_enabled), GET .../inquiries/sms/status/, POST
-   .../inquiries/sms/compose/ {member_id, text, idempotency_key}; a reply uses the normal .../conversations/{ref}/reply/.
+   .../inquiries/sms/compose/ {member_id | contact_id, text, idempotency_key}; a reply uses the normal .../conversations/{ref}/reply/.
    While the feature is off (sms_available not true, or a 404 from any of these) nothing here shows or does anything. The owner never
    types a number: a text goes to a member picked from GET /sites/{id}/members/ (masked, verified mobile only) and only the member's
-   public id is sent. The server adds the store-name prefix, decides who may be texted, and its `message` is what a refusal shows (never
+   public id is sent. The text is only what the owner types (no prefix). The server decides who may be texted, and its `message` is what a refusal shows (never
    the error code). Every word from the API reaches the page through textContent only. Plain ES5. */
 (function () {
   /* ---------- pure helpers ---------- */
@@ -23,9 +23,10 @@
   function available(ch) { return !!ch && ch.sms_available === true; }
   function enabled(ch) { return available(ch) && ch.sms_enabled === true; }
   function isRef(ref) { return typeof ref === "string" && ref.indexOf("sm_") === 0; }
-  /* The room for the owner's own words: the server's max_length (160 less the store-name prefix); null when it cannot be used. */
-  function maxOf(x) { return x && typeof x.max_length === "number" && isFinite(x.max_length) && x.max_length > 0 ? Math.floor(x.max_length) : null; }
-  function prefixOf(x) { return x && typeof x.prefix === "string" ? x.prefix : ""; }
+  /* The room for a text: always 160, counting only what the owner types (no store-name prefix, even if old data still carries a prefix key
+     or a shorter max_length); null when the payload gives no usable max_length. */
+  var SMS_MAX = 160;
+  function maxOf(x) { return x && typeof x.max_length === "number" && isFinite(x.max_length) && x.max_length > 0 ? SMS_MAX : null; }
   /* What is wrong with a text before it is sent, or "" (empty is not an error: Send stays off). The server decides in the end. */
   function problem(text, max) {
     var t = String(text || "");
@@ -49,13 +50,6 @@
     if (reason === "replies_off") return NOT_NOW;
     return "";
   }
-  function left(n, cap) { return typeof n === "number" && isFinite(n) && typeof cap === "number" ? Math.max(0, Math.floor(n)) + " of " + Math.floor(cap) : ""; }
-  /* The count line from GET .../sms/status/: "Texts left today: 37 of 50. This hour: 20 of 20." */
-  function quota(st) {
-    if (!st) return "";
-    var d = left(st.left_today, st.daily_limit), hr = left(st.left_this_hour, st.hourly_limit);
-    return (d ? "Texts left today: " + d + "." : "") + (d && hr ? " " : "") + (hr ? "This hour: " + hr + "." : "");
-  }
   /* The status says the phone is offline (only a clear false counts), or that customers' answers cannot arrive. */
   function phoneOffline(st) { return !!st && st.phone_online === false; }
   function notReady(st) { return !!st && st.incoming_ready === false; }
@@ -76,16 +70,37 @@
     if (d && typeof d.message === "string" && d.message) return d.message;
     if (Array.isArray(first) && typeof first[0] === "string" && first[0]) return first[0];
     if (res && res.status === 0) return "We could not confirm it was sent. Press Try again: it will not be sent twice.";
-    if (res && res.status === 404) return "This member cannot be texted.";
+    if (res && res.status === 404) return "This person cannot be texted.";
     return "The text could not be sent.";
   }
 
-  /* ---------- the New text screen ---------- */
+  /* ---------- the New SMS screen ---------- */
+
+  /* The people the picker offers: members (GET .../members/?q=, verified mobile only) and saved contacts (GET .../contacts/?q=, results with the
+     masked mobile). Each is { key: "m:<id>" | "c:<id>", kind, id, name, label }; the key is the select option's value. */
+  function contactItems(list) {
+    var out = [];
+    (Array.isArray(list) ? list : []).forEach(function (c) {
+      if (!c || (typeof c.id !== "string" && typeof c.id !== "number") || c.id === "") return;
+      var name = [c.first_name, c.last_name].map(function (x) { return typeof x === "string" ? x.trim() : ""; }).filter(Boolean).join(" ") || "Contact";
+      var mob = typeof c.mobile_masked === "string" ? c.mobile_masked : "";
+      out.push({ key: "c:" + c.id, kind: "contact", id: c.id, name: name, label: mob ? name + " · " + mob : name });
+    });
+    return out;
+  }
+  function memberItems(list) {
+    return pickable(list).map(function (m) { return { key: "m:" + m.id, kind: "member", id: m.id, name: m.name, label: m.label }; });
+  }
+  /* The compose body: exactly one of member_id or contact_id. */
+  function composeBody(item, text, key) {
+    var b = {}; b[item.kind === "contact" ? "contact_id" : "member_id"] = item.id; b.text = text; b.idempotency_key = key;
+    return b;
+  }
 
   /* ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, back, done(ref, name), gone() }. host: the thread pane. */
   function compose(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add;
-    var st = { state: "loading", status: null, q: "", found: [], searched: "", pick: null, text: "", key: null, sending: false, err: "", timer: null, run: 0, srun: 0, dead: false };
+    var st = { state: "loading", status: null, contacts: false, found: [], pick: null, text: "", key: null, sending: false, err: "", timer: null, srun: 0, dead: false, searching: false, q: "" };
     var base = "/sites/" + ui.site + "/inquiries/sms/";
     function stop() { st.dead = true; if (st.timer) { clearTimeout(st.timer); st.timer = null; } }
     function readStatus(then) {
@@ -97,27 +112,56 @@
         if (then) then(); else draw();
       });
     }
+    /* Saved contacts exist only while GET .../contacts/status/ says contacts: true. */
+    function readContacts() {
+      var C = window.NOContacts;
+      if (!C || !C.addDialog) return;
+      D.call("GET", "/sites/" + ui.site + "/contacts/status/", null, true).then(function (res) {
+        if (st.dead || !(res && res.ok && res.data && res.data.contacts === true)) return;
+        st.contacts = true; if (st.state === "ready") draw();
+      });
+    }
     function head() {
-      var row = h("div", "ib-thead"), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
+      var row = h("div", "ib-thead ib-thead-new"), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
       back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", ui.home || "Inbox"));
       back.addEventListener("click", function () { stop(); ui.back(); });
       var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", "New SMS"));
       nm.appendChild(h("p", "ib-sub", "Text one of your members. For orders and member service only. No promotions."));
-      return add(row, back, nm);
+      add(row, back, nm);
+      if (st.contacts) {
+        var acts = h("div", "ib-hacts");
+        var ab = ui.btn("Add contact", "ghost", function (b) { openAdd(b); }); ab.setAttribute("id", "ib-addc");
+        acts.appendChild(ab); row.appendChild(acts);
+      }
+      return row;
     }
     function note(text, warn) {
       var n = h("p", "ib-note" + (warn ? "" : " ib-note-info")); n.setAttribute("role", "status");
       n.appendChild(ui.icon(warn ? "M12 3l10 18H2zM12 10v5M12 18h.01" : "M4 5h16v11H9l-5 4z")); n.appendChild(h("span", "", text));
       return n;
     }
+    function itemOf(key) {
+      if (st.pick && st.pick.key === key) return st.pick;
+      return st.found.filter(function (m) { return m.key === key; })[0] || null;
+    }
+    /* The select behind the one house dropdown: the placeholder, the chosen person (kept even when a new search drops them), then what was found. */
+    function fillSelect(sel) {
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      sel.appendChild(D.el("option", { value: "" }, "Choose a member or contact"));
+      var list = st.found.slice();
+      if (st.pick && !list.some(function (m) { return m.key === st.pick.key; })) list.unshift(st.pick);
+      list.forEach(function (m) { sel.appendChild(D.el("option", { value: m.key, "data-tag": m.kind === "contact" ? "Contact" : "Member" }, m.label)); });
+      sel.value = st.pick ? st.pick.key : "";
+    }
+    var selNode = null, readyFn = null;
     function draw() {
       if (st.dead) return;
-      var keepQ = document.activeElement && document.activeElement.id === "ib-sms-q";
       ui.clear(host); host.classList.remove("is-hide-phone");
       host.setAttribute("aria-label", "New SMS");
       host.appendChild(head());
       var body = h("div", "ib-msgs ib-sms-new"); body.setAttribute("tabindex", "-1");
       host.appendChild(body);
+      selNode = null; readyFn = null;
       if (st.state === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Opening…")); return; }
       if (st.state === "failed") {
         body.appendChild(h("p", "pm-meta", "We could not open the text screen just now. Nothing was sent."));
@@ -132,36 +176,24 @@
       }
       if (phoneOffline(s)) body.appendChild(note(OFFLINE, true));
       else if (notReady(s)) body.appendChild(note(NOT_NOW, true));
-      var q = quota(s); if (q) body.appendChild(h("p", "pm-hint ib-sms-quota", q));
-      /* 1. find the member: a search box, then the house dropdown of what was found */
-      var f1 = h("div", "pm-field");
-      var l1 = h("label", "pm-label", "Member"); l1.setAttribute("for", "ib-sms-q");
-      var qin = D.el("input", { "class": "pm-input ib-input", id: "ib-sms-q", type: "text", autocomplete: "off", spellcheck: "false", maxlength: "80", placeholder: "Type part of the member's name" });
-      qin.value = st.q;
-      qin.addEventListener("input", function () { st.q = qin.value; search(); });
-      add(f1, l1, qin);
-      body.appendChild(f1);
-      var f2 = h("div", "pm-field ib-fld");
-      var l2 = h("label", "pm-label sr-only", "Choose a member"); l2.setAttribute("for", "ib-sms-pick");
+      /* 1. who: ONE house dropdown (type or pick; opening it selects nothing) listing members and contacts */
+      var f1 = h("div", "pm-field ib-fld");
+      var l1 = h("label", "pm-label", st.contacts ? "Member or contact" : "Member"); l1.setAttribute("for", "ib-sms-pick");
       var sel = D.el("select", { "class": "ib-input", id: "ib-sms-pick" });
-      sel.appendChild(D.el("option", { value: "" }, st.searched ? (st.found.length ? "Choose a member" : "No members found") : "Choose a member"));
-      st.found.forEach(function (m) { sel.appendChild(D.el("option", { value: m.id }, m.label)); });
-      sel.value = st.pick && st.found.some(function (m) { return m.id === st.pick; }) ? st.pick : "";
-      sel.addEventListener("change", function () { st.pick = sel.value || null; ready(); });
-      add(f2, l2, sel);
-      body.appendChild(f2);
-      ui.combo(sel, "Choose a member", { blankEmpty: true });
-      if (st.searched && !st.found.length) body.appendChild(h("p", "pm-hint", "Only members with a verified mobile number can be texted."));
-      /* 2. the text */
-      var max = maxOf(s), pre = prefixOf(s);
+      fillSelect(sel);
+      sel.addEventListener("change", function () { st.pick = itemOf(sel.value); if (readyFn) readyFn(); });
+      add(f1, l1, sel);
+      body.appendChild(f1);
+      ui.combo(sel, st.contacts ? "Member or contact" : "Member", { blankEmpty: true, remote: function (q) { search(q); }, emptyText: emptyText });
+      selNode = sel;
+      /* 2. the text: no default words, no prefix; the counter starts at 0 / 160 */
+      var max = maxOf(s);
       var f3 = h("div", "pm-field");
       var l3 = h("label", "pm-label", "Text"); l3.setAttribute("for", "ib-sms-t");
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-sms-t"); ta.setAttribute("rows", "3"); ta.setAttribute("aria-describedby", "ib-sms-c ib-sms-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40)); /* a little over, so the counter can say it */
       ta.value = st.text;
-      add(f3, l3);
-      if (pre) { var pl = h("p", "pm-hint ib-sms-prefix", "Every text starts with: " + pre); f3.appendChild(pl); }
-      f3.appendChild(ta);
+      add(f3, l3, ta);
       body.appendChild(f3);
       var count = h("span", "ib-count", ""); count.setAttribute("id", "ib-sms-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-sms-e"); err.setAttribute("role", "alert");
@@ -174,53 +206,73 @@
         err.textContent = st.err || p; err.hidden = !(st.err || p);
         go.disabled = off || !!p || !ta.value.trim() || !st.pick || st.sending;
       }
+      readyFn = ready;
       ta.addEventListener("input", function () { st.text = ta.value; st.err = ""; ready(); });
       ready();
-      if (keepQ) { qin.focus(); try { qin.setSelectionRange(qin.value.length, qin.value.length); } catch (e) { /* not selectable */ } }
     }
-    /* The member search: at least two letters, 300 ms after the last key; only the newest answer is used. */
-    function search() {
+    function emptyText(q) {
+      if (String(q || "").trim().length < 2) return "Type at least 2 letters of a name or number";
+      return st.searching ? "Searching…" : "No members or contacts found. Only members with a verified mobile number can be texted.";
+    }
+    /* The search: at least two characters, 300 ms after the last key; members and (while contacts are on) contacts; only the newest answer is used. */
+    function search(raw) {
       if (st.timer) clearTimeout(st.timer);
+      var q = String(raw || "").trim(), run = ++st.srun;
+      if (q.length < 2) { st.q = q; st.searching = false; st.found = []; if (selNode) { fillSelect(selNode); selNode.ibRedraw(); } return; }
+      st.searching = true;
       st.timer = setTimeout(function () {
         st.timer = null;
-        var q = st.q.trim(), run = ++st.srun;
-        if (q.length < 2) { st.found = []; st.searched = ""; st.pick = null; draw(); return; }
-        D.call("GET", "/sites/" + ui.site + "/members/?q=" + encodeURIComponent(q), null, true).then(function (res) {
-          if (st.dead || run !== st.srun || res.status === 401) return;
-          st.found = res.ok && res.data ? pickable(res.data.members) : [];
-          st.searched = q; if (!st.found.some(function (m) { return m.id === st.pick; })) st.pick = null;
-          draw();
+        var calls = [D.call("GET", "/sites/" + ui.site + "/members/?q=" + encodeURIComponent(q), null, true)];
+        if (st.contacts) calls.push(D.call("GET", "/sites/" + ui.site + "/contacts/?q=" + encodeURIComponent(q), null, true));
+        Promise.all(calls).then(function (r) {
+          if (st.dead || run !== st.srun) return;
+          if (r.some(function (x) { return x.status === 401; })) return;
+          var a = r[0] && r[0].ok && r[0].data ? memberItems(r[0].data.members) : [];
+          var b = r[1] && r[1].ok && r[1].data ? contactItems(r[1].data.results) : [];
+          st.found = a.concat(b); st.searching = false; st.q = q;
+          if (selNode) { fillSelect(selNode); selNode.ibRedraw(); }
         });
       }, 300);
     }
+    /* The Add contact popup (contacts.js); the saved contact is picked at once. */
+    function openAdd(opener) {
+      window.NOContacts.addDialog({ site: ui.site, opener: opener, done: function (c) {
+        var it = contactItems([c])[0];
+        if (!it) return;
+        st.pick = it; st.err = "";
+        if (selNode) { fillSelect(selNode); if (selNode.ibSync) selNode.ibSync(); }
+        if (readyFn) readyFn();
+        ui.say("Contact added.");
+      } });
+    }
     function send(b) {
       if (st.sending || !st.pick) return;
-      var chosen = st.found.filter(function (m) { return m.id === st.pick; })[0];
-      if (!chosen) return;
+      var chosen = st.pick;
       var text = st.text.trim(); if (!text) return;
       var key = st.key || ui.newKey(); st.key = key; st.sending = true; st.err = ""; ui.busy(b, true);
-      D.call("POST", base + "compose/", { member_id: st.pick, text: text, idempotency_key: key }, true).then(function (res) {
+      D.call("POST", base + "compose/", composeBody(chosen, text, key), true).then(function (res) {
         st.sending = false;
         if (st.dead || res.status === 401) return;
         if (!res.ok) {
           if (res.status !== 0) st.key = null; /* a text the API never saw can use a new key; a lost answer keeps it so nothing goes twice */
           st.err = refusal(res);
-          /* One 404 means a member who cannot be texted or a feature that went away, and the page must not tell them apart: read the status again, which 404s when the feature is gone. */
+          /* One 404 means a person who cannot be texted or a feature that went away, and the page must not tell them apart: read the status again, which 404s when the feature is gone. */
           if (res.status === 404) { readStatus(); return; }
           draw(); return;
         }
         var d = res.data || {};
+        /* A send over a limit (or any refusal) is a 200 with state "failed" and the server's own message; the typed text stays for a retry. */
         if (d.state === "failed") { st.key = null; st.err = typeof d.message === "string" && d.message ? d.message : "The text could not be sent."; readStatus(); return; }
         st.key = null; stop();
         ui.say("Text is being sent.");
         ui.done(typeof d.ref === "string" ? d.ref : "", chosen.name);
       });
     }
-    readStatus();
+    readStatus(); readContacts();
     return { stop: stop };
   }
 
   window.NOInboxSms = { compose: compose,
-    util: { available: available, enabled: enabled, isRef: isRef, maxOf: maxOf, prefixOf: prefixOf, problem: problem, chip: chip, offText: offText, quota: quota,
-      phoneOffline: phoneOffline, notReady: notReady, pickable: pickable, refusal: refusal, OFFLINE: OFFLINE, OPTED_OUT: OPTED_OUT } };
+    util: { available: available, enabled: enabled, isRef: isRef, maxOf: maxOf, problem: problem, chip: chip, offText: offText,
+      phoneOffline: phoneOffline, notReady: notReady, pickable: pickable, memberItems: memberItems, contactItems: contactItems, composeBody: composeBody, refusal: refusal, OFFLINE: OFFLINE, OPTED_OUT: OPTED_OUT } };
 })();

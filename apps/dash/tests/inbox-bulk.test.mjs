@@ -258,6 +258,26 @@ test("INBOX-FIX-7: View opens the batch details under its row (no route change);
   assert.equal(pane(d).all((n) => n.classList && n.classList.contains("ib-bk-dr")).length, 0, "toggles shut");
 });
 
+test("INBOX-FIX-8 B1-B4: no outer card around the history; the head row is above the table; the table box is the card; the View detail is flat (stat line, plain end line, message, left-out list; no tiles, no nested card)", async () => {
+  const d = await openBulk({}, {}, { form: false });
+  const has = (n, c) => n.classList && n.classList.contains(c);
+  const hist = d.$("ib-bk-hist");
+  assert.ok(!has(hist, "dash-card"), "no outer card");
+  const kids = hist.children;
+  assert.ok(has(kids[0], "ib-bk-dh") && kids[0].textContent.includes("Bulk SMS history") && kids[0].all((n) => n.id === "ib-bk-send").length === 1, "title and button in one row, above");
+  assert.ok(has(kids[1], "ib-bk-tbox"), "the table box follows the head");
+  await d.click(viewBtns(d)[0]);
+  const dr = pane(d).all((n) => has(n, "ib-bk-dr"))[0];
+  assert.equal(dr.all((n) => has(n, "ib-bk-card") || has(n, "ib-bk-counts") || has(n, "ib-bk-count") || has(n, "dash-card") || has(n, "ib-note")).length, 0, "no nested card, tiles or banner");
+  const stat = dr.all((n) => has(n, "ib-bk-stat"))[0];
+  assert.match(stat.textContent, /^Sent \d+ \u00B7 Failed \d+ \u00B7 Not sent \d+ \u00B7 Waiting \d+$/);
+  assert.equal(dr.all((n) => has(n, "ib-bk-fh")).length, 1, "state and date as a small header");
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.ok(/\.ib-bk-tbox \{[^}]*border-radius: 16px; background: var\(--card\)/.test(CSS), "the table is the card");
+  assert.ok(/\.ib-bk-dr > td \{ background: color-mix/.test(CSS), "subtle row background");
+  assert.ok(/\.ib-bk-histsec \.ib-bk-dh \{ padding-bottom: 0; border-bottom: 0; \}/.test(CSS));
+});
+
 test("bulk: history pages with the cursor; detail pages 50 a page with next; a number the API forgot to mask is masked", async () => {
   const u = loadUtil();
   assert.equal(u.maskMobile("+63917***4567"), "+63917***4567");
@@ -316,12 +336,12 @@ test("bulk: the count line and the left-out groups with plain labels; never a li
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent));
 });
 
-test("bulk: the prefix, the room-left counter and the debounced preview with the exact text; no Promotional tick", async () => {
+test("bulk: no prefix line, the room-left counter (160, even from old data with a prefix) and the debounced preview with the exact text; no Promotional tick", async () => {
   const d = await openBulk();
-  assert.ok(pane(d).textContent.includes("Every text starts with: Test Store: "));
-  assert.equal(d.$("ib-bk-c").textContent, "147 characters left");
+  assert.ok(!pane(d).textContent.includes("Every text starts with"), "no prefix line even though the status still carries a prefix key");
+  assert.equal(d.$("ib-bk-c").textContent, "160 characters left");
   await typeText(d, "Sale this weekend");
-  assert.equal(d.$("ib-bk-c").textContent, "130 characters left");
+  assert.equal(d.$("ib-bk-c").textContent, "143 characters left");
   assert.deepEqual(d.bk.seen.preview, [{ text: "Sale this weekend" }], "one preview call after the pause");
   assert.ok(d.$("ib-bk-preview").textContent.includes("Test Store: Sale this weekend"));
   assert.equal(d.$("ib-bk-promo"), null, "no Promotional tick");

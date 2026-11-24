@@ -173,9 +173,9 @@
     var c = combo(sel, label, onChange);
     return { wrap: wrap, sel: sel, sync: c.sync };
   }
-  function groupOptions(first) {
+  function groupOptions(first, list) {
     var o = [["", first]];
-    (S.groups || []).forEach(function (g) { o.push([String(g.id), String(g.name)]); });
+    (list || S.groups || []).forEach(function (g) { o.push([String(g.id), String(g.name)]); });
     return o;
   }
 
@@ -289,6 +289,51 @@
     var root = clear(byId("ct-root")); root.removeAttribute("aria-busy");
     add(root, add(h("section", "ct-card"), h("h2", "ct-h2", "Contacts are not available"), h("p", "ct-lead", "They are not open for your store right now.")));
     setNav(false);
+  }
+  /* The Add contact popup, used by the Contacts page and by New SMS (inbox-sms.js): first name (required), last name, mobile and ONE optional group
+     from the house dropdown. o: { site, groups (array; read from GET groups/ when missing), opener, done(row) }. Saves with POST /sites/{id}/contacts/
+     { first_name, last_name, mobile, groups:[id] } and hands the saved row to done(). It draws into #ct-dialog-slot, which sits outside the Contacts
+     view so it shows on any page. */
+  function addDialog(o) {
+    var site = o.site, path = "/sites/" + site + "/contacts/";
+    function open(groups) {
+      dialog("contact", o.opener, function (dlg, close) {
+        var first = textInput("ct-first", ""), last = textInput("ct-last", ""), mobile = textInput("ct-mobile", "", { inputmode: "tel" });
+        var fFirst = field("First name", first, null, true), fLast = field("Last name", last), fMobile = field("Contact number", mobile, "A Philippine mobile number. One contact per number.", true);
+        var gd = dropdown("ct-agroup", "Group", groupOptions("No group", groups), "", null);
+        var fGroup = h("div", "ct-field"), gl = h("span", "ct-label", "Group"); gl.setAttribute("aria-hidden", "true");
+        add(fGroup, gl, gd.wrap); gd.wrap.style.margin = "0";
+        var err = errBox(), save = btn("Add contact", "primary", null), cancel = btn("Cancel", "ghost", function () { close(true); });
+        save.addEventListener("click", function () {
+          showErr(err, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
+          var gid = gd.sel.value, g = groups.filter(function (x) { return String(x.id) === gid; })[0];
+          var v = { requireFirst: true, first: first.value, last: last.value, mobile: mobile.value, groups: gid ? [g ? g.id : gid] : [] };
+          var fe = firstError(v), me = mobileError(v);
+          if (fe) bad(fFirst, fe, first);
+          if (me) bad(fMobile, me, mobile);
+          if (fe || me) { (fe ? first : mobile).focus(); return; }
+          busy(save, true);
+          D.call("POST", path, contactBody(v), true).then(function (res) {
+            if (res.status === 401) return;
+            busy(save, false);
+            if (res.ok) { close(true); if (o.done) o.done(res.data || {}); return; }
+            var shown = false;
+            [["first_name", first, fFirst], ["last_name", last, fLast], ["mobile", mobile, fMobile]].forEach(function (p) { var t = fieldMessage(res, p[0]); if (t) { bad(p[2], t, p[1]); shown = true; } });
+            var gm = fieldMessage(res, "groups"); if (gm) { showErr(err, gm); shown = true; }
+            if (codeOf(res) === "already_exists") { bad(fMobile, "That number is already a contact.", mobile); mobile.focus(); return; }
+            if (!shown) showErr(err, msgOf(res, DOWN));
+          });
+        });
+        add(dlg, title("Add contact", "contact"), fFirst, fLast, fMobile, fGroup, err, add(h("div", "ct-actions"), save, cancel));
+        first.focus();
+      });
+    }
+    if (Array.isArray(o.groups)) { open(o.groups); return; }
+    /* groups are optional: when they cannot be read the popup still opens, with no groups to pick */
+    D.call("GET", path + "groups/", null, true).then(function (res) {
+      if (res.status === 401) return;
+      open(res.ok ? (Array.isArray(res.data) ? res.data : (res.data && Array.isArray(res.data.results) ? res.data.results : [])) : []);
+    });
   }
   function loadGroups(mine, then) {
     D.call("GET", base() + "groups/", null, true).then(function (res) {
@@ -422,7 +467,7 @@
   /* ----- add or edit one contact ----- */
 
   function openForm(c, opener) {
-    if (!c) { formDialog(null, opener); return; }
+    if (!c) { addDialog({ site: S.site, groups: S.groups, opener: opener, done: function () { refreshAfterChange("Contact added."); } }); return; }
     /* The full mobile comes only from the detail read, and only when the owner opens this one contact. */
     var mine = run;
     opener.disabled = true;
@@ -660,7 +705,7 @@
       btn("See your contacts", "primary", function () { switchTab("list"); })));
   }
 
-  window.NOContacts = { show: show, hide: hide, probe: probe,
+  window.NOContacts = { show: show, hide: hide, probe: probe, addDialog: addDialog,
     util: { nameOf: nameOf, queryMode: queryMode, listPath: listPath, groupsOf: groupsOf, groupIds: groupIds, fieldMessage: fieldMessage, contactBody: contactBody,
       changedBody: changedBody, contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
 })();

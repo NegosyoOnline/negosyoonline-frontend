@@ -103,8 +103,9 @@
     add(wrap, select); add(box, input, h("span", "ct-combo-caret")); add(wrap, box, panel);
     function opts() { return Array.prototype.slice.call(select.children); }
     function chosen() {
-      var all = opts(), t = all.length ? all[0].textContent : "";
-      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) { t = all[i].textContent; break; }
+      /* the empty option is only a placeholder: the box stays empty and shows that text greyed (Coach Ed, 2026-11-24 round 9) */
+      var all = opts(), t = "";
+      for (var i = 0; i < all.length; i++) if (all[i].value === select.value) { t = all[i].value === "" ? "" : all[i].textContent; break; }
       return t;
     }
     function isOpen() { return wrap.classList.contains("is-open"); }
@@ -159,6 +160,7 @@
       var d = e.key === "ArrowDown" ? 1 : -1, n = rows.length;
       if (n) mark(active < 0 ? (d > 0 ? 0 : n - 1) : (active + d + n) % n);
     });
+    if (select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent);
     input.value = chosen();
     return { sync: function () { input.value = chosen(); } };
   }
@@ -244,7 +246,7 @@
 
   function show() {
     var mine = ++run, root = clear(byId("ct-root"));
-    S = { site: null, tab: "list", status: null, groups: [], q: "", group: "", cursor: "", stack: [], data: null, listState: "idle" };
+    S = { site: null, tab: "list", status: null, groups: [], q: "", group: "", cursor: "", rows: [], next: null, total: 0, sel: null, full: null, editing: false, pane: "list", rowNodes: {} };
     root.setAttribute("aria-busy", "true");
     add(root, h("p", "ct-meta", "Loading your contacts…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -258,7 +260,7 @@
         if (st.status === 404 || (st.ok && st.data && st.data.contacts === false)) { unavailable(); return; }
         if (!st.ok) { failedPanel(); return; }
         S.status = st.data || {}; setNav(true);
-        loadGroups(mine, function () { render(); loadList(); });
+        loadGroups(mine, function () { render(); });
       });
     });
   }
@@ -348,10 +350,11 @@
     D.call("GET", base() + "status/", null, true).then(function (res) { if (mine === run && S && res.ok) { S.status = res.data || S.status; paintHead(); } });
   }
 
-  var TABS = [["list", "Contacts"], ["groups", "Groups"], ["upload", "Upload CSV"]];
+  var TABS = [["list", "Contacts"], ["upload", "Upload CSV"]];
+  var SAMPLE = "/assets/samples/contacts-sample.csv";
   /* The page's tabs: the dash Settings menu (.set-tabs) with buttons for links, in a host at the top of the page beside the top-bar icons, the
      same markup and spacing as the Inbox and SMS Marketing tabs (inbox.js tabBar, #ib-tabs-host). The page has no visible title; its h1 is
-     screen-reader only (index.html). The tabs scroll sideways inside their own row on a phone, never the page. */
+     screen-reader only (index.html). Groups no longer have a tab: they are the left column of the Contacts tab. */
   function tabBar() {
     var bar = h("div", "set-tabs ct-tabs"), tabs = [];
     bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", "Contacts");
@@ -377,9 +380,9 @@
     add(host, tabBar());
     var panel = h("div", "ct-panel"); panel.setAttribute("id", "ct-panel");
     add(root, host, panel);
-    if (S.tab === "list") listPanel(panel); else if (S.tab === "groups") groupsPanel(panel); else uploadPanel(panel);
+    if (S.tab === "list") listPanel(panel); else uploadPanel(panel);
   }
-  /* "N of 20,000 contacts saved": a small muted line in the list card. */
+  /* "N of 20,000 contacts saved": a small muted line at the foot of the groups column. */
   function savedText() {
     if (!S || !S.status) return "";
     var c = num(S.status.count), m = num(S.status.max);
@@ -390,195 +393,278 @@
   function switchTab(t) {
     if (!S || S.tab === t) return;
     S.tab = t; S.upload = null; render();
-    if (t === "list") loadList();
   }
 
-  /* ----- the list ----- */
+  /* ----- the contacts app: groups | A-Z list | detail ----- */
+
+  /* The A-Z section for one contact: the first letter of the first name (else the last name), accents dropped; no name or a non-letter is "#". */
+  function letterOf(c) {
+    var s = String((c && c.first_name) || "").trim() || String((c && c.last_name) || "").trim();
+    if (!s) return "#";
+    var ch = s.charAt(0);
+    try { ch = ch.normalize("NFD").charAt(0); } catch (e) { /* keep ch */ }
+    ch = ch.toUpperCase();
+    return ch >= "A" && ch <= "Z" ? ch : "#";
+  }
+  function sortKey(c) { return (String((c && c.first_name) || "").trim() + " " + String((c && c.last_name) || "").trim()).trim().toLowerCase(); }
+  /* [[letter, [contacts...]], ...]: A-Z, "#" last; inside a letter by first then last name, case-insensitive. */
+  function sections(rows) {
+    var by = {};
+    (rows || []).forEach(function (c) { var l = letterOf(c); (by[l] = by[l] || []).push(c); });
+    return Object.keys(by).sort(function (a, b) { return a === "#" ? 1 : b === "#" ? -1 : a < b ? -1 : a > b ? 1 : 0; }).map(function (l) {
+      by[l].sort(function (a, b) { var x = sortKey(a), y = sortKey(b); return x < y ? -1 : x > y ? 1 : 0; });
+      return [l, by[l]];
+    });
+  }
+  function initials(c) {
+    var a = String((c && c.first_name) || "").trim().charAt(0), b = String((c && c.last_name) || "").trim().charAt(0);
+    return (a + b).toUpperCase() || "#";
+  }
+  function setPane(p) { S.pane = p; var g = byId("ct-app"); if (g) g.setAttribute("data-pane", p); }
+  function resetPaging() { S.cursor = ""; S.rows = []; S.next = null; }
 
   function listPanel(panel) {
-    var bar = h("section", "ct-card ct-toolbar"); bar.setAttribute("aria-label", "Find a contact");
+    var app = h("div", "ct-app"); app.setAttribute("id", "ct-app"); app.setAttribute("data-pane", S.pane);
+    var side = h("nav", "ct-col ct-col-groups"); side.setAttribute("aria-label", "Groups");
+    add(side, h("div", "ct-side-list"), h("div", "ct-side-foot"));
+    side.children[0].setAttribute("id", "ct-side"); side.children[1].setAttribute("id", "ct-side-foot");
+    var mid = h("section", "ct-col ct-col-list"); mid.setAttribute("aria-label", "Contacts");
+    var head = h("div", "ct-list-head");
+    var back = btn("Groups", "ghost", function () { setPane("groups"); }); back.classList.add("ct-back"); back.setAttribute("aria-label", "Back to groups");
     var search = h("div", "ct-field ct-search"), lab = D.el("label", { "for": "ct-q", "class": "ct-sr" }, "Find a contact by name or number");
-    var q = D.el("input", { id: "ct-q", "class": "ct-input", type: "search", autocomplete: "off", placeholder: "Name or number (2+ characters)" });
+    var q = D.el("input", { id: "ct-q", "class": "ct-input", type: "search", autocomplete: "off", placeholder: "Search" });
     q.value = S.q;
     add(search, lab, q);
-    var grp = dropdown("ct-group", "Group", groupOptions("All groups"), S.group, function (v) { S.group = v; resetPaging(); loadList(); });
-    var addBtn = btn("Add contact", "primary", function (b) { openForm(null, b); });
-    add(bar, search, grp.wrap, addBtn);
+    var plus = btn("+", "primary", function (b) { openForm(null, b); }); plus.classList.add("ct-plus"); plus.setAttribute("aria-label", "Add contact");
+    add(head, back, search, plus);
+    var results = h("div", "ct-results"); results.setAttribute("id", "ct-results"); results.setAttribute("aria-label", "Contacts");
+    add(mid, head, results);
+    var det = h("section", "ct-col ct-col-detail"); det.setAttribute("id", "ct-detail"); det.setAttribute("aria-label", "Contact");
+    add(app, side, mid, det);
+    add(panel, app);
     q.addEventListener("input", function () {
       if (searchTimer) clearTimeout(searchTimer);
       searchTimer = setTimeout(function () { searchTimer = null; if (!S) return; S.q = q.value; resetPaging(); loadList(); }, 350);
     });
     q.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); if (searchTimer) clearTimeout(searchTimer); S.q = q.value; resetPaging(); loadList(); } });
-    var results = h("section", "ct-card ct-list-card"); results.setAttribute("id", "ct-results"); results.setAttribute("aria-label", "Contacts");
-    add(panel, bar, results);
+    paintSide(); drawDetail();
+    loadList();
   }
-  function resetPaging() { S.cursor = ""; S.stack = []; }
-  function loadList() {
+
+  /* left column: All Contacts, the groups with their counts, a way to add a group; rename and delete for the chosen group. */
+  function paintSide() {
+    var box = byId("ct-side"), foot = byId("ct-side-foot"); if (!box || !S) return;
+    clear(box); clear(foot);
+    var ul = h("ul", "ct-side-ul");
+    function item(id, name, count) {
+      var li = h("li", ""), b = h("button", "ct-side-btn" + (S.group === id ? " is-on" : ""));
+      b.setAttribute("type", "button"); b.setAttribute("data-group", id);
+      if (S.group === id) b.setAttribute("aria-current", "true");
+      add(b, h("span", "ct-side-name", name), h("span", "ct-side-count", whole(count)));
+      b.addEventListener("click", function () { pickGroup(id); });
+      add(li, b); ul.appendChild(li);
+    }
+    item("", "All Contacts", S.status ? num(S.status.count) : 0);
+    S.groups.forEach(function (g) { item(String(g.id), String(g.name), num(g.count)); });
+    add(box, ul);
+    var addG = btn("New group", "ghost", function (b) { groupDialog(b); }); addG.classList.add("ct-addgroup");
+    add(foot, addG);
+    var cur = currentGroup();
+    if (cur) {
+      var ren = btn("Rename", "ghost", function (b) { renameDialog(cur, b); }), del = btn("Delete", "ghost", function (b) { deleteGroup(cur, b); });
+      ren.setAttribute("aria-label", "Rename " + cur.name); del.setAttribute("aria-label", "Delete " + cur.name);
+      add(foot, add(h("div", "ct-row-actions"), ren, del));
+    }
+    add(foot, savedNode());
+  }
+  function currentGroup() { return S.group ? S.groups.filter(function (g) { return String(g.id) === S.group; })[0] || null : null; }
+  function pickGroup(id) {
+    if (!S) return;
+    S.group = id; S.sel = null; S.editing = false; resetPaging();
+    setPane("list"); paintSide(); drawDetail(); loadList();
+  }
+
+  function loadList(more) {
     var box = byId("ct-results"); if (!box || !S) return;
     var qm = queryMode(S.q), mine = run, my = ++req;
-    if (qm.mode === "short") { S.data = null; drawResults({ hint: "Type at least " + MIN_Q + " characters to search." }); return; }
+    if (!more) S.cursor = "";
+    if (qm.mode === "short") { resetPaging(); drawResults({ hint: "Type at least " + MIN_Q + " characters to search." }); return; }
     box.setAttribute("aria-busy", "true");
     D.call("GET", listPath(S.site, { group: S.group, q: qm.q, cursor: S.cursor }), null, true).then(function (res) {
       if (mine !== run || !S || my !== req || res.status === 401) return;
       box.removeAttribute("aria-busy");
       if (res.status === 404) { unavailable(); return; }
-      if (!res.ok) { S.data = null; drawResults({ error: msgOf(res, DOWN) }); return; }
-      S.data = res.data || {};
+      if (!res.ok) { drawResults({ error: msgOf(res, DOWN) }); return; }
+      var d = res.data || {};
+      S.rows = (more ? S.rows : []).concat(Array.isArray(d.results) ? d.results : []);
+      S.next = d.next ? String(d.next) : null; S.total = num(d.count);
       drawResults({});
+      if (S.sel && !S.rows.some(function (c) { return c.id === S.sel; }) && !S.next) { S.sel = null; S.editing = false; }
+      drawDetail();
     });
   }
   function drawResults(o) {
     var box = byId("ct-results"); if (!box || !S) return;
-    clear(box);
+    clear(box); S.rowNodes = {};
     if (o.hint) { add(box, h("p", "ct-note", o.hint)); return; }
-    if (o.error) { var e = h("p", "ct-note ct-error", o.error); e.setAttribute("role", "alert"); add(box, e, btn("Try again", "ghost", loadList)); return; }
-    var d = S.data || {}, rows = Array.isArray(d.results) ? d.results : [], total = num(d.count);
+    if (o.error) { var e = h("p", "ct-note ct-error", o.error); e.setAttribute("role", "alert"); add(box, e, btn("Try again", "ghost", function () { loadList(); })); return; }
+    var rows = S.rows || [];
     if (!rows.length) {
-      add(box, h("p", "ct-note", S.q.trim() || S.group ? "No contacts match." : "No contacts yet. Add one, or upload a CSV file."), add(h("div", "ct-list-foot"), savedNode()));
+      add(box, h("p", "ct-note", S.q.trim() || S.group ? "No contacts match." : "No contacts yet. Add one with +, or upload a CSV file."));
       say("No contacts");
       return;
     }
-    var ul = h("ul", "ct-list");
-    rows.forEach(function (c) { ul.appendChild(rowOf(c)); });
-    var foot = h("div", "ct-list-foot"), info = h("span", "ct-meta", countText(total) + (S.q.trim() || S.group ? " match" : ""));
-    var pager = h("span", "ct-pager");
-    var prev = btn("Previous", "ghost", function () { S.cursor = S.stack.pop() || ""; loadList(); });
-    var next = btn("Next", "ghost", function () { S.stack.push(S.cursor); S.cursor = String(d.next); loadList(); });
-    prev.disabled = !S.stack.length; next.disabled = !d.next;
-    add(pager, prev, next);
-    add(foot, info, (S.stack.length || d.next) ? pager : null, savedNode());
-    add(box, ul, foot);
-    say(countText(total));
+    sections(rows).forEach(function (sec) {
+      var wrap = h("div", "ct-sec"), hd = h("h3", "ct-letter", sec[0]), ul = h("ul", "ct-list");
+      sec[1].forEach(function (c) { ul.appendChild(rowOf(c)); });
+      add(wrap, hd, ul); box.appendChild(wrap);
+    });
+    var foot = h("div", "ct-list-foot");
+    add(foot, h("span", "ct-meta", countText(num(S.total)) + (S.q.trim() || S.group ? " match" : "")));
+    if (S.next) add(foot, btn("Load more", "ghost", function () { S.cursor = S.next; loadList(true); }));
+    box.appendChild(foot);
+    say(countText(num(S.total)));
   }
   function rowOf(c) {
-    var li = h("li", "ct-row"), main = h("div", "ct-row-main");
-    var nm = h("span", "ct-name" + (nameOf(c) === "No name" ? " is-none" : ""), nameOf(c));
-    var mob = h("span", "ct-mobile ct-mono", typeof c.mobile_masked === "string" ? c.mobile_masked : "");
-    var chips = h("span", "ct-chips");
-    groupsOf(c).forEach(function (g) { chips.appendChild(h("span", "chip chip-neutral ct-chip", String(g.name))); });
-    if (c.opted_out) { var o = h("span", "chip chip-warn ct-chip", "Opted out"); chips.appendChild(o); }
-    add(main, nm, mob, chips);
-    var open = btn("Edit", "ghost", function (b) { openForm(c, b); });
-    open.setAttribute("aria-label", "Edit " + nameOf(c));
-    add(li, main, open);
+    var li = h("li", "ct-row"), b = h("button", "ct-row-btn" + (S.sel === c.id ? " is-on" : ""));
+    b.setAttribute("type", "button"); b.setAttribute("data-id", String(c.id));
+    if (S.sel === c.id) b.setAttribute("aria-current", "true");
+    b.setAttribute("aria-label", "Open " + nameOf(c));
+    add(b, h("span", "ct-name" + (nameOf(c) === "No name" ? " is-none" : ""), nameOf(c)), h("span", "ct-mobile ct-mono", typeof c.mobile_masked === "string" ? c.mobile_masked : ""));
+    b.addEventListener("click", function () { selectContact(c); });
+    add(li, b); S.rowNodes[c.id] = b;
     return li;
   }
+  function selectContact(c) {
+    if (!S) return;
+    S.sel = c.id; S.editing = false; S.full = null;
+    Object.keys(S.rowNodes || {}).forEach(function (id) { var on = id === String(c.id); S.rowNodes[id].classList.toggle("is-on", on); if (on) S.rowNodes[id].setAttribute("aria-current", "true"); else S.rowNodes[id].removeAttribute("aria-current"); });
+    setPane("detail"); drawDetail();
+  }
+  function selected() { return S && S.sel ? (S.rows || []).filter(function (c) { return c.id === S.sel; })[0] || null : null; }
 
-  /* ----- add or edit one contact ----- */
-
-  function openForm(c, opener) {
-    if (!c) { addDialog({ site: S.site, groups: S.groups, opener: opener, done: function () { refreshAfterChange("Contact added."); } }); return; }
-    /* The full mobile comes only from the detail read, and only when the owner opens this one contact. */
+  /* right column: the chosen contact (masked number, groups) with Edit in place and Delete. */
+  function drawDetail() {
+    var box = byId("ct-detail"); if (!box || !S) return;
+    clear(box);
+    var c = selected();
+    var back = btn("Contacts", "ghost", function () { setPane("list"); }); back.classList.add("ct-back"); back.setAttribute("aria-label", "Back to contacts");
+    if (!c) { add(box, back, h("p", "ct-note ct-empty", "Select a contact to see the details.")); return; }
+    if (S.editing && S.full) { editForm(box, back, S.full); return; }
+    var top = h("div", "ct-d-top"), av = h("span", "ct-avatar", initials(c)); av.setAttribute("aria-hidden", "true");
+    add(top, av, h("h2", "ct-d-name" + (nameOf(c) === "No name" ? " is-none" : ""), nameOf(c)));
+    var fields = h("dl", "ct-d-fields");
+    add(fields, add(h("div", "ct-d-field"), h("dt", "", "Contact number"), h("dd", "ct-mono", typeof c.mobile_masked === "string" ? c.mobile_masked : "")));
+    var chips = h("span", "ct-chips");
+    groupsOf(c).forEach(function (g) { chips.appendChild(h("span", "chip chip-neutral ct-chip", String(g.name))); });
+    if (c.opted_out) chips.appendChild(h("span", "chip chip-warn ct-chip", "Opted out"));
+    add(fields, add(h("div", "ct-d-field"), h("dt", "", "Groups"), add(h("dd", ""), groupsOf(c).length || c.opted_out ? chips : h("span", "ct-meta", "No groups"))));
+    var edit = btn("Edit", "primary", function (b) { startEdit(c, b); });
+    edit.setAttribute("aria-label", "Edit " + nameOf(c));
+    var del = btn("Delete", "danger", function (b) { confirmDelete(c, b); }); del.setAttribute("aria-label", "Delete " + nameOf(c));
+    add(box, back, top, fields, add(h("div", "ct-actions"), edit, del));
+  }
+  /* The full mobile comes only from the detail read, and only when the owner opens this one contact to edit it. */
+  function startEdit(c, opener) {
     var mine = run;
     opener.disabled = true;
     D.call("GET", base() + encodeURIComponent(c.id) + "/", null, true).then(function (res) {
       opener.disabled = false;
       if (mine !== run || !S || res.status === 401) return;
-      if (res.status === 404) { say("That contact is no longer available."); loadList(); return; }
+      if (res.status === 404) { say("That contact is no longer available."); S.sel = null; resetPaging(); loadList(); return; }
       if (!res.ok) { say(msgOf(res, DOWN)); return; }
-      formDialog(res.data || c, opener);
+      S.full = res.data || c; S.editing = true; drawDetail();
+      var f = byId("ct-first"); if (f && f.focus) f.focus();
     });
   }
-  function formDialog(c, opener) {
-    var editing = !!c, requireFirst = !editing || !!String(c.first_name || "").trim();
-    dialog("contact", opener, function (dlg, close) {
-      var first = textInput("ct-first", c && c.first_name), last = textInput("ct-last", c && c.last_name);
-      var mobile = textInput("ct-mobile", c && c.mobile, { inputmode: "tel" });
-      var fFirst = field("First name", first, null, requireFirst), fLast = field("Last name", last), fMobile = field("Mobile number", mobile, "A Philippine mobile number. One contact per number.");
-      var fs = h("fieldset", "ct-checks"), lg = h("legend", "ct-label", "Groups"), have = groupIds(c).map(String), boxes = [];
-      add(fs, lg);
-      if (!S.groups.length) add(fs, h("p", "ct-meta", "No groups yet. Add one on the Groups tab."));
-      S.groups.forEach(function (g, i) {
-        var id = "ct-g-" + i, row = h("div", "ct-check"), box = D.el("input", { type: "checkbox", id: id, value: String(g.id) });
-        box.checked = have.indexOf(String(g.id)) >= 0; boxes.push(box);
-        var lab = h("label", "ct-label", String(g.name)); lab.setAttribute("for", id);
-        add(row, box, lab); fs.appendChild(row);
-      });
-      var gerr = errBox(); fs.appendChild(gerr);
-      var err = errBox(), save = btn(editing ? "Save contact" : "Add contact", "primary", null), cancel = btn("Cancel", "ghost", function () { close(true); });
-      var del = editing ? btn("Delete contact", "danger", function (b) { confirmDelete(c, b); }) : null;
-      save.addEventListener("click", function () {
-        showErr(err, ""); showErr(gerr, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
-        var v = { requireFirst: requireFirst, first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
-        var fe = firstError(v), me = mobileError(v);
-        if (fe) bad(fFirst, fe, first);
-        if (me) bad(fMobile, me, mobile);
-        if (fe || me) { (fe ? first : mobile).focus(); return; }
-        v.groups = v.groups.map(function (id) { var g = S.groups.filter(function (x) { return String(x.id) === id; })[0]; return g ? g.id : id; });
-        var body = editing ? changedBody(c, v) : contactBody(v);
-        if (editing && !Object.keys(body).length) { close(true); return; }
-        busy(save, true);
-        var mine = run;
-        D.call(editing ? "PATCH" : "POST", editing ? base() + encodeURIComponent(c.id) + "/" : base(), body, true).then(function (res) {
-          if (res.status === 401 || mine !== run || !S) return;
-          busy(save, false);
-          if (res.ok) { close(true); refreshAfterChange(editing ? "Contact saved." : "Contact added."); return; }
-          if (res.status === 404 && editing) { close(false); say("That contact is no longer available."); loadList(); return; }
-          var shown = false;
-          [["first_name", first, fFirst], ["last_name", last, fLast], ["mobile", mobile, fMobile]].forEach(function (p) { var t = fieldMessage(res, p[0]); if (t) { bad(p[2], t, p[1]); shown = true; } });
-          var gm = fieldMessage(res, "groups"); if (gm) { showErr(gerr, gm); shown = true; }
-          if (codeOf(res) === "already_exists") { bad(fMobile, "That number is already a contact.", mobile); mobile.focus(); return; }
-          if (!shown) showErr(err, msgOf(res, DOWN));
-        });
-      });
-      add(dlg, title(editing ? "Edit contact" : "Add contact", "contact"), fFirst, fLast, fMobile, fs, err, add(h("div", "ct-actions"), save, cancel, del));
-      first.focus();
+  function editForm(box, back, c) {
+    var requireFirst = !!String(c.first_name || "").trim();
+    var first = textInput("ct-first", c.first_name), last = textInput("ct-last", c.last_name), mobile = textInput("ct-mobile", c.mobile, { inputmode: "tel" });
+    var fFirst = field("First name", first, null, requireFirst), fLast = field("Last name", last), fMobile = field("Contact number", mobile, "A Philippine mobile number. One contact per number.");
+    var fs = h("fieldset", "ct-checks"), lg = h("legend", "ct-label", "Groups"), have = groupIds(c).map(String), boxes = [];
+    add(fs, lg);
+    if (!S.groups.length) add(fs, h("p", "ct-meta", "No groups yet. Add one with New group."));
+    S.groups.forEach(function (g, i) {
+      var id = "ct-g-" + i, row = h("div", "ct-check"), cb = D.el("input", { type: "checkbox", id: id, value: String(g.id) });
+      cb.checked = have.indexOf(String(g.id)) >= 0; boxes.push(cb);
+      var lab = h("label", "ct-label", String(g.name)); lab.setAttribute("for", id);
+      add(row, cb, lab); fs.appendChild(row);
     });
+    var gerr = errBox(), err = errBox();
+    var save = btn("Save contact", "primary", null), cancel = btn("Cancel", "ghost", function () { S.editing = false; S.full = null; drawDetail(); });
+    save.addEventListener("click", function () {
+      showErr(err, ""); showErr(gerr, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
+      var v = { requireFirst: requireFirst, first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
+      var fe = firstError(v), me = mobileError(v);
+      if (fe) bad(fFirst, fe, first);
+      if (me) bad(fMobile, me, mobile);
+      if (fe || me) { (fe ? first : mobile).focus(); return; }
+      v.groups = v.groups.map(function (id) { var g = S.groups.filter(function (x) { return String(x.id) === id; })[0]; return g ? g.id : id; });
+      var body = changedBody(c, v);
+      if (!Object.keys(body).length) { S.editing = false; S.full = null; drawDetail(); return; }
+      busy(save, true);
+      var mine = run;
+      D.call("PATCH", base() + encodeURIComponent(c.id) + "/", body, true).then(function (res) {
+        if (res.status === 401 || mine !== run || !S) return;
+        busy(save, false);
+        if (res.ok) { S.editing = false; S.full = null; refreshAfterChange("Contact saved."); return; }
+        if (res.status === 404) { say("That contact is no longer available."); S.sel = null; S.editing = false; refreshAfterChange(""); return; }
+        var shown = false;
+        [["first_name", first, fFirst], ["last_name", last, fLast], ["mobile", mobile, fMobile]].forEach(function (p) { var t = fieldMessage(res, p[0]); if (t) { bad(p[2], t, p[1]); shown = true; } });
+        var gm = fieldMessage(res, "groups"); if (gm) { showErr(gerr, gm); shown = true; }
+        if (codeOf(res) === "already_exists") { bad(fMobile, "That number is already a contact.", mobile); mobile.focus(); return; }
+        if (!shown) showErr(err, msgOf(res, DOWN));
+      });
+    });
+    add(box, back, h("h2", "ct-d-name", "Edit contact"), fFirst, fLast, fMobile, fs, gerr, err, add(h("div", "ct-actions"), save, cancel));
+  }
+
+  /* ----- add a contact (+) ----- */
+
+  function openForm(c, opener) {
+    addDialog({ site: S.site, groups: S.groups, opener: opener, done: function (row) { if (row && row.id) S.sel = row.id; refreshAfterChange("Contact added."); } });
   }
   function confirmDelete(c, opener) {
     confirmDialog(opener, "del", "Delete this contact?", nameOf(c) + " will be removed from your contacts and every group. This cannot be undone.", "Delete contact", function (fail, close) {
       var mine = run;
       D.call("DELETE", base() + encodeURIComponent(c.id) + "/", null, true).then(function (res) {
         if (res.status === 401 || mine !== run || !S) return;
-        if (res.ok || res.status === 404) { close(false); refreshAfterChange("Contact deleted."); return; }
+        if (res.ok || res.status === 404) { close(false); S.sel = null; S.editing = false; setPane("list"); refreshAfterChange("Contact deleted."); return; }
         fail(msgOf(res, DOWN));
       });
     });
   }
   function refreshAfterChange(message) {
     if (!S) return;
-    say(message); refreshStatus();
+    if (message) say(message);
+    refreshStatus();
     var mine = run;
-    loadGroups(mine, function () { if (S.tab === "list") { render(); loadList(); } else render(); });
+    resetPaging();
+    loadGroups(mine, function () { if (S.tab === "list") { paintSide(); loadList(); } });
   }
 
-  /* ----- groups ----- */
+  /* ----- groups (left column) ----- */
 
-  function groupsPanel(panel) {
-    var form = h("form", "ct-card ct-toolbar"); form.setAttribute("aria-label", "Add a group"); form.setAttribute("novalidate", "novalidate");
-    var name = D.el("input", { id: "ct-gname", "class": "ct-input", type: "text", autocomplete: "off", maxlength: "60", placeholder: "Name of the new group" });
-    var lab = D.el("label", { "for": "ct-gname", "class": "ct-sr" }, "Name of the new group");
-    var err = errBox(), go = btn("Add group", "primary", null); go.setAttribute("type", "submit");
-    add(form, add(h("div", "ct-field ct-search"), lab, name), go);
-    form.addEventListener("submit", function (e) {
-      e.preventDefault(); showErr(err, "");
-      var m = groupNameError(name.value);
-      if (m) { showErr(err, m); name.focus(); return; }
-      busy(go, true);
-      var mine = run;
-      D.call("POST", base() + "groups/", { name: String(name.value).trim() }, true).then(function (res) {
-        if (res.status === 401 || mine !== run || !S) return;
-        busy(go, false);
-        if (res.ok) { say("Group added."); loadGroups(mine, function () { render(); }); return; }
-        showErr(err, codeOf(res) === "already_exists" ? "A group with that name already exists." : (fieldMessage(res, "name") || msgOf(res, DOWN)));
+  function groupDialog(opener) {
+    dialog("group", opener, function (dlg, close) {
+      var input = textInput("ct-gname", "", { maxlength: "60" }), f = field("Group name", input);
+      var err = errBox(), save = btn("Add group", "primary", null), cancel = btn("Cancel", "ghost", function () { close(true); });
+      save.addEventListener("click", function () {
+        showErr(err, ""); bad(f, "", input);
+        var m = groupNameError(input.value);
+        if (m) { bad(f, m, input); input.focus(); return; }
+        busy(save, true);
+        var mine = run;
+        D.call("POST", base() + "groups/", { name: String(input.value).trim() }, true).then(function (res) {
+          if (res.status === 401 || mine !== run || !S) return;
+          busy(save, false);
+          if (res.ok) { close(true); say("Group added."); loadGroups(mine, function () { paintSide(); }); return; }
+          showErr(err, codeOf(res) === "already_exists" ? "A group with that name already exists." : (fieldMessage(res, "name") || msgOf(res, DOWN)));
+        });
       });
+      add(dlg, title("New group", "group"), f, err, add(h("div", "ct-actions"), save, cancel));
+      input.focus();
     });
-    var card = h("section", "ct-card ct-list-card"); card.setAttribute("aria-label", "Groups");
-    if (!S.groups.length) add(card, h("p", "ct-note", "No groups yet."));
-    else {
-      var ul = h("ul", "ct-list");
-      S.groups.forEach(function (g) {
-        var li = h("li", "ct-row"), main = h("div", "ct-row-main");
-        add(main, h("span", "ct-name", String(g.name)), h("span", "ct-meta", countText(num(g.count))));
-        var ren = btn("Rename", "ghost", function (b) { renameDialog(g, b); }), del = btn("Delete", "ghost", function (b) { deleteGroup(g, b); });
-        ren.setAttribute("aria-label", "Rename " + g.name); del.setAttribute("aria-label", "Delete " + g.name);
-        add(li, main, add(h("span", "ct-row-actions"), ren, del));
-        ul.appendChild(li);
-      });
-      card.appendChild(ul);
-    }
-    add(card, add(h("div", "ct-list-foot"), h("span", "ct-meta", "Deleting a group keeps its contacts. A contact can be in more than one group.")));
-    add(panel, form, err, card);
   }
   function renameDialog(g, opener) {
     dialog("rename", opener, function (dlg, close) {
@@ -593,8 +679,8 @@
         D.call("PATCH", base() + "groups/" + encodeURIComponent(g.id) + "/", { name: String(input.value).trim() }, true).then(function (res) {
           if (res.status === 401 || mine !== run || !S) return;
           busy(save, false);
-          if (res.ok) { close(true); say("Group renamed."); loadGroups(mine, function () { render(); }); return; }
-          if (res.status === 404) { close(false); loadGroups(mine, function () { render(); }); return; }
+          if (res.ok) { close(true); say("Group renamed."); loadGroups(mine, function () { paintSide(); loadList(); }); return; }
+          if (res.status === 404) { close(false); loadGroups(mine, function () { paintSide(); }); return; }
           showErr(err, codeOf(res) === "already_exists" ? "A group with that name already exists." : (fieldMessage(res, "name") || msgOf(res, DOWN)));
         });
       });
@@ -607,7 +693,10 @@
       var mine = run;
       D.call("DELETE", base() + "groups/" + encodeURIComponent(g.id) + "/", null, true).then(function (res) {
         if (res.status === 401 || mine !== run || !S) return;
-        if (res.ok || res.status === 404) { close(false); if (S.group === String(g.id)) { S.group = ""; resetPaging(); } say("Group deleted."); loadGroups(mine, function () { render(); }); return; }
+        if (res.ok || res.status === 404) {
+          close(false); if (S.group === String(g.id)) { S.group = ""; S.sel = null; S.editing = false; resetPaging(); }
+          say("Group deleted."); loadGroups(mine, function () { paintSide(); drawDetail(); loadList(); }); return;
+        }
         fail(msgOf(res, DOWN));
       });
     });
@@ -618,13 +707,14 @@
   function uploadPanel(panel) {
     var U = S.upload = { text: "", group: "", checked: null, run: 0 };
     var form = h("form", "ct-card"); form.setAttribute("novalidate", "novalidate"); form.setAttribute("aria-label", "Upload contacts");
-    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
+    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Not sure how to fill it in? Download the sample file. Up to 1 MB. Nothing is saved until you check it and confirm."));
     /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
     var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
     var fFile = field("CSV file", file); /* field() puts the input in its box; it moves into the picker below, directly before its label */
     var pick = h("div", "ct-filepick"), pickBtn = h("label", "no-btn no-btn-ghost ct-filebtn", "Choose file"), pickName = h("span", "ct-meta ct-filename", "No file chosen");
     pickBtn.setAttribute("for", "ct-file");
-    add(pick, file, pickBtn, pickName);
+    var sample = D.el("a", { "class": "ct-sample", href: SAMPLE, download: "contacts-sample.csv" }, "Download sample CSV");
+    add(pick, file, pickBtn, pickName, sample);
     fFile.insertBefore(pick, fFile.err);
     var area = D.el("textarea", { id: "ct-paste", "class": "ct-input ct-area", rows: "6", spellcheck: "false", placeholder: "Maria,Santos,0917 123 4567" });
     var fPaste = field("Or paste the lines here", area);
@@ -707,5 +797,5 @@
 
   window.NOContacts = { show: show, hide: hide, probe: probe, addDialog: addDialog,
     util: { nameOf: nameOf, queryMode: queryMode, listPath: listPath, groupsOf: groupsOf, groupIds: groupIds, fieldMessage: fieldMessage, contactBody: contactBody,
-      changedBody: changedBody, contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
+      changedBody: changedBody, letterOf: letterOf, sections: sections, contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
 })();

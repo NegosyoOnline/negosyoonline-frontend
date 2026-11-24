@@ -137,23 +137,53 @@ test("the page on a 404 says nothing about the feature beyond not available, and
   assert.ok(d.nav.every((n) => n.hidden === true));
 });
 
-test("the list: count, rows, masked mobile, No name, group chips, opted-out marker; all text escaped", async () => {
+const byClass = (d, c) => d.root().all((n) => n.classList.contains(c));
+const openBtn = (d, name) => d.root().all((n) => n.tagName === "BUTTON" && n.getAttribute("aria-label") === "Open " + name)[0];
+const sideBtn = (d, name) => d.root().all((n) => n.classList.contains("ct-side-btn") && n.textContent.startsWith(name))[0];
+
+test("three columns: groups, list, detail; the list with masked mobile, No name, escaped text; the saved count under the groups", async () => {
   const d = boot();
   await d.open();
   assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "status/", "GET " + BASE + "groups/", "GET " + BASE]);
+  const app = byClass(d, "ct-app")[0];
+  assert.deepEqual(app.children.map((c) => c.classList.contains("ct-col-groups") ? "groups" : c.classList.contains("ct-col-list") ? "list" : "detail"), ["groups", "list", "detail"]);
   const text = d.root().textContent;
   assert.ok(text.includes("3 of 20,000 contacts saved"));
-  assert.ok(text.includes("3 contacts"));
-  assert.ok(text.includes("Ana Reyes") && text.includes("0917 *** 1234") && text.includes("Regulars"));
-  assert.ok(text.includes("No name") && text.includes("Opted out"));
-  assert.ok(!text.includes("09171234567"), "no full mobile in the list");
-  /* hostile text is text, never a node */
-  assert.ok(text.includes("<img src=x onerror=alert(1)>") && text.includes("<b>VIP</b>"));
+  assert.ok(byClass(d, "ct-col-groups")[0].all((n) => n.classList.contains("ct-saved")).length === 1, "saved count in the groups column");
+  assert.ok(text.includes("Ana Reyes") && text.includes("0917 *** 1234") && text.includes("No name"));
+  assert.ok(text.includes("<img src=x onerror=alert(1)>"));
   assert.equal(d.root().all((n) => n.tagName === "IMG" || n.tagName === "B").length, 0);
+  assert.ok(!text.includes("09171234567"), "no full mobile in the list");
   assert.equal(d.nav[0].hidden, false);
+  assert.ok(text.includes("Select a contact to see the details."));
 });
 
-test("search: one character sends nothing; two or more sends q; the group filter sends group; Next and Previous follow the cursor", async () => {
+test("left column: All Contacts first, then groups with counts; picking one filters the list; All Contacts leaves group out", async () => {
+  const d = boot();
+  await d.open();
+  const names = byClass(d, "ct-side-btn").map((b) => b.children.map((x) => x.textContent).join("|"));
+  assert.deepEqual(names, ["All Contacts|3", "Regulars|2", "VIP|0"]);
+  assert.equal(sideBtn(d, "All Contacts").getAttribute("aria-current"), "true");
+  await d.click(sideBtn(d, "Regulars"));
+  assert.equal(d.calls[d.calls.length - 1].path, BASE + "?group=g1");
+  assert.equal(sideBtn(d, "Regulars").getAttribute("aria-current"), "true");
+  await d.click(sideBtn(d, "All Contacts"));
+  assert.equal(d.calls[d.calls.length - 1].path, BASE);
+  assert.ok(d.press(d.root(), "New group"), "a way to add a group");
+});
+
+test("A-Z list: letter headers in order, number-only contacts under # at the end", async () => {
+  const d = boot({ rows: [row("c2", "", "", "0918 *** 5678"), row("c4", "ben", "Lim", "0921 *** 1"), row("c1", "Ana", "Reyes", "0917 *** 1234"), row("c5", "Álvaro", "Cruz", "0922 *** 2"), row("c6", "Zed", "", "0923 *** 3")] });
+  await d.open();
+  assert.deepEqual(byClass(d, "ct-letter").map((n) => n.textContent), ["A", "B", "Z", "#"]);
+  const u = d.window.NOContacts.util;
+  assert.equal(u.letterOf({ first_name: "", last_name: "" }), "#");
+  assert.equal(u.letterOf({ first_name: "", last_name: "Mata" }), "M");
+  assert.equal(u.letterOf({ first_name: "9lives" }), "#");
+  assert.equal(u.letterOf({ first_name: "Álvaro" }), "A");
+});
+
+test("search: one character sends nothing; two or more sends q; Load more follows the cursor", async () => {
   const d = boot();
   d.s.next = "CUR2";
   await d.open();
@@ -166,28 +196,53 @@ test("search: one character sends nothing; two or more sends q; the group filter
   assert.equal(d.calls[d.calls.length - 1].path, BASE + "?q=an");
   d.input(q, ""); await new Promise((r) => setTimeout(r, 420)); await settle();
   assert.equal(d.calls[d.calls.length - 1].path, BASE);
-  /* the house dropdown: open, choose */
-  const sel = d.$("ct-group");
-  assert.deepEqual(sel.children.map((o) => o.textContent), ["All groups", "Regulars", "VIP"]);
-  const input = d.root().all((n) => n.classList.contains("ct-combo-input"))[0];
-  await d.click(input.parentNode);
-  const opt = d.root().all((n) => n.classList.contains("ct-combo-opt")).find((n) => n.textContent === "Regulars");
-  await d.click(opt);
-  assert.equal(d.calls[d.calls.length - 1].path, BASE + "?group=g1");
-  /* paging */
-  const next = d.press(d.root(), "Next");
-  assert.equal(next.disabled, false);
-  await d.click(next);
-  assert.equal(d.calls[d.calls.length - 1].path, BASE + "?group=g1&cursor=CUR2");
   d.s.next = null;
-  await d.click(d.press(d.root(), "Previous"));
-  assert.equal(d.calls[d.calls.length - 1].path, BASE + "?group=g1");
+  await d.click(d.press(d.root(), "Load more"));
+  assert.equal(d.calls[d.calls.length - 1].path, BASE + "?cursor=CUR2");
+});
+
+test("detail: choosing a contact shows it from the list row with no extra read; Edit reads the full number, edits in place and PATCHes only the change", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(openBtn(d, "Ana Reyes"));
+  assert.ok(!d.list().some((c) => c.startsWith("GET " + BASE + "c1")), "no detail read on select");
+  const det = d.$("ct-detail");
+  assert.ok(det.textContent.includes("Ana Reyes") && det.textContent.includes("0917 *** 1234") && det.textContent.includes("Regulars"));
+  assert.equal(byClass(d, "ct-app")[0].getAttribute("data-pane"), "detail");
+  await d.click(d.press(det, "Edit"));
+  assert.ok(d.list().includes("GET " + BASE + "c1/"));
+  assert.equal(d.$("ct-mobile").value, "09171234567");
+  assert.equal(d.slot().children.length, 0, "edits in place, not in a dialog");
+  const boxes = det.all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox");
+  assert.deepEqual(boxes.map((b) => b.checked), [true, false]);
+  d.$("ct-last").value = "Santos";
+  await d.click(d.press(det, "Save contact"));
+  const patch = d.calls.find((c) => c.method === "PATCH");
+  assert.equal(patch.path, BASE + "c1/");
+  assert.deepEqual(patch.body, { last_name: "Santos" });
+  assert.ok(!d.press(d.$("ct-detail"), "Save contact"), "back to the read view");
+});
+
+test("detail: delete asks first", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(openBtn(d, "Ana Reyes"));
+  await d.click(d.buttons(d.$("ct-detail")).find((b) => b.getAttribute("aria-label") === "Delete Ana Reyes"));
+  assert.ok(d.slot().textContent.includes("This cannot be undone."));
+  assert.ok(!d.calls.some((c) => c.method === "DELETE"));
+  await d.click(d.press(d.slot(), "Cancel"));
+  assert.ok(!d.calls.some((c) => c.method === "DELETE"));
+  await d.click(d.buttons(d.$("ct-detail")).find((b) => b.getAttribute("aria-label") === "Delete Ana Reyes"));
+  await d.click(d.press(d.slot(), "Delete contact"));
+  assert.deepEqual(d.calls.filter((c) => c.method === "DELETE").map((c) => c.path), [BASE + "c1/"]);
 });
 
 test("add a contact: mobile is required; the body carries names, mobile and group ids; the list reloads", async () => {
   const d = boot();
   await d.open();
-  await d.click(d.press(d.root(), "Add contact"));
+  const plus = d.root().all((n) => n.classList.contains("ct-plus"))[0];
+  assert.equal(plus.textContent, "+");
+  await d.click(plus);
   const dlg = d.slot();
   assert.ok(dlg.textContent.includes("Add contact") && dlg.textContent.includes("Regulars") && dlg.textContent.includes("VIP"));
   assert.ok(d.$("ct-first").getAttribute("aria-required") === "true" && dlg.textContent.includes("First name *"));
@@ -200,6 +255,9 @@ test("add a contact: mobile is required; the body carries names, mobile and grou
   assert.ok(!dlg.all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox").length, "Add has a Group dropdown, not checkboxes");
   assert.equal(d.$("ct-agroup").tagName, "SELECT");
   assert.equal(d.$("ct-agroup").children[0].textContent, "No group");
+  const agin = dlg.all((n) => n.classList.contains("ct-combo-input"))[0];
+  assert.equal(agin.value, "", "No group is only a placeholder");
+  assert.equal(agin.getAttribute("placeholder"), "No group");
   d.$("ct-agroup").value = "g2";
   await d.click(d.press(dlg, "Add contact"));
   const post = d.calls.find((c) => c.method === "POST" && c.path === BASE);
@@ -212,7 +270,7 @@ test("add: the API's field errors and a duplicate number land on the field", asy
   const d = boot();
   d.s.post = err(400, "invalid_request", "Check it.", { mobile: ["Not a Philippine mobile number."] });
   await d.open();
-  await d.click(d.press(d.root(), "Add contact"));
+  await d.click(d.root().all((n) => n.classList.contains("ct-plus"))[0]);
   d.$("ct-first").value = "Lito";
   d.$("ct-mobile").value = "123";
   await d.click(d.press(d.slot(), "Add contact"));
@@ -222,67 +280,52 @@ test("add: the API's field errors and a duplicate number land on the field", asy
   assert.ok(d.slot().textContent.includes("That number is already a contact."));
 });
 
-test("edit: the full mobile is read only when one contact is opened; save PATCHes; delete asks first", async () => {
+test("groups: add, rename and delete from the left column", async () => {
   const d = boot();
   await d.open();
-  assert.ok(!d.list().some((c) => c.startsWith("GET " + BASE + "c1")));
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
-  assert.ok(d.list().includes("GET " + BASE + "c1/"));
-  assert.equal(d.$("ct-mobile").value, "09171234567");
-  assert.equal(d.$("ct-first").value, "Ana");
-  const boxes = d.slot().all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "checkbox");
-  assert.deepEqual(boxes.map((b) => b.checked), [true, false], "her group is ticked");
-  d.$("ct-last").value = "Santos";
-  await d.click(d.press(d.slot(), "Save contact"));
-  const patch = d.calls.find((c) => c.method === "PATCH");
-  assert.equal(patch.path, BASE + "c1/");
-  assert.deepEqual(patch.body, { last_name: "Santos" }, "only the changed field");
-  /* delete needs a confirm */
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
-  await d.click(d.press(d.slot(), "Delete contact"));
-  assert.ok(d.slot().textContent.includes("This cannot be undone."));
-  assert.ok(!d.calls.some((c) => c.method === "DELETE"), "nothing deleted yet");
-  await d.click(d.press(d.slot(), "Cancel"));
-  assert.ok(!d.calls.some((c) => c.method === "DELETE"));
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
-  await d.click(d.press(d.slot(), "Delete contact"));
-  await d.click(d.press(d.slot(), "Delete contact"));
-  assert.deepEqual(d.calls.filter((c) => c.method === "DELETE").map((c) => c.path), [BASE + "c1/"]);
-  assert.equal(d.slot().children.length, 0);
-});
-
-test("groups: each with its count; create, rename and delete (with a confirm)", async () => {
-  const d = boot();
-  await d.open();
-  await d.click(d.press(d.root(), "Groups"));
-  let text = d.root().textContent;
-  assert.ok(text.includes("Regulars") && text.includes("2 contacts") && text.includes("VIP") && text.includes("0 contacts"));
-  assert.ok(text.includes("Deleting a group keeps its contacts."));
-  /* create */
+  await d.click(d.press(d.root(), "New group"));
   d.$("ct-gname").value = "  New ones ";
-  d.root().all((n) => n.tagName === "FORM")[0].fire("submit");
-  await settle();
+  await d.click(d.press(d.slot(), "Add group"));
   assert.deepEqual(d.calls.find((c) => c.method === "POST" && c.path === BASE + "groups/").body, { name: "New ones" });
-  /* empty name is refused without a request */
-  const posts = d.calls.filter((c) => c.method === "POST").length;
+  await d.click(d.press(d.root(), "New group"));
   d.$("ct-gname").value = "  ";
-  d.root().all((n) => n.tagName === "FORM")[0].fire("submit");
-  await settle();
-  assert.equal(d.calls.filter((c) => c.method === "POST").length, posts);
-  assert.ok(d.root().textContent.includes("Enter a group name."));
-  /* rename */
+  await d.click(d.press(d.slot(), "Add group"));
+  assert.ok(d.slot().textContent.includes("Enter a group name."));
+  await d.click(d.press(d.slot(), "Cancel"));
+  await d.click(sideBtn(d, "Regulars"));
   await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Rename Regulars"));
   assert.equal(d.$("ct-rename").value, "Regulars");
   d.$("ct-rename").value = "Loyal";
   await d.click(d.press(d.slot(), "Save name"));
   const patch = d.calls.find((c) => c.method === "PATCH");
   assert.equal(patch.path, BASE + "groups/g1/"); assert.deepEqual(patch.body, { name: "Loyal" });
-  /* delete */
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Delete VIP"));
+  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Delete Regulars"));
   assert.ok(d.slot().textContent.includes("Its contacts stay in your contacts."));
   assert.ok(!d.calls.some((c) => c.method === "DELETE"));
   await d.click(d.press(d.slot(), "Delete group"));
-  assert.deepEqual(d.calls.filter((c) => c.method === "DELETE").map((c) => c.path), [BASE + "groups/g2/"]);
+  assert.deepEqual(d.calls.filter((c) => c.method === "DELETE").map((c) => c.path), [BASE + "groups/g1/"]);
+});
+
+test("Upload CSV: the group dropdown is empty with a placeholder, nothing is sent for it; the sample CSV link and file match the parser", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(d.press(d.root(), "Upload CSV"));
+  const inp = d.root().all((n) => n.classList.contains("ct-combo-input"))[0];
+  assert.equal(inp.value, "");
+  assert.equal(inp.getAttribute("placeholder"), "No group");
+  d.$("ct-paste").value = "09171234567";
+  await d.click(d.press(d.root(), "Check"));
+  assert.deepEqual(d.calls.find((c) => c.path === BASE + "upload/check/").body, { text: "09171234567" }, "group left out");
+  const a = d.root().all((n) => n.tagName === "A" && n.textContent === "Download sample CSV")[0];
+  assert.ok(a, "sample link");
+  assert.equal(a.getAttribute("href"), "/assets/samples/contacts-sample.csv");
+  const file = fs.readFileSync(path.join(ROOT, a.getAttribute("href")), "utf8").trim().split(/\r?\n/).map((l) => l.split(","));
+  assert.deepEqual(file[0], ["first_name", "last_name", "mobile"], "header names the three columns the server reads");
+  assert.ok(!/\d/.test(file[0][2]), "header is skipped by the server: no digits in the third cell");
+  assert.equal(file.length, 4, "header plus 3 rows");
+  for (const r of file.slice(1)) { assert.equal(r.length, 3); assert.ok(/^09\d{9}$/.test(r[2])); }
+  assert.deepEqual(file[3].slice(0, 2), ["", ""], "one number-only row");
+  assert.ok(fs.statSync(path.join(ROOT, a.getAttribute("href"))).size < 1048576);
 });
 
 test("CSV upload: check shows new, already and refused lines; save sends expected_new; a changed file asks for a new check", async () => {
@@ -360,7 +403,7 @@ test("safety and look: no innerHTML or markup writes; light-blue focus; phone ru
   assert.ok(CSS.includes("var(--link"));
   assert.ok(!/#d4af37|var\(--focus\)/i.test(CSS));
   assert.ok(/@media \(max-width: 720px\)/.test(CSS));
-  assert.ok(/\.ct-toolbar \{ grid-template-columns: minmax\(0, 1fr\)/.test(CSS), "one column on a phone");
+  assert.ok(/\.ct-app \{ display: block;/.test(CSS) && /data-pane="detail"\] \.ct-col-detail \{ display: flex/.test(CSS) && /\.ct-back \{ display: inline-flex/.test(CSS), "one column at a time on a phone, with back controls");
   assert.ok(!/overflow-x:\s*(scroll|auto)/.test(CSS));
   const rules = CSS.split("\n").filter((l) => /\{/.test(l) && !/^\s*(\/\*|@)/.test(l));
   for (const l of rules) assert.ok(/^\s*(body\.dash-app )?:is\(#view-contacts, #ct-dialog-slot\)|^@media[^{]*\{ :is\(#view-contacts, #ct-dialog-slot\)/.test(l), "scoped: " + l.slice(0, 60));
@@ -370,30 +413,23 @@ test("edit: a contact with no name can be saved with none; a named one must keep
   const d = boot();
   d.s.detail = { ...ROWS[1], mobile: "09180000000" };
   await d.open();
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
-  assert.ok(!d.slot().textContent.includes("First name *"));
-  await d.click(d.press(d.slot(), "Save contact"));
+  await d.click(openBtn(d, "No name"));
+  await d.click(d.press(d.$("ct-detail"), "Edit"));
+  assert.ok(!d.$("ct-detail").textContent.includes("First name *"));
+  await d.click(d.press(d.$("ct-detail"), "Save contact"));
   assert.ok(!d.calls.some((c) => c.method === "PATCH"), "unchanged: nothing is sent");
-  /* adding a name sends it, and only it */
-  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
+  await d.click(d.press(d.$("ct-detail"), "Edit"));
   d.$("ct-first").value = " Pedro ";
-  await d.click(d.press(d.slot(), "Save contact"));
+  await d.click(d.press(d.$("ct-detail"), "Save contact"));
   assert.deepEqual(d.calls.find((c) => c.method === "PATCH").body, { first_name: "Pedro" });
-  /* another field changed on a no-name contact: first_name is not in the body */
-  const f = boot();
-  f.s.detail = { ...ROWS[1], mobile: "09180000000" };
-  await f.open();
-  await f.click(f.buttons(f.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
-  f.$("ct-last").value = "Lim";
-  await f.click(f.press(f.slot(), "Save contact"));
-  assert.deepEqual(f.calls.find((c) => c.method === "PATCH").body, { last_name: "Lim" });
   const e = boot();
   await e.open();
-  await e.click(e.buttons(e.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
-  assert.ok(e.slot().textContent.includes("First name *"));
+  await e.click(openBtn(e, "Ana Reyes"));
+  await e.click(e.press(e.$("ct-detail"), "Edit"));
+  assert.ok(e.$("ct-detail").textContent.includes("First name *"));
   e.$("ct-first").value = " ";
-  await e.click(e.press(e.slot(), "Save contact"));
-  assert.ok(e.slot().textContent.includes("Enter a first name"));
+  await e.click(e.press(e.$("ct-detail"), "Save contact"));
+  assert.ok(e.$("ct-detail").textContent.includes("Enter a first name"));
   assert.ok(!e.calls.some((c) => c.method === "PATCH"));
 });
 
@@ -424,12 +460,11 @@ test("no page title block: no kicker, title or subtitle; the sr-only h1 stays; t
   assert.ok(host.classList.contains("ct-tabs-host"));
   const bar = host.children[0];
   assert.ok(bar.classList.contains("set-tabs") && bar.getAttribute("role") === "tablist");
-  assert.deepEqual(bar.children.map((b) => b.textContent), ["Contacts", "Groups", "Upload CSV"]);
-  assert.deepEqual(bar.children.map((b) => b.classList.contains("is-on")), [true, false, false]);
+  assert.deepEqual(bar.children.map((b) => b.textContent), ["Contacts", "Upload CSV"]);
+  assert.deepEqual(bar.children.map((b) => b.classList.contains("is-on")), [true, false]);
   const saved = root.all((n) => n.classList.contains("ct-saved"))[0];
   assert.equal(saved.textContent, "3 of 20,000 contacts saved");
-  assert.ok(saved.parentNode.parentNode.getAttribute("id") === "ct-results", "inside the list card");
   await d.click(bar.children[1]);
-  assert.deepEqual(d.root().children[0].children[0].children.map((b) => b.classList.contains("is-on")), [false, true, false]);
+  assert.deepEqual(d.root().children[0].children[0].children.map((b) => b.classList.contains("is-on")), [false, true]);
   assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ :is\(#view-contacts, #ct-dialog-slot\) \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
 });

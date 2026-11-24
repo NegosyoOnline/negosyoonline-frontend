@@ -438,7 +438,7 @@ html[data-theme="light"] #view-inbox .cm-st-no { color: #A87A00; }
 #view-inbox .ib-bk-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; background: var(--chip-info-bg); color: var(--chip-info); }
 #view-inbox .ib-bk-chip.is-finished, #view-inbox .ib-bk-chip.is-r-sent { background: var(--chip-ok-bg); color: var(--chip-ok); }
 #view-inbox .ib-bk-chip.is-stopped, #view-inbox .ib-bk-chip.is-ended, #view-inbox .ib-bk-chip.is-r-failed, #view-inbox .ib-bk-chip.is-r-not_sent { background: var(--bl-chip-warn-bg); color: var(--bl-chip-warn); }
-#view-inbox .ib-bk-recrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--card-line); }
+#view-inbox .ib-bk-recrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px solid var(--card-line); }
 #view-inbox .ib-bk-recwho, #view-inbox .ib-bk-recst { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 #view-inbox .ib-bk-recst { align-items: flex-end; text-align: right; }
 #view-inbox .ib-bk .ib-fld { flex: none; }
@@ -531,14 +531,14 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-tr.is-open td { border-bottom: 0; }
 #view-inbox .ib-bk-dr > td { padding: 0; display: table-cell; border-top: 0; }
 #view-inbox .ib-bk-dwrap { position: sticky; left: 0; box-sizing: border-box; max-width: calc(100vw - 96px); } /* the details stay in view while the table scrolls inside its box */
-#view-inbox .ib-bk-rec { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; }
+#view-inbox .ib-bk-rec { list-style: none; margin: 8px 0 8px; padding: 0; display: flex; flex-direction: column; } /* a divider above the first row, none under the last */
 #view-inbox .ib-bk-rsum, #view-inbox .ib-bk-mob, #view-inbox .ib-bk-reason { color: var(--meta); font-size: 14px; }
 /* the compose form: the form and the rules side by side (HQ's layout), one column on a phone */
 #view-inbox .ib-bk-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 16px; align-items: start; }
 #view-inbox .ib-bk-colmain { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 #view-inbox .ib-bk-aside { min-width: 0; }
 #view-inbox .ib-bk-rules .ib-bk-left { color: var(--text-2); }
-#view-inbox .ib-bk-sendto { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+#view-inbox .ib-bk-sendto { min-width: 0; }
 #view-inbox .ib-bk-pick { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
 #view-inbox .ib-bk-pick[hidden] { display: none; }
 #view-inbox .ib-bk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -588,13 +588,26 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-bk-dr > td { background: color-mix(in srgb, var(--link) 7%, transparent); }
 #view-inbox .ib-bk-flat { display: flex; flex-direction: column; gap: 6px; padding: 12px 12px 14px; font-size: 15px; color: var(--text); }
 #view-inbox .ib-bk-flat p { margin: 0; }
-#view-inbox .ib-bk-fh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--meta); }
-#view-inbox .ib-bk-fh strong { color: var(--text); font-weight: 700; }
+#view-inbox .ib-bk-fh { display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--text); }
+#view-inbox .ib-bk-fh strong { font-weight: 700; }
+#view-inbox .ib-bk-fh svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #view-inbox .ib-bk-stat { font-weight: 600; font-variant-numeric: tabular-nums; }
 #view-inbox .ib-bk-endl { display: flex; align-items: center; gap: 8px; color: var(--bl-chip-warn); }
 #view-inbox .ib-bk-endl svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #view-inbox .ib-bk-flat .ib-bk-text { font-size: 15px; color: var(--text-2); }
 #view-inbox .ib-bk-lo { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; padding: 0; list-style: none; font-size: 14px; color: var(--meta); }
 #view-inbox .ib-bk-lo-t { font-weight: 600; }
-#view-inbox .ib-bk-dr .ib-bk-rec, #view-inbox .ib-bk-dr > td > .pm-meta, #view-inbox .ib-bk-dr > td > .no-btn { margin-left: 12px; margin-right: 12px; margin-bottom: 12px; }
+#view-inbox .ib-bk-dr .ib-bk-rec, #view-inbox .ib-bk-dr > td > .pm-meta, #view-inbox .ib-bk-dr > td > .no-btn, #view-inbox .ib-bk-more { margin-left: 12px; margin-right: 12px; margin-bottom: 12px; }
 @media (width < 900px) { #view-inbox .ib-bk-histsec .ib-bk-dh > .no-btn { flex: 1 1 100%; } }
+/* Round 9: the compact Sending now card, the one-line count with two buttons, the confirm dialog */
+#view-inbox .ib-bk-run { gap: 8px; }
+#view-inbox .ib-bk-prog { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin: 0; font-variant-numeric: tabular-nums; }
+#view-inbox .ib-bk-est { color: var(--meta); font-size: 14px; }
+#view-inbox .ib-bk-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+#view-inbox .ib-bk-actions .ib-bk-will { margin: 0; font-size: 14px; font-weight: 500; color: var(--meta); }
+#view-inbox .ib-bk-btns { display: flex; flex-wrap: wrap; gap: 10px; }
+#view-inbox .ib-bk-dlg { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, .45); }
+#view-inbox .ib-bk-dlg-box { width: min(100%, 380px); box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 20px; border-radius: 16px; background: var(--card); border: 1px solid var(--card-line); box-shadow: var(--card-shadow); }
+#view-inbox .ib-bk-dlg-t { margin: 0; font-size: 17px; font-weight: 600; color: var(--text); }
+#view-inbox .ib-bk-dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
+@media (width < 900px) { #view-inbox .ib-bk-btns, #view-inbox .ib-bk-btns .no-btn { flex: 1 1 100%; } }

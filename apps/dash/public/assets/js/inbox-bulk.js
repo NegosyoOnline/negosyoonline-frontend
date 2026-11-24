@@ -23,7 +23,7 @@
     phone_offline: "Paused: your phone is offline. It goes on when your phone is back online."
   };
   var NO_LINE = "Pair your phone in Settings → SMS Gateway to text many members.";
-  var PAGE = 50;
+  var PAGE = 5; /* recipients per View step: the first 5, then 5 more at a time (the server pages with ?limit= and next) */
 
   function available(st) { return !!st && typeof st === "object" && st.available === true; }
   function num(n) { return typeof n === "number" && isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
@@ -87,6 +87,14 @@
     if (res && res.status === 0) return "We could not reach the server. Please try again.";
     return fallback || "That did not work. Please try again.";
   }
+  /* The top line of a batch's View: the icon path and the plain words, by state ("Stopped by you on <date>"). The date is the one the state
+     happened (stopped_at, finished_at), else the day it was created. */
+  var HEAD_ICON = { stopped: "M7 7h10v10H7z", finished: "M5 13l4 4L19 7", sending: "M12 6v6l4 2", waiting: "M12 6v6l4 2", ended: "M12 3l10 18H2zM12 10v5M12 18h.01" };
+  function headline(b) {
+    var st = b && b.state, d = when(st === "stopped" ? b.stopped_at || b.created_at : (st === "finished" || st === "ended") ? b.finished_at || b.stopped_at || b.created_at : b && b.created_at);
+    var w = st === "stopped" ? "Stopped by you on " : st === "finished" ? "Finished on " : st === "sending" ? "Sending since " : st === "ended" ? "Ended on " : "Waiting to start since ";
+    return w + d;
+  }
   function when(iso) {
     if (!iso) return "";
     try { return new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
@@ -133,7 +141,7 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], csrun: 0, ctimer: null, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
       hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
@@ -205,60 +213,55 @@
         if (st.dead || st.groups !== g0) return;
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
-        var sel = document.getElementById("ib-bk-gsel"); if (sel) { fillGroups(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+        var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
       });
     }
     /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. */
     function searchContacts(raw) {
       if (st.ctimer) clearTimeout(st.ctimer);
-      var q = String(raw || "").trim(), run = ++st.csrun, sel = document.getElementById("ib-bk-csel");
-      if (q.length < 2) { st.found = []; if (sel) { fillContacts(sel); sel.ibRedraw(); } return; }
+      var q = String(raw || "").trim(), run = ++st.csrun, sel = document.getElementById("ib-bk-to");
+      if (q.length < 2) { st.found = []; if (sel) { fillSend(sel); sel.ibRedraw(); } return; }
       st.ctimer = setTimeout(function () {
         st.ctimer = null;
         D.call("GET", "/sites/" + ui.site + "/contacts/?q=" + encodeURIComponent(q), null, true).then(function (res) {
           if (st.dead || run !== st.csrun || (res && res.status === 401)) return;
           st.found = res && res.ok && res.data ? contactItems(res.data.results) : [];
-          var s2 = document.getElementById("ib-bk-csel"); if (s2) { fillContacts(s2); s2.ibRedraw(); }
+          var s2 = document.getElementById("ib-bk-to"); if (s2) { fillSend(s2); s2.ibRedraw(); }
         });
       }, 300);
     }
-    function fillGroups(sel) {
+    /* ONE dropdown for who gets it (Coach Ed 2026-11-24 round 9): "All my members" first and selected by default, then the groups, then the contacts
+       found by the search, mixed in one list. The first (blank) option is the grey placeholder shown once something is picked. Values: "all", "g:<id>", "c:<id>". */
+    function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
-      sel.appendChild(D.el("option", { value: "" }, "Choose a group"));
+      var q = String(st.q || "").trim().toLowerCase();
+      sel.appendChild(D.el("option", { value: "" }, "Add a group or contact"));
+      if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
-        if (!st.pickG.some(function (x) { return x.id === g.id; })) sel.appendChild(D.el("option", { value: String(g.id) }, g.label));
+        if (st.pickG.some(function (x) { return x.id === g.id; })) return;
+        if (q && g.label.toLowerCase().indexOf(q) < 0) return;
+        sel.appendChild(D.el("option", { value: "g:" + g.id, "data-tag": "Group" }, g.label));
       });
-      sel.value = "";
-    }
-    function fillContacts(sel) {
-      while (sel.firstChild) sel.removeChild(sel.firstChild);
-      sel.appendChild(D.el("option", { value: "" }, "Search a contact by name or number"));
       st.found.forEach(function (c) {
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
-        var o = D.el("option", { value: String(c.id) }, c.label); if (c.optedOut) o.setAttribute("data-tag", "No texts"); sel.appendChild(o);
+        var o = D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact \u00B7 No texts" : "Contact" }, c.label); sel.appendChild(o);
       });
-      sel.value = "";
+      sel.value = picked() ? "" : "all";
     }
-    /* The picks changed: show the chips, ask for the count again (the newest answer wins) and ask for a new tick. */
+    /* The picks changed: the audience follows them (none left: All my members), show the chips, ask for the count again and for a new confirm. */
     function pickChanged() {
-      st.sure = false; st.key = null; st.err = "";
+      st.audience = picked() ? "pick" : "all"; st.q = ""; st.key = null; st.err = "";
+      var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
     function drawChips() {
-      [["ib-bk-gchips", st.pickG, "group"], ["ib-bk-cchips", st.pickC, "contact"]].forEach(function (t) {
-        var box = document.getElementById(t[0]); if (!box) return;
-        ui.clear(box);
-        t[1].forEach(function (it) {
-          var chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
-          var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
-          x.addEventListener("click", function () {
-            var arr = t[1]; arr.splice(arr.indexOf(it), 1);
-            var gs = document.getElementById("ib-bk-gsel"), cs = document.getElementById("ib-bk-csel");
-            if (gs) fillGroups(gs); if (cs) fillContacts(cs);
-            pickChanged();
-          });
-          chip.appendChild(x); box.appendChild(chip);
-        });
+      var box = document.getElementById("ib-bk-chips"); if (!box) return;
+      ui.clear(box);
+      st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
+        var it = t[0], chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
+        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
+        x.addEventListener("click", function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); });
+        chip.appendChild(x); box.appendChild(chip);
       });
     }
     /* The preview and its inline error: 400 ms after the last key. A 422 (a web link, a character, too long) shows on the field. */
@@ -349,17 +352,10 @@
       bar.setAttribute("aria-valuenow", String(Math.min(done, total))); bar.setAttribute("aria-label", "Texts handled so far");
       var fill = h("span", ""); fill.setAttribute("style", "width:" + (total ? Math.min(100, Math.round(done / total * 100)) : 0) + "%"); bar.appendChild(fill);
       card.appendChild(bar);
+      var pr = h("p", "ib-bk-prog"); pr.appendChild(h("strong", "ib-bk-sentl", "Sent " + num(b.sent) + " of " + total));
+      var e = estimate(b.seconds_left); if (e) pr.appendChild(h("span", "ib-bk-est", e));
+      card.appendChild(pr);
       var p = pauseText(b); if (p) { var pn = note(p, true); pn.setAttribute("id", "ib-bk-pause"); card.appendChild(pn); }
-      var e = estimate(b.seconds_left); if (e) card.appendChild(h("p", "dash-copy ib-bk-est", e));
-      var rows = h("ul", "ib-bk-rows");
-      [["Sent", num(b.sent) + " of " + total, "ok"], ["Failed", num(b.failed) + " of " + total, num(b.failed) ? "warn" : ""], ["Not sent", num(b.not_sent) + " of " + total, num(b.not_sent) ? "warn" : ""],
-        ["Waiting", String(num(b.waiting)), ""], ["Started", when(b.created_at), ""], ["Who gets it", audienceName(b.audience), ""]].forEach(function (r) {
-        if (!r[1]) return;
-        var li = h("li", ""); li.appendChild(h("span", "", r[0]));
-        li.appendChild(h("span", "ib-bk-v" + (r[2] ? " is-" + r[2] : ""), r[1])); rows.appendChild(li);
-      });
-      card.appendChild(rows);
-      card.appendChild(lines({ text: b.text, left_out: b.left_out }));
       var err = h("p", "field-err", st.err); err.setAttribute("role", "alert"); err.hidden = !st.err; card.appendChild(err);
       var rf = ui.btn("Refresh", "ghost", function (x) { refreshNow(x); }, "M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"); rf.setAttribute("id", "ib-bk-refresh");
       var stopBtn = ui.btn("Stop sending", "ghost", function (x) { stopBatch(b, x); }); stopBtn.setAttribute("id", "ib-bk-stop");
@@ -393,7 +389,7 @@
     }
 
     /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
-    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; draw(); readAudience(); }
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.dlg = false; draw(); readAudience(); }
     function closeForm() { st.view = "main"; st.err = ""; draw(); }
     function drawForm(body) {
       var s = st.status;
@@ -410,14 +406,7 @@
       var card = dcard("ib-bk-h-new", "New batch: write the text and choose who gets it"); card.classList.add("ib-bk-formcard");
       card.appendChild(form(s));
       main.appendChild(card);
-      var c2 = dcard("ib-bk-h-chk", "Check and confirm"); c2.classList.add("ib-bk-formcard");
-      var cnt = h("div", "ib-bk-box"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite"); c2.appendChild(cnt);
-      var pv = h("div", "ib-bk-box"); pv.setAttribute("id", "ib-bk-preview"); c2.appendChild(pv);
-      var t = ui.btn("Send a test to my phone", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
-      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
-      c2.appendChild(t); c2.appendChild(tn);
-      var cf = h("div", "ib-bk-confirm"); cf.setAttribute("id", "ib-bk-confirm"); c2.appendChild(cf);
-      main.appendChild(c2); main.appendChild(costLine(s));
+      main.appendChild(costLine(s));
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
       var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
@@ -425,12 +414,30 @@
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);
-      drawChips(); drawCount(); drawPreview(); drawConfirm();
+      drawChips(); drawCount(); drawPreview();
+      if (st.contactsOn) readGroups();
     }
     function form(s) {
       var wrap = h("div", "ib-bk-form");
-      /* the text */
       var max = maxOf(s);
+      /* 1. who: ONE house dropdown listing All my members, the groups and the contacts; the picks show as chips (Ruling D1: All my members first and the default) */
+      var fs = h("div", "pm-field ib-bk-sendto");
+      var l1 = h("label", "pm-label", "Send to"); l1.setAttribute("for", "ib-bk-to"); fs.appendChild(l1);
+      var sel = D.el("select", { "class": "ib-input", id: "ib-bk-to" });
+      fillSend(sel); fs.appendChild(sel);
+      var ch = h("div", "ib-bk-chips"); ch.setAttribute("id", "ib-bk-chips"); fs.appendChild(ch);
+      wrap.appendChild(fs);
+      sel.addEventListener("change", function () {
+        var v = sel.value; if (!v) return;
+        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(); return; }
+        var id = v.slice(2), g;
+        if (v.indexOf("g:") === 0) { g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickG.push(g); }
+        else { g = st.found.filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickC.push(g); }
+        if (g) pickChanged();
+      });
+      ui.combo(sel, "Send to", { blankEmpty: true, remote: function (q) { st.q = String(q || ""); fillSend(sel); sel.ibRedraw(); if (st.contactsOn) searchContacts(q); },
+        emptyText: function (q) { return st.contactsOn && String(q || "").trim().length < 2 ? "Type at least 2 letters of a name or number" : "No groups or contacts found."; } });
+      /* 2. the text */
       var f3 = h("div", "pm-field");
       var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
@@ -441,53 +448,17 @@
       wrap.appendChild(err);
       wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
       ta.addEventListener("input", function () {
-        st.text = ta.value; st.err = ""; st.testNote = ""; st.sure = false; st.key = null; st.preview = null; st.prevErr = "";
+        st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = roomLeft(ta.value.length, max); count.classList.toggle("is-over", max !== null && ta.value.length > max);
-        fieldErr(); drawPreview(); drawConfirm(); schedulePreview();
+        fieldErr(); drawPreview(); schedulePreview();
       });
-      /* audience: "All my members" first and the default (Coach Ed's ruling D1); "Chosen groups and contacts" only while contacts are on */
-      var fs = h("fieldset", "ib-bk-sendto"); fs.appendChild(h("legend", "pm-label", "Send to"));
-      var pickBox = h("div", "ib-bk-pick"); pickBox.setAttribute("id", "ib-bk-pick"); pickBox.hidden = st.audience !== "pick";
-      AUDIENCES.forEach(function (a) {
-        if (a[0] === "pick" && !st.contactsOn) return;
-        var opt = h("label", "ib-bk-opt"), r = D.el("input", { type: "radio", name: "ib-bk-to", id: "ib-bk-to-" + a[0], value: a[0] });
-        if (st.audience === a[0]) { r.checked = true; r.setAttribute("checked", "checked"); }
-        r.addEventListener("change", function () {
-          if (!r.checked || st.audience === a[0]) return;
-          st.audience = a[0]; st.sure = false; st.key = null; st.err = "";
-          pickBox.hidden = a[0] !== "pick";
-          if (a[0] === "pick") readGroups();
-          readAudience(); fieldErr();
-        });
-        add(opt, r, h("span", "", a[1]));
-        fs.appendChild(opt);
-      });
-      if (st.contactsOn) {
-        var gf = h("div", "pm-field"), gl = h("label", "pm-label", "Groups"); gl.setAttribute("for", "ib-bk-gsel");
-        var gsel = D.el("select", { "class": "ib-input", id: "ib-bk-gsel" });
-        fillGroups(gsel); var gch = h("div", "ib-bk-chips"); gch.setAttribute("id", "ib-bk-gchips"); add(gf, gl, gsel, gch);
-        var cf = h("div", "pm-field"), cl = h("label", "pm-label", "Contacts"); cl.setAttribute("for", "ib-bk-csel");
-        var csel = D.el("select", { "class": "ib-input", id: "ib-bk-csel" });
-        fillContacts(csel); var cch = h("div", "ib-bk-chips"); cch.setAttribute("id", "ib-bk-cchips"); add(cf, cl, csel, cch);
-        add(pickBox, gf, cf); fs.appendChild(pickBox); wrap.appendChild(fs);
-        gsel.addEventListener("change", function () {
-          var g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === gsel.value; })[0];
-          if (!g) return;
-          st.pickG.push(g); fillGroups(gsel); if (gsel.ibSync) gsel.ibSync(); pickChanged();
-        });
-        csel.addEventListener("change", function () {
-          var c = st.found.filter(function (x) { return String(x.id) === csel.value; })[0];
-          if (!c) return;
-          st.pickC.push(c); fillContacts(csel); if (csel.ibSync) csel.ibSync(); pickChanged();
-        });
-        ui.combo(gsel, "Group", { blankEmpty: true });
-        ui.combo(csel, "Contact", { blankEmpty: true, remote: function (q) { searchContacts(q); }, emptyText: function (q) { return String(q || "").trim().length < 2 ? "Type at least 2 letters of a name or number" : "No contacts found."; } });
-        drawChips();
-        if (st.audience === "pick") readGroups();
-      } else wrap.appendChild(fs);
-      var foot = h("div", "ib-bk-formfoot"); foot.appendChild(h("span", "pm-hint", "Nothing is sent at this step."));
-      var cancel = ui.btn("Cancel", "ghost", function () { closeForm(); }); cancel.setAttribute("id", "ib-bk-cancel"); foot.appendChild(cancel);
-      wrap.appendChild(foot);
+      /* 3. one small count line and exactly two buttons */
+      var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite");
+      var t = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
+      var go = ui.btn("Start Sending", "primary", function () { openDialog(); }); go.setAttribute("id", "ib-bk-go");
+      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
+      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), t, go)));
+      wrap.appendChild(tn);
       return wrap;
     }
     function textProblem() {
@@ -503,40 +474,30 @@
     function drawCount() {
       var box = document.getElementById("ib-bk-count"); if (!box) return;
       ui.clear(box);
-      if (st.audience === "pick" && !picked()) { box.appendChild(h("p", "pm-meta", "Choose at least one group or contact to see who gets it.")); drawConfirm(); return; }
-      if (st.audLoading || !st.aud) { box.appendChild(h("p", "pm-meta", "Counting members…")); return; }
-      if (st.aud.failed) { box.appendChild(h("p", "pm-meta", "We could not count your members just now.")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); return; }
-      var n = num(st.aud.will_send);
-      box.appendChild(h("p", "ib-bk-will", willSend(n, st.audience)));
-      var lo = leftOut(st.aud.left_out);
-      if (lo.length) {
-        box.appendChild(h("p", "pm-hint", "Left out:"));
-        var ul = h("ul", "ib-bk-left");
-        lo.forEach(function (p) { ul.appendChild(h("li", "", p[0] + ": " + p[1])); });
-        box.appendChild(ul);
-      } else if (n === 0) box.appendChild(h("p", "pm-hint", "No members can be texted yet."));
-      drawConfirm();
+      if (st.audLoading || !st.aud) box.appendChild(document.createTextNode("Counting members…"));
+      else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
+      else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? willSend(n, st.audience) : "No members can be texted yet.")); }
+      drawPreview();
     }
     function drawPreview() {
-      var box = document.getElementById("ib-bk-preview"); if (!box) return;
-      ui.clear(box); fieldErr();
-      if (st.preview) {
-        box.appendChild(h("p", "pm-hint", "This is exactly how it will arrive:"));
-        box.appendChild(h("p", "ib-bk-text", st.preview.text));
-      }
-      var tb = document.getElementById("ib-bk-test"); if (tb) tb.disabled = !textOk() || st.testing || !st.preview;
-      drawConfirm();
+      fieldErr();
+      var ok = textOk() && !!st.preview, tb = document.getElementById("ib-bk-test"), go = document.getElementById("ib-bk-go");
+      if (tb) tb.disabled = !ok || st.testing;
+      if (go) go.disabled = !ok || !readyCount() || st.sending;
     }
-    function drawConfirm() {
-      var box = document.getElementById("ib-bk-confirm"); if (!box) return;
-      ui.clear(box);
-      var n = st.aud && !st.aud.failed ? num(st.aud.will_send) : 0;
-      if (!n || !textOk() || !st.preview) return;
-      var tick = h("label", "ib-bk-tick"), c = D.el("input", { type: "checkbox", id: "ib-bk-sure" }); c.checked = st.sure;
-      add(tick, c, h("span", "", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "member", "members")) + " from your phone?"));
-      var go = ui.btn("Start sending", "primary", function (x) { confirmSend(x, n); }); go.setAttribute("id", "ib-bk-go"); go.disabled = !st.sure || st.sending;
-      c.addEventListener("change", function () { st.sure = !!c.checked; go.disabled = !st.sure || st.sending; });
-      box.appendChild(tick); box.appendChild(go);
+    function readyCount() { return !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
+    /* Start Sending asks once more in a small dialog, so a batch cannot go by mistake. */
+    function closeDialog() { var d = document.getElementById("ib-bk-dlg"); if (d && d.parentNode) d.parentNode.removeChild(d); st.dlg = false; }
+    function openDialog() {
+      if (st.sending || !readyCount() || !textOk() || !st.preview || document.getElementById("ib-bk-dlg")) return;
+      var n = num(st.aud.will_send), back = ui.btn("Back", "ghost", function () { closeDialog(); }); back.setAttribute("id", "ib-bk-dlg-back");
+      var yes = ui.btn("Yes, send", "primary", function (x) { closeDialog(); confirmSend(x, n); }); yes.setAttribute("id", "ib-bk-dlg-go");
+      var dlg = h("div", "ib-bk-dlg"); dlg.setAttribute("id", "ib-bk-dlg"); dlg.setAttribute("role", "dialog"); dlg.setAttribute("aria-modal", "true"); dlg.setAttribute("aria-labelledby", "ib-bk-dlg-t");
+      var q = h("p", "ib-bk-dlg-t", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "member", "members")) + " from your phone?"); q.setAttribute("id", "ib-bk-dlg-t");
+      var panel = add(h("div", "ib-bk-dlg-box"), q, add(h("div", "ib-bk-dlg-btns"), back, yes));
+      dlg.appendChild(panel);
+      dlg.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); closeDialog(); } });
+      host.appendChild(dlg); st.dlg = true; if (back.focus) back.focus();
     }
     function sendTest(x) {
       if (st.testing || !textOk()) return;
@@ -553,7 +514,7 @@
       });
     }
     function confirmSend(x, n) {
-      if (st.sending || !st.sure) return;
+      if (st.sending) return;
       var key = st.key || ui.newKey(); st.key = key; st.sending = true; st.err = ""; ui.busy(x, true);
       D.call("POST", b0 + "batches/", Object.assign(audBody(), { text: st.text.trim(), idempotency_key: key, confirm: true, expected_count: n }), true).then(function (res) {
         st.sending = false;
@@ -561,14 +522,13 @@
         if (res.status === 404) { gone(); return; }
         if (!res.ok) {
           if (res.status !== 0) st.key = null; /* a lost answer keeps the key so nothing is sent twice */
-          st.sure = false;
           var code = res.data && res.data.code;
           /* The count moved since the owner looked (D.call keeps only the code and the message): say so, read it again, ask for a new tick. */
           if (res.status === 409 && code === "audience_changed") { st.err = refusal(res, "Your member count changed. Check the new count and send again."); readAudience(); fieldErr(); return; }
           if (res.status === 409) { st.err = refusal(res); st.view = "main"; readStatus(); return; }
           st.err = refusal(res, "The batch could not be started."); draw(); fieldErr(); return;
         }
-        st.key = null; st.sure = false; st.text = ""; st.preview = null; st.prevErr = ""; st.testNote = ""; st.note = ""; st.aud = null;
+        st.key = null; st.text = ""; st.preview = null; st.prevErr = ""; st.testNote = ""; st.note = ""; st.aud = null;
         st.status.active_batch = res.data; st.view = "main";
         ui.say("Sending started.");
         draw(); schedulePoll(); loadHistory(null, true);
@@ -635,23 +595,14 @@
         if (st.view === "main") draw();
       });
     }
-    /* B4: a flat inline detail under the row (no card, no tiles): the state and date as a small header, one stat line, the end reason as a plain
-       icon + text line, the message, the left-out reasons as a short inline list. */
+    /* The View detail (Coach Ed 2026-11-24 round 9): a top block of exactly three lines: the icon and the state words with the date, the message,
+       and one stat line; then the recipients, 5 at a time (the server pages with ?limit=5 and next), a divider above each row and none under the last. */
     function drawDetail(td, d0) {
       var b = d0.batch, box = h("div", "ib-bk-flat");
-      var hd = h("p", "ib-bk-fh"); hd.appendChild(h("strong", "", stateText(b.state))); hd.appendChild(h("span", "ib-bk-fd", when(b.created_at)));
+      var hd = h("p", "ib-bk-fh"); hd.appendChild(ui.icon(HEAD_ICON[b.state] || HEAD_ICON.waiting)); hd.appendChild(h("strong", "", headline(b)));
       box.appendChild(hd);
-      box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));
-      if (typeof b.end_message === "string" && b.end_message) {
-        var em = h("p", "ib-bk-endl"); em.appendChild(ui.icon("M12 3l10 18H2zM12 10v5M12 18h.01")); em.appendChild(h("span", "", b.end_message)); box.appendChild(em);
-      }
       if (b.text) box.appendChild(h("p", "ib-bk-text", b.text));
-      var lo = leftOut(b.left_out);
-      if (lo.length) {
-        var ul = h("ul", "ib-bk-lo"); ul.appendChild(h("li", "ib-bk-lo-t", "Left out:"));
-        lo.forEach(function (p) { ul.appendChild(h("li", "", p[0] + ": " + p[1])); });
-        box.appendChild(ul);
-      }
+      box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));
       td.appendChild(box);
       if (d0.failed && !d0.results.length) { td.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); td.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(b.id, null); draw(); })); return; }
       if (d0.loading && !d0.results.length) { td.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
@@ -664,7 +615,7 @@
         add(li, l, s); ul.appendChild(li);
       });
       td.appendChild(ul);
-      if (d0.next) td.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadDetail(b.id, d0.next); }));
+      if (d0.next) { var more = ui.btn("View more", "ghost", function (x) { ui.busy(x, true); loadDetail(b.id, d0.next); }); more.classList.add("ib-bk-more"); td.appendChild(more); }
     }
 
     readContacts(); loadHistory(null, true); readStatus(); /* the Bulk SMS tab: the status (a running batch's card) and the history table */
@@ -673,6 +624,6 @@
 
   root.NOInboxBulk = { probe: probe, screen: screen,
     util: { available: available, audienceName: audienceName, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
-      estimate: estimate, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
+      estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

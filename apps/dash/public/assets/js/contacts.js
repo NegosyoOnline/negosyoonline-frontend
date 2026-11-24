@@ -60,6 +60,14 @@
   }
   /* The API wants a first name on create, and on edit when the contact already has one (v.requireFirst). A contact with no name can be
      saved with none (number-only contacts come in through the CSV upload only). */
+  /* The edit body: only what changed. A blank first name that was blank before is never sent (the API refuses a blank one). */
+  function changedBody(c, v) {
+    var full = contactBody(v), was = { first_name: String(c.first_name || "").trim(), last_name: String(c.last_name || "").trim(), mobile: String(c.mobile || "").trim() }, out = {};
+    ["first_name", "last_name", "mobile"].forEach(function (k) { if (full[k] !== was[k]) out[k] = full[k]; });
+    var a = groupIds(c).map(String).sort().join("\u0001"), b = full.groups.map(String).sort().join("\u0001");
+    if (a !== b) out.groups = full.groups;
+    return out;
+  }
   function firstError(v) { return v.requireFirst && !String(v.first || "").trim() ? "Enter a first name" : ""; }
   function mobileError(v) { return String(v.mobile || "").trim() ? "" : "Enter a mobile number."; }
   function contactError(v) { return firstError(v) || mobileError(v); }
@@ -437,9 +445,11 @@
         if (me) bad(fMobile, me, mobile);
         if (fe || me) { (fe ? first : mobile).focus(); return; }
         v.groups = v.groups.map(function (id) { var g = S.groups.filter(function (x) { return String(x.id) === id; })[0]; return g ? g.id : id; });
+        var body = editing ? changedBody(c, v) : contactBody(v);
+        if (editing && !Object.keys(body).length) { close(true); return; }
         busy(save, true);
         var mine = run;
-        D.call(editing ? "PATCH" : "POST", editing ? base() + encodeURIComponent(c.id) + "/" : base(), contactBody(v), true).then(function (res) {
+        D.call(editing ? "PATCH" : "POST", editing ? base() + encodeURIComponent(c.id) + "/" : base(), body, true).then(function (res) {
           if (res.status === 401 || mine !== run || !S) return;
           busy(save, false);
           if (res.ok) { close(true); refreshAfterChange(editing ? "Contact saved." : "Contact added."); return; }
@@ -551,10 +561,11 @@
     add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
     /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
     var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
+    var fFile = field("CSV file", file); /* field() puts the input in its box; it moves into the picker below, directly before its label */
     var pick = h("div", "ct-filepick"), pickBtn = h("label", "no-btn no-btn-ghost ct-filebtn", "Choose file"), pickName = h("span", "ct-meta ct-filename", "No file chosen");
     pickBtn.setAttribute("for", "ct-file");
     add(pick, file, pickBtn, pickName);
-    var fFile = field("CSV file", file); fFile.insertBefore(pick, fFile.err);
+    fFile.insertBefore(pick, fFile.err);
     var area = D.el("textarea", { id: "ct-paste", "class": "ct-input ct-area", rows: "6", spellcheck: "false", placeholder: "Maria,Santos,0917 123 4567" });
     var fPaste = field("Or paste the lines here", area);
     var grp = dropdown("ct-ugroup", "Add them to this group", groupOptions("No group"), "", function (v) { U.group = v; drop(); });
@@ -636,5 +647,5 @@
 
   window.NOContacts = { show: show, hide: hide, probe: probe,
     util: { nameOf: nameOf, queryMode: queryMode, listPath: listPath, groupsOf: groupsOf, groupIds: groupIds, fieldMessage: fieldMessage, contactBody: contactBody,
-      contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
+      changedBody: changedBody, contactError: contactError, firstError: firstError, mobileError: mobileError, groupNameError: groupNameError, fileError: fileError, uploadBody: uploadBody, checkSummary: checkSummary, countText: countText, statusOn: statusOn } };
 })();

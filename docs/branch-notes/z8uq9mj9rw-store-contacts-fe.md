@@ -36,3 +36,7 @@ SMS Marketing is not on main, so the Contacts link sits right after Inbox. When 
 - First name is required on Add (label "First name *", `aria-required`, message "Enter a first name"), and on Edit only when the contact already has a first name; a no-name contact can be saved with none, or given a name. Last name stays optional. Number-only contacts come in through CSV only. `contactError` checks the first name (when `requireFirst`) then the mobile.
 - The CSV file picker is a dash secondary button: the native input is visually hidden, a `label.no-btn.no-btn-ghost` opens it, the chosen file name shows beside it, and keyboard focus gets the light-blue ring (dark and light via the dash tokens).
 - Tests: 808 pass (2 new).
+
+## Fix round 2
+- Edit sends a PATCH with only the changed fields (`changedBody`); an unchanged save sends nothing and closes. A blank first name that was blank before is never sent (the BE refuses a blank one), so saving a no-name CSV contact works; adding a name sends only `first_name`.
+- The CSV file input is now truly inside `.ct-filepick`, directly before its label (field() had moved it out), so the `:focus-visible +` sibling rule shows the light-blue ring.

@@ -233,7 +233,7 @@ test("edit: the full mobile is read only when one contact is opened; save PATCHe
   await d.click(d.press(d.slot(), "Save contact"));
   const patch = d.calls.find((c) => c.method === "PATCH");
   assert.equal(patch.path, BASE + "c1/");
-  assert.deepEqual(patch.body, { first_name: "Ana", last_name: "Santos", mobile: "09171234567", groups: ["g1"] });
+  assert.deepEqual(patch.body, { last_name: "Santos" }, "only the changed field");
   /* delete needs a confirm */
   await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
   await d.click(d.press(d.slot(), "Delete contact"));
@@ -370,7 +370,20 @@ test("edit: a contact with no name can be saved with none; a named one must keep
   await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
   assert.ok(!d.slot().textContent.includes("First name *"));
   await d.click(d.press(d.slot(), "Save contact"));
-  assert.deepEqual(d.calls.find((c) => c.method === "PATCH").body, { first_name: "", last_name: "", mobile: "09180000000", groups: [] });
+  assert.ok(!d.calls.some((c) => c.method === "PATCH"), "unchanged: nothing is sent");
+  /* adding a name sends it, and only it */
+  await d.click(d.buttons(d.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
+  d.$("ct-first").value = " Pedro ";
+  await d.click(d.press(d.slot(), "Save contact"));
+  assert.deepEqual(d.calls.find((c) => c.method === "PATCH").body, { first_name: "Pedro" });
+  /* another field changed on a no-name contact: first_name is not in the body */
+  const f = boot();
+  f.s.detail = { ...ROWS[1], mobile: "09180000000" };
+  await f.open();
+  await f.click(f.buttons(f.root()).find((b) => b.getAttribute("aria-label") === "Edit No name"));
+  f.$("ct-last").value = "Lim";
+  await f.click(f.press(f.slot(), "Save contact"));
+  assert.deepEqual(f.calls.find((c) => c.method === "PATCH").body, { last_name: "Lim" });
   const e = boot();
   await e.open();
   await e.click(e.buttons(e.root()).find((b) => b.getAttribute("aria-label") === "Edit Ana Reyes"));
@@ -392,5 +405,8 @@ test("CSV file picker: the native input is hidden behind a dash secondary button
   assert.ok(lab.classList.contains("no-btn") && lab.classList.contains("no-btn-ghost"));
   assert.equal(lab.getAttribute("for"), "ct-file");
   assert.ok(d.root().textContent.includes("No file chosen"));
+  const pick = d.root().all((n) => n.classList.contains("ct-filepick"))[0];
+  assert.equal(pick.children[0], file, "the input is inside the picker, first");
+  assert.equal(pick.children[1], lab, "and directly before its label");
   assert.ok(/\.ct-file:focus-visible \+ \.ct-filebtn \{[^}]*var\(--link/.test(CSS));
 });

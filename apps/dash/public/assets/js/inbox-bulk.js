@@ -104,12 +104,17 @@
 
   /* ---------- the screen ---------- */
 
-  /* ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, start ("history" or omitted), back(), gone() }. host: the thread pane. */
+  /* The Bulk SMS tab (Coach Ed 2026-11-24, INBOX-FIX-7). Two views in the tab's own pane:
+     "main": while a batch is sending, a progress card on top (the Site readiness card layout: title and state chip, a divider, rows) with Refresh and Stop sending;
+             then the History card: a table (date, audience, sent / failed / not sent, status, message, a View button that opens the batch's details under its row),
+             with a primary "Send Bulk SMS" button above the table, hidden while a batch is sending.
+     "form": the compose form laid out like HQ's Bulk SMS page (the message and who gets it on the left, the rules on the right, then the check and confirm card).
+     ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
     var st = { view: "loading", status: null, audience: "all", aud: null, audLoading: false, text: "", preview: null, prevErr: "",
-      key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null, ptimer: null,
-      hist: { items: [], next: null, loading: false, failed: false }, det: null, dead: false, arun: 0, prun: 0 };
+      key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
+      hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
     function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); st.timer = st.poll = null; }
     function gone() { stop(); ui.gone(); }
@@ -125,10 +130,10 @@
         if (st.view === "loading" || st.view === "failed") st.view = "main";
         if (then) then(); else draw();
         schedulePoll();
-        if (st.view === "main" && !active(st.status.active_batch) && !blockedText(st.status) && !st.aud && !st.audLoading) readAudience();
+        if (st.view === "form" && !active(st.status.active_batch) && !blockedText(st.status) && !st.aud && !st.audLoading) readAudience();
       });
     }
-    /* While a batch is active the status is read again every 5 seconds (the progress card). */
+    /* While a batch is active the status is read again every 5 seconds (the progress card); the Refresh button reads it at once. */
     function schedulePoll() {
       if (st.poll) { clearTimeout(st.poll); st.poll = null; }
       if (st.dead || !st.status || !active(st.status.active_batch)) return;
@@ -140,8 +145,8 @@
           if (res.status === 404) { gone(); return; }
           if (res.ok && res.data && res.data.available === true) {
             st.status = res.data;
-            if (was && !active(res.data.active_batch)) { st.note = "Your last batch is done. See History for how it went."; st.aud = null; }
-            if (st.view === "main") draw();
+            if (was && !active(res.data.active_batch)) { st.note = "Your last batch is done. See how it went in the history below."; st.aud = null; loadHistory(null, true); }
+            if (st.view === "main" || st.view === "form") draw();
           }
           schedulePoll();
         });
@@ -181,17 +186,6 @@
       n.appendChild(ui.icon(warn ? "M12 3l10 18H2zM12 10v5M12 18h.01" : "M4 5h16v11H9l-5 4z")); n.appendChild(h("span", "", text));
       return n;
     }
-    function head(title, sub, backFn, backLabel) {
-      var row = h("div", "ib-thead" + (backLabel ? " ib-bk-head" : "")), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
-      back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", backLabel || ui.home || "Inbox"));
-      back.addEventListener("click", backFn);
-      var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", title)); if (sub) nm.appendChild(h("p", "ib-sub", sub));
-      return add(row, back, nm);
-    }
-    function link(label, fn, id) {
-      var a = h("button", "no-btn no-btn-ghost", label); a.setAttribute("type", "button"); if (id) a.setAttribute("id", id);
-      a.addEventListener("click", fn); return a;
-    }
     function countsRow(b) {
       var row = h("div", "ib-bk-counts");
       [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].forEach(function (p) {
@@ -210,51 +204,87 @@
       }
       return out;
     }
+    /* A dash card: the title (and an optional chip or button at its right), a divider, then the body. */
+    function dcard(id, title, side) {
+      var c = h("section", "dash-card ib-bk-dc"); c.setAttribute("aria-labelledby", id);
+      var t = h("h2", "", title); t.setAttribute("id", id);
+      c.appendChild(add(h("div", "ib-bk-dh"), t, side || null));
+      return c;
+    }
+    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "pm-hint ib-bk-cost", s.cost_note) : h("span", ""); }
 
-    /* ----- the main screen: progress card or the compose form ----- */
+    /* ----- drawing ----- */
     function draw() {
       if (st.dead) return;
       ui.clear(host); host.classList.remove("is-hide-phone"); host.setAttribute("aria-label", "Bulk SMS");
-      if (st.view === "history") return drawHistory();
-      if (st.view === "detail") return drawDetail();
-      host.appendChild(head("Bulk SMS", "Send one text to your members from your own phone.", function () { stop(); ui.back(); }));
-      var body = h("div", "ib-msgs ib-sms-new ib-bk"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
+      var body = h("div", "ib-bk ib-bk-page"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
       if (st.view === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Opening…")); return; }
       if (st.view === "failed") {
         body.appendChild(h("p", "pm-meta", "We could not open this screen just now. Nothing was sent."));
         body.appendChild(ui.btn("Try again", "primary", function (b) { ui.busy(b, true); st.view = "loading"; readStatus(); }));
         return;
       }
-      var s = st.status;
-      if (st.note) { body.appendChild(note(st.note, false)); }
-      body.appendChild(add(h("div", "ib-bk-bar"), link("History", openHistory, "ib-bk-history")));
+      if (st.view === "form" && !active(st.status.active_batch)) { drawForm(body); return; }
+      st.view = "main";
+      drawMain(body);
+    }
+    function drawMain(body) {
+      var s = st.status, running = active(s.active_batch);
+      if (st.note) body.appendChild(note(st.note, false));
       var blocked = blockedText(s);
       if (blocked) {
         body.appendChild(note(blocked, true));
         if (s.blocked === "no_line") { var l = h("a", "no-btn no-btn-ghost", "Open SMS Settings"); l.setAttribute("href", "/sms/settings/"); l.setAttribute("id", "ib-bk-gw"); body.appendChild(l); }
-        if (!active(s.active_batch)) return;
       }
-      if (active(s.active_batch)) { body.appendChild(progressCard(s.active_batch)); body.appendChild(costLine(s)); return; }
-      if (s.phone_online === false) body.appendChild(note("Your texting phone is offline. Texts wait until it is back online.", true));
-      body.appendChild(form(s));
-      body.appendChild(costLine(s));
-      drawCount(); drawPreview(); drawConfirm();
+      if (running) { body.appendChild(progressCard(s.active_batch)); body.appendChild(costLine(s)); }
+      /* the History card; its Send Bulk SMS button is hidden while a batch is sending (and while the line is blocked) */
+      var side = null;
+      if (!running && !blocked) { side = ui.btn("Send Bulk SMS", "primary", function () { openForm(); }); side.setAttribute("id", "ib-bk-send"); }
+      var card = dcard("ib-bk-h-hist", "Bulk SMS history", side);
+      card.setAttribute("id", "ib-bk-hist");
+      body.appendChild(card);
+      drawHistory(card, running ? s.active_batch.id : "");
     }
-    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "pm-hint ib-bk-cost", s.cost_note) : h("span", ""); }
 
+    /* The progress card (the Site readiness card layout): the title and the state chip, a divider, the rows. Refresh instead of View; Stop sending kept. */
     function progressCard(b) {
-      var card = h("div", "ib-bk-card"); card.setAttribute("id", "ib-bk-progress");
-      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state)));
-      top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), "of " + num(b.size)));
-      card.appendChild(top);
-      card.appendChild(countsRow(b));
+      var chip = h("span", "ib-bk-chip is-" + (b.state || "waiting"), stateText(b.state));
+      var card = dcard("ib-bk-h-run", "Sending now", chip); card.classList.add("ib-bk-run"); card.setAttribute("id", "ib-bk-progress");
+      var total = num(b.size), done = num(b.sent) + num(b.failed) + num(b.not_sent);
+      var bar = h("div", "ib-bk-bar2"); bar.setAttribute("role", "progressbar"); bar.setAttribute("aria-valuemin", "0"); bar.setAttribute("aria-valuemax", String(total));
+      bar.setAttribute("aria-valuenow", String(Math.min(done, total))); bar.setAttribute("aria-label", "Texts handled so far");
+      var fill = h("span", ""); fill.setAttribute("style", "width:" + (total ? Math.min(100, Math.round(done / total * 100)) : 0) + "%"); bar.appendChild(fill);
+      card.appendChild(bar);
       var p = pauseText(b); if (p) { var pn = note(p, true); pn.setAttribute("id", "ib-bk-pause"); card.appendChild(pn); }
-      var e = estimate(b.seconds_left); if (e) card.appendChild(h("p", "pm-hint", e));
-      card.appendChild(lines(b));
+      var e = estimate(b.seconds_left); if (e) card.appendChild(h("p", "dash-copy ib-bk-est", e));
+      var rows = h("ul", "ib-bk-rows");
+      [["Sent", num(b.sent) + " of " + total, "ok"], ["Failed", num(b.failed) + " of " + total, num(b.failed) ? "warn" : ""], ["Not sent", num(b.not_sent) + " of " + total, num(b.not_sent) ? "warn" : ""],
+        ["Waiting", String(num(b.waiting)), ""], ["Started", when(b.created_at), ""], ["Who gets it", audienceName(b.audience), ""]].forEach(function (r) {
+        if (!r[1]) return;
+        var li = h("li", ""); li.appendChild(h("span", "", r[0]));
+        li.appendChild(h("span", "ib-bk-v" + (r[2] ? " is-" + r[2] : ""), r[1])); rows.appendChild(li);
+      });
+      card.appendChild(rows);
+      card.appendChild(lines({ text: b.text, left_out: b.left_out }));
       var err = h("p", "field-err", st.err); err.setAttribute("role", "alert"); err.hidden = !st.err; card.appendChild(err);
+      var rf = ui.btn("Refresh", "ghost", function (x) { refreshNow(x); }, "M20 11a8 8 0 0 0-14.5-4M4 4v4h4M4 13a8 8 0 0 0 14.5 4M20 20v-4h-4"); rf.setAttribute("id", "ib-bk-refresh");
       var stopBtn = ui.btn("Stop sending", "ghost", function (x) { stopBatch(b, x); }); stopBtn.setAttribute("id", "ib-bk-stop");
-      card.appendChild(add(h("div", "ib-rfoot"), h("span", ""), stopBtn));
+      card.appendChild(add(h("div", "ib-bk-foot"), rf, stopBtn));
       return card;
+    }
+    function refreshNow(x) {
+      ui.busy(x, true);
+      var was = st.status && st.status.active_batch;
+      D.call("GET", b0 + "status/", null, true).then(function (res) {
+        if (!aliveRes(res)) return;
+        if (res.status === 404) { gone(); return; }
+        if (res.ok && res.data && res.data.available === true) {
+          st.status = res.data;
+          if (was && !active(res.data.active_batch)) { st.note = "Your last batch is done. See how it went in the history below."; st.aud = null; }
+          loadHistory(null, true); draw(); schedulePoll(); return;
+        }
+        ui.busy(x, false);
+      });
     }
     function stopBatch(b, x) {
       ui.busy(x, true); st.err = "";
@@ -264,23 +294,51 @@
         if (!res.ok) { st.err = refusal(res, "We could not stop it. Please try again."); /* not_running: it ended on its own; read again */ if (res.status === 409) { st.aud = null; readStatus(); return; } draw(); return; }
         ui.say("Sending stopped.");
         st.note = "Sending was stopped. Texts already with your phone may still go out."; st.aud = null;
-        st.status.active_batch = null; readStatus();
+        st.status.active_batch = null; readStatus(); loadHistory(null, true);
       });
     }
 
+    /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; draw(); if (!st.audLoading) readAudience(); }
+    function closeForm() { st.view = "main"; st.err = ""; draw(); }
+    function drawForm(body) {
+      var s = st.status;
+      var cols = h("div", "ib-bk-cols");
+      var main = h("div", "ib-bk-colmain"), aside = h("div", "ib-bk-aside");
+      var blocked = blockedText(s);
+      if (blocked) {
+        main.appendChild(note(blocked, true));
+        if (s.blocked === "no_line") { var l = h("a", "no-btn no-btn-ghost", "Open SMS Settings"); l.setAttribute("href", "/sms/settings/"); l.setAttribute("id", "ib-bk-gw"); main.appendChild(l); }
+        main.appendChild(ui.btn("Back to history", "ghost", function () { closeForm(); }));
+        cols.appendChild(main); body.appendChild(cols); return;
+      }
+      if (s.phone_online === false) main.appendChild(note("Your texting phone is offline. Texts wait until it is back online.", true));
+      var card = dcard("ib-bk-h-new", "New batch: write the text and choose who gets it"); card.classList.add("ib-bk-formcard");
+      card.appendChild(form(s));
+      main.appendChild(card);
+      var c2 = dcard("ib-bk-h-chk", "Check and confirm"); c2.classList.add("ib-bk-formcard");
+      var cnt = h("div", "ib-bk-box"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite"); c2.appendChild(cnt);
+      var pv = h("div", "ib-bk-box"); pv.setAttribute("id", "ib-bk-preview"); c2.appendChild(pv);
+      var t = ui.btn("Send a test to my phone", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
+      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
+      c2.appendChild(t); c2.appendChild(tn);
+      var cf = h("div", "ib-bk-confirm"); cf.setAttribute("id", "ib-bk-confirm"); c2.appendChild(cf);
+      main.appendChild(c2); main.appendChild(costLine(s));
+      var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
+      var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
+      var ul = h("ul", "ib-bk-left");
+      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 8:00 pm, Manila time.",
+        typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
+      rules.appendChild(ul); aside.appendChild(rules);
+      add(cols, main, aside); body.appendChild(cols);
+      drawCount(); drawPreview(); drawConfirm();
+    }
     function form(s) {
       var wrap = h("div", "ib-bk-form");
-      var q = typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : "";
-      if (q) wrap.appendChild(h("p", "pm-hint ib-sms-quota", q));
-      /* audience: the only one is all members (Coach Ed, 2026-11-24), shown as a plain line */
-      var f1 = h("div", "pm-field ib-fld");
-      var l1 = h("span", "pm-label", "Who gets the text");
-      add(f1, l1, h("p", "pm-hint", audienceName("all"))); wrap.appendChild(f1);
-      var cnt = h("div", "ib-bk-box"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite"); wrap.appendChild(cnt);
       /* the text */
       var max = maxOf(s), pre = prefixOf(s);
       var f3 = h("div", "pm-field");
-      var l3 = h("label", "pm-label", "Text"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
+      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
       if (pre) f3.appendChild(h("p", "pm-hint ib-sms-prefix", "Every text starts with: " + pre));
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40));
@@ -288,17 +346,20 @@
       var count = h("span", "ib-count", roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), count));
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
       ta.addEventListener("input", function () {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.sure = false; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = roomLeft(ta.value.length, max);
         fieldErr(); drawPreview(); drawConfirm(); schedulePreview();
       });
-      var pv = h("div", "ib-bk-box"); pv.setAttribute("id", "ib-bk-preview"); wrap.appendChild(pv);
-      var t = ui.btn("Send a test to my phone", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
-      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(t); wrap.appendChild(tn);
-      var cf = h("div", "ib-bk-confirm"); cf.setAttribute("id", "ib-bk-confirm"); wrap.appendChild(cf);
+      /* audience: the only one is all members (Coach Ed, 2026-11-24), as the one option of "Send to" */
+      var fs = h("fieldset", "ib-bk-sendto"); fs.appendChild(h("legend", "pm-label", "Send to"));
+      var opt = h("label", "ib-bk-opt"), r = D.el("input", { type: "radio", name: "ib-bk-to", id: "ib-bk-to-all", value: "all" }); r.checked = true; r.setAttribute("checked", "checked");
+      add(opt, r, h("span", "", audienceName("all")));
+      fs.appendChild(opt); wrap.appendChild(fs);
+      var foot = h("div", "ib-bk-formfoot"); foot.appendChild(h("span", "pm-hint", "Nothing is sent at this step."));
+      var cancel = ui.btn("Cancel", "ghost", function () { closeForm(); }); cancel.setAttribute("id", "ib-bk-cancel"); foot.appendChild(cancel);
+      wrap.appendChild(foot);
       return wrap;
     }
     function textProblem() {
@@ -375,24 +436,19 @@
           var code = res.data && res.data.code;
           /* The count moved since the owner looked (D.call keeps only the code and the message): say so, read it again, ask for a new tick. */
           if (res.status === 409 && code === "audience_changed") { st.err = refusal(res, "Your member count changed. Check the new count and send again."); readAudience(); fieldErr(); return; }
-          if (res.status === 409) { st.err = refusal(res); readStatus(); return; }
+          if (res.status === 409) { st.err = refusal(res); st.view = "main"; readStatus(); return; }
           st.err = refusal(res, "The batch could not be started."); draw(); fieldErr(); return;
         }
         st.key = null; st.sure = false; st.text = ""; st.preview = null; st.prevErr = ""; st.testNote = ""; st.note = ""; st.aud = null;
-        st.status.active_batch = res.data;
+        st.status.active_batch = res.data; st.view = "main";
         ui.say("Sending started.");
-        draw(); schedulePoll();
+        draw(); schedulePoll(); loadHistory(null, true);
       });
     }
 
-    /* ----- history and batch detail ----- */
-    function openHistory() {
-      st.view = "history"; st.hist = { items: [], next: null, loading: true, failed: false };
-      if (st.poll) { clearTimeout(st.poll); st.poll = null; }
-      draw(); loadHistory(null);
-    }
-    function backToMain() { st.view = st.status ? "main" : "loading"; st.det = null; st.aud = null; readStatus(); draw(); }
-    function loadHistory(cursor) {
+    /* ----- history: the table and the details that open under a row ----- */
+    function loadHistory(cursor, reset) {
+      if (reset) st.hist = { items: [], next: null, loading: true, failed: false };
       var h0 = st.hist; h0.loading = true; h0.failed = false;
       D.call("GET", b0 + "batches/?limit=20" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""), null, true).then(function (res) {
         if (!aliveRes(res) || st.hist !== h0) return;
@@ -400,57 +456,65 @@
         h0.loading = false;
         if (!res.ok || !res.data) h0.failed = true;
         else { h0.items = h0.items.concat(Array.isArray(res.data.items) ? res.data.items : []); h0.next = res.data.next_cursor || null; }
-        if (st.view === "history") draw();
+        if (st.view === "main") draw();
       });
     }
-    function drawHistory() {
-      host.appendChild(head("History", "Your batches, newest first.", function () { backToMain(); }, "Back"));
-      var body = h("div", "ib-msgs ib-sms-new ib-bk"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
+    function drawHistory(card, hideId) {
       var hs = st.hist;
-      if (hs.failed && !hs.items.length) { body.appendChild(h("p", "pm-meta", "We could not load your batches just now.")); body.appendChild(ui.btn("Try again", "primary", function () { hs.failed = false; loadHistory(null); draw(); })); return; }
-      if (hs.loading && !hs.items.length) { body.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
-      if (!hs.items.length) { body.appendChild(h("p", "pm-meta", "No batches yet.")); return; }
-      var list = h("ul", "ib-bk-hist");
-      hs.items.forEach(function (b) {
-        var li = h("li", ""), row = h("button", "ib-bk-row"); row.setAttribute("type", "button");
-        var top = h("span", "ib-bk-rtop"); top.appendChild(h("span", "ib-bk-when", when(b.created_at))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), stateText(b.state)));
-        row.appendChild(top);
-        row.appendChild(h("span", "ib-bk-rsum", plural(num(b.size), "member", "members") + " · " + audienceName(b.audience) + " · Sent " + num(b.sent) + ", Failed " + num(b.failed) + ", Not sent " + num(b.not_sent)));
-        if (b.text) row.appendChild(h("span", "ib-bk-rtext", b.text));
-        row.addEventListener("click", function () { openDetail(b); });
-        li.appendChild(row); list.appendChild(li);
+      var items = hs.items.filter(function (b) { return !hideId || b.id !== hideId; }); /* the running batch has its own card above */
+      if (hs.failed && !hs.items.length) { card.appendChild(h("p", "pm-meta", "We could not load your batches just now.")); card.appendChild(ui.btn("Try again", "primary", function () { loadHistory(null, true); draw(); })); return; }
+      if (hs.loading && !hs.items.length) { card.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
+      if (!items.length) { card.appendChild(h("p", "pm-meta", "No batches yet.")); return; }
+      var box = h("div", "ib-bk-tbox"), tbl = h("table", "ib-bk-table");
+      var head = h("tr", "");
+      ["Date", "Audience", "Sent / Failed / Not sent", "Status", "Message", ""].forEach(function (t, i) { var th = h("th", i === 5 ? "ib-bk-th-act" : "", t); th.setAttribute("scope", "col"); if (i === 5) th.appendChild(h("span", "bl-sr", "Details")); head.appendChild(th); });
+      tbl.appendChild(add(h("thead", ""), head));
+      var tb = h("tbody", "");
+      items.forEach(function (b) {
+        var open = !!st.open[b.id], tr = h("tr", "ib-bk-tr" + (open ? " is-open" : ""));
+        tr.appendChild(h("td", "ib-bk-when", when(b.created_at)));
+        tr.appendChild(h("td", "", audienceName(b.audience)));
+        tr.appendChild(h("td", "ib-bk-nums", num(b.sent) + " / " + num(b.failed) + " / " + num(b.not_sent)));
+        var sc = h("td", ""); sc.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), stateText(b.state))); tr.appendChild(sc);
+        tr.appendChild(h("td", "ib-bk-rtext", b.text || ""));
+        var ac = h("td", "ib-bk-act"), v = ui.btn(open ? "Hide" : "View", "ghost", function () { toggle(b); });
+        v.classList.add("ib-bk-view"); v.setAttribute("aria-expanded", open ? "true" : "false"); v.setAttribute("aria-controls", "ib-bk-d-" + b.id); v.setAttribute("data-batch", b.id);
+        ac.appendChild(v); tr.appendChild(ac); tb.appendChild(tr);
+        if (open) {
+          var dr = h("tr", "ib-bk-dr"), td = h("td", ""); td.setAttribute("colspan", "6"); td.setAttribute("id", "ib-bk-d-" + b.id);
+          var dw = h("div", "ib-bk-dwrap"); drawDetail(dw, st.open[b.id]); td.appendChild(dw); dr.appendChild(td); tb.appendChild(dr);
+        }
       });
-      body.appendChild(list);
-      if (hs.next) body.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadHistory(hs.next); }));
-      else if (hs.failed) body.appendChild(h("p", "pm-meta", "We could not load more."));
+      tbl.appendChild(tb); box.appendChild(tbl); card.appendChild(box);
+      if (hs.next) card.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadHistory(hs.next, false); }));
+      else if (hs.failed) card.appendChild(h("p", "pm-meta", "We could not load more."));
     }
-    function openDetail(b) {
-      st.view = "detail"; st.det = { batch: b, results: [], next: null, loading: true, failed: false };
-      draw(); loadDetail(null);
+    function toggle(b) {
+      if (st.open[b.id]) { delete st.open[b.id]; draw(); return; }
+      st.open[b.id] = { batch: b, results: [], next: null, loading: true, failed: false };
+      draw(); loadDetail(b.id, null);
     }
-    function loadDetail(cursor) {
-      var d0 = st.det; d0.loading = true; d0.failed = false;
-      D.call("GET", b0 + "batches/" + encodeURIComponent(d0.batch.id) + "/?limit=" + PAGE + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""), null, true).then(function (res) {
-        if (!aliveRes(res) || st.det !== d0) return;
+    function loadDetail(id, cursor) {
+      var d0 = st.open[id]; if (!d0) return;
+      d0.loading = true; d0.failed = false;
+      D.call("GET", b0 + "batches/" + encodeURIComponent(id) + "/?limit=" + PAGE + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""), null, true).then(function (res) {
+        if (!aliveRes(res) || st.open[id] !== d0) return;
         if (res.status === 404) { gone(); return; }
         d0.loading = false;
         if (!res.ok || !res.data) d0.failed = true;
         else { d0.batch = res.data; d0.results = d0.results.concat(Array.isArray(res.data.results) ? res.data.results : []); d0.next = res.data.next || null; }
-        if (st.view === "detail") draw();
+        if (st.view === "main") draw();
       });
     }
-    function drawDetail() {
-      var d0 = st.det, b = d0.batch;
-      host.appendChild(head("Batch", when(b.created_at), function () { st.view = "history"; st.det = null; draw(); }, "History"));
-      var body = h("div", "ib-msgs ib-sms-new ib-bk"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
-      var card = h("div", "ib-bk-card");
-      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), audienceName(b.audience)));
+    function drawDetail(td, d0) {
+      var b = d0.batch, card = h("div", "ib-bk-card");
+      var top = h("div", "ib-bk-top"); top.appendChild(h("h3", "", stateText(b.state))); top.appendChild(h("span", "ib-bk-chip is-" + (b.state || "waiting"), when(b.created_at)));
       card.appendChild(top); card.appendChild(countsRow(b));
       if (typeof b.end_message === "string" && b.end_message) card.appendChild(note(b.end_message, true));
       card.appendChild(lines(b));
-      body.appendChild(card);
-      if (d0.failed && !d0.results.length) { body.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); body.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(null); draw(); })); return; }
-      if (d0.loading && !d0.results.length) { body.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
+      td.appendChild(card);
+      if (d0.failed && !d0.results.length) { td.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); td.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(b.id, null); draw(); })); return; }
+      if (d0.loading && !d0.results.length) { td.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
       var ul = h("ul", "ib-bk-rec");
       d0.results.forEach(function (r) {
         var li = h("li", "ib-bk-recrow");
@@ -459,11 +523,11 @@
         if (typeof r.reason_text === "string" && r.reason_text) s.appendChild(h("span", "ib-bk-reason", r.reason_text));
         add(li, l, s); ul.appendChild(li);
       });
-      body.appendChild(ul);
-      if (d0.next) body.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadDetail(d0.next); }));
+      td.appendChild(ul);
+      if (d0.next) td.appendChild(ui.btn("Show more", "ghost", function (x) { ui.busy(x, true); loadDetail(b.id, d0.next); }));
     }
 
-    if (ui.start === "history") openHistory(); else readStatus(); /* the Bulk SMS tab opens on the sends so far (History); the button opens the composer */
+    loadHistory(null, true); readStatus(); /* the Bulk SMS tab: the status (a running batch's card) and the history table */
     return { stop: stop };
   }
 

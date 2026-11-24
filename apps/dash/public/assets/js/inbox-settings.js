@@ -13,6 +13,10 @@
 (function () {
   var D = window.NODash;
   var token = 0, S = null;
+  /* INBOX-FIX-7: show("sms") draws only the Text messages (SMS) on/off card, into #ibs-sms-root on the SMS Marketing Settings tab (the card moved there from the Inbox
+     Settings tab; same reads and the same PUT). show() draws the Inbox cards into #ibs-root. */
+  var ONLY = "";
+  function rootId() { return ONLY === "sms" ? "ibs-sms-root" : "ibs-root"; }
   /* One plain line for each return code of the Facebook callback, and for the connect errors. */
   var MSG_ERR = {
     cancelled: "The Facebook connection was cancelled. Nothing was changed.",
@@ -91,12 +95,13 @@
   }
   /* ---------- load ---------- */
 
-  function show() {
-    var mine = ++token, root = clear(byId("ibs-root")); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "", cm: null, rulesBox: null };
-    if (window.NOCommentRules) window.NOCommentRules.unmount();
-    cleanAddress();
+  function show(only) {
+    ONLY = only === "sms" ? "sms" : "";
+    var mine = ++token, root = clear(byId(rootId())); S = { site: null, ch: null, pause: "", msg: null, back: returnOf(typeof location !== "undefined" ? location.search : ""), pickId: "", asking: false, err: "", cm: null, rulesBox: null };
+    if (!ONLY && window.NOCommentRules) window.NOCommentRules.unmount();
+    if (!ONLY) cleanAddress();
     root.setAttribute("aria-busy", "true");
-    add(root, h("p", "pm-meta", "Loading your inbox settings…"));
+    add(root, h("p", "pm-meta", ONLY ? "Loading your text message setting…" : "Loading your inbox settings…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
       if (mine !== token || res.status === 401) return;
       var sites = res.ok ? D.sitesOf(res) : [];
@@ -106,13 +111,14 @@
       read(mine);
     });
   }
-  function hide() { token++; if (window.NOCommentRules) window.NOCommentRules.unmount(); S = null; say(""); var r = byId("ibs-root"); if (r) clear(r); }
+  function hide() { token++; if (!ONLY && window.NOCommentRules) window.NOCommentRules.unmount(); S = null; say(""); ["ibs-root", "ibs-sms-root"].forEach(function (id) { var r = byId(id); if (r) clear(r); }); ONLY = ""; }
   function read(mine) {
     D.call("GET", chBase(), null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
       if (res.status === 404) { unavailable(); return; }
       if (!res.ok || !res.data || typeof res.data !== "object") { failedPanel(res.status === 403 ? msgOf(res, "") : ""); return; }
       S.ch = res.data; setNav(true);
+      if (ONLY) { render(); return; } /* the SMS card needs nothing but the channels answer */
       loadMessenger(mine);
     });
   }
@@ -156,15 +162,16 @@
     return s;
   }
   function failedPanel(extra) {
-    var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
-    var s = card("err", "We couldn’t load your inbox settings");
+    var root = clear(byId(rootId())); root.removeAttribute("aria-busy");
+    var s = card("err", ONLY ? "We couldn’t load your text message setting" : "We couldn’t load your inbox settings");
     s.setAttribute("role", "alert");
-    add(s, h("p", "pm-lead", extra || "Check your connection and try again. Nothing was changed."), btn("Try again", "ghost", show));
+    add(s, h("p", "pm-lead", extra || "Check your connection and try again. Nothing was changed."), btn("Try again", "ghost", function () { show(ONLY); }));
     root.appendChild(s);
     setNav(false);
   }
   function unavailable() {
-    var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
+    var root = clear(byId(rootId())); root.removeAttribute("aria-busy");
+    if (ONLY) { setNav(false); return; } /* the SMS Marketing page says it itself; no card here */
     root.appendChild(add(card("off", "The inbox is not available yet"), h("p", "pm-lead", "It is not open for this site right now. Nothing is wrong with your account.")));
     setNav(false);
   }
@@ -172,8 +179,9 @@
   /* ---------- render ---------- */
 
   function render() {
-    var root = clear(byId("ibs-root")); root.removeAttribute("aria-busy");
-    add(root, channelsCard(), smsCard(), messengerCard(), S.rulesBox, emailCard(), howCard());
+    var root = clear(byId(rootId())); root.removeAttribute("aria-busy");
+    if (ONLY) { add(root, smsCard()); return; }
+    add(root, channelsCard(), messengerCard(), S.rulesBox, emailCard());
   }
 
   /* ---------- the channel cards (d6) ---------- */
@@ -371,16 +379,5 @@
       swtch("ibs-sw-sms", "ibs-sw-sms-l", on, function (b, next) { putChannels(b, { sms_enabled: next }, next ? "Text messages are on." : "Text messages are off.", "ibs-sw-sms"); })));
     return s;
   }
-  function howCard() {
-    var s = card("how", "How the inbox works"), ul = h("ul", "mk-list");
-    [S.ch && S.ch.sms_available === true
-      ? "The inbox shows your Facebook Messenger, website chat, text message (SMS) and email conversations in one list."
-      : "The inbox shows your Facebook Messenger, website chat and email conversations in one list.",
-      "Press Refresh to see new messages.",
-      "You can reply to a Facebook Messenger conversation within 24 hours of the customer's last message.",
-      "Answer a website chat or an email from the conversation. A closed conversation can be reopened."].forEach(function (t) { ul.appendChild(h("li", "", t)); });
-    return add(s, ul);
-  }
-
   window.NOInboxSettings = { show: show, hide: hide, ui: { h: h, add: add, clear: clear, btn: btn, busy: busy, card: card, swtch: swtch, line: line, whenText: whenText }, util: { returnOf: returnOf, msgErrText: msgErrText, whenText: whenText, pauseUntil: pauseUntil, chatStatus: chatStatus } };
 })();

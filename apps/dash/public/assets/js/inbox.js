@@ -166,8 +166,8 @@
       "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
     { dim: "unread", id: "ib-b-read", order: ["", "1", "0"], by: {
       "": { icon: "stack", text: "Showing read and unread" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
-    { dim: "status", id: "ib-b-status", order: ["", "open", "closed"], by: {
-      "": { icon: "folder", text: "Showing open and closed" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
+    { dim: "status", id: "ib-b-status", order: ["open", "closed"], by: {
+      open: { icon: "unlock", text: "Showing open" }, closed: { icon: "lock", text: "Showing closed" } } }
   ];
   function cycleOf(dim) { for (var i = 0; i < CYCLES.length; i++) if (CYCLES[i].dim === dim) return CYCLES[i]; return null; }
   /* The value after `v` in the dimension's turn (an unknown value goes back to all). */
@@ -176,10 +176,12 @@
     var i = c.order.indexOf(v || ""); return c.order[i < 0 ? 0 : (i + 1) % c.order.length];
   }
   /* The icon and words for a value of a dimension. */
-  function cycleLook(dim, v) { var c = cycleOf(dim); if (!c) return null; return has(c.by, v || "") ? c.by[v || ""] : c.by[""]; }
+  function cycleLook(dim, v) { var c = cycleOf(dim); if (!c) return null; return has(c.by, v || "") ? c.by[v || ""] : c.by[c.order[0]]; }
+  /* The state the page loads with (the first of its turn): answered and read "" (all), status "open". INBOX-FIX-7: Open/Closed has no "all" state. */
+  function cycleDefault(dim) { var c = cycleOf(dim); return c ? c.order[0] : ""; }
   /* The query that pressing the dimension's button leads to: the current one with that dimension moved on one step. */
   function filterNext(q, dim) {
-    var n = { q: q.q || "", status: q.status || "", unread: q.unread || "", answered: q.answered || "", filter: q.filter || "all" };
+    var n = { q: q.q || "", status: q.status || "open", unread: q.unread || "", answered: q.answered || "", filter: q.filter || "all" };
     n[dim] = cycleNext(dim, q[dim]);
     return n;
   }
@@ -527,7 +529,7 @@
     });
   }
   /* The unread_total of a list read (never of a search, an Open/Closed or a Read/Unread filter, which may count only their matches). Old answers without it leave the badge alone. */
-  function takeUnread(data) { if (S && S.mode !== "sms" && !S.q && !S.status && !S.unread && data && typeof data.unread_total === "number") { NB.cn = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
+  function takeUnread(data) { if (S && S.mode !== "sms" && !S.q && S.status !== "closed" && !S.unread && data && typeof data.unread_total === "number") { NB.cn = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
   /* The comments list's unread_total is the site's whole count and is never filtered, so every comments read may feed the badge. */
   function takeCmUnread(data) { if (data && typeof data.unread_total === "number") { NB.cm = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
 
@@ -536,7 +538,7 @@
   function fresh() {
     return { site: null, state: "loading", fail: null, items: [], filter: "all", stNext: null, chat: null,
       closing: false, sel: null, selName: "", thread: null, tstate: "", tfail: null, drafts: {}, notice: null, key: null, sending: false,
-      mode: MODE, tab: "", setOn: "", bulkTab: null, q: "", qText: "", qTimer: null, status: "", unread: "", answered: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
+      mode: MODE, tab: "", setOn: "", bulkTab: null, q: "", qText: "", qTimer: null, status: "open", unread: "", answered: "", pool: [], cmNext: null, more: { conv: false, cm: false }, ex: { conv: false, cm: false } };
   }
   function reveal(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-inbox-nav]"), function (n) { n.hidden = !on; });
@@ -598,17 +600,18 @@
     var want = S.mode === "sms" ? "sms" : "inbox";
     if (S.setOn === want) return;
     stopSettings();
-    var n = settingsNode(), ib = byId("ibs-root"), sg = byId("sg-root"), IS = window.NOInboxSettings, SG = window.NOSmsGateway;
+    var n = settingsNode(), ib = byId("ibs-root"), is = byId("ibs-sms-root"), sg = byId("sg-root"), IS = window.NOInboxSettings, SG = window.NOSmsGateway;
     if (n) n.hidden = false;
-    if (ib) ib.hidden = want !== "inbox"; if (sg) sg.hidden = want !== "sms";
+    if (ib) ib.hidden = want !== "inbox"; if (is) is.hidden = want !== "sms"; if (sg) sg.hidden = want !== "sms";
     S.setOn = want;
-    if (want === "sms") { if (SG) SG.show(); } else if (IS) IS.show();
+    /* SMS Marketing Settings: the Text messages (SMS) on/off card (inbox-settings.js, moved from the Inbox Settings tab) above the SMS Gateway card. */
+    if (want === "sms") { if (IS) IS.show("sms"); if (SG) SG.show(); } else if (IS) IS.show();
   }
   function stopSettings() {
     var was = S && S.setOn, n = settingsNode();
     if (S) S.setOn = "";
     if (was === "sms" && window.NOSmsGateway) window.NOSmsGateway.hide();
-    if (was === "inbox" && window.NOInboxSettings) window.NOInboxSettings.hide();
+    if (was && window.NOInboxSettings) window.NOInboxSettings.hide();
     if (n) n.hidden = true;
   }
   /* Another tab of the same page was chosen (the address changed). */
@@ -649,13 +652,13 @@
     var qs = ["channel=" + chanParam(MODE)]; /* "sms": texts only; "nosms": everything but texts. A server that ignores it is covered by modeItems() in ingest() and loadMore(). */
     if (cursor) qs.push("stored_cursor=" + encodeURIComponent(cursor));
     if (o.q) qs.push("q=" + encodeURIComponent(o.q));
-    if (o.status) qs.push("status=" + o.status); /* "open" or "closed"; All conversations sends nothing */
+    if (o.status) qs.push("status=" + o.status); /* "open" (the default) or "closed" */
     if (o.unread) qs.push("unread=" + o.unread); /* "1" unread only, "0" read only; All messages sends nothing */
     if (o.answered === "answered" || o.answered === "unanswered") qs.push("answered=" + o.answered); /* the same filter as the comments list */
     return base() + "conversations/?" + qs.join("&");
   }
   function commentsUrl(cursor, o) { o = o || S; return base() + "comments/" + commentQuery(o.q, o.unread, cursor, o.answered); }
-  function stateFor(items) { return items.length || S.q || S.status || S.unread || S.answered || S.filter !== "all" ? "ready" : "empty"; }
+  function stateFor(items) { return items.length || S.q || S.status === "closed" || S.unread || S.answered || S.filter !== "all" ? "ready" : "empty"; }
   function cursorOf(data, key) { return data && typeof data[key] === "string" && data[key] ? data[key] : null; }
   /* Reads the first page of each source a filter combination needs, both at once. Resolves { unauth, ok, fail, conv, cm, src }:
      conv and cm are the answers' data (null when that source was not read or gave nothing). A comments 404 means the switch is off:
@@ -701,7 +704,7 @@
     var mine = ++token;
     if (!refresh) { S.listTop = 0; S.state = "loading"; S.items = []; S.pool = []; S.stNext = null; S.cmNext = null; redraw(); }
     withSite(function () {
-      if (S.tab === "bulk" && !S.bulkTab) mountBulk("history"); /* a deep link to /sms/bulk/: the site is known now */
+      if (S.tab === "bulk" && !S.bulkTab) mountBulk(); /* a deep link to /sms/bulk/: the site is known now */
       streamOpen();
       /* SMS Marketing: GET .../channels/ comes first. When the store's texts are off or unavailable the page is locked exactly like the 404 page
          (same gate as the New SMS button had: sms_available), and no conversation is read. */
@@ -1004,10 +1007,20 @@
     });
   }
   function onVisible() { if (tabHidden()) { streamClose(); pollStop(); } else { pollKick(); streamOpen(); } }
+  /* Refresh (Coach Ed 2026-11-24, INBOX-FIX-7): the same as opening the page afresh, without reloading it: every filter back to its default (Answered and Read all,
+     Open, the All channel tab), the search closed and empty, no conversation chosen (the right pane back to its empty state, a phone back to the list), and
+     the list read again from the API. Drafts typed into a reply box stay in memory, as they do when the page is not reloaded. */
   function refreshAll(b) {
     busy(b, true);
-    load(true);
-    if (S.sel) { if (isCommentRef(S.sel) && window.NOInboxComments) window.NOInboxComments.reload(); else fetchThread(true); }
+    var st = S;
+    if (st.qTimer !== null) { clearTimeout(st.qTimer); st.qTimer = null; }
+    closeCompose();
+    if (st.sel || st.thread) { st.sel = null; st.selName = ""; st.thread = null; st.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); }
+    st.q = ""; st.qText = ""; st.sOpen = false; st.status = cycleDefault("status"); st.unread = cycleDefault("unread"); st.answered = cycleDefault("answered"); st.filter = "all"; st.listTop = 0;
+    resetPane();
+    var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); /* the filter row is built again, with the search closed */
+    load(false);
+    syncTabs();
     setTimeout(function () { busy(b, false); }, 600);
   }
 
@@ -1111,22 +1124,21 @@
     syncPanels();
     syncTools();
     if (S.sel) { drawContact(); drawThread(); } else if (S.composing) { smsCompose(true); }
-    if (S.tab === "settings") startSettings(); else if (S.tab === "bulk" && S.site) mountBulk("history");
+    if (S.tab === "settings") startSettings(); else if (S.tab === "bulk" && S.site) mountBulk();
   }
   /* Only the panel of the chosen tab is visible: the list and thread (main), the Bulk SMS sends, or the settings card. */
   function syncPanels() {
     var main = !S || S.tab === "";
     [["ib-split", main], ["ib-tools-host", main], ["ib-bulkpane", !!S && S.tab === "bulk"], ["ib-settings", !!S && S.tab === "settings"]].forEach(function (p) { var n = byId(p[0]); if (n) n.hidden = !p[1]; });
   }
-  /* The Bulk SMS tab: the screen of inbox-bulk.js in the tab's own pane, starting on its History (the sends so far and their state). From History the
-     screen's own link opens the composer; the Bulk SMS button opens the composer straight away. */
-  function mountBulk(start) {
+  /* The Bulk SMS tab: the screen of inbox-bulk.js in the tab's own pane: the progress card while a batch is sending, the History table, and the Send Bulk SMS button
+     that opens the composer inside the same pane (INBOX-FIX-7). */
+  function mountBulk() {
     if (!S || !BULK || S.tab !== "bulk") return;
     var host = byId("ib-bulkpane"); if (!host || !S.site) return;
     if (S.bulkTab) { S.bulkTab.stop(); S.bulkTab = null; }
     S.bulkTab = BULK.screen(host, {
-      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say, home: "Bulk SMS", start: start,
-      back: function () { mountBulk("history"); },
+      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say,
       gone: function () { if (S) S.bulk = false; try { history.replaceState(null, "", PAGE_PATHS.sms[""] + location.search); } catch (e) { /* the address stays */ } setTab(""); }
     });
   }
@@ -1154,7 +1166,7 @@
     var banners = bannerBox(); if (banners) body.appendChild(banners);
     var shown = filterItems(S.items, S.filter), canMore = !!nextSource(S.pool, S.more);
     if (!shown.length) {
-      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status || S.unread || S.answered ? "No conversations match." : S.filter === "fbcomment" ? "No comments yet." : "No conversations in this channel yet."); none.setAttribute("role", "status");
+      var none = h("p", "ib-empty-filter", S.q ? "No conversations match \u201C" + S.q + "\u201D." : S.status === "closed" || S.unread || S.answered ? "No conversations match." : S.filter === "fbcomment" ? "No comments yet." : "No conversations in this channel yet."); none.setAttribute("role", "status");
       body.appendChild(none);
       if (canMore) { var moreEmpty = btn("Show more conversations", "ghost", loadMore); moreEmpty.classList.add("ib-more"); body.appendChild(moreEmpty); }
       return;
@@ -1221,6 +1233,8 @@
     var key = mode + "|" + S.tab + "|" + (S.bulk ? "b" : "") + "|" + (SMS && SMS.util.available(S.chat) ? "s" : "");
     if (host.getAttribute("data-mode") === mode && host.getAttribute("data-key") === key) return;
     clear(host); host.setAttribute("data-mode", mode); host.setAttribute("data-key", key); purgeTips();
+    /* SMS Marketing on a phone: the right pane is hidden until something is chosen, so Send New SMS also sits at the top of the list (it hides from 900 px up). */
+    if (S.mode === "sms" && S.tab === "") { var nb = newTextButton("ib-newtext-phone"); if (nb) { nb.classList.add("ib-nt-phone"); host.appendChild(nb); } }
     /* The page's top line: the tabs at the left and, on the SMS Marketing page, New SMS and Bulk SMS at the right of the same row, beside the
        search, theme and bell buttons. The Inbox page's tabs wait for the list to be there (nothing to choose while it loads). */
     var th = byId("ib-tabs-host");
@@ -1228,19 +1242,11 @@
       clear(th);
       if (S.state !== "loading" || S.tab !== "") {
         var row = h("div", "ib-toprow"); row.appendChild(tabBar());
-        if (S.mode === "sms") { var acts = toolbarActs(); if (acts) row.appendChild(acts); }
         th.appendChild(row);
       }
     }
     var lh = byId("ib-lhead");
     if (lh) { clear(lh); if (mode === "full") add(lh, filterBar()); else if (mode === "lite") add(lh, liteBar()); }
-  }
-  /* New SMS and Bulk SMS (SMS Marketing page): null when neither is there. */
-  function toolbarActs() {
-    var acts = h("div", "ib-acts");
-    var nt = newTextButton(); if (nt) acts.appendChild(nt);
-    var bk = bulkButton(); if (bk) acts.appendChild(bk);
-    return acts.children.length ? acts : null;
   }
   /* The page's tabs. Inbox page: one tab per channel (tabsFor, the same filter value the Channel dropdown set), then Settings. SMS Marketing page:
      Inbox | Bulk SMS | Settings (Bulk SMS only while the bulk probe says it is there). */
@@ -1361,8 +1367,9 @@
   function paintCycle(b, c, v) {
     var r = cycleLook(c.dim, v);
     clear(b); b.appendChild(icon(ICON[r.icon]));
-    b.setAttribute("aria-label", r.text); b.removeAttribute("title"); b.setAttribute("aria-pressed", v ? "true" : "false"); b.setAttribute("data-v", v || "");
-    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
+    b.setAttribute("aria-label", r.text); b.removeAttribute("title"); b.setAttribute("data-v", v || "");
+    var on = (v || "") !== cycleDefault(c.dim); /* lit only while the filter is off its default (Open is the default) */
+    b.setAttribute("aria-pressed", on ? "true" : "false"); b.classList.toggle("is-on", on); if (b.ibTipRefresh) b.ibTipRefresh();
   }
   function paintSearchBtn(b) {
     var t = S && S.qText ? S.qText.trim() : "", words = t ? "Search: " + t : "Search";
@@ -1374,36 +1381,35 @@
     CYCLES.forEach(function (c) { var b = byId(c.id); if (b) paintCycle(b, c, q[c.dim] || ""); });
     var sb = byId("ib-b-search"); if (sb) paintSearchBtn(sb);
   }
-  /* "New SMS": only while the API says the Text (SMS) feature is there. */
-  function newTextButton() {
-    if (!SMS || !SMS.util.available(S.chat)) return null;
-    var b = h("button", "no-btn no-btn-primary ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-newtext-btn"); b.setAttribute("aria-label", "New SMS");
-    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "New SMS"));
+  /* "Send New SMS" (SMS Marketing page, Coach Ed 2026-11-24): the call to action of the empty right pane, and on a phone also at the top of the list (the right pane is
+     hidden there until something is chosen). Only while the API says the Text (SMS) feature is there. The top-right New SMS and Bulk SMS buttons are gone. */
+  function newTextButton(id) {
+    if (!SMS || !S || S.mode !== "sms" || !SMS.util.available(S.chat)) return null;
+    var b = h("button", "no-btn no-btn-primary ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", id || "ib-newtext-btn");
+    b.appendChild(icon(ICON.sms)); b.appendChild(document.createTextNode("Send New SMS"));
     b.addEventListener("click", function () { if (!S) return; if (S.tab !== "") goTab(""); if (S) smsCompose(false); });
     return b;
   }
-  /* "Bulk SMS": only while the bulk status probe said available:true. */
-  function bulkButton() {
-    if (!BULK || !S || !S.bulk || S.bulk.available !== true || !SMS || !SMS.util.available(S.chat)) return null;
-    var b = h("button", "no-btn no-btn-ghost ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-bulk-btn"); b.setAttribute("aria-label", "Bulk SMS");
-    b.appendChild(icon(ICON.users)); b.appendChild(h("span", "ib-rf-t", "Bulk SMS"));
-    b.addEventListener("click", function () { if (!S) return; if (S.tab === "bulk") { mountBulk("main"); return; } if (S.tab !== "") goTab(""); if (S) bulkOpen(); });
-    return b;
+  /* What the right pane shows when nothing is chosen: the SMS page invites a new text, the Inbox says to choose a conversation. */
+  function emptyBox() {
+    if (S && S.mode === "sms") {
+      var b = newTextButton("ib-newtext-btn");
+      var box = stateBox(ICON.sms, "Text your members", "Send a text from your own phone, or pick a conversation on the left to read and reply.", b ? [b] : null);
+      box.setAttribute("data-empty", b ? "sms-cta" : "sms");
+      return box;
+    }
+    var one = stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.");
+    one.setAttribute("data-empty", "inbox");
+    return one;
   }
-  /* The Bulk SMS screen (inbox-bulk.js) in the right pane, like the New text screen. */
-  function bulkOpen() {
-    if (!S || !BULK || !S.bulk) return;
-    var host = byId("ib-threadpane"); if (!host) return;
-    closeCompose();
-    if (S.sel) { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); }
-    S.composing = true;
-    var handle = BULK.screen(host, {
-      D: D, h: h, add: add, clear: clear, btn: btn, busy: busy, icon: icon, combo: combo, newKey: newKey, site: S.site, say: say, home: pageName(S.mode),
-      back: function () { closeCompose(); resetPane(); drawList(); },
-      gone: function () { closeCompose(); if (S) S.bulk = false; var th = byId("ib-tools-host"); if (th) th.removeAttribute("data-mode"); resetPane(); drawList(); }
-    });
-    S.composing = handle;
-    drawList();
+  /* The empty right pane is drawn before the channels answer; once they say whether texts are there, the call to action is added (or taken away). */
+  function syncEmptyPane() {
+    var t = byId("ib-threadpane");
+    if (!t || !S || S.tab !== "" || paneOpen() || !t.firstChild || !t.firstChild.getAttribute) return;
+    var have = t.firstChild.getAttribute("data-empty");
+    if (!have) return;
+    var want = S.mode !== "sms" ? "inbox" : SMS && SMS.util.available(S.chat) ? "sms-cta" : "sms";
+    if (have !== want) resetPane();
   }
   /* The New text screen (inbox-sms.js) in the right pane; closeCompose() puts the pane back. */
   function closeCompose() { if (S && S.composing) { if (S.composing.stop) S.composing.stop(); S.composing = null; } }
@@ -1426,7 +1432,7 @@
     var t = byId("ib-threadpane");
     if (!t) return;
     clear(t); t.setAttribute("aria-label", "Conversation");
-    t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
+    t.appendChild(emptyBox());
   }
   /* Refresh: the fifth square icon button of the filter row (same handler as the old toolbar button). */
   function refreshButton() {
@@ -1515,7 +1521,7 @@
       if (r.conv) takeUnread(r.conv);
       fillList(byId("ib-listbody")); syncFilters(); syncTabs();
       if (box && box.ibFocus) box.ibFocus();
-      say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
+      say(!next.q && next.status !== "closed" && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
   }
   /* The banner above the list: at most one chat banner (the daily limit first, else a pause). */
@@ -1550,14 +1556,14 @@
     ["ib-tools-host", "ib-tabs-host"].forEach(function (id) { var th = byId(id); if (th) { if (paneOpen()) th.classList.add("is-hide-phone"); else th.classList.remove("is-hide-phone"); } });
     var t = byId("ib-threadpane");
     if (t) { if (paneOpen()) t.classList.remove("is-hide-phone"); else t.classList.add("is-hide-phone"); }
-    drawContact();
+    drawContact(); syncEmptyPane();
     var nul = body.querySelector ? body.querySelector(".ib-list") : null;
     if (nul && top) nul.scrollTop = top; /* on the phone the list is hidden while a thread is open: its drawList on "< Inbox" restores it */
   }
   function threadPane() {
     var p = pane(S.sel ? "Conversation with " + (S.selName || "customer") : "Conversation", "ib-threadpane" + (paneOpen() ? "" : " is-hide-phone"));
     p.setAttribute("id", "ib-threadpane");
-    if (!S.sel && !S.composing) p.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
+    if (!S.sel && !S.composing) p.appendChild(emptyBox());
     return p;
   }
 
@@ -1625,7 +1631,7 @@
     var head = h("div", "ib-thead");
     var back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
     back.appendChild(icon(ICON.back)); back.appendChild(h("span", "", pageName(S.mode)));
-    back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply.")); } });
+    back.addEventListener("click", function () { S.sel = null; S.thread = null; S.tstate = ""; tload++; if (window.NOInboxComments) window.NOInboxComments.deselect(); drawList(); var t = byId("ib-threadpane"); if (t) { clear(t); t.setAttribute("aria-label", "Conversation"); t.appendChild(emptyBox()); } });
     var av = avatarNode(name, o.avatar);
     var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name)));
     if (o.channel) {
@@ -1845,6 +1851,6 @@
       grouped: grouped, windowNotice: windowNotice, badgeText: badgeText,
       timeOf: timeOf, sortNewest: sortNewest, horizonOf: horizonOf, visibleOf: visibleOf, nextSource: nextSource, mergeSource: mergeSource,
       sourcesFor: sourcesFor, commentQuery: commentQuery, unreadSum: unreadSum,
-      tabsFor: tabsFor, pageTabs: pageTabs, pathOf: pathOf, normTab: normTab, chanParam: chanParam, inMode: inMode, modeItems: modeItems, pageName: pageName, cycles: CYCLES, cycleNext: cycleNext, cycleLook: cycleLook, filterNext: filterNext, placeholderFor: placeholderFor, contactOf: contactOf },
+      tabsFor: tabsFor, pageTabs: pageTabs, pathOf: pathOf, normTab: normTab, chanParam: chanParam, inMode: inMode, modeItems: modeItems, pageName: pageName, cycles: CYCLES, cycleNext: cycleNext, cycleDefault: cycleDefault, cycleLook: cycleLook, filterNext: filterNext, placeholderFor: placeholderFor, contactOf: contactOf },
     combo: combo };
 })();

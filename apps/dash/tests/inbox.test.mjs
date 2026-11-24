@@ -57,7 +57,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   const page = doc.body.appendChild(doc.createElement("div")); page.setAttribute("id", "view-inbox");
   const setBox = doc.createElement("div"); setBox.setAttribute("id", "ib-settings"); setBox.hidden = true;
   for (const id of ["ib-root", "ib-live"]) { const n = doc.createElement("div"); n.setAttribute("id", id); page.appendChild(n); }
-  for (const id of ["ibs-root", "ibs-live", "sg-root", "sg-live", "sg-dialog-slot"]) { const n = doc.createElement("div"); n.setAttribute("id", id); if (id === "ibs-root" || id === "sg-root") n.hidden = true; setBox.appendChild(n); }
+  for (const id of ["ibs-root", "ibs-live", "ibs-sms-root", "sg-root", "sg-live", "sg-dialog-slot"]) { const n = doc.createElement("div"); n.setAttribute("id", id); if (id === "ibs-root" || id === "ibs-sms-root" || id === "sg-root") n.hidden = true; setBox.appendChild(n); }
   page.appendChild(setBox);
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   const smsNav = [0, 1].map(() => { const a = doc.createElement("a"); a.setAttribute("data-sms-nav", ""); a.hidden = true; page.appendChild(a); return a; });
@@ -130,6 +130,7 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
+    async openSmsSettings() { window.NOInboxSettings.show("sms"); await settle(); },
     async openInbox() { window.NOInbox.show(); await settle(); },
     async openSms() { window.NOInbox.show("sms"); await settle(); },
     async click(node) { node.fire("click"); await settle(); } };
@@ -137,14 +138,14 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
 
 /* ---------- /settings/inbox/ ---------- */
 
-test("settings shows the channel cards and the how-it-works card, and asks only for the sites and the channels", async () => {
+test("settings shows the channel cards (no how-it-works card), and asks only for the sites and the channels", async () => {
   const d = boot({ channels: CH_OFF });
   await d.openSettings();
   assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "channels/", "GET " + BASE + "messenger/connection/"]);
   const root = d.$("ibs-root");
   assert.equal(root.getAttribute("aria-busy"), null);
-  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
-  assert.equal(d.all(root, "mk-list")[0].children.length, 4);
+  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email"], "INBOX-FIX-7: no How the inbox works card");
+  assert.equal(d.all(root, "mk-list").length, 0);
   assert.deepEqual(d.nav.map((n) => n.hidden), [false, false, false], "the API answered, so the Inbox links show");
 });
 
@@ -165,7 +166,7 @@ test("settings while the API answers 404 (switch off): a plain note, no cards, t
 test("b1: the list shows each customer with a snippet and time, a channel badge, and no chip on an open conversation", async () => {
   const d = boot();
   await d.openInbox();
-  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "conversations/?channel=nosms", "GET " + BASE + "channels/"]);
+  assert.deepEqual(d.list(), ["GET /sites/", "GET " + BASE + "conversations/?channel=nosms&status=open", "GET " + BASE + "channels/"]);
   const rows = d.all(d.$("ib-list"), "ib-item");
   assert.equal(rows.length, 2);
   assert.deepEqual(d.all(rows[0], "ib-name").map((n) => n.textContent), ["Maria Santos"]);
@@ -191,7 +192,7 @@ test("b2: an empty list says so; Show more conversations appears only with a sto
   await d.openInbox();
   d.s.listing = { items: [{ ref: "wc_dddddddddddddddddddddddd", display_name: "Liza R.", snippet: "Thanks", updated_at: iso(90), channel: "webchat", source: "stored", status: "open", unread: false }], stored_next_cursor: null };
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
-  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=30"));
+  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=30&status=open"));
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 3);
   assert.equal(d.press(d.$("ib-listbody"), "Show more conversations"), undefined);
 });
@@ -459,8 +460,8 @@ const tabLabels = (d) => d.all(d.$("ib-tabs-host"), "ib-tab").map((t) => t.textC
 const pickTab = async (d, v) => { d.$("ib-tab-" + v).fire("click"); await settle(); };
 /* The filter buttons cycle (all -> first -> second -> all); `pickChip` clicks the right number of times to reach a state, `pickOff` back to all. */
 const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
-const ORDERS = { "ib-b-answered": ["", "unanswered", "answered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
-const cycleTo = async (d, id, want) => { const o = ORDERS[id], b = d.$(id); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + 3) % 3; n > 0; n--) { b.fire("click"); await settle(); } };
+const ORDERS = { "ib-b-answered": ["", "unanswered", "answered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["open", "closed"] }; /* INBOX-FIX-7: Open is the default, there is no "all" */
+const cycleTo = async (d, id, want) => { const o = ORDERS[id], b = d.$(id); if (want === "" && id === "ib-b-status") want = "open"; for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + o.length) % o.length; n > 0; n--) { b.fire("click"); await settle(); } };
 const pickChip = (d, k) => cycleTo(d, CYC[k][0], CYC[k][1]);
 const pickOff = (d, k) => cycleTo(d, CYC[k][0], "");
 const chipOn = (d, k) => String(d.$(CYC[k][0]).getAttribute("data-v") === CYC[k][1]);
@@ -706,7 +707,7 @@ test("the stored channels' own pages: Show more conversations follows stored_nex
   const d = boot({ listing, channels: CHANNELS_ON });
   await d.openInbox();
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
-  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=1700000000000000_12") || d.list().some((c) => c.includes("stored_cursor=")), d.list().join("\n"));
+  assert.ok(d.list().includes("GET " + BASE + "conversations/?channel=nosms&stored_cursor=1700000000000000_12&status=open") || d.list().some((c) => c.includes("stored_cursor=")), d.list().join("\n"));
 });
 
 /* ---------- Settings > Inbox channels (d6) ---------- */
@@ -714,14 +715,12 @@ test("the stored channels' own pages: Show more conversations follows stored_nex
 const CH_OFF = { webchat_enabled: false, paused_until: null, chat_limit_reached: false, webchat_available: true };
 const switchOf = (d, id) => d.$(id);
 
-test("d6: the Inbox channels card, then Email, then How the inbox works; the web chat switch writes webchat_enabled", async () => {
+test("d6: the Inbox channels card, then Email; the web chat switch writes webchat_enabled", async () => {
   const d = boot({ channels: CH_OFF });
   await d.openSettings();
   const root = d.$("ibs-root");
-  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email", "How the inbox works"]);
-  const how = root.all((n) => n.tagName === "LI").map((n) => n.textContent);
-  assert.ok(how.includes("The inbox shows your Facebook Messenger, website chat and email conversations in one list."));
-  assert.ok(how.includes("You can reply to a Facebook Messenger conversation within 24 hours of the customer's last message."));
+  assert.deepEqual(root.all((n) => n.tagName === "H2").map((n) => n.textContent), ["Inbox channels", "Email"]);
+  assert.equal(root.all((n) => n.tagName === "LI").length, 0, "the How the inbox works card is gone (INBOX-FIX-7)");
   const sw = switchOf(d, "ibs-sw-chat");
   assert.equal(sw.getAttribute("role"), "switch");
   assert.equal(sw.getAttribute("aria-checked"), "false");
@@ -834,12 +833,12 @@ test("a switch the API refuses leaves it as it was and says so", async () => {
 test("the page and its two scripts: no inline handler, the combo is the house dropdown, focus is light blue, versions bumped", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
-  assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml11/);
+  assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
+  assert.match(HTML, /inbox\.js\?v=20261124ml12/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/);
-  assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml11/);
-  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml11/);
+  assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml12/);
+  assert.match(HTML, /inbox-bulk\.js\?v=20261124ml12/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
 
@@ -855,13 +854,13 @@ test("messenger card is hidden when connection/ answers 404", async () => {
   const d = boot({ channels: CH_OFF });
   await d.openSettings();
   assert.ok(d.list().includes("GET " + MBASE + "connection/"));
-  assert.deepEqual(h2s(d), ["Inbox channels", "Email", "How the inbox works"]);
+  assert.deepEqual(h2s(d), ["Inbox channels", "Email"]);
 });
 
 test("messenger unset: Connect Facebook Page navigates to start/ and makes no fetch to it", async () => {
   const d = boot({ channels: CH_OFF, messenger: M_UNSET });
   await d.openSettings();
-  assert.deepEqual(h2s(d), ["Inbox channels", "Facebook Messenger", "Email", "How the inbox works"]);
+  assert.deepEqual(h2s(d), ["Inbox channels", "Facebook Messenger", "Email"]);
   const b = d.press(d.$("ibs-root"), "Connect Facebook Page");
   assert.ok(b);
   await d.click(b);
@@ -1083,7 +1082,8 @@ function makeClock() {
   };
   return c;
 }
-const THREAD_PATH = BASE + "conversations/" + REF + "/", LIST_PATH = BASE + "conversations/?channel=nosms";
+const LIST_NOQ = BASE + "conversations/?channel=nosms";
+const THREAD_PATH = BASE + "conversations/" + REF + "/", LIST_PATH = BASE + "conversations/?channel=nosms&status=open";
 const gets = (d, p) => d.calls.filter((c) => c.method === "GET" && c.path === p).length;
 /* Give every stand-in node the scroll numbers a browser has (a 300 px box over 1000 px of messages). */
 function scrollable(d) {
@@ -1720,7 +1720,7 @@ test("U5: search asks the API 300 ms after the last key, needs 2 characters, sho
   assert.equal(qCalls().length, 0, "debounced");
   inp.value = "Jun"; inp.fire("input"); await clock.advance(299); assert.equal(qCalls().length, 0);
   await clock.advance(1);
-  assert.deepEqual(qCalls().map((c) => c.path), [LIST_PATH + "&q=Jun"], "one request, with the last text");
+  assert.deepEqual(qCalls().map((c) => c.path), [LIST_NOQ + "&q=Jun&status=open"], "one request, with the last text");
   const rows = d.all(d.$("ib-list"), "ib-item");
   assert.equal(rows.length, 1);
   assert.equal(d.$("ib-q"), inp, "the box and its cursor stay while the rows change");
@@ -1773,7 +1773,7 @@ test("U6: the Inbox is a fixed-height view; the list and thread scroll inside th
 test("INBOX-UI: the new focus borders are light blue, never gold, and the search box uses the house field look", () => {
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-qs:focus-within \{[^}]*border-color: var\(--link/);
-  assert.doesNotMatch(css.slice(css.indexOf("INBOX-UI (ClickUp")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
+  assert.doesNotMatch(css.slice(css.indexOf("INBOX-UI (ClickUp")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
 });
 
 /* ---------- INBOX-UI round 2 (z8uq9mg7ux): the filter row in the Conversations card, the header text, phone height, closed-window note ---------- */
@@ -1819,28 +1819,26 @@ test("C2: the Open / Closed chips send ?status=open or closed, nothing when off,
   asInbox(d);
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
-  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
-  assert.equal(reads().at(-1), LIST_PATH, "no chip on: no status parameter");
-  assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["false", "false"]);
+  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_NOQ) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
+  assert.equal(reads().at(-1), LIST_PATH, "Open is the default: status=open is sent (INBOX-FIX-7)");
+  assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["true", "false"]);
   await pickChip(d, "closed");
-  assert.equal(reads().at(-1), LIST_PATH + "&status=closed");
+  assert.equal(reads().at(-1), LIST_NOQ + "&status=closed");
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 1);
   assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["false", "true"]);
   await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "&status=open");
-  assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["true", "false"], "one status at a time");
+  assert.equal(reads().at(-1), LIST_PATH);
+  assert.deepEqual([chipOn(d, "open"), chipOn(d, "closed")], ["true", "false"], "one status at a time, and there is no third (all) state");
   const inp = d.$("ib-q");
   inp.value = "Mar"; inp.fire("input"); await clock.advance(300);
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "search and status together");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open", "search and status together");
   assert.equal(d.$("ib-q"), inp, "the search box stays while the rows change");
   await clock.advance(15000);
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "the list poll keeps both");
-  await pickOff(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar", "the third press goes back to all and drops the parameter");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open", "the list poll keeps both");
   await pickChip(d, "closed");
   await pickTab(d, "email");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match \u201CMar\u201D."), "the channel is still a filter on the rows (and a search is on)");
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=closed", "the channel adds nothing to the address");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=closed", "the channel adds nothing to the address");
   assert.equal(d.calls.filter((c) => /status=[^&]*(all|invalid)/.test(c.path)).length, 0);
 });
 
@@ -1849,9 +1847,9 @@ test("C2: a chip read that fails says so and puts the chip back; the nav count i
   asInbox(d);
   await d.openInbox();
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
-  await pickChip(d, "open");
+  await pickChip(d, "closed");
   assert.equal(d.toasts.length, 1);
-  assert.equal(chipOn(d, "open"), "false", "the chip is back off");
+  assert.equal(chipOn(d, "open"), "true", "the button is back on Open");
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "the list is as it was");
   d.s.listAnswer = null; d.s.statuser = (st) => ({ ...byStatus(st), unread_total: 1 });
   await pickChip(d, "closed");
@@ -1883,7 +1881,7 @@ test("the list column starts with one row of five icon buttons (Search, Answered
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
   assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
   assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === null));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing read and unread", "Showing open and closed", "Refresh"]);
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing read and unread", "Showing open", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -1936,7 +1934,7 @@ test("the toolbar CSS: the tabs row and the actions; phone: tabs on their own li
   assert.match(phone, /\.ib-split \.is-hide-phone \{ display: none/, "the toolbar goes with the list while a conversation is open");
   assert.match(phone, /\.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important; \}/, "no contact panel on a phone");
   assert.doesNotMatch(css, /container-type|@container/, "containment would trap the fixed dropdown panel");
-  assert.doesNotMatch(css, /overflow-x: ?(scroll|auto)/, "no sideways scroll anywhere else");
+  assert.doesNotMatch(css.replace(/#view-inbox \.ib-bk-tbox \{[^}]*\}/, ""), /overflow-x: ?(scroll|auto)/, "no sideways scroll anywhere else (the Bulk SMS table scrolls inside its own box)");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.match(css, /\.ib-fbtn:focus-visible \{[^}]*border-color: var\(--link\)/, "light-blue focus on the filter buttons");
   assert.match(css, /\.ib-fbtn \{[^}]*width: 44px; height: 44px;[^}]*border: 1px solid var\(--card-line\); border-radius: 8px/, "the top-bar button look");
@@ -1984,24 +1982,23 @@ test("R4-4: the Unread / Read chips send unread=1 / unread=0 / nothing, one at a
   asInbox(d);
   d.s.statuser = (st, q, un) => (un === "0" ? { items: [], stored_next_cursor: null } : byStatus(st));
   await d.openInbox();
-  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
+  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_NOQ) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
   assert.equal(reads().at(-1), LIST_PATH, "no chip on: no unread parameter");
   await pickChip(d, "unread");
   assert.equal(reads().at(-1), LIST_PATH + "&unread=1");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["true", "false"]);
-  await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "&status=open&unread=1", "status and unread together");
+  assert.equal(reads().at(-1), LIST_NOQ + "&status=open&unread=1", "status and unread together");
   const inp = d.$("ib-q");
   inp.value = "Mar"; inp.fire("input"); await clock.advance(300);
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=1", "search, status and unread together");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open&unread=1", "search, status and unread together");
   await clock.advance(15000);
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=1", "the list poll keeps all three");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open&unread=1", "the list poll keeps all three");
   await pickChip(d, "read");
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open&unread=0");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open&unread=0");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "true"], "Read replaces Unread");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"), "an empty filtered list says so");
   await pickOff(d, "read");
-  assert.equal(reads().at(-1), LIST_PATH + "&q=Mar&status=open", "pressing it again drops the parameter");
+  assert.equal(reads().at(-1), LIST_NOQ + "&q=Mar&status=open", "pressing it again drops the parameter");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "false"]);
   assert.equal(d.calls.filter((c) => /unread=(all|invalid|true)/.test(c.path)).length, 0);
 });
@@ -2176,33 +2173,42 @@ const MEMBERS = [
 ];
 const smsOpen = async (d) => { await d.openSms(); await d.click(d.all(d.$("ib-list"), "ib-item")[0]); };
 
-test("sms settings: no card while sms_available is absent or false; with it, a switch that PUTs sms_enabled and the no-promotions line", async () => {
+test("INBOX-FIX-7 sms settings: the Text messages (SMS) card is gone from Inbox Settings and lives on the SMS Marketing Settings tab (same switch, same PUT)", async () => {
+  /* Inbox > Settings never shows it, even with sms_available */
+  const inb = boot({ channels: { ...CH_OFF, sms_available: true, sms_enabled: false } });
+  await inb.openSettings();
+  assert.ok(!inb.$("ibs-root").all((n) => n.tagName === "H2").some((n) => /Text messages/.test(n.textContent)), "no SMS card on the Inbox Settings tab");
+  assert.equal(inb.$("ibs-sw-sms"), null);
+  assert.ok(!inb.$("ibs-root").textContent.includes("For orders and member service only"));
+  /* SMS Marketing > Settings: no card while sms_available is absent or false */
   for (const ch of [CH_OFF, { ...CH_OFF, sms_available: false, sms_enabled: false }]) {
     const d = boot({ channels: ch });
-    await d.openSettings();
-    assert.ok(!d.$("ibs-root").all((n) => n.tagName === "H2").some((n) => /Text messages/.test(n.textContent)));
+    await d.openSmsSettings();
     assert.equal(d.$("ibs-sw-sms"), null);
+    assert.equal(d.$("ibs-sms-root").children.length, 0);
   }
+  /* with it: the card with the switch, which PUTs sms_enabled; nothing of the Inbox cards, and no Messenger read */
   const d = boot({ channels: { ...CH_OFF, sms_available: true, sms_enabled: false } });
-  await d.openSettings();
-  assert.ok(d.$("ibs-root").all((n) => n.tagName === "H2").some((n) => n.textContent === "Text messages (SMS)"));
-  assert.ok(d.$("ibs-root").textContent.includes("For orders and member service only. No promotions."));
+  await d.openSmsSettings();
+  assert.deepEqual(d.$("ibs-sms-root").all((n) => n.tagName === "H2").map((n) => n.textContent), ["Text messages (SMS)"]);
+  assert.equal(d.$("ibs-root").children.length, 0, "the Inbox cards are not drawn on the SMS page");
+  assert.ok(!d.list().some((c) => c.includes("messenger/")), "the Messenger connection is not asked for");
+  assert.ok(d.$("ibs-sms-root").textContent.includes("For orders and member service only. No promotions."));
   assert.equal(d.$("ibs-sw-sms").getAttribute("aria-checked"), "false");
   await d.click(d.$("ibs-sw-sms"));
   const put = d.calls.filter((c) => c.method === "PUT");
   assert.deepEqual(put.map((c) => c.body), [{ sms_enabled: true }]);
   assert.equal(d.$("ibs-sw-sms").getAttribute("aria-checked"), "true");
+  d.window.NOInboxSettings.hide();
+  assert.equal(d.$("ibs-sms-root").children.length, 0, "leaving the tab clears the card");
 });
 
-test("sms settings: the how-it-works line names text messages only when sms is available", async () => {
-  const OLD = "The inbox shows your Facebook Messenger, website chat and email conversations in one list.";
-  const NEW = "The inbox shows your Facebook Messenger, website chat, text message (SMS) and email conversations in one list.";
-  for (const [ch, want, not] of [[CH_OFF, OLD, NEW], [{ ...CH_OFF, sms_available: true, sms_enabled: false }, NEW, OLD]]) {
+test("INBOX-FIX-7: the Inbox Settings tab has no How the inbox works card, with or without sms", async () => {
+  for (const ch of [CH_OFF, { ...CH_OFF, sms_available: true, sms_enabled: false }]) {
     const d = boot({ channels: ch });
     await d.openSettings();
-    const text = d.$("ibs-root").textContent;
-    assert.ok(text.includes(want));
-    assert.ok(!text.includes(not));
+    assert.ok(!d.$("ibs-root").textContent.includes("How the inbox works"));
+    assert.ok(!d.$("ibs-root").textContent.includes("Press Refresh to see new messages."));
   }
 });
 
@@ -2415,20 +2421,23 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
   assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
   /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
-  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "unanswered", "answered"]], ["unread", ["", "1", "0"]], ["status", ["", "open", "closed"]]]);
+  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "unanswered", "answered"]], ["unread", ["", "1", "0"]], ["status", ["open", "closed"]]]);
   assert.deepEqual(["", "unanswered", "answered", ""].map((v) => u.cycleNext("answered", v)), ["unanswered", "answered", "", "unanswered"]);
   assert.deepEqual(["", "1", "0"].map((v) => u.cycleNext("unread", v)), ["1", "0", ""]);
-  assert.deepEqual(["", "open", "closed"].map((v) => u.cycleNext("status", v)), ["open", "closed", ""]);
-  assert.equal(u.cycleNext("status", "weird"), "", "an unknown value goes back to all");
+  assert.deepEqual(["open", "closed", "open"].map((v) => u.cycleNext("status", v)), ["closed", "open", "closed"], "Open then Closed then Open: no all state (INBOX-FIX-7)");
+  assert.equal(u.cycleNext("status", "weird"), "open", "an unknown value goes back to the default, Open");
+  assert.equal(u.cycleNext("status", ""), "open");
+  assert.equal(u.cycleDefault("status"), "open");
   assert.equal(u.cycleNext("nope", "x"), "");
   assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing read and unread"]);
   assert.deepEqual([u.cycleLook("answered", "answered").text, u.cycleLook("answered", "unanswered").text], ["Answered only", "Unanswered only"]);
-  assert.deepEqual([u.cycleLook("status", "open").text, u.cycleLook("status", "closed").text], ["Open only", "Closed only"]);
+  assert.deepEqual([u.cycleLook("status", "open").text, u.cycleLook("status", "closed").text], ["Showing open", "Showing closed"]);
+  assert.equal(u.cycleLook("status", "").text, "Showing open", "an unknown value reads as the default");
   assert.equal(new Set(["", "answered", "unanswered"].map((v) => u.cycleLook("answered", v).icon)).size, 3, "a distinct icon per state");
   assert.equal(new Set(["", "1", "0"].map((v) => u.cycleLook("unread", v).icon)).size, 3);
-  assert.equal(new Set(["", "open", "closed"].map((v) => u.cycleLook("status", v).icon)).size, 3);
-  const base = { q: "ma", status: "", unread: "", answered: "", filter: "email" };
-  assert.deepEqual({ ...u.filterNext(base, "unread") }, { q: "ma", status: "", unread: "1", answered: "", filter: "email" });
+  assert.equal(new Set(["open", "closed"].map((v) => u.cycleLook("status", v).icon)).size, 2);
+  const base = { q: "ma", status: "open", unread: "", answered: "", filter: "email" };
+  assert.deepEqual({ ...u.filterNext(base, "unread") }, { q: "ma", status: "open", unread: "1", answered: "", filter: "email" });
   assert.deepEqual({ ...u.filterNext({ ...base, unread: "1" }, "unread") }, { ...base, unread: "0" });
   assert.deepEqual({ ...u.filterNext({ ...base, unread: "0" }, "unread") }, base, "the third press is back to all");
   assert.deepEqual({ ...u.filterNext({ ...base, status: "closed" }, "answered") }, { ...base, status: "closed", answered: "unanswered" }, "other dimensions are kept");
@@ -2446,18 +2455,18 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
 test("SMS-MENU: the channel param is sent (nosms in the Inbox, sms on SMS Marketing) and the client-side filter keeps each page to its own channel", async () => {
   const inbox = boot({ listing: smsList(), channels: CH_SMS });
   await inbox.openInbox();
-  assert.ok(inbox.list().includes("GET " + BASE + "conversations/?channel=nosms"));
+  assert.ok(inbox.list().includes("GET " + BASE + "conversations/?channel=nosms&status=open"));
   assert.ok(!inbox.list().some((c) => c.includes("channel=sms")));
   assert.deepEqual(rowsOf(inbox).map((r) => inbox.all(r, "ib-name")[0].textContent), ["Maria Santos", "Jun Dela Cruz"], "a server that ignores the param still shows no text");
   const sms = boot({ listing: smsList(), channels: CH_SMS });
   sms.s.smsStatus = SMS_STATUS;
   await sms.openSms();
-  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms"));
+  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms&status=open"));
   assert.ok(!sms.list().some((c) => c.includes("/comments/")), "no comments are asked for on SMS Marketing");
   assert.deepEqual(rowsOf(sms).map((r) => sms.all(r, "ib-name")[0].textContent), ["Ana Reyes"], "only the text is shown");
   /* search, filters and Show more keep the param */
   sms.$("ib-q").value = "Ana"; sms.$("ib-q").fire("input"); await sleep(350); await settle();
-  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms&q=Ana"));
+  assert.ok(sms.list().includes("GET " + BASE + "conversations/?channel=sms&q=Ana&status=open"));
   const u = sms.window.NOInbox.util;
   assert.equal(u.chanParam("sms"), "sms"); assert.equal(u.chanParam("inbox"), "nosms");
   assert.deepEqual(Array.from(u.modeItems([{ ref: SM }, { ref: WC }, { ref: "cm_x" }], "sms"), (i) => i.ref), [SM]);
@@ -2470,7 +2479,7 @@ test("SMS-MENU: the channel param is sent (nosms in the Inbox, sms on SMS Market
   await more.openSms();
   more.s.listing = { items: [{ ref: WC, display_name: "Late chat", snippet: "x", updated_at: iso(90), channel: "webchat", status: "open", unread: false }, { ref: "sm_eeeeeeeeeeeeeeeeeeeeeeee", display_name: "Late text", snippet: "x", updated_at: iso(91), channel: "sms", status: "open", unread: false }], stored_next_cursor: null };
   await more.click(more.press(more.$("ib-listbody"), "Show more conversations"));
-  assert.ok(more.list().includes("GET " + BASE + "conversations/?channel=sms&stored_cursor=30"));
+  assert.ok(more.list().includes("GET " + BASE + "conversations/?channel=sms&stored_cursor=30&status=open"));
   assert.deepEqual(rowsOf(more).map((r) => more.all(r, "ib-name")[0].textContent), ["Ana Reyes", "Late text"]);
 });
 
@@ -2508,7 +2517,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261124ml11/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml11/); assert.match(HTML, /inbox\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml12/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml11/); assert.match(HTML, /inbox-bulk\.js\?v=20261124ml12/); assert.match(HTML, /inbox\.css\?v=20261124ml12/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2624,15 +2633,16 @@ test("the contact panel's text comes through textContent only (a hostile name or
   assert.ok(!/innerHTML|insertAdjacentHTML|outerHTML/.test(read("inbox.js")));
 });
 
-test("the toolbar keeps New SMS and Bulk SMS in the actions beside the tabs; Refresh is not there; the contact panel and its toggle are hidden by CSS on a phone", async () => {
+test("INBOX-FIX-7: the New SMS and Bulk SMS buttons are gone from the top right of the SMS page; the contact panel and its toggle are hidden by CSS on a phone", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
+  d.s.bulkStatus = { available: true };
   await d.openSms();
-  const acts = d.all(d.$("ib-tabs-host"), "ib-acts")[0];
-  assert.equal(acts.parentNode, d.all(d.$("ib-tabs-host"), "ib-toprow")[0], "on the same row as the tabs (INBOX-FIX-6)");
-  assert.deepEqual(acts.children.map((n) => n.id), ["ib-newtext-btn"], "bulk needs its own probe; New SMS is there, Refresh moved");
-  assert.equal(d.$("ib-newtext-btn").getAttribute("aria-label"), "New SMS");
-  assert.equal(d.all(d.$("ib-newtext-btn"), "ib-rf-t")[0].textContent, "New SMS");
+  assert.equal(d.all(d.$("ib-tabs-host"), "ib-acts").length, 0, "no actions beside the tabs");
+  const row = d.all(d.$("ib-tabs-host"), "ib-toprow")[0];
+  assert.deepEqual(row.children.map((n) => n.classList.contains("ib-tabs") ? "tabs" : "?"), ["tabs"]);
+  assert.equal(d.$("ib-bulk-btn"), null, "no Bulk SMS button (the Bulk SMS tab is the way in)");
+  assert.ok(!d.all(row, "no-btn-primary").length);
   const css = cssText();
   assert.match(css, /@media \(max-width: 899px\) \{[^@]*\.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important; \}/);
   assert.match(css, /@media \(max-width: 1099px\) \{ #view-inbox \.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important;/, "too narrow for three columns");
@@ -2653,19 +2663,19 @@ test("fix 2: the Answered / Read / Open-Closed buttons cycle all -> first -> sec
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
   const look = (id) => { const b = d.$(id); return [b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("aria-label"), b.getAttribute("aria-pressed"), b.classList.contains("is-on"), b.innerHTML]; };
-  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered"], ["unanswered", "Unanswered only"], ["answered", "Answered only"]]], ["ib-b-read", [["", "Showing read and unread"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
-    const seen = [];
-    for (let i = 0; i < 4; i++) {
-      const l = look(id), [v, words] = steps[i % 3];
-      assert.deepEqual([l[0], l[1], l[2], l[3], l[4]], [v, words, words, v ? "true" : "false", !!v], id + " step " + i);
+  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered"], ["unanswered", "Unanswered only"], ["answered", "Answered only"]]], ["ib-b-read", [["", "Showing read and unread"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["open", "Showing open"], ["closed", "Showing closed"]]]]) {
+    const seen = [], dflt = steps[0][0]; /* the first state is the default: not lit; Open/Closed has two states only (INBOX-FIX-7) */
+    for (let i = 0; i <= steps.length; i++) {
+      const l = look(id), [v, words] = steps[i % steps.length];
+      assert.deepEqual([l[0], l[1], l[2], l[3], l[4]], [v, words, words, v !== dflt ? "true" : "false", v !== dflt], id + " step " + i);
       seen.push(d.$(id).children[0].children[0].getAttribute("d"));
       d.$(id).fire("click"); await settle();
     }
-    assert.equal(new Set(seen.slice(0, 3)).size, 3, id + ": a distinct icon per state");
-    assert.equal(seen[3], seen[0], id + ": back to the first icon after a full turn");
+    assert.equal(new Set(seen.slice(0, steps.length)).size, steps.length, id + ": a distinct icon per state");
+    assert.equal(seen[steps.length], seen[0], id + ": back to the first icon after a full turn");
   }
   const sent = d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH)).map((c) => c.path.slice(LIST_PATH.length));
-  assert.ok(sent.includes("?answered=answered") && sent.includes("?answered=unanswered") && sent.includes("?unread=1") && sent.includes("?unread=0") && sent.includes("?status=open") && sent.includes("?status=closed") || sent.some((p) => /answered=unanswered/.test(p)), "the same query values the chips sent");
+  assert.ok(sent.includes("?answered=answered") && sent.includes("?answered=unanswered") && sent.includes("?unread=1") && sent.includes("?unread=0") && sent.includes("?status=closed") || sent.some((p) => /answered=unanswered/.test(p)), "the same query values the chips sent");
 });
 
 test("fix 4: every filter-row button shows the house tooltip at once on hover (no delay, no native title); a click updates the open tooltip text in place", async () => {
@@ -2689,8 +2699,8 @@ test("fix 4: every filter-row button shows the house tooltip at once on hover (n
     assert.equal(tipOf(id).classList.contains("is-open"), false, id + ": closes on leave");
     b.fire("focus"); assert.equal(tipOf(id).classList.contains("is-open"), true, id + ": opens on focus"); b.fire("blur");
   }
-  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("aria-label")), ["Showing answered and unanswered", "Showing read and unread", "Showing open and closed"]);
-  for (const [id, steps] of [["ib-b-answered", ["Unanswered only", "Answered only", "Showing answered and unanswered"]], ["ib-b-read", ["Unread only", "Read only", "Showing read and unread"]], ["ib-b-status", ["Open only", "Closed only", "Showing open and closed"]]]) {
+  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("aria-label")), ["Showing answered and unanswered", "Showing read and unread", "Showing open"]);
+  for (const [id, steps] of [["ib-b-answered", ["Unanswered only", "Answered only", "Showing answered and unanswered"]], ["ib-b-read", ["Unread only", "Read only", "Showing read and unread"]], ["ib-b-status", ["Showing closed", "Showing open"]]]) {
     d.$(id).fire("mouseenter");
     for (const words of steps) {
       d.$(id).fire("click"); await settle();
@@ -2706,9 +2716,9 @@ test("fix 2: the three buttons combine, and a failed read puts each back to its 
   const d = boot({ channels: CHANNELS_ON });
   asInbox(d);
   await d.openInbox();
-  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
+  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_NOQ) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
   await pickChip(d, "unread"); await pickChip(d, "answered"); await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "&status=open&unread=1&answered=answered", "all three together");
+  assert.equal(reads().at(-1), LIST_PATH + "&unread=1&answered=answered", "all three together (Open is the default and always sent)");
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
   d.$("ib-b-read").fire("click"); await settle();
   assert.equal(d.$("ib-b-read").getAttribute("data-v"), "1", "back to Unread only");
@@ -2855,7 +2865,7 @@ test("round 5: the filter words are short and Answered shows the unanswered firs
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
   const u = d.window.NOInbox.util;
-  assert.deepEqual(["answered", "unread", "status"].map((k) => u.cycleLook(k, "").text), ["Showing answered and unanswered", "Showing read and unread", "Showing open and closed"]);
+  assert.deepEqual(["answered", "unread", "status"].map((k) => u.cycleLook(k, "").text), ["Showing answered and unanswered", "Showing read and unread", "Showing open"]);
   assert.ok(!["answered", "unread", "status"].some((k) => /messages/.test(u.cycleLook(k, "").text)), "no 'messages'");
   const b = d.$("ib-b-answered");
   await d.click(b); assert.equal(b.getAttribute("aria-label"), "Unanswered only"); assert.equal(b.getAttribute("data-v"), "unanswered");
@@ -2946,15 +2956,15 @@ test("INBOX-FIX-6 SMS page: Inbox | Settings with Bulk SMS once the probe says s
   d.window.NODash.go = (href) => { routed.push(href); d.window.NOInbox.setTab(/settings/.test(href) ? "settings" : /bulk/.test(href) ? "bulk" : ""); };
   await d.openSms();
   const row = d.all(d.$("ib-tabs-host"), "ib-toprow")[0];
-  assert.deepEqual(row.children.map((n) => n.classList.contains("ib-tabs") ? "tabs" : n.classList.contains("ib-acts") ? "acts" : "?"), ["tabs", "acts"], "tabs at the left, the buttons at the right of one row");
+  assert.deepEqual(row.children.map((n) => n.classList.contains("ib-tabs") ? "tabs" : n.classList.contains("ib-acts") ? "acts" : "?"), ["tabs"], "tabs only: New SMS and Bulk SMS left the top right (INBOX-FIX-7)");
   assert.equal(d.$("ib-tabs-host").textContent.includes("SMS Marketing"), false, "no visible page title");
   assert.deepEqual(d.all(row, "ib-tab").map((n) => n.textContent), d.$("ib-bulk-btn") ? ["Inbox", "Bulk SMS", "Settings"] : ["Inbox", "Settings"]);
   assert.equal(d.$("ib-tab-inbox").getAttribute("aria-selected"), "true");
   d.$("ib-tab-settings").fire("click"); await settle();
   assert.deepEqual(routed, ["/sms/settings/"]);
-  assert.equal(d.$("sg-root").hidden, false); assert.equal(d.$("ibs-root").hidden, true); assert.equal(d.$("ib-split").hidden, true);
+  assert.equal(d.$("sg-root").hidden, false); assert.equal(d.$("ibs-root").hidden, true); assert.equal(d.$("ibs-sms-root").hidden, false, "the Text messages (SMS) card sits with the gateway card"); assert.equal(d.$("ib-split").hidden, true);
   assert.ok(d.list().some((c) => c.includes("/sms-gateway/")), "the gateway card read its own API: same card, same calls");
-  assert.ok(d.$("ib-newtext-btn") && d.$("ib-newtext-btn").parentNode.parentNode === d.all(d.$("ib-tabs-host"), "ib-toprow")[0], "New SMS stays on the row on every tab");
+  assert.ok(d.$("ibs-sw-sms"), "the SMS on/off switch is on the SMS Settings tab (INBOX-FIX-7)");
 });
 
 test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to the tabs; the old views are gone; Settings has no empty tab", () => {
@@ -2966,8 +2976,142 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/settings-sms-gateway|settings-inbox/.test(DASH));
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
-  assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261124ml11/); assert.match(HTML, /dashboard\.js\?v=20261124ml11/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml12/); assert.match(HTML, /dashboard\.js\?v=20261124ml11/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
+});
+
+/* ---------- INBOX-FIX-7 (Coach Ed 2026-11-24) ---------- */
+
+test("INBOX-FIX-7 bug 1: the split card no longer depends on a percentage height, so it fills the page again after the Settings tab (the list column is not squeezed)", () => {
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const rule = /#view-inbox \.ib-split \{([^}]*)\}/.exec(css)[1];
+  assert.match(rule, /grid-template-rows: minmax\(0, 1fr\)/, "the one row is as tall as the card, whatever stretch does");
+  assert.doesNotMatch(rule, /height: 100%/, "no percentage height to resolve while the page was a normal (not fixed) page");
+});
+
+test("INBOX-FIX-7 bug 1: back from the Settings tab the list tab has its list, its filter row and the fixed layout again", async () => {
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  d.window.NODash.go = (href) => d.window.NOInbox.setTab(/settings/.test(href) ? "settings" : "");
+  await d.openInbox();
+  d.$("ib-tab-settings").fire("click"); await settle();
+  assert.equal(d.$("ib-split").hidden, true);
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), false, "the settings tab is an ordinary page");
+  d.$("ib-tab-all").fire("click"); await settle();
+  assert.equal(d.$("ib-split").hidden, false);
+  assert.equal(d.doc.body.classList.contains("ib-fixed"), true, "the fixed layout is back");
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 3);
+  assert.equal(d.all(d.$("ib-lhead"), "ib-fbtn").length, 5);
+  assert.equal(d.$("ib-settings").hidden, true);
+});
+
+test("INBOX-FIX-7 Refresh: it is the same as a fresh page load without reloading: filters at their defaults, search closed and empty, nothing selected, the list read again", async () => {
+  const clock = makeClock(), d = boot({ clock, listing: MIXED(), reading: sthread(), channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.statuser = (st) => byStatus(st);
+  d.s.searcher = () => ({ items: [MIXED().items[0]], stored_next_cursor: null });
+  await d.openInbox();
+  await pickTab(d, "webchat");
+  await d.click(d.$("ib-b-search")); await clock.advance(300);
+  const inp = d.$("ib-q"); inp.value = "Ana"; inp.fire("input"); await clock.advance(300);
+  await d.click(rowsOf(d)[0]);
+  assert.ok(d.$("ib-threadpane").textContent.includes("Ana Reyes"), "a conversation is open");
+  assert.equal(d.doc.body.classList.contains("ib-thread"), true);
+  await pickChip(d, "unread"); await pickChip(d, "answered"); await pickChip(d, "closed");
+  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("data-v")), ["answered", "1", "closed"], "the filters are off their defaults");
+  const n = d.calls.length;
+  await d.click(d.$("ib-refresh-btn")); await clock.advance(100);
+  /* filters */
+  assert.deepEqual(["ib-b-answered", "ib-b-read", "ib-b-status"].map((id) => d.$(id).getAttribute("data-v")), ["", "", "open"], "Answered all, Read all, Open");
+  assert.equal(d.$("ib-b-status").getAttribute("aria-label"), "Showing open");
+  assert.equal(d.$("ib-tab-all").getAttribute("aria-selected"), "true", "the channel tab is All messages again");
+  /* the search */
+  assert.equal(d.$("ib-b-search").getAttribute("aria-expanded"), "false", "the search is closed");
+  assert.equal(d.$("ib-q").value, "", "and empty");
+  assert.equal(d.all(d.$("ib-lhead"), "ib-search")[0].hidden, true);
+  /* the pane */
+  assert.ok(d.$("ib-threadpane").textContent.includes("Choose a conversation"), "no conversation selected");
+  assert.ok(!d.$("ib-threadpane").textContent.includes("Ana Reyes"));
+  assert.equal(d.doc.body.classList.contains("ib-thread"), false, "a phone is back on the list");
+  assert.equal(d.all(d.$("ib-list"), "ib-item").some((r) => r.classList.contains("is-sel")), false);
+  /* the list was read again with the default query only */
+  const reads = d.calls.slice(n).filter((c) => c.method === "GET" && c.path.startsWith(LIST_NOQ) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
+  assert.ok(reads.length >= 1 && reads.every((p) => p === LIST_PATH), "read again as a fresh load: " + reads.join(" "));
+  assert.ok(!d.calls.slice(n).some((c) => c.path === THREAD_PATH), "the open conversation is not read again");
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 1, "the Open conversations (the stand-in answers one open row)");
+});
+
+test("INBOX-FIX-7 Open/Closed: two states only, Open (default) then Closed then Open; the words are Showing open / Showing closed; the default query is open", async () => {
+  const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.statuser = (st) => byStatus(st);
+  await d.openInbox();
+  const b = d.$("ib-b-status");
+  assert.ok(d.list().includes("GET " + LIST_PATH), "the page loads with status=open");
+  assert.deepEqual([b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("aria-pressed")], ["open", "Showing open", "false"]);
+  await d.click(b);
+  assert.deepEqual([b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("aria-pressed")], ["closed", "Showing closed", "true"]);
+  assert.equal(d.calls.at(-1).path.includes("status=closed") || d.calls.some((c) => c.path.includes("status=closed")), true);
+  await d.click(b);
+  assert.deepEqual([b.getAttribute("data-v"), b.getAttribute("aria-label")], ["open", "Showing open"], "the next press is Open again, never all");
+  assert.equal(d.calls.filter((c) => /status=(all|)(&|$)/.test(c.path)).length, 0);
+  assert.ok(!d.calls.some((c) => c.method === "GET" && /conversations\/\?channel=nosms$/.test(c.path)), "no read without a status");
+  /* the tooltip shows the state's words at once */
+  b.fire("mouseenter");
+  assert.equal(d.$("ib-b-status-tip").textContent, "Showing open");
+  await d.click(b);
+  assert.equal(d.$("ib-b-status-tip").textContent, "Showing closed", "live update, no delay");
+});
+
+test("INBOX-FIX-7 SMS Marketing: the empty right pane invites Send New SMS (primary), which opens the New SMS form; Back brings the invitation back", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await d.openSms();
+  assert.equal(d.all(d.$("ib-tabs-host"), "ib-acts").length, 0, "no New SMS / Bulk SMS at the top right");
+  const t = d.$("ib-threadpane");
+  assert.ok(!t.textContent.includes("Choose a conversation"), "no Choose a conversation here");
+  const cta = d.$("ib-newtext-btn");
+  assert.ok(cta && cta.textContent === "Send New SMS" && cta.classList.contains("no-btn-primary"));
+  assert.equal(cta.parentNode.parentNode.parentNode, t, "inside the right pane's empty box");
+  await d.click(cta);
+  assert.ok(d.$("ib-sms-t"), "the New SMS form is open");
+  assert.equal(d.$("ib-newtext-btn"), null);
+  await d.click(d.$("ib-back"));
+  assert.ok(d.$("ib-newtext-btn"), "back to the invitation");
+  /* the Inbox page keeps Choose a conversation */
+  const inbox = boot({ listing: MIXED(), channels: CH_SMS });
+  await inbox.openInbox();
+  assert.ok(inbox.$("ib-threadpane").textContent.includes("Choose a conversation"));
+  assert.equal(inbox.$("ib-newtext-btn"), null);
+});
+
+test("INBOX-FIX-7 SMS Marketing on a phone: Send New SMS also sits at the top of the list (the right pane is hidden there), hidden from 900 px up; no button without sms", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await d.openSms();
+  const ph = d.$("ib-newtext-phone");
+  assert.ok(ph && ph.textContent === "Send New SMS" && ph.classList.contains("ib-nt-phone"));
+  assert.equal(ph.parentNode, d.$("ib-tools-host"), "in the row above the list");
+  await d.click(ph);
+  assert.ok(d.$("ib-sms-t"), "it opens the same New SMS form");
+  const css = cssText();
+  assert.match(css, /@media \(min-width: 900px\) \{ #view-inbox \.ib-nt-phone \{ display: none; \}/);
+  const off = boot({ listing: MIXED(), channels: CHANNELS_ON });
+  await off.openInbox();
+  assert.equal(off.$("ib-newtext-phone"), null);
+});
+
+test("INBOX-FIX-7 Refresh on SMS Marketing: back to the empty state with Send New SMS, filters at their defaults", async () => {
+  const d = boot({ listing: smsList(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await d.openSms();
+  await d.click(d.$("ib-newtext-btn"));
+  assert.ok(d.$("ib-sms-t"));
+  await d.click(d.$("ib-b-status"));
+  assert.equal(d.$("ib-b-status").getAttribute("data-v"), "closed");
+  await d.click(d.$("ib-refresh-btn"));
+  assert.equal(d.$("ib-sms-t"), null, "the New SMS form is closed");
+  assert.ok(d.$("ib-newtext-btn"), "the invitation is back");
+  assert.equal(d.$("ib-b-status").getAttribute("data-v"), "open");
 });

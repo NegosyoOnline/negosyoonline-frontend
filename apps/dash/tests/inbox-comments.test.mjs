@@ -73,7 +73,7 @@ const q = (p) => new URLSearchParams(p.indexOf("?") >= 0 ? p.slice(p.indexOf("?"
 /* The Answered, Read and Open/Closed buttons each cycle one filter: all -> first -> second -> all (Coach Ed 2026-11-24). `cycleTo` clicks the
    button the right number of times to reach a value. */
 const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
-const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
+const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["open", "closed"] };
 function boot({ on = true, convs = [], clock = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [];
   const make = doc.createElement;
@@ -133,7 +133,7 @@ function boot({ on = true, convs = [], clock = null } = {}) {
     /* the Channel dropdown is now the channel tabs and the Status dropdown the Open / Closed chips (z8uq9mj6ch); "all" turns the chip that is on off */
     async pick(id, v) {
       if (id === "ib-filter") { $("ib-tab-" + v).fire("click"); await settle(); return; }
-      if (id === "ib-status") { const o = ORDERS["ib-b-status"], want = v === "all" ? "" : v, b = $("ib-b-status"); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + 3) % 3; n > 0; n--) { b.fire("click"); await settle(); } return; }
+      if (id === "ib-status") { const o = ORDERS["ib-b-status"], want = v === "all" ? "open" : v, b = $("ib-b-status"); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + o.length) % o.length; n > 0; n--) { b.fire("click"); await settle(); } return; }
       const n = $(id); n.value = v; n.fire("change"); await settle();
     },
     shown: (id) => !$(id).hidden };
@@ -224,11 +224,11 @@ test("Channel filter: FB Comment after FB Messenger; FB Comment reads only comme
   assert.ok(d.rows().every((r) => text(r).includes("FB Comment")));
   n = d.calls.length;
   await d.pick("ib-filter", "webchat");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?channel=nosms"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?channel=nosms&status=open"]);
   assert.deepEqual(d.names(), ["Buyer 1"]);
   n = d.calls.length;
   await d.pick("ib-filter", "all");
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?channel=nosms"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
   assert.equal(d.rows().length, 4);
 });
 
@@ -239,24 +239,22 @@ test("search goes to both APIs, Unread/Read maps to the comments' unread=1/0, an
   d.s.searcher = (t) => listing({ items: [item({ author_name: "Match " + t })] });
   let n = d.calls.length;
   await d.type("ib-q", "ma"); await clock.advance(300);
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?q=ma", "GET " + CV + "?channel=nosms&q=ma"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?q=ma", "GET " + CV + "?channel=nosms&q=ma&status=open"]);
   assert.ok(d.names().includes("Match ma"));
   await d.type("ib-q", ""); await clock.advance(300);
   n = d.calls.length;
   await d.click(d.$("ib-b-read"));
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=1", "GET " + CV + "?channel=nosms&unread=1"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=1", "GET " + CV + "?channel=nosms&status=open&unread=1"]);
   n = d.calls.length;
   await d.click(d.$("ib-b-read"));
-  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=0", "GET " + CV + "?channel=nosms&unread=0"]);
+  assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=0", "GET " + CV + "?channel=nosms&status=open&unread=0"]);
   await d.click(d.$("ib-b-read"));
-  await d.pick("ib-status", "open"); /* the button goes all -> Open -> Closed */
   n = d.calls.length;
-  await d.pick("ib-status", "closed");
+  await d.pick("ib-status", "closed"); /* Open is the default; one press shows Closed */
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?channel=nosms&status=closed"], "comments have no closed state");
   assert.ok(d.rows().every((r) => !text(r).includes("FB Comment")));
-  await d.pick("ib-status", "all"); /* Closed -> all is one press */
   n = d.calls.length;
-  await d.pick("ib-status", "open");
+  await d.pick("ib-status", "open"); /* Closed -> Open is one press (INBOX-FIX-7: two states only) */
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
   assert.ok(d.rows().some((r) => text(r).includes("FB Comment")));
 });
@@ -287,7 +285,7 @@ test("Show more with two cursors: the lagging source is read, nothing older than
     stage.push(d.names());
   }
   /* the comments lag first (B3 40 is newer than A3 50): comments m2; then conversations lag (A3 50 vs B5 100): c2; then comments m3 */
-  assert.deepEqual(seq, ["GET " + CB + "?cursor=m2", "GET " + CV + "?channel=nosms&stored_cursor=c2", "GET " + CB + "?cursor=m3"]);
+  assert.deepEqual(seq, ["GET " + CB + "?cursor=m2", "GET " + CV + "?channel=nosms&stored_cursor=c2&status=open", "GET " + CB + "?cursor=m3"]);
   for (let i = 1; i < stage.length; i++) assert.deepEqual(stage[i].slice(0, stage[i - 1].length), stage[i - 1], "stage " + i + " keeps every shown row in place");
   const last = stage[stage.length - 1];
   assert.deepEqual(last, ["Buyer 1", "Commenter 1", "Buyer 2", "Commenter 2", "Commenter 3", "Buyer 3", "Commenter 4", "Buyer 4", "Commenter 5", "Buyer 5", "Commenter 6"]);
@@ -310,7 +308,7 @@ test("the list keeps its scroll on a row click, a read mark, Show more and Back 
   assert.equal(d.$("ib-list").scrollTop, 420);
   await d.click(d.press(d.$("ib-listbody"), "Show more conversations"));
   assert.equal(d.$("ib-list").scrollTop, 420, "Show more appends below without a jump");
-  await d.pick("ib-status", "open");
+  await d.click(d.$("ib-b-read"));
   assert.equal(d.$("ib-list").scrollTop || 0, 0, "a new filter starts at the top");
 });
 
@@ -685,14 +683,16 @@ test("an own comment: every action is off with the same single note", async () =
 /* ---------- switch off while in use ---------- */
 
 
-test("Refresh reads the list and the open comment again; leaving the Inbox stops every read", async () => {
+test("Refresh reads the list again and closes the open comment (INBOX-FIX-7: like a fresh page load); leaving the Inbox stops every read", async () => {
   const clock = makeClock();
   const d = boot({ clock });
   await d.openInbox();
   await d.openRow(0);
   const n = d.calls.length;
   await d.click(d.$("ib-refresh-btn"));
-  assert.ok(d.since(n).includes("GET " + CB) && d.since(n).includes("GET " + CB + R1 + "/"));
+  assert.ok(d.since(n).includes("GET " + CB), "the list is read again");
+  assert.ok(!d.since(n).includes("GET " + CB + R1 + "/"), "the comment is not opened again: nothing is selected after Refresh");
+  assert.ok(text(d.$("ib-threadpane")).includes("Choose a conversation"), "the right pane is back to its empty state");
   d.window.NOInbox.hide();
   const before = d.calls.length;
   await clock.advance(120000);
@@ -890,21 +890,21 @@ test("r12: the Answered / Unanswered chips are toggles (aria-pressed), one on at
   await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "true"], "the first press shows the unanswered");
   assert.equal(d.$("ib-b-answered").classList.contains("is-on"), true);
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?channel=nosms&answered=unanswered"], "both routes");
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?channel=nosms&status=open&answered=unanswered"], "both routes");
   assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
   n = d.calls.length;
   await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["true", "false"], "one at a time");
-  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?channel=nosms&answered=answered"]);
+  assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?channel=nosms&status=open&answered=answered"]);
   n = d.calls.length;
   await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"], "pressing the one that is on turns it off");
-  assert.deepEqual(api(n), ["GET " + CB, "GET " + CV + "?channel=nosms"]);
+  assert.deepEqual(api(n), ["GET " + CB, "GET " + CV + "?channel=nosms&status=open"]);
   /* it combines with Unread and Open/Closed, and is not the status */
   await d.click(d.$("ib-b-answered")); await d.click(d.$("ib-b-answered"));
   n = d.calls.length;
   await d.click(d.$("ib-b-read"));
-  assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?channel=nosms&unread=1&answered=answered"]);
+  assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?channel=nosms&status=open&unread=1&answered=answered"]);
   await d.pick("ib-status", "open");
   n = d.calls.length;
   await d.pick("ib-status", "closed");

@@ -126,6 +126,7 @@ test("the old /settings/inbox/ and /settings/sms-gateway/ addresses redirect to 
   assert.deepEqual(gw.history.replaced, ["/sms/settings/"]); assert.deepEqual(gw.log, ['show sms "settings"']);
   assert.equal(gw.document.title, "SMS Settings | NegosyoOnline");
   assert.deepEqual(run("/sms/bulk/", "").log, ['show sms "bulk"']);
+  assert.deepEqual(run("/sms/schedule/", "").log, ['show sms "schedule"']);
   assert.deepEqual(run("/sms/", "").log, ['show sms ""']);
   assert.deepEqual(run("/inbox/", "").log, ['show inbox ""']);
   assert.equal(run("/settings/inbox/", "").nodes["view-settings-general"].hidden, true, "no Settings view is opened");

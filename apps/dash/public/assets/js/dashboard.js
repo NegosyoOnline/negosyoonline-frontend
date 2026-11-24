@@ -24,6 +24,7 @@
     "/sms/": { view: "inbox", page: "sms", nav: "sms", title: "SMS Marketing | NegosyoOnline" }, /* SMS Marketing (SMS-MENU, Coach Ed 2026-11-24): the inbox module in its "sms" mode, in the same section; its links show only while the API says sms_available (inbox.js probe) */
     "/inbox/settings/": { view: "inbox", page: "inbox", tab: "settings", nav: "inbox", title: "Inbox Settings | NegosyoOnline" }, /* the Inbox's own Settings tab (INBOX-FIX-6); /settings/inbox/ moved here (MOVED) */
     "/sms/bulk/": { view: "inbox", page: "sms", tab: "bulk", nav: "sms", title: "Bulk SMS | NegosyoOnline" },
+    "/sms/schedule/": { view: "inbox", page: "sms", tab: "schedule", nav: "sms", title: "Schedule SMS | NegosyoOnline" },
     "/sms/settings/": { view: "inbox", page: "sms", tab: "settings", nav: "sms", title: "SMS Settings | NegosyoOnline" }, /* the SMS Gateway card; /settings/sms-gateway/ moved here (MOVED) */
     "/settings/meta-pixel/": { view: "settings-meta-pixel", title: "Meta Pixel | NegosyoOnline" }, /* G1 Meta Pixel (z8uq9md3n5): its tab shows only while the API says the Meta Pixel is open (meta-pixel.js probe) */
     "/settings/domain/": { view: "settings-domain", title: "Domain | NegosyoOnline" }, /* Domain (z8uq9mhgvj, z8uq9mhpc2): its Settings tab shows only while GET /sites/{id}/domain/ answers 200 (probeDomainNav below); on 404, any error or signed out it stays hidden (domain.js shows "not available" while the API answers 404) */

@@ -611,3 +611,13 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-bk-dlg-t { margin: 0; font-size: 17px; font-weight: 600; color: var(--text); }
 #view-inbox .ib-bk-dlg-btns { display: flex; justify-content: flex-end; gap: 10px; }
 @media (width < 900px) { #view-inbox .ib-bk-btns, #view-inbox .ib-bk-btns .no-btn { flex: 1 1 100%; } }
+
+/* INBOX-FIX-9 (round 9, Coach Ed 2026-11-24): the Schedule SMS tab. It reuses the Bulk look (.ib-bk-*); only the date and time row and the table's small bits are new.
+   Focus stays the light blue (the Bulk and combo rules above), never gold. */
+#view-inbox .ib-sc-when { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+#view-inbox .ib-sc-when .pm-field { min-width: 0; }
+#view-inbox .ib-sc-acts { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; }
+#view-inbox .ib-sc-why { display: block; margin-top: 4px; color: var(--meta); font-size: 13px; line-height: 1.35; max-width: 260px; white-space: normal; }
+#view-inbox .ib-sc-table td.ib-bk-rtext { max-width: 240px; }
+#view-inbox .ib-sc-form .ib-bk-btns { justify-content: flex-end; }
+@media (width < 600px) { #view-inbox .ib-sc-when { grid-template-columns: minmax(0, 1fr); } }

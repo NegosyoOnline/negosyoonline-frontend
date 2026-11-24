@@ -638,7 +638,7 @@ test("round 10: Schedule shows the reason next to it while it is off (message, w
   await typeText(d, "http://x.example.com");
   assert.equal(d.$("ib-sc-go").disabled, true); assert.ok(why().textContent.length > 0 && why().hidden === false, "a text problem is the reason too");
   const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
-  assert.ok(/\.ib-sc-why \{[^}]*margin: 0/.test(CSS) && !/\.ib-sc-why \{[^}]*#[0-9a-f]{3,6}/i.test(CSS), "plain hint colours only");
+  assert.ok(/\.ib-sc-form \.ib-sc-why \{[^}]*margin: 6px 0 0 auto[^}]*text-align: right/.test(CSS) && !/\.ib-sc-why \{[^}]*#[0-9a-f]{3,6}/i.test(CSS), "plain hint colours only");
 });
 
 test("round 10: a slot that goes stale while the form is open is replaced on the next touch of the Date or Time; the button does not stay off silently", async () => {

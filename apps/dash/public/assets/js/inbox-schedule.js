@@ -71,7 +71,7 @@
   function slotProblem(date, time, now) {
     var ms = slotMs(date, time); if (ms === null) return null;
     var mins = +time.slice(0, 2) * 60 + +time.slice(3);
-    if (mins < FROM || mins > TO) return { code: "outside_window", text: FALLBACK.outside_window };
+    if (mins < FROM || mins >= TO) return { code: "outside_window", text: FALLBACK.outside_window };
     if (ms < now + MIN_AHEAD) return { code: "too_soon", text: FALLBACK.too_soon };
     if (ms > now + DAYS * 86400000) return { code: "too_far", text: FALLBACK.too_far };
     return null;
@@ -82,10 +82,10 @@
     for (var i = 0; i <= DAYS; i++) { var k = dateKey(manila(now + i * 86400000)); out.push([k, (i === 0 ? "Today, " : i === 1 ? "Tomorrow, " : "") + dateLabel(k)]); }
     return out;
   }
-  /* The times the picker offers: every 15 minutes from 8:00 am to 8:00 pm. [value, label]. */
+  /* The times the picker offers: every 15 minutes from 8:00 am to 7:45 pm (the window is 08:00 up to, not including, 20:00). [value, label]. */
   function timeOptions() {
     var out = [];
-    for (var m = FROM; m <= TO; m += STEP) { var k = pad(Math.floor(m / 60)) + ":" + pad(m % 60); out.push([k, timeLabel(k)]); }
+    for (var m = FROM; m < TO; m += STEP) { var k = pad(Math.floor(m / 60)) + ":" + pad(m % 60); out.push([k, timeLabel(k)]); }
     return out;
   }
   function when(iso) {
@@ -365,6 +365,10 @@
       ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 8:00 pm, Manila time.",
         "Choose a time at least 10 minutes from now and within 30 days.", "You can keep up to 20 texts scheduled. Edit or cancel one until it starts."].forEach(function (x) { ul.appendChild(h("li", "", x)); });
       rules.appendChild(ul); aside.appendChild(rules);
+      /* the way back is a small text link above the form, not a button: the form has exactly two buttons */
+      var back = h("a", "ib-sc-backlink", "\u2190 Scheduled SMS"); back.setAttribute("id", "ib-sc-back"); back.setAttribute("href", "/sms/schedule/");
+      back.addEventListener("click", function (e) { if (e && e.preventDefault) e.preventDefault(); closeForm(); });
+      body.appendChild(back);
       add(cols, main, aside); body.appendChild(cols);
       drawChips(); drawCount(); drawPreview();
       if (st.contactsOn) readGroups();
@@ -434,10 +438,9 @@
       var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-sc-count"); cnt.setAttribute("aria-live", "polite");
       var tb = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); tb.setAttribute("id", "ib-sc-test");
       var go = ui.btn(st.edit ? "Save changes" : "Schedule", "primary", function (x) { save(x); }); go.setAttribute("id", "ib-sc-go");
-      var back = ui.btn("Back", "ghost", function () { closeForm(); }); back.setAttribute("id", "ib-sc-back");
       var fe = h("p", "field-err", ""); fe.setAttribute("id", "ib-sc-fe"); fe.setAttribute("role", "alert"); fe.hidden = true;
       var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-sc-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), back, tb, go)));
+      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), tb, go)));
       wrap.appendChild(fe); wrap.appendChild(tn);
       return wrap;
     }

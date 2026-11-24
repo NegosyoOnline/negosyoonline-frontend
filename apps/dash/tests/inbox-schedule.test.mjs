@@ -372,7 +372,7 @@ test("schedule form: picking groups and contacts shows chips and asks the count 
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "all" });
 });
 
-test("schedule form: the date and time pickers offer today and 30 days, and 8:00 am to 8:00 pm every 15 minutes (Manila)", async () => {
+test("schedule form: the date and time pickers offer today and 30 days, and 8:00 am to 7:45 pm every 15 minutes (Manila)", async () => {
   const d = await openSched({}, { form: true });
   cBox(d, "ib-sc-date").fire("click");
   const dates = cRows(d, "ib-sc-date").map((n) => n.textContent);
@@ -382,12 +382,14 @@ test("schedule form: the date and time pickers offer today and 30 days, and 8:00
   assert.equal(dates[30], "Wed, Dec 16");
   cBox(d, "ib-sc-time").fire("click");
   const times = cRows(d, "ib-sc-time").map((n) => n.textContent);
-  assert.equal(times[0], "8:00 am"); assert.equal(times[1], "8:15 am"); assert.equal(times.at(-1), "8:00 pm"); assert.equal(times.length, 49);
+  assert.equal(times[0], "8:00 am"); assert.equal(times[1], "8:15 am"); assert.equal(times.at(-1), "7:45 pm"); assert.equal(times.length, 48, "20:00 is not offered: the window ends before it");
   assert.ok(pane(d).textContent.includes("Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
   const u = d.window.NOInboxSchedule.util, now = Date.now();
   assert.equal(u.slotProblem("2026-11-16", "10:05", now).code, "too_soon");
   assert.equal(u.slotProblem("2026-11-17", "07:45", now).code, "outside_window");
+  assert.equal(u.slotProblem("2026-11-17", "20:00", now).code, "outside_window");
   assert.equal(u.slotProblem("2026-11-17", "20:15", now).code, "outside_window");
+  assert.equal(u.slotProblem("2026-11-17", "19:45", now), null);
   assert.equal(u.slotProblem("2026-12-17", "09:00", now).code, "too_far");
   assert.equal(u.slotProblem("2026-11-16", "10:15", now), null);
   assert.equal(u.slotProblem("2026-12-16", "10:00", now), null);
@@ -552,9 +554,14 @@ test("schedule: Edit that finds the text already started (409 already_started on
   assert.ok(pane(e).textContent.includes("already started"));
 });
 
-test("schedule: the form's Back returns to the list without asking the server; the page words come through textContent (no markup from the API)", async () => {
+test("schedule: the form has exactly two buttons (Send Test SMS, Schedule); the way back is a small text link above the card, not a button; it returns to the list without asking the server; the page words come through textContent (no markup from the API)", async () => {
   const d = await openSched({ list: () => ok({ items: [sched({ text: "<b>Hi</b>" })], next_cursor: null }) }, { form: true });
-  await d.click(d.$("ib-sc-back"));
+  const btns = pane(d).all((n) => n.tagName === "BUTTON" && has(n, "no-btn")).map((n) => n.textContent);
+  assert.deepEqual(btns, ["Send Test SMS", "Schedule"], "exactly two CTAs");
+  const link = d.$("ib-sc-back");
+  assert.equal(link.tagName, "A"); assert.equal(link.textContent, "\u2190 Scheduled SMS"); assert.ok(!has(link, "no-btn"), "not styled as a button");
+  const body = link.parentNode; assert.ok(body.children.indexOf(link) < body.children.findIndex((n) => has(n, "ib-bk-cols")), "above the form card");
+  await d.click(link);
   assert.equal(d.$("ib-sc-t"), null);
   assert.equal(d.bk.seen.created.length, 0);
   assert.equal(rowsOf(d)[0].all((n) => n.tagName === "TD")[2].textContent, "<b>Hi</b>");

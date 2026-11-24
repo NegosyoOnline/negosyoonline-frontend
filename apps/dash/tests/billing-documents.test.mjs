@@ -215,3 +215,19 @@ test("Edit billing details: an API field error shows beside its field and keeps 
 test("the source builds with textContent only: no innerHTML, no storage", () => {
   assert.doesNotMatch(SRC, /innerHTML|localStorage|sessionStorage/);
 });
+
+test("a statement line of kind orders shows the backend label and amount, without repeating the count (z8uq9mhpaz)", async () => {
+  const d = boot();
+  d.st.routes["GET " + B + "statements/NOBS-2026-000002/"] = ok({ ...stm(2), label: "System-generated document", original_number: null, payment_reference: "BTP-1",
+    issuer: { legal_name: "Fake Issuer Inc.", registered_address: "9 Fake Road", tin: "111-111-111-000" }, bill_to: { name: "Live4More Test Co.", email: "billing@live4more.test", address: "1 Fake Street", tin: "000" },
+    total_centavos: 255900,
+    lines: [{ position: 1, kind: "plan", description: "Monthly plan", quantity: 1, unit_centavos: 249900, amount_centavos: 249900 },
+      { position: 2, kind: "orders", description: "Orders over 500: 12 × PHP 5", quantity: 12, unit_centavos: 500, amount_centavos: 6000 }] });
+  await d.show();
+  d.click(d.has(d.card("Statements"), "bl-drow")[0], "View"); await settle();
+  const lines = d.has(d.dialog(), "bl-sline");
+  assert.equal(lines.length, 2);
+  assert.match(lines[0].textContent, /Monthly plan/); assert.match(lines[0].textContent, /1 × PHP 2,499\.00/);
+  assert.equal(lines[1].textContent, "Orders over 500: 12 × PHP 5PHP 60.00");
+  assert.doesNotMatch(lines[1].textContent, /12 × PHP 5\.00/);
+});

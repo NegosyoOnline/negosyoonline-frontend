@@ -677,3 +677,118 @@ test("the checkout page lists PageView and InitiateCheckout, each with its own i
   assert.match(block.events[1].id, /^ic_[0-9a-f]{16}$/);
   assert.notEqual(block.events[0].id, block.events[1].id);
 });
+
+/* ---- Meta's own ids kept from the first consented page (META-DEDUP F1) ---- */
+
+const FBP_SHAPE = /^fb\.1\.[0-9]{13}\.[0-9]{10}$/;
+const HTTP_URL = "http://www.santetest.com/";
+const setCookies = (r: Response) => r.headers.getSetCookie();
+const finishWith = (request: Request, over = {}) => {
+  const m = metaPage(args(request, over));
+  return { m, cookies: setCookies(m.finish(new Response("ok"))) };
+};
+async function bodyOf(request: Request, over = {}) {
+  const calls: { init: RequestInit }[] = [];
+  const fetchImpl = (_u: string, init: RequestInit) => { calls.push({ init }); return Promise.resolve(Response.json({})); };
+  const m = metaPage(args(request, { fetchImpl, ...over }));
+  await m.send?.();
+  return JSON.parse(String(calls[0].init.body));
+}
+
+test("minted _fbp has Meta's shape, is set after Accept with a Pixel, and is the fbp sent to Django", async () => {
+  const request = req(ACCEPT);
+  const { cookies } = finishWith(request);
+  assert.equal(cookies.length, 1);
+  const value = /^_fbp=([^;]+);/.exec(cookies[0])?.[1] ?? "";
+  assert.match(value, FBP_SHAPE);
+  assert.ok(value.split(".")[3] >= "1000000000");
+  const m = metaPage(args(request, { fetchImpl: () => Promise.resolve(Response.json({})) }));
+  const body = await bodyOf(request, { now: new Date(1700000000000) });
+  assert.match(body.fbp, FBP_SHAPE);
+  assert.ok(m.send);
+  // the same Meta page object gives one value to both the cookie and the body
+  const calls: string[] = [];
+  const one = metaPage(args(request, { fetchImpl: (_u: string, init: RequestInit) => { calls.push(String(init.body)); return Promise.resolve(Response.json({})); } }));
+  await one.send?.();
+  const cookie = setCookies(one.finish(new Response("ok")))[0];
+  assert.equal(JSON.parse(calls[0]).fbp, /^_fbp=([^;]+);/.exec(cookie)?.[1]);
+});
+
+test("a badly shaped _fbp is left alone (nothing set, fbp empty); a well-shaped one is never overwritten", async () => {
+  const bad = finishWith(req(`${ACCEPT}; _fbp=evil<x>`));
+  assert.deepEqual(bad.cookies, []);
+  assert.equal((await bodyOf(req(`${ACCEPT}; _fbp=evil<x>`))).fbp, "");
+  const good = finishWith(req(`${ACCEPT}; _fbp=${FBP}; _fbc=${FBC}`, "https://www.santetest.com/?fbclid=zzz"));
+  assert.deepEqual(good.cookies, []);
+  assert.equal((await bodyOf(req(`${ACCEPT}; _fbp=${FBP}; _fbc=${FBC}`, "https://www.santetest.com/?fbclid=zzz"))).fbp, FBP);
+  assert.equal((await bodyOf(req(`${ACCEPT}; _fbp=${FBP}; _fbc=${FBC}`, "https://www.santetest.com/?fbclid=zzz"))).fbc, FBC);
+});
+
+test("_fbc from fbclid is kept as a cookie, only when none exists, and matches the body", async () => {
+  const url = "https://www.santetest.com/?fbclid=AbC_-1";
+  const now = new Date(1700000000000);
+  const { cookies } = finishWith(req(ACCEPT, url), { now });
+  assert.equal(cookies.length, 2);
+  assert.ok(cookies.some((c) => c.startsWith("_fbc=fb.1.1700000000000.AbC_-1;")));
+  assert.equal((await bodyOf(req(ACCEPT, url), { now })).fbc, "fb.1.1700000000000.AbC_-1");
+  assert.equal(finishWith(req(ACCEPT, "https://www.santetest.com/")).cookies.filter((c) => c.startsWith("_fbc=")).length, 0, "no fbclid, no _fbc");
+  assert.equal(finishWith(req(`${ACCEPT}; _fbp=${FBP}; _fbc=${FBC}`, url)).cookies.length, 0);
+});
+
+test("the cookie attributes: Path, SameSite=Lax, 90 days, no HttpOnly, Secure on https only, plain name", () => {
+  const https = finishWith(req(ACCEPT, "https://www.santetest.com/?fbclid=AbC")).cookies;
+  for (const c of https) {
+    assert.ok(/^_fbp=|^_fbc=/.test(c), "no __Host- prefix");
+    assert.ok(c.includes("; Path=/") && c.includes("; SameSite=Lax") && c.includes(`; Max-Age=${90 * 24 * 3600}`) && c.endsWith("; Secure"));
+    assert.ok(!/HttpOnly/i.test(c) && !/Domain=/i.test(c));
+  }
+  const http = finishWith(req("no_meta_consent=1", `${HTTP_URL}?fbclid=AbC`)).cookies;
+  assert.equal(http.length, 2);
+  for (const c of http) assert.ok(!/Secure/i.test(c) && !/HttpOnly/i.test(c));
+});
+
+test("nothing is set on Decline, unset, reopen or without a Pixel; Decline clears both, only if present", () => {
+  const url = "https://www.santetest.com/?fbclid=AbC";
+  assert.deepEqual(finishWith(req("", url)).cookies, []);
+  assert.deepEqual(finishWith(req(DECLINE, url)).cookies, []);
+  assert.deepEqual(finishWith(req(ACCEPT, "https://www.santetest.com/?cookie-settings=1&fbclid=AbC")).cookies, []);
+  assert.deepEqual(finishWith(req(ACCEPT, url), { site: SITE }).cookies, []);
+  const dec = finishWith(req(`${DECLINE}; _fbp=${FBP}; _fbc=${FBC}`)).cookies;
+  assert.equal(dec.length, 2);
+  for (const c of dec) assert.ok(/^_fb[pc]=; Path=\/; Max-Age=0/.test(c) && !/HttpOnly/i.test(c));
+  assert.equal(finishWith(req(`${DECLINE}; _fbp=${FBP}`)).cookies.length, 1);
+  assert.deepEqual(finishWith(req(`${DECLINE}; _fbp=${FBP}`), { site: SITE }).cookies, [], "no Pixel: Meta's cookies are not ours to clear");
+});
+
+test("no_vid clearing is unchanged and composes with the Meta ids", () => {
+  const vid = "__Host-no_vid=abcdefghijklmnop";
+  const dec = finishWith(req(`${DECLINE}; ${vid}; _fbp=${FBP}`)).cookies;
+  assert.equal(dec.length, 2);
+  assert.ok(dec.some((c) => c.startsWith("__Host-no_vid=; ")));
+  assert.deepEqual(finishWith(req(`${ACCEPT}; ${vid}; _fbp=${FBP}`)).cookies, [], "kept after Accept");
+  const reopen = finishWith(req(`${ACCEPT}; ${vid}`, "https://www.santetest.com/?cookie-settings=1")).cookies;
+  assert.equal(reopen.length, 1);
+  assert.ok(reopen[0].startsWith("__Host-no_vid=; "));
+  assert.equal(finishWith(req(`${ACCEPT}; ${vid}`), { site: SITE }).cookies.length, 0);
+  assert.equal(finishWith(req(`${DECLINE}; ${vid}`), { site: SITE }).cookies.length, 1);
+});
+
+test("duplicate _fbp/_fbc (host-only plus Meta's Domain copy): first well-shaped value, nothing set, same in the body and placeFields", async () => {
+  const other = "fb.1.1700000000001.9999999999";
+  const same = req(`${ACCEPT}; _fbp=${FBP}; _fbp=${FBP}; _fbc=${FBC}; _fbc=${FBC}`);
+  assert.deepEqual(finishWith(same).cookies, []);
+  const b = await bodyOf(same);
+  assert.equal(b.fbp, FBP);
+  assert.equal(b.fbc, FBC);
+  const diff = req(`${ACCEPT}; _fbp=bad<; _fbp=${other}; _fbp=${FBP}; _fbc=${FBC}; _fbc=fb.1.1700000000001.Zz`, URL_CHECKOUT + "?fbclid=new");
+  assert.deepEqual(finishWith(diff).cookies, []);
+  assert.equal((await bodyOf(diff)).fbp, other);
+  const f = placeFields(diff, PIXEL_SITE);
+  assert.equal(f.fbp, other);
+  assert.equal(f.fbc, FBC);
+});
+
+test("an _fbc of any shape already sent is not re-set from fbclid", () => {
+  const { cookies } = finishWith(req(`${ACCEPT}; _fbp=${FBP}; _fbc=junk<`, "https://www.santetest.com/?fbclid=AbC"));
+  assert.deepEqual(cookies, []);
+});

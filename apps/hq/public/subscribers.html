@@ -78,7 +78,7 @@
         <div class="fin-row" id="d-err" hidden><p class="field-err" role="alert">The subscriber could not be loaded.</p><button type="button" class="no-btn no-btn-ghost" id="d-retry">Try again</button></div>
         <div id="d-body" hidden>
           <section class="dash-card" aria-labelledby="d-name">
-            <div class="batch-title"><h2 id="d-name"></h2><span class="chip chip-neutral" id="d-state"></span></div>
+            <div class="batch-title"><h2 id="d-name"></h2><span class="chip chip-neutral" id="d-state"></span><span class="chip chip-err" id="d-held" hidden>Suspended by HQ</span></div>
             <p class="small" id="d-site-id"></p>
             <dl class="fin-facts" id="d-facts"></dl>
           </section>
@@ -88,6 +88,12 @@
             <p class="small" id="d-line-when" hidden></p>
             <p class="field-err" id="d-line-err" role="alert" hidden></p>
             <p><button type="button" class="no-btn no-btn-ghost" id="d-line-disable" hidden>Disable SMS line</button><button type="button" class="no-btn no-btn-ghost" id="d-line-reenable" hidden>Re-enable SMS line</button></p>
+          </section>
+          <section class="dash-card" id="d-hold" aria-labelledby="d-hold-h" hidden>
+            <div class="batch-title"><h2 id="d-hold-h">Store hold</h2><span class="chip chip-neutral" id="d-hold-chip"></span></div>
+            <p class="dash-copy" id="d-hold-copy"></p>
+            <p class="field-err" id="d-hold-err" role="alert" hidden></p>
+            <p><button type="button" class="no-btn no-btn-ghost stop" id="d-hold-suspend" aria-haspopup="dialog" hidden>Suspend store</button><button type="button" class="no-btn no-btn-ghost" id="d-hold-resume" aria-haspopup="dialog" hidden>Resume store</button></p>
           </section>
           <section class="dash-card fin-hist" aria-labelledby="d-pay-h">
             <h2 id="d-pay-h">Payments</h2>
@@ -119,11 +125,23 @@
     <button class="no-btn no-btn-ghost fin-block" type="button" id="line-cancel">Cancel</button>
   </div>
 </div>
+<div class="modal" id="m-hold" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="m-hold-h" aria-describedby="m-hold-sub">
+    <div class="modal-head"><h2 id="m-hold-h"></h2><button type="button" class="icon-btn modal-x" id="hold-x" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="dash-copy" id="m-hold-sub"></p>
+    <div class="field"><label for="hold-reason">Reason</label><textarea class="textarea short" id="hold-reason" maxlength="500" autocomplete="off" aria-describedby="hold-count hold-err"></textarea><p class="small char-count" id="hold-count">0 of 500</p></div>
+    <div class="field"><label for="hold-code">Authenticator code</label><input class="input code" id="hold-code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-describedby="hold-err"></div>
+    <div class="field"><div class="checks"><label for="hold-confirm"><input type="checkbox" id="hold-confirm" aria-describedby="hold-err"><span id="hold-confirm-text"></span></label></div></div>
+    <p class="field-err" id="hold-err" role="alert" hidden></p>
+    <button class="no-btn no-btn-primary fin-block" type="button" id="hold-go"></button>
+    <button class="no-btn no-btn-ghost fin-block" type="button" id="hold-cancel">Cancel</button>
+  </div>
+</div>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/hq.js?v=20261111d"></script>
 <script src="/assets/js/menu.js?v=20261122a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261113a"></script>
-<script src="/assets/js/subscribers.js?v=20261123a"></script>
+<script src="/assets/js/subscribers.js?v=20261123h3"></script>
 </body>
 </html>

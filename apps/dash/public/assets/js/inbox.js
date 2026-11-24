@@ -53,6 +53,9 @@
     unans: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7.5v5M12 16h.01",
     reopen: "M3 12a9 9 0 1 0 3-6.7M3 4v5h5",
     panel: "M4 5h16v14H4zM15 5v14",
+    lock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 7 0v3",
+    unlock: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 0 1 6.7-1.4",
+    folder: "M3 6h6l2 2h10v11H3z",
     users: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.3a3.5 3.5 0 0 1 0 6.4M18.5 14a6.5 6.5 0 0 1 3 6"
   };
   function btn(label, kind, fn, iconPath) {
@@ -147,21 +150,28 @@
      is there (GET .../channels/ sms_available). No Instagram or WhatsApp. */
   var TABS = [["all", "All messages"], ["webchat", "Website chat"], ["email", "Email"], ["messenger", "FB Messenger"], ["fbcomment", "FB Comments"]];
   function tabsFor(ch) { return SMS && SMS.util.available(ch) ? TABS.concat([["sms", "Text (SMS)"]]) : TABS; }
-  /* The quick chips of the list: toggle buttons over the EXISTING filters. `dim` is the S field they set (status, unread, answered), `val` its
-     value. Within one dim only one chip is on; pressing the one that is on turns the dim off (All). Nothing new is asked of the API. */
-  var CHIPS = [
-    { key: "unread", label: "Unread", dim: "unread", val: "1" },
-    { key: "read", label: "Read", dim: "unread", val: "0" },
-    { key: "unanswered", label: "Unanswered", dim: "answered", val: "unanswered" },
-    { key: "answered", label: "Answered", dim: "answered", val: "answered" },
-    { key: "open", label: "Open", dim: "status", val: "open" },
-    { key: "closed", label: "Closed", dim: "status", val: "closed" }
+  /* The filter buttons of the list (Coach Ed 2026-11-24): three icon buttons, each cycling one EXISTING filter: all -> first -> second -> all.
+     `dim` is the S field it sets (answered, unread, status), `order` its values in turn, `by` the icon and words of each. Nothing new is asked of the API. */
+  var CYCLES = [
+    { dim: "answered", id: "ib-b-answered", order: ["", "answered", "unanswered"], by: {
+      "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
+    { dim: "unread", id: "ib-b-read", order: ["", "1", "0"], by: {
+      "": { icon: "stack", text: "Showing all messages" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
+    { dim: "status", id: "ib-b-status", order: ["", "open", "closed"], by: {
+      "": { icon: "folder", text: "Showing open and closed" }, open: { icon: "unlock", text: "Open only" }, closed: { icon: "lock", text: "Closed only" } } }
   ];
-  function chipOn(q, chip) { return !!q && q[chip.dim] === chip.val; }
-  /* The query that pressing `chip` leads to: the current one with that chip's dim switched on, or off when it was on. */
-  function chipNext(q, chip) {
+  function cycleOf(dim) { for (var i = 0; i < CYCLES.length; i++) if (CYCLES[i].dim === dim) return CYCLES[i]; return null; }
+  /* The value after `v` in the dimension's turn (an unknown value goes back to all). */
+  function cycleNext(dim, v) {
+    var c = cycleOf(dim); if (!c) return "";
+    var i = c.order.indexOf(v || ""); return c.order[i < 0 ? 0 : (i + 1) % c.order.length];
+  }
+  /* The icon and words for a value of a dimension. */
+  function cycleLook(dim, v) { var c = cycleOf(dim); if (!c) return null; return has(c.by, v || "") ? c.by[v || ""] : c.by[""]; }
+  /* The query that pressing the dimension's button leads to: the current one with that dimension moved on one step. */
+  function filterNext(q, dim) {
     var n = { q: q.q || "", status: q.status || "", unread: q.unread || "", answered: q.answered || "", filter: q.filter || "all" };
-    n[chip.dim] = chipOn(q, chip) ? "" : chip.val;
+    n[dim] = cycleNext(dim, q[dim]);
     return n;
   }
   /* The reply box's grey words, by the thread's channel. */
@@ -1003,7 +1013,7 @@
     syncTools();
     if (S.sel) { drawContact(); drawThread(); } else if (S.composing) { smsCompose(true); }
   }
-  /* The left column: the search box and the quick chips (built by syncTools() once there is something to filter), then the list. */
+  /* The left column: the row of filter buttons (built by syncTools() once there is something to filter), then the list. */
   function listPane() {
     var p = pane("Conversations", "ib-listpane" + (paneOpen() ? " is-hide-phone" : "")); p.setAttribute("id", "ib-listpane");
     p.appendChild(h("h2", "sr-only", "Conversations"));
@@ -1084,7 +1094,7 @@
     return d;
   }
   /* The toolbar above the card (Meta Business Inbox layout, ClickUp z8uq9mj6ch): the channel TABS at the left, New text, Text many members and
-     Refresh at the right. The search box and the quick chips are the head of the list column (#ib-lhead). Both are built by syncTools()
+     Refresh at the right. The four icon buttons (search, answered, read, open/closed) are the head of the list column (#ib-lhead). Both are built by syncTools()
      only when the mode changes (full: something to filter; lite: Refresh and the buttons alone), so the cursor stays in the search box
      while the rows change. The toolbar goes while a conversation is open on a phone. */
   function syncTools() {
@@ -1094,7 +1104,7 @@
     clear(host); host.setAttribute("data-mode", mode);
     if (mode !== "none") host.appendChild(toolbar(mode === "lite"));
     var lh = byId("ib-lhead");
-    if (lh) { clear(lh); if (mode === "full") add(lh, searchBox(), chipRow()); }
+    if (lh) { clear(lh); if (mode === "full") add(lh, filterBar()); }
   }
   function toolbar(lite) {
     var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow"), acts = h("div", "ib-acts");
@@ -1143,30 +1153,73 @@
     if (a.conv === b.conv && (a.cm === b.cm || !live)) { S.filter = v; S.listTop = 0; fillList(byId("ib-listbody")); syncTabs(); return; }
     applyQuery({ q: S.q, status: S.status, unread: S.unread, answered: S.answered, filter: v }, null, "");
   }
-  /* The quick chips (CHIPS): toggle buttons, aria-pressed. Pressing one shows its state at once; applyQuery puts it back when the read fails. */
-  function chipRow() {
-    var row = h("div", "ib-chips"); row.setAttribute("role", "group"); row.setAttribute("aria-label", "Quick filters"); row.setAttribute("id", "ib-chips");
-    CHIPS.forEach(function (c) {
-      var b = h("button", "ib-chip", c.label); b.setAttribute("type", "button"); b.setAttribute("data-chip", c.key); b.setAttribute("id", "ib-chip-" + c.key);
-      b.setAttribute("aria-pressed", chipOn(S, c) ? "true" : "false"); b.classList.toggle("is-on", chipOn(S, c));
-      b.addEventListener("click", function () {
-        if (!S) return;
-        var next = chipNext(S, c);
-        paintChips(next);
-        applyQuery(next, null, "");
-      });
-      row.appendChild(b);
-    });
-    return row;
+  /* The house tooltip for an icon button: dark, fixed under the button (so no scroll box clips it), opens on hover after about 120 ms, at once
+     on focus, and on tap (a touch tap toggles it from what it was before the tap, like the other Inbox tooltips). Its words are the button's
+     aria-label, read when it opens and again by ibTipRefresh(). One tooltip is open at a time (window.NOInboxTip). */
+  var TIP = window.NOInboxTip = window.NOInboxTip || { close: null };
+  function attachTip(btnEl, host) {
+    var tip = h("span", "cm-tip cm-tip-b"), id = (btnEl.getAttribute("id") || "ib-t") + "-tip", timer = null, touchTap = false, wasOpen = false, held = false, heldT = null;
+    tip.setAttribute("id", id); tip.setAttribute("role", "tooltip"); btnEl.setAttribute("aria-describedby", id); host.appendChild(tip);
+    function refresh() { tip.textContent = btnEl.getAttribute("aria-label") || ""; }
+    function place() {
+      if (!btnEl.getBoundingClientRect) return;
+      var r = btnEl.getBoundingClientRect(), w = tip.offsetWidth || 160, vw = window.innerWidth || 375;
+      tip.style.top = Math.round(r.bottom + 6) + "px"; tip.style.left = Math.round(Math.max(8, Math.min(r.right - w, vw - w - 8))) + "px";
+    }
+    function shut() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      tip.classList.remove("is-open"); if (TIP.close === shut) TIP.close = null;
+      if (document.removeEventListener) { document.removeEventListener("click", outside); document.removeEventListener("scroll", onScroll, true); }
+    }
+    /* A toggle repaints its icon inside its own click, so the click target is already out of the page when the click reaches the document: that
+       is not an outside click. The list reload and its scroll reset (held by ibTipHold) are not a user scroll either. */
+    function outside(e) { var t = e && e.target; if (t && (t === btnEl || (btnEl.contains && btnEl.contains(t)))) return; if (t && document.contains && !document.contains(t)) return; shut(); }
+    function onScroll() { if (held) return; shut(); }
+    function open() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (TIP.close && TIP.close !== shut) TIP.close();
+      refresh(); tip.classList.add("is-open"); TIP.close = shut; place();
+      if (document.addEventListener) { document.addEventListener("click", outside); document.addEventListener("scroll", onScroll, true); }
+    }
+    btnEl.ibTipHold = function (on) { if (heldT) { clearTimeout(heldT); heldT = null; } if (on) held = true; else heldT = setTimeout(function () { held = false; heldT = null; }, 250); };
+    btnEl.addEventListener("pointerdown", function (e) { touchTap = !!e && (e.pointerType === "touch" || e.pointerType === "pen"); wasOpen = tip.classList.contains("is-open"); });
+    btnEl.addEventListener("mouseenter", function () { if (touchTap || tip.classList.contains("is-open") || timer) return; timer = setTimeout(function () { timer = null; open(); }, 120); });
+    btnEl.addEventListener("mouseleave", function () { if (timer) { clearTimeout(timer); timer = null; } if (!document.activeElement || document.activeElement !== btnEl) shut(); });
+    btnEl.addEventListener("focus", open);
+    btnEl.addEventListener("blur", shut);
+    btnEl.addEventListener("keydown", function (e) { if (e.key === "Escape") shut(); });
+    btnEl.addEventListener("click", function () { if (touchTap) { if (wasOpen) shut(); else open(); touchTap = false; } else if (tip.classList.contains("is-open")) refresh(); else open(); });
+    btnEl.ibTipRefresh = function () { if (tip.classList.contains("is-open")) { refresh(); place(); } };
   }
-  function paintChips(q) {
-    var row = byId("ib-chips"); if (!row) return;
-    CHIPS.forEach(function (c) {
-      var b = byId("ib-chip-" + c.key); if (!b) return;
-      var on = chipOn(q, c); b.setAttribute("aria-pressed", on ? "true" : "false"); b.classList.toggle("is-on", on);
+  /* The cycle buttons: Answered, Read, Open/Closed. Pressing one shows its next state at once; applyQuery puts it back when the read fails. */
+  function cycleButton(c) {
+    var b = h("button", "ib-fbtn"); b.setAttribute("type", "button"); b.setAttribute("id", c.id); b.setAttribute("data-dim", c.dim);
+    b.addEventListener("click", function () {
+      if (!S) return;
+      var next = filterNext(S, c.dim);
+      paintCycle(b, c, next[c.dim]);
+      if (b.ibTipHold) b.ibTipHold(true);
+      applyQuery(next, null, "");
     });
+    paintCycle(b, c, S[c.dim] || "");
+    return b;
   }
-  function syncChips() { if (S) paintChips(S); }
+  function paintCycle(b, c, v) {
+    var r = cycleLook(c.dim, v);
+    clear(b); b.appendChild(icon(ICON[r.icon]));
+    b.setAttribute("aria-label", r.text); b.setAttribute("title", r.text); b.setAttribute("aria-pressed", v ? "true" : "false"); b.setAttribute("data-v", v || "");
+    b.classList.toggle("is-on", !!v); if (b.ibTipRefresh) b.ibTipRefresh();
+  }
+  function paintSearchBtn(b) {
+    var t = S && S.qText ? S.qText.trim() : "", words = t ? "Search: " + t : "Search";
+    b.setAttribute("aria-label", words); b.setAttribute("title", words); b.setAttribute("aria-pressed", t ? "true" : "false"); b.classList.toggle("is-on", !!t);
+  }
+  /* Shows the cycle buttons for q (a query), or the real S when q is left out; the Search button follows the text typed. */
+  function syncFilters(q) {
+    if (!S) return; q = q || S;
+    CYCLES.forEach(function (c) { var b = byId(c.id); if (b) paintCycle(b, c, q[c.dim] || ""); });
+    var sb = byId("ib-b-search"); if (sb) paintSearchBtn(sb);
+  }
   /* "New text": only while the API says the Text (SMS) feature is there. */
   function newTextButton() {
     if (!SMS || !SMS.util.available(S.chat)) return null;
@@ -1227,25 +1280,40 @@
     b.addEventListener("click", function () { if (S) refreshAll(b); });
     return b;
   }
-  /* INBOX-UI U5: the search box above the list. 300 ms after the last key; fewer than 2 characters is the normal list; works with the
-     Channel filter (that one only narrows the rows shown). The house text-field look and the light-blue focus border (inbox.css). */
-  function searchBox() {
-    var wrap = h("div", "ib-search");
-    var lab = h("label", "pm-label sr-only", "Search"); lab.setAttribute("for", "ib-q");
-    var row = h("div", "ib-sbox ib-qs"), mag = icon(ICON.search, "ib-si"); /* the Products search box: the magnifier inside, no button */
+  /* The head of the list column (Coach Ed 2026-11-24): ONE row of four square icon buttons: Search, Answered, Read, Open/Closed. Pressing Search
+     hides the row and shows the search box at the full width, focused, with a close button at its end; Esc or that button closes it again
+     (and empties it, as emptying the box always did). INBOX-UI U5 behaviour kept: 300 ms after the last key, fewer than 2 characters is the
+     normal list, the Channel tab only narrows the rows shown. The light-blue focus border (inbox.css). */
+  function filterBar() {
+    var st = S, wrap = h("div", "ib-fbar"), row = h("div", "ib-frow"), open = !!st.sOpen;
+    row.setAttribute("role", "group"); row.setAttribute("aria-label", "Filters"); row.setAttribute("id", "ib-frow");
+    var sb = h("button", "ib-fbtn"); sb.setAttribute("type", "button"); sb.setAttribute("id", "ib-b-search"); sb.setAttribute("aria-expanded", "false"); sb.appendChild(icon(ICON.search));
+    paintSearchBtn(sb); row.appendChild(sb);
+    CYCLES.forEach(function (c) { var b = cycleButton(c); row.appendChild(b); attachTip(b, row); });
+    var field = h("div", "ib-search"), lab = h("label", "pm-label sr-only", "Search"); lab.setAttribute("for", "ib-q");
+    var box = h("div", "ib-sbox ib-qs"), mag = icon(ICON.search, "ib-si"); /* the Products search box: the magnifier inside */
     var inp = D.el("input", { "class": "ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });
-    inp.value = S.qText;
-    var x = h("button", "ib-sclear"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Clear search"); x.appendChild(icon(ICON.x)); x.hidden = !S.qText;
-    var st = S;
+    inp.value = st.qText;
+    var x = h("button", "ib-sclear"); x.setAttribute("type", "button"); x.setAttribute("id", "ib-sclose"); x.setAttribute("aria-label", "Close search"); x.setAttribute("title", "Close search"); x.appendChild(icon(ICON.x));
+    function show(on) {
+      st.sOpen = on; row.hidden = on; field.hidden = !on; sb.setAttribute("aria-expanded", on ? "true" : "false"); wrap.classList.toggle("is-search", on);
+    }
     function later() { if (st.qTimer !== null) clearTimeout(st.qTimer); st.qTimer = setTimeout(function () { st.qTimer = null; if (S === st) searchNow(); }, 300); }
-    inp.addEventListener("input", function () { st.qText = inp.value; x.hidden = !inp.value; later(); });
+    function close() {
+      show(false);
+      if (st.qText) { st.qText = ""; inp.value = ""; }
+      if (S === st) { searchNow(); paintSearchBtn(sb); }
+      try { sb.focus(); } catch (e) { /* gone */ }
+    }
+    sb.addEventListener("click", function () { show(true); try { inp.focus(); } catch (e) { /* gone */ } });
+    inp.addEventListener("input", function () { st.qText = inp.value; later(); });
     inp.addEventListener("keydown", function (e) {
       if (e.key === "Enter") { e.preventDefault(); searchNow(); }
-      else if (e.key === "Escape" && inp.value) { e.preventDefault(); e.stopPropagation(); wipe(); }
+      else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
     });
-    function wipe() { st.qText = ""; inp.value = ""; x.hidden = true; searchNow(); try { inp.focus(); } catch (e) { /* gone */ } }
-    x.addEventListener("click", wipe);
-    add(row, mag, inp, x); add(wrap, lab, row);
+    x.addEventListener("click", close);
+    add(box, mag, inp, x); add(field, lab, box); add(wrap, row, field);
+    show(open);
     return wrap;
   }
   function searchNow() {
@@ -1265,14 +1333,14 @@
       if (!r.ok) {
         D.toast("That did not work", msgOf(r.fail, "We could not search. Please try again."), "error");
         if (box) { box.value = revert || "all"; if (box.ibSync) box.ibSync(); }
-        syncChips(); syncTabs();
+        syncFilters(); syncTabs();
         return;
       }
       S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.answered = next.answered || ""; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
       if (r.conv) takeUnread(r.conv);
-      fillList(byId("ib-listbody")); syncChips(); syncTabs();
+      fillList(byId("ib-listbody")); syncFilters(); syncTabs();
       if (box && box.ibFocus) box.ibFocus();
       say(!next.q && !next.status && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
     });
@@ -1302,7 +1370,7 @@
   function drawList() {
     var body = byId("ib-listbody"), p = byId("ib-listpane");
     if (!body || !S) return;
-    var top = S.listTop || 0; /* a click, a read mark, a poll or a chip change redraws the rows, never moves the list */
+    var top = S.listTop || 0; /* a click, a read mark, a poll or a filter change redraws the rows, never moves the list */
     fillList(body);
     if (document.body && document.body.classList) document.body.classList.toggle("ib-thread", paneOpen()); /* phone: the page heading gives its room to the open thread */
     if (p) { if (paneOpen()) p.classList.add("is-hide-phone"); else p.classList.remove("is-hide-phone"); }
@@ -1604,6 +1672,6 @@
       grouped: grouped, windowNotice: windowNotice, badgeText: badgeText,
       timeOf: timeOf, sortNewest: sortNewest, horizonOf: horizonOf, visibleOf: visibleOf, nextSource: nextSource, mergeSource: mergeSource,
       sourcesFor: sourcesFor, commentQuery: commentQuery, unreadSum: unreadSum,
-      tabsFor: tabsFor, chips: CHIPS, chipOn: chipOn, chipNext: chipNext, placeholderFor: placeholderFor, contactOf: contactOf },
+      tabsFor: tabsFor, cycles: CYCLES, cycleNext: cycleNext, cycleLook: cycleLook, filterNext: filterNext, placeholderFor: placeholderFor, contactOf: contactOf },
     combo: combo };
 })();

@@ -35,7 +35,7 @@
 #view-inbox .ib-split > .ib-listpane { border-right: 1px solid var(--card-line); }
 #view-inbox .ib-tools-host { flex: none; margin-bottom: 12px; }
 #view-inbox .ib-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); overflow: hidden; }
-#view-inbox .ib-lhead { flex: none; display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 10px; }
+#view-inbox .ib-lhead { flex: none; padding: 14px 14px 10px; }
 #view-inbox .ib-lhead:empty { display: none; }
 #view-inbox .ib-pane-head { padding: 14px 18px; border-bottom: 1px solid var(--card-line); }
 #view-inbox .ib-h { font-size: 17px; font-weight: 700; margin: 0; }
@@ -284,14 +284,17 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 #view-inbox .ib-acts { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
 #view-inbox .ib-acts > .ib-rf { flex: 0 0 auto; min-height: 44px; padding: 0 12px; font-size: 14px; white-space: nowrap; }
 #view-inbox .ib-tools-host:empty { display: none; }
-/* the quick chips under the search box: toggle buttons, light blue when on */
-#view-inbox .ib-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-#view-inbox .ib-chip { min-height: 32px; padding: 0 12px; border: 1px solid var(--card-line); border-radius: 999px; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-#view-inbox .ib-chip:hover { background: var(--ghost-hover); color: var(--text); }
-#view-inbox .ib-chip.is-on, #view-inbox .ib-chip[aria-pressed="true"] { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); }
-#view-inbox .ib-chip:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+/* the filter buttons: one row of square icon buttons in the dash top-bar style (.notif-btn / .qs-btn: 44px, thin card-line border, 8px corners); light blue when a filter is on */
+#view-inbox .ib-fbar { min-width: 0; }
+#view-inbox .ib-frow { display: flex; align-items: center; gap: 8px; }
+#view-inbox .ib-frow[hidden], #view-inbox .ib-search[hidden] { display: none; }
+#view-inbox .ib-fbtn { flex: none; display: grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); cursor: pointer; }
+#view-inbox .ib-fbtn svg { width: 22px; height: 22px; }
+#view-inbox .ib-fbtn:hover { background: var(--ghost-hover); color: var(--text); }
+#view-inbox .ib-fbtn.is-on, #view-inbox .ib-fbtn[aria-pressed="true"] { border-color: var(--link); background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); }
+#view-inbox .ib-fbtn:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
 /* the search box: the Products one (pr-qs): magnifier inside, a light-blue border on focus (never gold), a clear button */
-#view-inbox .ib-search { min-width: 0; }
+#view-inbox .ib-search { min-width: 0; width: 100%; }
 #view-inbox .ib-qs { display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 44px; padding: 0 4px 0 12px; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); }
 #view-inbox .ib-qs:focus-within { border-color: var(--link, #6C8CFF); box-shadow: 0 0 0 1px var(--link, #6C8CFF); }
 #view-inbox .ib-qs .ib-si { flex: none; width: 20px; height: 20px; }

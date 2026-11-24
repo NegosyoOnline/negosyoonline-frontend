@@ -445,8 +445,13 @@ const rowsOf = (d) => d.all(d.$("ib-list"), "ib-item");
 /* Meta layout (z8uq9mj6ch): the channel tabs and the quick chips replace the Channel and Status dropdowns and the two toggles */
 const tabLabels = (d) => d.all(d.$("ib-tools-host"), "ib-tab").map((t) => t.textContent);
 const pickTab = async (d, v) => { d.$("ib-tab-" + v).fire("click"); await settle(); };
-const pickChip = async (d, k) => { d.$("ib-chip-" + k).fire("click"); await settle(); };
-const chipOn = (d, k) => d.$("ib-chip-" + k).getAttribute("aria-pressed");
+/* The filter buttons cycle (all -> first -> second -> all); `pickChip` clicks the right number of times to reach a state, `pickOff` back to all. */
+const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
+const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
+const cycleTo = async (d, id, want) => { const o = ORDERS[id], b = d.$(id); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + 3) % 3; n > 0; n--) { b.fire("click"); await settle(); } };
+const pickChip = (d, k) => cycleTo(d, CYC[k][0], CYC[k][1]);
+const pickOff = (d, k) => cycleTo(d, CYC[k][0], "");
+const chipOn = (d, k) => String(d.$(CYC[k][0]).getAttribute("data-v") === CYC[k][1]);
 
 test("d1: every row has a neutral channel badge (icon and words); an unread row has a dot with its own words; a closed one has a Closed chip", async () => {
   const d = boot({ listing: MIXED(), channels: CHANNELS_ON });
@@ -817,9 +822,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml1/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml3/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml2/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml3/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1690,6 +1695,7 @@ test("U5: search asks the API 300 ms after the last key, needs 2 characters, sho
   d.s.searcher = (q) => ({ items: q === "zzz" ? [] : [list().items[1]], stored_next_cursor: null, unread_total: 1 });
   await d.openInbox();
   const inp = d.$("ib-q"), qCalls = () => d.calls.filter((c) => c.path.includes("?q=") || c.path.includes("&q="));
+  await d.click(d.$("ib-b-search"));
   assert.equal(inp.getAttribute("type"), "search");
   assert.equal(inp.getAttribute("maxlength"), "80");
   assert.equal(d.all(d.$("ib-lhead"), "pm-label").map((l) => l.textContent)[0], "Search");
@@ -1706,10 +1712,10 @@ test("U5: search asks the API 300 ms after the last key, needs 2 characters, sho
   assert.equal(navNb(d)[0].textContent, "9", "a search answer does not change the nav count");
   inp.value = "zzz"; inp.fire("input"); await clock.advance(300);
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"));
-  const clear = d.all(d.$("ib-lhead"), "ib-sclear")[0];
-  assert.equal(clear.hidden, false);
+  const clear = d.$("ib-sclose");
+  assert.equal(clear.getAttribute("aria-label"), "Close search");
   await d.click(clear);
-  assert.equal(inp.value, ""); assert.equal(clear.hidden, true);
+  assert.equal(inp.value, ""); assert.equal(d.$("ib-b-search").getAttribute("aria-expanded"), "false", "the box is closed again");
   assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "the normal list is back");
   assert.equal(qCalls().length, 2);
 });
@@ -1776,12 +1782,13 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New text /
   assert.deepEqual(parts[1].children.map((n) => n.id), ["ib-refresh-btn"], "no SMS: Refresh alone");
   assert.equal(d.all(parts[1], "ib-rf-t")[0].textContent, "Refresh");
   const head = d.$("ib-lhead");
-  assert.deepEqual(head.children.map((n) => (n.classList.contains("ib-search") ? "search" : n.classList.contains("ib-chips") ? "chips" : n.id)), ["search", "chips"]);
+  const bar = head.children[0];
+  assert.deepEqual(bar.children.map((n) => (n.classList.contains("ib-frow") ? "buttons" : n.classList.contains("ib-search") ? "search" : n.id)), ["buttons", "search"]);
+  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status"], "Search, Answered, Read, Open/Closed");
   assert.deepEqual(d.all(head, "pm-label").map((l) => [l.textContent, l.getAttribute("for"), l.classList.contains("sr-only")]), [["Search", "ib-q", true]]);
   assert.equal(d.all(head, "ib-si").length, 1, "the magnifier inside the search box");
   assert.equal(d.all(head, "ib-qs").length, 1);
   assert.equal(d.$("ib-q").getAttribute("placeholder"), "Name, email or message");
-  assert.equal(d.press(tools, "Search"), undefined, "no separate Search button");
   await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
   assert.equal(d.$("ib-tools-host").parentNode, d.$("ib-wrap"), "still above the card with a conversation open");
   assert.equal(d.$("ib-tools-host").classList.contains("is-hide-phone"), true, "a phone hides it while a conversation is open");
@@ -1811,8 +1818,8 @@ test("C2: the Open / Closed chips send ?status=open or closed, nothing when off,
   assert.equal(d.$("ib-q"), inp, "the search box stays while the rows change");
   await clock.advance(15000);
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "the list poll keeps both");
-  await pickChip(d, "open");
-  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar", "pressing the chip again drops the parameter");
+  await pickOff(d, "open");
+  assert.equal(reads().at(-1), LIST_PATH + "?q=Mar", "the third press goes back to all and drops the parameter");
   await pickChip(d, "closed");
   await pickTab(d, "email");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match \u201CMar\u201D."), "the channel is still a filter on the rows (and a search is on)");
@@ -1840,24 +1847,28 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   await d.openInbox();
   await pickChip(d, "closed");
   assert.equal(d.all(d.$("ib-listbody"), "ib-empty-filter")[0].textContent, "No conversations match.");
-  assert.ok(d.$("ib-chip-closed"), "the chips stay so the filter can be changed back");
+  assert.ok(d.$("ib-b-status"), "the buttons stay so the filter can be changed back");
   const none = boot({ listing: { items: [], stored_next_cursor: null }, channels: CHANNELS_ON });
   await none.openInbox();
   assert.ok(none.$("ib-listbody").textContent.includes("No messages yet"));
   assert.ok(none.$("ib-refresh-btn"), "the empty text says Press Refresh, so the button is there");
   assert.equal(none.all(none.$("ib-tools-host"), "ib-tools")[0].classList.contains("is-lite"), true);
   assert.equal(none.$("ib-q"), null);
-  assert.equal(none.$("ib-chip-open"), null);
+  assert.equal(none.$("ib-b-status"), null);
   assert.equal(none.$("ib-tab-all"), null, "no tabs while there is nothing to filter");
 });
 
-test("the list column starts with the search box and the quick chips (Unread, Read, Unanswered, Answered, Open, Closed), all toggle buttons", async () => {
+test("the list column starts with one row of four icon buttons (Search, Answered, Read, Open/Closed), real buttons with words and their own icons", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
-  const chips = d.all(d.$("ib-chips"), "ib-chip");
-  assert.deepEqual(chips.map((c) => c.textContent), ["Unread", "Read", "Unanswered", "Answered", "Open", "Closed"]);
-  assert.ok(chips.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && c.getAttribute("aria-pressed") === "false"));
-  assert.equal(d.$("ib-chips").getAttribute("role"), "group");
+  const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
+  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status"]);
+  assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && c.getAttribute("aria-pressed") === "false" && !!c.getAttribute("aria-label") && c.getAttribute("title") === c.getAttribute("aria-label")));
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing all messages", "Showing open and closed"]);
+  assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
+  assert.equal(d.$("ib-frow").getAttribute("role"), "group");
+  assert.equal(d.$("ib-chips"), null, "the text chips are gone");
+  assert.equal(d.$("ib-frow").hidden, false); assert.equal(d.all(d.$("ib-lhead"), "ib-search")[0].hidden, true, "the search box starts closed");
   assert.equal(d.$("ib-upd"), null, "#ib-upd is gone");
   assert.equal(d.$("ib-rtog"), null, "the old icon toggles are gone");
   assert.equal(d.$("ib-atog"), null);
@@ -1910,7 +1921,9 @@ test("the toolbar CSS: the tabs row and the actions; phone: tabs on their own li
   assert.doesNotMatch(css, /container-type|@container/, "containment would trap the fixed dropdown panel");
   assert.doesNotMatch(css.replace(/#view-inbox \.ib-tabs \{[^}]*\}/, ""), /overflow-x: ?(scroll|auto)/, "no sideways scroll anywhere else");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
-  assert.match(css, /\.ib-chip:focus-visible \{[^}]*border-color: var\(--link\)/, "light-blue focus on the chips");
+  assert.match(css, /\.ib-fbtn:focus-visible \{[^}]*border-color: var\(--link\)/, "light-blue focus on the filter buttons");
+  assert.match(css, /\.ib-fbtn \{[^}]*width: 44px; height: 44px;[^}]*border: 1px solid var\(--card-line\); border-radius: 8px/, "the top-bar button look");
+  assert.match(css, /\.ib-fbtn\[aria-pressed="true"\][^{]*\{[^}]*var\(--link\)/, "light blue when a filter is on");
   assert.match(css, /\.ib-tab:focus-visible \{[^}]*var\(--link\)/, "and on the tabs");
 });
 
@@ -1942,7 +1955,7 @@ test("R4-4: there is no Read dropdown; the Unread and Read chips start off", asy
   assert.equal(d.$("ib-read"), null);
   assert.equal(d.all(d.$("ib-tools-host"), "ib-fld-rd").length, 0);
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "false"]);
-  assert.equal(d.$("ib-chip-unread").tagName, "BUTTON");
+  assert.equal(d.$("ib-b-read").tagName, "BUTTON");
 });
 
 test("R4-4: the Unread / Read chips send unread=1 / unread=0 / nothing, one at a time, with q, status and the poll", async () => {
@@ -1966,7 +1979,7 @@ test("R4-4: the Unread / Read chips send unread=1 / unread=0 / nothing, one at a
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open&unread=0");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "true"], "Read replaces Unread");
   assert.ok(d.$("ib-listbody").textContent.includes("No conversations match"), "an empty filtered list says so");
-  await pickChip(d, "read");
+  await pickOff(d, "read");
   assert.equal(reads().at(-1), LIST_PATH + "?q=Mar&status=open", "pressing it again drops the parameter");
   assert.deepEqual([chipOn(d, "unread"), chipOn(d, "read")], ["false", "false"]);
   assert.equal(d.calls.filter((c) => /unread=(all|invalid|true)/.test(c.path)).length, 0);
@@ -2358,7 +2371,7 @@ test("sms util: problem, pickable, quota, chip, offText, available", () => {
 
 /* ---------- Meta Business Inbox look (ClickUp z8uq9mj6ch): tabs, chips, placeholders, the contact panel ---------- */
 
-test("util: tabsFor lists the channels, Text (SMS) last and only while sms_available; chipNext toggles one chip of a dimension; placeholderFor; contactOf", async () => {
+test("util: tabsFor lists the channels, Text (SMS) last and only while sms_available; cycleNext/filterNext step one filter button; placeholderFor; contactOf", async () => {
   const d = boot({ channels: CHANNELS_ON });
   const u = d.window.NOInbox.util;
   const labels = (ch) => Array.from(u.tabsFor(ch), (t) => t[1]);
@@ -2368,17 +2381,24 @@ test("util: tabsFor lists the channels, Text (SMS) last and only while sms_avail
   assert.deepEqual(labels(CH_SMS), ["All messages", "Website chat", "Email", "FB Messenger", "FB Comments", "Text (SMS)"]);
   assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment", "sms"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
-  /* chips: exactly the existing filter values */
-  assert.deepEqual(Array.from(u.chips, (c) => [c.key, c.dim, c.val]), [["unread", "unread", "1"], ["read", "unread", "0"], ["unanswered", "answered", "unanswered"], ["answered", "answered", "answered"], ["open", "status", "open"], ["closed", "status", "closed"]]);
-  const chip = (k) => u.chips.find((c) => c.key === k);
+  /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
+  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "answered", "unanswered"]], ["unread", ["", "1", "0"]], ["status", ["", "open", "closed"]]]);
+  assert.deepEqual(["", "answered", "unanswered", ""].map((v) => u.cycleNext("answered", v)), ["answered", "unanswered", "", "answered"]);
+  assert.deepEqual(["", "1", "0"].map((v) => u.cycleNext("unread", v)), ["1", "0", ""]);
+  assert.deepEqual(["", "open", "closed"].map((v) => u.cycleNext("status", v)), ["open", "closed", ""]);
+  assert.equal(u.cycleNext("status", "weird"), "", "an unknown value goes back to all");
+  assert.equal(u.cycleNext("nope", "x"), "");
+  assert.deepEqual([u.cycleLook("unread", "1").text, u.cycleLook("unread", "0").text, u.cycleLook("unread", "").text], ["Unread only", "Read only", "Showing all messages"]);
+  assert.deepEqual([u.cycleLook("answered", "answered").text, u.cycleLook("answered", "unanswered").text], ["Answered only", "Unanswered only"]);
+  assert.deepEqual([u.cycleLook("status", "open").text, u.cycleLook("status", "closed").text], ["Open only", "Closed only"]);
+  assert.equal(new Set(["", "answered", "unanswered"].map((v) => u.cycleLook("answered", v).icon)).size, 3, "a distinct icon per state");
+  assert.equal(new Set(["", "1", "0"].map((v) => u.cycleLook("unread", v).icon)).size, 3);
+  assert.equal(new Set(["", "open", "closed"].map((v) => u.cycleLook("status", v).icon)).size, 3);
   const base = { q: "ma", status: "", unread: "", answered: "", filter: "email" };
-  assert.deepEqual({ ...u.chipNext(base, chip("unread")) }, { q: "ma", status: "", unread: "1", answered: "", filter: "email" });
-  assert.deepEqual({ ...u.chipNext({ ...base, unread: "1" }, chip("read")) }, { q: "ma", status: "", unread: "0", answered: "", filter: "email" }, "Read replaces Unread");
-  assert.deepEqual({ ...u.chipNext({ ...base, unread: "1" }, chip("unread")) }, base, "pressing the one that is on turns it off");
-  assert.deepEqual({ ...u.chipNext({ ...base, status: "closed" }, chip("answered")) }, { ...base, status: "closed", answered: "answered" }, "other dimensions are kept");
-  assert.equal(u.chipOn({ status: "open" }, chip("open")), true);
-  assert.equal(u.chipOn({ status: "open" }, chip("closed")), false);
-  assert.equal(u.chipOn(null, chip("closed")), false);
+  assert.deepEqual({ ...u.filterNext(base, "unread") }, { q: "ma", status: "", unread: "1", answered: "", filter: "email" });
+  assert.deepEqual({ ...u.filterNext({ ...base, unread: "1" }, "unread") }, { ...base, unread: "0" });
+  assert.deepEqual({ ...u.filterNext({ ...base, unread: "0" }, "unread") }, base, "the third press is back to all");
+  assert.deepEqual({ ...u.filterNext({ ...base, status: "closed" }, "answered") }, { ...base, status: "closed", answered: "answered" }, "other dimensions are kept");
   /* placeholders */
   assert.deepEqual(["messenger", "email", "webchat", "sms", "fbcomment"].map(u.placeholderFor), ["Reply in Messenger…", "Reply by email…", "Reply in website chat…", "Reply by text…", "Reply to comment…"]);
   assert.equal(u.placeholderFor(""), "Write a reply…", "no channel known: a plain line");
@@ -2532,4 +2552,90 @@ test("INBOX-META-LOOK fix 1: on a phone the toolbar host hides with the list whi
   const phone = css.slice(css.indexOf("@media (max-width: 899px)"));
   assert.match(phone, /#view-inbox \.ib-tools-host\.is-hide-phone \{ display: none; \}/);
   assert.doesNotMatch(css.split("@media")[0], /\.ib-tools-host\.is-hide-phone/);
+});
+
+/* ---------- Fix round 2 (Coach Ed 2026-11-24): the four icon buttons and the full-width search ---------- */
+
+test("fix 2: the Answered / Read / Open-Closed buttons cycle all -> first -> second -> all, each with its own words, icon and aria-pressed", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.statuser = (st) => byStatus(st);
+  await d.openInbox();
+  const look = (id) => { const b = d.$(id); return [b.getAttribute("data-v"), b.getAttribute("aria-label"), b.getAttribute("title"), b.getAttribute("aria-pressed"), b.classList.contains("is-on"), b.innerHTML]; };
+  for (const [id, steps] of [["ib-b-answered", [["", "Showing answered and unanswered"], ["answered", "Answered only"], ["unanswered", "Unanswered only"]]], ["ib-b-read", [["", "Showing all messages"], ["1", "Unread only"], ["0", "Read only"]]], ["ib-b-status", [["", "Showing open and closed"], ["open", "Open only"], ["closed", "Closed only"]]]]) {
+    const seen = [];
+    for (let i = 0; i < 4; i++) {
+      const l = look(id), [v, words] = steps[i % 3];
+      assert.deepEqual([l[0], l[1], l[2], l[3], l[4]], [v, words, words, v ? "true" : "false", !!v], id + " step " + i);
+      seen.push(d.$(id).children[0].children[0].getAttribute("d"));
+      d.$(id).fire("click"); await settle();
+    }
+    assert.equal(new Set(seen.slice(0, 3)).size, 3, id + ": a distinct icon per state");
+    assert.equal(seen[3], seen[0], id + ": back to the first icon after a full turn");
+  }
+  const sent = d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH)).map((c) => c.path.slice(LIST_PATH.length));
+  assert.ok(sent.includes("?answered=answered") && sent.includes("?answered=unanswered") && sent.includes("?unread=1") && sent.includes("?unread=0") && sent.includes("?status=open") && sent.includes("?status=closed") || sent.some((p) => /answered=unanswered/.test(p)), "the same query values the chips sent");
+});
+
+test("fix 2: the three buttons combine, and a failed read puts each back to its previous state with a toast", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  asInbox(d);
+  await d.openInbox();
+  const reads = () => d.calls.filter((c) => c.method === "GET" && c.path.startsWith(LIST_PATH) && !/conversations\/[^/?]+\/$/.test(c.path)).map((c) => c.path);
+  await pickChip(d, "unread"); await pickChip(d, "answered"); await pickChip(d, "open");
+  assert.equal(reads().at(-1), LIST_PATH + "?status=open&unread=1&answered=answered", "all three together");
+  d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Please try again later." } } };
+  d.$("ib-b-read").fire("click"); await settle();
+  assert.equal(d.$("ib-b-read").getAttribute("data-v"), "1", "back to Unread only");
+  assert.equal(d.$("ib-b-read").getAttribute("aria-label"), "Unread only");
+  assert.equal(d.toasts.length, 1);
+});
+
+test("fix 2: Search hides the other buttons and shows the box at the full width, focused; X and Esc close it, empty it and bring the buttons back", async () => {
+  const clock = makeClock(), d = boot({ clock, channels: CHANNELS_ON });
+  asInbox(d);
+  d.s.searcher = () => ({ items: [list().items[1]], stored_next_cursor: null, unread_total: 1 });
+  await d.openInbox();
+  const sb = d.$("ib-b-search"), row = d.$("ib-frow"), field = d.all(d.$("ib-lhead"), "ib-search")[0], inp = d.$("ib-q");
+  assert.deepEqual([row.hidden, field.hidden, sb.getAttribute("aria-expanded")], [false, true, "false"]);
+  await d.click(sb);
+  assert.deepEqual([row.hidden, field.hidden, sb.getAttribute("aria-expanded")], [true, false, "true"], "the buttons are hidden, the box is shown");
+  assert.equal(d.doc.activeElement, inp, "the box has the focus");
+  assert.ok(d.$("ib-lhead").children[0].classList.contains("is-search"));
+  inp.value = "Jun"; inp.fire("input"); await clock.advance(300);
+  assert.equal(d.all(d.$("ib-list"), "ib-item").length, 1, "the same debounced search as before");
+  inp.fire("keydown", { key: "Escape", stopPropagation() {} }); await settle();
+  assert.deepEqual([row.hidden, field.hidden], [false, true], "Esc closes the box and brings the buttons back");
+  assert.equal(inp.value, ""); assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "an emptied text is the normal list again");
+  assert.equal(d.doc.activeElement, sb, "the focus goes back to the Search button");
+  assert.equal(sb.getAttribute("aria-pressed"), "false");
+  /* closing with nothing typed changes no filter */
+  await pickChip(d, "unread");
+  const n = d.calls.length;
+  await d.click(sb); await d.click(d.$("ib-sclose"));
+  assert.equal(d.calls.length, n, "no read for an open and close with no text");
+  assert.equal(d.$("ib-b-read").getAttribute("data-v"), "1");
+  assert.deepEqual([row.hidden, field.hidden], [false, true]);
+});
+
+test("fix 2: the Search button shows the light-blue state and the text in its label while a text is active; hostile text stays text", async () => {
+  const d = boot({ channels: CHANNELS_ON });
+  await d.openInbox();
+  const hostile = "<img src=x onerror=alert(1)>", sb = d.$("ib-b-search");
+  await d.click(sb);
+  d.$("ib-q").value = hostile; d.$("ib-q").fire("input");
+  d.$("ib-q").fire("keydown", { key: "Enter", preventDefault() {} }); await settle();
+  assert.equal(sb.getAttribute("aria-label"), "Search: " + hostile, "the words are an attribute value, never markup");
+  assert.equal(sb.getAttribute("aria-pressed"), "true"); assert.equal(sb.classList.contains("is-on"), true);
+  assert.equal(d.all(d.$("ib-lhead"), "img").length, 0);
+  d.$("ib-q").fire("keydown", { key: "Escape", preventDefault() {}, stopPropagation() {} }); await settle();
+  assert.deepEqual([sb.getAttribute("aria-label"), sb.getAttribute("aria-pressed")], ["Search", "false"], "closing empties the text and the state goes");
+});
+
+test("fix 2: the CSS: Search box at 100%, the closed parts hidden, the phone row fits (four 44 px buttons)", () => {
+  const css = cssText();
+  assert.match(css, /\.ib-search \{[^}]*width: 100%/);
+  assert.match(css, /\.ib-frow\[hidden\], #view-inbox \.ib-search\[hidden\] \{ display: none; \}/);
+  assert.match(css, /\.ib-frow \{ display: flex; align-items: center; gap: 8px; \}/);
+  assert.doesNotMatch(css, /\.ib-chip\b|\.ib-chips\b/, "no chip rules are left");
 });

@@ -70,6 +70,10 @@ const q = (p) => new URLSearchParams(p.indexOf("?") >= 0 ? p.slice(p.indexOf("?"
 
 /* The stand-in API. `s` holds what the routes answer. s.convPage(params) / s.cmPage(params) answer a list read (params: the query string);
    a route set to {status, body} answers that. The comments routes answer 404 while s.on is false (the switch is off). */
+/* The Answered, Read and Open/Closed buttons each cycle one filter: all -> first -> second -> all (Coach Ed 2026-11-24). `cycleTo` clicks the
+   button the right number of times to reach a value. */
+const CYC = { answered: ["ib-b-answered", "answered"], unanswered: ["ib-b-answered", "unanswered"], unread: ["ib-b-read", "1"], read: ["ib-b-read", "0"], open: ["ib-b-status", "open"], closed: ["ib-b-status", "closed"] };
+const ORDERS = { "ib-b-answered": ["", "answered", "unanswered"], "ib-b-read": ["", "1", "0"], "ib-b-status": ["", "open", "closed"] };
 function boot({ on = true, convs = [], clock = null } = {}) {
   const doc = makeDocument(), calls = [], toasts = [];
   const make = doc.createElement;
@@ -129,7 +133,7 @@ function boot({ on = true, convs = [], clock = null } = {}) {
     /* the Channel dropdown is now the channel tabs and the Status dropdown the Open / Closed chips (z8uq9mj6ch); "all" turns the chip that is on off */
     async pick(id, v) {
       if (id === "ib-filter") { $("ib-tab-" + v).fire("click"); await settle(); return; }
-      if (id === "ib-status") { const k = v === "all" ? ["open", "closed"].find((c) => $("ib-chip-" + c).getAttribute("aria-pressed") === "true") : v; if (k) $("ib-chip-" + k).fire("click"); await settle(); return; }
+      if (id === "ib-status") { const o = ORDERS["ib-b-status"], want = v === "all" ? "" : v, b = $("ib-b-status"); for (let n = (o.indexOf(want) - o.indexOf(b.getAttribute("data-v")) + 3) % 3; n > 0; n--) { b.fire("click"); await settle(); } return; }
       const n = $(id); n.value = v; n.fire("change"); await settle();
     },
     shown: (id) => !$(id).hidden };
@@ -239,16 +243,18 @@ test("search goes to both APIs, Unread/Read maps to the comments' unread=1/0, an
   assert.ok(d.names().includes("Match ma"));
   await d.type("ib-q", ""); await clock.advance(300);
   n = d.calls.length;
-  await d.click(d.$("ib-chip-unread"));
+  await d.click(d.$("ib-b-read"));
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=1", "GET " + CV + "?unread=1"]);
   n = d.calls.length;
-  await d.click(d.$("ib-chip-read"));
+  await d.click(d.$("ib-b-read"));
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB + "?unread=0", "GET " + CV + "?unread=0"]);
-  await d.click(d.$("ib-chip-read"));
+  await d.click(d.$("ib-b-read"));
+  await d.pick("ib-status", "open"); /* the button goes all -> Open -> Closed */
   n = d.calls.length;
   await d.pick("ib-status", "closed");
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0), ["GET " + CV + "?status=closed"], "comments have no closed state");
   assert.ok(d.rows().every((r) => !text(r).includes("FB Comment")));
+  await d.pick("ib-status", "all"); /* Closed -> all is one press */
   n = d.calls.length;
   await d.pick("ib-status", "open");
   assert.deepEqual(d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort(), ["GET " + CB, "GET " + CV + "?status=open"]);
@@ -859,29 +865,30 @@ test("r9: the list rows carry no Answered / Unanswered pill; the thread header k
 test("r12: the Answered / Unanswered chips are toggles (aria-pressed), one on at a time, and send answered= to the conversations and the comments routes", async () => {
   const d = boot({ convs: [conv(1, 5, { answered: true })] });
   await d.openInbox();
-  const on = (k) => d.$("ib-chip-" + k).getAttribute("aria-pressed");
+  const on = (k) => String(d.$(CYC[k][0]).getAttribute("data-v") === CYC[k][1]);
   const api = (n) => d.since(n).filter((x) => x.indexOf("/inquiries/c") >= 0).sort();
-  assert.equal(d.$("ib-chip-answered").tagName, "BUTTON");
+  assert.equal(d.$("ib-b-answered").tagName, "BUTTON");
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"]);
   let n = d.calls.length;
-  await d.click(d.$("ib-chip-answered"));
+  await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["true", "false"]);
-  assert.equal(d.$("ib-chip-answered").classList.contains("is-on"), true);
+  assert.equal(d.$("ib-b-answered").classList.contains("is-on"), true);
   assert.deepEqual(api(n), ["GET " + CB + "?answered=answered", "GET " + CV + "?answered=answered"], "both routes");
   assert.ok(d.rows().some((r) => !text(r).includes("FB Comment")), "conversations are not dropped while it is on");
   n = d.calls.length;
-  await d.click(d.$("ib-chip-unanswered"));
+  await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "true"], "one at a time");
   assert.deepEqual(api(n), ["GET " + CB + "?answered=unanswered", "GET " + CV + "?answered=unanswered"]);
   n = d.calls.length;
-  await d.click(d.$("ib-chip-unanswered"));
+  await d.click(d.$("ib-b-answered"));
   assert.deepEqual([on("answered"), on("unanswered")], ["false", "false"], "pressing the one that is on turns it off");
   assert.deepEqual(api(n), ["GET " + CB, "GET " + CV]);
   /* it combines with Unread and Open/Closed, and is not the status */
-  await d.click(d.$("ib-chip-answered"));
+  await d.click(d.$("ib-b-answered"));
   n = d.calls.length;
-  await d.click(d.$("ib-chip-unread"));
+  await d.click(d.$("ib-b-read"));
   assert.deepEqual(api(n), ["GET " + CB + "?unread=1&answered=answered", "GET " + CV + "?unread=1&answered=answered"]);
+  await d.pick("ib-status", "open");
   n = d.calls.length;
   await d.pick("ib-status", "closed");
   assert.deepEqual(api(n), ["GET " + CV + "?status=closed&unread=1&answered=answered"], "Closed reads no comments");
@@ -893,8 +900,8 @@ test("r9: a failed read puts the Answered chip back", async () => {
   await d.openInbox();
   await d.pick("ib-filter", "fbcomment"); /* comments are the only source, so their failure is a failed read */
   d.s.listAnswer = { status: 502, body: { error: { code: "server_error", message: "Try later." } } };
-  await d.click(d.$("ib-chip-answered"));
-  assert.equal(d.$("ib-chip-answered").getAttribute("aria-pressed"), "false");
+  await d.click(d.$("ib-b-answered"));
+  assert.equal(d.$("ib-b-answered").getAttribute("aria-pressed"), "false");
   assert.equal(d.toasts.length, 1);
 });
 

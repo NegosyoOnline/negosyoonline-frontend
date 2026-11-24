@@ -308,3 +308,66 @@ test("the store's name is the main line with the site id small under it; the id 
   assert.equal(items[0].textContent, "Nena's Wellnesssite_a");
   assert.equal(items[1].textContent, "site_q");
 });
+
+const IMPORT = R("import-bridge");
+const fill = (p, site, name) => { p.node["imp-site"].value = site; p.node["imp-name"].value = name; };
+
+test("import: the button opens a dialog, an incomplete form sends nothing, a good one posts site, name and end date, then reads the list", async () => {
+  const p = await page(base([claim()], { [IMPORT]: [202, { site: "site_a", name: "shop.example.test", status: "requested" }] }));
+  p.node["d-import"].click();
+  assert.equal(p.node["m-imp"].hidden, false);
+  assert.equal(p.doc.activeElement, p.node["imp-site"]);
+  fill(p, "site_a", "");
+  p.node["imp-go"].click();
+  await settle();
+  assert.equal(p.sent(IMPORT).length, 0);
+  assert.equal(p.node["imp-e"].hidden, false);
+  fill(p, " site_a ", " Shop.Example.Test ");
+  p.node["imp-go"].click();
+  await settle();
+  assert.deepEqual(p.sent(IMPORT)[0].body, { site: "site_a", name: "shop.example.test" });
+  assert.equal(p.node["m-imp"].hidden, true);
+  assert.match(p.node["d-msg"].textContent, /Requested\. The registrar is read in the background/);
+  assert.equal(p.sent(LIST).length, 2);
+});
+
+test("import: a refusal shows the route's own words and keeps the dialog open; a server fault gets the plain line; Cancel sends nothing", async () => {
+  const p = await page(base([claim()], { [IMPORT]: [409, { error: { code: "import_refused", message: "Refused.", fields: { reason: ["has_claim", "name_held"] } } }] }));
+  p.node["d-import"].click();
+  fill(p, "site_a", "x.test");
+  p.node["imp-go"].click();
+  await settle();
+  assert.equal(p.node["m-imp"].hidden, false);
+  assert.equal(p.node["imp-e"].textContent, "That site has an open domain claim. Another site holds that name.");
+  const q = await page(base([claim()], { [IMPORT]: [500, {}] }));
+  q.node["d-import"].click();
+  fill(q, "site_a", "x.test");
+  q.node["imp-go"].click();
+  await settle();
+  assert.match(q.node["imp-e"].textContent, /did not go through/);
+  q.node["imp-cancel"].click();
+  assert.equal(q.node["m-imp"].hidden, true);
+  const r = await page(base([claim()]));
+  r.node["d-import"].click();
+  r.node["imp-cancel"].click();
+  assert.equal(r.sent(IMPORT).length, 0);
+});
+
+test("import: the list's imports show one row per site with the state and the worker's refusal in words; a 400 field message is shown", async () => {
+  const p = await page(base([claim()], { [LIST]: list([claim()], { imports: [
+    { site: "site_a", site_name: "Shop A", name: "a.test", state: "refused", reason: "not_in_our_account", at: "2026-11-23T09:00:00+08:00" },
+    { site: "site_b", site_name: "Shop B", name: "b.test", state: "pending", reason: "", at: "2026-11-23T09:05:00+08:00" },
+    { site: "site_c", name: "c.test", state: "weird" }] }) }));
+  assert.equal(p.node["d-imp-card"].hidden, false);
+  const items = p.node["d-imps"].children;
+  assert.equal(items.length, 2);
+  assert.match(items[0].textContent, /a\.test.*Refused.*Shop A.*not in our registrar account/);
+  assert.match(items[1].textContent, /Requested, waiting/);
+  const q = await page(base([claim()], { [IMPORT]: [400, { error: { code: "invalid_request", message: "Bad.", fields: { name: ["Enter the name without www."] } } }] }));
+  q.node["d-import"].click();
+  fill(q, "site_a", "www.x.test");
+  q.node["imp-go"].click();
+  await settle();
+  assert.equal(q.node["imp-e"].textContent, "Enter the name without www.");
+  assert.equal(q.node["d-imp-card"].hidden, true);
+});

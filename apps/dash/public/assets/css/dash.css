@@ -1809,3 +1809,10 @@ body.dash-app .acct-overlay .bs-dlg-err[hidden] { display: none; }
   body.dash-app #view-settings-general .bs-est .acct-set-row:nth-child(-n+3) { border-top: 1px solid var(--card-line); }
   body.dash-app #view-settings-general .bs-est .acct-set-row:first-child { border-top: 0; }
 }
+
+/* Paused store banner (H3, ClickUp z8uq9mhpbf): a top notice on every view while HQ holds the store. The error palette, no new colours. */
+body.dash-app .paused-banner { margin: 0 0 18px; padding: 12px 16px; border: 1px solid var(--err-line); border-radius: 10px; background: var(--err-bg); color: var(--err-text); overflow-wrap: anywhere; }
+body.dash-app .paused-banner p { margin: 0; }
+body.dash-app .paused-banner strong { color: var(--err-h); }
+body.dash-app .paused-banner a { color: inherit; text-decoration: underline; font-weight: 700; }
+body.dash-app .paused-banner[hidden] { display: none; }

@@ -162,6 +162,13 @@ test("the refused-lines download holds only line numbers and reasons, from a blo
   assert.equal(p.sent(R.uc).length, 1, "the download is not a call");
 });
 
+test("the refused-lines download uses the new chip words for shortened numbers", async () => {
+  const p = await up({ [R.uc]: [200, { ...CHECK, refused: [{ line: 5, reason: "Excel shortened this mobile number." }], refused_count: 1, shortened: 1 }] });
+  await check(p);
+  p.node["u-download"].fire("click");
+  assert.equal(p.urls.made[0].parts.join(""), "Line,Reason\r\n5,\"Excel shortened this number. Format the column as Number with 0 decimals, then save again.\"\r\n");
+});
+
 test("no download button without refused lines, or without Blob", async () => {
   const p = await up({ [R.uc]: [200, { ...CHECK, refused: [], refused_count: 0 }] });
   await check(p);
@@ -251,10 +258,42 @@ test("the sample unchanged (no lines read) says the file has no contacts yet, no
   assert.equal(p.node["u-save"].disabled, true);
 });
 
-test("every line refused: says no line could be read and leaves out the already-in-contacts sentence", async () => {
-  const p = await up({ [R.uc]: [200, { lines: 3, new: 0, existing: 0, repeated: 0, refused: [{ line: 2, reason: REASON }], refused_count: 3 }] });
+const SHORT = "Excel shortened this mobile number.";
+const CHIP = "Excel shortened this number. Format the column as Number with 0 decimals, then save again.";
+const FIX = "Excel shortened the mobile numbers in this file. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again.";
+const NONE = { lines: 3, new: 0, existing: 0, repeated: 0 };
+
+test("no line can be added and the refusals are format failures: the save-as-CSV-UTF-8 summary", async () => {
+  const p = await up({ [R.uc]: [200, { ...NONE, refused: [{ line: 2, reason: "This line has fewer than three columns." }], refused_count: 3, shortened: 0 }] });
   await check(p);
   assert.equal(p.node["u-sentence"].textContent, "No line could be read. Save the file as CSV UTF-8 and check it again.");
   assert.equal(p.node["u-sentence"].textContent.includes("already in contacts"), false);
   assert.equal(p.node["u-save"].disabled, true);
+});
+
+test("no line can be added and the refusals are other reasons: see the reasons below", async () => {
+  const p = await up({ [R.uc]: [200, { ...NONE, refused: [{ line: 2, reason: REASON }], refused_count: 3 }] });
+  await check(p);
+  assert.equal(p.node["u-sentence"].textContent, "No line can be added. See the reasons below.");
+});
+
+test("no line can be added and most refused lines are shortened: the Excel fix; the chip and the download use the new words", async () => {
+  const p = await up({ [R.uc]: [200, { ...NONE, lines: 4, refused: [{ line: 2, reason: SHORT }, { line: 3, reason: SHORT }, { line: 4, reason: REASON }], refused_count: 3, shortened: 2 }] });
+  await check(p);
+  assert.equal(p.node["u-sentence"].textContent, FIX);
+  assert.deepEqual(p.node["u-results"].children.map((li) => li.textContent), ["Line 2" + CHIP, "Line 3" + CHIP, "Line 4Not a Philippine mobile number"]);
+  const half = await up({ [R.uc]: [200, { ...NONE, refused: [{ line: 2, reason: SHORT }, { line: 3, reason: REASON }], refused_count: 2, shortened: 1 }] });
+  await check(half);
+  assert.equal(half.node["u-sentence"].textContent, "No line can be added. See the reasons below.");
+});
+
+test("some lines can be added and some are shortened: the normal summary and one extra line", async () => {
+  const p = await up({ [R.uc]: [200, { ...CHECK, new: 5, existing: 1, refused: [{ line: 2, reason: SHORT }], refused_count: 3, shortened: 3 }] });
+  await check(p);
+  const t = p.node["u-sentence"].textContent;
+  assert.equal(t.startsWith("5 new contacts will be added to Launch list B. The 1 numbers already in contacts"), true);
+  assert.equal(t.endsWith(" Excel shortened 3 mobile numbers in this file, so those lines are not added. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again."), true);
+  const none = await up({ [R.uc]: [200, { ...CHECK, shortened: 0 }] });
+  await check(none);
+  assert.equal(none.node["u-sentence"].textContent.includes("Excel"), false);
 });

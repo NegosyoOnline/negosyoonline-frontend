@@ -218,6 +218,21 @@ test("when the browser stops a download the button is left out and it is reporte
   assert.equal(p.text("b-err2"), "The browser stopped the download.");
 });
 
+test("shortened numbers get the chip words, one extra line with the Excel fix, and the quoted download words", async () => {
+  const short = { line: 3, reason: "Excel shortened this mobile number." };
+  const p = bulk(withCheck({ refused: [short], refused_count: 2, shortened: 2 }));
+  await settle();
+  await typed(p);
+  assert.equal(p.node["b-refused"].children[0].textContent, "Line 3Excel shortened this number. Format the column as Number with 0 decimals, then save again.");
+  assert.equal(p.text("b-shortened"), "Excel shortened 2 mobile numbers in this file, so those lines are not texted. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again.");
+  p.click("b-ref-dl");
+  assert.equal(p.files.made[0].parts.join(""), "Line,Reason\r\n3,\"Excel shortened this number. Format the column as Number with 0 decimals, then save again.\"\r\n");
+  const q = bulk(withCheck());
+  await settle();
+  await typed(q);
+  assert.equal(q.shown("b-shortened"), false);
+});
+
 test("the refused-lines file holds line numbers and reasons only", async () => {
   const p = bulk(withCheck());
   await settle();

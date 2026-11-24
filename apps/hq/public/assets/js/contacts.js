@@ -13,13 +13,17 @@
   var MAX_FILE = 1048576;
   var NOT_CSV = "This is not a CSV file. Save it as CSV UTF-8 and choose it again, or use the sample CSV.";
   var NO_LINE = "No line could be read. Save the file as CSV UTF-8 and check it again.";
+  var FEW_COLUMNS = "This line has fewer than three columns.";
+  var NOTHING_ADDED = "No line can be added. See the reasons below.";
+  var EXCEL_FIX = "Excel shortened the mobile numbers in this file. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again.";
   var NO_CONTACTS = "This file has no contacts yet. Add one line for each person under the header row, then check it again.";
-  /* The four reasons the backend gives for a refused line, in words, keyed on its sentences. */
+  /* The reasons the backend gives for a refused line, in words, keyed on its sentences. */
   var REASONS = {
     "This line has fewer than three columns.": "Fewer than three columns",
-    "The first name is missing or too long.": "First name missing or too long",
+    "The first name is too long or has odd characters.": "First name too long or has odd characters",
     "The last name is too long.": "Last name too long",
-    "The mobile number is not a Philippine mobile.": "Not a Philippine mobile number"
+    "The mobile number is not a Philippine mobile.": "Not a Philippine mobile number",
+    "Excel shortened this mobile number.": "Excel shortened this number. Format the column as Number with 0 decimals, then save again."
   };
 
   var change = false, groups = [];
@@ -38,6 +42,8 @@
   function say(id, text) { $(id).textContent = text || ""; $(id).hidden = !text; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function words(map, key) { return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : ""; }
+  /* A cell for the refused-lines CSV: quoted when its words hold a comma or a quote. */
+  function csvCell(v) { return /[",\r\n]/.test(v) ? "\"" + v.replace(/"/g, "\"\"") + "\"" : v; }
   function text(v) { return typeof v === "string" ? v : ""; }
   function fieldMessage(res, name) {
     var f = res.fields && res.fields[name];
@@ -61,7 +67,8 @@
     if (place === "sign-in") { location.replace("/sign-in/"); return true; }
     return false;
   }
-  function name(c) { return (text(c.first_name) + " " + text(c.last_name)).trim(); }
+  /* A contact added from a number-only line has no name: the row shows "No name" over its masked number. */
+  function name(c) { return (text(c.first_name) + " " + text(c.last_name)).trim() || "No name"; }
   function groupName(id) {
     for (var i = 0; i < groups.length; i++) if (groups[i].id === id) return groups[i].name;
     return "";
@@ -549,7 +556,7 @@
   }
   function showCheck(d, g) {
     var n = function (v) { return typeof v === "number" ? v : 0; };
-    checked = { lines: n(d.lines), news: n(d.new), existing: n(d.existing), repeated: n(d.repeated), refusedCount: n(d.refused_count),
+    checked = { lines: n(d.lines), news: n(d.new), existing: n(d.existing), repeated: n(d.repeated), refusedCount: n(d.refused_count), shortened: n(d.shortened),
       refused: Array.isArray(d.refused) ? d.refused : [] };
     checkedGroup = g;
     var gname = groupName(g);
@@ -564,13 +571,17 @@
     if (checked.lines === 0 && checked.refusedCount === 0) {
       s.textContent = NO_CONTACTS;
     } else if (checked.news === 0 && checked.existing === 0 && checked.refusedCount > 0) {
-      s.textContent = NO_LINE;
+      var fewColumns = FEW_COLUMNS, onlyFormat = checked.refused.length > 0 && checked.refused.every(function (r) { return r && r.reason === fewColumns; });
+      s.textContent = checked.shortened * 2 > checked.refusedCount ? EXCEL_FIX : onlyFormat ? NO_LINE : NOTHING_ADDED;
     } else {
       var b1 = el("strong", "", plural(checked.news, "new contact", "new contacts")), b2 = el("strong", "", gname);
       s.appendChild(b1);
       s.appendChild(el("span", "", " will be added to "));
       s.appendChild(b2);
       s.appendChild(el("span", "", ". The " + checked.existing + " numbers already in contacts are not added again; they are put in " + gname + " and keep their names."));
+      if (checked.shortened > 0) {
+        s.appendChild(el("span", "", " Excel shortened " + plural(checked.shortened, "mobile number", "mobile numbers") + " in this file, so those lines are not added. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again."));
+      }
     }
     $("u-results").textContent = "";
     checked.refused.slice(0, 200).forEach(function (r) {
@@ -589,7 +600,7 @@
   $("u-download").addEventListener("click", function () {
     if (!checked || !checked.refused.length) return;
     var lines = ["Line,Reason"];
-    checked.refused.forEach(function (r) { lines.push((typeof r.line === "number" ? r.line : "") + "," + (words(REASONS, r.reason) || "Refused")); });
+    checked.refused.forEach(function (r) { lines.push((typeof r.line === "number" ? r.line : "") + "," + csvCell(words(REASONS, r.reason) || "Refused")); });
     var url;
     try {
       url = URL.createObjectURL(new Blob([lines.join("\r\n") + "\r\n"], { type: "text/csv" }));

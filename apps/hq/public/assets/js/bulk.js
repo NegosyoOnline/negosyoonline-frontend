@@ -14,7 +14,10 @@
   var SHOWN_REFUSED = 200;
   var DOWN = "That did not go through. Check the list before trying again.";
   /* The words for what the backend gives. A value with no words here shows the plain fallback, never itself. */
-  var REFUSED = { "The mobile number is not a Philippine mobile.": "Not a Philippine mobile number" };
+  var REFUSED = {
+    "The mobile number is not a Philippine mobile.": "Not a Philippine mobile number",
+    "Excel shortened this mobile number.": "Excel shortened this number. Format the column as Number with 0 decimals, then save again."
+  };
   var NOT_SENT = { phone_failed: "the gateway phone could not send it", no_report: "the phone did not report back",
     expired: "the phone did not take it in time", staff_limit: "today's limit was reached", day_ended: "the day ended",
     stopped: "the batch was stopped", record_gone: "its record was gone" };
@@ -35,6 +38,8 @@
     if (text != null) n.textContent = text;
     return n;
   }
+  /* A cell for the refused-lines CSV: quoted when its words hold a comma or a quote. */
+  function csvCell(v) { return /[",\r\n]/.test(v) ? "\"" + v.replace(/"/g, "\"\"") + "\"" : v; }
   function say(id, text) { $(id).textContent = text || ""; $(id).hidden = !text; }
   function num(v) { return typeof v === "number" && isFinite(v) ? v : 0; }
   function text(v) { return typeof v === "string" ? v : ""; }
@@ -496,7 +501,7 @@
   /* ---- step 2: check and confirm ---- */
 
   function showCheck(d) {
-    checked = { read: num(d.lines_read), dups: num(d.duplicates), refusedCount: num(d.refused_count), opted: num(d.opted_out),
+    checked = { read: num(d.lines_read), dups: num(d.duplicates), refusedCount: num(d.refused_count), shortened: num(d.shortened), opted: num(d.opted_out),
       eligible: num(d.eligible), used: num(d.used_today), room: num(d.left_today), size: num(d.size), later: num(d.left_out),
       min: num(d.seconds_min), max: num(d.seconds_max), blocked: text(d.blocked), refused: Array.isArray(d.refused) ? d.refused : [] };
     var c = checked;
@@ -528,6 +533,7 @@
       $("b-refused").appendChild(li);
     });
     say("b-refused-more", c.refusedCount > SHOWN_REFUSED ? "Showing the first " + SHOWN_REFUSED + " of " + fmt(c.refusedCount) + " refused lines." : "");
+    say("b-shortened", c.shortened > 0 ? "Excel shortened " + fmt(c.shortened) + (c.shortened === 1 ? " mobile number" : " mobile numbers") + " in this file, so " + (c.shortened === 1 ? "that line is" : "those lines are") + " not texted. In Excel, select the mobile column, Format Cells \u2192 Number with 0 decimal places, save as CSV UTF-8, and upload again." : "");
     $("b-time").textContent = c.size > 0 && !blocked ? span(c.min, c.max) + " to send, at one text every 18 to 25 seconds." : "";
     var canSend = !blocked && c.size > 0;
     $("b-confirm-row").hidden = !(canSend || c.refused.length);
@@ -575,7 +581,7 @@
   $("b-ref-dl").addEventListener("click", function () {
     if (!checked || !checked.refused.length) return;
     var lines = ["Line,Reason"];
-    checked.refused.slice(0, SHOWN_REFUSED).forEach(function (r) { lines.push((r && typeof r.line === "number" ? r.line : "") + "," + (words(REFUSED, r && r.reason) || "Refused")); });
+    checked.refused.slice(0, SHOWN_REFUSED).forEach(function (r) { lines.push((r && typeof r.line === "number" ? r.line : "") + "," + csvCell(words(REFUSED, r && r.reason) || "Refused")); });
     if (!save(new Blob([lines.join("\r\n") + "\r\n"], { type: "text/csv" }), "refused-lines.csv", 0)) { $("b-ref-dl").hidden = true; say("b-err2", "The browser stopped the download."); }
   });
   $("b-left-dl").addEventListener("click", function () {

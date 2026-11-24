@@ -60,6 +60,15 @@ test("the filter holds All groups and one option per group; choosing one posts {
   assert.deepEqual(p.sent(R.list).at(-1).body, { group: "grp_b" });
 });
 
+test("a contact with no name shows No name over its masked number, never an empty cell", async () => {
+  const p = await page({ [R.list]: rows([{ ...ANA, first_name: "", last_name: "" }, { ...ANA, id: "cont_9", first_name: "", last_name: "Only" }]) });
+  const [a, b] = p.node.rows.children;
+  assert.match(a.textContent, /No name/);
+  assert.match(a.textContent, /\+63 900 ••• 0101/);
+  assert.match(b.textContent, /Only/);
+  assert.equal(p.node.rows.textContent.includes("undefined"), false);
+});
+
 test("rows show the name, the masked number and a chip per group, or No group; the page never asks for a full number", async () => {
   const p = await page({ [R.list]: rows([ANA, BEN, DINO]) });
   assert.equal(rowsText(p).length, 3);

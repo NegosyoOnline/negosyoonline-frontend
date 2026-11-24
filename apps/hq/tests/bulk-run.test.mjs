@@ -81,7 +81,7 @@ test("a refresh that finds the batch finished brings the form back", async () =>
   let finished = false;
   const p = bulk({ "bulk/list/": () => [200, { results: [finished ? { ...RUN, state: "finished", waiting: 0 } : RUN], next: null }],
     "bulk/open/": () => [200, { ...RUN, state: finished ? "finished" : "sending", waiting: finished ? 0 : 1074, results: [], next: null }],
-    "bulk/status/": () => [200, { bulk: true, running: !finished, used_today: 1, left_today: 2, reserved_for_codes: 300, opt_out_line: " Reply STOP to opt out", text_max: 138 }] });
+    "bulk/status/": () => [200, { bulk: true, running: !finished, used_today: 1, left_today: 2, reserved_for_codes: 300, text_max: 160 }] });
   await settle();
   assert.equal(p.shown("v-form"), false);
   finished = true;

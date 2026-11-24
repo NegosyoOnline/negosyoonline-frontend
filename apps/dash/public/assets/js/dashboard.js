@@ -4,7 +4,7 @@
 (function () {
   var D = window.NODash, $ = function (id) { return document.getElementById(id); };
   var VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "storefront", "media-library", "earnings", "people", "usage", "subscription", "account", "help", "referral",
-    "settings-general", "settings-plans", "settings-billing", "settings-payments", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification"];
+    "settings-general", "settings-plans", "settings-billing", "settings-payments", "inbox", "settings-meta-pixel", "settings-notices", "training", "training-course", "training-live", "media", "journey", "settings-shipping", "settings-domain", "settings-automation", "settings-notification", "contacts"];
   var TAB_VIEWS = ["overview", "orders", "shop-orders", "orders-new", "products", "inbox"]; /* every other view is reached through the mobile More sheet */
   /* Launch scope (ClickUp z8uq9mek5z, Manager 2026-11-13, Coach Ed ruling log 1100430000509244): Santé Site Type only. The pages
      left out of this table are hidden: their address falls back to Overview and no link reaches them. Their views, view
@@ -34,6 +34,8 @@
     "/media/": { view: "media", title: "Media Library | NegosyoOnline" }, /* Media Library editor (z8uq9mezdk): its links show only while the API says the Media Library is open (media.js probe) */
     "/prospect-list/": { view: "journey", title: "Prospect List | NegosyoOnline" } /* Santé Prospect List (z8uq9meyqk, z8uq9mfw14), once the Journey at /journey/ (see MOVED): its links show only while the API says it is open (journey.js probe) */
   };
+  /* Contacts (z8uq9mj9rw): reached from the sidebar and the More sheet; its links show only while the API says contacts are open (contacts.js probe) */
+  ROUTES["/contacts/"] = { view: "contacts", title: "Contacts | NegosyoOnline" };
   /* An address that has moved: the address bar is rewritten to where its content now lives. Santé setup is a card on
      Business Settings (ClickUp z8uq9m92ez, Coach Ed's ruling of 2026-11-11), so an old link or bookmark still works. */
   var MOVED = { "/settings/sante/": "/settings/business/", "/journey/": "/prospect-list/", "/settings/inbox/": "/inbox/settings/", "/settings/sms-gateway/": "/sms/settings/" }; /* the Inbox and SMS Gateway cards moved onto the Inbox and SMS Marketing pages (INBOX-FIX-6): the old links and bookmarks keep working, with their query */
@@ -119,6 +121,9 @@
     var NT = window.NONotices; /* notices.js loads after this file; same enter/leave hooks as Payments */
     if (NT && shownView === "settings-notices" && r.view !== "settings-notices") NT.hide();
     if (NT && r.view === "settings-notices" && shownView !== "settings-notices") NT.show();
+    var CT = window.NOContacts; /* contacts.js loads after this file; same enter/leave hooks as Media Library */
+    if (CT && shownView === "contacts" && r.view !== "contacts") CT.hide();
+    if (CT && r.view === "contacts" && shownView !== "contacts") CT.show();
     var TR = window.NOTraining; /* training.js loads after this file; its three views share one script, so the view name is passed */
     if (TR && shownView && shownView.indexOf("training") === 0 && r.view !== shownView) TR.hide(shownView);
     if (TR && r.view.indexOf("training") === 0 && r.view !== shownView) TR.show(r.view);
@@ -1381,6 +1386,7 @@
       checkBillingOnly();
       if (window.NOInbox) window.NOInbox.probe(); /* shows the Inbox links only when the API says the inbox is open for this site */
       if (window.NOMetaPixel) window.NOMetaPixel.probe(); /* shows the Meta Pixel tab only when the API says the Meta Pixel is open for this site */
+      if (window.NOContacts) window.NOContacts.probe(); /* shows the Contacts links only while GET /sites/{id}/contacts/status/ answers 200 with contacts true */
       if (window.NONotices) window.NONotices.probe(); /* shows the Notices tab only when the API says notices are open for this site */
       probeDomainNav(); /* shows the Domain tab only when the API answers 200 for this site */
       if (window.NOTraining) window.NOTraining.probe(); /* shows the Training links only when the API says Training is open for this site */

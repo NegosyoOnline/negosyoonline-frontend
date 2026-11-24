@@ -360,7 +360,7 @@ test("safety and look: no innerHTML or markup writes; light-blue focus; phone ru
   assert.ok(/\.ct-toolbar \{ grid-template-columns: minmax\(0, 1fr\)/.test(CSS), "one column on a phone");
   assert.ok(!/overflow-x:\s*(scroll|auto)/.test(CSS));
   const rules = CSS.split("\n").filter((l) => /\{/.test(l) && !/^\s*(\/\*|@)/.test(l));
-  for (const l of rules) assert.ok(/^\s*#view-contacts/.test(l), "scoped: " + l.slice(0, 60));
+  for (const l of rules) assert.ok(/^\s*(body\.dash-app )?#view-contacts|^@media[^{]*\{ #view-contacts/.test(l), "scoped: " + l.slice(0, 60));
 });
 
 test("edit: a contact with no name can be saved with none; a named one must keep its first name", async () => {
@@ -409,4 +409,24 @@ test("CSV file picker: the native input is hidden behind a dash secondary button
   assert.equal(pick.children[0], file, "the input is inside the picker, first");
   assert.equal(pick.children[1], lab, "and directly before its label");
   assert.ok(/\.ct-file:focus-visible \+ \.ct-filebtn \{[^}]*var\(--link/.test(CSS));
+});
+
+test("no page title block: no kicker, title or subtitle; the sr-only h1 stays; the tabs are the Settings menu in a host at the top; the saved count is a muted line in the list card", async () => {
+  const d = boot();
+  await d.open();
+  const root = d.root();
+  assert.ok(!root.all((n) => n.tagName === "H1" || n.classList.contains("dash-eyebrow") || n.classList.contains("ct-title") || n.classList.contains("ct-head")).length);
+  assert.ok(HTML.includes('<h1 class="bl-sr" id="h-contacts"'));
+  const host = root.children[0];
+  assert.ok(host.classList.contains("ct-tabs-host"));
+  const bar = host.children[0];
+  assert.ok(bar.classList.contains("set-tabs") && bar.getAttribute("role") === "tablist");
+  assert.deepEqual(bar.children.map((b) => b.textContent), ["Contacts", "Groups", "Upload CSV"]);
+  assert.deepEqual(bar.children.map((b) => b.classList.contains("is-on")), [true, false, false]);
+  const saved = root.all((n) => n.classList.contains("ct-saved"))[0];
+  assert.equal(saved.textContent, "3 of 20,000 contacts saved");
+  assert.ok(saved.parentNode.parentNode.getAttribute("id") === "ct-results", "inside the list card");
+  await d.click(bar.children[1]);
+  assert.deepEqual(d.root().children[0].children[0].children.map((b) => b.classList.contains("is-on")), [false, true, false]);
+  assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ #view-contacts \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
 });

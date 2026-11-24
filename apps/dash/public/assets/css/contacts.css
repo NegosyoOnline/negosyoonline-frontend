@@ -2,12 +2,15 @@
    view id, so dash.css is not touched. Colours are the dash tokens (light and dark). Focus is the dash light blue, never gold. */
 #view-contacts { min-width: 0; }
 #view-contacts .ct-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-#view-contacts .ct-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 16px; margin-bottom: 16px; }
-#view-contacts .ct-head-text { min-width: 0; }
-#view-contacts .ct-title { margin: 0; font-size: 28px; font-weight: 700; line-height: 1.2; color: var(--text); }
-#view-contacts .ct-tabs { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; }
-#view-contacts .ct-tab { min-height: 44px; }
-#view-contacts .ct-tab[aria-current="page"] { background: color-mix(in srgb, var(--link) 20%, transparent); border-color: var(--link); color: var(--link); }
+/* The page tabs: the dash Settings menu (.set-tabs, dash.css) with buttons for links, as in the Inbox (inbox.css .ib-tabs-host / .ib-tabs): at the top of the page,
+   beside the top-bar icons, the same room under them (16px, 24px from 900px). They scroll inside their own row, never the page. */
+#view-contacts .ct-tabs-host { flex: none; min-width: 0; margin-bottom: 16px; }
+body.dash-app #view-contacts .ct-tabs:not([hidden]) { width: fit-content; max-width: 100%; margin: 0; }
+body.dash-app #view-contacts .ct-tabs button { flex: 0 0 auto; padding: 12px 16px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-2); font: inherit; font-size: 15px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+body.dash-app #view-contacts .ct-tabs button:hover { color: var(--text); }
+body.dash-app #view-contacts .ct-tabs button.is-on { color: var(--text); border-bottom-color: var(--primary, #2A50D0); }
+body.dash-app #view-contacts .ct-tabs button:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+@media (min-width: 900px) { #view-contacts .ct-tabs-host { padding-right: 164px; margin-bottom: 24px; } }
 #view-contacts .ct-card { min-width: 0; margin-bottom: 16px; padding: 20px 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); box-shadow: var(--card-shadow); color: var(--text); }
 #view-contacts .ct-h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--text); }
 #view-contacts .ct-lead { margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: var(--text-2); }
@@ -75,9 +78,7 @@
 #view-contacts .ct-dialog .ct-h2 { margin-bottom: 16px; }
 @media (max-width: 720px) {
   #view-contacts .ct-toolbar { grid-template-columns: minmax(0, 1fr); }
-  #view-contacts .ct-tabs { width: 100%; }
-  #view-contacts .ct-tab { flex: 1 1 0; padding-left: 8px; padding-right: 8px; }
-  #view-contacts .ct-card { padding: 16px; }
+      #view-contacts .ct-card { padding: 16px; }
   #view-contacts .ct-row { align-items: flex-start; flex-wrap: wrap; }
   #view-contacts .ct-row-actions { width: 100%; }
   #view-contacts .ct-facts { grid-template-columns: minmax(0, 1fr); }

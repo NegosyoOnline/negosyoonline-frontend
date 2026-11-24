@@ -304,29 +304,44 @@
   }
 
   var TABS = [["list", "Contacts"], ["groups", "Groups"], ["upload", "Upload CSV"]];
+  /* The page's tabs: the dash Settings menu (.set-tabs) with buttons for links, in a host at the top of the page beside the top-bar icons, the
+     same markup and spacing as the Inbox and SMS Marketing tabs (inbox.js tabBar, #ib-tabs-host). The page has no visible title; its h1 is
+     screen-reader only (index.html). The tabs scroll sideways inside their own row on a phone, never the page. */
+  function tabBar() {
+    var bar = h("div", "set-tabs ct-tabs"), tabs = [];
+    bar.setAttribute("role", "tablist"); bar.setAttribute("aria-label", "Contacts");
+    TABS.forEach(function (t) {
+      var b = h("button", "ct-tab" + (S.tab === t[0] ? " is-on" : ""), t[1]);
+      b.setAttribute("type", "button"); b.setAttribute("role", "tab"); b.setAttribute("data-tab", t[0]); b.setAttribute("id", "ct-tab-" + t[0]);
+      b.setAttribute("aria-selected", S.tab === t[0] ? "true" : "false");
+      b.addEventListener("click", function () { switchTab(t[0]); });
+      b.addEventListener("keydown", function (e) {
+        var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0, i = tabs.indexOf(b);
+        if (e.key === "Home") d = -i; else if (e.key === "End") d = tabs.length - 1 - i;
+        if (!d) return;
+        e.preventDefault();
+        var to = tabs[(i + d + tabs.length) % tabs.length]; if (to) to.focus();
+      });
+      tabs.push(b); bar.appendChild(b);
+    });
+    return bar;
+  }
   function render() {
     var root = clear(byId("ct-root")); root.removeAttribute("aria-busy");
-    var head = h("header", "ct-head"), left = h("div", "ct-head-text");
-    add(left, h("p", "dash-eyebrow", "Contacts"), h("h2", "ct-title", "Contacts"));
-    var sub = h("p", "ct-meta"); sub.setAttribute("id", "ct-sub"); add(left, sub);
-    var tabs = h("div", "ct-tabs"); tabs.setAttribute("role", "group"); tabs.setAttribute("aria-label", "Show");
-    TABS.forEach(function (t) {
-      var b = btn(t[1], "ghost", function () { switchTab(t[0]); });
-      b.classList.add("ct-tab"); b.setAttribute("data-tab", t[0]);
-      if (S.tab === t[0]) b.setAttribute("aria-current", "page");
-      tabs.appendChild(b);
-    });
-    add(head, left, tabs);
+    var host = h("div", "ct-tabs-host"); host.setAttribute("id", "ct-tabs-host");
+    add(host, tabBar());
     var panel = h("div", "ct-panel"); panel.setAttribute("id", "ct-panel");
-    add(root, head, panel);
-    paintHead();
+    add(root, host, panel);
     if (S.tab === "list") listPanel(panel); else if (S.tab === "groups") groupsPanel(panel); else uploadPanel(panel);
   }
-  function paintHead() {
-    var sub = byId("ct-sub"); if (!sub || !S || !S.status) return;
+  /* "N of 20,000 contacts saved": a small muted line in the list card. */
+  function savedText() {
+    if (!S || !S.status) return "";
     var c = num(S.status.count), m = num(S.status.max);
-    sub.textContent = m ? whole(c) + " of " + whole(m) + " contacts saved" : whole(c) + " contacts saved";
+    return m ? whole(c) + " of " + whole(m) + " contacts saved" : whole(c) + " contacts saved";
   }
+  function savedNode() { var n = h("span", "ct-meta ct-saved", savedText()); n.setAttribute("id", "ct-saved"); return n; }
+  function paintHead() { var n = byId("ct-saved"); if (n) n.textContent = savedText(); }
   function switchTab(t) {
     if (!S || S.tab === t) return;
     S.tab = t; S.upload = null; render();
@@ -374,7 +389,7 @@
     if (o.error) { var e = h("p", "ct-note ct-error", o.error); e.setAttribute("role", "alert"); add(box, e, btn("Try again", "ghost", loadList)); return; }
     var d = S.data || {}, rows = Array.isArray(d.results) ? d.results : [], total = num(d.count);
     if (!rows.length) {
-      add(box, h("p", "ct-note", S.q.trim() || S.group ? "No contacts match." : "No contacts yet. Add one, or upload a CSV file."));
+      add(box, h("p", "ct-note", S.q.trim() || S.group ? "No contacts match." : "No contacts yet. Add one, or upload a CSV file."), add(h("div", "ct-list-foot"), savedNode()));
       say("No contacts");
       return;
     }
@@ -386,7 +401,7 @@
     var next = btn("Next", "ghost", function () { S.stack.push(S.cursor); S.cursor = String(d.next); loadList(); });
     prev.disabled = !S.stack.length; next.disabled = !d.next;
     add(pager, prev, next);
-    add(foot, info, (S.stack.length || d.next) ? pager : null);
+    add(foot, info, (S.stack.length || d.next) ? pager : null, savedNode());
     add(box, ul, foot);
     say(countText(total));
   }

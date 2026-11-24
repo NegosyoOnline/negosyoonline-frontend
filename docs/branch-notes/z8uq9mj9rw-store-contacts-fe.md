@@ -40,3 +40,9 @@ SMS Marketing is not on main, so the Contacts link sits right after Inbox. When 
 ## Fix round 2
 - Edit sends a PATCH with only the changed fields (`changedBody`); an unchanged save sends nothing and closes. A blank first name that was blank before is never sent (the BE refuses a blank one), so saving a no-name CSV contact works; adding a name sends only `first_name`.
 - The CSV file input is now truly inside `.ct-filepick`, directly before its label (field() had moved it out), so the `:focus-visible +` sibling rule shows the light-blue ring.
+
+## Fix round 3 (Coach Ed's Inbox/SMS rulings, via the Manager)
+- The page title, kicker and subtitle are gone; the sr-only h1 (`#h-contacts`, as the Inbox) stays.
+- Contacts | Groups | Upload CSV are the top-of-page tab menu: `div.set-tabs.ct-tabs[role=tablist]` of buttons inside `#ct-tabs-host`, mirroring the #13 Inbox (`#ib-tabs-host`, `.set-tabs.ib-tabs`, buttons `.is-on`, arrow/Home/End focus): host margin 16px (24px from 900px, with 164px right padding for the top-bar icons), tabs scroll sideways inside their own row on a phone. Built inside contacts.js/contacts.css, no dependency on inbox.js. When #13 merges the two can be unified (class names differ only by the ct-/ib- prefix; a shared tab-bar helper would replace both `tabBar` functions).
+- "N of 20,000 contacts saved" is a small muted line (`#ct-saved`) in the list card's footer, and under the empty-state text.
+- Tab routing: state only, as before, one address `/contacts/` (reload lands on Contacts). Deep links /contacts/groups/ and /contacts/upload/ were not added: they need new ROUTES lines in dashboard.js and history handling, which would widen the overlap with #13.

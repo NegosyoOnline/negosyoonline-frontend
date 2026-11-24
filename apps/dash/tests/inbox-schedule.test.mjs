@@ -143,7 +143,7 @@ const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: 
 const AUD_PICK = { audience: "pick", will_send: 14, left_out: {} };
 const GROUPS = [{ id: "g1", name: "Regulars", count: 12 }, { id: "g2", name: "VIP", count: 3 }];
 const FOUND = { results: [{ id: "c1", first_name: "Lito", last_name: "Cruz", mobile_masked: "0918 *** 5678", opted_out: false }] };
-const sched = (over = {}) => ({ id: "sch_aaaaaaaa", state: "pending", scheduled_at: "2026-11-17T09:30:00+08:00", audience: "all", text: "Sale this weekend.", size: 95, sent: 0, failed: 0, not_sent: 0, waiting: 0,
+const sched = (over = {}) => ({ id: "sch_aaaaaaaa", state: "scheduled", scheduled_at: "2026-11-17T09:30:00+08:00", audience: "all", text: "Sale this weekend.", size: 95, sent: 0, failed: 0, not_sent: 0, waiting: 0,
   end_reason: "", end_message: "", ...over });
 const ok = (body, status = 200) => ({ status, body });
 const bad = (status, code, message, fields) => ({ status, body: { error: { code, message, ...(fields ? { fields } : {}) } } });
@@ -253,7 +253,7 @@ test("schedule: the list is a title and a primary Schedule SMS button above a ta
 });
 
 test("schedule: the server states map to Scheduled / Sending / Sent / Cancelled / Not sent, with the end reason in muted small text", async () => {
-  const items = [sched({ id: "s1", state: "pending" }), sched({ id: "s2", state: "waiting" }), sched({ id: "s3", state: "sending" }), sched({ id: "s4", state: "finished" }),
+  const items = [sched({ id: "s1", state: "scheduled" }), sched({ id: "s2", state: "waiting" }), sched({ id: "s3", state: "sending" }), sched({ id: "s4", state: "finished" }),
     sched({ id: "s5", state: "cancelled" }), sched({ id: "s6", state: "ended", end_reason: "phone_offline", end_message: "Your phone was offline at the start time." }),
     sched({ id: "s7", state: "stopped", audience: "pick" }), sched({ id: "s8", state: "ended", end_reason: "outside_window", end_message: "" })];
   const d = await openSched({ list: () => ok({ items, next_cursor: null }) });
@@ -261,7 +261,7 @@ test("schedule: the server states map to Scheduled / Sending / Sent / Cancelled 
   assert.deepEqual(rowsOf(d).map((_, i) => status(i).children[0].textContent), ["Scheduled", "Sending", "Sending", "Sent", "Cancelled", "Not sent", "Not sent", "Not sent"]);
   assert.equal(status(5).children[1].textContent, "Your phone was offline at the start time.");
   assert.ok(has(status(5).children[1], "ib-sc-why"));
-  assert.ok(/outside sending hours/.test(status(7).children[1].textContent), "a plain line for a known reason code when the server sends no words");
+  assert.ok(/start time came after texts may go out/.test(status(7).children[1].textContent), "a plain line for a known reason code when the server sends no words");
   assert.equal(status(3).children.length, 1, "no reason line on a Sent row");
   assert.equal(rowsOf(d)[6].all((n) => n.tagName === "TD")[1].textContent, "Chosen groups and contacts");
   const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
@@ -269,7 +269,7 @@ test("schedule: the server states map to Scheduled / Sending / Sent / Cancelled 
 });
 
 test("schedule: Edit and Cancel show only on a Scheduled row", async () => {
-  const items = ["pending", "waiting", "sending", "finished", "cancelled", "ended", "stopped"].map((state, i) => sched({ id: "s" + i, state }));
+  const items = ["scheduled", "waiting", "sending", "finished", "cancelled", "ended", "stopped"].map((state, i) => sched({ id: "s" + i, state }));
   const d = await openSched({ list: () => ok({ items, next_cursor: null }) });
   const labels = (i) => rowsOf(d)[i].all((n) => n.tagName === "BUTTON").map((n) => n.textContent);
   assert.deepEqual(labels(0), ["Edit", "Cancel"]);
@@ -278,7 +278,7 @@ test("schedule: Edit and Cancel show only on a Scheduled row", async () => {
 
 test("schedule: Cancel asks first; Keep it sends nothing; Yes posts cancel/ and the list is read again", async () => {
   let cancelled = false;
-  const d = await openSched({ list: () => ok({ items: [sched({ state: cancelled ? "cancelled" : "pending" })], next_cursor: null }), cancel: () => { cancelled = true; return ok(sched({ state: "cancelled" })); } });
+  const d = await openSched({ list: () => ok({ items: [sched({ state: cancelled ? "cancelled" : "scheduled" })], next_cursor: null }), cancel: () => { cancelled = true; return ok(sched({ state: "cancelled" })); } });
   await d.click(pane(d).all((n) => has(n, "ib-sc-cancel"))[0]);
   assert.ok(d.$("ib-sc-dlg") && d.$("ib-sc-dlg").getAttribute("role") === "dialog");
   assert.ok(/^Cancel the text scheduled for /.test(d.$("ib-sc-dlg-t").textContent));
@@ -297,10 +297,10 @@ test("schedule: Cancel asks first; Keep it sends nothing; Yes posts cancel/ and 
 
 test("schedule: cancelling a text that already started (409 already_started) says so and reads the list again", async () => {
   let started = false;
-  const d = await openSched({ list: () => ok({ items: [sched({ state: started ? "sending" : "pending" })], next_cursor: null }), cancel: () => { started = true; return bad(409, "already_started", ""); } });
+  const d = await openSched({ list: () => ok({ items: [sched({ state: started ? "sending" : "scheduled" })], next_cursor: null }), cancel: () => { started = true; return bad(409, "already_started", ""); } });
   await d.click(pane(d).all((n) => has(n, "ib-sc-cancel"))[0]);
   await d.click(d.$("ib-sc-dlg-go"));
-  assert.ok(/already started/.test(pane(d).textContent), "plain fallback by code");
+  assert.ok(/already started or was cancelled/.test(pane(d).textContent), "plain fallback by code");
   assert.equal(rowsOf(d)[0].all((n) => n.tagName === "TD")[3].children[0].textContent, "Sending");
   assert.equal(d.bk.seen.lists.length, 2, "the list was read again");
 });
@@ -404,7 +404,7 @@ test("schedule form: a slot that is too soon shows a hint on the date and time f
   await setSlot(d, "2026-12-30", "09:00");
   assert.ok(d.$("ib-sc-de").textContent.includes("within the next 30 days"));
   await setSlot(d, "2026-11-17", "07:30");
-  assert.ok(d.$("ib-sc-de").textContent.includes("8:00 am and 8:00 pm"));
+  assert.ok(d.$("ib-sc-de").textContent.includes("08:00 to 20:00 Manila"));
   await setSlot(d, "2026-11-17", "09:30");
   assert.equal(d.$("ib-sc-de").hidden, true);
   assert.equal(d.$("ib-sc-go").disabled, false);
@@ -460,7 +460,7 @@ test("schedule form: a text over 160 characters is refused on the field and keep
 });
 
 test("schedule form: 422 too_soon / outside_window / too_far show on the date and time field, with the server's words when it sends them", async () => {
-  for (const [code, msg, want] of [["too_soon", "", "at least 10 minutes"], ["outside_window", "", "8:00 am and 8:00 pm"], ["too_far", "", "next 30 days"], ["too_soon", "Pick a later time, please.", "Pick a later time, please."]]) {
+  for (const [code, msg, want] of [["too_soon", "", "at least 10 minutes"], ["outside_window", "", "08:00 to 20:00 Manila"], ["too_far", "", "next 30 days"], ["too_soon", "Pick a later time, please.", "Pick a later time, please."]]) {
     const d = await openSched({ create: () => bad(422, code, msg) }, { form: true });
     await fillOk(d);
     await d.click(d.$("ib-sc-go"));
@@ -476,7 +476,7 @@ test("schedule form: 422 too_soon / outside_window / too_far show on the date an
 test("schedule form: 409 schedule_limit and empty_audience show plainly in the form; a text field error shows under the message", async () => {
   const d = await openSched({ create: () => bad(409, "schedule_limit", "") }, { form: true });
   await fillOk(d); await d.click(d.$("ib-sc-go"));
-  assert.ok(d.$("ib-sc-fe").textContent.includes("20 scheduled texts") && d.$("ib-sc-fe").hidden === false);
+  assert.ok(d.$("ib-sc-fe").textContent.includes("at most 20 scheduled texts") && d.$("ib-sc-fe").hidden === false);
   const e = await openSched({ create: () => bad(409, "empty_audience", "Nobody to text in this group.") }, { form: true });
   await fillOk(e); await e.click(e.$("ib-sc-go"));
   assert.equal(e.$("ib-sc-fe").textContent, "Nobody to text in this group.");
@@ -510,27 +510,36 @@ test("schedule: Edit opens the same form filled in (text, date, time, audience),
   await d.click(d.$("ib-sc-go"));
   assert.equal(d.bk.seen.patched.length, 1);
   assert.equal(d.bk.seen.patched[0].tail, "scheduled/sch_aaaaaaaa/");
-  assert.deepEqual(d.bk.seen.patched[0].body, { audience: "all", text: "New text", scheduled_at: "2026-11-19T10:00:00+08:00" });
+  assert.deepEqual(d.bk.seen.patched[0].body, { audience: "all", text: "New text", scheduled_at: "2026-11-19T10:00:00+08:00" }, "only the listed fields (the API refuses unknown ones)");
   assert.equal(d.bk.seen.created.length, 0);
   assert.ok(d.list().includes("PATCH " + B + "scheduled/sch_aaaaaaaa/"));
   assert.ok(d.$("ib-sc-send") && pane(d).textContent.includes("Your changes were saved."));
 });
 
-test("schedule: Edit of a pick audience fills the chips from the saved groups and contacts; without them the owner must choose again (nothing silently becomes everyone)", async () => {
+test("schedule: Edit of a pick audience fills the chips when the API sends the picks; when it does not (the real one does not) they stay as saved and nothing becomes everyone", async () => {
   const d = await openSched({ list: () => ok({ items: [sched({ audience: "pick" })], next_cursor: null }), detail: () => ok(sched({ audience: "pick", groups: [{ id: "g1", name: "Regulars" }], contacts: ["c9"] })) });
   await d.click(pane(d).all((n) => has(n, "ib-sc-edit"))[0]);
   assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent.replace(/×$/, "")), ["Regulars", "Contact"]);
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g1"], contacts: ["c9"] });
+  /* the real API does not send the picks back (batch_out has no groups or contacts): they stay as saved, and the PATCH leaves audience, groups and contacts out */
   const e = await openSched({ list: () => ok({ items: [sched({ audience: "pick" })], next_cursor: null }), detail: () => ok(sched({ audience: "pick" })) });
   await e.click(pane(e).all((n) => has(n, "ib-sc-edit"))[0]);
   assert.equal(e.$("ib-sc-to").value, "");
-  assert.ok(e.$("ib-sc-count").textContent.includes("Choose who gets this text."));
-  assert.equal(e.$("ib-sc-go").disabled, true);
+  assert.ok(e.$("ib-sc-count").textContent.includes("Staying with the groups and contacts you chose before."));
+  assert.equal(e.$("ib-sc-go").disabled, false);
+  await typeText(e, "Changed words");
+  await e.click(e.$("ib-sc-go"));
+  assert.deepEqual(e.bk.seen.patched[0].body, { text: "Changed words" }, "only the text: the saved time is not sent again, the saved audience is kept");
+  const f = await openSched({ list: () => ok({ items: [sched({ audience: "pick" })], next_cursor: null }), detail: () => ok(sched({ audience: "pick" })) });
+  await f.click(pane(f).all((n) => has(n, "ib-sc-edit"))[0]);
+  await pickTo(f, "VIP");
+  await f.click(f.$("ib-sc-go"));
+  assert.deepEqual(f.bk.seen.patched[0].body, { audience: "pick", groups: ["g2"], contacts: [], text: "Sale this weekend." });
 });
 
-test("schedule: Edit that finds the text already started (409 already_started on save, or a state that is no longer pending) says so and refreshes the list", async () => {
+test("schedule: Edit that finds the text already started (409 already_started on save, or a state that is no longer scheduled) says so and refreshes the list", async () => {
   let started = false;
-  const d = await openSched({ list: () => ok({ items: [sched({ state: started ? "sending" : "pending" })], next_cursor: null }), patch: () => { started = true; return bad(409, "already_started", ""); } });
+  const d = await openSched({ list: () => ok({ items: [sched({ state: started ? "sending" : "scheduled" })], next_cursor: null }), patch: () => { started = true; return bad(409, "already_started", ""); } });
   await d.click(pane(d).all((n) => has(n, "ib-sc-edit"))[0]);
   await setSlot(d, "2026-11-19", "10:00");
   await d.click(d.$("ib-sc-go"));

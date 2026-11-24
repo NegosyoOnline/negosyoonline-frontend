@@ -12,19 +12,23 @@
   var BU = root.NOInboxBulk && root.NOInboxBulk.util;
   var MAX = 160, STEP = 15, MIN_AHEAD = 10 * 60000, DAYS = 30, FROM = 8 * 60, TO = 20 * 60;
   var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  /* The server's states, in the owner's words: pending is Scheduled, waiting and sending are Sending, finished is Sent, ended and stopped are Not sent. */
-  var STATES = { pending: "Scheduled", waiting: "Sending", sending: "Sending", finished: "Sent", cancelled: "Cancelled", ended: "Not sent", stopped: "Not sent" };
-  var CHIP = { pending: "waiting", waiting: "sending", sending: "sending", finished: "finished", cancelled: "stopped", ended: "ended", stopped: "ended" };
-  var REASONS = { outside_window: "It was outside sending hours (8:00 am to 8:00 pm, Manila time).", daily_cap: "Today's limit was reached.", phone_offline: "Your phone was offline.", held: "Texting was on hold for your store." };
+  /* The server's states, in the owner's words: scheduled is Scheduled, waiting and sending are Sending, finished is Sent, ended and stopped are Not sent. */
+  var STATES = { scheduled: "Scheduled", waiting: "Sending", sending: "Sending", finished: "Sent", cancelled: "Cancelled", ended: "Not sent", stopped: "Not sent" };
+  var CHIP = { scheduled: "waiting", waiting: "sending", sending: "sending", finished: "finished", cancelled: "stopped", ended: "ended", stopped: "ended" };
+  var REASONS = { batch_running: "Another batch was still sending at the start time.", empty_audience: "There was nobody to send to at the start time.",
+    outside_window: "The start time came after texts may go out (08:00 to 20:00 Manila time).", daily_cap: "The store's daily bulk text limit was reached at the start time.",
+    phone_offline: "Your phone was offline at the start time." };
   /* The plain words for a refusal when the server sends none, by code. */
   var FALLBACK = {
     too_soon: "Choose a time at least 10 minutes from now.",
-    outside_window: "Choose a time between 8:00 am and 8:00 pm, Manila time.",
-    too_far: "Choose a date within the next 30 days.",
-    schedule_limit: "You already have 20 scheduled texts. Cancel one or wait until one is sent.",
-    empty_audience: "No members can be texted with this choice. Choose someone else.",
-    already_started: "This text has already started, so it cannot be changed or cancelled."
+    outside_window: "Texts go out only from 08:00 to 20:00 Manila time.",
+    too_far: "Choose a time within the next 30 days.",
+    invalid: "Choose a date and time.",
+    schedule_limit: "You can have at most 20 scheduled texts. Cancel one first.",
+    empty_audience: "There is nobody to send to.",
+    already_started: "That text has already started or was cancelled, so it cannot be changed."
   };
+
   var SLOT_CODES = { too_soon: 1, outside_window: 1, too_far: 1 };
 
   /* ---------- pure helpers ---------- */
@@ -32,7 +36,7 @@
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function num(n) { return typeof n === "number" && isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
   function stateText(s) { return STATES[s] || "Scheduled"; }
-  function isScheduled(b) { return !!b && b.state === "pending"; }
+  function isScheduled(b) { return !!b && b.state === "scheduled"; }
   /* The small muted line under a status: the server's words, else a plain line for a known reason code. */
   function reasonText(b) {
     if (!b || (b.state !== "ended" && b.state !== "stopped")) return "";
@@ -117,9 +121,9 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "list", status: null, edit: null, audience: "all", needPick: false, pickG: [], pickC: [], groups: null, found: [], q: "", contactsOn: false,
+    var st = { view: "list", status: null, edit: null, audience: "all", needPick: false, keepAud: false, pickG: [], pickC: [], groups: null, found: [], q: "", contactsOn: false,
       csrun: 0, ctimer: null, aud: null, audLoading: false, arun: 0, text: "", preview: null, prevErr: "", prun: 0, timer: null, date: "", time: "", slotErr: "",
-      key: null, errField: "", saving: false, testing: false, testNote: "", err: "", note: "", confirm: null, dead: false,
+      key: null, errField: "", origDate: "", origTime: "", saving: false, testing: false, testNote: "", err: "", note: "", confirm: null, dead: false,
       hist: { items: [], next: null, loading: false, failed: false } };
 
     function stop() { st.dead = true; if (st.timer) clearTimeout(st.timer); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.ctimer = null; }
@@ -157,7 +161,7 @@
     function readAudience() {
       var run = ++st.arun;
       st.aud = null;
-      if (st.audience === "pick" && !picked()) { st.audLoading = false; drawCount(); return; }
+      if (st.keepAud || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
       st.audLoading = true; drawCount();
       D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
@@ -198,7 +202,7 @@
       sel.value = picked() || st.needPick ? "" : "all";
     }
     function pickChanged() {
-      st.audience = picked() ? "pick" : "all"; st.needPick = false; st.q = ""; st.key = null; st.err = "";
+      st.audience = picked() ? "pick" : "all"; st.needPick = false; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
       var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
@@ -315,7 +319,7 @@
 
     /* ----- the form ----- */
     function resetForm() {
-      st.audience = "all"; st.needPick = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
+      st.audience = "all"; st.needPick = false; st.keepAud = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
       st.date = ""; st.time = ""; st.slotErr = ""; st.key = null; st.err = ""; st.note = ""; st.testNote = ""; st.edit = null;
     }
     function openForm(item, detail) {
@@ -324,12 +328,12 @@
         var d = detail || item; st.edit = item;
         st.text = typeof d.text === "string" ? d.text : "";
         var p = d.scheduled_at ? manila(Date.parse(d.scheduled_at)) : null;
-        if (p && isFinite(p.y)) { st.date = dateKey(p); st.time = timeKey(p); }
+        if (p && isFinite(p.y)) { st.date = dateKey(p); st.time = timeKey(p); st.origDate = st.date; st.origTime = st.time; }
         if (d.audience === "pick") {
           st.audience = "pick";
           (Array.isArray(d.groups) ? d.groups : []).forEach(function (g) { var x = toPick(g, "group"); if (x) st.pickG.push(x); });
           (Array.isArray(d.contacts) ? d.contacts : []).forEach(function (c) { var x = toPick(c, "contact"); if (x) st.pickC.push(x); });
-          if (!picked()) st.needPick = true; /* the server did not say who: the owner chooses again, nothing silently becomes everyone */
+          if (!picked()) { st.needPick = true; st.keepAud = true; } /* the API does not send the picks back: they stay as saved unless the owner chooses again; nothing silently becomes everyone */
         }
         st.preview = st.text.trim() ? { text: st.text } : null;
       }
@@ -341,7 +345,7 @@
       D.call("GET", b0 + "scheduled/" + encodeURIComponent(b.id) + "/", null, true).then(function (res) {
         if (!aliveRes(res)) return;
         if (res.status === 404) { /* gone from the server: show the list again, not a dead form */ st.note = "That scheduled text is no longer there."; loadList(null, true); draw(); return; }
-        if (res.ok && res.data && res.data.state && res.data.state !== "pending") { st.note = FALLBACK.already_started; loadList(null, true); draw(); return; }
+        if (res.ok && res.data && res.data.state && res.data.state !== "scheduled") { st.note = FALLBACK.already_started; loadList(null, true); draw(); return; }
         openForm(b, res.ok && res.data ? Object.assign({}, b, res.data) : null);
       });
     }
@@ -442,15 +446,18 @@
     /* The text error under the message, the slot error under the date and time, the form error above the buttons. */
     function fieldErr() {
       var e = el("ib-sc-e"); if (e) { var p = textProblem() || (st.errField === "text" ? st.err : ""); e.textContent = p; e.hidden = !p; }
-      var de = el("ib-sc-de"); if (de) { var sp = st.slotErr || (st.date && st.time ? (slotProblem(st.date, st.time, Date.now()) || {}).text || "" : ""); de.textContent = sp; de.hidden = !sp; }
+      var de = el("ib-sc-de"); if (de) { var sp = st.slotErr || (st.date && st.time && !same() ? (slotProblem(st.date, st.time, Date.now()) || {}).text || "" : ""); de.textContent = sp; de.hidden = !sp; }
       var fe = el("ib-sc-fe"); if (fe) { var q = st.errField ? "" : st.err; fe.textContent = q; fe.hidden = !q; }
     }
-    function readyCount() { return st.needPick ? false : !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
-    function slotOk() { return !!st.date && !!st.time && !slotProblem(st.date, st.time, Date.now()); }
+    function readyCount() { return st.keepAud ? true : st.needPick ? false : !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
+    /* an edit that keeps its saved time is not checked again, here or by the server (it checks the time only when sent) */
+    function same() { return !!st.edit && st.date === st.origDate && st.time === st.origTime; }
+    function slotOk() { return !!st.date && !!st.time && (same() || !slotProblem(st.date, st.time, Date.now())); }
     function drawCount() {
       var box = el("ib-sc-count"); if (!box) return;
       ui.clear(box);
-      if (st.needPick) box.appendChild(document.createTextNode("Choose who gets this text."));
+      if (st.keepAud) box.appendChild(document.createTextNode("Staying with the groups and contacts you chose before."));
+      else if (st.needPick) box.appendChild(document.createTextNode("Choose who gets this text."));
       else if (st.audLoading || !st.aud) box.appendChild(document.createTextNode(st.audience === "pick" && !picked() ? "" : "Counting members…"));
       else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
       else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? BU.willSend(n, st.audience) : "No members can be texted yet.")); }
@@ -478,10 +485,12 @@
     }
     function save(x) {
       if (st.saving || !textOk() || !readyCount()) return;
-      var hint = slotProblem(st.date, st.time, Date.now());
+      var hint = same() ? null : slotProblem(st.date, st.time, Date.now());
       if (!st.date || !st.time) { st.slotErr = "Choose a date and a time."; fieldErr(); return; }
       if (hint) { st.slotErr = hint.text; fieldErr(); return; }
-      var editing = st.edit, body = Object.assign(audBody(), { text: st.text.trim(), scheduled_at: isoOf(st.date, st.time) });
+      var editing = st.edit, body = st.keepAud ? {} : audBody();
+      body.text = st.text.trim(); body.scheduled_at = isoOf(st.date, st.time);
+      if (editing && st.date === st.origDate && st.time === st.origTime) delete body.scheduled_at; /* the server checks the time only when it is sent */
       if (!editing) { st.key = st.key || ui.newKey(); body.idempotency_key = st.key; }
       st.saving = true; st.err = ""; st.errField = ""; st.slotErr = ""; ui.busy(x, true);
       D.call(editing ? "PATCH" : "POST", b0 + "scheduled/" + (editing ? encodeURIComponent(editing.id) + "/" : ""), body, true).then(function (res) {

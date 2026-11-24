@@ -273,7 +273,7 @@ body.dash-app .tabs a { position: relative; }
 body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
 @media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
 
-/* The toolbar above the card: the channel tabs at the left, New text / Text many members / Refresh at the right. Not a container query (its
+/* The toolbar above the card: the channel tabs at the left, New SMS / Bulk SMS at the right. Not a container query (its
    containment would trap the fixed dropdown panel of the New text screen). */
 #view-inbox .ib-trow { display: flex; flex-wrap: wrap; gap: 10px 10px; align-items: center; justify-content: space-between; }
 #view-inbox .ib-tabs { display: flex; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
@@ -287,7 +287,7 @@ body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6p
 /* the filter buttons: one row of square icon buttons in the dash top-bar style (.notif-btn / .qs-btn: 44px, thin card-line border, 8px corners); light blue when a filter is on */
 /* right-aligned in the list head; Search opens by growing the box to the full width while the buttons fade out (the JS adds .is-search, then hides the closed part after the transition) */
 #view-inbox .ib-fbar { display: flex; align-items: center; justify-content: flex-end; min-width: 0; }
-#view-inbox .ib-frow { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: 8px; box-sizing: border-box; min-width: 0; max-width: 260px; padding: 2px; margin: -2px; overflow: hidden; opacity: 1; transform: translateX(0); transition: max-width .22s ease, opacity .16s ease, transform .22s ease, padding .22s ease, margin .22s ease; }
+#view-inbox .ib-frow { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: 8px; box-sizing: border-box; min-width: 0; max-width: 300px; padding: 2px; margin: -2px; overflow: hidden; opacity: 1; transform: translateX(0); transition: max-width .22s ease, opacity .16s ease, transform .22s ease, padding .22s ease, margin .22s ease; }
 #view-inbox .ib-fbar.is-search .ib-frow { max-width: 0; padding: 0; margin: 0; opacity: 0; transform: translateX(12px); }
 #view-inbox .ib-frow[hidden], #view-inbox .ib-search[hidden] { display: none; }
 #view-inbox .ib-fbtn { flex: none; display: grid; place-items: center; box-sizing: border-box; width: 44px; height: 44px; padding: 0; border: 1px solid var(--card-line); border-radius: 8px; background: var(--card); color: var(--text-2); cursor: pointer; }

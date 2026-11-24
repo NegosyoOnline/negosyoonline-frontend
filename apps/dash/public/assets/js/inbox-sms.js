@@ -101,7 +101,7 @@
       var row = h("div", "ib-thead"), back = h("button", "ib-back"); back.setAttribute("type", "button"); back.setAttribute("id", "ib-back");
       back.appendChild(ui.icon("M15 6l-6 6 6 6")); back.appendChild(h("span", "", "Inbox"));
       back.addEventListener("click", function () { stop(); ui.back(); });
-      var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", "New text"));
+      var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", "New SMS"));
       nm.appendChild(h("p", "ib-sub", "Text one of your members. For orders and member service only. No promotions."));
       return add(row, back, nm);
     }
@@ -114,7 +114,7 @@
       if (st.dead) return;
       var keepQ = document.activeElement && document.activeElement.id === "ib-sms-q";
       ui.clear(host); host.classList.remove("is-hide-phone");
-      host.setAttribute("aria-label", "New text");
+      host.setAttribute("aria-label", "New SMS");
       host.appendChild(head());
       var body = h("div", "ib-msgs ib-sms-new"); body.setAttribute("tabindex", "-1");
       host.appendChild(body);

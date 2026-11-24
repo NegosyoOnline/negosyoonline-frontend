@@ -214,10 +214,10 @@
     /* ----- the main screen: progress card or the compose form ----- */
     function draw() {
       if (st.dead) return;
-      ui.clear(host); host.classList.remove("is-hide-phone"); host.setAttribute("aria-label", "Text many members");
+      ui.clear(host); host.classList.remove("is-hide-phone"); host.setAttribute("aria-label", "Bulk SMS");
       if (st.view === "history") return drawHistory();
       if (st.view === "detail") return drawDetail();
-      host.appendChild(head("Text many members", "Send one text to your members from your own phone.", function () { stop(); ui.back(); }));
+      host.appendChild(head("Bulk SMS", "Send one text to your members from your own phone.", function () { stop(); ui.back(); }));
       var body = h("div", "ib-msgs ib-sms-new ib-bk"); body.setAttribute("tabindex", "-1"); host.appendChild(body);
       if (st.view === "loading") { body.appendChild(h("p", "pm-meta ib-loading", "Opening…")); return; }
       if (st.view === "failed") {

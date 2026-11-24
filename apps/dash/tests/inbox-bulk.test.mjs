@@ -200,11 +200,11 @@ test("bulk: the button is hidden on a 404 (switch off), on an error, and when sm
   assert.ok(!nosms.list().some((x) => x.includes("/sms/bulk/")), "not probed while sms is off");
 });
 
-test("bulk: with available:true the toolbar shows Text many members", async () => {
+test("bulk: with available:true the toolbar shows Bulk SMS", async () => {
   const d = boot({ listing: list(), channels: CH_SMS }); d.s.smsStatus = SMS_STATUS; d.s.bulk = api();
   await d.openInbox();
   assert.ok(d.$("ib-bulk-btn"));
-  assert.equal(d.$("ib-bulk-btn").textContent, "Text many members");
+  assert.equal(d.$("ib-bulk-btn").textContent, "Bulk SMS");
 });
 
 test("bulk: the audience is a plain All my members line (no dropdown); it is read with all; no promo or consent wording anywhere", async () => {

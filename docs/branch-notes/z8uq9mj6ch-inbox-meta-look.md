@@ -74,3 +74,13 @@ Coach Ed's words: "the filter, right align it then put animation when the search
 * Cache keys: `inbox.js` and `inbox.css` both `?v=20261124ml4`.
 * Tests: 822/822, lint clean, build passes. Two new tests (CSS rules; reduced motion, focus, inert) and the search tests now advance 260 ms.
 * Not run: a visual check in a browser (no server started).
+
+## Fix round 3 addition (Coach Ed, Tue 2026-11-24, relayed by the Supervisor)
+
+Coach Ed's words: "update this actions: 1. New SMS 2. Bulk SMS 3. remove this refresh button and transfer it beside these filters (image 2)".
+
+* "New text" is now "New SMS" and "Text many members" is now "Bulk SMS" (label, aria-label, and the titles/aria-label of the two screens they open, `inbox-sms.js` and `inbox-bulk.js`). Icons, styles and dialog bodies unchanged.
+* The toolbar Refresh button is gone. Refresh is the 5th square icon button (`.ib-fbtn`, `#ib-refresh-btn`, refresh icon, title and aria-label "Refresh", house tooltip) after Search, Answered, Read, Open/Closed in `#ib-frow`, so it hides with the others when Search opens (same inert/hidden/animation) and returns on X or Esc. Same handler (`refreshAll`). `.ib-frow` max-width 260 to 300 px to fit five buttons.
+* Decision: while there is nothing to filter (empty list) there is no filter row, but the empty text says "Press Refresh", so the list head then shows Refresh alone, right-aligned (`liteBar`). The toolbar row above the card is only built when it has something in it (tabs, New SMS, Bulk SMS); with no SMS and an empty list it is not rendered.
+* Cache keys: `inbox.js` and `inbox.css` both `?v=20261124ml5`.
+* Tests: 822/822 (existing tests updated, hide-on-search assertions added), lint clean, build passes (Node 22.23.1). Not run: a visual check in a browser.

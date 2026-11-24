@@ -822,9 +822,9 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, ""), /gold|#C9A646|#D9B93F/i);
-  assert.match(HTML, /inbox\.js\?v=20261124ml4/);
+  assert.match(HTML, /inbox\.js\?v=20261124ml5/);
   assert.match(HTML, /inbox-settings\.js\?v=20261123so2/);
-  assert.match(HTML, /inbox\.css\?v=20261124ml4/);
+  assert.match(HTML, /inbox\.css\?v=20261124ml5/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261124bk3/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1769,7 +1769,7 @@ const byStatus = (st) => {
   return { items: st === "closed" ? closed : st === "open" ? [row(base[0])] : [row(base[0]), ...closed], stored_next_cursor: null };
 };
 
-test("C2: the toolbar is a row above the card: the channel tabs, then New text / Text many members / Refresh; the list column has the search box and the quick chips", async () => {
+test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / Bulk SMS; the list column has the five icon buttons and the search box", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const wrap = d.$("ib-wrap"), split = d.all(wrap, "ib-split")[0];
@@ -1779,12 +1779,15 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New text /
   const tools = d.all(d.$("ib-tools-host"), "ib-tools")[0];
   const parts = d.all(tools, "ib-trow")[0].children;
   assert.deepEqual(parts.map((n) => (n.classList.contains("ib-tabs") ? "tabs" : n.classList.contains("ib-acts") ? "acts" : n.id)), ["tabs", "acts"]);
-  assert.deepEqual(parts[1].children.map((n) => n.id), ["ib-refresh-btn"], "no SMS: Refresh alone");
-  assert.equal(d.all(parts[1], "ib-rf-t")[0].textContent, "Refresh");
+  assert.deepEqual(parts[1].children.map((n) => n.id), [], "no SMS: no action buttons; Refresh moved to the filter row");
+  assert.equal(d.$("ib-tools-host").querySelector ? d.$("ib-tools-host").querySelector("#ib-refresh-btn") : null, null, "no Refresh in the toolbar");
   const head = d.$("ib-lhead");
   const bar = head.children[0];
   assert.deepEqual(bar.children.map((n) => (n.classList.contains("ib-frow") ? "buttons" : n.classList.contains("ib-search") ? "search" : n.id)), ["buttons", "search"]);
-  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status"], "Search, Answered, Read, Open/Closed");
+  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"], "Search, Answered, Read, Open/Closed, Refresh");
+  const rb = d.$("ib-refresh-btn");
+  assert.equal(rb.parentNode, d.$("ib-frow"), "Refresh sits in the filter row, last");
+  assert.deepEqual([rb.getAttribute("aria-label"), rb.getAttribute("title"), rb.textContent], ["Refresh", "Refresh", ""]);
   assert.deepEqual(d.all(head, "pm-label").map((l) => [l.textContent, l.getAttribute("for"), l.classList.contains("sr-only")]), [["Search", "ib-q", true]]);
   assert.equal(d.all(head, "ib-si").length, 1, "the magnifier inside the search box");
   assert.equal(d.all(head, "ib-qs").length, 1);
@@ -1852,19 +1855,20 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   await none.openInbox();
   assert.ok(none.$("ib-listbody").textContent.includes("No messages yet"));
   assert.ok(none.$("ib-refresh-btn"), "the empty text says Press Refresh, so the button is there");
-  assert.equal(none.all(none.$("ib-tools-host"), "ib-tools")[0].classList.contains("is-lite"), true);
+  assert.equal(none.all(none.$("ib-tools-host"), "ib-tools").length, 0, "nothing to filter and no SMS: no toolbar row at all");
+  assert.equal(none.$("ib-refresh-btn").parentNode.parentNode.parentNode, none.$("ib-lhead"), "Refresh alone in the list head");
   assert.equal(none.$("ib-q"), null);
   assert.equal(none.$("ib-b-status"), null);
   assert.equal(none.$("ib-tab-all"), null, "no tabs while there is nothing to filter");
 });
 
-test("the list column starts with one row of four icon buttons (Search, Answered, Read, Open/Closed), real buttons with words and their own icons", async () => {
+test("the list column starts with one row of five icon buttons (Search, Answered, Read, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
-  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status"]);
-  assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && c.getAttribute("aria-pressed") === "false" && !!c.getAttribute("aria-label") && c.getAttribute("title") === c.getAttribute("aria-label")));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing all messages", "Showing open and closed"]);
+  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
+  assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === c.getAttribute("aria-label")));
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing all messages", "Showing open and closed", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -2536,12 +2540,14 @@ test("the contact panel's text comes through textContent only (a hostile name or
   assert.ok(!/innerHTML|insertAdjacentHTML|outerHTML/.test(read("inbox.js")));
 });
 
-test("the toolbar keeps New text, Text many members and Refresh in the actions beside the tabs; the contact panel and its toggle are hidden by CSS on a phone", async () => {
+test("the toolbar keeps New SMS and Bulk SMS in the actions beside the tabs; Refresh is not there; the contact panel and its toggle are hidden by CSS on a phone", async () => {
   const d = boot({ listing: smsList(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
   await d.openInbox();
   const acts = d.all(d.$("ib-tools-host"), "ib-acts")[0];
-  assert.deepEqual(acts.children.map((n) => n.id), ["ib-newtext-btn", "ib-refresh-btn"], "bulk needs its own probe; New text and Refresh are there");
+  assert.deepEqual(acts.children.map((n) => n.id), ["ib-newtext-btn"], "bulk needs its own probe; New SMS is there, Refresh moved");
+  assert.equal(d.$("ib-newtext-btn").getAttribute("aria-label"), "New SMS");
+  assert.equal(d.all(d.$("ib-newtext-btn"), "ib-rf-t")[0].textContent, "New SMS");
   const css = cssText();
   assert.match(css, /@media \(max-width: 899px\) \{[^@]*\.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important; \}/);
   assert.match(css, /@media \(max-width: 1099px\) \{ #view-inbox \.ib-cpane, #view-inbox \.ib-ctog \{ display: none !important;/, "too narrow for three columns");
@@ -2603,6 +2609,7 @@ test("fix 2: Search hides the other buttons and shows the box at the full width,
   assert.equal(row.getAttribute("inert"), "", "the leaving buttons cannot be reached at once");
   await clock.advance(260);
   assert.deepEqual([row.hidden, field.hidden], [true, false], "after the transition the buttons are hidden, the box is shown");
+  assert.equal(d.$("ib-refresh-btn").parentNode, row, "Refresh hides with the other buttons (it is inside the inert, hidden row)");
   assert.equal(d.doc.activeElement, inp, "the box has the focus");
   assert.ok(d.$("ib-lhead").children[0].classList.contains("is-search"));
   inp.value = "Jun"; inp.fire("input"); await clock.advance(300);
@@ -2613,6 +2620,7 @@ test("fix 2: Search hides the other buttons and shows the box at the full width,
   assert.equal(row.getAttribute("inert"), null);
   await clock.advance(260);
   assert.deepEqual([row.hidden, field.hidden], [false, true], "Esc closes the box and brings the buttons back");
+  assert.equal(row.contains ? row.contains(d.$("ib-refresh-btn")) : true, true, "Refresh is back with the buttons");
   assert.equal(inp.value, ""); assert.equal(d.all(d.$("ib-list"), "ib-item").length, 2, "an emptied text is the normal list again");
   assert.equal(d.doc.activeElement, sb, "the focus goes back to the Search button");
   assert.equal(sb.getAttribute("aria-pressed"), "false");

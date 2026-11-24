@@ -14,7 +14,7 @@
 (function () {
   var D = window.NODash;
   var SMS = window.NOInboxSms; /* inbox-sms.js loads before this file; without it there is no Text (SMS) channel */
-  var BULK = window.NOInboxBulk; /* inbox-bulk.js loads before this file; without it there is no "Text many members" button */
+  var BULK = window.NOInboxBulk; /* inbox-bulk.js loads before this file; without it there is no "Bulk SMS" button */
   var TZ = "Asia/Manila", MAX = 2000;
   var token = 0, tload = 0;
   var S = null; /* the screen's state; null while the page is not open */
@@ -1093,18 +1093,18 @@
     d.appendChild(icon(ICON[c.icon])); d.appendChild(h("span", "sr-only", c.label));
     return d;
   }
-  /* The toolbar above the card (Meta Business Inbox layout, ClickUp z8uq9mj6ch): the channel TABS at the left, New text, Text many members and
-     Refresh at the right. The four icon buttons (search, answered, read, open/closed) are the head of the list column (#ib-lhead). Both are built by syncTools()
-     only when the mode changes (full: something to filter; lite: Refresh and the buttons alone), so the cursor stays in the search box
+  /* The toolbar above the card (Meta Business Inbox layout, ClickUp z8uq9mj6ch): the channel TABS at the left, New SMS and Bulk SMS at the
+     right. The five icon buttons (search, answered, read, open/closed, Refresh; Coach Ed 2026-11-24) are the head of the list column (#ib-lhead). Both are built by syncTools()
+     only when the mode changes (full: something to filter; lite: Refresh alone in the list head, plus the SMS buttons), so the cursor stays in the search box
      while the rows change. The toolbar goes while a conversation is open on a phone. */
   function syncTools() {
     var host = byId("ib-tools-host"); if (!host || !S) return;
     var mode = S.state === "ready" ? "full" : S.state === "empty" ? "lite" : "none";
     if (host.getAttribute("data-mode") === mode) return;
     clear(host); host.setAttribute("data-mode", mode);
-    if (mode !== "none") host.appendChild(toolbar(mode === "lite"));
+    if (mode !== "none") { var tb = toolbar(mode === "lite"); if (mode === "full" || tb.querySelector(".ib-acts").children.length) host.appendChild(tb); }
     var lh = byId("ib-lhead");
-    if (lh) { clear(lh); if (mode === "full") add(lh, filterBar()); }
+    if (lh) { clear(lh); if (mode === "full") add(lh, filterBar()); else if (mode === "lite") add(lh, liteBar()); }
   }
   function toolbar(lite) {
     var box = h("div", "ib-tools" + (lite ? " is-lite" : "")), row = h("div", "ib-trow"), acts = h("div", "ib-acts");
@@ -1112,7 +1112,6 @@
     if (!lite) row.appendChild(tabBar());
     var nt = newTextButton(); if (nt) acts.appendChild(nt);
     var bk = bulkButton(); if (bk) acts.appendChild(bk);
-    acts.appendChild(refreshButton());
     row.appendChild(acts);
     return box;
   }
@@ -1220,23 +1219,23 @@
     CYCLES.forEach(function (c) { var b = byId(c.id); if (b) paintCycle(b, c, q[c.dim] || ""); });
     var sb = byId("ib-b-search"); if (sb) paintSearchBtn(sb);
   }
-  /* "New text": only while the API says the Text (SMS) feature is there. */
+  /* "New SMS": only while the API says the Text (SMS) feature is there. */
   function newTextButton() {
     if (!SMS || !SMS.util.available(S.chat)) return null;
-    var b = h("button", "no-btn no-btn-primary ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-newtext-btn"); b.setAttribute("aria-label", "New text");
-    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "New text"));
+    var b = h("button", "no-btn no-btn-primary ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-newtext-btn"); b.setAttribute("aria-label", "New SMS");
+    b.appendChild(icon(ICON.sms)); b.appendChild(h("span", "ib-rf-t", "New SMS"));
     b.addEventListener("click", function () { if (S) smsCompose(false); });
     return b;
   }
-  /* "Text many members": only while the bulk status probe said available:true. */
+  /* "Bulk SMS": only while the bulk status probe said available:true. */
   function bulkButton() {
     if (!BULK || !S || !S.bulk || S.bulk.available !== true || !SMS || !SMS.util.available(S.chat)) return null;
-    var b = h("button", "no-btn no-btn-ghost ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-bulk-btn"); b.setAttribute("aria-label", "Text many members");
-    b.appendChild(icon(ICON.users)); b.appendChild(h("span", "ib-rf-t", "Text many members"));
+    var b = h("button", "no-btn no-btn-ghost ib-rf ib-nt"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-bulk-btn"); b.setAttribute("aria-label", "Bulk SMS");
+    b.appendChild(icon(ICON.users)); b.appendChild(h("span", "ib-rf-t", "Bulk SMS"));
     b.addEventListener("click", function () { if (S) bulkOpen(); });
     return b;
   }
-  /* The Text many members screen (inbox-bulk.js) in the right pane, like the New text screen. */
+  /* The Bulk SMS screen (inbox-bulk.js) in the right pane, like the New text screen. */
   function bulkOpen() {
     if (!S || !BULK || !S.bulk) return;
     var host = byId("ib-threadpane"); if (!host) return;
@@ -1274,13 +1273,21 @@
     clear(t); t.setAttribute("aria-label", "Conversation");
     t.appendChild(stateBox(ICON.chat, "Choose a conversation", "Pick a customer on the left to read the messages and reply."));
   }
+  /* Refresh: the fifth square icon button of the filter row (same handler as the old toolbar button). */
   function refreshButton() {
-    var b = h("button", "no-btn no-btn-ghost ib-rf"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
-    b.appendChild(icon(ICON.refresh)); b.appendChild(h("span", "ib-rf-t", "Refresh"));
+    var b = h("button", "ib-fbtn"); b.setAttribute("type", "button"); b.setAttribute("id", "ib-refresh-btn");
+    b.setAttribute("aria-label", "Refresh"); b.setAttribute("title", "Refresh"); b.appendChild(icon(ICON.refresh));
     b.addEventListener("click", function () { if (S) refreshAll(b); });
     return b;
   }
-  /* The head of the list column (Coach Ed 2026-11-24): ONE row of four square icon buttons: Search, Answered, Read, Open/Closed. Pressing Search
+  /* The list head while there is nothing to filter: Refresh alone, right-aligned (the empty text says "Press Refresh"). */
+  function liteBar() {
+    var wrap = h("div", "ib-fbar"), row = h("div", "ib-frow");
+    row.setAttribute("role", "group"); row.setAttribute("aria-label", "Refresh");
+    row.appendChild(refreshButton()); wrap.appendChild(row);
+    return wrap;
+  }
+  /* The head of the list column (Coach Ed 2026-11-24): ONE row of five square icon buttons: Search, Answered, Read, Open/Closed, Refresh. Pressing Search
      hides the row and shows the search box at the full width, focused, with a close button at its end; Esc or that button closes it again
      (and empties it, as emptying the box always did). INBOX-UI U5 behaviour kept: 300 ms after the last key, fewer than 2 characters is the
      normal list, the Channel tab only narrows the rows shown. The light-blue focus border (inbox.css). */
@@ -1290,6 +1297,7 @@
     var sb = h("button", "ib-fbtn"); sb.setAttribute("type", "button"); sb.setAttribute("id", "ib-b-search"); sb.setAttribute("aria-expanded", "false"); sb.appendChild(icon(ICON.search));
     paintSearchBtn(sb); row.appendChild(sb);
     CYCLES.forEach(function (c) { var b = cycleButton(c); row.appendChild(b); attachTip(b, row); });
+    var rb = refreshButton(); row.appendChild(rb); attachTip(rb, row);
     var field = h("div", "ib-search"), lab = h("label", "pm-label sr-only", "Search"); lab.setAttribute("for", "ib-q");
     var box = h("div", "ib-sbox ib-qs"), mag = icon(ICON.search, "ib-si"); /* the Products search box: the magnifier inside */
     var inp = D.el("input", { "class": "ib-sin", id: "ib-q", type: "search", maxlength: "80", autocomplete: "off", spellcheck: "false", placeholder: "Name, email or message" });

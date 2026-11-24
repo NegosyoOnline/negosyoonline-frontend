@@ -199,8 +199,6 @@ body.dash-app a.icon-btn { text-decoration: none; }
 .facts dd { margin: 2px 0 0; font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .input.narrow { max-width: 200px; }
 @media (max-width: 600px) { .input.narrow { max-width: none; } }
-.optout { padding: 8px 12px; border: 1px dashed var(--card-line); border-radius: 6px; font-weight: 600; }
-.optout .small { font-weight: 400; }
 .form-card .banner h2 { margin: 0; }
 .bar { height: 10px; border-radius: 999px; background: var(--chip-neutral-bg); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--primary); }

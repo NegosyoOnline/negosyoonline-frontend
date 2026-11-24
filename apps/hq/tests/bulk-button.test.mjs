@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { inbox, settle, status, refusal } from "./inbox-page.mjs";
 
 const html = fs.readFileSync(new URL("../public/inbox.html", import.meta.url), "utf8");
-const BULK = { bulk: true, running: false, used_today: 610, left_today: 1090, reserved_for_codes: 300, opt_out_line: " Reply STOP to opt out", text_max: 138 };
+const BULK = { bulk: true, running: false, used_today: 610, left_today: 1090, reserved_for_codes: 300, text_max: 160 };
 const withBulk = (reply = () => [200, BULK], over = {}) => inbox({ "bulk/status/": reply, ...over });
 const chipShown = (p) => !p.node["bulk-chip"].hidden;
 

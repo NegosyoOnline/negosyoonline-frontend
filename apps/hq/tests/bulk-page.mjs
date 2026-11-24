@@ -7,7 +7,7 @@ import { open, settle, BASE } from "./page.mjs";
 export { settle, BASE };
 export const idsOf = () => [...fs.readFileSync(new URL("../public/bulk.html", import.meta.url), "utf8").matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
 export const refusal = (code, message = "The backend's words.", fields = {}) => ({ error: { code, message, fields } });
-export const BULK = { bulk: true, running: false, used_today: 610, left_today: 1090, reserved_for_codes: 300, opt_out_line: " Reply STOP to opt out", text_max: 138 };
+export const BULK = { bulk: true, running: false, used_today: 610, left_today: 1090, reserved_for_codes: 300, text_max: 160 };
 export const GROUPS = [{ id: "grp_a", name: "Launch list A", count: 1600 }, { id: "grp_b", name: "Launch list B", count: 748 }];
 export const batch = (over = {}) => ({ batch: "bulk_1", state: "finished", when: "2026-11-09T06:05:00+00:00", who: "sample.staff", source: "pasted",
   size: 1500, sent: 1490, failed: 2, not_sent: 8, waiting: 0, left_out: 0, text_length: 90, seconds_left: 0, ...over });

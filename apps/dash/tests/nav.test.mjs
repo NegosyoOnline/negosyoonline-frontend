@@ -199,7 +199,12 @@ test("no link in the page and no quick link reaches a hidden page", () => {
   for (const h of HIDDEN) assert.ok(!hrefs.includes(h), h + " has no link in index.html");
   const quick = APP.slice(APP.indexOf("var QUICK_LINKS"), APP.indexOf("function quickSearch"));
   for (const h of HIDDEN) assert.ok(!quick.includes('"' + h + '"'), h + " is not a quick link");
-  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox", "Training", "Media Library", "Prospect List", "Settings", "Billing"]);
+  assert.deepEqual(links(SIDEBAR).map((l) => l[1]), ["Overview", "Orders", "Products", "Inbox", "Contacts", "Training", "Media Library", "Prospect List", "Settings", "Billing"]);
+  /* Contacts (z8uq9mj9rw): right after Inbox (SMS Marketing, #13, will sit between them once it merges); both links start hidden until contacts/status/ answers 200 with contacts true (contacts.js). */
+  const hiddenContacts = [...HTML.matchAll(/<a\b[^>]*href="\/contacts\/"[^>]*>/g)].map((m) => m[0]);
+  assert.equal(hiddenContacts.length, 2);
+  for (const t of hiddenContacts) assert.ok(/data-contacts-nav/.test(t) && /\bhidden\b/.test(t), "hidden Contacts link: " + t);
+  assert.deepEqual(links(MORE).filter(([href]) => href === "/contacts/"), [["/contacts/", "Contacts"]], "the More sheet has a Contacts tile");
   /* Training (z8uq9mezdj): the sidebar link and the More sheet tile both start hidden until the training probe answers 200 (training.js). */
   const hiddenTraining = [...HTML.matchAll(/<a\b[^>]*href="\/training\/"[^>]*>/g)].map((m) => m[0]);
   assert.equal(hiddenTraining.length, 2);

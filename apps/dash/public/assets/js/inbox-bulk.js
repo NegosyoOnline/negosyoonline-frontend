@@ -68,8 +68,55 @@
   }
   /* What is wrong with a text before the server sees it, or ""; the same plain-SMS and no-link rules as inbox-sms.js. The server decides. */
   function problem(text, max) {
-    var S = root.NOInboxSms;
-    return S && S.util && S.util.problem ? S.util.problem(text, max === undefined ? null : max) : "";
+    var S = root.NOInboxSms, m = max === undefined ? null : max;
+    if (!S || !S.util || !S.util.problem) return "";
+    /* The length is the text as typed ({first_name} is 12 characters); the plain-character and link check sees the placeholder as a name. */
+    var t = String(text || "");
+    if (m !== null && t.length > m) return S.util.problem(t, m);
+    return S.util.problem(t.split("{first_name}").join("Maria"), null);
+  }
+  /* {first_name} (ClickUp z8uq9mjj05): the owner may put it in the text; the server fills in each person's first name at send. The counter counts
+     it as typed (12 characters). These helpers are pure so they can be tested; firstNameKit() below builds the button and the two help lines. */
+  var FIRST = "{first_name}";
+  function hasFirstName(text) { return typeof text === "string" && text.indexOf(FIRST) !== -1; }
+  /* Put `ins` in `text` over the selection start..end (the caret when they are equal). null when the result would be longer than max (null max: no limit). */
+  function insertAt(text, start, end, ins, max) {
+    var t = typeof text === "string" ? text : "", a = typeof start === "number" && isFinite(start) ? start : t.length, b = typeof end === "number" && isFinite(end) ? end : a;
+    a = Math.min(Math.max(0, a), t.length); b = Math.min(Math.max(a, b), t.length);
+    var out = t.slice(0, a) + ins + t.slice(b);
+    if (typeof max === "number" && out.length > max) return null;
+    return { text: out, caret: a + ins.length };
+  }
+  /* Squeeze runs of spaces to one, drop a space before , . ! ? ; : and trim. */
+  function tidy(text) { return String(text).replace(/ {2,}/g, " ").replace(/ +([,.!?;:])/g, "$1").trim(); }
+  /* The text with every {first_name} replaced by `name`, then tidied ("" is the no-name case). */
+  function fillExample(text, name) { return tidy(String(text).split(FIRST).join(name)); }
+  /* The "+ First name" button and the two help lines of a message box. `o`: { ui, ta, max, onChange }. Returns { button, help, refresh }.
+     The button puts {first_name} at the caret (over a selection), keeps focus with the caret after it, and calls onChange (the same as typing);
+     it does nothing when the text would go over max. The help lines are shown only while the text has the placeholder and use textContent only. */
+  function firstNameKit(o) {
+    var ui = o.ui, ta = o.ta, max = o.max;
+    var b = ui.btn("+ First name", "ghost", function () {
+      var v = ta.value, a = typeof ta.selectionStart === "number" ? ta.selectionStart : v.length, e = typeof ta.selectionEnd === "number" ? ta.selectionEnd : a;
+      var r = insertAt(v, a, e, FIRST, max === undefined ? null : max);
+      if (!r) { if (ta.focus) ta.focus(); return; }
+      ta.value = r.text;
+      if (ta.focus) ta.focus();
+      if (ta.setSelectionRange) ta.setSelectionRange(r.caret, r.caret); else { ta.selectionStart = r.caret; ta.selectionEnd = r.caret; }
+      o.onChange();
+    });
+    b.classList.add("ib-fn"); b.setAttribute("title", "Put the person's first name in the text");
+    var l1 = ui.h("p", "pm-hint ib-fn-help", ""), l2 = ui.h("p", "pm-hint ib-fn-help", "");
+    l1.hidden = true; l2.hidden = true;
+    var help = ui.h("div", "ib-fn-lines", ""); help.setAttribute("aria-live", "polite"); help.appendChild(l1); help.appendChild(l2);
+    function refresh() {
+      var on = hasFirstName(ta.value);
+      l1.textContent = on ? FIRST + " becomes each person's first name. With no name, it is left out." : "";
+      l2.textContent = on ? "Example: " + fillExample(ta.value, "Maria") : "";
+      l1.hidden = !on; l2.hidden = !on;
+    }
+    refresh();
+    return { button: b, help: help, refresh: refresh };
   }
   /* "About 34 minutes left" from the server's seconds_left (an estimate); "" when it is not active. */
   function estimate(sec) {
@@ -491,12 +538,15 @@
       var count = h("span", "ib-count" + (max !== null && st.text.length > max ? " is-over" : ""), roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
-      ta.addEventListener("input", function () {
+      var kit = firstNameKit({ ui: ui, ta: ta, max: max, onChange: function () { changed(); } });
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), add(h("span", "ib-cntgrp"), kit.button, count)));
+      wrap.appendChild(kit.help);
+      function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = roomLeft(ta.value.length, max); count.classList.toggle("is-over", max !== null && ta.value.length > max);
-        fieldErr(); drawPreview(); schedulePreview();
-      });
+        kit.refresh(); fieldErr(); drawPreview(); schedulePreview();
+      }
+      ta.addEventListener("input", changed);
       /* 3. one small count line and exactly two buttons */
       var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite");
       var t = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
@@ -691,6 +741,7 @@
 
   root.NOInboxBulk = { probe: probe, screen: screen,
     util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
+      FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, firstNameKit: firstNameKit,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

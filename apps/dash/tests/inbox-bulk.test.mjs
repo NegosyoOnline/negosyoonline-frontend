@@ -363,7 +363,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   assert.equal(d.press(pane(d), "Cancel"), undefined);
   const labels = pane(d).all((n) => n.tagName === "LABEL").map((n) => n.textContent);
   assert.ok(labels.indexOf("Send to") >= 0 && labels.indexOf("Send to") < labels.indexOf("Message"), "Send to is above Message: " + labels);
-  const btns = d.$("ib-bk-test").parentNode.all((n) => n.tagName === "BUTTON").map((n) => n.textContent);
+  const btns = d.$("ib-bk-test").parentNode.all((n) => n.tagName === "BUTTON" && !n.classList.contains("ib-fn")).map((n) => n.textContent);
   assert.deepEqual(btns, ["Send Test SMS", "Start Sending"], "exactly two buttons");
   assert.ok(!pane(d).textContent.includes("Check and confirm"));
 });
@@ -950,4 +950,105 @@ test("round 11 R11-1: the Bulk history Audience cell names the groups then the c
   assert.equal(cells[0].textContent, "VIP, Maria Santos, 0918 *** 5678"); assert.equal(cells[0].getAttribute("title"), cells[0].textContent);
   assert.ok(cells[0].classList.contains("ib-bk-aud"));
   assert.equal(cells[1].textContent, "Chosen groups and contacts"); assert.equal(cells[2].textContent, "All my members");
+});
+
+/* ---------- {first_name} (ClickUp z8uq9mjj05) ---------- */
+
+test("first name: hasFirstName finds the exact lowercase placeholder only", () => {
+  const u = loadUtil();
+  assert.equal(u.hasFirstName("Hi {first_name}!"), true);
+  assert.equal(u.hasFirstName("{first_name} and {first_name}"), true);
+  assert.equal(u.hasFirstName("Hi {First_Name}!"), false);
+  assert.equal(u.hasFirstName("Hi first_name"), false);
+  assert.equal(u.hasFirstName(""), false);
+  assert.equal(u.hasFirstName(null), false);
+});
+
+test("first name: insertAt puts {first_name} at the start, middle, end, over a selection, and refuses to go over 160", () => {
+  const u = loadUtil(), T = "{first_name}";
+  const at = (text, a, b, max = 160) => { const r = u.insertAt(text, a, b, T, max); return r && [r.text, r.caret]; };
+  assert.deepEqual(at("Hello", 0, 0), [T + "Hello", 12]);
+  assert.deepEqual(at("Hello", 2, 2), ["He" + T + "llo", 14]);
+  assert.deepEqual(at("Hello", 5, 5), ["Hello" + T, 17]);
+  assert.deepEqual(at("Hello world", 6, 11), ["Hello " + T, 18], "a selection is replaced");
+  assert.deepEqual(at("", 0, 0), [T, 12]);
+  assert.equal(at("a".repeat(149), 0, 0), null, "149 + 12 is 161");
+  assert.deepEqual(at("a".repeat(148), 0, 0)[0].length, 160, "exactly 160 is allowed");
+  assert.deepEqual(at("a".repeat(160), 0, 20)[0].length, 152, "a selection that frees room is allowed");
+  assert.deepEqual(at("Hello", 99, 99), ["Hello" + T, 17], "a caret past the end is clamped");
+});
+
+test("first name: fillExample fills Maria then tidies; the same tidy turns a missing name into the fallback", () => {
+  const u = loadUtil();
+  assert.equal(u.fillExample("Hi {first_name}, sale", "Maria"), "Hi Maria, sale");
+  assert.equal(u.fillExample("Hi {first_name}, sale", ""), "Hi, sale");
+  assert.equal(u.fillExample("{first_name} {first_name}!", "Ana"), "Ana Ana!");
+  assert.equal(u.fillExample("Hello  {first_name} ! Sale ?", ""), "Hello! Sale?");
+  assert.equal(u.fillExample("  {first_name}  ", ""), "");
+  assert.equal(u.tidy("a   b ,c ;d :e"), "a b,c;d:e");
+});
+
+test("first name: the + First name button sits next to the counter and inserts at the caret, keeps focus, updates the counter and the buttons", async () => {
+  const d = await openBulk();
+  const ta = d.$("ib-bk-t"), btn = d.press(pane(d), "+ First name");
+  assert.ok(btn && btn.classList.contains("no-btn"), "a house button");
+  assert.equal(btn.parentNode, d.$("ib-bk-c").parentNode, "in the counter's own group");
+  await typeText(d, "Hi , sale");
+  ta.selectionStart = 3; ta.selectionEnd = 3;
+  await d.click(btn);
+  assert.equal(ta.value, "Hi {first_name}, sale");
+  assert.equal(ta.selectionStart, 15); assert.equal(ta.selectionEnd, 15);
+  assert.equal(d.doc.activeElement, ta, "focus stays in the message");
+  assert.equal(d.$("ib-bk-c").textContent, "21 / 160", "counts the text as typed");
+  await sleep(450); await settle();
+  assert.equal(d.bk.seen.preview[d.bk.seen.preview.length - 1].text, "Hi {first_name}, sale", "the preview and the send use the text as typed");
+  assert.equal(d.$("ib-bk-test").disabled, false);
+  assert.equal(d.$("ib-bk-go").disabled, false);
+});
+
+test("first name: with text selected the button replaces it; over 160 it does nothing", async () => {
+  const d = await openBulk();
+  const ta = d.$("ib-bk-t"), btn = d.press(pane(d), "+ First name");
+  await typeText(d, "Hello world");
+  ta.selectionStart = 6; ta.selectionEnd = 11;
+  await d.click(btn);
+  assert.equal(ta.value, "Hello {first_name}");
+  await typeText(d, "a".repeat(150));
+  ta.selectionStart = 0; ta.selectionEnd = 0;
+  await d.click(btn);
+  assert.equal(ta.value, "a".repeat(150), "no change");
+  assert.equal(d.$("ib-bk-c").textContent, "150 / 160");
+  assert.equal(d.doc.activeElement, ta, "focus is kept");
+});
+
+test("first name: the two help lines show only while the text has the placeholder, and are built with textContent", async () => {
+  const d = await openBulk();
+  const lines = () => pane(d).all((n) => n.classList && n.classList.contains("ib-fn-help"));
+  assert.equal(lines().length, 2);
+  assert.ok(lines().every((n) => n.hidden), "hidden with no placeholder");
+  await typeText(d, "Hi {first_name}, <b>sale</b>");
+  assert.ok(lines().every((n) => !n.hidden));
+  assert.equal(lines()[0].textContent, "{first_name} becomes each person's first name. With no name, it is left out.");
+  assert.equal(lines()[1].textContent, "Example: Hi Maria, <b>sale</b>", "markup stays as plain text");
+  await typeText(d, "Hi there");
+  assert.ok(lines().every((n) => n.hidden && n.textContent === ""));
+  const src = read("inbox-bulk.js"), kit = src.slice(src.indexOf("function firstNameKit"), src.indexOf("/* \"About 34 minutes left\""));
+  assert.ok(kit.includes("textContent") && !/innerHTML|insertAdjacentHTML/.test(kit));
+});
+
+test("first name: a 422 on the text from the server shows on the message field", async () => {
+  const msg = "Only {first_name} can go inside { }.";
+  const d = await openBulk({ create: () => bad(422, "invalid", msg, { text: [msg] }) });
+  await typeText(d, "Hi {first_name}");
+  await d.click(d.$("ib-bk-go")); await d.click(d.$("ib-bk-dlg-go"));
+  assert.equal(d.$("ib-bk-e").hidden, false);
+  assert.equal(d.$("ib-bk-e").textContent, msg);
+});
+
+test("first name: problem() accepts {first_name} as plain text, still counts it as typed, and still refuses other braces", async () => {
+  const d = await openBulk();
+  const u = d.window.NOInboxBulk.util;
+  assert.equal(u.problem("Hi {first_name}, sale", 160), "");
+  assert.notEqual(u.problem("Hi {name}, sale", 160), "", "only {first_name} is allowed");
+  assert.notEqual(u.problem("a".repeat(150) + "{first_name}", 160), "", "162 as typed is over");
 });

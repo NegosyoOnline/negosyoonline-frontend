@@ -417,12 +417,15 @@
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
       var count = h("span", "ib-count" + (st.text.length > MAX ? " is-over" : ""), st.text.length + " / " + MAX); count.setAttribute("id", "ib-sc-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-sc-e"); err.setAttribute("role", "alert"); err.hidden = true; wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
-      ta.addEventListener("input", function () {
+      var kit = BU.firstNameKit({ ui: ui, ta: ta, max: MAX, onChange: function () { changed(); } });
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), add(h("span", "ib-cntgrp"), kit.button, count)));
+      wrap.appendChild(kit.help);
+      function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = ta.value.length + " / " + MAX; count.classList.toggle("is-over", ta.value.length > MAX);
-        fieldErr(); drawPreview(); schedulePreview();
-      });
+        kit.refresh(); fieldErr(); drawPreview(); schedulePreview();
+      }
+      ta.addEventListener("input", changed);
       /* 3. when: a date and a time, both house dropdowns, Manila time */
       var row = h("div", "ib-sc-when");
       var fd = h("div", "pm-field"), ld = h("label", "pm-label", "Date"); ld.setAttribute("for", "ib-sc-date"); fd.appendChild(ld);

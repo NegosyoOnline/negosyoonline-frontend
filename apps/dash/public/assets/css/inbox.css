@@ -667,3 +667,9 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-sc-backlink { align-self: flex-start; color: var(--link); font-size: 15px; font-weight: 600; text-decoration: none; }
 #view-inbox .ib-sc-backlink:hover { text-decoration: underline; }
 #view-inbox .ib-sc-backlink:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+/* {first_name} (z8uq9mjj05): the "+ First name" button sits with the counter; the two help lines sit under the message. */
+#view-inbox .ib-cntgrp { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+#view-inbox .ib-fn { min-height: 32px; padding: 0 10px; font-size: 14px; white-space: nowrap; }
+#view-inbox .ib-fn:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-fn-lines { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+#view-inbox .ib-fn-help { margin: 0; overflow-wrap: anywhere; color: var(--meta); }

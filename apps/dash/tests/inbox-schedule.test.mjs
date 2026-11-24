@@ -558,7 +558,7 @@ test("schedule: Edit that finds the text already started (409 already_started on
 
 test("schedule: the form has exactly two buttons (Send Test SMS, Schedule); the way back is a small text link above the card, not a button; it returns to the list without asking the server; the page words come through textContent (no markup from the API)", async () => {
   const d = await openSched({ list: () => ok({ items: [sched({ text: "<b>Hi</b>" })], next_cursor: null }) }, { form: true });
-  const btns = pane(d).all((n) => n.tagName === "BUTTON" && has(n, "no-btn")).map((n) => n.textContent);
+  const btns = pane(d).all((n) => n.tagName === "BUTTON" && has(n, "no-btn") && !has(n, "ib-fn")).map((n) => n.textContent);
   assert.deepEqual(btns, ["Send Test SMS", "Schedule"], "exactly two CTAs");
   const link = d.$("ib-sc-back");
   assert.equal(link.tagName, "A"); assert.equal(link.textContent, "\u2190 Scheduled SMS"); assert.ok(!has(link, "no-btn"), "not styled as a button");
@@ -699,4 +699,35 @@ test("round 11 R11-2: the Scheduled SMS and Bulk SMS history headings are sectio
   const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8"), DASH = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8");
   assert.ok(/dash-card h2 \{[^}]*font-size: 18px; font-weight: 700; line-height: 1\.3/.test(DASH), "the reference");
   assert.ok(/\.ib-bk-histsec h2 \{ font-size: 18px; font-weight: 700; line-height: 1\.3; \}/.test(CSS));
+});
+
+/* ---------- {first_name} (ClickUp z8uq9mjj05) ---------- */
+
+test("schedule first name: the + First name button inserts at the caret, counts as typed, shows the help lines, and respects 160", async () => {
+  const d = await openSched({}, { form: true });
+  const ta = d.$("ib-sc-t"), btn = d.press(d.$("ib-sc-t").parentNode.parentNode, "+ First name");
+  assert.ok(btn, "the button is on the Schedule form");
+  assert.equal(btn.parentNode, d.$("ib-sc-c").parentNode);
+  const lines = () => d.$("ib-sc-t").parentNode.parentNode.all((n) => n.classList && n.classList.contains("ib-fn-help"));
+  assert.ok(lines().every((n) => n.hidden));
+  await typeText(d, "Hi , sale");
+  ta.selectionStart = 3; ta.selectionEnd = 3;
+  await d.click(btn);
+  assert.equal(ta.value, "Hi {first_name}, sale");
+  assert.equal(ta.selectionStart, 15);
+  assert.equal(d.doc.activeElement, ta);
+  assert.equal(d.$("ib-sc-c").textContent, "21 / 160");
+  assert.equal(lines()[1].textContent, "Example: Hi Maria, sale");
+  assert.ok(lines().every((n) => !n.hidden));
+  await typeText(d, "a".repeat(150));
+  await d.click(btn);
+  assert.equal(ta.value, "a".repeat(150), "over 160: nothing happens");
+  assert.ok(lines().every((n) => n.hidden));
+});
+
+test("schedule first name: a 422 on the text shows on the message field", async () => {
+  const msg = "Only {first_name} can go inside { }.";
+  const t = await openSched({ create: () => bad(422, "invalid", msg, { text: [msg] }) }, { form: true });
+  await fillOk(t); await t.click(t.$("ib-sc-go"));
+  assert.equal(t.$("ib-sc-e").textContent, msg);
 });

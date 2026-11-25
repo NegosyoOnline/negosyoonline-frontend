@@ -433,7 +433,7 @@ test("bulk: send a test to my phone posts text and a key", async () => {
   assert.equal(d.bk.seen.test.length, 1);
   assert.equal(d.bk.seen.test[0].text, "Hello po");
   assert.match(d.bk.seen.test[0].idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
-  assert.deepEqual(d.bk.seen.test[0].audience, "all", "the test carries the audience");
+  assert.deepEqual(Object.keys(d.bk.seen.test[0]).sort(), ["idempotency_key", "text"], "the test sends only text and key");
   assert.deepEqual(d.toasts, ["A test text is on its way to your phone.: It counts as one of today's texts."], "a toast, with the same words");
   assert.equal(d.$("ib-bk-testnote"), null, "no line under the buttons");
   const e = await openBulk({ test: () => bad(409, "no_mobile", "Add a verified mobile number to your account first.") });

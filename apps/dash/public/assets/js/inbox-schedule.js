@@ -516,7 +516,7 @@
     function sendTest(x) {
       if (st.testing || !textOk() || st.keepAud || st.needPick) return;
       st.testing = true; st.testNote = ""; ui.busy(x, true);
-      D.call("POST", b0 + "test/", Object.assign(audBody(), { text: st.text.trim(), idempotency_key: ui.newKey() }), true).then(function (res) {
+      D.call("POST", b0 + "test/", { text: st.text.trim(), idempotency_key: ui.newKey() }, true).then(function (res) {
         st.testing = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }

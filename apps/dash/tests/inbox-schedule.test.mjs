@@ -447,7 +447,7 @@ test("schedule form: Send Test SMS posts bulk/test/ with the text and a key, and
   await typeText(d, "Sale this weekend.");
   assert.equal(d.$("ib-sc-test").disabled, false);
   await d.click(d.$("ib-sc-test"));
-  assert.equal(d.bk.seen.test[0].audience, "all", "the test carries the audience");
+  assert.deepEqual(Object.keys(d.bk.seen.test[0]).sort(), ["idempotency_key", "text"], "the test sends only text and key");
   assert.equal(d.bk.seen.test.length, 1);
   assert.equal(d.bk.seen.test[0].text, "Sale this weekend."); assert.match(d.bk.seen.test[0].idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(d.list().includes("POST " + B + "test/"));

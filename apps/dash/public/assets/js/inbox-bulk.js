@@ -94,6 +94,8 @@
   /* Squeeze runs of spaces to one, drop a space before , . ! ? ; : and trim. */
   function tidy(text) { return String(text).replace(/ {2,}/g, " ").replace(/ +([,.!?;:])/g, "$1").trim(); }
   /* The text with every {first_name} replaced by `name`, then tidied ("" is the no-name case). */
+  /* True when the text is only {first_name} (and spaces): the server refuses it, but nothing is asked while the owner is still composing. */
+  function onlyFirst(text) { var t = String(text || ""); return !!t.trim() && !t.split(FIRST).join("").trim(); }
   function fillExample(text, name) { return tidy(String(text).split(FIRST).join(name)); }
   /* The "+ First name" button and the two help lines of a message box. `o`: { ui, ta, max, onChange }. Returns { button, help, refresh }.
      The button puts {first_name} at the caret (over a selection), keeps focus with the caret after it, and calls onChange (the same as typing);
@@ -110,12 +112,12 @@
       o.onChange();
     });
     b.classList.add("ib-fn"); b.setAttribute("title", "Put the person's first name in the text");
-    var l2 = ui.h("p", "pm-hint ib-fn-help", "");
-    l2.hidden = true;
+    var l2 = ui.h("div", "pm-hint ib-fn-help", ""), lo = ui.h("span", "ib-fn-outl", ""), lq = ui.h("p", "ib-fn-outq", "");
+    l2.appendChild(lo); l2.appendChild(lq); l2.hidden = true;
     var help = ui.h("div", "ib-fn-lines", ""); help.setAttribute("aria-live", "polite"); help.appendChild(l2);
     function refresh() {
       var on = hasFirstName(ta.value);
-      l2.textContent = on ? "Example: " + fillExample(ta.value, "Maria") : "";
+      lo.textContent = on ? "Output:" : ""; lq.textContent = on ? fillExample(ta.value, "Maria") : "";
       l2.hidden = !on;
     }
     refresh();
@@ -213,7 +215,7 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", needPick: true, pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
       hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
@@ -260,7 +262,7 @@
       var run = ++st.arun;
       st.aud = null;
       /* nothing picked: no count, nothing to ask */
-      if (st.audience === "pick" && !picked()) { st.audLoading = false; drawCount(); return; }
+      if (st.needPick || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
       st.audLoading = true; drawCount();
       D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
@@ -319,7 +321,7 @@
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
-      sel.appendChild(D.el("option", { value: "" }, "Add a group or contact"));
+      sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
       if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
@@ -330,11 +332,11 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         var o = D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact \u00B7 No texts" : "Contact" }, c.label); sel.appendChild(o);
       });
-      sel.value = picked() ? "" : "all";
+      sel.value = picked() || st.needPick ? "" : "all";
     }
     /* The picks changed: the audience follows them (none left: All my members), show the chips, ask for the count again and for a new confirm. */
-    function pickChanged() {
-      st.audience = picked() ? "pick" : "all"; st.q = ""; st.key = null; st.err = "";
+    function pickChanged(explicitAll) {
+      st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.q = ""; st.key = null; st.err = "";
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
@@ -354,7 +356,7 @@
       st.timer = setTimeout(function () {
         st.timer = null;
         var t = st.text.trim(), run = ++st.prun;
-        if (!t) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
+        if (!t || onlyFirst(t)) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
         D.call("POST", b0 + "preview/", { text: t }, true).then(function (res) {
           if (!aliveRes(res) || run !== st.prun) return;
           if (res.status === 404) { gone(); return; }
@@ -474,7 +476,7 @@
     }
 
     /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
-    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; st.searching = false; st.searchErr = false; st.q = ""; st.dlg = false; draw(); readAudience(); }
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.needPick = true; st.pickG = []; st.pickC = []; st.found = []; st.searching = false; st.searchErr = false; st.q = ""; st.dlg = false; draw(); readAudience(); }
     function closeForm() { st.view = "main"; st.err = ""; draw(); }
     function drawForm(body) {
       var s = st.status;
@@ -514,7 +516,7 @@
       wrap.appendChild(fs);
       sel.addEventListener("change", function () {
         var v = sel.value; if (!v) return;
-        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(); return; }
+        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(true); return; }
         var id = v.slice(2), g;
         if (v.indexOf("g:") === 0) { g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickG.push(g); }
         else { g = st.found.filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickC.push(g); }
@@ -534,7 +536,7 @@
       document.addEventListener("click", onOut);
       /* 2. the text */
       var f3 = h("div", "pm-field");
-      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
+      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); var lrow = h("div", "ib-fn-row"); lrow.appendChild(l3); f3.appendChild(lrow);
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
@@ -542,7 +544,8 @@
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
       var kit = firstNameKit({ ui: ui, ta: ta, max: max, onChange: function () { changed(); } });
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "Press + First name to greet each person by name, like: Hi {first_name}!"), add(h("span", "ib-cntgrp"), kit.button, count)));
+      lrow.appendChild(kit.button);
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "ib-bk-will ib-fn-hint", "Press + First name to greet each person by name"), add(h("span", "ib-cntgrp"), count)));
       wrap.appendChild(kit.help);
       function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
@@ -555,7 +558,8 @@
       var t = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
       var go = ui.btn("Start Sending", "primary", function () { openDialog(); }); go.setAttribute("id", "ib-bk-go");
       var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), t, go)));
+      fs.appendChild(cnt);
+      wrap.appendChild(add(h("div", "ib-bk-actions"), add(h("div", "ib-bk-btns"), t, go)));
       wrap.appendChild(tn);
       return wrap;
     }
@@ -572,7 +576,8 @@
     function drawCount() {
       var box = document.getElementById("ib-bk-count"); if (!box) return;
       ui.clear(box);
-      if (st.audLoading || !st.aud) box.appendChild(document.createTextNode("Counting members…"));
+      if (st.needPick) { /* nothing is shown until an audience is chosen */ }
+      else if (st.audLoading || !st.aud) box.appendChild(document.createTextNode("Counting members…"));
       else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
       else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? willSend(n, st.audience) : "No members can be texted yet.")); }
       drawPreview();
@@ -580,7 +585,7 @@
     function drawPreview() {
       fieldErr();
       var ok = textOk() && !!st.preview, tb = document.getElementById("ib-bk-test"), go = document.getElementById("ib-bk-go");
-      if (tb) tb.disabled = !ok || st.testing;
+      if (tb) tb.disabled = !ok || st.needPick || st.testing;
       if (go) go.disabled = !ok || !readyCount() || st.sending;
     }
     function readyCount() { return !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
@@ -626,9 +631,9 @@
         if (res.status === 404) { gone(); return; }
         var tn = document.getElementById("ib-bk-testnote"), tb = document.getElementById("ib-bk-test");
         if (tb) ui.busy(tb, false);
-        var msg = res.ok ? "A test text is on its way to your phone. It counts as one of today's texts." : refusal(res, "The test text could not be sent.");
+        if (res.ok) { if (D.toast) D.toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
+        var msg = refusal(res, "The test text could not be sent.");
         st.testNote = msg; if (tn) tn.textContent = msg;
-        if (res.ok) ui.say("Test text is on its way.");
       });
     }
     function confirmSend(x, n) {
@@ -744,7 +749,7 @@
 
   root.NOInboxBulk = { probe: probe, screen: screen,
     util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem, strayBrace: strayBrace,
-      FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, firstNameKit: firstNameKit,
+      FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, onlyFirst: onlyFirst, firstNameKit: firstNameKit,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

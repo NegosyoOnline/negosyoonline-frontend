@@ -162,7 +162,7 @@
     function readAudience() {
       var run = ++st.arun;
       st.aud = null;
-      if (st.keepAud || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
+      if (st.keepAud || st.needPick || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
       st.audLoading = true; drawCount();
       D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
@@ -189,7 +189,7 @@
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
-      sel.appendChild(D.el("option", { value: "" }, "Add a group or contact"));
+      sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
       if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
@@ -202,8 +202,8 @@
       });
       sel.value = picked() || st.needPick ? "" : "all";
     }
-    function pickChanged() {
-      st.audience = picked() ? "pick" : "all"; st.needPick = false; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
+    function pickChanged(explicitAll) {
+      st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
       var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
@@ -222,7 +222,7 @@
       st.timer = setTimeout(function () {
         st.timer = null;
         var t = st.text.trim(), run = ++st.prun;
-        if (!t) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
+        if (!t || BU.onlyFirst(t)) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
         D.call("POST", b0 + "preview/", { text: t }, true).then(function (res) {
           if (!aliveRes(res) || run !== st.prun) return;
           if (res.status === 404) { gone(); return; }
@@ -320,13 +320,13 @@
 
     /* ----- the form ----- */
     function resetForm() {
-      st.audience = "all"; st.needPick = false; st.keepAud = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
+      st.audience = "all"; st.needPick = true; st.keepAud = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
       st.date = ""; st.time = ""; st.slotErr = ""; st.key = null; st.err = ""; st.note = ""; st.testNote = ""; st.edit = null;
     }
     function openForm(item, detail) {
       resetForm(); st.view = "form";
       if (item) {
-        var d = detail || item; st.edit = item;
+        var d = detail || item; st.edit = item; st.needPick = false; /* an edit already has its audience */
         st.text = typeof d.text === "string" ? d.text : "";
         var p = d.scheduled_at ? manila(Date.parse(d.scheduled_at)) : null;
         if (p && isFinite(p.y)) { st.date = dateKey(p); st.time = timeKey(p); st.origDate = st.date; st.origTime = st.time; }
@@ -393,7 +393,7 @@
       wrap.appendChild(fs);
       sel.addEventListener("change", function () {
         var v = sel.value; if (!v) return;
-        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(); return; }
+        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(true); return; }
         var id = v.slice(2), g;
         if (v.indexOf("g:") === 0) { g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickG.push(g); }
         else { g = st.found.filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickC.push(g); }
@@ -412,13 +412,14 @@
       document.addEventListener("click", onOut);
       /* 2. the text */
       var f3 = h("div", "pm-field");
-      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-sc-t"); f3.appendChild(l3);
+      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-sc-t"); var lrow = h("div", "ib-fn-row"); lrow.appendChild(l3); f3.appendChild(lrow);
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-sc-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-sc-c ib-sc-e"); ta.setAttribute("maxlength", String(MAX + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
       var count = h("span", "ib-count" + (st.text.length > MAX ? " is-over" : ""), st.text.length + " / " + MAX); count.setAttribute("id", "ib-sc-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-sc-e"); err.setAttribute("role", "alert"); err.hidden = true; wrap.appendChild(err);
       var kit = BU.firstNameKit({ ui: ui, ta: ta, max: MAX, onChange: function () { changed(); } });
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "Press + First name to greet each person by name, like: Hi {first_name}!"), add(h("span", "ib-cntgrp"), kit.button, count)));
+      lrow.appendChild(kit.button);
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "ib-bk-will ib-fn-hint", "Press + First name to greet each person by name"), add(h("span", "ib-cntgrp"), count)));
       wrap.appendChild(kit.help);
       function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
@@ -448,7 +449,8 @@
       var go = ui.btn(st.edit ? "Save changes" : "Schedule", "primary", function (x) { save(x); }); go.setAttribute("id", "ib-sc-go");
       var fe = h("p", "field-err", ""); fe.setAttribute("id", "ib-sc-fe"); fe.setAttribute("role", "alert"); fe.hidden = true;
       var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-sc-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), tb, go)));
+      fs.appendChild(cnt);
+      wrap.appendChild(add(h("div", "ib-bk-actions"), add(h("div", "ib-bk-btns"), tb, go)));
       var why = h("p", "pm-hint ib-sc-why", ""); why.setAttribute("id", "ib-sc-why"); why.setAttribute("role", "status"); why.setAttribute("aria-live", "polite"); why.hidden = true; wrap.appendChild(why);
       wrap.appendChild(fe); wrap.appendChild(tn);
       return wrap;
@@ -506,7 +508,7 @@
       var box = el("ib-sc-count"); if (!box) return;
       ui.clear(box);
       if (st.keepAud) box.appendChild(document.createTextNode("Staying with the groups and contacts you chose before."));
-      else if (st.needPick) box.appendChild(document.createTextNode("Choose who gets this text."));
+      else if (st.needPick) { /* nothing is shown until an audience is chosen */ }
       else if (st.audLoading || !st.aud) box.appendChild(document.createTextNode(st.audience === "pick" && !picked() ? "" : "Counting members…"));
       else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
       else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? BU.willSend(n, st.audience) : "No members can be texted yet.")); }
@@ -515,7 +517,7 @@
     function drawPreview() {
       fieldErr();
       var ok = textOk() && !!st.preview, tb = el("ib-sc-test"), go = el("ib-sc-go");
-      if (tb) tb.disabled = !ok || st.testing;
+      if (tb) tb.disabled = !ok || (st.needPick && !st.keepAud) || st.testing;
       if (go) go.disabled = !ok || !readyCount() || !slotOk() || st.saving;
       var why = el("ib-sc-why"); if (why) { var w = go && go.disabled ? whyOff() : ""; why.textContent = w; why.hidden = !w; }
     }
@@ -528,9 +530,9 @@
         if (res.status === 404) { gone(); return; }
         var tn = el("ib-sc-testnote"), tb = el("ib-sc-test");
         if (tb) ui.busy(tb, false);
-        var msg = res.ok ? "A test text is on its way to your phone. It counts as one of today's texts." : BU.refusal(res, "The test text could not be sent.");
+        if (res.ok) { if (D.toast) D.toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
+        var msg = BU.refusal(res, "The test text could not be sent.");
         st.testNote = msg; if (tn) tn.textContent = msg;
-        if (res.ok) ui.say("Test text is on its way.");
       });
     }
     function save(x) {

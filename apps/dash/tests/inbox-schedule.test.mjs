@@ -184,6 +184,7 @@ async function openSched(o = {}, opts = {}) {
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/schedule/.test(href) ? "schedule" : /bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "schedule"); await settle(); await settle(); await settle();
   if (opts.form && d.$("ib-sc-send")) { await d.click(d.$("ib-sc-send")); await settle(); await settle(); }
+  if (opts.form && opts.pick !== false && d.$("ib-sc-to")) { cBox(d, "ib-sc-to").fire("click"); pickRow(d, "ib-sc-to", "All my members"); await settle(); await settle(); }
   return d;
 }
 const pane = (d) => d.$("ib-schedpane");
@@ -357,7 +358,7 @@ test("schedule form: the counter reads 0 / 160 and follows the typing; contacts 
   assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent), ["All my members"]);
 });
 
-test("schedule form: picking groups and contacts shows chips and asks the count for the pick; removing the last chip goes back to All my members", async () => {
+test("schedule form: picking groups and contacts shows chips and asks the count for the pick; removing the last chip goes back to nothing chosen", async () => {
   const d = await openSched({}, { form: true });
   await pickTo(d, "Regulars");
   assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent.replace(/×$/, "")), ["Regulars (12)"]);
@@ -368,8 +369,9 @@ test("schedule form: picking groups and contacts shows chips and asks the count 
   pickRow(d, "ib-sc-to", "Lito Cruz"); await settle(); await settle();
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g1"], contacts: ["c1"] });
   for (const x of d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))) { x.fire("click"); await settle(); await settle(); }
-  assert.equal(d.$("ib-sc-to").value, "all");
-  assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "all" });
+  assert.equal(d.$("ib-sc-to").value, "");
+  assert.equal(d.$("ib-sc-count").textContent, "", "no count until a choice");
+  assert.equal(d.$("ib-sc-go").disabled, true);
 });
 
 test("schedule form: the date and time pickers offer today and 30 days, and 8:00 am to 7:45 pm every 15 minutes (Manila)", async () => {
@@ -446,7 +448,8 @@ test("schedule form: Send Test SMS posts bulk/test/ with the text and a key, and
   assert.equal(d.bk.seen.test.length, 1);
   assert.equal(d.bk.seen.test[0].text, "Sale this weekend."); assert.match(d.bk.seen.test[0].idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(d.list().includes("POST " + B + "test/"));
-  assert.ok(d.$("ib-sc-testnote").textContent.includes("test text is on its way"));
+  assert.deepEqual(d.toasts, ["A test text is on its way to your phone.: It counts as one of today's texts."], "a toast with the same words");
+  assert.equal(d.$("ib-sc-testnote").textContent, "", "no inline text");
   assert.equal(d.bk.seen.created.length, 0, "a test never schedules");
   await typeText(d, "See https://x.com now");
   assert.equal(d.$("ib-sc-test").disabled, true);
@@ -707,7 +710,7 @@ test("schedule first name: the + First name button inserts at the caret, counts 
   const d = await openSched({}, { form: true });
   const ta = d.$("ib-sc-t"), btn = d.press(d.$("ib-sc-t").parentNode.parentNode, "+ First name");
   assert.ok(btn, "the button is on the Schedule form");
-  assert.equal(btn.parentNode, d.$("ib-sc-c").parentNode);
+  assert.ok(has(btn.parentNode, "ib-fn-row"), "on the Message label row");
   const lines = () => d.$("ib-sc-t").parentNode.parentNode.all((n) => n.classList && n.classList.contains("ib-fn-help"));
   assert.ok(lines().every((n) => n.hidden));
   await typeText(d, "Hi , sale");
@@ -717,7 +720,8 @@ test("schedule first name: the + First name button inserts at the caret, counts 
   assert.equal(ta.selectionStart, 15);
   assert.equal(d.doc.activeElement, ta);
   assert.equal(d.$("ib-sc-c").textContent, "21 / 160");
-  assert.equal(lines()[0].textContent, "Example: Hi Maria, sale");
+  assert.equal(lines()[0].all((n) => has(n, "ib-fn-outq"))[0].textContent, "Hi Maria, sale");
+  assert.equal(lines()[0].all((n) => has(n, "ib-fn-outl"))[0].textContent, "Output:");
   assert.ok(lines().every((n) => !n.hidden));
   await typeText(d, "a".repeat(150));
   await d.click(btn);
@@ -740,4 +744,19 @@ test("schedule: typing a { or } outside {first_name} shows the brace message und
   for (const t of ["Hi {first_name}, x", "{first_name}{first_name}"]) assert.equal(u.problem(t, 160), "", t);
   assert.notEqual(u.problem("a".repeat(161), 160), msg);
   assert.ok(u.problem("a".repeat(161), 160));
+});
+
+test("fix 4 (schedule): no count before a pick; nothing preselected; buttons off until a pick; every body carries audience", async () => {
+  const d = await openSched({}, { form: true, pick: false });
+  await typeText(d, "Hello po");
+  assert.equal(d.bk.seen.audience.length, 0, "no count asked");
+  assert.equal(cInput(d, "ib-sc-to").getAttribute("placeholder"), "Choose who gets it");
+  assert.equal(d.$("ib-sc-count").textContent, ""); assert.ok(has(d.$("ib-sc-count").parentNode, "ib-bk-sendto"));
+  assert.equal(d.$("ib-sc-test").disabled, true); assert.equal(d.$("ib-sc-go").disabled, true);
+  await pickTo(d, "All my members");
+  assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
+  assert.ok(d.$("ib-sc-count").textContent.startsWith("Will send to"));
+  assert.equal(d.$("ib-sc-test").disabled, false);
+  await setSlot(d); await d.click(d.$("ib-sc-go")); await settle();
+  assert.equal(d.bk.seen.created[0].audience, "all", "the schedule body carries audience");
 });

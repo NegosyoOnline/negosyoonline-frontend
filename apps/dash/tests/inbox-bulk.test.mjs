@@ -180,6 +180,8 @@ async function openBulk(o = {}, bootOpts = {}, opts = {}) {
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "bulk"); await settle(); await settle(); await settle();
   if (opts.form !== false && d.$("ib-bk-send")) { await d.click(d.$("ib-bk-send")); await settle(); await settle(); }
+  /* nothing is preselected (z8uq9mjj05 fix 4): tests that need an audience choose All my members, unless opts.pick is false */
+  if (opts.pick !== false && d.$("ib-bk-to")) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle(); }
   return d;
 }
 const pane = (d) => d.$("ib-bulkpane");
@@ -368,7 +370,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   assert.ok(!pane(d).textContent.includes("Check and confirm"));
 });
 
-test("bulk: Send to is ONE house dropdown, All my members first and selected, read with all; no radios, no promo or consent wording", async () => {
+test("bulk: Send to is ONE house dropdown, All my members offered first, read with all once chosen; no radios, no promo or consent wording", async () => {
   const d = await openBulk();
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "radio").length, 0, "no radios");
   assert.equal(d.$("ib-bk-to-all"), null);
@@ -377,7 +379,7 @@ test("bulk: Send to is ONE house dropdown, All my members first and selected, re
   assert.equal(sel.parentNode.classList.contains("ib-combo"), true, "the house combo, not native");
   assert.equal(pane(d).all((n) => n.tagName === "SELECT").length, 1, "one dropdown");
   assert.equal(sel.value, "all");
-  assert.equal(cInput(d, "ib-bk-to").value, "All my members", "selected by default");
+  assert.equal(cInput(d, "ib-bk-to").value, "All my members", "after choosing it");
   assert.equal(sel.children.filter((o) => o.value !== "")[0].textContent, "All my members", "first option");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   const all = pane(d).textContent;
@@ -389,7 +391,7 @@ test("bulk: the count is one small line near the buttons; no left-out list; neve
   const d = await openBulk();
   const box = d.$("ib-bk-count");
   assert.equal(box.textContent, "Will send to 95 members");
-  assert.ok(box.parentNode.classList.contains("ib-bk-actions") && box.parentNode.all((n) => n.id === "ib-bk-go").length === 1, "next to the buttons");
+  assert.ok(box.parentNode.classList.contains("ib-bk-sendto"), "directly below the Send to dropdown");
   assert.ok(!/Left out|not verified|Test number|no more texts|Repeated/.test(pane(d).textContent), "no left-out wording");
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent));
 });
@@ -428,7 +430,8 @@ test("bulk: send a test to my phone posts text and a key", async () => {
   assert.equal(d.bk.seen.test.length, 1);
   assert.equal(d.bk.seen.test[0].text, "Hello po");
   assert.match(d.bk.seen.test[0].idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
-  assert.ok(d.$("ib-bk-testnote").textContent.includes("test text is on its way"));
+  assert.deepEqual(d.toasts, ["A test text is on its way to your phone.: It counts as one of today's texts."], "a toast, with the same words");
+  assert.equal(d.$("ib-bk-testnote").textContent, "", "no inline text");
   const e = await openBulk({ test: () => bad(409, "no_mobile", "Add a verified mobile number to your account first.") });
   await typeText(e, "Hello po"); await e.click(e.$("ib-bk-test"));
   assert.equal(e.$("ib-bk-testnote").textContent, "Add a verified mobile number to your account first.");
@@ -615,13 +618,14 @@ const contactsApi = (over = {}) => (p) => {
   if (p.indexOf(CT + "?q=") === 0) return ok(over.found || FOUND);
   return null;
 };
-async function openPick(o = {}, contacts = contactsApi()) {
+async function openPick(o = {}, contacts = contactsApi(), pickAll = true) {
   const d = boot({ listing: list(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS; d.s.contacts = contacts;
   const bk = api({ audience: (b) => ok(b.audience === "pick" ? AUD_PICK : AUD_ALL), ...o }); d.s.bulk = bk; d.bk = bk;
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "bulk"); await settle(); await settle(); await settle();
   await d.click(d.$("ib-bk-send")); await settle(); await settle();
+  if (pickAll) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle(); }
   return d;
 }
 const cInput = (d, id) => d.$(id).parentNode.all((n) => n.classList && n.classList.contains("ib-combo-input"))[0];
@@ -635,8 +639,12 @@ const pickTo = async (d, text) => { cBox(d, "ib-bk-to").fire("click"); pickRow(d
 const optLabels = (d) => cRows(d, "ib-bk-to").map((n) => n.textContent.replace(/(Group|Contact( \u00B7 No texts)?)$/, ""));
 
 test("round 9 R9-4: one dropdown lists All my members first, then the groups, mixed with the contacts you search; All my members is selected by default and asks nothing more", async () => {
-  const d = await openPick();
+  const d = await openPick({}, undefined, false);
   assert.equal(pane(d).all((n) => n.tagName === "SELECT").length, 1, "ONE dropdown, not two");
+  assert.equal(d.$("ib-bk-to").value, "", "nothing is preselected");
+  assert.equal(sendTo(d).getAttribute("placeholder"), "Choose who gets it");
+  assert.deepEqual(d.bk.seen.audience, [], "no count before a choice");
+  await pickTo(d, "All my members");
   assert.equal(d.$("ib-bk-to").value, "all");
   assert.equal(sendTo(d).value, "All my members");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
@@ -727,16 +735,16 @@ test("round 9 R9-4: picking All my members clears the picks; removing every chip
   assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "all" });
   assert.equal(sendTo(d).value, "All my members");
   assert.equal(d.$("ib-bk-count").textContent, "Will send to 95 members");
-  /* removing the last chip goes back to All my members */
+  /* removing the last chip goes back to nothing chosen (no count, buttons off) */
   await pickTo(d, "VIP");
   const x = d.$("ib-bk-chips").all((q) => q.tagName === "BUTTON")[0];
   assert.equal(x.getAttribute("aria-label"), "Remove VIP");
   await d.click(x);
   assert.equal(chips(d).length, 0);
-  assert.equal(d.$("ib-bk-to").value, "all");
-  assert.equal(sendTo(d).value, "All my members");
-  assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "all" });
-  assert.equal(d.$("ib-bk-count").textContent, "Will send to 95 members");
+  assert.equal(d.$("ib-bk-to").value, "");
+  assert.equal(sendTo(d).getAttribute("placeholder"), "Choose who gets it");
+  assert.equal(d.$("ib-bk-count").textContent, "");
+  assert.equal(d.$("ib-bk-go").disabled, true);
 });
 
 test("bulk pick: closing the Send to box after typing without a pick shows the current choice again (Escape, or a click outside)", async () => {
@@ -988,11 +996,11 @@ test("first name: fillExample fills Maria then tidies; the same tidy turns a mis
   assert.equal(u.tidy("a   b ,c ;d :e"), "a b,c;d:e");
 });
 
-test("first name: the + First name button sits next to the counter and inserts at the caret, keeps focus, updates the counter and the buttons", async () => {
+test("first name: the + First name button sits on the Message label row and inserts at the caret, keeps focus, updates the counter and the buttons", async () => {
   const d = await openBulk();
   const ta = d.$("ib-bk-t"), btn = d.press(pane(d), "+ First name");
   assert.ok(btn && btn.classList.contains("no-btn"), "a house button");
-  assert.equal(btn.parentNode, d.$("ib-bk-c").parentNode, "in the counter's own group");
+  assert.ok(btn.parentNode.classList.contains("ib-fn-row"), "on the Message label row");
   await typeText(d, "Hi , sale");
   ta.selectionStart = 3; ta.selectionEnd = 3;
   await d.click(btn);
@@ -1028,7 +1036,7 @@ test("first name: the example line shows only while the text has the placeholder
   assert.ok(lines().every((n) => n.hidden), "hidden with no placeholder");
   await typeText(d, "Hi {first_name}, <b>sale</b>");
   assert.ok(lines().every((n) => !n.hidden));
-  assert.equal(lines()[0].textContent, "Example: Hi Maria, <b>sale</b>", "markup stays as plain text");
+  assert.equal(lines()[0].all((n) => n.classList.contains("ib-fn-outq"))[0].textContent, "Hi Maria, <b>sale</b>", "markup stays as plain text");
   await typeText(d, "Hi there");
   assert.ok(lines().every((n) => n.hidden && n.textContent === ""));
   const src = read("inbox-bulk.js"), kit = src.slice(src.indexOf("function firstNameKit"), src.indexOf("/* \"About 34 minutes left\""));
@@ -1063,10 +1071,48 @@ test("first name: a { or } outside {first_name} shows the brace message; the len
   assert.equal(u.problem("{name}" + "a".repeat(160), 160), long, "length message by raw typed length");
 });
 
-test("first name: the always-visible hint replaces the old limits line in Bulk", async () => {
+test("first name: the always-visible hint (no example sentence) replaces the old limits line in Bulk", async () => {
   const d = await openBulk();
-  const hint = "Press + First name to greet each person by name, like: Hi {first_name}!";
+  const hint = "Press + First name to greet each person by name";
   const foot = pane(d).all((n) => n.classList && n.classList.contains("ib-rfoot"))[0];
-  assert.ok(foot.all((n) => n.classList.contains("pm-hint") && n.textContent === hint).length === 1);
+  assert.ok(foot.all((n) => n.classList.contains("ib-bk-will") && n.textContent === hint).length === 1, "a label like the count");
   assert.ok(!pane(d).textContent.includes("One text for every number"));
+});
+
+test("fix 4: no count request before a pick; the count shows only after a choice, below Send to; the buttons stay off until then", async () => {
+  const d = await openBulk({}, {}, { pick: false });
+  await typeText(d, "Hello po");
+  assert.equal(d.bk.seen.audience.length, 0, "no audience count asked");
+  assert.equal(d.$("ib-bk-count").textContent, "");
+  assert.equal(d.$("ib-bk-count").parentNode.classList.contains("ib-bk-sendto"), true);
+  assert.equal(d.$("ib-bk-test").disabled, true); assert.equal(d.$("ib-bk-go").disabled, true);
+  assert.equal(cInput(d, "ib-bk-to").getAttribute("placeholder"), "Choose who gets it");
+  assert.deepEqual(cBox(d, "ib-bk-to") && (cBox(d, "ib-bk-to").fire("click"), cRows(d, "ib-bk-to").map((n) => n.textContent))[0], "All my members");
+  pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle();
+  assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }], "audience sent explicitly");
+  assert.equal(d.$("ib-bk-count").textContent, "Will send to 95 members");
+  assert.equal(d.$("ib-bk-test").disabled, false); assert.equal(d.$("ib-bk-go").disabled, false);
+  await d.click(d.$("ib-bk-go")); await d.click(d.$("ib-bk-dlg-go"));
+  assert.equal(d.bk.seen.batches[0].audience, "all", "the start body carries audience");
+});
+
+test("fix 4: a {first_name}-only text shows no error and asks no preview while composing; Output label and quote", async () => {
+  const d = await openBulk();
+  const before = d.bk.seen.preview.length;
+  await d.click(d.press(pane(d), "+ First name"));
+  await sleep(450); await settle();
+  assert.equal(d.$("ib-bk-e").hidden, true, "no error shown");
+  assert.equal(d.bk.seen.preview.length, before, "no preview asked");
+  await typeText(d, "Hi {first_name}\nSale");
+  const out = pane(d).all((n) => n.classList && n.classList.contains("ib-fn-help"))[0];
+  assert.equal(out.hidden, false);
+  assert.equal(out.all((n) => n.classList.contains("ib-fn-outl"))[0].textContent, "Output:");
+  assert.equal(out.all((n) => n.classList.contains("ib-fn-outq"))[0].textContent, "Hi Maria\nSale");
+  assert.ok(!/Example/.test(pane(d).textContent));
+});
+
+test("fix 4: + First name sits on the Message label row", async () => {
+  const d = await openBulk();
+  const row = d.$("ib-bk-t").parentNode.all((n) => n.classList && n.classList.contains("ib-fn-row"))[0];
+  assert.ok(row.all((n) => n.classList.contains("ib-fn")).length === 1 && row.all((n) => n.tagName === "LABEL").length === 1);
 });

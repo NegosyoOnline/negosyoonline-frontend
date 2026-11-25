@@ -10,18 +10,18 @@
   "use strict";
 
   var BU = root.NOInboxBulk && root.NOInboxBulk.util;
-  var MAX = 160, STEP = 15, MIN_AHEAD = 10 * 60000, DAYS = 30, FROM = 8 * 60, TO = 20 * 60;
+  var MAX = 160, STEP = 15, MIN_AHEAD = 10 * 60000, DAYS = 30, FROM = 8 * 60, TO = 22 * 60;
   var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   /* The server's states, in the owner's words: scheduled is Scheduled, waiting and sending are Sending, finished is Sent, ended and stopped are Not sent. */
   var STATES = { scheduled: "Scheduled", waiting: "Sending", sending: "Sending", finished: "Sent", cancelled: "Cancelled", ended: "Not sent", stopped: "Not sent" };
   var CHIP = { scheduled: "waiting", waiting: "sending", sending: "sending", finished: "finished", cancelled: "stopped", ended: "ended", stopped: "ended" };
   var REASONS = { batch_running: "Another batch was still sending at the start time.", empty_audience: "There was nobody to send to at the start time.",
-    outside_window: "The start time came after texts may go out (08:00 to 20:00 Manila time).", daily_cap: "The store's daily bulk text limit was reached at the start time.",
+    outside_window: "The start time came after texts may go out (08:00 to 22:00 Manila time).", daily_cap: "The store's daily bulk text limit was reached at the start time.",
     phone_offline: "Your phone was offline at the start time." };
   /* The plain words for a refusal when the server sends none, by code. */
   var FALLBACK = {
     too_soon: "Choose a time at least 10 minutes from now.",
-    outside_window: "Texts go out only from 08:00 to 20:00 Manila time.",
+    outside_window: "Texts go out only from 08:00 to 22:00 Manila time.",
     too_far: "Choose a time within the next 30 days.",
     invalid: "Choose a date and time.",
     schedule_limit: "You can have at most 20 scheduled texts. Cancel one first.",
@@ -82,7 +82,7 @@
     for (var i = 0; i <= DAYS; i++) { var k = dateKey(manila(now + i * 86400000)); if (timeOptions(now, k).length) out.push([k, (i === 0 ? "Today, " : i === 1 ? "Tomorrow, " : "") + dateLabel(k)]); }
     return out;
   }
-  /* The times the picker offers: every 15 minutes from 8:00 am to 7:45 pm (the window is 08:00 up to, not including, 20:00). [value, label].
+  /* The times the picker offers: every 15 minutes from 8:00 am to 9:45 pm (the window is 08:00 up to, not including, 22:00). [value, label].
      With now and a date: only the times that pass slotProblem for that day (Today: at least 10 minutes ahead). */
   function timeOptions(now, date) {
     var out = [];
@@ -379,7 +379,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-sc-h-rules");
       var rh = h("h2", "", "How scheduled sending works"); rh.setAttribute("id", "ib-sc-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 8:00 pm, Manila time.",
+      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
         "Choose a time at least 10 minutes from now and within 30 days.", "You can keep up to 20 texts scheduled. Edit or cancel one until it starts."].forEach(function (x) { ul.appendChild(h("li", "", x)); });
       rules.appendChild(ul); aside.appendChild(rules);
       /* the way back is a small text link above the form, not a button: the form has exactly two buttons */
@@ -453,7 +453,7 @@
       add(row, fd, ft); wrap.appendChild(row);
       ui.combo(sd, "Date", { blankEmpty: true }); ui.combo(stm, "Time", { blankEmpty: true });
       var de = h("p", "field-err", ""); de.setAttribute("id", "ib-sc-de"); de.setAttribute("role", "alert"); de.hidden = true; wrap.appendChild(de);
-      wrap.appendChild(h("p", "ib-bk-will ib-fn-hint", "Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
+      wrap.appendChild(h("p", "ib-bk-will ib-fn-hint", "Manila time, 8:00 am to 10:00 pm. At least 10 minutes from now and up to 30 days ahead."));
       function slotChanged(userDate) { st.date = sd.value; st.time = stm.value; st.slotErr = ""; st.err = ""; st.key = null; if (userDate === true) refreshSlot(true); fieldErr(); drawPreview(); }
       /* a new date: the time stays when that day offers it, else the first time of that day; a stale list is rebuilt when the owner comes back to it or each half minute */
       sd.addEventListener("change", function () { slotChanged(true); }); stm.addEventListener("change", function () { slotChanged(false); });

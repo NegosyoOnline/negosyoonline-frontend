@@ -140,7 +140,7 @@ const SMS_STATUS = { phone_online: true, daily_limit: 50, left_today: 37, hourly
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const B = "/sites/" + A + "/inquiries/sms/bulk/";
 const BULK_STATUS = { available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, used_today: 0, left_today: 2000, prefix: "Test Store: ", max_length: 147,
-  window: { start: "08:00", end: "20:00", timezone: "Asia/Manila" }, in_window: true, seconds_between: { min: 18, max: 25 },
+  window: { start: "08:00", end: "22:00", timezone: "Asia/Manila" }, in_window: true, seconds_between: { min: 18, max: 25 },
   cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply.", active_batch: null };
 const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, duplicates: 8 } };
 const batch = (over = {}) => ({ id: "sbk_aaaaaaaa", state: "sending", created_at: "2026-11-23T10:00:00+08:00", audience: "all", text: "Test Store: Sale this weekend.",
@@ -357,7 +357,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   const h2s = pane(d).all((n) => n.tagName === "H2").map((n) => n.textContent);
   assert.deepEqual(h2s, ["New batch: write the text and choose who gets it", "How bulk sending works"], "no Check and confirm card");
   const rules = pane(d).all((n) => n.classList && n.classList.contains("ib-bk-rules"))[0].textContent;
-  assert.ok(rules.includes("No web links.") && rules.includes("Members who replied STOP are skipped.") && rules.includes("8:00 am to 8:00 pm, Manila time"));
+  assert.ok(rules.includes("No web links.") && rules.includes("Members who replied STOP are skipped.") && rules.includes("8:00 am to 10:00 pm, Manila time"));
   assert.ok(rules.includes("Bulk texts left today: 2000 of 2000."));
   assert.equal(d.$("ib-bk-send"), null, "the History card is not shown with the form");
   assert.equal(d.$("ib-back"), null, "no Back link");
@@ -494,7 +494,7 @@ test("INBOX-FIX-7: a running batch: the progress card is at the top in the Site 
   assert.ok(!/Failed|Not sent|Waiting|Started|Who gets it|Left out|Sale this weekend/.test(card.textContent.replace("Waiting to start", "")), "compact: only the bar, Sent x of N, time left and the buttons: " + card.textContent);
   assert.deepEqual(card.all((n) => n.tagName === "BUTTON").map((n) => n.textContent), ["Refresh", "Stop sending"]);
   assert.equal(card.all((n) => n.getAttribute && n.getAttribute("role") === "progressbar")[0].getAttribute("aria-valuenow"), "11", "sent + failed + not sent");
-  assert.ok(d.$("ib-bk-pause").textContent.includes("outside sending hours (8:00 am to 8:00 pm, Manila time)"));
+  assert.ok(d.$("ib-bk-pause").textContent.includes("outside sending hours (8:00 am to 10:00 pm, Manila time)"));
   assert.ok(card.textContent.includes("About 34 minutes left"));
   assert.equal(d.$("ib-bk-send"), null, "Send Bulk SMS is hidden");
   assert.equal(d.$("ib-bk-refresh").textContent, "Refresh");

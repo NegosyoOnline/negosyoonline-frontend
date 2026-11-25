@@ -93,11 +93,11 @@ test("pure helpers: names, query rule, list path, body shapes", () => {
   assert.equal(u.listPath("s", {}), "/sites/s/contacts/");
   assert.equal(u.listPath("s", { group: "g1", q: "an a", cursor: "c=2" }), "/sites/s/contacts/?group=g1&q=an%20a&cursor=c%3D2");
   assert.deepEqual(J(u.contactBody({ first: " A ", last: "", mobile: " 0917 ", groups: ["g1"] })), { first_name: "A", last_name: "", mobile: "0917", groups: ["g1"] });
-  assert.equal(u.contactError({ mobile: "  " }), "Enter a mobile number.");
-  assert.equal(u.contactError({ mobile: "0917" }), "");
-  assert.equal(u.contactError({ requireFirst: true, first: " ", mobile: "0917" }), "Enter a first name");
-  assert.equal(u.contactError({ requireFirst: true, first: "A", mobile: "" }), "Enter a mobile number.");
-  assert.equal(u.contactError({ requireFirst: false, first: "", mobile: "0917" }), "", "a no-name contact may stay without a name");
+  assert.equal(u.contactError({ first: "A", mobile: "  " }), "Enter a mobile number.");
+  assert.equal(u.contactError({ first: "A", mobile: "0917" }), "");
+  assert.equal(u.contactError({ first: " ", mobile: "0917" }), "Enter a first name");
+  assert.equal(u.contactError({ first: "A", mobile: "" }), "Enter a mobile number.");
+  assert.equal(u.contactError({ first: "", mobile: "0917" }), "Enter a first name", "a first name is always required");
   assert.equal(u.groupNameError(""), "Enter a group name.");
   assert.equal(u.groupNameError("x".repeat(61)), "Use 60 characters or fewer.");
   assert.equal(u.fileError({ size: 1048577 }), "The file is over 1 MB.");
@@ -324,7 +324,7 @@ test("Upload CSV: the group dropdown is empty with a placeholder, nothing is sen
   assert.ok(!/\d/.test(file[0][2]), "header is skipped by the server: no digits in the third cell");
   assert.equal(file.length, 4, "header plus 3 rows");
   for (const r of file.slice(1)) { assert.equal(r.length, 3); assert.ok(/^09\d{9}$/.test(r[2])); }
-  assert.deepEqual(file[3].slice(0, 2), ["", ""], "one number-only row");
+  assert.ok(file.slice(1).every((r) => r[0].length > 0), "every sample row has a first name");
   assert.ok(fs.statSync(path.join(ROOT, a.getAttribute("href"))).size < 1048576);
 });
 
@@ -409,16 +409,16 @@ test("safety and look: no innerHTML or markup writes; light-blue focus; phone ru
   for (const l of rules) assert.ok(/^\s*(body\.dash-app )?:is\(#view-contacts, #ct-dialog-slot\)|^@media[^{]*\{ :is\(#view-contacts, #ct-dialog-slot\)/.test(l), "scoped: " + l.slice(0, 60));
 });
 
-test("edit: a contact with no name can be saved with none; a named one must keep its first name", async () => {
+test("edit: First name is always required, even for a contact that had no name", async () => {
   const d = boot();
   d.s.detail = { ...ROWS[1], mobile: "09180000000" };
   await d.open();
   await d.click(openBtn(d, "No name"));
   await d.click(d.press(d.$("ct-detail"), "Edit"));
-  assert.ok(!d.$("ct-detail").textContent.includes("First name *"));
+  assert.ok(d.$("ct-detail").textContent.includes("First name *"));
   await d.click(d.press(d.$("ct-detail"), "Save contact"));
-  assert.ok(!d.calls.some((c) => c.method === "PATCH"), "unchanged: nothing is sent");
-  await d.click(d.press(d.$("ct-detail"), "Edit"));
+  assert.ok(d.$("ct-detail").textContent.includes("Enter a first name"));
+  assert.ok(!d.calls.some((c) => c.method === "PATCH"), "no request is sent");
   d.$("ct-first").value = " Pedro ";
   await d.click(d.press(d.$("ct-detail"), "Save contact"));
   assert.deepEqual(d.calls.find((c) => c.method === "PATCH").body, { first_name: "Pedro" });
@@ -431,6 +431,18 @@ test("edit: a contact with no name can be saved with none; a named one must keep
   await e.click(e.press(e.$("ct-detail"), "Save contact"));
   assert.ok(e.$("ct-detail").textContent.includes("Enter a first name"));
   assert.ok(!e.calls.some((c) => c.method === "PATCH"));
+});
+
+test("edit: a 400 invalid_request with fields.first_name shows on the First name field", async () => {
+  const d = boot();
+  await d.open();
+  await d.click(openBtn(d, "Ana Reyes"));
+  await d.click(d.press(d.$("ct-detail"), "Edit"));
+  d.s.patch = err(400, "invalid_request", "Check it.", { first_name: ["Enter a first name of up to 80 characters."] });
+  d.$("ct-first").value = "Anna";
+  await d.click(d.press(d.$("ct-detail"), "Save contact"));
+  assert.ok(d.calls.some((c) => c.method === "PATCH"));
+  assert.ok(d.$("ct-detail").textContent.includes("Enter a first name of up to 80 characters."));
 });
 
 test("CSV file picker: the native input is hidden behind a dash secondary button label, with the light-blue focus", async () => {

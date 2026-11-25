@@ -51,7 +51,6 @@
     return td;
   }
   /* "Will send to 95 members". */
-  function willSend(n, aud) { return "Will send to " + (aud === "pick" ? plural(num(n), "recipient", "recipients") : plural(num(n), "member", "members")); }
   /* The groups left out of a count, [label, n] for each non-zero one. */
   function leftOut(lo) {
     var out = [];
@@ -66,10 +65,62 @@
     if (max === null || max === undefined) return "";
     return len + " / " + max;
   }
+  var BRACE_MSG = "Only {first_name} can go inside { }.";
+  function strayBrace(t) { var r = String(t).split("{first_name}").join(""); return r.indexOf("{") !== -1 || r.indexOf("}") !== -1; }
   /* What is wrong with a text before the server sees it, or ""; the same plain-SMS and no-link rules as inbox-sms.js. The server decides. */
   function problem(text, max) {
-    var S = root.NOInboxSms;
-    return S && S.util && S.util.problem ? S.util.problem(text, max === undefined ? null : max) : "";
+    var S = root.NOInboxSms, m = max === undefined ? null : max;
+    if (!S || !S.util || !S.util.problem) return "";
+    /* The length is the text as typed ({first_name} is 12 characters); the plain-character and link check sees the placeholder as a name. */
+    var t = String(text || "");
+    if (m !== null && t.length > m) return S.util.problem(t, m);
+    /* A { or } anywhere outside an exact {first_name} (lowercase) gets the same words the server sends, before the generic plain-character message. */
+    if (strayBrace(t)) return BRACE_MSG;
+    return S.util.problem(t.split("{first_name}").join("Maria"), null);
+  }
+  /* {first_name} (ClickUp z8uq9mjj05): the owner may put it in the text; the server fills in each person's first name at send. The counter counts
+     it as typed (12 characters). These helpers are pure so they can be tested; firstNameKit() below builds the button and the example line. */
+  var FIRST = "{first_name}";
+  function hasFirstName(text) { return typeof text === "string" && text.indexOf(FIRST) !== -1; }
+  /* Put `ins` in `text` over the selection start..end (the caret when they are equal). null when the result would be longer than max (null max: no limit). */
+  function insertAt(text, start, end, ins, max) {
+    var t = typeof text === "string" ? text : "", a = typeof start === "number" && isFinite(start) ? start : t.length, b = typeof end === "number" && isFinite(end) ? end : a;
+    a = Math.min(Math.max(0, a), t.length); b = Math.min(Math.max(a, b), t.length);
+    var out = t.slice(0, a) + ins + t.slice(b);
+    if (typeof max === "number" && out.length > max) return null;
+    return { text: out, caret: a + ins.length };
+  }
+  /* Squeeze runs of spaces to one, drop a space before , . ! ? ; : and trim. */
+  function tidy(text) { return String(text).replace(/ {2,}/g, " ").replace(/ +([,.!?;:])/g, "$1").trim(); }
+  /* The text with every {first_name} replaced by `name`, then tidied ("" is the no-name case). */
+  /* True when the text is only {first_name} (and spaces): the server refuses it, but nothing is asked while the owner is still composing. */
+  function onlyFirst(text) { var t = String(text || ""); return !!t.trim() && !t.split(FIRST).join("").trim(); }
+  function fillExample(text, name) { return tidy(String(text).split(FIRST).join(name)); }
+  /* The "+ First name" button and the two help lines of a message box. `o`: { ui, ta, max, onChange }. Returns { button, help, refresh }.
+     The button puts {first_name} at the caret (over a selection), keeps focus with the caret after it, and calls onChange (the same as typing);
+     it does nothing when the text would go over max. The help lines are shown only while the text has the placeholder and use textContent only. */
+  function firstNameKit(o) {
+    var ui = o.ui, ta = o.ta, max = o.max;
+    var b = ui.btn("+ First name", "ghost", function () {
+      var v = ta.value, a = typeof ta.selectionStart === "number" ? ta.selectionStart : v.length, e = typeof ta.selectionEnd === "number" ? ta.selectionEnd : a;
+      var r = insertAt(v, a, e, FIRST, max === undefined ? null : max);
+      if (!r) { if (ta.focus) ta.focus(); return; }
+      ta.value = r.text;
+      if (ta.focus) ta.focus();
+      if (ta.setSelectionRange) ta.setSelectionRange(r.caret, r.caret); else { ta.selectionStart = r.caret; ta.selectionEnd = r.caret; }
+      o.onChange();
+    });
+    b.classList.add("ib-fn"); b.setAttribute("title", "Put the person's first name in the text");
+    var l2 = ui.h("div", "pm-hint ib-fn-help", ""), lo = ui.h("span", "ib-fn-outl", ""), lq = ui.h("p", "ib-fn-outq", "");
+    l2.appendChild(lo); l2.appendChild(lq); l2.hidden = true;
+    var help = ui.h("div", "ib-fn-lines", ""); help.setAttribute("aria-live", "polite"); help.appendChild(l2);
+    function refresh() {
+      var on = hasFirstName(ta.value);
+      lo.textContent = on ? "Output:" : ""; lq.textContent = on ? fillExample(ta.value, "Maria") : "";
+      l2.hidden = !on;
+    }
+    refresh();
+    return { button: b, help: help, refresh: refresh };
   }
   /* "About 34 minutes left" from the server's seconds_left (an estimate); "" when it is not active. */
   function estimate(sec) {
@@ -163,13 +214,15 @@
      ui: { D, h, add, clear, btn, busy, icon, combo, newKey, site, say, gone() }. host: the tab's pane. */
   function screen(host, ui) {
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
-    var st = { view: "loading", status: null, audience: "all", pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
+    var st = { view: "loading", status: null, audience: "all", needPick: true, pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
       hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
 
     function stop() { st.dead = true; closeDialog(false); if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
+    /* Results and server errors show as the dash toast (an error style for errors), never as a line under the buttons. */
+    function toast(title, sub, kind) { if (D.toast) D.toast(title, sub || "", kind); }
 
     /* ----- reads ----- */
     function readStatus(then) {
@@ -210,14 +263,15 @@
       var run = ++st.arun;
       st.aud = null;
       /* nothing picked: no count, nothing to ask */
-      if (st.audience === "pick" && !picked()) { st.audLoading = false; drawCount(); return; }
+      if (st.needPick || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
       st.audLoading = true; drawCount();
       D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
-        if (document.getElementById("ib-bk-count")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
+        if (st.aud.failed) toast(refusal(res, "We could not count your members just now."), "", "error");
+        if (document.getElementById("ib-bk-chips")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
       });
     }
     /* Contacts are offered only while GET /sites/{id}/contacts/status/ answers; a 404 (STORE_CONTACTS_ENABLED off) or any error hides the option. */
@@ -269,7 +323,7 @@
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
-      sel.appendChild(D.el("option", { value: "" }, "Add a group or contact"));
+      sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
       if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
@@ -280,22 +334,36 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         var o = D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact \u00B7 No texts" : "Contact" }, c.label); sel.appendChild(o);
       });
-      sel.value = picked() ? "" : "all";
+      sel.value = ""; /* All my members shows as a chip under the input, so the input keeps its placeholder */
     }
     /* The picks changed: the audience follows them (none left: All my members), show the chips, ask for the count again and for a new confirm. */
-    function pickChanged() {
-      st.audience = picked() ? "pick" : "all"; st.q = ""; st.key = null; st.err = "";
+    function pickChanged(explicitAll) {
+      st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.q = ""; st.key = null; st.err = "";
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
+    }
+    /* The chips under the Send to input. While All my members is chosen: only its own chip (count, with a remove);
+       otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
+    function allChosen() { return !st.needPick && !picked(); }
+    function chip(label, onRemove, name) {
+      var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
+      if (onRemove) {
+        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + name);
+        x.addEventListener("click", onRemove); c.appendChild(x);
+      }
+      return c;
     }
     function drawChips() {
       var box = document.getElementById("ib-bk-chips"); if (!box) return;
       ui.clear(box);
+      if (allChosen()) {
+        var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
+        box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        return;
+      }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
-        var it = t[0], chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
-        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
-        x.addEventListener("click", function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); });
-        chip.appendChild(x); box.appendChild(chip);
+        var it = t[0];
+        box.appendChild(chip(it.label || it.name, function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); }, it.name || "this " + t[2]));
       });
     }
     /* The preview and its inline error: 400 ms after the last key. A 422 (a web link, a character, too long) shows on the field. */
@@ -304,7 +372,7 @@
       st.timer = setTimeout(function () {
         st.timer = null;
         var t = st.text.trim(), run = ++st.prun;
-        if (!t) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
+        if (!t || onlyFirst(t)) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
         D.call("POST", b0 + "preview/", { text: t }, true).then(function (res) {
           if (!aliveRes(res) || run !== st.prun) return;
           if (res.status === 404) { gone(); return; }
@@ -339,7 +407,7 @@
       c.appendChild(add(h("div", "ib-bk-dh"), t, side || null));
       return c;
     }
-    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "pm-hint ib-bk-cost", s.cost_note) : h("span", ""); }
+    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "ib-bk-will ib-fn-hint ib-bk-cost", s.cost_note) : h("span", ""); }
 
     /* ----- drawing ----- */
     function draw() {
@@ -416,7 +484,7 @@
       D.call("POST", b0 + "batches/" + encodeURIComponent(b.id) + "/stop/", null, true).then(function (res) {
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
-        if (!res.ok) { st.err = refusal(res, "We could not stop it. Please try again."); /* not_running: it ended on its own; read again */ if (res.status === 409) { st.aud = null; readStatus(); return; } draw(); return; }
+        if (!res.ok) { toast(refusal(res, "We could not stop it. Please try again."), "", "error"); /* not_running: it ended on its own; read again */ if (res.status === 409) { st.aud = null; readStatus(); return; } draw(); return; }
         ui.say("Sending stopped.");
         st.note = "Sending was stopped. Texts already with your phone may still go out."; st.aud = null;
         st.status.active_batch = null; readStatus(); loadHistory(null, true);
@@ -424,7 +492,7 @@
     }
 
     /* ----- the compose form (HQ's Bulk SMS layout: the form and the rules side by side, then Check and confirm) ----- */
-    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.pickG = []; st.pickC = []; st.found = []; st.searching = false; st.searchErr = false; st.q = ""; st.dlg = false; draw(); readAudience(); }
+    function openForm() { st.view = "form"; st.err = ""; st.note = ""; st.aud = null; st.audience = "all"; st.needPick = true; st.pickG = []; st.pickC = []; st.found = []; st.searching = false; st.searchErr = false; st.q = ""; st.dlg = false; draw(); readAudience(); }
     function closeForm() { st.view = "main"; st.err = ""; draw(); }
     function drawForm(body) {
       var s = st.status;
@@ -464,7 +532,7 @@
       wrap.appendChild(fs);
       sel.addEventListener("change", function () {
         var v = sel.value; if (!v) return;
-        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(); return; }
+        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(true); return; }
         var id = v.slice(2), g;
         if (v.indexOf("g:") === 0) { g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickG.push(g); }
         else { g = st.found.filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickC.push(g); }
@@ -484,26 +552,27 @@
       document.addEventListener("click", onOut);
       /* 2. the text */
       var f3 = h("div", "pm-field");
-      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); f3.appendChild(l3);
+      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-bk-t"); var lrow = h("div", "ib-fn-row"); lrow.appendChild(l3); f3.appendChild(lrow);
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-bk-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-bk-c ib-bk-e");
       if (max !== null) ta.setAttribute("maxlength", String(max + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
       var count = h("span", "ib-count" + (max !== null && st.text.length > max ? " is-over" : ""), roomLeft(st.text.length, max)); count.setAttribute("id", "ib-bk-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
-      ta.addEventListener("input", function () {
+      var kit = firstNameKit({ ui: ui, ta: ta, max: max, onChange: function () { changed(); } });
+      lrow.appendChild(kit.button);
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "ib-bk-will ib-fn-hint", "Press + First name to greet each person by name"), add(h("span", "ib-cntgrp"), count)));
+      wrap.appendChild(kit.help);
+      function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = roomLeft(ta.value.length, max); count.classList.toggle("is-over", max !== null && ta.value.length > max);
-        fieldErr(); drawPreview(); schedulePreview();
-      });
-      /* 3. one small count line and exactly two buttons */
-      var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite");
+        kit.refresh(); fieldErr(); drawPreview(); schedulePreview();
+      }
+      ta.addEventListener("input", changed);
+      /* 3. exactly two buttons; nothing is written below them (results and errors are toasts) */
       var t = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
       var go = ui.btn("Start Sending", "primary", function () { openDialog(); }); go.setAttribute("id", "ib-bk-go");
-      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), t, go)));
-      wrap.appendChild(tn);
+      wrap.appendChild(add(h("div", "ib-bk-actions"), add(h("div", "ib-bk-btns"), t, go)));
       return wrap;
     }
     function textProblem() {
@@ -516,18 +585,11 @@
     }
     function textOk() { return !!st.text.trim() && !textProblem(); }
 
-    function drawCount() {
-      var box = document.getElementById("ib-bk-count"); if (!box) return;
-      ui.clear(box);
-      if (st.audLoading || !st.aud) box.appendChild(document.createTextNode("Counting members…"));
-      else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
-      else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? willSend(n, st.audience) : "No members can be texted yet.")); }
-      drawPreview();
-    }
+    function drawCount() { drawChips(); drawPreview(); } /* the chips carry the counts; there is no "Will send to" line */
     function drawPreview() {
       fieldErr();
       var ok = textOk() && !!st.preview, tb = document.getElementById("ib-bk-test"), go = document.getElementById("ib-bk-go");
-      if (tb) tb.disabled = !ok || st.testing;
+      if (tb) tb.disabled = !ok || st.needPick || st.testing;
       if (go) go.disabled = !ok || !readyCount() || st.sending;
     }
     function readyCount() { return !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
@@ -565,17 +627,16 @@
       host.appendChild(over); st.dlg = true; if (back.focus) back.focus();
     }
     function sendTest(x) {
-      if (st.testing || !textOk()) return;
+      if (st.testing || !textOk() || st.needPick) return;
       st.testing = true; st.testNote = ""; ui.busy(x, true);
       D.call("POST", b0 + "test/", { text: st.text.trim(), idempotency_key: ui.newKey() }, true).then(function (res) {
         st.testing = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
-        var tn = document.getElementById("ib-bk-testnote"), tb = document.getElementById("ib-bk-test");
+        var tb = document.getElementById("ib-bk-test");
         if (tb) ui.busy(tb, false);
-        var msg = res.ok ? "A test text is on its way to your phone. It counts as one of today's texts." : refusal(res, "The test text could not be sent.");
-        st.testNote = msg; if (tn) tn.textContent = msg;
-        if (res.ok) ui.say("Test text is on its way.");
+        if (res.ok) { toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
+        toast(refusal(res, "The test text could not be sent."), "", "error");
       });
     }
     function confirmSend(x, n) {
@@ -589,13 +650,15 @@
           if (res.status !== 0) st.key = null; /* a lost answer keeps the key so nothing is sent twice */
           var code = res.data && res.data.code;
           /* The count moved since the owner looked (D.call keeps only the code and the message): say so, read it again, ask for a new tick. */
-          if (res.status === 409 && code === "audience_changed") { st.err = refusal(res, "Your member count changed. Check the new count and send again."); readAudience(); fieldErr(); return; }
-          if (res.status === 409) { st.err = refusal(res); st.view = "main"; readStatus(); return; }
-          st.err = refusal(res, "The batch could not be started."); draw(); fieldErr(); return;
+          if (res.status === 409 && code === "audience_changed") { toast(refusal(res, "Your member count changed. Check the new count and send again."), "", "error"); readAudience(); return; }
+          if (res.status === 409) { toast(refusal(res), "", "error"); st.view = "main"; readStatus(); return; }
+          var ff = res.data && res.data.fields;
+          if (ff && ff.text) { st.err = refusal(res, "This text cannot be sent."); draw(); fieldErr(); return; } /* a message error stays on the message field */
+          toast(refusal(res, "The batch could not be started."), "", "error"); draw(); return;
         }
         st.key = null; st.text = ""; st.preview = null; st.prevErr = ""; st.testNote = ""; st.note = ""; st.aud = null;
         st.status.active_batch = res.data; st.view = "main";
-        ui.say("Sending started.");
+        toast("Sending started.", "Your texts go out from your phone."); ui.say("Sending started.");
         draw(); schedulePoll(); loadHistory(null, true);
       });
     }
@@ -690,7 +753,8 @@
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
-    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
+    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem, strayBrace: strayBrace,
+      FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, onlyFirst: onlyFirst, firstNameKit: firstNameKit,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };
 })(typeof window !== "undefined" ? window : globalThis);

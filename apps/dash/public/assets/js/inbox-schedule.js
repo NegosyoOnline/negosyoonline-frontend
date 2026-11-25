@@ -131,6 +131,8 @@
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
     function el(id) { return document.getElementById(id); }
+    /* Results and server errors show as the dash toast (an error style for errors), never as a line under the buttons. */
+    function toast(title, sub, kind) { if (D.toast) D.toast(title, sub || "", kind); }
 
     /* ----- reads ----- */
     function readStatus() {
@@ -162,13 +164,14 @@
     function readAudience() {
       var run = ++st.arun;
       st.aud = null;
-      if (st.keepAud || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
+      if (st.keepAud || st.needPick || (st.audience === "pick" && !picked())) { st.audLoading = false; drawCount(); return; }
       st.audLoading = true; drawCount();
       D.call("POST", b0 + "audience/", audBody(), true).then(function (res) {
         if (!aliveRes(res) || run !== st.arun) return;
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
+        if (st.aud.failed) toast(say(res, "We could not count your members just now."), "", "error");
         drawCount();
       });
     }
@@ -189,7 +192,7 @@
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
-      sel.appendChild(D.el("option", { value: "" }, "Add a group or contact"));
+      sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
       if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
@@ -200,21 +203,34 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         sel.appendChild(D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact · No texts" : "Contact" }, c.label));
       });
-      sel.value = picked() || st.needPick ? "" : "all";
+      sel.value = ""; /* All my members shows as a chip under the input, so the input keeps its placeholder */
     }
-    function pickChanged() {
-      st.audience = picked() ? "pick" : "all"; st.needPick = false; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
+    function pickChanged(explicitAll) {
+      st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
       var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
+    }
+    /* The chips under the Send to input, the same as Bulk: while All my members is chosen its own chip (count, with a remove) only; otherwise the chosen groups and contacts, each with a remove. */
+    function allChosen() { return !st.keepAud && !st.needPick && !picked(); }
+    function chip(label, onRemove, name) {
+      var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
+      if (onRemove) {
+        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + name);
+        x.addEventListener("click", onRemove); c.appendChild(x);
+      }
+      return c;
     }
     function drawChips() {
       var box = el("ib-sc-chips"); if (!box) return;
       ui.clear(box);
+      if (allChosen()) {
+        var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
+        box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        return;
+      }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
-        var it = t[0], chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
-        var x = h("button", "ib-bk-pchip-x", "×"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
-        x.addEventListener("click", function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); });
-        chip.appendChild(x); box.appendChild(chip);
+        var it = t[0];
+        box.appendChild(chip(it.label || it.name, function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); }, it.name || "this " + t[2]));
       });
     }
     function schedulePreview() {
@@ -222,7 +238,7 @@
       st.timer = setTimeout(function () {
         st.timer = null;
         var t = st.text.trim(), run = ++st.prun;
-        if (!t) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
+        if (!t || BU.onlyFirst(t)) { st.preview = null; st.prevErr = ""; drawPreview(); return; }
         D.call("POST", b0 + "preview/", { text: t }, true).then(function (res) {
           if (!aliveRes(res) || run !== st.prun) return;
           if (res.status === 404) { gone(); return; }
@@ -320,13 +336,13 @@
 
     /* ----- the form ----- */
     function resetForm() {
-      st.audience = "all"; st.needPick = false; st.keepAud = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
+      st.audience = "all"; st.needPick = true; st.keepAud = false; st.pickG = []; st.pickC = []; st.found = []; st.q = ""; st.aud = null; st.text = ""; st.preview = null; st.prevErr = "";
       st.date = ""; st.time = ""; st.slotErr = ""; st.key = null; st.err = ""; st.note = ""; st.testNote = ""; st.edit = null;
     }
     function openForm(item, detail) {
       resetForm(); st.view = "form";
       if (item) {
-        var d = detail || item; st.edit = item;
+        var d = detail || item; st.edit = item; st.needPick = false; /* an edit already has its audience */
         st.text = typeof d.text === "string" ? d.text : "";
         var p = d.scheduled_at ? manila(Date.parse(d.scheduled_at)) : null;
         if (p && isFinite(p.y)) { st.date = dateKey(p); st.time = timeKey(p); st.origDate = st.date; st.origTime = st.time; }
@@ -359,7 +375,7 @@
       var card = h("section", "dash-card ib-bk-dc ib-bk-formcard"); card.setAttribute("aria-labelledby", "ib-sc-h-new");
       var t = h("h2", "", title); t.setAttribute("id", "ib-sc-h-new"); card.appendChild(add(h("div", "ib-bk-dh"), t));
       card.appendChild(form()); main.appendChild(card);
-      if (s && typeof s.cost_note === "string" && s.cost_note) main.appendChild(h("p", "pm-hint ib-bk-cost", s.cost_note));
+      if (s && typeof s.cost_note === "string" && s.cost_note) main.appendChild(h("p", "ib-bk-will ib-fn-hint ib-bk-cost", s.cost_note));
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-sc-h-rules");
       var rh = h("h2", "", "How scheduled sending works"); rh.setAttribute("id", "ib-sc-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
@@ -393,7 +409,7 @@
       wrap.appendChild(fs);
       sel.addEventListener("change", function () {
         var v = sel.value; if (!v) return;
-        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(); return; }
+        if (v === "all") { st.pickG = []; st.pickC = []; pickChanged(true); return; }
         var id = v.slice(2), g;
         if (v.indexOf("g:") === 0) { g = ((st.groups && st.groups.list) || []).filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickG.push(g); }
         else { g = st.found.filter(function (x) { return String(x.id) === id; })[0]; if (g) st.pickC.push(g); }
@@ -412,17 +428,21 @@
       document.addEventListener("click", onOut);
       /* 2. the text */
       var f3 = h("div", "pm-field");
-      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-sc-t"); f3.appendChild(l3);
+      var l3 = h("label", "pm-label", "Message"); l3.setAttribute("for", "ib-sc-t"); var lrow = h("div", "ib-fn-row"); lrow.appendChild(l3); f3.appendChild(lrow);
       var ta = h("textarea", "pm-input ib-ta"); ta.setAttribute("id", "ib-sc-t"); ta.setAttribute("rows", "4"); ta.setAttribute("aria-describedby", "ib-sc-c ib-sc-e"); ta.setAttribute("maxlength", String(MAX + 40));
       ta.value = st.text; f3.appendChild(ta); wrap.appendChild(f3);
       var count = h("span", "ib-count" + (st.text.length > MAX ? " is-over" : ""), st.text.length + " / " + MAX); count.setAttribute("id", "ib-sc-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-sc-e"); err.setAttribute("role", "alert"); err.hidden = true; wrap.appendChild(err);
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), count));
-      ta.addEventListener("input", function () {
+      var kit = BU.firstNameKit({ ui: ui, ta: ta, max: MAX, onChange: function () { changed(); } });
+      lrow.appendChild(kit.button);
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "ib-bk-will ib-fn-hint", "Press + First name to greet each person by name"), add(h("span", "ib-cntgrp"), count)));
+      wrap.appendChild(kit.help);
+      function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";
         count.textContent = ta.value.length + " / " + MAX; count.classList.toggle("is-over", ta.value.length > MAX);
-        fieldErr(); drawPreview(); schedulePreview();
-      });
+        kit.refresh(); fieldErr(); drawPreview(); schedulePreview();
+      }
+      ta.addEventListener("input", changed);
       /* 3. when: a date and a time, both house dropdowns, Manila time */
       var row = h("div", "ib-sc-when");
       var fd = h("div", "pm-field"), ld = h("label", "pm-label", "Date"); ld.setAttribute("for", "ib-sc-date"); fd.appendChild(ld);
@@ -433,21 +453,18 @@
       add(row, fd, ft); wrap.appendChild(row);
       ui.combo(sd, "Date", { blankEmpty: true }); ui.combo(stm, "Time", { blankEmpty: true });
       var de = h("p", "field-err", ""); de.setAttribute("id", "ib-sc-de"); de.setAttribute("role", "alert"); de.hidden = true; wrap.appendChild(de);
-      wrap.appendChild(h("p", "pm-hint", "Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
+      wrap.appendChild(h("p", "ib-bk-will ib-fn-hint", "Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
       function slotChanged(userDate) { st.date = sd.value; st.time = stm.value; st.slotErr = ""; st.err = ""; st.key = null; if (userDate === true) refreshSlot(true); fieldErr(); drawPreview(); }
       /* a new date: the time stays when that day offers it, else the first time of that day; a stale list is rebuilt when the owner comes back to it or each half minute */
       sd.addEventListener("change", function () { slotChanged(true); }); stm.addEventListener("change", function () { slotChanged(false); });
       ["focusin", "mousedown", "touchstart"].forEach(function (ev) { if (row.addEventListener) row.addEventListener(ev, function () { refreshSlot(false); }); });
       tickSlot();
-      /* 4. one small count line and the buttons */
-      var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-sc-count"); cnt.setAttribute("aria-live", "polite");
+      /* 4. the buttons; nothing is written below them (results and errors are toasts) */
+      var cnt = h("p", "ib-bk-will ib-fn-hint"); cnt.setAttribute("id", "ib-sc-count"); cnt.setAttribute("aria-live", "polite");
       var tb = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); tb.setAttribute("id", "ib-sc-test");
       var go = ui.btn(st.edit ? "Save changes" : "Schedule", "primary", function (x) { save(x); }); go.setAttribute("id", "ib-sc-go");
-      var fe = h("p", "field-err", ""); fe.setAttribute("id", "ib-sc-fe"); fe.setAttribute("role", "alert"); fe.hidden = true;
-      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-sc-testnote"); tn.setAttribute("role", "status");
-      wrap.appendChild(add(h("div", "ib-bk-actions"), cnt, add(h("div", "ib-bk-btns"), tb, go)));
-      var why = h("p", "pm-hint ib-sc-why", ""); why.setAttribute("id", "ib-sc-why"); why.setAttribute("role", "status"); why.setAttribute("aria-live", "polite"); why.hidden = true; wrap.appendChild(why);
-      wrap.appendChild(fe); wrap.appendChild(tn);
+      fs.appendChild(cnt);
+      wrap.appendChild(add(h("div", "ib-bk-actions"), add(h("div", "ib-bk-btns"), tb, go)));
       return wrap;
     }
     function textProblem() { return BU.problem(st.text, MAX) || st.prevErr; }
@@ -456,7 +473,6 @@
     function fieldErr() {
       var e = el("ib-sc-e"); if (e) { var p = textProblem() || (st.errField === "text" ? st.err : ""); e.textContent = p; e.hidden = !p; }
       var de = el("ib-sc-de"); if (de) { var sp = st.slotErr || (st.date && st.time && !same() ? (slotProblem(st.date, st.time, Date.now()) || {}).text || "" : ""); de.textContent = sp; de.hidden = !sp; }
-      var fe = el("ib-sc-fe"); if (fe) { var q = st.errField ? "" : st.err; fe.textContent = q; fe.hidden = !q; }
     }
     function readyCount() { return st.keepAud ? true : st.needPick ? false : !!st.aud && !st.aud.failed && !st.audLoading && num(st.aud.will_send) > 0; }
     /* an edit that keeps its saved time is not checked again, here or by the server (it checks the time only when sent) */
@@ -483,51 +499,28 @@
       st.stimer = setTimeout(function () { st.stimer = null; if (st.dead || st.view !== "form" || !el("ib-sc-date")) return; refreshSlot(false); tickSlot(); }, 30000);
       if (st.stimer && typeof st.stimer.unref === "function") st.stimer.unref();
     }
-    /* Why Schedule is off, in a few plain words next to the button (empty when it is on). */
-    function whyOff() {
-      if (st.saving) return "";
-      if (!st.text.trim()) return "Add a message.";
-      var tp = textProblem(); if (tp) return tp;
-      if (!st.preview) return "Checking the message\u2026";
-      if (!st.keepAud) {
-        if (st.needPick) return "Choose who gets this text.";
-        if (st.audLoading || !st.aud) return "Counting members\u2026";
-        if (st.aud.failed) return "We could not count your members just now.";
-        if (!(num(st.aud.will_send) > 0)) return "No members can be texted yet.";
-      }
-      if (!st.date || !st.time) return "Choose a date and a time.";
-      if (!same()) { var sp = slotProblem(st.date, st.time, Date.now()); if (sp) return sp.text; }
-      return "";
-    }
+    /* The chips carry the counts; there is no "Will send to" line. Only a kept audience (an edit) says so, in the label format. */
     function drawCount() {
-      var box = el("ib-sc-count"); if (!box) return;
-      ui.clear(box);
-      if (st.keepAud) box.appendChild(document.createTextNode("Staying with the groups and contacts you chose before."));
-      else if (st.needPick) box.appendChild(document.createTextNode("Choose who gets this text."));
-      else if (st.audLoading || !st.aud) box.appendChild(document.createTextNode(st.audience === "pick" && !picked() ? "" : "Counting members…"));
-      else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
-      else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? BU.willSend(n, st.audience) : "No members can be texted yet.")); }
-      drawPreview();
+      var box = el("ib-sc-count"); if (box) { ui.clear(box); if (st.keepAud) box.appendChild(document.createTextNode("Staying with the groups and contacts you chose before.")); }
+      drawChips(); drawPreview();
     }
     function drawPreview() {
       fieldErr();
       var ok = textOk() && !!st.preview, tb = el("ib-sc-test"), go = el("ib-sc-go");
-      if (tb) tb.disabled = !ok || st.testing;
+      if (tb) tb.disabled = !ok || st.keepAud || st.needPick || st.testing; /* a test needs an audience picked on this form */
       if (go) go.disabled = !ok || !readyCount() || !slotOk() || st.saving;
-      var why = el("ib-sc-why"); if (why) { var w = go && go.disabled ? whyOff() : ""; why.textContent = w; why.hidden = !w; }
     }
     function sendTest(x) {
-      if (st.testing || !textOk()) return;
+      if (st.testing || !textOk() || st.keepAud || st.needPick) return;
       st.testing = true; st.testNote = ""; ui.busy(x, true);
       D.call("POST", b0 + "test/", { text: st.text.trim(), idempotency_key: ui.newKey() }, true).then(function (res) {
         st.testing = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
-        var tn = el("ib-sc-testnote"), tb = el("ib-sc-test");
+        var tb = el("ib-sc-test");
         if (tb) ui.busy(tb, false);
-        var msg = res.ok ? "A test text is on its way to your phone. It counts as one of today's texts." : BU.refusal(res, "The test text could not be sent.");
-        st.testNote = msg; if (tn) tn.textContent = msg;
-        if (res.ok) ui.say("Test text is on its way.");
+        if (res.ok) { toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
+        toast(say(res, "The test text could not be sent."), "", "error");
       });
     }
     function save(x) {
@@ -545,7 +538,8 @@
         if (!aliveRes(res)) return;
         if (res.status === 404) { if (editing) { st.view = "list"; st.note = "That scheduled text is no longer there."; loadList(null, true); draw(); return; } gone(); return; }
         if (!res.ok) { failed(res, x); return; }
-        st.view = "list"; st.key = null; st.note = editing ? "Your changes were saved." : "Scheduled for " + when(body.scheduled_at) + " (Manila time).";
+        st.view = "list"; st.key = null; st.note = "";
+        toast(editing ? "Your changes were saved." : "Scheduled for " + when(body.scheduled_at) + " (Manila time).");
         ui.say(editing ? "Changes saved." : "Text scheduled.");
         loadList(null, true); draw();
       });
@@ -554,11 +548,11 @@
     function failed(res, x) {
       var code = res.data && res.data.code, f = res.data && res.data.fields;
       if (res.status !== 0 && code !== "idempotency_conflict") st.key = null; /* a lost answer keeps the key so nothing is scheduled twice */
-      if (res.status === 409 && code === "already_started") { st.view = "list"; st.note = say(res, FALLBACK.already_started); loadList(null, true); draw(); return; }
+      if (res.status === 409 && code === "already_started") { st.view = "list"; st.note = ""; toast(say(res, FALLBACK.already_started), "", "error"); loadList(null, true); draw(); return; }
       ui.busy(x, false);
-      if (SLOT_CODES[code] || (f && (f.scheduled_at || f.date || f.time))) { st.slotErr = say(res, "Choose another time."); fieldErr(); return; }
+      if (SLOT_CODES[code] || (f && (f.scheduled_at || f.date || f.time))) { toast(say(res, "Choose another time."), "", "error"); return; }
       if (f && f.text) { st.err = say(res, "This text cannot be sent."); st.errField = "text"; fieldErr(); return; }
-      st.err = say(res, "We could not schedule it. Please try again."); st.errField = ""; fieldErr();
+      toast(say(res, "We could not schedule it. Please try again."), "", "error"); /* invalid_audience and the rest */
     }
 
     readContacts(); readStatus(); loadList(null, true);

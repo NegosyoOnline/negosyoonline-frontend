@@ -58,8 +58,8 @@
     var b = { first_name: String(v.first || "").trim(), last_name: String(v.last || "").trim(), mobile: String(v.mobile || "").trim(), groups: (v.groups || []).slice() };
     return b;
   }
-  /* The API wants a first name on create, and on edit when the contact already has one (v.requireFirst). A contact with no name can be
-     saved with none (number-only contacts come in through the CSV upload only). */
+  /* The API wants a first name on create and on every edit (Coach Ed, 2026-11-25). Contacts imported earlier without a name may still exist,
+     and they need a name when next edited. */
   /* The edit body: only what changed. A blank first name that was blank before is never sent (the API refuses a blank one). */
   function changedBody(c, v) {
     var full = contactBody(v), was = { first_name: String(c.first_name || "").trim(), last_name: String(c.last_name || "").trim(), mobile: String(c.mobile || "").trim() }, out = {};
@@ -68,7 +68,7 @@
     if (a !== b) out.groups = full.groups;
     return out;
   }
-  function firstError(v) { return v.requireFirst && !String(v.first || "").trim() ? "Enter a first name" : ""; }
+  function firstError(v) { return !String(v.first || "").trim() ? "Enter a first name" : ""; }
   function mobileError(v) { return String(v.mobile || "").trim() ? "" : "Enter a mobile number."; }
   function contactError(v) { return firstError(v) || mobileError(v); }
   function groupNameError(v) { var n = String(v || "").trim(); return n ? (n.length > 60 ? "Use 60 characters or fewer." : "") : "Enter a group name."; }
@@ -309,7 +309,7 @@
         save.addEventListener("click", function () {
           showErr(err, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
           var gid = gd.sel.value, g = groups.filter(function (x) { return String(x.id) === gid; })[0];
-          var v = { requireFirst: true, first: first.value, last: last.value, mobile: mobile.value, groups: gid ? [g ? g.id : gid] : [] };
+          var v = { first: first.value, last: last.value, mobile: mobile.value, groups: gid ? [g ? g.id : gid] : [] };
           var fe = firstError(v), me = mobileError(v);
           if (fe) bad(fFirst, fe, first);
           if (me) bad(fMobile, me, mobile);
@@ -583,9 +583,8 @@
     });
   }
   function editForm(box, back, c) {
-    var requireFirst = !!String(c.first_name || "").trim();
     var first = textInput("ct-first", c.first_name), last = textInput("ct-last", c.last_name), mobile = textInput("ct-mobile", c.mobile, { inputmode: "tel" });
-    var fFirst = field("First name", first, null, requireFirst), fLast = field("Last name", last), fMobile = field("Contact number", mobile, "A Philippine mobile number. One contact per number.");
+    var fFirst = field("First name", first, null, true), fLast = field("Last name", last), fMobile = field("Contact number", mobile, "A Philippine mobile number. One contact per number.");
     var fs = h("fieldset", "ct-checks"), lg = h("legend", "ct-label", "Groups"), have = groupIds(c).map(String), boxes = [];
     add(fs, lg);
     if (!S.groups.length) add(fs, h("p", "ct-meta", "No groups yet. Add one with New group."));
@@ -599,7 +598,7 @@
     var save = btn("Save contact", "primary", null), cancel = btn("Cancel", "ghost", function () { S.editing = false; S.full = null; drawDetail(); });
     save.addEventListener("click", function () {
       showErr(err, ""); showErr(gerr, ""); [[first, fFirst], [last, fLast], [mobile, fMobile]].forEach(function (p) { bad(p[1], "", p[0]); });
-      var v = { requireFirst: requireFirst, first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
+      var v = { first: first.value, last: last.value, mobile: mobile.value, groups: boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; }) };
       var fe = firstError(v), me = mobileError(v);
       if (fe) bad(fFirst, fe, first);
       if (me) bad(fMobile, me, mobile);
@@ -712,7 +711,7 @@
   function uploadPanel(panel) {
     var U = S.upload = { text: "", group: "", checked: null, run: 0 };
     var form = h("form", "ct-card"); form.setAttribute("novalidate", "novalidate"); form.setAttribute("aria-label", "Upload contacts");
-    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
+    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; the first name is required. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
     /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
     var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
     var fFile = field("CSV file", file); /* field() puts the input in its box; it moves into the picker below, directly before its label */

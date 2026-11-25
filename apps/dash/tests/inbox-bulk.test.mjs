@@ -1021,15 +1021,14 @@ test("first name: with text selected the button replaces it; over 160 it does no
   assert.equal(d.doc.activeElement, ta, "focus is kept");
 });
 
-test("first name: the two help lines show only while the text has the placeholder, and are built with textContent", async () => {
+test("first name: the example line shows only while the text has the placeholder, and are built with textContent", async () => {
   const d = await openBulk();
   const lines = () => pane(d).all((n) => n.classList && n.classList.contains("ib-fn-help"));
-  assert.equal(lines().length, 2);
+  assert.equal(lines().length, 1);
   assert.ok(lines().every((n) => n.hidden), "hidden with no placeholder");
   await typeText(d, "Hi {first_name}, <b>sale</b>");
   assert.ok(lines().every((n) => !n.hidden));
-  assert.equal(lines()[0].textContent, "{first_name} becomes each person's first name. With no name, it is left out.");
-  assert.equal(lines()[1].textContent, "Example: Hi Maria, <b>sale</b>", "markup stays as plain text");
+  assert.equal(lines()[0].textContent, "Example: Hi Maria, <b>sale</b>", "markup stays as plain text");
   await typeText(d, "Hi there");
   assert.ok(lines().every((n) => n.hidden && n.textContent === ""));
   const src = read("inbox-bulk.js"), kit = src.slice(src.indexOf("function firstNameKit"), src.indexOf("/* \"About 34 minutes left\""));
@@ -1062,4 +1061,12 @@ test("first name: a { or } outside {first_name} shows the brace message; the len
   const long = u.problem("a".repeat(161), 160);
   assert.ok(long && long !== msg);
   assert.equal(u.problem("{name}" + "a".repeat(160), 160), long, "length message by raw typed length");
+});
+
+test("first name: the always-visible hint replaces the old limits line in Bulk", async () => {
+  const d = await openBulk();
+  const hint = "Press + First name to greet each person by name, like: Hi {first_name}!";
+  const foot = pane(d).all((n) => n.classList && n.classList.contains("ib-rfoot"))[0];
+  assert.ok(foot.all((n) => n.classList.contains("pm-hint") && n.textContent === hint).length === 1);
+  assert.ok(!pane(d).textContent.includes("One text for every number"));
 });

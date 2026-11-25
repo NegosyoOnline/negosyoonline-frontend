@@ -717,7 +717,7 @@ test("schedule first name: the + First name button inserts at the caret, counts 
   assert.equal(ta.selectionStart, 15);
   assert.equal(d.doc.activeElement, ta);
   assert.equal(d.$("ib-sc-c").textContent, "21 / 160");
-  assert.equal(lines()[1].textContent, "Example: Hi Maria, sale");
+  assert.equal(lines()[0].textContent, "Example: Hi Maria, sale");
   assert.ok(lines().every((n) => !n.hidden));
   await typeText(d, "a".repeat(150));
   await d.click(btn);

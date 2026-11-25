@@ -58,8 +58,8 @@
     var b = { first_name: String(v.first || "").trim(), last_name: String(v.last || "").trim(), mobile: String(v.mobile || "").trim(), groups: (v.groups || []).slice() };
     return b;
   }
-  /* The API wants a first name on create and on every edit (Coach Ed, 2026-11-25). Number-only contacts still come in only through the CSV
-     upload, and need a first name the next time they are edited. */
+  /* The API wants a first name on create and on every edit (Coach Ed, 2026-11-25). Contacts imported earlier without a name may still exist,
+     and they need a name when next edited. */
   /* The edit body: only what changed. A blank first name that was blank before is never sent (the API refuses a blank one). */
   function changedBody(c, v) {
     var full = contactBody(v), was = { first_name: String(c.first_name || "").trim(), last_name: String(c.last_name || "").trim(), mobile: String(c.mobile || "").trim() }, out = {};
@@ -711,7 +711,7 @@
   function uploadPanel(panel) {
     var U = S.upload = { text: "", group: "", checked: null, run: 0 };
     var form = h("form", "ct-card"); form.setAttribute("novalidate", "novalidate"); form.setAttribute("aria-label", "Upload contacts");
-    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; a line with only a mobile number is fine. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
+    add(form, h("h2", "ct-h2", "Upload a CSV file"), h("p", "ct-lead", "Choose a file or paste your list. Each line is first name, last name, mobile number; the first name is required. A header row is fine. Up to 1 MB. Nothing is saved until you check it and confirm."));
     /* The native picker is hidden; its label is a dash secondary button, and the chosen name sits beside it. */
     var file = D.el("input", { id: "ct-file", "class": "ct-sr ct-file", type: "file", accept: ".csv,text/csv,text/plain" });
     var fFile = field("CSV file", file); /* field() puts the input in its box; it moves into the picker below, directly before its label */

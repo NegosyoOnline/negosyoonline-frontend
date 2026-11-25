@@ -418,7 +418,7 @@
       var count = h("span", "ib-count" + (st.text.length > MAX ? " is-over" : ""), st.text.length + " / " + MAX); count.setAttribute("id", "ib-sc-c");
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-sc-e"); err.setAttribute("role", "alert"); err.hidden = true; wrap.appendChild(err);
       var kit = BU.firstNameKit({ ui: ui, ta: ta, max: MAX, onChange: function () { changed(); } });
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), add(h("span", "ib-cntgrp"), kit.button, count)));
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "Press + First name to greet each person by name, like: Hi {first_name}!"), add(h("span", "ib-cntgrp"), kit.button, count)));
       wrap.appendChild(kit.help);
       function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";

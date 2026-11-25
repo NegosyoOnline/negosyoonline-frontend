@@ -80,7 +80,7 @@
     return S.util.problem(t.split("{first_name}").join("Maria"), null);
   }
   /* {first_name} (ClickUp z8uq9mjj05): the owner may put it in the text; the server fills in each person's first name at send. The counter counts
-     it as typed (12 characters). These helpers are pure so they can be tested; firstNameKit() below builds the button and the two help lines. */
+     it as typed (12 characters). These helpers are pure so they can be tested; firstNameKit() below builds the button and the example line. */
   var FIRST = "{first_name}";
   function hasFirstName(text) { return typeof text === "string" && text.indexOf(FIRST) !== -1; }
   /* Put `ins` in `text` over the selection start..end (the caret when they are equal). null when the result would be longer than max (null max: no limit). */
@@ -110,14 +110,13 @@
       o.onChange();
     });
     b.classList.add("ib-fn"); b.setAttribute("title", "Put the person's first name in the text");
-    var l1 = ui.h("p", "pm-hint ib-fn-help", ""), l2 = ui.h("p", "pm-hint ib-fn-help", "");
-    l1.hidden = true; l2.hidden = true;
-    var help = ui.h("div", "ib-fn-lines", ""); help.setAttribute("aria-live", "polite"); help.appendChild(l1); help.appendChild(l2);
+    var l2 = ui.h("p", "pm-hint ib-fn-help", "");
+    l2.hidden = true;
+    var help = ui.h("div", "ib-fn-lines", ""); help.setAttribute("aria-live", "polite"); help.appendChild(l2);
     function refresh() {
       var on = hasFirstName(ta.value);
-      l1.textContent = on ? FIRST + " becomes each person's first name. With no name, it is left out." : "";
       l2.textContent = on ? "Example: " + fillExample(ta.value, "Maria") : "";
-      l1.hidden = !on; l2.hidden = !on;
+      l2.hidden = !on;
     }
     refresh();
     return { button: b, help: help, refresh: refresh };
@@ -543,7 +542,7 @@
       var err = h("p", "field-err", ""); err.setAttribute("id", "ib-bk-e"); err.setAttribute("role", "alert"); err.hidden = true;
       wrap.appendChild(err);
       var kit = firstNameKit({ ui: ui, ta: ta, max: max, onChange: function () { changed(); } });
-      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "One text for every number. One SMS of plain characters. No web links."), add(h("span", "ib-cntgrp"), kit.button, count)));
+      wrap.appendChild(add(h("div", "ib-rfoot"), h("span", "pm-hint", "Press + First name to greet each person by name, like: Hi {first_name}!"), add(h("span", "ib-cntgrp"), kit.button, count)));
       wrap.appendChild(kit.help);
       function changed() {
         st.text = ta.value; st.err = ""; st.testNote = ""; st.key = null; st.preview = null; st.prevErr = "";

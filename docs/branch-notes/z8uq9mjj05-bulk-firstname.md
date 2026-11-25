@@ -10,3 +10,4 @@ Branch `feat/z8uq9mjj05-bulk-firstname`, from main 87b44e5. No PR (Supervisor ro
 - Two existing "exactly two buttons" tests now ignore the small `.ib-fn` button.
 - Fix 1: a { or } outside an exact {first_name} now shows "Only {first_name} can go inside { }." (before the plain-character message; 160 length still by typed length) in Bulk and Schedule; cache-buster 20261125f2.
 - Fix 2 (Coach Ed 2026-11-25): First name is required when saving a contact, add and every edit (also for a contact that had no name); contacts.js cache-buster 20261125f3.
+- Fix 3 (Coach Ed 2026-11-25): CSV upload lead says first name is required and sample row is "Ana,,09191234567"; Bulk and Schedule SMS show "Press + First name to greet each person by name, like: Hi {first_name}!" in place of the limits line, the first help line is removed, the Example line stays; contacts.js, inbox-bulk.js, inbox-schedule.js cache-buster 20261125f4.

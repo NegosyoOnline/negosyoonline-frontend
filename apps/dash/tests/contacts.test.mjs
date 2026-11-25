@@ -324,7 +324,7 @@ test("Upload CSV: the group dropdown is empty with a placeholder, nothing is sen
   assert.ok(!/\d/.test(file[0][2]), "header is skipped by the server: no digits in the third cell");
   assert.equal(file.length, 4, "header plus 3 rows");
   for (const r of file.slice(1)) { assert.equal(r.length, 3); assert.ok(/^09\d{9}$/.test(r[2])); }
-  assert.deepEqual(file[3].slice(0, 2), ["", ""], "one number-only row");
+  assert.ok(file.slice(1).every((r) => r[0].length > 0), "every sample row has a first name");
   assert.ok(fs.statSync(path.join(ROOT, a.getAttribute("href"))).size < 1048576);
 });
 

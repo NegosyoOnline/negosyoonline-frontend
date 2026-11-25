@@ -290,6 +290,7 @@
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
         var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+        drawChips();
       });
     }
     /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. Until that answer is in, the list says
@@ -342,8 +343,8 @@
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
-    /* The chips under the Send to input. While All my members is chosen: only its own chip (count, with a remove);
-       otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
+    /* The chips under the Send to input. While All my members is chosen: its chip (count, with a remove) then every group as a display-only chip
+       (no remove, labelled "Name (count)" from the group's own count; the name alone when the list has none); otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
     function allChosen() { return !st.needPick && !picked(); }
     function chip(label, onRemove, name) {
       var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
@@ -359,6 +360,7 @@
       if (allChosen()) {
         var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
         box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        ((st.groups && st.groups.list) || []).forEach(function (g) { box.appendChild(chip(g.label || g.name, null)); });
         return;
       }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {

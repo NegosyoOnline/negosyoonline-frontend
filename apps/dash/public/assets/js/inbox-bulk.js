@@ -342,8 +342,8 @@
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
-    /* The chips under the Send to input. While All my members is chosen: its chip (count, with a remove) then every group as a display-only chip
-       ; otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
+    /* The chips under the Send to input. While All my members is chosen: only its own chip (count, with a remove);
+       otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
     function allChosen() { return !st.needPick && !picked(); }
     function chip(label, onRemove, name) {
       var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));

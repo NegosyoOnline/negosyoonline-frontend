@@ -456,8 +456,10 @@
     box.addEventListener("click", function () { show(); input.focus(); });
     select.addEventListener("focus", function () { input.focus(); });
     select.addEventListener("change", function () { input.value = chosen(); });
-    select.ibSync = function () { input.value = chosen(); };
-    select.ibRedraw = function () { if (isOpen()) { draw(lastQ); place(); } else input.value = chosen(); };
+    /* the placeholder follows the select's blank option (it changes with the state: "Choose who gets it", then "Add a group or contact") */
+    function ph() { if (o.blankEmpty && select.firstChild && select.firstChild.value === "") input.setAttribute("placeholder", select.firstChild.textContent); }
+    select.ibSync = function () { ph(); input.value = chosen(); };
+    select.ibRedraw = function () { ph(); if (isOpen()) { draw(lastQ); place(); } else input.value = chosen(); };
     select.ibFocus = function () { input.focus(); };
     /* The text is never highlighted: focus puts the caret at the end. The first printable key typed while the box still shows the chosen label
        starts a fresh query (the label is cleared before the key lands), so it never appends to "Website chat". */

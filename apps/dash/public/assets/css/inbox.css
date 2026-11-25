@@ -544,8 +544,9 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-pick[hidden] { display: none; }
 #view-inbox .ib-bk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 #view-inbox .ib-bk-chips:not(:empty) { margin-top: 8px; }
-#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 6px 2px 12px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 14px; font-weight: 600; }
-#view-inbox .ib-bk-pchip-x { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 1px 4px 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 12px; font-weight: 600; line-height: 1.3; }
+#view-inbox .ib-bk-pchip:not(:has(.ib-bk-pchip-x)) { padding-right: 9px; }
+#view-inbox .ib-bk-pchip-x { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
 #view-inbox .ib-bk-pchip-x:hover, #view-inbox .ib-bk-pchip-x:focus-visible { background: color-mix(in srgb, var(--link) 22%, transparent); outline: none; }
 #view-inbox .ib-bk-sendto legend { padding: 0; }
 #view-inbox .ib-bk-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--link, #6C8CFF); border-radius: 10px; font-weight: 600; cursor: pointer; }
@@ -667,3 +668,27 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-sc-backlink { align-self: flex-start; color: var(--link); font-size: 15px; font-weight: 600; text-decoration: none; }
 #view-inbox .ib-sc-backlink:hover { text-decoration: underline; }
 #view-inbox .ib-sc-backlink:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+/* {first_name} (z8uq9mjj05): the "+ First name" button sits with the counter; the two help lines sit under the message. */
+#view-inbox .ib-cntgrp { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+#view-inbox .ib-fn { min-height: 32px; padding: 0 10px; font-size: 14px; white-space: nowrap; }
+#view-inbox .ib-fn:focus-visible { outline: none; border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+#view-inbox .ib-fn-lines { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+#view-inbox .ib-fn-help { margin: 0; overflow-wrap: anywhere; color: var(--meta); }
+
+/* z8uq9mjj05 fix 4 (Coach Ed 2026-11-25): + First name sits at the top right of the Message label row; the Output quote; the hint and count read as labels; the card is no taller under the buttons than above the title. */
+#view-inbox .ib-fn-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#view-inbox .ib-fn-row .pm-label { margin: 0; }
+#view-inbox .ib-fn-lines { gap: 4px; }
+#view-inbox .ib-fn-help { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+#view-inbox .ib-fn-help[hidden] { display: none; }
+#view-inbox .ib-fn-outl { font-size: 14px; color: var(--meta); }
+#view-inbox .ib-fn-outq { margin: 0; padding-left: 12px; border-left: 2px solid var(--card-line); color: var(--text-2); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+#view-inbox .ib-bk-form .ib-bk-will, #view-inbox .ib-bk-form .ib-fn-hint { margin: 0; font-size: 14px; font-weight: 500; color: var(--meta); }
+#view-inbox .ib-bk-sendto .ib-bk-will:empty { display: none; }
+#view-inbox .ib-bk-form > :empty { display: none; }
+#view-inbox .ib-bk-actions { justify-content: flex-end; }
+#view-inbox .ib-bk-formcard { padding-bottom: 22px; }
+
+/* Fix 5: a clear gap between the message box and the "+ First name" button; the cost note, the Manila-time line and the first-name hint share one label look */
+#view-inbox .ib-fn-row { margin-bottom: 8px; }
+#view-inbox .ib-bk-cost.ib-fn-hint { margin: 8px 0 0; font-size: 14px; font-weight: 500; color: var(--meta); }

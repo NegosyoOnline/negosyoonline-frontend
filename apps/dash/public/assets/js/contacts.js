@@ -382,7 +382,7 @@
     add(root, host, panel);
     if (S.tab === "list") listPanel(panel); else uploadPanel(panel);
   }
-  /* "N of 20,000 contacts saved": a small muted line at the foot of the groups column. */
+  /* "N contacts saved" (or "N of M" when the server sends a max): a small muted line at the foot of the groups column. */
   function savedText() {
     if (!S || !S.status) return "";
     var c = num(S.status.count), m = num(S.status.max);

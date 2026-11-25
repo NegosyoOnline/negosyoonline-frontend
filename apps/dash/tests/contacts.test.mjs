@@ -481,6 +481,14 @@ test("no page title block: no kicker, title or subtitle; the sr-only h1 stays; t
   assert.ok(/\.ct-tabs-host \{[^}]*margin-bottom: 16px/.test(CSS) && /min-width: 900px\) \{ :is\(#view-contacts, #ct-dialog-slot\) \.ct-tabs-host \{ padding-right: 164px; margin-bottom: 24px/.test(CSS));
 });
 
+test("no contact maximum: a status with max null shows \"N contacts saved\" with no \"of\"", async () => {
+  const d = boot({ status: { contacts: true, count: 3, max: null } });
+  await d.open();
+  const saved = d.root().all((n) => n.classList.contains("ct-saved"))[0];
+  assert.equal(saved.textContent, "3 contacts saved");
+  assert.ok(!/ of /.test(saved.textContent));
+});
+
 test("INBOX-FIX-9 F8: the Upload CSV intro has no plain 'Download the sample file' sentence; the Download sample CSV link stays", async () => {
   const d = boot();
   await d.open();

@@ -138,7 +138,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const B = "/sites/" + A + "/inquiries/sms/bulk/";
 const CT = "/sites/" + A + "/contacts/";
 const BULK_STATUS = { available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, used_today: 0, left_today: 2000, max_length: 147, active_batch: null,
-  window: { start: "08:00", end: "20:00", timezone: "Asia/Manila" }, in_window: true, cost_note: "Texts go out from your own phone and SIM." };
+  window: { start: "08:00", end: "22:00", timezone: "Asia/Manila" }, in_window: true, cost_note: "Texts go out from your own phone and SIM." };
 const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, duplicates: 8 } };
 const AUD_PICK = { audience: "pick", will_send: 14, left_out: {} };
 const GROUPS = [{ id: "g1", name: "Regulars", count: 12 }, { id: "g2", name: "VIP", count: 3 }];
@@ -376,7 +376,7 @@ test("schedule form: picking groups and contacts shows chips and asks the count 
   assert.equal(d.$("ib-sc-go").disabled, true);
 });
 
-test("schedule form: the date and time pickers offer today and 30 days, and 8:00 am to 7:45 pm every 15 minutes (Manila)", async () => {
+test("schedule form: the date and time pickers offer today and 30 days, and 8:00 am to 9:45 pm every 15 minutes (Manila)", async () => {
   const d = await openSched({}, { form: true });
   cBox(d, "ib-sc-date").fire("click");
   const dates = cRows(d, "ib-sc-date").map((n) => n.textContent);
@@ -386,16 +386,16 @@ test("schedule form: the date and time pickers offer today and 30 days, and 8:00
   assert.equal(dates[30], "Wed, Dec 16");
   cBox(d, "ib-sc-time").fire("click");
   const times = cRows(d, "ib-sc-time").map((n) => n.textContent);
-  assert.equal(times[0], "10:15 am", "Today: only times at least 10 minutes ahead (it is 10:00)"); assert.equal(times.at(-1), "7:45 pm"); assert.equal(times.length, 39);
+  assert.equal(times[0], "10:15 am", "Today: only times at least 10 minutes ahead (it is 10:00)"); assert.equal(times.at(-1), "9:45 pm"); assert.equal(times.length, 47);
   const all = d.window.NOInboxSchedule.util.timeOptions().map((o) => o[1]);
-  assert.equal(all[0], "8:00 am"); assert.equal(all[1], "8:15 am"); assert.equal(all.at(-1), "7:45 pm"); assert.equal(all.length, 48, "20:00 is not offered: the window ends before it");
-  assert.ok(pane(d).textContent.includes("Manila time, 8:00 am to 8:00 pm. At least 10 minutes from now and up to 30 days ahead."));
+  assert.equal(all[0], "8:00 am"); assert.equal(all[1], "8:15 am"); assert.equal(all.at(-1), "9:45 pm"); assert.equal(all.length, 56, "22:00 is not offered: the window ends before it");
+  assert.ok(pane(d).textContent.includes("Manila time, 8:00 am to 10:00 pm. At least 10 minutes from now and up to 30 days ahead."));
   const u = d.window.NOInboxSchedule.util, now = Date.now();
   assert.equal(u.slotProblem("2026-11-16", "10:05", now).code, "too_soon");
   assert.equal(u.slotProblem("2026-11-17", "07:45", now).code, "outside_window");
-  assert.equal(u.slotProblem("2026-11-17", "20:00", now).code, "outside_window");
-  assert.equal(u.slotProblem("2026-11-17", "20:15", now).code, "outside_window");
-  assert.equal(u.slotProblem("2026-11-17", "19:45", now), null);
+  assert.equal(u.slotProblem("2026-11-17", "22:00", now).code, "outside_window");
+  assert.equal(u.slotProblem("2026-11-17", "22:15", now).code, "outside_window");
+  assert.equal(u.slotProblem("2026-11-17", "21:45", now), null);
   assert.equal(u.slotProblem("2026-12-17", "09:00", now).code, "too_far");
   assert.equal(u.slotProblem("2026-11-16", "10:15", now), null);
   assert.equal(u.slotProblem("2026-12-16", "10:00", now), null);
@@ -412,7 +412,7 @@ test("schedule form: a slot that is too soon shows a hint on the date and time f
   await setSlot(d, "2026-12-30", "09:00");
   assert.ok(d.$("ib-sc-de").textContent.includes("within the next 30 days"));
   await setSlot(d, "2026-11-17", "07:30");
-  assert.ok(d.$("ib-sc-de").textContent.includes("08:00 to 20:00 Manila"));
+  assert.ok(d.$("ib-sc-de").textContent.includes("08:00 to 22:00 Manila"));
   await setSlot(d, "2026-11-17", "09:30");
   assert.equal(d.$("ib-sc-de").hidden, true);
   assert.equal(d.$("ib-sc-go").disabled, false);
@@ -470,7 +470,7 @@ test("schedule form: a text over 160 characters is refused on the field and keep
 });
 
 test("schedule form: 422 too_soon / outside_window / too_far show on the date and time field, with the server's words when it sends them", async () => {
-  for (const [code, msg, want] of [["too_soon", "", "at least 10 minutes"], ["outside_window", "", "08:00 to 20:00 Manila"], ["too_far", "", "next 30 days"], ["too_soon", "Pick a later time, please.", "Pick a later time, please."]]) {
+  for (const [code, msg, want] of [["too_soon", "", "at least 10 minutes"], ["outside_window", "", "08:00 to 22:00 Manila"], ["too_far", "", "next 30 days"], ["too_soon", "Pick a later time, please.", "Pick a later time, please."]]) {
     const d = await openSched({ create: () => bad(422, code, msg) }, { form: true });
     await fillOk(d);
     await d.click(d.$("ib-sc-go"));
@@ -594,8 +594,8 @@ const datesOf = (d) => { cBox(d, "ib-sc-date").fire("click"); return cRows(d, "i
 test("round 10: Today lists only times at least 10 minutes ahead; the date and time start on Today and its first time; 30 days stay", async () => {
   const u = (await openSched({}, {})).window.NOInboxSchedule.util, now = Date.now();
   assert.equal(u.timeOptions(now, "2026-11-16")[0][1], "10:15 am"); /* 10:00 now: 10:10 is the earliest, the grid is 15 minutes */
-  assert.equal(u.timeOptions(now, "2026-11-16").length, 39);
-  assert.equal(u.timeOptions(now, "2026-11-17").length, 48, "another day offers the whole window");
+  assert.equal(u.timeOptions(now, "2026-11-16").length, 47);
+  assert.equal(u.timeOptions(now, "2026-11-17").length, 56, "another day offers the whole window");
   assert.equal(u.timeOptions(Date.parse("2026-11-16T02:05:00Z"), "2026-11-16")[0][1], "10:15 am", "exactly 10 minutes ahead is allowed");
   assert.equal(u.timeOptions(Date.parse("2026-11-16T02:06:00Z"), "2026-11-16")[0][1], "10:30 am");
   const d = await openSched({}, { form: true });
@@ -604,17 +604,17 @@ test("round 10: Today lists only times at least 10 minutes ahead; the date and t
   assert.equal(datesOf(d).length, 31);
 });
 
-test("round 10: Today is left out of the date list once no time is left today (after 7:35 pm Manila); Tomorrow keeps its label and is the default with its first time", async () => {
-  await withNow("2026-11-16T11:36:00Z", async () => { /* 19:36 Manila: 19:46 is the earliest, past the last time 19:45 */
+test("round 10: Today is left out of the date list once no time is left today (after 9:35 pm Manila); Tomorrow keeps its label and is the default with its first time", async () => {
+  await withNow("2026-11-16T13:36:00Z", async () => { /* 21:36 Manila: 21:46 is the earliest, past the last time 21:45 */
     const d = await openSched({}, { form: true });
     const dates = datesOf(d);
     assert.equal(dates[0], "Tomorrow, Tue, Nov 17"); assert.ok(!dates.some((x) => x.startsWith("Today")));
     assert.equal(d.$("ib-sc-date").value, "2026-11-17"); assert.equal(d.$("ib-sc-time").value, "08:00");
-    assert.equal(timesOf(d).length, 48);
+    assert.equal(timesOf(d).length, 56);
   });
-  await withNow("2026-11-16T11:35:00Z", async () => { /* 19:35 Manila: 19:45 is still allowed */
+  await withNow("2026-11-16T13:35:00Z", async () => { /* 21:35 Manila: 21:45 is still allowed */
     const d = await openSched({}, { form: true });
-    assert.equal(datesOf(d)[0], "Today, Mon, Nov 16"); assert.equal(d.$("ib-sc-time").value, "19:45");
+    assert.equal(datesOf(d)[0], "Today, Mon, Nov 16"); assert.equal(d.$("ib-sc-time").value, "21:45");
   });
 });
 
@@ -659,7 +659,7 @@ test("round 10: a slot that goes stale while the form is open is replaced on the
     row.fire("focusin"); await settle();
     assert.equal(d.$("ib-sc-time").value, "10:30", "re-filtered: the first time 10 minutes ahead of 10:20");
     assert.equal(d.$("ib-sc-go").disabled, false);
-    FIXED_NOW = Date.parse("2026-11-16T11:40:00Z"); /* the evening: Today has no time left */
+    FIXED_NOW = Date.parse("2026-11-16T13:40:00Z"); /* 21:40 Manila, the evening: Today has no time left */
     row.fire("focusin"); await settle();
     assert.equal(d.$("ib-sc-date").value, "2026-11-17"); assert.equal(d.$("ib-sc-time").value, "10:30", "Today is gone: the next day, the same time as that day offers it"); assert.equal(d.$("ib-sc-go").disabled, false);
     /* if the stale slot is still chosen when the button is checked, the reason shows */

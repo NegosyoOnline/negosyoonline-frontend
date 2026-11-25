@@ -18,7 +18,7 @@
   var STATES = { waiting: "Waiting to start", sending: "Sending", finished: "Finished", stopped: "Stopped", ended: "Ended" };
   var RSTATES = { waiting: "Waiting", queued: "With your phone", sent: "Sent", failed: "Failed", not_sent: "Not sent" };
   var PAUSES = {
-    outside_window: "Paused: it is outside sending hours (8:00 am to 8:00 pm, Manila time). It goes on at 8:00 am.",
+    outside_window: "Paused: it is outside sending hours (8:00 am to 10:00 pm, Manila time). It goes on at 8:00 am.",
     daily_cap: "Paused: today's limit is reached. It goes on tomorrow morning.",
     phone_offline: "Paused: your phone is offline. It goes on when your phone is back online."
   };
@@ -513,7 +513,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
       var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 8:00 pm, Manila time.",
+      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);

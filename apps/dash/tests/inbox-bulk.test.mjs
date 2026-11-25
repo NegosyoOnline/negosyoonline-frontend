@@ -651,8 +651,7 @@ test("round 9 R9-4: one dropdown lists All my members first, then the groups, mi
   assert.equal(sendTo(d).getAttribute("placeholder"), "Add a group or contact");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   await settle();
-  assert.deepEqual(chips(d), ["All my members (95)\u00D7", "Regulars (12)", "VIP (3)"], "All, then every group; the groups have no remove");
-  assert.equal(d.$("ib-bk-chips").all((q) => q.tagName === "BUTTON").length, 1, "only the All chip has a remove");
+  assert.deepEqual(chips(d), ["All my members (95)\u00D7"], "members only: exactly one chip, no group chips");
   assert.ok(d.calls.some((c) => c.method === "GET" && c.path === CT + "groups/"));
   cBox(d, "ib-bk-to").fire("click");
   assert.deepEqual(optLabels(d), ["All my members", "Regulars (12)", "VIP (3)"], "All my members first, then the groups");

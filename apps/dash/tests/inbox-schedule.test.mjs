@@ -338,7 +338,7 @@ test("schedule form: Send to (one house dropdown, All my members first and selec
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && /date|time|radio/.test(n.getAttribute("type") || "")).length, 0, "no native date, time or radio inputs");
   assert.equal(d.$("ib-sc-to").value, "", "the input keeps its placeholder; All my members is a chip");
   assert.equal(cInput(d, "ib-sc-to").value, "");
-  assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent), ["All my members (95)×", "Regulars (12)", "VIP (3)"], "All, then every group without a remove");
+  assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent), ["All my members (95)×"], "members only: exactly one chip");
   assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x")).length, 1);
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   cBox(d, "ib-sc-to").fire("click");
@@ -755,7 +755,7 @@ test("fix 5 (schedule): All my members shows chips for every group; the All chip
   const d = await openSched({ status: ok({ available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, left_today: 2000, max_length: 160, cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply." }) }, { form: true });
   await settle();
   const cl = () => d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent);
-  assert.deepEqual(cl(), ["All my members (95)×", "Regulars (12)", "VIP (3)"]);
+  assert.deepEqual(cl(), ["All my members (95)×"]);
   const cost = pane(d).all((n) => has(n, "ib-bk-cost"))[0];
   assert.ok(cost && has(cost, "ib-fn-hint") && has(cost, "ib-bk-will"));
   await pickTo(d, "VIP");

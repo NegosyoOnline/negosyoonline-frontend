@@ -157,7 +157,6 @@
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = BU.groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
         var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
-        drawChips();
       });
     }
     function picked() { return st.pickG.length + st.pickC.length > 0; }
@@ -211,8 +210,7 @@
       var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
-    /* The chips under the Send to input, the same as Bulk: while All my members is chosen its chip (count, with a remove) then every group as a
-       display-only chip; otherwise the chosen groups and contacts, each with a remove. */
+    /* The chips under the Send to input, the same as Bulk: while All my members is chosen its own chip (count, with a remove) only; otherwise the chosen groups and contacts, each with a remove. */
     function allChosen() { return !st.keepAud && !st.needPick && !picked(); }
     function chip(label, onRemove, name) {
       var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
@@ -228,7 +226,6 @@
       if (allChosen()) {
         var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
         box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
-        ((st.groups && st.groups.list) || []).forEach(function (g) { box.appendChild(chip(g.label || g.name, null)); });
         return;
       }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {

@@ -8,3 +8,4 @@ Branch `feat/z8uq9mjj05-bulk-firstname`, from main 87b44e5. No PR (Supervisor ro
 - A 422 on text shows in the existing message field error (st.err / prevErr).
 - Cache-buster 20261125f1 on inbox.css, inbox-bulk.js, inbox-schedule.js.
 - Two existing "exactly two buttons" tests now ignore the small `.ib-fn` button.
+- Fix 1: a { or } outside an exact {first_name} now shows "Only {first_name} can go inside { }." (before the plain-character message; 160 length still by typed length) in Bulk and Schedule; cache-buster 20261125f2.

@@ -66,6 +66,8 @@
     if (max === null || max === undefined) return "";
     return len + " / " + max;
   }
+  var BRACE_MSG = "Only {first_name} can go inside { }.";
+  function strayBrace(t) { var r = String(t).split("{first_name}").join(""); return r.indexOf("{") !== -1 || r.indexOf("}") !== -1; }
   /* What is wrong with a text before the server sees it, or ""; the same plain-SMS and no-link rules as inbox-sms.js. The server decides. */
   function problem(text, max) {
     var S = root.NOInboxSms, m = max === undefined ? null : max;
@@ -73,6 +75,8 @@
     /* The length is the text as typed ({first_name} is 12 characters); the plain-character and link check sees the placeholder as a name. */
     var t = String(text || "");
     if (m !== null && t.length > m) return S.util.problem(t, m);
+    /* A { or } anywhere outside an exact {first_name} (lowercase) gets the same words the server sends, before the generic plain-character message. */
+    if (strayBrace(t)) return BRACE_MSG;
     return S.util.problem(t.split("{first_name}").join("Maria"), null);
   }
   /* {first_name} (ClickUp z8uq9mjj05): the owner may put it in the text; the server fills in each person's first name at send. The counter counts
@@ -740,7 +744,7 @@
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
-    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem,
+    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem, strayBrace: strayBrace,
       FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, firstNameKit: firstNameKit,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };

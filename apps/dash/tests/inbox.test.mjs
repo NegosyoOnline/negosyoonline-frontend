@@ -844,8 +844,8 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.match(HTML, /inbox\.js\?v=20261124r9b/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
-  assert.match(HTML, /inbox\.css\?v=20261125f1/);
-  assert.match(HTML, /inbox-bulk\.js\?v=20261125f1/);
+  assert.match(HTML, /inbox\.css\?v=20261125f2/);
+  assert.match(HTML, /inbox-bulk\.js\?v=20261125f2/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
 
@@ -2600,7 +2600,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261124r9b/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261125f1/); assert.match(HTML, /inbox\.css\?v=20261125f1/);
+  assert.match(HTML, /inbox\.js\?v=20261124r9b/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261125f2/); assert.match(HTML, /inbox\.css\?v=20261125f2/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {

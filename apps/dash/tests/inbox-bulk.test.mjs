@@ -1052,3 +1052,14 @@ test("first name: problem() accepts {first_name} as plain text, still counts it 
   assert.notEqual(u.problem("Hi {name}, sale", 160), "", "only {first_name} is allowed");
   assert.notEqual(u.problem("a".repeat(150) + "{first_name}", 160), "", "162 as typed is over");
 });
+
+test("first name: a { or } outside {first_name} shows the brace message; the length message still wins by typed length", () => {
+  const ctx = vm.createContext({ window: {}, Date, Intl });
+  vm.runInContext(read("inbox-sms.js"), ctx); vm.runInContext(read("inbox-bulk.js"), ctx);
+  const u = ctx.window.NOInboxBulk.util, msg = "Only {first_name} can go inside { }.";
+  for (const t of ["{name}", "{First_name}", "{first_name", "first_name}", "{}", "Hi {name}, sale"]) assert.equal(u.problem(t, 160), msg, t);
+  for (const t of ["Hi {first_name}, x", "{first_name}{first_name}"]) assert.equal(u.problem(t, 160), "", t);
+  const long = u.problem("a".repeat(161), 160);
+  assert.ok(long && long !== msg);
+  assert.equal(u.problem("{name}" + "a".repeat(160), 160), long, "length message by raw typed length");
+});

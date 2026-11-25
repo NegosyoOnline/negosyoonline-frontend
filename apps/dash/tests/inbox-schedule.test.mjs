@@ -731,3 +731,13 @@ test("schedule first name: a 422 on the text shows on the message field", async 
   await fillOk(t); await t.click(t.$("ib-sc-go"));
   assert.equal(t.$("ib-sc-e").textContent, msg);
 });
+
+test("schedule: typing a { or } outside {first_name} shows the brace message under the message", async () => {
+  const msg = "Only {first_name} can go inside { }.";
+  const d = await openSched({}, { form: true });
+  const u = d.window.NOInboxBulk.util;
+  for (const t of ["{name}", "{First_name}", "{first_name", "first_name}", "{}"]) assert.equal(u.problem(t, 160), msg, t);
+  for (const t of ["Hi {first_name}, x", "{first_name}{first_name}"]) assert.equal(u.problem(t, 160), "", t);
+  assert.notEqual(u.problem("a".repeat(161), 160), msg);
+  assert.ok(u.problem("a".repeat(161), 160));
+});

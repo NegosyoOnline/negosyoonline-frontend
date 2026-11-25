@@ -48,7 +48,7 @@ function list(over = {}) {
 
 /* The stand-in API. `s` holds what each route answers; a route set to a number answers that status with a fixed error body. */
 function boot({ listing = list(), reading = thread(), reply = { state: "sent", error_code: "", created_at: iso(0) }, off = false, search = "", channels = null, messenger = null, pages = null, cmStatus = null, locSearch = "", clock = null, EventSource = null } = {}) {
-  const doc = makeDocument(), calls = [], toasts = [], replaced = [];
+  const doc = makeDocument(), calls = [], toasts = [], kinds = [], replaced = [];
   const make = doc.createElement;
   doc.createElement = (tag) => { const n = make(tag); n.replaceChild = (fresh, old) => { n.insertBefore(fresh, old); n.removeChild(old); return old; }; n.dispatchEvent = (e) => n.fire(e.type); return n; };
   doc.createTextNode = (t) => { const w = make("span"); w.textContent = t; return w.firstChild; };
@@ -115,14 +115,14 @@ function boot({ listing = list(), reading = thread(), reply = { state: "sent", e
   vm.runInContext(read("inbox-schedule.js"), context, { filename: "inbox-schedule.js" });
   vm.runInContext(read("inbox.js"), context, { filename: "inbox.js" });
   vm.runInContext(read("inbox-settings.js"), context, { filename: "inbox-settings.js" });
-  window.NODash.toast = (title, text) => toasts.push(title + ": " + text);
+  window.NODash.toast = (title, text, kind) => { toasts.push(title + ": " + (text || "")); if (kind) kinds.push(kind); };
   const $ = (id) => doc.getElementById(id);
   const where = location;
   const all = (n, c) => n.all((x) => x.classList.contains(c));
   const buttons = (n) => n.all((x) => x.tagName === "BUTTON");
   const press = (n, label) => buttons(n).find((b) => b.textContent === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, window, page,
+  return { doc, calls, toasts, kinds, s, where, winListeners, replaced, $, all, buttons, press, links, nav, window, page,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -336,14 +336,16 @@ test("schedule form: Send to (one house dropdown, All my members first and selec
   assert.deepEqual(sels.map((n) => n.id), ["ib-sc-to", "ib-sc-date", "ib-sc-time"], "the Send to dropdown is ONE; the date and time are house dropdowns too");
   for (const id of ["ib-sc-to", "ib-sc-date", "ib-sc-time"]) assert.ok(has(d.$(id).parentNode, "ib-combo"), id + " is the house combo, not native");
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && /date|time|radio/.test(n.getAttribute("type") || "")).length, 0, "no native date, time or radio inputs");
-  assert.equal(d.$("ib-sc-to").value, "all");
-  assert.equal(cInput(d, "ib-sc-to").value, "All my members");
+  assert.equal(d.$("ib-sc-to").value, "", "the input keeps its placeholder; All my members is a chip");
+  assert.equal(cInput(d, "ib-sc-to").value, "");
+  assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent), ["All my members (95)×", "Regulars (12)", "VIP (3)"], "All, then every group without a remove");
+  assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x")).length, 1);
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   cBox(d, "ib-sc-to").fire("click");
   assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent.replace(/Group$/, "")), ["All my members", "Regulars (12)", "VIP (3)"]);
   assert.equal(d.$("ib-sc-test").textContent, "Send Test SMS");
   assert.equal(d.$("ib-sc-go").textContent, "Schedule");
-  assert.ok(d.$("ib-sc-count").textContent.includes("Will send to 95 members"));
+  assert.ok(!/Will send to/.test(pane(d).textContent), "no count line");
   assert.ok(!/consent|promo|agree/i.test(pane(d).textContent));
   assert.ok(!pane(d).textContent.includes("Test Store:"), "no prefix text");
 });
@@ -363,14 +365,14 @@ test("schedule form: picking groups and contacts shows chips and asks the count 
   await pickTo(d, "Regulars");
   assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent.replace(/×$/, "")), ["Regulars (12)"]);
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g1"], contacts: [] });
-  assert.ok(d.$("ib-sc-count").textContent.includes("Will send to 14 recipients"));
+  assert.ok(!/Will send to/.test(pane(d).textContent));
   cBox(d, "ib-sc-to").fire("click");
   const i = cInput(d, "ib-sc-to"); i.value = "Lito"; i.fire("input"); await sleep(350); await settle();
   pickRow(d, "ib-sc-to", "Lito Cruz"); await settle(); await settle();
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g1"], contacts: ["c1"] });
   for (const x of d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))) { x.fire("click"); await settle(); await settle(); }
   assert.equal(d.$("ib-sc-to").value, "");
-  assert.equal(d.$("ib-sc-count").textContent, "", "no count until a choice");
+  assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).length, 0, "no chip until a choice");
   assert.equal(d.$("ib-sc-go").disabled, true);
 });
 
@@ -426,7 +428,7 @@ test("schedule form: Schedule posts scheduled/ with the text, audience all, sche
   assert.match(b.idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.equal(d.$("ib-sc-t"), null, "back to the list");
   assert.ok(d.$("ib-sc-send"));
-  assert.ok(pane(d).textContent.includes("Scheduled for "));
+  assert.ok(d.toasts.some((t) => t.startsWith("Scheduled for ")), "the result is a toast");
   assert.equal(d.bk.seen.lists.length, 2, "the list was read again");
 });
 
@@ -445,11 +447,12 @@ test("schedule form: Send Test SMS posts bulk/test/ with the text and a key, and
   await typeText(d, "Sale this weekend.");
   assert.equal(d.$("ib-sc-test").disabled, false);
   await d.click(d.$("ib-sc-test"));
+  assert.equal(d.bk.seen.test[0].audience, "all", "the test carries the audience");
   assert.equal(d.bk.seen.test.length, 1);
   assert.equal(d.bk.seen.test[0].text, "Sale this weekend."); assert.match(d.bk.seen.test[0].idempotency_key, /^[A-Za-z0-9_-]{8,64}$/);
   assert.ok(d.list().includes("POST " + B + "test/"));
   assert.deepEqual(d.toasts, ["A test text is on its way to your phone.: It counts as one of today's texts."], "a toast with the same words");
-  assert.equal(d.$("ib-sc-testnote").textContent, "", "no inline text");
+  assert.equal(d.$("ib-sc-testnote"), null, "no line under the buttons");
   assert.equal(d.bk.seen.created.length, 0, "a test never schedules");
   await typeText(d, "See https://x.com now");
   assert.equal(d.$("ib-sc-test").disabled, true);
@@ -471,22 +474,21 @@ test("schedule form: 422 too_soon / outside_window / too_far show on the date an
     const d = await openSched({ create: () => bad(422, code, msg) }, { form: true });
     await fillOk(d);
     await d.click(d.$("ib-sc-go"));
-    assert.equal(d.$("ib-sc-de").hidden, false, code);
-    assert.ok(d.$("ib-sc-de").textContent.includes(want), d.$("ib-sc-de").textContent);
+    assert.ok(d.toasts[0].includes(want), d.toasts[0]); assert.deepEqual(d.kinds, ["error"], "the server's refusal is the error toast");
     assert.ok(d.$("ib-sc-t"), "the form stays, nothing is lost");
     assert.equal(d.$("ib-sc-t").value, "Sale this weekend.");
-    await setSlot(d, "2026-11-18", "09:30");
-    assert.equal(d.$("ib-sc-de").hidden, true, "changing the slot clears it");
+    assert.equal(d.$("ib-sc-de").hidden, true, "no line under the buttons or the field for a server refusal");
   }
 });
 
 test("schedule form: 409 schedule_limit and empty_audience show plainly in the form; a text field error shows under the message", async () => {
   const d = await openSched({ create: () => bad(409, "schedule_limit", "") }, { form: true });
   await fillOk(d); await d.click(d.$("ib-sc-go"));
-  assert.ok(d.$("ib-sc-fe").textContent.includes("at most 20 scheduled texts") && d.$("ib-sc-fe").hidden === false);
+  assert.ok(d.toasts[0].includes("at most 20 scheduled texts") && d.kinds[0] === "error");
+  assert.equal(d.$("ib-sc-fe"), null);
   const e = await openSched({ create: () => bad(409, "empty_audience", "Nobody to text in this group.") }, { form: true });
   await fillOk(e); await e.click(e.$("ib-sc-go"));
-  assert.equal(e.$("ib-sc-fe").textContent, "Nobody to text in this group.");
+  assert.deepEqual(e.toasts, ["Nobody to text in this group.: "]);
   const t = await openSched({ create: () => bad(422, "invalid", "Text is not allowed.", { text: ["Text is not allowed."] }) }, { form: true });
   await fillOk(t); await t.click(t.$("ib-sc-go"));
   assert.equal(t.$("ib-sc-e").textContent, "Text is not allowed.");
@@ -520,7 +522,7 @@ test("schedule: Edit opens the same form filled in (text, date, time, audience),
   assert.deepEqual(d.bk.seen.patched[0].body, { audience: "all", text: "New text", scheduled_at: "2026-11-19T10:00:00+08:00" }, "only the listed fields (the API refuses unknown ones)");
   assert.equal(d.bk.seen.created.length, 0);
   assert.ok(d.list().includes("PATCH " + B + "scheduled/sch_aaaaaaaa/"));
-  assert.ok(d.$("ib-sc-send") && pane(d).textContent.includes("Your changes were saved."));
+  assert.ok(d.$("ib-sc-send") && d.toasts.includes("Your changes were saved.: "));
 });
 
 test("schedule: Edit of a pick audience fills the chips when the API sends the picks; when it does not (the real one does not) they stay as saved and nothing becomes everyone", async () => {
@@ -551,12 +553,12 @@ test("schedule: Edit that finds the text already started (409 already_started on
   await setSlot(d, "2026-11-19", "10:00");
   await d.click(d.$("ib-sc-go"));
   assert.equal(d.$("ib-sc-t"), null, "back on the list");
-  assert.ok(pane(d).textContent.includes("already started"));
+  assert.ok(d.toasts.some((t) => t.includes("already started")) && d.kinds[0] === "error");
   assert.equal(rowsOf(d)[0].all((n) => n.tagName === "TD")[3].children[0].textContent, "Sending");
   const e = await openSched({ detail: () => ok(sched({ state: "sending" })) });
   await e.click(pane(e).all((n) => has(n, "ib-sc-edit"))[0]);
   assert.equal(e.$("ib-sc-t"), null);
-  assert.ok(pane(e).textContent.includes("already started"));
+  assert.ok(pane(e).textContent.includes("already started"), "a state that is no longer scheduled still says so on the list");
 });
 
 test("schedule: the form has exactly two buttons (Send Test SMS, Schedule); the way back is a small text link above the card, not a button; it returns to the list without asking the server; the page words come through textContent (no markup from the API)", async () => {
@@ -626,22 +628,25 @@ test("round 10: changing the Date keeps the Time when that day offers it, else s
   assert.equal(d.$("ib-sc-time").value, "10:15", "today does not offer 8:00 am: the first valid time is chosen"); assert.equal(cInput(d, "ib-sc-time").value, "10:15 am");
 });
 
-test("round 10: Schedule shows the reason next to it while it is off (message, who, time) and hides it when it is on", async () => {
+test("round 10 / fix 5: nothing is written below the buttons; Schedule is off until audience, message and a valid time are in, and on after", async () => {
   const d = await openSched({}, { form: true });
-  const why = () => d.$("ib-sc-why");
-  assert.equal(d.$("ib-sc-go").disabled, true); assert.equal(why().hidden, false); assert.equal(why().textContent, "Add a message.");
-  await typeText(d, "Sale this weekend.");
-  assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(why().hidden, true); assert.equal(why().textContent, "");
-  await setSlot(d, "2026-11-16", "10:00");
+  const after = (n) => { const out = []; let seen = false; for (const c of n.children) { if (seen) out.push(c); if (c.classList && c.classList.contains("ib-bk-actions")) seen = true; } return out; };
+  const form = d.$("ib-sc-go").parentNode.parentNode.parentNode;
+  assert.equal(after(form).length, 0, "no reason, error or hint after the buttons");
+  assert.equal(d.$("ib-sc-why"), null); assert.equal(d.$("ib-sc-fe"), null);
+  assert.ok(!/Add a message/.test(pane(d).textContent));
   assert.equal(d.$("ib-sc-go").disabled, true);
-  assert.equal(why().hidden, false); assert.equal(why().textContent, "Choose a time at least 10 minutes from now.");
-  assert.ok(d.$("ib-sc-go").parentNode.parentNode.parentNode.all((n) => n === why()).length === 1, "the reason sits in the same form block, right under the buttons");
+  await typeText(d, "Sale this weekend.");
+  assert.equal(d.$("ib-sc-go").disabled, false);
+  await setSlot(d, "2026-11-16", "10:00");
+  assert.equal(d.$("ib-sc-go").disabled, true, "a time that is too soon keeps it off");
+  assert.equal(d.$("ib-sc-de").hidden, false, "the time problem stays on the date and time field");
   await setSlot(d, "2026-11-17", "09:30");
-  assert.equal(why().hidden, true);
+  assert.equal(d.$("ib-sc-go").disabled, false);
   await typeText(d, "http://x.example.com");
-  assert.equal(d.$("ib-sc-go").disabled, true); assert.ok(why().textContent.length > 0 && why().hidden === false, "a text problem is the reason too");
-  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
-  assert.ok(/\.ib-sc-form \.ib-sc-why \{[^}]*margin: 6px 0 0 auto[^}]*text-align: right/.test(CSS) && !/\.ib-sc-why \{[^}]*#[0-9a-f]{3,6}/i.test(CSS), "plain hint colours only");
+  assert.equal(d.$("ib-sc-go").disabled, true); assert.ok(d.$("ib-sc-e").textContent.length > 0 && d.$("ib-sc-e").hidden === false, "a text problem stays on the message field");
+  const lab = pane(d).all((n) => has(n, "ib-fn-hint") && n.textContent.startsWith("Manila time"))[0];
+  assert.ok(lab && has(lab, "ib-bk-will"), "the Manila-time line is a label like the first-name one");
 });
 
 test("round 10: a slot that goes stale while the form is open is replaced on the next touch of the Date or Time; the button does not stay off silently", async () => {
@@ -653,13 +658,13 @@ test("round 10: a slot that goes stale while the form is open is replaced on the
     const row = pane(d).all((n) => has(n, "ib-sc-when"))[0];
     row.fire("focusin"); await settle();
     assert.equal(d.$("ib-sc-time").value, "10:30", "re-filtered: the first time 10 minutes ahead of 10:20");
-    assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(d.$("ib-sc-why").hidden, true);
+    assert.equal(d.$("ib-sc-go").disabled, false);
     FIXED_NOW = Date.parse("2026-11-16T11:40:00Z"); /* the evening: Today has no time left */
     row.fire("focusin"); await settle();
     assert.equal(d.$("ib-sc-date").value, "2026-11-17"); assert.equal(d.$("ib-sc-time").value, "10:30", "Today is gone: the next day, the same time as that day offers it"); assert.equal(d.$("ib-sc-go").disabled, false);
     /* if the stale slot is still chosen when the button is checked, the reason shows */
     d.$("ib-sc-date").value = "2026-11-16"; d.$("ib-sc-date").fire("change"); await settle();
-    assert.equal(d.$("ib-sc-go").disabled, true); assert.equal(d.$("ib-sc-why").hidden, false);
+    assert.equal(d.$("ib-sc-go").disabled, true);
   });
 });
 
@@ -667,7 +672,7 @@ test("round 10: editing keeps the saved date and time selectable and Save change
   const d = await openSched({ detail: () => ok(sched({ text: "Old text", scheduled_at: "2026-11-16T09:40:00+08:00" })) });
   await d.click(pane(d).all((n) => has(n, "ib-sc-edit"))[0]);
   assert.equal(d.$("ib-sc-date").value, "2026-11-16"); assert.equal(d.$("ib-sc-time").value, "09:40");
-  assert.equal(d.$("ib-sc-go").disabled, false); assert.equal(d.$("ib-sc-why").hidden, true);
+  assert.equal(d.$("ib-sc-go").disabled, false);
   pane(d).all((n) => has(n, "ib-sc-when"))[0].fire("focusin"); await settle();
   assert.equal(d.$("ib-sc-time").value, "09:40", "a touch of the field does not move a saved time");
   await typeText(d, "New text"); await d.click(d.$("ib-sc-go"));
@@ -746,17 +751,44 @@ test("schedule: typing a { or } outside {first_name} shows the brace message und
   assert.ok(u.problem("a".repeat(161), 160));
 });
 
+test("fix 5 (schedule): All my members shows chips for every group; the All chip removes to no audience; a pick while All is chosen switches to picks; the cost note is a label", async () => {
+  const d = await openSched({ status: ok({ available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, left_today: 2000, max_length: 160, cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply." }) }, { form: true });
+  await settle();
+  const cl = () => d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent);
+  assert.deepEqual(cl(), ["All my members (95)×", "Regulars (12)", "VIP (3)"]);
+  const cost = pane(d).all((n) => has(n, "ib-bk-cost"))[0];
+  assert.ok(cost && has(cost, "ib-fn-hint") && has(cost, "ib-bk-will"));
+  await pickTo(d, "VIP");
+  assert.deepEqual(cl(), ["VIP (3)×"], "the chosen picks replace the All chips");
+  assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g2"], contacts: [] });
+  d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))[0].fire("click"); await settle(); await settle();
+  await pickTo(d, "All my members");
+  d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))[0].fire("click"); await settle(); await settle();
+  assert.deepEqual(cl(), []); assert.equal(cInput(d, "ib-sc-to").getAttribute("placeholder"), "Choose who gets it");
+  assert.equal(d.$("ib-sc-test").disabled, true);
+});
+
 test("fix 4 (schedule): no count before a pick; nothing preselected; buttons off until a pick; every body carries audience", async () => {
   const d = await openSched({}, { form: true, pick: false });
   await typeText(d, "Hello po");
   assert.equal(d.bk.seen.audience.length, 0, "no count asked");
   assert.equal(cInput(d, "ib-sc-to").getAttribute("placeholder"), "Choose who gets it");
-  assert.equal(d.$("ib-sc-count").textContent, ""); assert.ok(has(d.$("ib-sc-count").parentNode, "ib-bk-sendto"));
+  assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).length, 0, "no chip before a choice");
   assert.equal(d.$("ib-sc-test").disabled, true); assert.equal(d.$("ib-sc-go").disabled, true);
   await pickTo(d, "All my members");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
-  assert.ok(d.$("ib-sc-count").textContent.startsWith("Will send to"));
+  assert.ok(!/Will send to/.test(pane(d).textContent));
   assert.equal(d.$("ib-sc-test").disabled, false);
   await setSlot(d); await d.click(d.$("ib-sc-go")); await settle();
   assert.equal(d.bk.seen.created[0].audience, "all", "the schedule body carries audience");
+});
+
+test("fix 5: the toast sits over the top bar icons (desktop: top 32px, right 40px, above them; phone: full width less the gutters), and the chips and gap are small and tidy", () => {
+  const dash = fs.readFileSync(path.join(JS, "..", "css", "dash.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  assert.match(dash, /body\.dash-app \.toast \{ top: 32px; bottom: auto; right: 40px; z-index: 60; \}/);
+  assert.match(dash, /@media \(max-width: 899\.98px\) \{\s*body\.dash-app \.toast \{ top: calc\(8px \+ env\(safe-area-inset-top\)\); bottom: auto; left: 16px; right: 16px; width: auto;/);
+  assert.ok(/\.notif-pop \{[^}]*z-index: 45/.test(dash), "the toast layer (60) is above the bell panel (45)");
+  const CSS = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.match(CSS, /\.ib-bk-pchip \{[^}]*font-size: 12px/);
+  assert.match(CSS, /\.ib-fn-row \{ margin-bottom: 8px; \}/);
 });

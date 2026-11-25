@@ -51,7 +51,6 @@
     return td;
   }
   /* "Will send to 95 members". */
-  function willSend(n, aud) { return "Will send to " + (aud === "pick" ? plural(num(n), "recipient", "recipients") : plural(num(n), "member", "members")); }
   /* The groups left out of a count, [label, n] for each non-zero one. */
   function leftOut(lo) {
     var out = [];
@@ -222,6 +221,8 @@
     function stop() { st.dead = true; closeDialog(false); if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
     function gone() { stop(); ui.gone(); }
     function aliveRes(res) { return !st.dead && !(res && res.status === 401); }
+    /* Results and server errors show as the dash toast (an error style for errors), never as a line under the buttons. */
+    function toast(title, sub, kind) { if (D.toast) D.toast(title, sub || "", kind); }
 
     /* ----- reads ----- */
     function readStatus(then) {
@@ -269,7 +270,8 @@
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
-        if (document.getElementById("ib-bk-count")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
+        if (st.aud.failed) toast(refusal(res, "We could not count your members just now."), "", "error");
+        if (document.getElementById("ib-bk-chips")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
       });
     }
     /* Contacts are offered only while GET /sites/{id}/contacts/status/ answers; a 404 (STORE_CONTACTS_ENABLED off) or any error hides the option. */
@@ -288,6 +290,7 @@
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
         var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+        drawChips();
       });
     }
     /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. Until that answer is in, the list says
@@ -332,7 +335,7 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         var o = D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact \u00B7 No texts" : "Contact" }, c.label); sel.appendChild(o);
       });
-      sel.value = picked() || st.needPick ? "" : "all";
+      sel.value = ""; /* All my members shows as a chip under the input, so the input keeps its placeholder */
     }
     /* The picks changed: the audience follows them (none left: All my members), show the chips, ask for the count again and for a new confirm. */
     function pickChanged(explicitAll) {
@@ -340,14 +343,29 @@
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
+    /* The chips under the Send to input. While All my members is chosen: its chip (count, with a remove) then every group as a display-only chip
+       (no remove); otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
+    function allChosen() { return !st.needPick && !picked(); }
+    function chip(label, onRemove, name) {
+      var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
+      if (onRemove) {
+        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + name);
+        x.addEventListener("click", onRemove); c.appendChild(x);
+      }
+      return c;
+    }
     function drawChips() {
       var box = document.getElementById("ib-bk-chips"); if (!box) return;
       ui.clear(box);
+      if (allChosen()) {
+        var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
+        box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        ((st.groups && st.groups.list) || []).forEach(function (g) { box.appendChild(chip(g.label || g.name, null)); });
+        return;
+      }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
-        var it = t[0], chip = h("span", "ib-bk-pchip"); chip.appendChild(h("span", "", it.label || it.name));
-        var x = h("button", "ib-bk-pchip-x", "\u00D7"); x.setAttribute("type", "button"); x.setAttribute("aria-label", "Remove " + (it.name || "this " + t[2]));
-        x.addEventListener("click", function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); });
-        chip.appendChild(x); box.appendChild(chip);
+        var it = t[0];
+        box.appendChild(chip(it.label || it.name, function () { var arr = t[1]; arr.splice(arr.indexOf(it), 1); pickChanged(); }, it.name || "this " + t[2]));
       });
     }
     /* The preview and its inline error: 400 ms after the last key. A 422 (a web link, a character, too long) shows on the field. */
@@ -391,7 +409,7 @@
       c.appendChild(add(h("div", "ib-bk-dh"), t, side || null));
       return c;
     }
-    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "pm-hint ib-bk-cost", s.cost_note) : h("span", ""); }
+    function costLine(s) { return typeof s.cost_note === "string" && s.cost_note ? h("p", "ib-bk-will ib-fn-hint ib-bk-cost", s.cost_note) : h("span", ""); }
 
     /* ----- drawing ----- */
     function draw() {
@@ -468,7 +486,7 @@
       D.call("POST", b0 + "batches/" + encodeURIComponent(b.id) + "/stop/", null, true).then(function (res) {
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
-        if (!res.ok) { st.err = refusal(res, "We could not stop it. Please try again."); /* not_running: it ended on its own; read again */ if (res.status === 409) { st.aud = null; readStatus(); return; } draw(); return; }
+        if (!res.ok) { toast(refusal(res, "We could not stop it. Please try again."), "", "error"); /* not_running: it ended on its own; read again */ if (res.status === 409) { st.aud = null; readStatus(); return; } draw(); return; }
         ui.say("Sending stopped.");
         st.note = "Sending was stopped. Texts already with your phone may still go out."; st.aud = null;
         st.status.active_batch = null; readStatus(); loadHistory(null, true);
@@ -553,14 +571,10 @@
         kit.refresh(); fieldErr(); drawPreview(); schedulePreview();
       }
       ta.addEventListener("input", changed);
-      /* 3. one small count line and exactly two buttons */
-      var cnt = h("p", "ib-bk-will"); cnt.setAttribute("id", "ib-bk-count"); cnt.setAttribute("aria-live", "polite");
+      /* 3. exactly two buttons; nothing is written below them (results and errors are toasts) */
       var t = ui.btn("Send Test SMS", "ghost", function (x) { sendTest(x); }); t.setAttribute("id", "ib-bk-test");
       var go = ui.btn("Start Sending", "primary", function () { openDialog(); }); go.setAttribute("id", "ib-bk-go");
-      var tn = h("p", "pm-hint", ""); tn.setAttribute("id", "ib-bk-testnote"); tn.setAttribute("role", "status");
-      fs.appendChild(cnt);
       wrap.appendChild(add(h("div", "ib-bk-actions"), add(h("div", "ib-bk-btns"), t, go)));
-      wrap.appendChild(tn);
       return wrap;
     }
     function textProblem() {
@@ -573,15 +587,7 @@
     }
     function textOk() { return !!st.text.trim() && !textProblem(); }
 
-    function drawCount() {
-      var box = document.getElementById("ib-bk-count"); if (!box) return;
-      ui.clear(box);
-      if (st.needPick) { /* nothing is shown until an audience is chosen */ }
-      else if (st.audLoading || !st.aud) box.appendChild(document.createTextNode("Counting members…"));
-      else if (st.aud.failed) { box.appendChild(document.createTextNode("We could not count your members just now. ")); box.appendChild(ui.btn("Try again", "ghost", function () { readAudience(); })); }
-      else { var n = num(st.aud.will_send); box.appendChild(document.createTextNode(n ? willSend(n, st.audience) : "No members can be texted yet.")); }
-      drawPreview();
-    }
+    function drawCount() { drawChips(); drawPreview(); } /* the chips carry the counts; there is no "Will send to" line */
     function drawPreview() {
       fieldErr();
       var ok = textOk() && !!st.preview, tb = document.getElementById("ib-bk-test"), go = document.getElementById("ib-bk-go");
@@ -623,17 +629,16 @@
       host.appendChild(over); st.dlg = true; if (back.focus) back.focus();
     }
     function sendTest(x) {
-      if (st.testing || !textOk()) return;
+      if (st.testing || !textOk() || st.needPick) return;
       st.testing = true; st.testNote = ""; ui.busy(x, true);
-      D.call("POST", b0 + "test/", { text: st.text.trim(), idempotency_key: ui.newKey() }, true).then(function (res) {
+      D.call("POST", b0 + "test/", Object.assign(audBody(), { text: st.text.trim(), idempotency_key: ui.newKey() }), true).then(function (res) {
         st.testing = false;
         if (!aliveRes(res)) return;
         if (res.status === 404) { gone(); return; }
-        var tn = document.getElementById("ib-bk-testnote"), tb = document.getElementById("ib-bk-test");
+        var tb = document.getElementById("ib-bk-test");
         if (tb) ui.busy(tb, false);
-        if (res.ok) { if (D.toast) D.toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
-        var msg = refusal(res, "The test text could not be sent.");
-        st.testNote = msg; if (tn) tn.textContent = msg;
+        if (res.ok) { toast("A test text is on its way to your phone.", "It counts as one of today's texts."); ui.say("Test text is on its way."); return; }
+        toast(refusal(res, "The test text could not be sent."), "", "error");
       });
     }
     function confirmSend(x, n) {
@@ -647,13 +652,15 @@
           if (res.status !== 0) st.key = null; /* a lost answer keeps the key so nothing is sent twice */
           var code = res.data && res.data.code;
           /* The count moved since the owner looked (D.call keeps only the code and the message): say so, read it again, ask for a new tick. */
-          if (res.status === 409 && code === "audience_changed") { st.err = refusal(res, "Your member count changed. Check the new count and send again."); readAudience(); fieldErr(); return; }
-          if (res.status === 409) { st.err = refusal(res); st.view = "main"; readStatus(); return; }
-          st.err = refusal(res, "The batch could not be started."); draw(); fieldErr(); return;
+          if (res.status === 409 && code === "audience_changed") { toast(refusal(res, "Your member count changed. Check the new count and send again."), "", "error"); readAudience(); return; }
+          if (res.status === 409) { toast(refusal(res), "", "error"); st.view = "main"; readStatus(); return; }
+          var ff = res.data && res.data.fields;
+          if (ff && ff.text) { st.err = refusal(res, "This text cannot be sent."); draw(); fieldErr(); return; } /* a message error stays on the message field */
+          toast(refusal(res, "The batch could not be started."), "", "error"); draw(); return;
         }
         st.key = null; st.text = ""; st.preview = null; st.prevErr = ""; st.testNote = ""; st.note = ""; st.aud = null;
         st.status.active_batch = res.data; st.view = "main";
-        ui.say("Sending started.");
+        toast("Sending started.", "Your texts go out from your phone."); ui.say("Sending started.");
         draw(); schedulePoll(); loadHistory(null, true);
       });
     }
@@ -748,7 +755,7 @@
   }
 
   root.NOInboxBulk = { probe: probe, screen: screen,
-    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, willSend: willSend, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem, strayBrace: strayBrace,
+    util: { available: available, audienceName: audienceName, audienceText: audienceText, audienceCell: audienceCell, leftOut: leftOut, maxOf: maxOf, roomLeft: roomLeft, problem: problem, strayBrace: strayBrace,
       FIRST: FIRST, hasFirstName: hasFirstName, insertAt: insertAt, tidy: tidy, fillExample: fillExample, onlyFirst: onlyFirst, firstNameKit: firstNameKit,
       estimate: estimate, headline: headline, active: active, pauseText: pauseText, stateText: stateText, recipientState: recipientState, maskMobile: maskMobile, blockedText: blockedText,
       contactItems: contactItems, groupItems: groupItems, refusal: refusal, AUDIENCES: AUDIENCES, LEFT_OUT: LEFT_OUT, NO_LINE: NO_LINE, PAGE: PAGE } };

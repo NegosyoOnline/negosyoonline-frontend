@@ -544,8 +544,9 @@ html:not([data-theme="light"]) body.dash-app .ib-ftip.is-below::after { border-b
 #view-inbox .ib-bk-pick[hidden] { display: none; }
 #view-inbox .ib-bk-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 #view-inbox .ib-bk-chips:not(:empty) { margin-top: 8px; }
-#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 6px 2px 12px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 14px; font-weight: 600; }
-#view-inbox .ib-bk-pchip-x { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 18px; line-height: 1; cursor: pointer; }
+#view-inbox .ib-bk-pchip { display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 1px 4px 1px 9px; border-radius: 999px; background: color-mix(in srgb, var(--link) 14%, transparent); color: var(--link); font-size: 12px; font-weight: 600; line-height: 1.3; }
+#view-inbox .ib-bk-pchip:not(:has(.ib-bk-pchip-x)) { padding-right: 9px; }
+#view-inbox .ib-bk-pchip-x { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
 #view-inbox .ib-bk-pchip-x:hover, #view-inbox .ib-bk-pchip-x:focus-visible { background: color-mix(in srgb, var(--link) 22%, transparent); outline: none; }
 #view-inbox .ib-bk-sendto legend { padding: 0; }
 #view-inbox .ib-bk-opt { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; border: 1px solid var(--link, #6C8CFF); border-radius: 10px; font-weight: 600; cursor: pointer; }
@@ -687,3 +688,7 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #view-inbox .ib-bk-form > :empty { display: none; }
 #view-inbox .ib-bk-actions { justify-content: flex-end; }
 #view-inbox .ib-bk-formcard { padding-bottom: 22px; }
+
+/* Fix 5: a clear gap between the message box and the "+ First name" button; the cost note, the Manila-time line and the first-name hint share one label look */
+#view-inbox .ib-fn-row { margin-bottom: 8px; }
+#view-inbox .ib-bk-cost.ib-fn-hint { margin: 8px 0 0; font-size: 14px; font-weight: 500; color: var(--meta); }

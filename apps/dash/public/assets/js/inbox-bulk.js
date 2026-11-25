@@ -3,7 +3,7 @@
    store-bulk-sms-be-api-2026-11-23), all under /sites/{id}/inquiries/sms/bulk/: GET status/, POST audience/ {audience}, POST preview/ {text},
    POST test/ {text, idempotency_key}, POST batches/ {text, audience, idempotency_key, confirm, expected_count}, GET batches/,
    GET batches/{id}/, POST batches/{id}/stop/. Every one answers 404 while the feature is off: probe() then says null and the button stays hidden.
-   Ruling D1 (Coach Ed, 2026-11-23): "All my members" is the first and default audience; there is NO consent nudge, warning or consent
+   Ruling D1 (Coach Ed, 2026-11-23): "All groups" is the first and default audience; there is NO consent nudge, warning or consent
    wording anywhere on this screen. The page never shows a list of numbers: only counts, and masked mobiles in a batch's recipients.
    The words the API sends (messages, reason_text, end_message, blocked_message) reach the page through textContent only. Plain ES5. */
 (function (root) {
@@ -11,7 +11,7 @@
 
   /* ---------- pure helpers ---------- */
 
-  var AUDIENCES = [["all", "All my members"], ["pick", "Chosen groups and contacts"]];
+  var AUDIENCES = [["all", "All groups"], ["pick", "Chosen groups and contacts"]];
   /* The plain labels for the groups left out of the count, in the order the API counts them. */
   var LEFT_OUT = [["unverified", "Mobile number not verified"], ["invalid_number", "Test number"], ["opted_out", "Asked for no more texts (STOP)"],
     ["duplicates", "Repeated number"]];
@@ -29,7 +29,7 @@
   function num(n) { return typeof n === "number" && isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function audienceName(a) { for (var i = 0; i < AUDIENCES.length; i++) if (AUDIENCES[i][0] === a) return AUDIENCES[i][1]; return AUDIENCES[0][1]; }
-  /* The Audience cell of a history row (round 11): "All my members", or for a chosen audience the group names then the contact names, comma-separated
+  /* The Audience cell of a history row (round 11): "All groups", or for a chosen audience the group names then the contact names, comma-separated
      (a contact is first and last name, else its masked number). Until the list endpoints send groups and contacts it is the plain "Chosen groups and contacts". */
   function audienceText(row) {
     var a = row && row.audience;
@@ -270,7 +270,7 @@
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
-        if (st.aud.failed) toast(refusal(res, "We could not count your members just now."), "", "error");
+        if (st.aud.failed) toast(refusal(res, "We could not count your contacts just now."), "", "error");
         if (document.getElementById("ib-bk-chips")) drawCount(); else draw(); /* the form is left as it is, so a dropdown stays open */
       });
     }
@@ -290,6 +290,7 @@
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
         var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+        drawChips();
       });
     }
     /* The contact search: at least two characters, 300 ms after the last key, only the newest answer is used. Until that answer is in, the list says
@@ -318,13 +319,13 @@
       if (st.searching) return "Searching\u2026";
       return st.searchErr ? "We could not search just now. Please try again." : "No groups or contacts found.";
     }
-    /* ONE dropdown for who gets it (Coach Ed 2026-11-24 round 9): "All my members" first and selected by default, then the groups, then the contacts
+    /* ONE dropdown for who gets it (Coach Ed 2026-11-24 round 9): "All groups" first and selected by default, then the groups, then the contacts
        found by the search, mixed in one list. The first (blank) option is the grey placeholder shown once something is picked. Values: "all", "g:<id>", "c:<id>". */
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
       sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
-      if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
+      if (!q || "all groups".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All groups"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
         if (q && g.label.toLowerCase().indexOf(q) < 0) return;
@@ -334,16 +335,16 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         var o = D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact \u00B7 No texts" : "Contact" }, c.label); sel.appendChild(o);
       });
-      sel.value = ""; /* All my members shows as a chip under the input, so the input keeps its placeholder */
+      sel.value = ""; /* All groups shows as a chip under the input, so the input keeps its placeholder */
     }
-    /* The picks changed: the audience follows them (none left: All my members), show the chips, ask for the count again and for a new confirm. */
+    /* The picks changed: the audience follows them (none left: All groups), show the chips, ask for the count again and for a new confirm. */
     function pickChanged(explicitAll) {
       st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.q = ""; st.key = null; st.err = "";
       var sel = document.getElementById("ib-bk-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
-    /* The chips under the Send to input. While All my members is chosen: only its own chip (count, with a remove);
-       otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
+    /* The chips under the Send to input. While All groups is chosen: its chip (count, with a remove) then every group as a display-only chip
+       (no remove, labelled "Name (count)" from the group's own count; the name alone when the list has none); otherwise the chosen groups and contacts, each with a remove. Group labels carry their count when the list has one. */
     function allChosen() { return !st.needPick && !picked(); }
     function chip(label, onRemove, name) {
       var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
@@ -358,7 +359,8 @@
       ui.clear(box);
       if (allChosen()) {
         var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
-        box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        box.appendChild(chip("All groups" + n, function () { pickChanged(); }, "All groups"));
+        ((st.groups && st.groups.list) || []).forEach(function (g) { box.appendChild(chip(g.label || g.name, null)); });
         return;
       }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
@@ -513,7 +515,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
       var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
+      ["One text for every contact in your groups, sent from your own phone.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);
@@ -523,7 +525,7 @@
     function form(s) {
       var wrap = h("div", "ib-bk-form");
       var max = maxOf(s);
-      /* 1. who: ONE house dropdown listing All my members, the groups and the contacts; the picks show as chips (Ruling D1: All my members first and the default) */
+      /* 1. who: ONE house dropdown listing All groups, the groups and the contacts; the picks show as chips (Ruling D1: All groups first and the default) */
       var fs = h("div", "pm-field ib-bk-sendto");
       var l1 = h("label", "pm-label", "Send to"); l1.setAttribute("for", "ib-bk-to"); fs.appendChild(l1);
       var sel = D.el("select", { "class": "ib-input", id: "ib-bk-to" });
@@ -540,7 +542,7 @@
       });
       ui.combo(sel, "Send to", { blankEmpty: true, remote: function (q) { st.q = String(q || ""); fillSend(sel); sel.ibRedraw(); if (st.contactsOn) searchContacts(q); },
         emptyText: emptyText });
-      /* Closing the box after typing without picking shows the current choice again (All my members, or the chips). */
+      /* Closing the box after typing without picking shows the current choice again (All groups, or the chips). */
       var wrapEl = sel.parentNode, inEl = wrapEl.all ? wrapEl.all(function (n) { return n.tagName === "INPUT"; })[0] : wrapEl.querySelector("input");
       function resetQ() { if (!st.q) return; st.q = ""; fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       if (inEl) inEl.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.key === "Tab") resetQ(); });
@@ -610,7 +612,7 @@
       var over = h("div", "ib-bk-dlg"); over.setAttribute("id", "ib-bk-dlg");
       var box = h("div", "ib-bk-dlg-box"); box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "ib-bk-dlg-h"); box.setAttribute("aria-describedby", "ib-bk-dlg-t");
       var ttl = h("h2", "ib-bk-dlg-h", "Start sending?"); ttl.setAttribute("id", "ib-bk-dlg-h");
-      var q = h("p", "ib-bk-dlg-t", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "member", "members")) + " from your phone?"); q.setAttribute("id", "ib-bk-dlg-t");
+      var q = h("p", "ib-bk-dlg-t", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "contact", "contacts")) + " from your phone?"); q.setAttribute("id", "ib-bk-dlg-t");
       add(box, ttl, q, add(h("div", "ib-bk-dlg-btns"), back, yes));
       over.appendChild(box);
       over.addEventListener("click", function (e) { if (e.target === over) closeDialog(true); });
@@ -650,7 +652,7 @@
           if (res.status !== 0) st.key = null; /* a lost answer keeps the key so nothing is sent twice */
           var code = res.data && res.data.code;
           /* The count moved since the owner looked (D.call keeps only the code and the message): say so, read it again, ask for a new tick. */
-          if (res.status === 409 && code === "audience_changed") { toast(refusal(res, "Your member count changed. Check the new count and send again."), "", "error"); readAudience(); return; }
+          if (res.status === 409 && code === "audience_changed") { toast(refusal(res, "Your contact count changed. Check the new count and send again."), "", "error"); readAudience(); return; }
           if (res.status === 409) { toast(refusal(res), "", "error"); st.view = "main"; readStatus(); return; }
           var ff = res.data && res.data.fields;
           if (ff && ff.text) { st.err = refusal(res, "This text cannot be sent."); draw(); fieldErr(); return; } /* a message error stays on the message field */

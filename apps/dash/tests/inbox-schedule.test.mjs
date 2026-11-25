@@ -184,7 +184,7 @@ async function openSched(o = {}, opts = {}) {
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/schedule/.test(href) ? "schedule" : /bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "schedule"); await settle(); await settle(); await settle();
   if (opts.form && d.$("ib-sc-send")) { await d.click(d.$("ib-sc-send")); await settle(); await settle(); }
-  if (opts.form && opts.pick !== false && d.$("ib-sc-to")) { cBox(d, "ib-sc-to").fire("click"); pickRow(d, "ib-sc-to", "All my members"); await settle(); await settle(); }
+  if (opts.form && opts.pick !== false && d.$("ib-sc-to")) { cBox(d, "ib-sc-to").fire("click"); pickRow(d, "ib-sc-to", "All groups"); await settle(); await settle(); }
   return d;
 }
 const pane = (d) => d.$("ib-schedpane");
@@ -248,7 +248,7 @@ test("schedule: the list is a title and a primary Schedule SMS button above a ta
   assert.deepEqual(tbl.all((n) => n.tagName === "TH").map((n) => n.textContent), ["Date and time", "Audience", "Message", "Status", "Actions"]);
   const cells = rowsOf(d)[0].all((n) => n.tagName === "TD");
   assert.ok(/Nov 17, 2026/.test(cells[0].textContent) && /9:30/.test(cells[0].textContent) && /Manila/.test(cells[0].textContent), cells[0].textContent);
-  assert.equal(cells[1].textContent, "All my members");
+  assert.equal(cells[1].textContent, "All groups");
   assert.equal(cells[2].textContent, "Sale this weekend.");
   assert.equal(cells[3].textContent, "Scheduled");
 });
@@ -326,7 +326,7 @@ test("schedule: an empty list says nothing is scheduled; a failed read offers Tr
   assert.ok(e.press(pane(e), "Try again"));
 });
 
-test("schedule form: Send to (one house dropdown, All my members first and selected) sits above Message; then the date and time; Send Test SMS and Schedule", async () => {
+test("schedule form: Send to (one house dropdown, All groups first and selected) sits above Message; then the date and time; Send Test SMS and Schedule", async () => {
   const d = await openSched({}, { form: true });
   const form = d.$("ib-sc-t").parentNode.parentNode;
   const ids = form.children.map((n) => n.all((x) => x.id).map((x) => x.id)[0] || "");
@@ -336,13 +336,13 @@ test("schedule form: Send to (one house dropdown, All my members first and selec
   assert.deepEqual(sels.map((n) => n.id), ["ib-sc-to", "ib-sc-date", "ib-sc-time"], "the Send to dropdown is ONE; the date and time are house dropdowns too");
   for (const id of ["ib-sc-to", "ib-sc-date", "ib-sc-time"]) assert.ok(has(d.$(id).parentNode, "ib-combo"), id + " is the house combo, not native");
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && /date|time|radio/.test(n.getAttribute("type") || "")).length, 0, "no native date, time or radio inputs");
-  assert.equal(d.$("ib-sc-to").value, "", "the input keeps its placeholder; All my members is a chip");
+  assert.equal(d.$("ib-sc-to").value, "", "the input keeps its placeholder; All groups is a chip");
   assert.equal(cInput(d, "ib-sc-to").value, "");
-  assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent), ["All my members (95)×"], "members only: exactly one chip");
+  assert.deepEqual(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent), ["All groups (95)×", "Regulars (12)", "VIP (3)"], "All first, then every group as Name (count) without a remove");
   assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x")).length, 1);
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   cBox(d, "ib-sc-to").fire("click");
-  assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent.replace(/Group$/, "")), ["All my members", "Regulars (12)", "VIP (3)"]);
+  assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent.replace(/Group$/, "")), ["All groups", "Regulars (12)", "VIP (3)"]);
   assert.equal(d.$("ib-sc-test").textContent, "Send Test SMS");
   assert.equal(d.$("ib-sc-go").textContent, "Schedule");
   assert.ok(!/Will send to/.test(pane(d).textContent), "no count line");
@@ -357,7 +357,7 @@ test("schedule form: the counter reads 0 / 160 and follows the typing; contacts 
   assert.equal(d.$("ib-sc-c").textContent, "8 / 160");
   assert.ok(!d.calls.some((c) => c.path === CT + "groups/"), "no group is asked while contacts are off");
   cBox(d, "ib-sc-to").fire("click");
-  assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent), ["All my members"]);
+  assert.deepEqual(cRows(d, "ib-sc-to").map((n) => n.textContent), ["All groups"]);
 });
 
 test("schedule form: picking groups and contacts shows chips and asks the count for the pick; removing the last chip goes back to nothing chosen", async () => {
@@ -680,7 +680,7 @@ test("round 10: editing keeps the saved date and time selectable and Save change
 });
 
 /* ---------- round 11 (Coach Ed 2026-11-24): the Audience column names the groups and the contacts; the two list headings are section-title size ---------- */
-test("round 11 R11-1: the Audience cell is All my members, or the groups then the contacts (name, else masked number), one line with an ellipsis and the full list in the title", async () => {
+test("round 11 R11-1: the Audience cell is All groups, or the groups then the contacts (name, else masked number), one line with an ellipsis and the full list in the title", async () => {
   const rows = [
     sched({ id: "sch_1", audience: "all" }),
     sched({ id: "sch_2", audience: "pick", groups: [{ id: "g1", name: "VIP" }, { id: "g2", name: "Manila" }], contacts: [{ id: "c1", first_name: "Maria", last_name: "Santos", mobile_masked: "0917 *** 1234" }, { id: "c2", first_name: "", last_name: "", mobile_masked: "0918 *** 5678" }, { id: "c3", first_name: "Jun", last_name: "", mobile_masked: "x" }] }),
@@ -690,7 +690,7 @@ test("round 11 R11-1: the Audience cell is All my members, or the groups then th
   ];
   const d = await openSched({ list: () => ok({ items: rows, next_cursor: null }) });
   const cells = rowsOf(d).map((r) => r.all((n) => n.tagName === "TD")[1]);
-  assert.equal(cells[0].textContent, "All my members");
+  assert.equal(cells[0].textContent, "All groups");
   assert.equal(cells[1].textContent, "VIP, Manila, Maria Santos, 0918 *** 5678, Jun");
   assert.equal(cells[1].getAttribute("title"), "VIP, Manila, Maria Santos, 0918 *** 5678, Jun");
   assert.ok(has(cells[1], "ib-bk-aud"), "the one-line ellipsis class");
@@ -751,18 +751,18 @@ test("schedule: typing a { or } outside {first_name} shows the brace message und
   assert.ok(u.problem("a".repeat(161), 160));
 });
 
-test("fix 5 (schedule): All my members shows chips for every group; the All chip removes to no audience; a pick while All is chosen switches to picks; the cost note is a label", async () => {
+test("fix 5 (schedule): All groups shows chips for every group; the All chip removes to no audience; a pick while All is chosen switches to picks; the cost note is a label", async () => {
   const d = await openSched({ status: ok({ available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, left_today: 2000, max_length: 160, cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply." }) }, { form: true });
   await settle();
   const cl = () => d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).map((n) => n.textContent);
-  assert.deepEqual(cl(), ["All my members (95)×"]);
+  assert.deepEqual(cl(), ["All groups (95)×", "Regulars (12)", "VIP (3)"]);
   const cost = pane(d).all((n) => has(n, "ib-bk-cost"))[0];
   assert.ok(cost && has(cost, "ib-fn-hint") && has(cost, "ib-bk-will"));
   await pickTo(d, "VIP");
   assert.deepEqual(cl(), ["VIP (3)×"], "the chosen picks replace the All chips");
   assert.deepEqual(d.bk.seen.audience.at(-1), { audience: "pick", groups: ["g2"], contacts: [] });
   d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))[0].fire("click"); await settle(); await settle();
-  await pickTo(d, "All my members");
+  await pickTo(d, "All groups");
   d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip-x"))[0].fire("click"); await settle(); await settle();
   assert.deepEqual(cl(), []); assert.equal(cInput(d, "ib-sc-to").getAttribute("placeholder"), "Choose who gets it");
   assert.equal(d.$("ib-sc-test").disabled, true);
@@ -775,7 +775,7 @@ test("fix 4 (schedule): no count before a pick; nothing preselected; buttons off
   assert.equal(cInput(d, "ib-sc-to").getAttribute("placeholder"), "Choose who gets it");
   assert.equal(d.$("ib-sc-chips").all((n) => has(n, "ib-bk-pchip")).length, 0, "no chip before a choice");
   assert.equal(d.$("ib-sc-test").disabled, true); assert.equal(d.$("ib-sc-go").disabled, true);
-  await pickTo(d, "All my members");
+  await pickTo(d, "All groups");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   assert.ok(!/Will send to/.test(pane(d).textContent));
   assert.equal(d.$("ib-sc-test").disabled, false);

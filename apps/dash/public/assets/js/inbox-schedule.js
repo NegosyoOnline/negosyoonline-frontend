@@ -157,6 +157,7 @@
         g0.loading = false;
         if (res && res.ok && res.data) g0.list = BU.groupItems(Array.isArray(res.data) ? res.data : res.data.results || res.data.items); else g0.failed = true;
         var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibRedraw) sel.ibRedraw(); }
+        drawChips();
       });
     }
     function picked() { return st.pickG.length + st.pickC.length > 0; }
@@ -171,7 +172,7 @@
         st.audLoading = false;
         if (res.status === 404) { gone(); return; }
         st.aud = res.ok && res.data && typeof res.data === "object" ? res.data : { failed: true };
-        if (st.aud.failed) toast(say(res, "We could not count your members just now."), "", "error");
+        if (st.aud.failed) toast(say(res, "We could not count your contacts just now."), "", "error");
         drawCount();
       });
     }
@@ -188,12 +189,12 @@
         });
       }, 300);
     }
-    /* ONE house dropdown for who gets it, the same as the Bulk form: All my members first and the default, then the groups, then the contacts found. */
+    /* ONE house dropdown for who gets it, the same as the Bulk form: All groups first and the default, then the groups, then the contacts found. */
     function fillSend(sel) {
       while (sel.firstChild) sel.removeChild(sel.firstChild);
       var q = String(st.q || "").trim().toLowerCase();
       sel.appendChild(D.el("option", { value: "" }, st.needPick ? "Choose who gets it" : "Add a group or contact"));
-      if (!q || "all my members".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All my members"));
+      if (!q || "all groups".indexOf(q) >= 0) sel.appendChild(D.el("option", { value: "all" }, "All groups"));
       ((st.groups && st.groups.list) || []).forEach(function (g) {
         if (st.pickG.some(function (x) { return x.id === g.id; })) return;
         if (q && g.label.toLowerCase().indexOf(q) < 0) return;
@@ -203,14 +204,14 @@
         if (st.pickC.some(function (x) { return x.id === c.id; })) return;
         sel.appendChild(D.el("option", { value: "c:" + c.id, "data-tag": c.optedOut ? "Contact · No texts" : "Contact" }, c.label));
       });
-      sel.value = ""; /* All my members shows as a chip under the input, so the input keeps its placeholder */
+      sel.value = ""; /* All groups shows as a chip under the input, so the input keeps its placeholder */
     }
     function pickChanged(explicitAll) {
       st.audience = picked() ? "pick" : "all"; st.needPick = !picked() && explicitAll !== true; st.keepAud = false; st.q = ""; st.key = null; st.err = "";
       var sel = el("ib-sc-to"); if (sel) { fillSend(sel); if (sel.ibSync) sel.ibSync(); }
       drawChips(); readAudience(); fieldErr();
     }
-    /* The chips under the Send to input, the same as Bulk: while All my members is chosen its own chip (count, with a remove) only; otherwise the chosen groups and contacts, each with a remove. */
+    /* The chips under the Send to input, the same as Bulk: while All groups is chosen its chip (count, with a remove) then every group as a display-only chip (no remove, "Name (count)"); otherwise the chosen groups and contacts, each with a remove. */
     function allChosen() { return !st.keepAud && !st.needPick && !picked(); }
     function chip(label, onRemove, name) {
       var c = h("span", "ib-bk-pchip"); c.appendChild(h("span", "", label));
@@ -225,7 +226,8 @@
       ui.clear(box);
       if (allChosen()) {
         var n = st.aud && !st.aud.failed && typeof st.aud.will_send === "number" ? " (" + num(st.aud.will_send) + ")" : "";
-        box.appendChild(chip("All my members" + n, function () { pickChanged(); }, "All my members"));
+        box.appendChild(chip("All groups" + n, function () { pickChanged(); }, "All groups"));
+        ((st.groups && st.groups.list) || []).forEach(function (g) { box.appendChild(chip(g.label || g.name, null)); });
         return;
       }
       st.pickG.map(function (it) { return [it, st.pickG, "group"]; }).concat(st.pickC.map(function (it) { return [it, st.pickC, "contact"]; })).forEach(function (t) {
@@ -379,7 +381,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-sc-h-rules");
       var rh = h("h2", "", "How scheduled sending works"); rh.setAttribute("id", "ib-sc-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every member, sent from your own phone.", "No web links.", "Members who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
+      ["One text for every contact in your groups, sent from your own phone.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
         "Choose a time at least 10 minutes from now and within 30 days.", "You can keep up to 20 texts scheduled. Edit or cancel one until it starts."].forEach(function (x) { ul.appendChild(h("li", "", x)); });
       rules.appendChild(ul); aside.appendChild(rules);
       /* the way back is a small text link above the form, not a button: the form has exactly two buttons */

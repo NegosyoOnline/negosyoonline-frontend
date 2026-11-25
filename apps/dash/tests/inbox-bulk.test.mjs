@@ -180,8 +180,8 @@ async function openBulk(o = {}, bootOpts = {}, opts = {}) {
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "bulk"); await settle(); await settle(); await settle();
   if (opts.form !== false && d.$("ib-bk-send")) { await d.click(d.$("ib-bk-send")); await settle(); await settle(); }
-  /* nothing is preselected (z8uq9mjj05 fix 4): tests that need an audience choose All my members, unless opts.pick is false */
-  if (opts.pick !== false && d.$("ib-bk-to")) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle(); }
+  /* nothing is preselected (z8uq9mjj05 fix 4): tests that need an audience choose All groups, unless opts.pick is false */
+  if (opts.pick !== false && d.$("ib-bk-to")) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All groups"); await settle(); await settle(); }
   return d;
 }
 const pane = (d) => d.$("ib-bulkpane");
@@ -230,7 +230,7 @@ test("INBOX-FIX-7: the Bulk SMS tab has no Back link; the History is a table wit
   const cells = rows[0].all((n) => n.tagName === "TD");
   assert.equal(cells.length, 6);
   assert.ok(cells[0].textContent.length > 4, "date");
-  assert.equal(cells[1].textContent, "All my members");
+  assert.equal(cells[1].textContent, "All groups");
   assert.equal(cells[2].textContent, "94 / 1 / 0", "sent / failed / not sent");
   assert.equal(cells[3].textContent, "Finished");
   assert.equal(cells[4].textContent, "Test Store: Sale this weekend.", "the message preview");
@@ -357,7 +357,8 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   const h2s = pane(d).all((n) => n.tagName === "H2").map((n) => n.textContent);
   assert.deepEqual(h2s, ["New batch: write the text and choose who gets it", "How bulk sending works"], "no Check and confirm card");
   const rules = pane(d).all((n) => n.classList && n.classList.contains("ib-bk-rules"))[0].textContent;
-  assert.ok(rules.includes("No web links.") && rules.includes("Members who replied STOP are skipped.") && rules.includes("8:00 am to 10:00 pm, Manila time"));
+  assert.ok(rules.includes("No web links.") && rules.includes("Contacts who replied STOP are skipped.") && rules.includes("8:00 am to 10:00 pm, Manila time"));
+  assert.ok(rules.includes("One text for every contact in your groups, sent from your own phone."));
   assert.ok(rules.includes("Bulk texts left today: 2000 of 2000."));
   assert.equal(d.$("ib-bk-send"), null, "the History card is not shown with the form");
   assert.equal(d.$("ib-back"), null, "no Back link");
@@ -370,7 +371,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   assert.ok(!pane(d).textContent.includes("Check and confirm"));
 });
 
-test("bulk: Send to is ONE house dropdown, All my members offered first, read with all once chosen; no radios, no promo or consent wording", async () => {
+test("bulk: Send to is ONE house dropdown, All groups offered first, read with all once chosen; no radios, no promo or consent wording", async () => {
   const d = await openBulk();
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "radio").length, 0, "no radios");
   assert.equal(d.$("ib-bk-to-all"), null);
@@ -378,11 +379,11 @@ test("bulk: Send to is ONE house dropdown, All my members offered first, read wi
   assert.equal(sel.tagName, "SELECT");
   assert.equal(sel.parentNode.classList.contains("ib-combo"), true, "the house combo, not native");
   assert.equal(pane(d).all((n) => n.tagName === "SELECT").length, 1, "one dropdown");
-  assert.equal(sel.value, "", "All my members shows as a chip; the input keeps its placeholder");
+  assert.equal(sel.value, "", "All groups shows as a chip; the input keeps its placeholder");
   assert.equal(cInput(d, "ib-bk-to").value, "");
   assert.equal(cInput(d, "ib-bk-to").getAttribute("placeholder"), "Add a group or contact");
-  assert.deepEqual(chips(d), ["All my members (95)\u00D7"], "the All chip carries the count and a remove");
-  assert.equal(sel.children.filter((o) => o.value !== "")[0].textContent, "All my members", "first option");
+  assert.deepEqual(chips(d), ["All groups (95)\u00D7"], "the All chip carries the count and a remove");
+  assert.equal(sel.children.filter((o) => o.value !== "")[0].textContent, "All groups", "first option");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   const all = pane(d).textContent;
   assert.ok(!/promo|consent|agree|warning|opt-in|permission|allowed to text/i.test(all), "no promo or consent wording: " + all);
@@ -393,7 +394,7 @@ test("bulk: there is no Will send to line; the chips carry the counts; no left-o
   const d = await openBulk();
   assert.equal(d.$("ib-bk-count"), null, "no count line");
   assert.ok(!/Will send to/.test(pane(d).textContent), "no Will send to text");
-  assert.deepEqual(chips(d), ["All my members (95)\u00D7"]);
+  assert.deepEqual(chips(d), ["All groups (95)\u00D7"]);
   assert.ok(!/Left out|not verified|Test number|no more texts|Repeated/.test(pane(d).textContent), "no left-out wording");
   assert.ok(!/\+?63\d{9}|09\d{9}/.test(pane(d).textContent));
   const u = d.window.NOInboxBulk.util; assert.equal(u.willSend, undefined, "the helper is gone");
@@ -452,7 +453,7 @@ test("bulk: Start Sending opens a confirm dialog first; Back sends nothing; conf
   const dlg = d.$("ib-bk-dlg");
   const box = dlg && dlg.all((n) => n.getAttribute("role") === "dialog")[0];
   assert.ok(box && box.getAttribute("aria-modal") === "true", "the dialog card sits inside the scrim");
-  assert.ok(dlg.textContent.includes("Send to 95 members from your phone?"));
+  assert.ok(dlg.textContent.includes("Send to 95 contacts from your phone?"));
   assert.equal(d.bk.seen.batches.length, 0, "nothing sent yet");
   await d.click(d.$("ib-bk-dlg-back"));
   assert.equal(d.$("ib-bk-dlg"), null, "Back closes it");
@@ -626,7 +627,7 @@ async function openPick(o = {}, contacts = contactsApi(), pickAll = true) {
   d.window.NODash.go = (href) => d.window.NOInbox.setTab(/bulk/.test(href) ? "bulk" : /settings/.test(href) ? "settings" : "");
   d.window.NOInbox.show("sms", "bulk"); await settle(); await settle(); await settle();
   await d.click(d.$("ib-bk-send")); await settle(); await settle();
-  if (pickAll) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle(); }
+  if (pickAll) { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All groups"); await settle(); await settle(); }
   return d;
 }
 const cInput = (d, id) => d.$(id).parentNode.all((n) => n.classList && n.classList.contains("ib-combo-input"))[0];
@@ -639,22 +640,23 @@ const typeTo = async (d, q) => { cBox(d, "ib-bk-to").fire("click"); const i = se
 const pickTo = async (d, text) => { cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", text); await settle(); await settle(); };
 const optLabels = (d) => cRows(d, "ib-bk-to").map((n) => n.textContent.replace(/(Group|Contact( \u00B7 No texts)?)$/, ""));
 
-test("round 9 R9-4: one dropdown lists All my members first, then the groups, mixed with the contacts you search; All my members is selected by default and asks nothing more", async () => {
+test("round 9 R9-4: one dropdown lists All groups first, then the groups, mixed with the contacts you search; All groups is selected by default and asks nothing more", async () => {
   const d = await openPick({}, undefined, false);
   assert.equal(pane(d).all((n) => n.tagName === "SELECT").length, 1, "ONE dropdown, not two");
   assert.equal(d.$("ib-bk-to").value, "", "nothing is preselected");
   assert.equal(sendTo(d).getAttribute("placeholder"), "Choose who gets it");
   assert.deepEqual(d.bk.seen.audience, [], "no count before a choice");
-  await pickTo(d, "All my members");
-  assert.equal(d.$("ib-bk-to").value, "", "the input keeps its placeholder; All my members is a chip");
+  await pickTo(d, "All groups");
+  assert.equal(d.$("ib-bk-to").value, "", "the input keeps its placeholder; All groups is a chip");
   assert.equal(sendTo(d).value, "");
   assert.equal(sendTo(d).getAttribute("placeholder"), "Add a group or contact");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }]);
   await settle();
-  assert.deepEqual(chips(d), ["All my members (95)\u00D7"], "members only: exactly one chip, no group chips");
+  assert.deepEqual(chips(d), ["All groups (95)\u00D7", "Regulars (12)", "VIP (3)"], "All first with its remove, then one display-only chip per group as Name (count)");
+  assert.equal(d.$("ib-bk-chips").all((q) => q.tagName === "BUTTON").length, 1, "only the All chip has a remove");
   assert.ok(d.calls.some((c) => c.method === "GET" && c.path === CT + "groups/"));
   cBox(d, "ib-bk-to").fire("click");
-  assert.deepEqual(optLabels(d), ["All my members", "Regulars (12)", "VIP (3)"], "All my members first, then the groups");
+  assert.deepEqual(optLabels(d), ["All groups", "Regulars (12)", "VIP (3)"], "All groups first, then the groups");
   await typeTo(d, "Lito");
   assert.ok(d.list().includes("GET " + CT + "?q=Lito"));
   assert.ok(optLabels(d).some((t) => t.includes("Lito Cruz \u00B7 0918 *** 5678")), "contacts are in the same list, masked");
@@ -663,22 +665,22 @@ test("round 9 R9-4: one dropdown lists All my members first, then the groups, mi
   assert.equal(pane(d).all((n) => n.tagName === "INPUT" && n.getAttribute("type") === "radio").length, 0);
 });
 
-test("bulk pick: with contacts off (404, or contacts:false, or no contacts field) the dropdown offers All my members and nothing else; no group is asked", async () => {
+test("bulk pick: with contacts off (404, or contacts:false, or no contacts field) the dropdown offers All groups and nothing else; no group is asked", async () => {
   const d = await openBulk();
   assert.ok(d.calls.some((c) => c.path === CT + "status/"), "the status was asked");
   assert.ok(!d.calls.some((c) => c.path === CT + "groups/"), "groups never asked");
   cBox(d, "ib-bk-to").fire("click");
-  assert.deepEqual(optLabels(d), ["All my members"]);
+  assert.deepEqual(optLabels(d), ["All groups"]);
   assert.ok(!pane(d).textContent.includes("Chosen groups and contacts"));
   for (const body of [{ contacts: false, count: 0, max: 20000 }, { count: 2, max: 20000 }]) {
     const e = await openPick({}, (p) => (p === CT + "status/" ? ok(body) : contactsApi()(p)));
     cBox(e, "ib-bk-to").fire("click");
-    assert.deepEqual(optLabels(e), ["All my members"]);
+    assert.deepEqual(optLabels(e), ["All groups"]);
     assert.ok(!e.calls.some((c) => c.path === CT + "groups/"));
   }
 });
 
-test("bulk pick: the count says recipients for chosen groups and contacts, members for all; the dialog matches", async () => {
+test("bulk pick: the count says recipients for chosen groups and contacts, contacts for all groups; the dialog matches", async () => {
   const d = await openPick();
   await typeText(d, "Sale");
   await pickTo(d, "Regulars");
@@ -701,13 +703,13 @@ test("bulk: the counter gets is-over above the limit and loses it when back unde
   assert.ok(!d.$("ib-bk-c").classList.contains("is-over"));
 });
 
-test("round 9 R9-4: picking groups and contacts shows chips (masked numbers only) and posts the pick body; All my members is dropped when something is picked", async () => {
+test("round 9 R9-4: picking groups and contacts shows chips (masked numbers only) and posts the pick body; All groups is dropped when something is picked", async () => {
   const d = await openPick();
   await typeText(d, "Sale this weekend");
   await pickTo(d, "Regulars");
   assert.deepEqual(chips(d).map((t) => t.replace("\u00D7", "")), ["Regulars (12)"]);
   assert.deepEqual(d.bk.seen.audience[1], { audience: "pick", groups: ["g1"], contacts: [] });
-  assert.equal(sendTo(d).value, "", "the box no longer says All my members");
+  assert.equal(sendTo(d).value, "", "the box no longer says All groups");
   cBox(d, "ib-bk-to").fire("click");
   assert.ok(!optLabels(d).some((t) => t === "Regulars (12)"), "a picked group leaves the list");
   const calls0 = d.calls.length;
@@ -725,16 +727,16 @@ test("round 9 R9-4: picking groups and contacts shows chips (masked numbers only
   assert.equal(p.confirm, true); assert.equal(p.expected_count, 14); assert.equal(p.text, "Sale this weekend");
 });
 
-test("round 9 R9-4: picking All my members clears the picks; removing every chip returns to All my members and counts all", async () => {
+test("round 9 R9-4: picking All groups clears the picks; removing every chip returns to All groups and counts all", async () => {
   const d = await openPick();
   await typeText(d, "Sale");
   await pickTo(d, "VIP");
   await pickTo(d, "Regulars");
   assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "pick", groups: ["g2", "g1"], contacts: [] });
   cBox(d, "ib-bk-to").fire("click");
-  assert.equal(optLabels(d)[0], "All my members", "still offered first");
-  pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle();
-  assert.equal(chips(d)[0], "All my members (95)\u00D7", "the picks are cleared; All is the one removable chip");
+  assert.equal(optLabels(d)[0], "All groups", "still offered first");
+  pickRow(d, "ib-bk-to", "All groups"); await settle(); await settle();
+  assert.equal(chips(d)[0], "All groups (95)\u00D7", "the picks are cleared; All is the one removable chip");
   assert.equal(d.$("ib-bk-chips").all((q) => q.tagName === "BUTTON").length, 1);
   assert.deepEqual(d.bk.seen.audience[d.bk.seen.audience.length - 1], { audience: "all" });
   assert.equal(sendTo(d).value, "");
@@ -748,7 +750,8 @@ test("round 9 R9-4: picking All my members clears the picks; removing every chip
   assert.equal(sendTo(d).getAttribute("placeholder"), "Choose who gets it");
   assert.equal(d.$("ib-bk-go").disabled, true);
   /* the All chip's remove also returns to no audience */
-  await pickTo(d, "All my members");
+  await pickTo(d, "All groups");
+  assert.deepEqual(chips(d), ["All groups (95)\u00D7", "Regulars (12)", "VIP (3)"], "All, then the groups as Name (count)");
   await d.click(d.$("ib-bk-chips").all((q) => q.tagName === "BUTTON")[0]);
   assert.equal(chips(d).length, 0); assert.equal(sendTo(d).getAttribute("placeholder"), "Choose who gets it"); assert.equal(d.$("ib-bk-test").disabled, true);
 });
@@ -759,13 +762,13 @@ test("bulk pick: closing the Send to box after typing without a pick shows the c
   assert.equal(d.$("ib-bk-to").value, "");
   sendTo(d).fire("keydown", { key: "Escape", stopPropagation() {} });
   assert.equal(sendTo(d).value, "", "Escape");
-  assert.equal(chips(d)[0], "All my members (95)\u00D7", "the chip still shows the choice");
+  assert.equal(chips(d)[0], "All groups (95)\u00D7", "the chip still shows the choice");
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }], "nothing was picked");
   await typeTo(d, "Reg");
   d.doc.fire("click", { target: d.$("ib-bk-t") });
   assert.equal(sendTo(d).value, "", "click outside");
   cBox(d, "ib-bk-to").fire("click");
-  assert.equal(optLabels(d)[0], "All my members", "the list is whole again");
+  assert.equal(optLabels(d)[0], "All groups", "the list is whole again");
   await typeText(d, "Sale"); await pickTo(d, "VIP");
   await typeTo(d, "xyz");
   sendTo(d).fire("keydown", { key: "Tab" });
@@ -802,7 +805,7 @@ test("bulk pick: 400 invalid_audience shows the server's message as it is; 409 a
 test("bulk pick: History and View name a pick batch Chosen groups and contacts; the server's skip reasons show as they are", async () => {
   const U = (await openBulk({}, {}, { form: false })).window.NOInboxBulk.util;
   assert.equal(U.audienceName("pick"), "Chosen groups and contacts");
-  assert.equal(U.audienceName("all"), "All my members");
+  assert.equal(U.audienceName("all"), "All groups");
   const pb = batch({ id: "sbk_pick", audience: "pick", state: "finished", waiting: 0 });
   const detail = () => ok({ ...pb, results: [{ name: "Lito Cruz", mobile: "0918 *** 5678", state: "not_sent", reason: "contact_removed", reason_text: "This contact was removed." }, { name: "Ana Reyes", mobile: "0917 *** 1234", state: "not_sent", reason: "number_changed", reason_text: "Their number changed." }], next: null });
   const d = await openBulk({ history: () => ok({ items: [pb], next_cursor: null }), detail }, {}, { form: false });
@@ -827,7 +830,7 @@ test("INBOX-FIX-9 F1: Start Sending opens a real modal: a scrim, a title, the qu
   assert.equal(box.getAttribute("aria-modal"), "true");
   assert.equal(box.all((n) => n.tagName === "H2")[0].textContent, "Start sending?");
   assert.equal(box.getAttribute("aria-labelledby"), "ib-bk-dlg-h");
-  assert.ok(box.textContent.includes("Send to 95 members from your phone?"));
+  assert.ok(box.textContent.includes("Send to 95 contacts from your phone?"));
   assert.deepEqual(btnsIn(over).map((b) => b.textContent), ["Back", "Yes, send"], "exactly two buttons, no stray Close");
   assert.equal(d.doc.activeElement, d.$("ib-bk-dlg-back"), "focus starts on Back");
   /* Tab wraps inside the card */
@@ -964,7 +967,7 @@ test("round 11 R11-1: the Bulk history Audience cell names the groups then the c
   const cells = rowsOf(d).map((r) => r.all((n) => n.tagName === "TD")[1]);
   assert.equal(cells[0].textContent, "VIP, Maria Santos, 0918 *** 5678"); assert.equal(cells[0].getAttribute("title"), cells[0].textContent);
   assert.ok(cells[0].classList.contains("ib-bk-aud"));
-  assert.equal(cells[1].textContent, "Chosen groups and contacts"); assert.equal(cells[2].textContent, "All my members");
+  assert.equal(cells[1].textContent, "Chosen groups and contacts"); assert.equal(cells[2].textContent, "All groups");
 });
 
 /* ---------- {first_name} (ClickUp z8uq9mjj05) ---------- */
@@ -1094,13 +1097,13 @@ test("fix 4: no count request before a pick; the count shows only after a choice
   assert.equal(chips(d).length, 0, "no chip before a choice");
   assert.equal(d.$("ib-bk-test").disabled, true); assert.equal(d.$("ib-bk-go").disabled, true);
   assert.equal(cInput(d, "ib-bk-to").getAttribute("placeholder"), "Choose who gets it");
-  assert.deepEqual(cBox(d, "ib-bk-to") && (cBox(d, "ib-bk-to").fire("click"), cRows(d, "ib-bk-to").map((n) => n.textContent))[0], "All my members");
-  pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle();
+  assert.deepEqual(cBox(d, "ib-bk-to") && (cBox(d, "ib-bk-to").fire("click"), cRows(d, "ib-bk-to").map((n) => n.textContent))[0], "All groups");
+  pickRow(d, "ib-bk-to", "All groups"); await settle(); await settle();
   assert.deepEqual(d.bk.seen.audience, [{ audience: "all" }], "audience sent explicitly");
-  assert.deepEqual(chips(d), ["All my members (95)\u00D7"]);
+  assert.deepEqual(chips(d), ["All groups (95)\u00D7"]);
   assert.equal(d.$("ib-bk-test").disabled, false); assert.equal(d.$("ib-bk-go").disabled, false);
   await d.click(d.$("ib-bk-go"));
-  assert.ok(d.$("ib-bk-dlg").textContent.includes("Send to 95 members from your phone?"), "the confirm keeps the total");
+  assert.ok(d.$("ib-bk-dlg").textContent.includes("Send to 95 contacts from your phone?"), "the confirm keeps the total");
   await d.click(d.$("ib-bk-dlg-go"));
   assert.equal(d.bk.seen.batches[0].audience, "all", "the start body carries audience");
 });
@@ -1136,7 +1139,7 @@ test("fix 5: nothing is written below the buttons; the buttons are off until the
   await typeText(d, "Hello po");
   assert.equal(d.$("ib-bk-test").disabled, true, "a message alone is not enough for the test: it needs an audience");
   assert.equal(d.bk.seen.audience.length, 0, "no count before a pick");
-  cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All my members"); await settle(); await settle();
+  cBox(d, "ib-bk-to").fire("click"); pickRow(d, "ib-bk-to", "All groups"); await settle(); await settle();
   assert.equal(d.$("ib-bk-test").disabled, false); assert.equal(d.$("ib-bk-go").disabled, false);
   await d.click(d.$("ib-bk-go")); await d.click(d.$("ib-bk-dlg-go"));
   assert.ok(d.toasts.some((t) => t.startsWith("Sending started")), "the result is a toast");

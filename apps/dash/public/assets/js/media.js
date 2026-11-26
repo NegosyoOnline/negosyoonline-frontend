@@ -57,9 +57,10 @@
     return { file: file };
   }
   function imageCheck(file, what) { return pick(file, IMAGE_TYPES, IMAGE_MAX, "Choose " + what + " first.", "Use a JPEG, PNG or WebP picture.", "The picture is larger than 10 MB."); }
-  /* The type only: the size limit depends on where the video goes (the media store, 50 MB, or the store's own Bunny library), so the API
-     decides after the token (the media store's max_bytes, below) or at attach (Bunny, video_too_large). */
-  function videoCheck(file) { return pick(file, [VIDEO_TYPE], Infinity, "Choose the video first.", "Use an MP4 video.", ""); }
+  /* The original check (type, 50 MB) unless the API says videos go to the store's own Bunny library (video_host "bunny" in the list answer); then the
+     type only, and the API judges the size at attach (video_too_large). */
+  function videoCheck(file, bunny) { return pick(file, [VIDEO_TYPE], bunny ? Infinity : VIDEO_MAX, "Choose the video first.", "Use an MP4 video.", "The video is larger than 50 MB."); }
+  function videoHint() { return S && S.videoHost === "bunny" ? "MP4 only." : "MP4 only, up to 50 MB."; }
   function whole(text, max) { var v = String(text || "").trim(); if (!/^\d{1,6}$/.test(v)) return null; var n = parseInt(v, 10); return n <= max ? n : null; }
   function hasErrors(errors) { for (var k in errors) { if (Object.prototype.hasOwnProperty.call(errors, k)) return true; } return false; }
   /* The fields as the API body, or {errors: {field: text}}. Text is sent trimmed. */
@@ -116,7 +117,7 @@
   function show() {
     var mine = ++token, r = clear(root());
     if (S && S.sc) S.sc.stop();
-    S = { site: null, assets: [], adding: false, editing: "", confirm: "", sc: null };
+    S = { site: null, videoHost: "", assets: [], adding: false, editing: "", confirm: "", sc: null };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "ml-meta", "Loading…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -137,6 +138,7 @@
       if (!res.ok) { failedPanel(res.status === 403 ? msgOf(res, "") : ""); return; }
       var d = res.data || {};
       S.assets = Array.isArray(d.assets) ? d.assets.filter(valid) : [];
+      S.videoHost = d.video_host === "bunny" ? "bunny" : "";
       render(); setNav(true);
       sharedList(mine);
     });
@@ -418,7 +420,7 @@
     var cat = select("category", CATEGORIES, "promo"), prod = select("product_category", PRODUCTS, ""), ratio = select("crop_ratio", RATIOS, "1:1"), cap = textarea("caption", CAPTION_MAX);
     var file = fileInput("file", IMAGE_TYPES.join(",")), poster = fileInput("poster", IMAGE_TYPES.join(",")), video = fileInput("video", VIDEO_TYPE);
     var imageBox = add(h("div", "ml-box"), field("ml-n-file", "Image", file, "JPEG, PNG or WebP, up to 10 MB."));
-    var videoBox = add(h("div", "ml-box"), field("ml-n-poster", "Poster image", poster, "Shown on the card before the video plays. JPEG, PNG or WebP, up to 10 MB."), field("ml-n-video", "Video (MP4)", video, "MP4 only."));
+    var videoBox = add(h("div", "ml-box"), field("ml-n-poster", "Poster image", poster, "Shown on the card before the video plays. JPEG, PNG or WebP, up to 10 MB."), field("ml-n-video", "Video (MP4)", video, videoHint()));
     videoBox.hidden = true;
     type.addEventListener("change", function () { var v = type.value === "video"; imageBox.hidden = v; videoBox.hidden = !v; });
     var note = h("p", "ml-meta ml-progress"); note.setAttribute("role", "status"); note.hidden = true;
@@ -432,7 +434,7 @@
       if (kind === "image") { img = imageCheck(chosen(file), "the image"); if (img.error) errors.file = img.error; }
       else {
         poster1 = imageCheck(chosen(poster), "the poster image"); if (poster1.error) errors.poster = poster1.error;
-        movie = videoCheck(chosen(video)); if (movie.error) errors.video = movie.error;
+        movie = videoCheck(chosen(video), S.videoHost === "bunny"); if (movie.error) errors.video = movie.error;
       }
       if (hasErrors(errors)) { showFields(f, errors); return; }
       showFields(f, {});
@@ -568,9 +570,9 @@
   function videoControl(a) {
     var box = fileInput("video", VIDEO_TYPE), w = h("div", "ml-file"), note = h("p", "ml-meta ml-progress");
     note.setAttribute("role", "status"); note.hidden = true;
-    add(w, field("ml-e-video", hasVideo(a) ? "Replace the video (MP4)" : "Video (MP4)", box, "MP4 only."), note);
+    add(w, field("ml-e-video", hasVideo(a) ? "Replace the video (MP4)" : "Video (MP4)", box, videoHint()), note);
     w.appendChild(add(h("div", "ml-actions"), btn("Upload video", "ghost", function (b) {
-      var m = videoCheck(chosen(box));
+      var m = videoCheck(chosen(box), S.videoHost === "bunny");
       if (m.error) { showFields({ video: box }, { video: m.error }); return; }
       showFields({ video: box }, {});
       var mine = token; busy(b, true);

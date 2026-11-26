@@ -461,14 +461,14 @@
   /* V-1 video start */
   /* Video delivery (V-1, ClickUp z8uq9mkfkd): shown only when the answer has a `video` block (the backend adds it while its switch is on). Display only.
      read_at null: no reading yet, so "Not measured yet" and an empty bar. A malformed block is left out and the card stays as it was. */
-  var VIDEO_SUB = "Video watched on your store this billing month.", NOT_MEASURED = "Not measured yet";
-  function videoMeter(v) {
+  var VIDEO_SUB = "Video watched on your store this billing month.", VIDEO_SUB_TRIAL = "Video watched on your store during your trial.", NOT_MEASURED = "Not measured yet";
+  function videoMeter(v, kind) { /* kind: the Orders line's period_kind, so a trial reads as a trial there and here */
     if (!v || typeof v !== "object" || !(v.limit_bytes > 0)) return null;
-    var period = periodText(v.period_start, v.period_end);
-    if (v.read_at === null || v.read_at === undefined) return { el: meterEl("bl-pu-v", "Video delivery", NOT_MEASURED, null, VIDEO_SUB, period), pct: 0 };
+    var period = periodText(v.period_start, v.period_end), sub = kind === "trial" ? VIDEO_SUB_TRIAL : VIDEO_SUB;
+    if (v.read_at === null || v.read_at === undefined) return { el: meterEl("bl-pu-v", "Video delivery", NOT_MEASURED, null, sub, period), pct: 0 };
     if (typeof v.used_bytes !== "number" || !(v.used_bytes >= 0)) return null;
     var p = pctOf(v.used_bytes, v.limit_bytes);
-    return { el: meterEl("bl-pu-v", "Video delivery", gbText(v.used_bytes) + " of " + gbText(v.limit_bytes, true), p, VIDEO_SUB, period), pct: p };
+    return { el: meterEl("bl-pu-v", "Video delivery", gbText(v.used_bytes) + " of " + gbText(v.limit_bytes, true), p, sub, period), pct: p };
   }
   /* V-1 video end */
   function usageCard(m) {
@@ -481,7 +481,7 @@
       meterEl("bl-pu-s", "Media storage", gbText(st.used_bytes) + " of " + gbText(st.limit_bytes, true), sp, "Images and videos in your Media Library."),
       meterEl("bl-pu-o", "Orders this period", od.count + " of " + od.limit, op, ORDER_SUB[od.period_kind] || ORDER_SUB.billing_month, periodText(od.period_start, od.period_end)));
     /* V-1 video start */
-    var vm = videoMeter(m.video);
+    var vm = videoMeter(m.video, od.period_kind);
     if (vm) add(s, vm.el);
     /* V-1 video end */
     if (sp >= 100 || op >= 100 || (vm && vm.pct >= 100)) add(s, attrs(h("p", "pu-limit pu-red", op >= 100 && overageLine(od) || "You have reached your plan’s limit."), { role: "status" }));

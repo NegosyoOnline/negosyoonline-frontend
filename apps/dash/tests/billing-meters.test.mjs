@@ -309,3 +309,12 @@ test("video: the two existing bars are unchanged when the video bar is shown", a
   assert.match(d.text(d.card()), /1\.2 GB of 5 GB \(24%\)/); assert.match(d.text(d.card()), /132 of 500 \(26%\)/);
   assert.match(d.text(d.card()), /Images and videos in your Media Library\./);
 });
+
+test("video: the sub-line follows the Orders line's period: trial wording during a trial, billing month otherwise", async () => {
+  let d = boot({ meters: withVideo(VID(), {}, { period_kind: "trial" }) }); await d.show();
+  assert.match(d.text(d.meter(2)), /Video watched on your store during your trial\./); assert.doesNotMatch(d.text(d.meter(2)), /billing month/);
+  d = boot({ meters: withVideo(VID(), {}, { period_kind: "billing_month" }) }); await d.show();
+  assert.match(d.text(d.meter(2)), /Video watched on your store this billing month\./);
+  d = boot({ meters: withVideo(VID({ read_at: null }), {}, { period_kind: "trial" }) }); await d.show();
+  assert.match(d.text(d.meter(2)), /Not measured yet/); assert.match(d.text(d.meter(2)), /during your trial\./);
+});

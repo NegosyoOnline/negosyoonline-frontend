@@ -42,7 +42,7 @@ function boot({ assets = [], off = null, search = "", siteId = A } = {}) {
     const find = (id) => s.assets.find((x) => x.id === id);
     if (opts.method === "GET" && p === "/sites/") a = ok({ items: [{ id: siteId, template: "sante" }], next_cursor: null });
     else if (s.off && rest !== null) a = s.off;
-    else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets });
+    else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets, ...(s.videoHost ? { video_host: s.videoHost } : {}) });
     else if (rest === "" && opts.method === "POST") a = s.answer || (() => {
       const id = "ast_" + ++s.next;
       const row = body.asset_type === "video" ? video(id, { title: body.title, poster_url: null }) : asset(id, { title: body.title, file_url: null });
@@ -318,7 +318,7 @@ test("a video that does not upload leaves the draft, opens its editor and says t
   assert.ok(d.toasts.some((t) => t.startsWith("Saved, but the video is not uploaded")));
 });
 
-test("a video that is not MP4 is stopped before any call; the size is the API's to judge (the media store's max_bytes, or Bunny at attach)", async () => {
+test("a video that is not MP4 or over 50 MB is stopped before any call", async () => {
   const d = boot();
   await d.open();
   await d.click(d.press(d.root(), "Add media"));
@@ -328,11 +328,10 @@ test("a video that is not MP4 is stopped before any call; the size is the API's 
   d.$("ml-n-video").files = [file("v.mov", "video/quicktime")];
   await d.click(d.press(d.root(), "Add media"));
   assert.equal(d.$("ml-n-video-err").textContent, "Use an MP4 video.");
-  assert.equal(d.calls.filter((c) => c.method === "POST").length, 0);
   d.$("ml-n-video").files = [file("v.mp4", "video/mp4", 51 * 1024 * 1024)];
   await d.click(d.press(d.root(), "Add media"));
-  assert.equal(d.puts.length, 0, "the media store's own limit still stops it, after the token");
-  assert.equal(d.$("ml-e-video-err").textContent, "The video is larger than 50 MB.");
+  assert.equal(d.$("ml-n-video-err").textContent, "The video is larger than 50 MB.");
+  assert.equal(d.calls.filter((c) => c.method === "POST").length, 0);
 });
 
 test("a token the API refuses (503) says the store is not set up and sends nothing to the store", async () => {
@@ -464,6 +463,7 @@ function fakeTus(d, how = "ok") {
   return seen;
 }
 async function addBunnyVideo(d) {
+  d.s.videoHost = "bunny";
   await d.open();
   await d.click(d.press(d.root(), "Add media"));
   d.set("ml-n-type", "video"); d.$("ml-n-type").fire("change");
@@ -592,4 +592,30 @@ test("the Blob token (no host key) still goes by PUT, exactly as before, with no
   await d.click(d.press(d.root(), "Upload video"));
   assert.equal(tus.calls.length, 0);
   assert.equal(d.puts.length, 1);
+});
+
+test("video_host absent: the original 50 MB hint and the pre-call refusal, in the Add form and in Edit", async () => {
+  const d = boot({ assets: [video("v1")] });
+  await d.open();
+  assert.ok(d.root().textContent.includes("Your media"));
+  await d.click(d.press(d.root(), "Add media"));
+  d.set("ml-n-type", "video"); d.$("ml-n-type").fire("change");
+  assert.ok(d.root().textContent.includes("MP4 only, up to 50 MB."));
+  await d.click(d.press(d.root(), "Cancel"));
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  assert.ok(d.root().textContent.includes("MP4 only, up to 50 MB."));
+});
+
+test("video_host bunny: the hint is MP4 only. and a video over 50 MB is not stopped before the token", async () => {
+  const d = boot({ assets: [video("v1")] }); d.s.videoHost = "bunny"; d.s.tokenAnswer = bunnyToken();
+  fakeTus(d); d.s.attachAnswer = ok(bunnyAsset("v1"));
+  await d.open();
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  assert.ok(d.root().textContent.includes("MP4 only.") && !d.root().textContent.includes("up to 50 MB"));
+  d.$("ml-e-video").files = [file("v.mp4", "video/mp4", 600 * 1024 * 1024)];
+  await d.click(d.press(d.root(), "Upload video"));
+  assert.ok(d.calls.some((c) => c.path === M + "v1/video/token/"));
+  const { videoCheck } = d.window.NOMedia.util;
+  assert.equal(videoCheck(file("v.mov", "video/quicktime"), true).error, "Use an MP4 video.");
+  assert.equal(videoCheck(file("v.mp4", "video/mp4", 51 * 1024 * 1024), false).error, "The video is larger than 50 MB.");
 });

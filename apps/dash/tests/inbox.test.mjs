@@ -62,7 +62,8 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
   page.appendChild(setBox);
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   const smsNav = [0, 1].map(() => { const a = doc.createElement("a"); a.setAttribute("data-sms-nav", ""); a.hidden = true; page.appendChild(a); return a; });
-  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : []);
+  const sheetTile = doc.createElement("a"); sheetTile.setAttribute("href", "/sms/"); sheetTile.setAttribute("class", "sheet-tile"); sheetTile.hidden = true; page.appendChild(sheetTile);
+  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : sel === '#more-sheet a.sheet-tile[href="/sms/"]' ? [sheetTile] : []);
   const s = { cmStatus, listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
     channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null,
     messenger: messenger === null ? null : { ...messenger }, pages, pagesAnswer: null, connectAnswer: null, deleteAnswer: null };
@@ -134,7 +135,7 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
   /* an icon button (Close / Reopen conversation) has its name as the aria-label, a text button as its text */
   const press = (n, label) => buttons(n).find((b) => b.textContent === label || b.getAttribute("aria-label") === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, smsNav, window, page,
+  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, smsNav, sheetTile, window, page,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -3364,4 +3365,25 @@ test("SMS nav badge: the SMS list's unread_total feeds it (not a search or a clo
   await one.click(one.all(one.$("ib-list"), "ib-item")[0]);
   assert.equal(smsNb(one)[0].hidden, true, "cleared after the read");
   assert.equal(one.smsNav[0].getAttribute("aria-label"), null);
+});
+
+test("SMS nav badge: the More-sheet SMS tile gets the same bubble and aria-label, hidden at 0, and the CSS positions it", async () => {
+  const d = boot({ channels: CH_SMS });
+  asSms(d); d.s.smsUnread = 0;
+  d.window.NOInbox.probe(); await settle();
+  const nb = () => d.sheetTile.all((x) => x.classList.contains("ib-nb"))[0];
+  assert.equal(nb().hidden, true, "hidden at 0");
+  assert.equal(d.sheetTile.getAttribute("aria-label"), null);
+  assert.equal(d.sheetTile.getAttribute("data-route"), null, "no data-route on the tile");
+  d.s.smsUnread = 120; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().textContent, "99+"); assert.equal(nb().hidden, false); assert.equal(nb().getAttribute("aria-hidden"), "true");
+  assert.equal(d.sheetTile.getAttribute("aria-label"), "SMS Marketing, 120 unread");
+  d.s.smsUnread = 2; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().textContent, "2"); assert.equal(smsNb(d)[0].textContent, "2", "the side nav says the same");
+  d.s.smsUnread = 0; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().hidden, true); assert.equal(d.sheetTile.getAttribute("aria-label"), null);
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.match(css, /body\.dash-app \.sheet-tile \{ position: relative; \}/);
+  assert.match(css, /body\.dash-app \.sheet-tile \.ib-nb \{ position: absolute; top: 6px; right: 6px;/);
+  assert.match(HTML, /inbox\.css\?v=20261126q1/);
 });

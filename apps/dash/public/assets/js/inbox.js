@@ -516,8 +516,10 @@
   function setSmsBadge(n) {
     if (typeof n !== "number" || !isFinite(n) || n < 0) return;
     n = Math.floor(n); NB.sms = n;
-    Array.prototype.forEach.call(document.querySelectorAll("[data-sms-nav]"), function (a) {
-      if (a.getAttribute("data-route") !== "sms") return;
+    var links = [];
+    Array.prototype.forEach.call(document.querySelectorAll("[data-sms-nav]"), function (a) { if (a.getAttribute("data-route") === "sms") links.push(a); });
+    Array.prototype.forEach.call(document.querySelectorAll('#more-sheet a.sheet-tile[href="/sms/"]'), function (a) { links.push(a); }); /* the More-sheet tile has no data-route (it drives the active page) */
+    links.forEach(function (a) {
       var b = a.querySelector ? a.querySelector(".ib-nb") : null;
       if (!b) { b = h("span", "ib-nb"); b.setAttribute("aria-hidden", "true"); a.appendChild(b); }
       b.hidden = n <= 0; b.textContent = badgeText(n);

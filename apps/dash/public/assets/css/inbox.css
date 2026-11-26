@@ -281,6 +281,8 @@ body.dash-app .ib-nb[hidden] { display: none; }
 body.dash-app .side-nav a[aria-current="page"] .ib-nb { background: #fff; color: #2A50D0; }
 body.dash-app .tabs a { position: relative; }
 body.dash-app .tabs a .ib-nb { position: absolute; top: 2px; left: calc(50% + 6px); margin: 0; min-width: 18px; height: 18px; font-size: 11px; box-shadow: 0 0 0 2px var(--c-bg, #0F1736); }
+body.dash-app .sheet-tile { position: relative; }
+body.dash-app .sheet-tile .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; min-width: 18px; height: 18px; font-size: 11px; }
 @media (min-width: 900px) { body.dash-app .side[data-collapsed] .side-nav a .ib-nb { position: absolute; top: 6px; right: 6px; margin: 0; } }
 
 /* The toolbar above the card: the channel tabs at the left, New SMS / Bulk SMS at the right. Not a container query (its

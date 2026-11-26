@@ -62,7 +62,8 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
   page.appendChild(setBox);
   const nav = [0, 1, 2].map(() => { const a = doc.createElement("a"); a.setAttribute("data-inbox-nav", ""); a.hidden = true; page.appendChild(a); return a; });
   const smsNav = [0, 1].map(() => { const a = doc.createElement("a"); a.setAttribute("data-sms-nav", ""); a.hidden = true; page.appendChild(a); return a; });
-  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : []);
+  const sheetTile = doc.createElement("a"); sheetTile.setAttribute("href", "/sms/"); sheetTile.setAttribute("class", "sheet-tile"); sheetTile.hidden = true; page.appendChild(sheetTile);
+  doc.querySelectorAll = (sel) => (sel === "[data-inbox-nav]" ? nav : sel === "[data-sms-nav]" ? smsNav : sel === '#more-sheet a.sheet-tile[href="/sms/"]' ? [sheetTile] : []);
   const s = { cmStatus, listing, reading, reply, off, listAnswer: null, threadAnswer: null, replyAnswer: null,
     channels: channels === null ? null : { ...channels }, channelsPut: null, statusAnswer: null,
     messenger: messenger === null ? null : { ...messenger }, pages, pagesAnswer: null, connectAnswer: null, deleteAnswer: null };
@@ -94,6 +95,7 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
     else if (p === BASE + "sms/status/" && opts.method === "GET") a = s.smsStatus ? { status: 200, body: s.smsStatus } : err(404, "not_found", "Not found.");
     else if (p === BASE + "sms/compose/" && opts.method === "POST") a = s.composeAnswer || { status: 200, body: { ref: SM, new_conversation: true, state: "sending", error_code: "", created_at: iso(0) } };
     else if (/^\/sites\/[^/]+\/members\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { members: s.members || [] } };
+    else if (p === BASE + "unread/?channel=sms" && opts.method === "GET") a = s.smsUnreadAnswer || { status: 200, body: { count: s.smsUnread === undefined ? 0 : s.smsUnread } };
     else if (p.split("?")[0] === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
       const q = /[?&]q=([^&]*)/.exec(p);
@@ -133,7 +135,7 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
   /* an icon button (Close / Reopen conversation) has its name as the aria-label, a text button as its text */
   const press = (n, label) => buttons(n).find((b) => b.textContent === label || b.getAttribute("aria-label") === label);
   const links = (n) => n.all((x) => x.tagName === "A");
-  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, smsNav, window, page,
+  return { doc, calls, toasts, s, where, winListeners, replaced, $, all, buttons, press, links, nav, smsNav, sheetTile, window, page,
     list: () => calls.map((c) => c.method + " " + c.path),
     text: (id) => $(id).textContent,
     async openSettings() { window.NOInboxSettings.show(); await settle(); },
@@ -841,10 +843,10 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
-  assert.match(HTML, /inbox\.js\?v=20261126p1/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
-  assert.match(HTML, /inbox\.css\?v=20261125f7/);
+  assert.match(HTML, /inbox\.css\?v=20261126q1/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -1805,7 +1807,7 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   const head = d.$("ib-lhead");
   const bar = head.children[0];
   assert.deepEqual(bar.children.map((n) => (n.classList.contains("ib-frow") ? "buttons" : n.classList.contains("ib-search") ? "search" : n.id)), ["buttons", "search"]);
-  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"], "Search, Answered, Read, Open/Closed, Refresh");
+  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"], "Search, Read/Unread, Answered/Unanswered, Open/Closed, Refresh");
   const rb = d.$("ib-refresh-btn");
   assert.equal(rb.parentNode, d.$("ib-frow"), "Refresh sits in the filter row, last");
   assert.deepEqual([rb.getAttribute("aria-label"), rb.getAttribute("title") === null, rb.textContent], ["Refresh", true, ""]);
@@ -1882,13 +1884,13 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   assert.equal(none.all(none.$("ib-tabs-host"), "ib-tab").length, 6, "the tabs stay while the list is empty so Settings can be reached");
 });
 
-test("the list column starts with one row of five icon buttons (Search, Answered, Read, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
+test("the list column starts with one row of five icon buttons (Search, Read, Answered, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
-  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
+  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"]);
   assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === null));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing read and unread", "Showing open", "Refresh"]);
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing read and unread", "Showing answered and unanswered", "Showing open", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -2504,7 +2506,7 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
   assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
   /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
-  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "unanswered", "answered"]], ["unread", ["", "1", "0"]], ["status", ["open", "closed"]]]);
+  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["unread", ["", "1", "0"]], ["answered", ["", "unanswered", "answered"]], ["status", ["open", "closed"]]]);
   assert.deepEqual(["", "unanswered", "answered", ""].map((v) => u.cycleNext("answered", v)), ["unanswered", "answered", "", "unanswered"]);
   assert.deepEqual(["", "1", "0"].map((v) => u.cycleNext("unread", v)), ["1", "0", ""]);
   assert.deepEqual(["open", "closed", "open"].map((v) => u.cycleNext("status", v)), ["closed", "open", "closed"], "Open then Closed then Open: no all state (INBOX-FIX-7)");
@@ -2600,7 +2602,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261126p1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261125f7/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261126q1/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2766,7 +2768,7 @@ test("fix 4: every filter-row button shows the house tooltip at once on hover (n
   asInbox(d);
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
-  const ids = ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"];
+  const ids = ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"];
   const tipOf = (id) => d.$(id + "-tip");
   for (const id of ids) {
     const b = d.$(id);
@@ -3061,7 +3063,7 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
   assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261126p1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });
@@ -3284,4 +3286,104 @@ test("INBOX-FIX-9 F5: the conversation head keeps its 69px and its three lines f
   const pad = /\.ib-thead:not\(\.ib-thead-new\) \{ padding-top: (\d+)px; padding-bottom: (\d+)px; \}/.exec(css), gap = /\.ib-thead:not\(\.ib-thead-new\) \.ib-tname \{ gap: (\d+)px; \}/.exec(css);
   assert.ok(pad && gap);
   assert.ok(Number(pad[1]) + Number(pad[2]) + 1 + 20 + 22 + 16 + 2 * Number(gap[1]) <= 69, "name, chips and email plus padding and the border fit in 69px");
+});
+
+/* ---------- z8uq9mkfb7: the unread count bubble on the SMS Marketing nav link ---------- */
+
+const asSms = (d) => d.smsNav[0].setAttribute("data-route", "sms");
+const smsNb = (d) => d.smsNav.map((a) => a.all((x) => x.classList.contains("ib-nb"))[0]);
+const smsReads = (d) => d.calls.filter((c) => c.path === BASE + "unread/?channel=sms").length;
+
+test("SMS nav badge: hidden at 0; the count, 99+ and the aria-label; read from ?channel=sms; the Inbox badge is unchanged", async () => {
+  const d = boot({ channels: CH_SMS });
+  asSms(d); asInbox(d); d.s.unread = 2; d.s.smsUnread = 0;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsReads(d), 1, "the sms count is read from ?channel=sms");
+  assert.ok(d.list().includes("GET " + BASE + "unread/?channel=nosms"), "and the Inbox count is still read from ?channel=nosms");
+  assert.equal(smsNb(d)[0].hidden, true, "hidden at 0");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), null);
+  assert.equal(d.smsNav[1].all((x) => x.classList.contains("ib-nb")).length, 0, "a link without data-route=sms gets no bubble");
+  assert.equal(navNb(d)[0].textContent, "2", "the Inbox badge is unchanged");
+  assert.equal(d.nav[0].getAttribute("aria-label"), "Inbox, 2 unread");
+  const b = smsNb(d)[0];
+  assert.equal(b.getAttribute("aria-hidden"), "true");
+  d.s.smsUnread = 3; d.window.NOInbox.hide(); await settle();
+  assert.equal(smsNb(d)[0], b, "the same span is reused");
+  assert.equal(b.hidden, false); assert.equal(b.textContent, "3");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), "SMS Marketing, 3 unread");
+  d.s.smsUnread = 150; d.window.NOInbox.hide(); await settle();
+  assert.equal(b.textContent, "99+");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), "SMS Marketing, 150 unread");
+  assert.equal(navNb(d)[0].textContent, "2", "the Inbox badge still says 2");
+});
+
+test("SMS nav badge: not read while the SMS nav is hidden; a 404 becomes 0; a 401 is ignored; read every 60 s on every view and paused while hidden", async () => {
+  const off = boot({ channels: CHANNELS_ON });
+  asSms(off); off.window.NOInbox.probe(); await settle();
+  assert.equal(smsReads(off), 0, "no sms_available: not read");
+  const clock = makeClock(), d = boot({ clock, channels: CH_SMS });
+  asSms(d); d.s.smsUnread = 4;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsNb(d)[0].textContent, "4");
+  d.s.smsUnread = 5;
+  await clock.advance(59999); assert.equal(smsReads(d), 1);
+  await clock.advance(1); assert.equal(smsReads(d), 2);
+  assert.equal(smsNb(d)[0].textContent, "5");
+  await d.openInbox(); await clock.advance(60000);
+  assert.equal(smsReads(d), 3, "it keeps updating on the Inbox page");
+  d.window.NOInbox.hide(); await d.openSms();
+  const n = smsReads(d); await clock.advance(60000);
+  assert.equal(smsReads(d), n + 1, "and on the SMS Marketing page");
+  d.doc.hidden = true; d.doc.fire("visibilitychange");
+  await clock.advance(300000); assert.equal(smsReads(d), n + 1, "paused while the tab is hidden");
+  d.s.smsUnreadAnswer = { status: 401, body: { error: { code: "unauthorized", message: "No." } } };
+  d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  assert.equal(smsNb(d)[0].textContent, "5", "a 401 leaves it alone");
+  d.s.smsUnreadAnswer = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
+  d.doc.fire("visibilitychange"); await settle();
+  assert.equal(smsNb(d)[0].hidden, true, "a 404 becomes 0");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), null);
+});
+
+test("SMS nav badge: the SMS list's unread_total feeds it (not a search or a closed filter), and opening an unread text clears it", async () => {
+  const items = [{ ref: SM, display_name: "Ana Reyes", snippet: "Salamat po", updated_at: iso(5), channel: "sms", status: "open", unread: true }];
+  const d = boot({ listing: { items, stored_next_cursor: null, unread_total: 1 }, reading: smsThread({ unread: true }), channels: CH_SMS });
+  asSms(d); asInbox(d); d.s.smsUnread = 1; d.s.unread = 7;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsNb(d)[0].textContent, "1");
+  d.s.listing = { items, stored_next_cursor: null, unread_total: 4 };
+  await d.openSms();
+  assert.equal(smsNb(d)[0].textContent, "4", "the list read's unread_total");
+  assert.equal(navNb(d)[0].textContent, "7", "the Inbox badge is not touched by it");
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  assert.equal(smsNb(d)[0].textContent, "3", "opening an unread text drops the count");
+  assert.equal(navNb(d)[0].textContent, "7");
+  assert.ok(d.calls.some((c) => c.method === "POST" && c.path === BASE + "conversations/" + SM + "/read/"));
+  const one = boot({ listing: { items: items.map((i) => ({ ...i, unread: true })), stored_next_cursor: null, unread_total: 1 }, reading: smsThread({ unread: true }), channels: CH_SMS });
+  asSms(one); one.s.smsUnread = 1;
+  one.window.NOInbox.probe(); await settle(); await one.openSms();
+  await one.click(one.all(one.$("ib-list"), "ib-item")[0]);
+  assert.equal(smsNb(one)[0].hidden, true, "cleared after the read");
+  assert.equal(one.smsNav[0].getAttribute("aria-label"), null);
+});
+
+test("SMS nav badge: the More-sheet SMS tile gets the same bubble and aria-label, hidden at 0, and the CSS positions it", async () => {
+  const d = boot({ channels: CH_SMS });
+  asSms(d); d.s.smsUnread = 0;
+  d.window.NOInbox.probe(); await settle();
+  const nb = () => d.sheetTile.all((x) => x.classList.contains("ib-nb"))[0];
+  assert.equal(nb().hidden, true, "hidden at 0");
+  assert.equal(d.sheetTile.getAttribute("aria-label"), null);
+  assert.equal(d.sheetTile.getAttribute("data-route"), null, "no data-route on the tile");
+  d.s.smsUnread = 120; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().textContent, "99+"); assert.equal(nb().hidden, false); assert.equal(nb().getAttribute("aria-hidden"), "true");
+  assert.equal(d.sheetTile.getAttribute("aria-label"), "SMS Marketing, 120 unread");
+  d.s.smsUnread = 2; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().textContent, "2"); assert.equal(smsNb(d)[0].textContent, "2", "the side nav says the same");
+  d.s.smsUnread = 0; d.window.NOInbox.hide(); await settle();
+  assert.equal(nb().hidden, true); assert.equal(d.sheetTile.getAttribute("aria-label"), null);
+  const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
+  assert.match(css, /body\.dash-app \.sheet-tile \{ position: relative; \}/);
+  assert.match(css, /body\.dash-app \.sheet-tile \.ib-nb \{ position: absolute; top: 6px; right: 6px;/);
+  assert.match(HTML, /inbox\.css\?v=20261126q1/);
 });

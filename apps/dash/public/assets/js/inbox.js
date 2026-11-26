@@ -1430,7 +1430,7 @@
   function emptyBox() {
     if (S && S.mode === "sms") {
       var b = newTextButton("ib-newtext-btn");
-      var box = stateBox(ICON.sms, "Text your members", "Send a text from your own phone, or pick a conversation on the left to read and reply.", b ? [b] : null);
+      var box = stateBox(ICON.sms, "Text your members", "Pick a conversation on the left to read and reply.", b ? [b] : null);
       box.setAttribute("data-empty", b ? "sms-cta" : "sms");
       return box;
     }

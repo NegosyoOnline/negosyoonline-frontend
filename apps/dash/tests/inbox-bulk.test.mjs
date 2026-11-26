@@ -358,7 +358,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   assert.deepEqual(h2s, ["New batch: write the text and choose who gets it", "How bulk sending works"], "no Check and confirm card");
   const rules = pane(d).all((n) => n.classList && n.classList.contains("ib-bk-rules"))[0].textContent;
   assert.ok(rules.includes("No web links.") && rules.includes("Contacts who replied STOP are skipped.") && rules.includes("8:00 am to 10:00 pm, Manila time"));
-  assert.ok(rules.includes("One text for every contact in your groups, sent from your own phone."));
+  assert.ok(rules.includes("One text for every contact in your groups."));
   assert.ok(rules.includes("Bulk texts left today: 2000 of 2000."));
   assert.equal(d.$("ib-bk-send"), null, "the History card is not shown with the form");
   assert.equal(d.$("ib-back"), null, "no Back link");

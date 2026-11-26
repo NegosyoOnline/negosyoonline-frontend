@@ -515,7 +515,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
       var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every contact in your groups, sent from your own phone.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
+      ["One text for every contact in your groups.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);

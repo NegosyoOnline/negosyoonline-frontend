@@ -1826,3 +1826,6 @@ body.dash-app .ref-fig dt { font-size: 14px; color: var(--meta); }
 body.dash-app .ref-fig dd { margin: 0; font-size: 20px; font-weight: 700; }
 /* On the Overview the referral card sits in a column: height from its content, not the Referral panel's 560px basis. */
 body.dash-app .ov-stack > .ref-card { flex: 0 0 auto; }
+/* Subscription Credit on Billing (B6). */
+#view-settings-billing .bl-credit { color: var(--text); font-weight: 600; }
+#view-settings-billing .bl-hcredit { display: block; font-size: 13px; }

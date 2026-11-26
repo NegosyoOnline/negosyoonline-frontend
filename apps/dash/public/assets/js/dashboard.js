@@ -586,15 +586,29 @@
       loadReferral(st).then(function () { obRoute(v, st.data); });
     });
   }
-  /* B6: the Overview referral card's data. Never blocks or fails the Overview: any failure leaves no card. */
+  /* B6, rule 6: the first of the account's sites whose billing state is "active", or null. `read(id)` answers a billing read; the sites are read in
+     order and the search stops at the first active one. Pure apart from `read`. */
+  function firstActiveBilling(ids, read) {
+    return ids.reduce(function (chain, id) {
+      return chain.then(function (found) {
+        if (found) return found;
+        return read(id).then(function (r) { return r && r.ok && obj(r.data).state === "active" ? r : null; });
+      });
+    }, Promise.resolve(null));
+  }
+  /* B6: the Overview referral card's data. Never blocks or fails the Overview: any failure leaves no card. The programme switch comes first;
+     then ANY of the account's sites being active makes the card live (rule 6), not only the first. */
   function loadReferral(st) {
-    var first = obj(obj(st.data).first_site), none = Promise.resolve(null);
+    var first = obj(obj(st.data).first_site);
     if (!st.ok || typeof first.id !== "string" || first.id === "" || first.deleted) return Promise.resolve();
     return D.call("GET", "/account/referrals/", null, true).then(function (rr) {
-      if (!rr || !rr.ok || obj(rr.data).started !== true) return none;
-      return D.call("GET", "/sites/" + encodeURIComponent(first.id) + "/billing/", null, true).then(function (br) {
-        lastDash.data.referralView = referralOverview(rr, br);
-      });
+      if (!rr || !rr.ok || obj(rr.data).started !== true) return null;
+      return D.call("GET", "/sites/", null, true).then(function (sl) {
+        var items = sl && sl.ok && Array.isArray(obj(sl.data).items) ? sl.data.items : [], ids = [];
+        items.forEach(function (it) { if (it && typeof it.id === "string" && it.id !== "") ids.push(it.id); });
+        if (ids.indexOf(first.id) < 0) ids.unshift(first.id);
+        return firstActiveBilling(ids, function (id) { return D.call("GET", "/sites/" + encodeURIComponent(id) + "/billing/", null, true); });
+      }).then(function (active) { lastDash.data.referralView = referralOverview(rr, active); });
     }).catch(function () { /* the Overview stays as it was */ });
   }
   /* The Overview's own setup load-error state, in the dashboard's error box. Leaving and returning to "/" reads again. */

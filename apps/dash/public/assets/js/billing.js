@@ -225,6 +225,13 @@
     return S.payments.slice().sort(function (a, b) { return a.submitted_at < b.submitted_at ? 1 : -1; })[0] || null;
   }
   function accounts() { return (S.pay && S.pay.transfer_accounts) || []; }
+  /* Subscription Credit (Billing B6, draft wording): the credit the payment options name, and what each offer takes of it. */
+  function creditBal() { var c = S && S.pay && S.pay.credit; return c && c.enabled === true && typeof c.balance_centavos === "number" && c.balance_centavos > 0 ? c.balance_centavos : 0; }
+  function creditOf(o) { return o && typeof o.credit_centavos === "number" && o.credit_centavos > 0 ? o.credit_centavos : 0; }
+  function xferOf(o) { return typeof o.transfer_centavos === "number" ? o.transfer_centavos : o.amount_centavos; }
+  function covered(o) { return !!o && o.covered_by_credit === true; }
+  function creditPaid(p) { return creditOf(p) > 0 && p.transfer_centavos === 0; }
+  function creditLine(o) { return "Credit applied −" + peso(creditOf(o)) + ", amount to transfer " + peso(xferOf(o)); }
   function canPay() { return !!(S.pay && S.pay.payable && S.pay.offers && S.pay.offers.length && accounts().length && !S.billing.billing_exempt); }
   function inTrial() { return S.billing.state === "trial_active"; }
 
@@ -390,6 +397,7 @@
   }
   function proofRows(p) {
     return [["Plan", planOf(p.plan).name], ["Amount", peso(p.amount_centavos)],
+      creditOf(p) > 0 ? ["Subscription Credit", "−" + peso(creditOf(p))] : null, creditOf(p) > 0 ? ["Amount to transfer", peso(xferOf(p))] : null,
       p.transferred_at ? ["Time of transfer", instant(p.transferred_at)] : ["Date of transfer", p.transferred_on ? dateShort(p.transferred_on + "T12:00:00+08:00") : ""],
       p.transfer_reference ? ["Reference", p.transfer_reference] : null, ["Sent", instant(p.submitted_at)]];
   }
@@ -418,13 +426,14 @@
       body = facts([only ? ["Last payment", "Approved " + dateShort(last.decided_at)] : ["Status", "Payment approved"], only ? null : ["Approved", dateShort(last.decided_at)],
         cy ? [only ? "Plan ran" : "Plan runs", range(cy.start_at, cy.end_at)] : null]);
       if (pay) add(acts, btn(only ? "Pay by bank transfer" : "Pay for the next period", "primary", function () { go("choose"); }));
-      add(acts, viewBtn(last));
+      if (!creditPaid(last)) add(acts, viewBtn(last));
     } else {
       add(top, chip("neutral", "No payment yet"));
       body = para(pay ? "Pay by bank transfer to continue after your trial. No payment method is stored; you send a transfer and add your proof." : "Payments are not open yet.");
       if (pay) add(acts, btn("Pay by bank transfer", "primary", function () { go("choose"); }));
     }
     add(s, top, body);
+    if (creditBal() > 0) add(s, h("p", "bl-meta bl-credit", "Subscription Credit: " + peso(creditBal())));
     if (acts.children.length) add(s, acts);
     return s;
   }
@@ -435,8 +444,10 @@
     var CH = { submitted: ["warn", "Under review"], confirmed: ["ok", "Approved"], rejected: ["reject", "Rejected"], replaced: ["neutral", "Replaced"] };
     S.payments.forEach(function (p) {
       var c = CH[p.status] || ["neutral", p.status], row = h("div", "bl-hrow");
-      add(row, h("span", "", dateShort(p.submitted_at)), h("span", "", planOf(p.plan).short), h("span", "", peso(p.amount_centavos)), chip(c[0], c[1]),
-        btn("View proof", "ghost", function (b) { openProof(p, b); }));
+      var amt = h("span", "", peso(p.amount_centavos));
+      if (creditOf(p) > 0) add(amt, h("span", "bl-meta bl-hcredit", creditPaid(p) ? "Paid with credit" : "credit −" + peso(creditOf(p)) + ", transfer " + peso(xferOf(p))));
+      add(row, h("span", "", dateShort(p.submitted_at)), h("span", "", planOf(p.plan).short), amt, chip(c[0], c[1]),
+        creditPaid(p) ? h("span", "", "") : btn("View proof", "ghost", function (b) { openProof(p, b); }));
       add(s, row);
     });
     return s;
@@ -851,7 +862,7 @@
     offerLines(o, trial).forEach(function (l) { add(desc, h("p", "bl-plan-line", l)); });
     if (o.plan === "annual" && saving) add(desc, add(h("p", "bl-save bl-plan-line", "Save " + peso(saving)), h("span", "bl-pill", "2 months FREE")));
     var ul = h("ul", "bl-feat"); FEATURES.forEach(function (f) { add(ul, h("li", "", f)); });
-    add(art, attrs(h("h2", "bl-plan-name", planOf(o.plan).card), { id: "bl-pl-" + o.plan }), h("p", "bl-plan-price", peso(o.amount_centavos)), desc, ul,
+    add(art, attrs(h("h2", "bl-plan-name", planOf(o.plan).card), { id: "bl-pl-" + o.plan }), h("p", "bl-plan-price", peso(o.amount_centavos)), creditOf(o) > 0 ? h("p", "bl-plan-line bl-credit", creditLine(o)) : null, desc, ul,
       btn(promo ? "Pay for this plan" : "Choose", promo ? "primary" : "ghost", function () { go("send", o.plan); }, "bl-full"));
     return art;
   }
@@ -876,6 +887,47 @@
     if (hasAnnual) annualSaving().then(function (pl) { if (mine === token && pl.annual && routeOf(location.search).pay === "choose") draw(pl.annual); });
   }
 
+  /* ---- page B for a bill the Subscription Credit covers in full: no proof, one button (Billing B6) ---- */
+  function renderCredit(r, offer) {
+    var promo = !!(offer.consent && offer.consent.required), trial = inTrial(), mine = token;
+    var sec = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-cr" }), banner = attrs(h("p", "bl-note"), { role: "alert", tabindex: "-1" });
+    banner.hidden = true;
+    add(sec, attrs(h("h2", "bl-h2", "Pay with Subscription Credit"), { id: "bl-cr" }),
+      h("p", "bl-note bl-credit", creditLine(offer) + "."),
+      h("p", "bl-meta", planOf(offer.plan).name + ", " + peso(offer.amount_centavos) + ". Your Subscription Credit covers this bill, so there is nothing to transfer and no proof to send."), banner);
+    var cb = null;
+    if (promo) {
+      cb = attrs(h("input", ""), { type: "checkbox", id: "bl-consent" });
+      add(sec, add(h("div", "bl-consent"), para(consentText(offer, trial), "bl-consent-text"), add(h("label", "bl-check"), cb, h("span", "", "I understand and accept the Launch Promo terms above."))));
+    }
+    var go1 = btn("Pay with credit — " + peso(creditOf(offer)), "primary", null, "bl-full"); go1.setAttribute("id", "bl-credit-pay");
+    if (cb) { setDisabled(go1, true); cb.addEventListener("change", function () { setDisabled(go1, busy || !cb.checked); }); }
+    add(sec, go1);
+    add(r, backLink("← Back to billing", function () { go("choose"); }), sec);
+    function say(text) { banner.textContent = text; banner.hidden = false; banner.focus(); }
+    go1.addEventListener("click", function () {
+      if (busy || (cb && !cb.checked)) return;
+      var body = { plan: offer.plan };
+      if (promo) { body.renewal_consent = true; body.consent_version = offer.consent.version; }
+      busy = true; go1.setAttribute("aria-busy", "true"); setDisabled(go1, true); banner.hidden = true;
+      D.call("POST", base() + "pay-with-credit/", body).then(function (res) {
+        busy = false; go1.removeAttribute("aria-busy");
+        if (mine !== token || res.status === 401) return;
+        if (res.ok) {
+          toast("Paid with credit", "Your payment is confirmed.");
+          reload().then(function () { try { history.pushState(null, "", urlFor(S.site, null)); } catch (e) { /* ignore */ } render(); focusTop(); });
+          return;
+        }
+        setDisabled(go1, false);
+        if (res.status === 409 && res.data && res.data.code === "credit_insufficient") {
+          toast("That did not work", "Your Subscription Credit no longer covers this bill. The page shows what to transfer now.", "error");
+          reload().then(function (ok) { if (ok && mine === token) { render(); focusTop(); } });
+        } else if (res.status === 404) say("Paying with credit is not available right now.");
+        else say(refusal(res));
+      });
+    });
+  }
+
   /* ---- page B: payment details ---- */
   function field(key, label, ph, extra) {
     var w = h("div", "bl-field"), id = "bl-f-" + key, input = attrs(h("input", "bl-input"), { id: id, name: key, placeholder: ph, autocomplete: "off" });
@@ -891,17 +943,19 @@
       try { history.replaceState(null, "", urlFor(S.site, "choose")); } catch (e) { /* ignore */ }
       return renderChoose(r);
     }
+    if (covered(offer)) return renderCredit(r, offer);
     var trial = inTrial(), promo = !!(offer.consent && offer.consent.required), maxBytes = (S.pay.proof_rules && S.pay.proof_rules.max_bytes) || 5242880;
     var F = {}, errs = {}, touched = {}, banner = attrs(h("p", "bl-note"), { role: "alert", tabindex: "-1" });
     banner.hidden = true;
     var left = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-sp" });
     add(left, attrs(h("h2", "bl-h2", "Your payment details"), { id: "bl-sp" }));
     if (underReview()) add(left, h("p", "bl-note", "Sending a new proof replaces the one under review."));
+    if (creditOf(offer) > 0) add(left, h("p", "bl-note bl-credit", creditLine(offer) + "."));
     add(left, banner);
     var grid = h("div", "bl-grid2");
     [["bank", "Sender Bank", "BDO", { maxlength: "80" }], ["ref", "Reference Number", "1234 5678 90", { maxlength: "64" }], ["first", "Sender First Name", "Juan", { maxlength: "80" }],
       ["last", "Sender Last Name", "dela Cruz", { maxlength: "80" }], ["acct", "Sender Account Number", "1234 5678 12", { maxlength: "34", inputmode: "numeric" }],
-      ["amount", "Amount", peso(offer.amount_centavos).replace("PHP ", ""), { inputmode: "decimal" }]].forEach(function (f) { F[f[0]] = field(f[0], f[1], f[2], f[3]); add(grid, F[f[0]].wrap); });
+      ["amount", "Amount", peso(xferOf(offer)).replace("PHP ", ""), { inputmode: "decimal" }]].forEach(function (f) { F[f[0]] = field(f[0], f[1], f[2], f[3]); add(grid, F[f[0]].wrap); });
     add(left, grid);
     var tw = h("div", "bl-field"), tl = attrs(h("span", "bl-label", "Time of Transfer *"), { id: "bl-tt" }), tg = attrs(h("div", "bl-time"), { role: "group", "aria-labelledby": "bl-tt" });
     var date = attrs(h("input", "bl-input"), { id: "bl-f-date", type: "date", "aria-label": "Date of transfer", max: manilaNow().slice(0, 10) });
@@ -932,7 +986,7 @@
       add(cwrap, para(consentText(offer, trial), "bl-consent-text"), add(h("label", "bl-check"), cb, h("span", "", "I understand and accept the Launch Promo terms above.")), consentErr);
       add(left, cwrap); consent = cb;
     }
-    var send = btn("Send proof — " + peso(offer.amount_centavos), "primary", null, "bl-full"); send.setAttribute("id", "bl-send");
+    var send = btn("Send proof — " + peso(xferOf(offer)), "primary", null, "bl-full"); send.setAttribute("id", "bl-send");
     /* While Send is disabled, a visible line says what is still needed; it is the button's description and is hidden when all is valid. */
     var need = h("p", "bl-meta", ""); need.setAttribute("id", "bl-send-need"); need.hidden = true;
     send.setAttribute("aria-describedby", "bl-send-need");
@@ -1018,7 +1072,7 @@
 
     /* right column: where to send the money, and the summary */
     var side = h("div", "bl-side"), to = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-to" });
-    add(to, attrs(h("h2", "bl-h2", "Send exactly " + peso(offer.amount_centavos) + " to this account"), { id: "bl-to" }));
+    add(to, attrs(h("h2", "bl-h2", "Send exactly " + peso(xferOf(offer)) + " to this account"), { id: "bl-to" }));
     accounts().forEach(function (a) {
       var no = h("span", "bl-acctno", a.account_number), cp = btn("Copy", "ghost", function () {
         try { navigator.clipboard.writeText(a.account_number).then(function () { toast("Copied", ""); }, function () { /* ignore */ }); } catch (e) { /* ignore */ }
@@ -1028,7 +1082,8 @@
     var sum = attrs(h("aside", "bl-card"), { "aria-labelledby": "bl-su" });
     add(sum, attrs(h("h2", "bl-h2", "Summary"), { id: "bl-su" }), h("p", "bl-sum-name", planOf(offer.plan).name));
     offerLines(offer, trial).forEach(function (l) { add(sum, h("p", "bl-meta", l)); });
-    add(sum, add(h("div", "bl-total"), h("span", "", "Total"), h("b", "", peso(offer.amount_centavos))));
+    if (creditOf(offer) > 0) add(sum, add(h("div", "bl-total bl-credit-row"), h("span", "", "Subscription Credit"), h("b", "", "−" + peso(creditOf(offer)))));
+    add(sum, add(h("div", "bl-total"), h("span", "", creditOf(offer) > 0 ? "Amount to transfer" : "Total"), h("b", "", peso(xferOf(offer)))));
     add(side, to, sum);
     add(r, add(h("div", "bl-backs"), backLink("← Change plan", function () { go("choose"); }), backLink("Back to billing", function () { go(null); })), add(h("div", "bl-pay"), left, side));
     update();

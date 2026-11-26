@@ -70,7 +70,7 @@ test("Correct balance: a reason is required, a confirm step shows the sum, and o
   p.node["fix-form"].fire("submit");
   assert.equal(p.sent(FIX).length, 0, "the first step only reviews");
   assert.equal(p.node["fix-step2"].hidden, false);
-  assert.match(p.node["fix-sum"].textContent, /^Add PHP 500\.00 to the Subscription Credit of acc_a+\. Balance now PHP 1,000\.00\. Reason: Owner approved a goodwill credit$/);
+  assert.match(p.node["fix-sum"].textContent, /^Add PHP 500\.00 to the Subscription Credit of acc_a+\. Balance now PHP 1,000\.00, after this correction PHP 1,500\.00\. Reason: Owner approved a goodwill credit$/);
   p.node["fix-form"].fire("submit");
   await settle();
   const body = p.sent(FIX)[0].body;
@@ -85,12 +85,12 @@ test("a negative correction is sent as negative centavos; a refusal beyond the b
   const p = await page({ "GET me/": [200, ME], [VIEW]: [200, data()], [FIX]: [409, refused("exceeds_balance")] });
   await find(p);
   p.node["r-correct"].fire("click");
-  p.node["fix-amount"].value = "-5,000.50"; p.node["fix-reason"].value = "Wrong credit";
+  p.node["fix-amount"].value = "-500.50"; p.node["fix-reason"].value = "Wrong credit";
   p.node["fix-form"].fire("submit");
-  assert.match(p.node["fix-sum"].textContent, /^Take PHP 5,000\.50 away from/);
+  assert.match(p.node["fix-sum"].textContent, /^Take PHP 500\.50 away from/);
   p.node["fix-form"].fire("submit");
   await settle();
-  assert.equal(p.sent(FIX)[0].body.amount_centavos, -500050);
+  assert.equal(p.sent(FIX)[0].body.amount_centavos, -50050);
   assert.equal(p.node["m-fix"].hidden, false);
   assert.match(p.node["fix-err2"].textContent, /more than the spendable balance/);
 });
@@ -120,4 +120,16 @@ test("page file: no storage, no console, all routes POST to finance/referrals, t
   const cfg = fs.readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
   assert.match(cfg, /\{ source: "\/finance\/referrals\/", destination: "\/finance-referrals\.html" \}/);
   assert.match(cfg, /\{ source: "\/finance-referrals\.html", destination: "\/finance\/referrals\/", permanent: false \}/);
+});
+
+test("a reduction larger than the balance is refused before the confirm step, naming the balance", async () => {
+  const p = await page({ "GET me/": [200, ME], [VIEW]: [200, data()] });
+  await find(p);
+  p.node["r-correct"].fire("click");
+  p.node["fix-amount"].value = "-1,000.01"; p.node["fix-reason"].value = "x";
+  p.node["fix-form"].fire("submit");
+  assert.equal(p.node["fix-step2"].hidden, true);
+  assert.match(p.node["fix-err"].textContent, /more than the spendable balance \(PHP 1,000\.00\)/);
+  p.node["fix-amount"].value = "-1,000"; p.node["fix-form"].fire("submit");
+  assert.match(p.node["fix-sum"].textContent, /after this correction PHP 0\.00/);
 });

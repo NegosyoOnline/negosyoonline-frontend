@@ -117,9 +117,11 @@
     $("fix-amount").setAttribute("aria-invalid", String(c === null));
     $("fix-reason").setAttribute("aria-invalid", String(!reason));
     if (bad.length) { (c === null ? $("fix-amount") : $("fix-reason")).focus(); return; }
+    var after = shown.balance_centavos + c;
+    if (after < 0) { F.say("fix-err", "That is more than the spendable balance (" + F.money(shown.balance_centavos) + "). Use a smaller amount."); $("fix-amount").setAttribute("aria-invalid", "true"); $("fix-amount").focus(); return; }
     pending = { amount_centavos: c, reason: reason };
     $("fix-sum").textContent = (c < 0 ? "Take " + F.money(-c) + " away from" : "Add " + F.money(c) + " to") + " the Subscription Credit of " + shown.account +
-      ". Balance now " + F.money(shown.balance_centavos) + ". Reason: " + reason;
+      ". Balance now " + F.money(shown.balance_centavos) + ", after this correction " + F.money(after) + ". Reason: " + reason;
     F.say("fix-err2", ""); step(2); $("fix-go").focus();
   });
   function send() {

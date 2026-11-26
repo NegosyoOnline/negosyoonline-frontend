@@ -1824,3 +1824,5 @@ body.dash-app .ref-figures { display: flex; flex-wrap: wrap; gap: 8px 28px; marg
 body.dash-app .ref-fig { display: flex; flex-direction: column; gap: 2px; }
 body.dash-app .ref-fig dt { font-size: 14px; color: var(--meta); }
 body.dash-app .ref-fig dd { margin: 0; font-size: 20px; font-weight: 700; }
+/* On the Overview the referral card sits in a column: height from its content, not the Referral panel's 560px basis. */
+body.dash-app .ov-stack > .ref-card { flex: 0 0 auto; }

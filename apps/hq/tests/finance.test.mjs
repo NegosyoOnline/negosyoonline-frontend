@@ -8,7 +8,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-queue", "v-pay", "v-closed", "v-down", "retry",
   "tab-submitted", "tab-confirmed", "tab-rejected", "tab-replaced", "q-msg", "q-loading", "rows", "q-empty", "more-row", "more",
-  "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-time", "p-ref", "p-sender-name", "p-sender-bank", "p-sender-acct", "p-sent-amount", "p-mismatch",
+  "back", "p-loading", "p-body", "p-site", "p-site-id", "p-status", "p-amount", "p-plan", "p-date", "p-time", "p-ref", "p-sender-name", "p-sender-bank", "p-sender-acct", "p-sent-amount", "p-mismatch", "p-credit",
   "p-submitted", "p-email", "p-decided", "history-h", "history", "proof-h", "proof-loading", "proof-img", "proof-file", "proof-err",
   "proof-retry", "proof-preview", "act", "open-confirm", "open-reject",
   "m-confirm", "mc-h", "mc-sub", "confirm-form", "amount", "amount-group", "amount-ruler", "amount-err", "amount-hint", "confirm-err", "confirm-bar", "confirm-go", "confirm-x",
@@ -171,6 +171,16 @@ test("the closed state when bank transfer is off, and the not-reached state with
 });
 
 /* ---- one payment ---- */
+
+test("a payment part-paid with Subscription Credit shows the credit and asks for the transfer amount", async () => {
+  const a = await opened({}, detail({ credit_centavos: 100000, transfer_centavos: 399900 }));
+  assert.equal(a.node["p-amount"].textContent, "PHP 3,999.00");
+  assert.equal(a.node["p-credit"].hidden, false);
+  assert.match(a.node["p-credit"].textContent, /^Bill PHP 4,999\.00, Subscription Credit applied -PHP 1,000\.00\. The Subscriber transfers PHP 3,999\.00\.$/);
+  const none = await opened({}, detail());
+  assert.equal(none.node["p-credit"].hidden, true);
+  assert.equal(none.node["p-amount"].textContent, "PHP 4,999.00");
+});
 
 test("the sender's details show, and a typed amount that differs from the amount due is flagged", async () => {
   const sender = { transferred_at: "2026-11-20T14:05:00+08:00", sender_bank: "BDO", sender_first_name: "Juan", sender_last_name: "dela Cruz",

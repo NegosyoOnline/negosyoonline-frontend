@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { load, answer } from "./load.mjs";
 
 const CFG = { apiBase: "http://api.test/v1", siteUrl: "http://www.test", dashUrl: "http://dash.test" };
@@ -34,6 +35,8 @@ test("the Google link carries accept_policies only when signing up", () => {
   const { window } = load(["api.js"], { config: CFG, fetch: answer(200, {}) });
   assert.equal(window.NOApi.googleStartUrl("signup"), "http://api.test/v1/auth/google/start/?accept_policies=true");
   assert.equal(window.NOApi.googleStartUrl("signin"), "http://api.test/v1/auth/google/start/");
+  assert.equal(window.NOApi.googleStartUrl("signup", "AB12CD34"), "http://api.test/v1/auth/google/start/?accept_policies=true&referral_code=AB12CD34");
+  assert.equal(window.NOApi.googleStartUrl("signin", "AB12CD34"), "http://api.test/v1/auth/google/start/");
 });
 
 test("each Google failure code has a message, and an unknown code gets the default", () => {
@@ -55,4 +58,11 @@ test("the Google button is drawn only when the environment switches it on", asyn
   assert.equal(await off.window.NOApi.socialButtons(box, () => "signup"), 0);
   assert.equal(box.children.length, 0);
   assert.equal(off.calls.length, 0);
+});
+
+test("start.js sends a validated referral code on sign-up only: with the email-code verify call and the Google start link", () => {
+  const src = fs.readFileSync(new URL("../public/assets/js/start.js", import.meta.url), "utf8");
+  assert.match(src, /if \(mode === "signup" && validRef\) body\.referral_code = validRef;/);
+  assert.match(src, /"\/auth\/email-code\/verify\/", verifyBody\(code\)/);
+  assert.match(src, /A\.socialButtons\(\$\("social-btns"\), function \(\) \{ return mode; \}, function \(\) \{ return validRef; \}\)/);
 });

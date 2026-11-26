@@ -1818,3 +1818,9 @@ body.dash-app .paused-banner p { margin: 0; }
 body.dash-app .paused-banner strong { color: var(--err-h); }
 body.dash-app .paused-banner a { color: inherit; text-decoration: underline; font-weight: 700; }
 body.dash-app .paused-banner[hidden] { display: none; }
+
+/* Referral card figures (Billing B6): Subscription Credit and credits earned. */
+body.dash-app .ref-figures { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 0 0 12px; }
+body.dash-app .ref-fig { display: flex; flex-direction: column; gap: 2px; }
+body.dash-app .ref-fig dt { font-size: 14px; color: var(--meta); }
+body.dash-app .ref-fig dd { margin: 0; font-size: 20px; font-weight: 700; }

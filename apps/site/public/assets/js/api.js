@@ -69,14 +69,18 @@
 
   /* Google sign-in is a browser navigation to the API, which redirects to Google and back.
      accept_policies is sent only in sign-up mode, where the notice under the button is the agreement. */
-  function googleStartUrl(mode) {
-    return cfg.apiBase + "/auth/google/start/" + (mode === "signup" ? "?accept_policies=true" : "");
+  function googleStartUrl(mode, ref) {
+    var q = [];
+    if (mode === "signup") q.push("accept_policies=true");
+    /* A referral code the server confirmed is valid rides along on sign-up only. */
+    if (mode === "signup" && ref) q.push("referral_code=" + encodeURIComponent(ref));
+    return cfg.apiBase + "/auth/google/start/" + (q.length ? "?" + q.join("&") : "");
   }
 
   /* "Continue with Google". Drawn only when this environment says Google sign-in is set up
-     (NO_CONFIG.googleSignIn); the API has no endpoint to ask. `getMode` returns "signup" or "signin".
+     (NO_CONFIG.googleSignIn); the API has no endpoint to ask. `getMode` returns "signup" or "signin"; the optional `getRef` returns the validated referral code.
      Resolves the number of buttons shown. */
-  function socialButtons(container, getMode) {
+  function socialButtons(container, getMode, getRef) {
     container.textContent = "";
     if (cfg.googleSignIn !== true) return Promise.resolve(0);
     var b = el("button", { type: "button", "class": "btn social-btn" });
@@ -84,7 +88,7 @@
     b.appendChild(el("span", {}, "Continue with Google"));
     b.addEventListener("click", function () {
       b.disabled = true;
-      location.assign(googleStartUrl(getMode()));
+      location.assign(googleStartUrl(getMode(), getRef ? getRef() : ""));
     });
     container.appendChild(b);
     return Promise.resolve(1);

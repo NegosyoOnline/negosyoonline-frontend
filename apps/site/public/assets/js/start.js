@@ -96,12 +96,18 @@
     $("code-msg").textContent = "";
     resetBoxes(); show("code"); boxes[0].focus(); startCooldown();
   }
+  /* The validated referral code is sent on sign-up only; the server records it once, at account creation. */
+  function verifyBody(code) {
+    var body = { email: email, code: code, accept_policies: mode === "signup" };
+    if (mode === "signup" && validRef) body.referral_code = validRef;
+    return body;
+  }
   function submitCode() {
     var code = codeValue();
     if (code.length !== 6) { fieldError("code-err", "Enter all 6 digits of the code."); return; }
     boxes.forEach(function (b) { b.disabled = true; });
     $("code-err").hidden = true;
-    A.call("POST", "/auth/email-code/verify/", { email: email, code: code, accept_policies: mode === "signup" }, false, true).then(function (res) {
+    A.call("POST", "/auth/email-code/verify/", verifyBody(code), false, true).then(function (res) {
       if (res.ok) {
         $("code-msg").textContent = res.data.created ? "Your account is ready. Opening your dashboard..." : "Welcome back. Opening your dashboard...";
         location.assign(cfg.dashUrl + "/");
@@ -142,7 +148,7 @@
   $("code-back").addEventListener("click", function () { clearInterval(cooldown); clearErrors(); show("step1"); $("email").focus(); });
 
   /* ---------- social sign-up ---------- */
-  A.socialButtons($("social-btns"), function () { return mode; }).then(function (n) {
+  A.socialButtons($("social-btns"), function () { return mode; }, function () { return validRef; }).then(function (n) {
     $("social-signup").hidden = !n;
     if (!n) return;  /* no provider configured: the email form stays open */
     $("form1").hidden = true;

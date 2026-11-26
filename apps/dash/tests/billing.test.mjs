@@ -123,7 +123,7 @@ test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none 
     assert.equal(c.credentials, "include");
   }
   assert.ok(d.list().includes("GET " + B) && d.list().includes("GET " + B + "payment/") && d.list().includes("GET " + B + "payments/?limit=20"));
-  assert.doesNotMatch(SRC.replace("Images and videos in your Media Library.", ""), /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
+  assert.doesNotMatch(SRC.replace("Images and videos in your Media Library.", "").replace(/\/\* V-1 video start \*\/[\s\S]*?\/\* V-1 video end \*\//g, ""), /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
 });
 
 /* ---- 2. the states of the home page ---- */

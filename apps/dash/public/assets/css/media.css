@@ -67,3 +67,4 @@
 @media (max-width: 640px) {
   .ml-root .ml-file { padding: 10px; }
 }
+.ml-root .ml-player { display: block; width: 100%; max-width: 480px; aspect-ratio: 16 / 9; margin: 0 0 14px; border: 1px solid var(--card-line); border-radius: 10px; background: #000; }

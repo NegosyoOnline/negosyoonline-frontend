@@ -119,8 +119,9 @@ function card(a: MediaAsset): Markup {
   const length = a.asset_type === "video" ? clock(a.duration_seconds) : "";
   const picture = thumb ? html`<img src="${thumb}" alt="" loading="lazy">` : html`<span class="ml-blank" aria-hidden="true"></span>`;
   const badges = html`${a.asset_type === "video" ? html`<span class="ml-play">${PLAY}</span>` : ""}${a.is_new ? html`<span class="ml-new">New</span>` : ""}${length ? html`<span class="ml-len">${length}</span>` : ""}`;
-  const preview = file
-    ? html`<a class="ml-thumb" href="${file}" target="_blank" rel="noopener noreferrer" data-ml-open data-kind="${a.asset_type}" data-file="${file}" data-poster="${fileOf(a.poster_url) || thumb}" data-title="${a.title}" data-caption="${a.caption}" data-cat="${a.category_label}" data-date="${dateText(a.published_at)}" data-format="${[extOf(a.file_url), a.asset_type === "video" ? "Video" : "Image"].filter(Boolean).join(" \u00b7 ")}" data-dims="${a.asset_type === "video" ? clock(a.duration_seconds) : dimsText(a)}" data-size="${sizeText(a.file_size)}" data-download="${download}" aria-label="Preview ${a.title}">${picture}${badges}</a>`
+  const embed = a.asset_type === "video" && !file ? a.embed_url : "";
+  const preview = file || embed
+    ? html`<a class="ml-thumb" href="${file || embed}" target="_blank" rel="noopener noreferrer" data-ml-open data-kind="${a.asset_type}" data-file="${file}" data-embed="${embed}" data-poster="${fileOf(a.poster_url) || thumb}" data-title="${a.title}" data-caption="${a.caption}" data-cat="${a.category_label}" data-date="${dateText(a.published_at)}" data-format="${[extOf(a.file_url), a.asset_type === "video" ? "Video" : "Image"].filter(Boolean).join(" \u00b7 ")}" data-dims="${a.asset_type === "video" ? clock(a.duration_seconds) : dimsText(a)}" data-size="${sizeText(a.file_size)}" data-download="${download}" aria-label="Preview ${a.title}">${picture}${badges}</a>`
     : html`<span class="ml-thumb">${picture}${badges}</span>`;
   return html`<article class="ml-card" data-asset="${a.id}" data-type="${a.asset_type}">
   ${preview}

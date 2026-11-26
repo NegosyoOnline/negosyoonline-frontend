@@ -443,10 +443,10 @@
   }
   /* ---- Plan usage: media storage and orders against the plan's limits; display only, hidden quietly when the route is missing or fails ---- */
   function meterEl(id, name, valText, pct, sub, period) {
-    var cls = pct >= 100 ? " pu-red" : pct >= 80 ? " pu-amber" : "", w = Math.min(100, pct);
+    var cls = pct >= 100 ? " pu-red" : pct >= 80 ? " pu-amber" : "", w = pct === null ? 0 : Math.min(100, pct); /* null: not measured yet, an empty bar */
     var nm = attrs(h("span", "pu-name", name), { id: id });
     if (period) add(nm, h("span", "pu-period", " " + period));
-    var val = add(h("span", "pu-val", valText + " "), h("span", "pu-pct", "(" + pct + "%)"));
+    var val = pct === null ? h("span", "pu-val", valText) : add(h("span", "pu-val", valText + " "), h("span", "pu-pct", "(" + pct + "%)"));
     var fill = h("div", "pu-fill"); fill.style.width = w + "%";
     var track = attrs(h("div", "pu-track"), { role: "progressbar", "aria-labelledby": id, "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(w), "aria-valuetext": valText });
     return add(h("div", "pu-meter" + cls), add(h("div", "pu-row"), nm, val), add(track, fill), h("p", "pu-sub", sub));
@@ -458,6 +458,19 @@
     var n = c / 100, price = "PHP " + (n === Math.floor(n) ? String(n) : n.toFixed(2));
     return "You have reached your plan’s " + od.limit + " orders. Orders above " + od.limit + " are billed at " + price + " each on your next bill.";
   }
+  /* V-1 video start */
+  /* Video delivery (V-1, ClickUp z8uq9mkfkd): shown only when the answer has a `video` block (the backend adds it while its switch is on). Display only.
+     read_at null: no reading yet, so "Not measured yet" and an empty bar. A malformed block is left out and the card stays as it was. */
+  var VIDEO_SUB = "Video watched on your store this billing month.", NOT_MEASURED = "Not measured yet";
+  function videoMeter(v) {
+    if (!v || typeof v !== "object" || !(v.limit_bytes > 0)) return null;
+    var period = periodText(v.period_start, v.period_end);
+    if (v.read_at === null || v.read_at === undefined) return { el: meterEl("bl-pu-v", "Video delivery", NOT_MEASURED, null, VIDEO_SUB, period), pct: 0 };
+    if (typeof v.used_bytes !== "number" || !(v.used_bytes >= 0)) return null;
+    var p = pctOf(v.used_bytes, v.limit_bytes);
+    return { el: meterEl("bl-pu-v", "Video delivery", gbText(v.used_bytes) + " of " + gbText(v.limit_bytes, true), p, VIDEO_SUB, period), pct: p };
+  }
+  /* V-1 video end */
   function usageCard(m) {
     var st = m && m.storage, od = m && m.orders;
     if (!st || !od) return null;
@@ -467,7 +480,11 @@
     add(s, attrs(h("h2", "bl-h2", "Plan usage"), { id: "bl-pu" }),
       meterEl("bl-pu-s", "Media storage", gbText(st.used_bytes) + " of " + gbText(st.limit_bytes, true), sp, "Images and videos in your Media Library."),
       meterEl("bl-pu-o", "Orders this period", od.count + " of " + od.limit, op, ORDER_SUB[od.period_kind] || ORDER_SUB.billing_month, periodText(od.period_start, od.period_end)));
-    if (sp >= 100 || op >= 100) add(s, attrs(h("p", "pu-limit pu-red", op >= 100 && overageLine(od) || "You have reached your plan’s limit."), { role: "status" }));
+    /* V-1 video start */
+    var vm = videoMeter(m.video);
+    if (vm) add(s, vm.el);
+    /* V-1 video end */
+    if (sp >= 100 || op >= 100 || (vm && vm.pct >= 100)) add(s, attrs(h("p", "pu-limit pu-red", op >= 100 && overageLine(od) || "You have reached your plan’s limit."), { role: "status" }));
     return s;
   }
   function paintUsage(slot, mine) {

@@ -250,3 +250,62 @@ test("the Billing note: 500 orders included, PHP 5 each above, no share of sales
   assert.ok(t.includes("Billing is for your site’s plan. It includes 500 orders a month; orders above 500 are PHP 5 each. NegosyoOnline never takes a share of your sales."));
   assert.doesNotMatch(t, /Nothing is charged per order or per sale/);
 });
+
+
+/* ---------- V-1 (ClickUp z8uq9mkfkd): the third bar, Video delivery, only while the answer has a `video` block ---------- */
+const withVideo = (video, o = {}, orders = {}) => ok({ ...meters(o, orders), video });
+const VID = (over = {}) => ({ used_bytes: 12000000000, limit_bytes: 50000000000, read_at: "2026-11-26T05:30:00+08:00", period_start: "2026-11-21T00:00:00+08:00", period_end: "2026-12-21T00:00:00+08:00", ...over });
+
+test("video: no `video` key, the card is exactly as today (two bars, no video wording)", async () => {
+  const d = boot(); await d.show();
+  assert.equal(d.has(d.card(), "pu-track").length, 2);
+  assert.doesNotMatch(d.text(d.card()), /Video delivery|Not measured/);
+});
+
+test("video: a third bar, Video delivery, after Orders, with the draft sub-line, the period and no price wording", async () => {
+  const d = boot({ meters: withVideo(VID()) }); await d.show();
+  const c = d.card(), t = d.text(c);
+  assert.equal(d.has(c, "pu-track").length, 3);
+  assert.match(t, /Video delivery Nov 21 – Dec 20/); assert.match(t, /12\.0 GB of 50 GB \(24%\)/);
+  assert.match(t, /Video watched on your store this billing month\./);
+  assert.equal(d.has(d.meter(2), "pu-fill")[0].style.width, "24%");
+  assert.ok(!d.meter(2).classList.contains("pu-amber") && !d.meter(2).classList.contains("pu-red"));
+  assert.equal(d.has(c, "pu-limit").length, 0);
+  assert.doesNotMatch(t, /upgrade|PHP|charge|price|billed/i);
+  assert.equal(d.has(c, "pu-track")[2].getAttribute("role"), "progressbar");
+  assert.ok(d.doc.getElementById(d.has(c, "pu-track")[2].getAttribute("aria-labelledby")));
+});
+
+test("video: amber from 80% (and 79% stays normal), red at 100% with the one limit line", async () => {
+  let d = boot({ meters: withVideo(VID({ used_bytes: 39900000000 })) }); await d.show();
+  assert.ok(!d.meter(2).classList.contains("pu-amber"));
+  d = boot({ meters: withVideo(VID({ used_bytes: 40000000000 })) }); await d.show();
+  assert.ok(d.meter(2).classList.contains("pu-amber")); assert.equal(d.has(d.card(), "pu-limit").length, 0);
+  d = boot({ meters: withVideo(VID({ used_bytes: 50000000000 })) }); await d.show();
+  assert.ok(d.meter(2).classList.contains("pu-red"));
+  const lines = d.has(d.card(), "pu-limit"); assert.equal(lines.length, 1);
+  assert.equal(lines[0].textContent, "You have reached your plan\u2019s limit.");
+  assert.equal(d.has(d.card(), "pu-fill")[2].style.width, "100%");
+});
+
+test("video: read_at null says Not measured yet with an empty bar, no percent and no limit line", async () => {
+  const d = boot({ meters: withVideo(VID({ used_bytes: 0, read_at: null })) }); await d.show();
+  const m = d.meter(2), t = d.text(m);
+  assert.match(t, /Not measured yet/); assert.doesNotMatch(t, /%|GB/);
+  assert.equal(d.has(m, "pu-fill")[0].style.width, "0%");
+  assert.equal(d.has(m, "pu-track")[0].getAttribute("aria-valuetext"), "Not measured yet");
+  assert.equal(d.has(d.card(), "pu-limit").length, 0);
+});
+
+test("video: a malformed block is left out and the card stays as it was", async () => {
+  for (const v of [{}, { used_bytes: 1, limit_bytes: 0, read_at: "x" }, { used_bytes: "a", limit_bytes: 5, read_at: "x" }, { used_bytes: -1, limit_bytes: 5, read_at: "x" }, "x", 5]) {
+    const d = boot({ meters: withVideo(v) }); await d.show();
+    assert.ok(d.card(), JSON.stringify(v)); assert.equal(d.has(d.card(), "pu-track").length, 2, JSON.stringify(v));
+  }
+});
+
+test("video: the two existing bars are unchanged when the video bar is shown", async () => {
+  const d = boot({ meters: withVideo(VID()) }); await d.show();
+  assert.match(d.text(d.card()), /1\.2 GB of 5 GB \(24%\)/); assert.match(d.text(d.card()), /132 of 500 \(26%\)/);
+  assert.match(d.text(d.card()), /Images and videos in your Media Library\./);
+});

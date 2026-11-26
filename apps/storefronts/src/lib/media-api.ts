@@ -9,6 +9,8 @@ export type MediaAsset = {
   product_category: string; product_category_label: string; crop_ratio: string; caption: string;
   file_url: string; thumb_url: string; poster_url: string; width: number; height: number; file_size: number;
   duration_seconds: number; published_at: string; is_new: boolean;
+  /** A video in the store's own Bunny library: the player address (then file_url is empty). Only a Bunny embed address is kept. */
+  embed_url: string;
 };
 export type MediaOption = { value: string; label: string; count: number };
 export type MediaOptions = { type: MediaOption[]; category: MediaOption[]; product_category: MediaOption[] };
@@ -19,6 +21,8 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
+/** The Bunny player address https://iframe.mediadelivery.net/embed/<library>/<video>, or "". Nothing else is ever framed. */
+export const embedOf = (v: unknown): string => (typeof v === "string" && /^https:\/\/iframe\.mediadelivery\.net\/embed\/\d{1,12}\/[A-Za-z0-9-]{8,64}$/.test(v) ? v : "");
 const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.trunc(v) : 0);
 
 function asset(v: unknown): MediaAsset[] {
@@ -28,7 +32,7 @@ function asset(v: unknown): MediaAsset[] {
     product_category: str(v.product_category), product_category_label: str(v.product_category_label), crop_ratio: str(v.crop_ratio),
     caption: str(v.caption), file_url: str(v.file_url), thumb_url: str(v.thumb_url), poster_url: str(v.poster_url),
     width: num(v.width), height: num(v.height), file_size: num(v.file_size), duration_seconds: num(v.duration_seconds),
-    published_at: str(v.published_at), is_new: v.is_new === true,
+    published_at: str(v.published_at), is_new: v.is_new === true, embed_url: embedOf(v.embed_url),
   }];
 }
 function options(v: unknown): MediaOption[] {

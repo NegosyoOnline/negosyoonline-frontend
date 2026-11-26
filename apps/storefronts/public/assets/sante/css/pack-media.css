@@ -110,6 +110,7 @@ html[data-theme="dark"] .e4 .ml-sort .pk-select-box, html[data-theme="dark"] .e4
 .ml-dialog[open] { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); }
 .ml-dialog::backdrop { background: rgba(10,24,17,.6); backdrop-filter: blur(2px); }
 .ml-m-media { min-width: 0; background: #0D1411; display: flex; align-items: center; justify-content: center; }
+.ml-m-media .ml-embed { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; background: #000; }
 .ml-m-media img, .ml-m-media video { display: block; width: 100%; height: auto; max-height: calc(100dvh - 32px); object-fit: contain; }
 .ml-m-rail { min-width: 0; padding: 22px; display: flex; flex-direction: column; gap: 13px; overflow-y: auto; max-height: calc(100dvh - 32px); }
 .ml-m-cat { margin: 0; padding-right: 44px; font-size: 14px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #8A6513; }

@@ -94,6 +94,7 @@ function boot({ contacts = false, listing = list(), reading = thread(), reply = 
     else if (p === BASE + "sms/status/" && opts.method === "GET") a = s.smsStatus ? { status: 200, body: s.smsStatus } : err(404, "not_found", "Not found.");
     else if (p === BASE + "sms/compose/" && opts.method === "POST") a = s.composeAnswer || { status: 200, body: { ref: SM, new_conversation: true, state: "sending", error_code: "", created_at: iso(0) } };
     else if (/^\/sites\/[^/]+\/members\/\?q=/.test(p) && opts.method === "GET") a = { status: 200, body: { members: s.members || [] } };
+    else if (p === BASE + "unread/?channel=sms" && opts.method === "GET") a = s.smsUnreadAnswer || { status: 200, body: { count: s.smsUnread === undefined ? 0 : s.smsUnread } };
     else if (p.split("?")[0] === BASE + "unread/" && opts.method === "GET") a = s.unreadAnswer || { status: 200, body: { count: s.unread === undefined ? 0 : s.unread } };
     else if (/^\/sites\/[^/]+\/inquiries\/conversations\/(\?[^/]+)?$/.test(p) && opts.method === "GET") {
       const q = /[?&]q=([^&]*)/.exec(p);
@@ -841,7 +842,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
-  assert.match(HTML, /inbox\.js\?v=20261126p1/);
+  assert.match(HTML, /inbox\.js\?v=20261126q1/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
   assert.match(HTML, /inbox\.css\?v=20261125f7/);
@@ -2600,7 +2601,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261126p1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261125f7/);
+  assert.match(HTML, /inbox\.js\?v=20261126q1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261125f7/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -3061,7 +3062,7 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
   assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261126p1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261126q1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });
@@ -3284,4 +3285,83 @@ test("INBOX-FIX-9 F5: the conversation head keeps its 69px and its three lines f
   const pad = /\.ib-thead:not\(\.ib-thead-new\) \{ padding-top: (\d+)px; padding-bottom: (\d+)px; \}/.exec(css), gap = /\.ib-thead:not\(\.ib-thead-new\) \.ib-tname \{ gap: (\d+)px; \}/.exec(css);
   assert.ok(pad && gap);
   assert.ok(Number(pad[1]) + Number(pad[2]) + 1 + 20 + 22 + 16 + 2 * Number(gap[1]) <= 69, "name, chips and email plus padding and the border fit in 69px");
+});
+
+/* ---------- z8uq9mkfb7: the unread count bubble on the SMS Marketing nav link ---------- */
+
+const asSms = (d) => d.smsNav[0].setAttribute("data-route", "sms");
+const smsNb = (d) => d.smsNav.map((a) => a.all((x) => x.classList.contains("ib-nb"))[0]);
+const smsReads = (d) => d.calls.filter((c) => c.path === BASE + "unread/?channel=sms").length;
+
+test("SMS nav badge: hidden at 0; the count, 99+ and the aria-label; read from ?channel=sms; the Inbox badge is unchanged", async () => {
+  const d = boot({ channels: CH_SMS });
+  asSms(d); asInbox(d); d.s.unread = 2; d.s.smsUnread = 0;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsReads(d), 1, "the sms count is read from ?channel=sms");
+  assert.ok(d.list().includes("GET " + BASE + "unread/?channel=nosms"), "and the Inbox count is still read from ?channel=nosms");
+  assert.equal(smsNb(d)[0].hidden, true, "hidden at 0");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), null);
+  assert.equal(d.smsNav[1].all((x) => x.classList.contains("ib-nb")).length, 0, "a link without data-route=sms gets no bubble");
+  assert.equal(navNb(d)[0].textContent, "2", "the Inbox badge is unchanged");
+  assert.equal(d.nav[0].getAttribute("aria-label"), "Inbox, 2 unread");
+  const b = smsNb(d)[0];
+  assert.equal(b.getAttribute("aria-hidden"), "true");
+  d.s.smsUnread = 3; d.window.NOInbox.hide(); await settle();
+  assert.equal(smsNb(d)[0], b, "the same span is reused");
+  assert.equal(b.hidden, false); assert.equal(b.textContent, "3");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), "SMS Marketing, 3 unread");
+  d.s.smsUnread = 150; d.window.NOInbox.hide(); await settle();
+  assert.equal(b.textContent, "99+");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), "SMS Marketing, 150 unread");
+  assert.equal(navNb(d)[0].textContent, "2", "the Inbox badge still says 2");
+});
+
+test("SMS nav badge: not read while the SMS nav is hidden; a 404 becomes 0; a 401 is ignored; read every 60 s on every view and paused while hidden", async () => {
+  const off = boot({ channels: CHANNELS_ON });
+  asSms(off); off.window.NOInbox.probe(); await settle();
+  assert.equal(smsReads(off), 0, "no sms_available: not read");
+  const clock = makeClock(), d = boot({ clock, channels: CH_SMS });
+  asSms(d); d.s.smsUnread = 4;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsNb(d)[0].textContent, "4");
+  d.s.smsUnread = 5;
+  await clock.advance(59999); assert.equal(smsReads(d), 1);
+  await clock.advance(1); assert.equal(smsReads(d), 2);
+  assert.equal(smsNb(d)[0].textContent, "5");
+  await d.openInbox(); await clock.advance(60000);
+  assert.equal(smsReads(d), 3, "it keeps updating on the Inbox page");
+  d.window.NOInbox.hide(); await d.openSms();
+  const n = smsReads(d); await clock.advance(60000);
+  assert.equal(smsReads(d), n + 1, "and on the SMS Marketing page");
+  d.doc.hidden = true; d.doc.fire("visibilitychange");
+  await clock.advance(300000); assert.equal(smsReads(d), n + 1, "paused while the tab is hidden");
+  d.s.smsUnreadAnswer = { status: 401, body: { error: { code: "unauthorized", message: "No." } } };
+  d.doc.hidden = false; d.doc.fire("visibilitychange"); await settle();
+  assert.equal(smsNb(d)[0].textContent, "5", "a 401 leaves it alone");
+  d.s.smsUnreadAnswer = { status: 404, body: { error: { code: "not_found", message: "Not found." } } };
+  d.doc.fire("visibilitychange"); await settle();
+  assert.equal(smsNb(d)[0].hidden, true, "a 404 becomes 0");
+  assert.equal(d.smsNav[0].getAttribute("aria-label"), null);
+});
+
+test("SMS nav badge: the SMS list's unread_total feeds it (not a search or a closed filter), and opening an unread text clears it", async () => {
+  const items = [{ ref: SM, display_name: "Ana Reyes", snippet: "Salamat po", updated_at: iso(5), channel: "sms", status: "open", unread: true }];
+  const d = boot({ listing: { items, stored_next_cursor: null, unread_total: 1 }, reading: smsThread({ unread: true }), channels: CH_SMS });
+  asSms(d); asInbox(d); d.s.smsUnread = 1; d.s.unread = 7;
+  d.window.NOInbox.probe(); await settle();
+  assert.equal(smsNb(d)[0].textContent, "1");
+  d.s.listing = { items, stored_next_cursor: null, unread_total: 4 };
+  await d.openSms();
+  assert.equal(smsNb(d)[0].textContent, "4", "the list read's unread_total");
+  assert.equal(navNb(d)[0].textContent, "7", "the Inbox badge is not touched by it");
+  await d.click(d.all(d.$("ib-list"), "ib-item")[0]);
+  assert.equal(smsNb(d)[0].textContent, "3", "opening an unread text drops the count");
+  assert.equal(navNb(d)[0].textContent, "7");
+  assert.ok(d.calls.some((c) => c.method === "POST" && c.path === BASE + "conversations/" + SM + "/read/"));
+  const one = boot({ listing: { items: items.map((i) => ({ ...i, unread: true })), stored_next_cursor: null, unread_total: 1 }, reading: smsThread({ unread: true }), channels: CH_SMS });
+  asSms(one); one.s.smsUnread = 1;
+  one.window.NOInbox.probe(); await settle(); await one.openSms();
+  await one.click(one.all(one.$("ib-list"), "ib-item")[0]);
+  assert.equal(smsNb(one)[0].hidden, true, "cleared after the read");
+  assert.equal(one.smsNav[0].getAttribute("aria-label"), null);
 });

@@ -497,7 +497,7 @@
 
   /* ---------- the unread badge on the Inbox nav links (INBOX-UI U5) ----------
      Inbox reads carry unread_total; on every other view GET .../inquiries/unread/ is read every 60 s while the tab is visible. */
-  var NB = { site: null, t: null, n: 0, seq: 0, cn: 0, cm: 0, cmOff: false }; /* cn: unread conversations, cm: unread comments; the badge is their sum */
+  var NB = { site: null, t: null, n: 0, seq: 0, cn: 0, cm: 0, cmOff: false, sms: 0, sOn: false, st: null, sseq: 0 }; /* cn: unread conversations, cm: unread comments; the badge is their sum */
   function badgeFree() { return !S || S.mode === "sms"; } /* the SMS Marketing page does not carry the Inbox's own list, so the Inbox count keeps being read there */
   function setBadge(n) {
     if (typeof n !== "number" || !isFinite(n) || n < 0) return;
@@ -511,6 +511,36 @@
     });
   }
   function badgeSum() { setBadge(unreadSum(NB.cn, NB.cm)); }
+  /* The unread count on the SMS Marketing nav link (z8uq9mkfb7): same bubble and rules as the Inbox one, its own count (?channel=sms), read on every
+     view while the SMS nav is shown (sms_available), because the Inbox page and the SMS page each carry only their own list. */
+  function setSmsBadge(n) {
+    if (typeof n !== "number" || !isFinite(n) || n < 0) return;
+    n = Math.floor(n); NB.sms = n;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-sms-nav]"), function (a) {
+      if (a.getAttribute("data-route") !== "sms") return;
+      var b = a.querySelector ? a.querySelector(".ib-nb") : null;
+      if (!b) { b = h("span", "ib-nb"); b.setAttribute("aria-hidden", "true"); a.appendChild(b); }
+      b.hidden = n <= 0; b.textContent = badgeText(n);
+      if (n > 0) a.setAttribute("aria-label", "SMS Marketing, " + n + " unread"); else a.removeAttribute("aria-label");
+    });
+  }
+  function smsStop() { NB.sseq++; if (NB.st !== null) { clearTimeout(NB.st); NB.st = null; } }
+  function smsOnNow() { return NB.sOn && !!NB.site && !document.hidden; }
+  function smsArm() {
+    if (NB.st !== null) { clearTimeout(NB.st); NB.st = null; }
+    if (!smsOnNow()) return;
+    NB.st = setTimeout(function () { NB.st = null; smsRead(); }, 60000);
+  }
+  function smsRead() {
+    if (!smsOnNow()) return;
+    var seq = ++NB.sseq;
+    D.call("GET", "/sites/" + NB.site + "/inquiries/unread/?channel=sms", null, true).then(function (res) {
+      if (seq !== NB.sseq || res.status === 401) return;
+      if (res.ok && res.data && typeof res.data.count === "number") setSmsBadge(Math.max(0, Math.floor(res.data.count)));
+      else if (res.status === 404) setSmsBadge(0);
+      smsArm();
+    });
+  }
   function badgeStop() { NB.seq++; if (NB.t !== null) { clearTimeout(NB.t); NB.t = null; } }
   function badgeOn() { return badgeFree() && !!NB.site && !document.hidden; }
   function badgeArm() {
@@ -538,6 +568,8 @@
   /* The unread_total of a list read (never of a search, an Open/Closed or a Read/Unread filter, which may count only their matches). Old answers without it leave the badge alone. */
   function takeUnread(data) { if (S && S.mode !== "sms" && !S.q && S.status !== "closed" && !S.unread && data && typeof data.unread_total === "number") { NB.cn = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
   /* The comments list's unread_total is the site's whole count and is never filtered, so every comments read may feed the badge. */
+  /* On the SMS Marketing page its list's unread_total feeds the SMS count, under the same conditions as takeUnread. */
+  function takeSmsUnread(data) { if (S && S.mode === "sms" && !S.q && S.status !== "closed" && !S.unread && data && typeof data.unread_total === "number") setSmsBadge(Math.max(0, Math.floor(data.unread_total))); }
   function takeCmUnread(data) { if (data && typeof data.unread_total === "number") { NB.cm = Math.max(0, Math.floor(data.unread_total)); badgeSum(); } }
 
   /* ---------- state ---------- */
@@ -554,6 +586,7 @@
   /* The SMS Marketing links show only while the Inbox is open AND the API says sms_available (the same gate the New SMS button had). */
   function revealSms(on) {
     Array.prototype.forEach.call(document.querySelectorAll("[data-sms-nav]"), function (n) { n.hidden = !on; });
+    NB.sOn = !!on; if (!on) smsStop();
   }
   function withSite(then, mine) {
     if (S.site) { then(); return; }
@@ -573,7 +606,7 @@
       var sites = res.ok ? D.sitesOf(res) : [];
       if (!sites.length) return;
       var site = D.siteFromQuery(sites.map(function (s) { return s.id; }));
-      D.call("GET", "/sites/" + site + "/inquiries/channels/", null, true).then(function (r) { if (r.ok) { reveal(true); revealSms(!!SMS && SMS.util.available(r.data)); NB.site = site; badgeRead(); } });
+      D.call("GET", "/sites/" + site + "/inquiries/channels/", null, true).then(function (r) { if (r.ok) { reveal(true); revealSms(!!SMS && SMS.util.available(r.data)); NB.site = site; badgeRead(); smsRead(); } });
     });
   }
 
@@ -647,7 +680,7 @@
     if (document.body && document.body.classList) document.body.classList.remove("ib-fixed"); if (document.body.classList.remove) document.body.classList.remove("ib-thread");
     var root = byId("ib-root"); if (root) clear(root);
     MODE = "inbox"; var hh = byId("h-inbox"); if (hh) hh.textContent = "Inbox";
-    badgeRead();
+    badgeRead(); smsRead();
   }
 
   /* ---------- load ---------- */
@@ -736,7 +769,7 @@
       if (!r.ok) { reveal404(r.fail); S.state = "failed"; S.fail = failure(r.fail); redraw(); return; }
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
-      if (r.conv) takeUnread(r.conv);
+      if (r.conv) { takeUnread(r.conv); takeSmsUnread(r.conv); }
       reveal(true);
       redraw();
       say(S.items.length ? "Conversations loaded." : "No conversations yet.");
@@ -828,7 +861,7 @@
       return;
     }
     if (!isStored(item)) return;
-    item.unread = false; if (S.mode !== "sms") { NB.cn = Math.max(0, NB.cn - 1); badgeSum(); } drawList(); /* a text is not in the Inbox count */
+    item.unread = false; if (S.mode !== "sms") { NB.cn = Math.max(0, NB.cn - 1); badgeSum(); } if (channelOf(item) === "sms") setSmsBadge(Math.max(0, NB.sms - 1)); drawList(); /* a text is not in the Inbox count */
     D.call("POST", base() + "conversations/" + encodeURIComponent(ref) + "/read/", null, true);
   }
   function fetchThread(silent) {
@@ -919,7 +952,7 @@
     readFirst(sourcesFor(S.filter, S.status, MODE)).then(function (r) {
       if (S !== st || mine !== token || r.unauth) { done("skip"); return; }
       if (!r.ok) { done("fail"); return; }
-      if (r.conv) takeUnread(r.conv);
+      if (r.conv) { takeUnread(r.conv); takeSmsUnread(r.conv); }
       var wasPool = S.pool, wasSt = S.stNext, wasCm = S.cmNext;
       ingest(r, true);
       var sig = sigNow();
@@ -993,7 +1026,7 @@
       var ref = "";
       try { var d = JSON.parse(ev && ev.data); ref = d && typeof d.ref === "string" ? d.ref : ""; } catch (e) { ref = ""; }
       if (ref && S.sel === ref) streamRead("thread");
-      if (L.deb === null) L.deb = setTimeout(function () { L.deb = null; if (L.es === es) streamRead("list"); }, DEBOUNCE);
+      if (L.deb === null) L.deb = setTimeout(function () { L.deb = null; if (L.es === es) { streamRead("list"); smsRead(); } }, DEBOUNCE);
     }
     es.addEventListener("conversation_updated", pushed);
     es.addEventListener("message_status", pushed);
@@ -1554,7 +1587,7 @@
       S.listTop = 0; S.q = next.q; S.status = next.status; S.unread = next.unread; S.answered = next.answered || ""; S.filter = next.filter;
       ingest(r, false); S.lsig = sigNow();
       S.state = stateFor(S.items); S.fail = null;
-      if (r.conv) takeUnread(r.conv);
+      if (r.conv) { takeUnread(r.conv); takeSmsUnread(r.conv); }
       fillList(byId("ib-listbody")); syncFilters(); syncTabs();
       if (box && box.ibFocus) box.ibFocus();
       say(!next.q && next.status !== "closed" && !next.unread && !next.answered && next.filter === "all" ? "Conversations loaded." : S.items.length ? "Search results loaded." : "No conversations match.");
@@ -1875,7 +1908,7 @@
   /* The Refresh button is part of the filter row (refreshButton). */
   (function wire() {
     if (document.addEventListener) document.addEventListener("visibilitychange", onVisible);
-    if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (tabHidden()) badgeStop(); else if (badgeFree()) badgeRead(); });
+    if (document.addEventListener) document.addEventListener("visibilitychange", function () { if (tabHidden()) { badgeStop(); smsStop(); } else { if (badgeFree()) badgeRead(); smsRead(); } });
     if (window.addEventListener) window.addEventListener("focus", function () { pollKick(); if (S) streamOpen(); });
   })();
 

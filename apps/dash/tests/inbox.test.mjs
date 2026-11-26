@@ -843,7 +843,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /\.ib-combo-box:focus-within \{[^}]*border-color: var\(--link\)/);
   assert.doesNotMatch(css.slice(css.indexOf("G3 PR3")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/var\(--ov-gold\)/g, ""), /gold|#C9A646|#D9B93F/i); /* the Bulk SMS progress card borrows the Site readiness card edge (INBOX-FIX-7); focus borders stay light blue */
-  assert.match(HTML, /inbox\.js\?v=20261126q1/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
   assert.match(HTML, /inbox\.css\?v=20261126q1/);
@@ -1807,7 +1807,7 @@ test("C2: the toolbar is a row above the card: the channel tabs, then New SMS / 
   const head = d.$("ib-lhead");
   const bar = head.children[0];
   assert.deepEqual(bar.children.map((n) => (n.classList.contains("ib-frow") ? "buttons" : n.classList.contains("ib-search") ? "search" : n.id)), ["buttons", "search"]);
-  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"], "Search, Answered, Read, Open/Closed, Refresh");
+  assert.deepEqual(d.all(bar, "ib-fbtn").map((b) => b.id), ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"], "Search, Read/Unread, Answered/Unanswered, Open/Closed, Refresh");
   const rb = d.$("ib-refresh-btn");
   assert.equal(rb.parentNode, d.$("ib-frow"), "Refresh sits in the filter row, last");
   assert.deepEqual([rb.getAttribute("aria-label"), rb.getAttribute("title") === null, rb.textContent], ["Refresh", true, ""]);
@@ -1884,13 +1884,13 @@ test("empty states: 'No conversations match' covers a chip with no conversations
   assert.equal(none.all(none.$("ib-tabs-host"), "ib-tab").length, 6, "the tabs stay while the list is empty so Settings can be reached");
 });
 
-test("the list column starts with one row of five icon buttons (Search, Answered, Read, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
+test("the list column starts with one row of five icon buttons (Search, Read, Answered, Open/Closed, Refresh), real buttons with words and their own icons", async () => {
   const d = boot({ channels: CHANNELS_ON });
   await d.openInbox();
   const btns = d.all(d.$("ib-lhead"), "ib-fbtn");
-  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"]);
+  assert.deepEqual(btns.map((c) => c.id), ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"]);
   assert.ok(btns.every((c) => c.tagName === "BUTTON" && c.getAttribute("type") === "button" && (c.id === "ib-refresh-btn" || c.getAttribute("aria-pressed") === "false") && !!c.getAttribute("aria-label") && c.getAttribute("title") === null));
-  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing answered and unanswered", "Showing read and unread", "Showing open", "Refresh"]);
+  assert.deepEqual(btns.map((c) => c.getAttribute("aria-label")), ["Search", "Showing read and unread", "Showing answered and unanswered", "Showing open", "Refresh"]);
   assert.ok(btns.every((c) => c.textContent === "" && c.children.length === 1), "icon only");
   assert.equal(d.$("ib-frow").getAttribute("role"), "group");
   assert.equal(d.$("ib-chips"), null, "the text chips are gone");
@@ -2506,7 +2506,7 @@ test("util: tabsFor lists the channels, never Text (SMS); cycleNext/filterNext s
   assert.deepEqual(Array.from(u.tabsFor(CH_SMS), (t) => t[0]), ["all", "webchat", "email", "messenger", "fbcomment"], "the filter values the dropdown used");
   assert.ok(!labels(CH_SMS).some((t) => /Instagram|WhatsApp/.test(t)));
   /* the filter buttons: exactly the existing filter values, in turn all -> first -> second -> all */
-  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["answered", ["", "unanswered", "answered"]], ["unread", ["", "1", "0"]], ["status", ["open", "closed"]]]);
+  assert.deepEqual(Array.from(u.cycles, (c) => [c.dim, Array.from(c.order)]), [["unread", ["", "1", "0"]], ["answered", ["", "unanswered", "answered"]], ["status", ["open", "closed"]]]);
   assert.deepEqual(["", "unanswered", "answered", ""].map((v) => u.cycleNext("answered", v)), ["unanswered", "answered", "", "unanswered"]);
   assert.deepEqual(["", "1", "0"].map((v) => u.cycleNext("unread", v)), ["1", "0", ""]);
   assert.deepEqual(["open", "closed", "open"].map((v) => u.cycleNext("status", v)), ["closed", "open", "closed"], "Open then Closed then Open: no all state (INBOX-FIX-7)");
@@ -2602,7 +2602,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261126q1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261126q1/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261126p1/); assert.match(HTML, /inbox\.css\?v=20261126q1/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -2768,7 +2768,7 @@ test("fix 4: every filter-row button shows the house tooltip at once on hover (n
   asInbox(d);
   d.s.statuser = (st) => byStatus(st);
   await d.openInbox();
-  const ids = ["ib-b-search", "ib-b-answered", "ib-b-read", "ib-b-status", "ib-refresh-btn"];
+  const ids = ["ib-b-search", "ib-b-read", "ib-b-answered", "ib-b-status", "ib-refresh-btn"];
   const tipOf = (id) => d.$(id + "-tip");
   for (const id of ids) {
     const b = d.$(id);
@@ -3063,7 +3063,7 @@ test("INBOX-FIX-6 router: the old Inbox and SMS Gateway addresses redirect to th
   assert.ok(!/id="view-settings-(inbox|sms-gateway)"/.test(HTML));
   assert.ok(!/data-sms-gateway-nav|href="\/settings\/(inbox|sms-gateway)\/"/.test(HTML), "no Settings tab, More tile or link points at the old addresses");
   assert.match(HTML, /<div class="pm-root" id="ibs-sms-root" hidden><\/div>/); assert.match(HTML, /<div class="sg-root" id="sg-root" hidden><\/div>/); assert.match(HTML, /<div class="pm-root" id="ibs-root" hidden><\/div>/);
-  assert.match(HTML, /inbox\.js\?v=20261126q1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
+  assert.match(HTML, /inbox\.js\?v=20261127a1/); assert.match(HTML, /dashboard\.js\?v=20261124r9b/); assert.match(HTML, /sms-gateway-settings\.css\?v=20261124ml11/);
   const css = cssText(), sg = fs.readFileSync(path.join(JS, "..", "css", "sms-gateway-settings.css"), "utf8");
   assert.ok(!/view-settings-(inbox|sms-gateway)/.test(css + sg), "the card styles follow the card to #ib-settings");
 });

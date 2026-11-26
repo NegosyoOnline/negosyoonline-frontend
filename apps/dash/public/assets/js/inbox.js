@@ -160,13 +160,13 @@
   function inMode(item, mode) { return mode === "sms" ? channelOf(item) === "sms" : channelOf(item) !== "sms"; }
   function modeItems(items, mode) { return Array.isArray(items) ? items.filter(function (i) { return i && inMode(i, mode); }) : []; }
   function pageName(mode) { return mode === "sms" ? "SMS Marketing" : "Inbox"; }
-  /* The filter buttons of the list (Coach Ed 2026-11-24): three icon buttons, each cycling one EXISTING filter: all -> first -> second -> all.
+  /* The filter buttons of the list (Coach Ed 2026-11-24; Read/Unread before Answered, 2026-11-27): three icon buttons, each cycling one EXISTING filter: all -> first -> second -> all.
      `dim` is the S field it sets (answered, unread, status), `order` its values in turn, `by` the icon and words of each. Nothing new is asked of the API. */
   var CYCLES = [
-    { dim: "answered", id: "ib-b-answered", order: ["", "unanswered", "answered"], by: {
-      "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
     { dim: "unread", id: "ib-b-read", order: ["", "1", "0"], by: {
       "": { icon: "stack", text: "Showing read and unread" }, "1": { icon: "mail", text: "Unread only" }, "0": { icon: "mailOpen", text: "Read only" } } },
+    { dim: "answered", id: "ib-b-answered", order: ["", "unanswered", "answered"], by: {
+      "": { icon: "comment", text: "Showing answered and unanswered" }, answered: { icon: "check", text: "Answered only" }, unanswered: { icon: "unans", text: "Unanswered only" } } },
     { dim: "status", id: "ib-b-status", order: ["open", "closed"], by: {
       open: { icon: "unlock", text: "Showing open" }, closed: { icon: "lock", text: "Showing closed" } } }
   ];

@@ -263,7 +263,9 @@ test("the three SMS limits and Save share one four-column row; the stop switch i
   assert.ok(row[1].indexOf('id="s-bulk"') < row[1].indexOf('id="s-save"'), "Save comes after the bulk box");
   assert.ok(html.indexOf('id="s-stop"') < html.indexOf('fgrid four') && html.indexOf('id="s-save"') < html.indexOf('id="s-err"') && !html.includes('s-when') && !html.includes('Last changed'));
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
-  assert.match(css, /@media \(min-width: 900px\) \{\n  \.fgrid\.four \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); align-items: start; \}/);
+  assert.match(css, /\.fgrid\.four \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) auto; align-items: start; \}/, "three input columns, Save column sized to the button");
+  assert.match(css, /\.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: nowrap; \}/, "labels stay on one line");
+  assert.match(css, /max-width: 1199\.98px\) \{\n  \.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: normal; min-height: 3\.2em; \}/, "narrow desktop: equal two-line label height keeps the boxes level");
   assert.match(css, /\.fgrid\.four \{ grid-template-columns: minmax\(0, 1fr\); \}/, "one column on a phone");
 });
 

@@ -475,9 +475,15 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
 .fgrid.four { grid-template-columns: minmax(0, 1fr); }
 .fgrid.four .fgrid-save-gap { display: none; }
 @media (min-width: 900px) {
-  .fgrid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+  .fgrid.four { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: start; }
   .fgrid.four .fgrid-save-gap { display: block; font-size: 15px; font-weight: 700; }
+  .fgrid.four label, .fgrid.four .fgrid-save-gap { white-space: nowrap; }
 }
+/* Where the labels cannot all fit on one line, every label (and the Save spacer) gets the same two-line height, so the boxes still share one top. */
+@media (min-width: 900px) and (max-width: 1199.98px) {
+  .fgrid.four label, .fgrid.four .fgrid-save-gap { white-space: normal; min-height: 3.2em; }
+}
+
 .rec-form { max-width: none; }
 .dash-card > .rec-form { margin-top: 8px; }
 .fin-lbl { font-size: 15px; font-weight: 700; }

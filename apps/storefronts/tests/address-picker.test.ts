@@ -219,6 +219,10 @@ test("ADDRESS-FORM-STANDARD: the ZIP box is hidden unless there is no ZIP, the f
   assert.match(css, /\.pp-pick-zip\[data-zip-state\]:not\(\[data-zip-state="missing"\]\) \{ display: none; \}/);
   assert.match(css, /\.pp-pick-text \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/);
   assert.doesNotMatch(css, /flex: 0 0 156px/);
+  const js = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");
+  assert.match(js, /FIELD_LABEL = 'Province, City, Barangay'/);
+  assert.doesNotMatch(js, /FIELD_LABEL = '[^']*Region/);
+  assert.doesNotMatch(js, /'aria-label': 'Choose region/);
   for (const f of ["pack-onboarding.ts", "shop-checkout.ts", "member-address.ts"]) {
     const src = readFileSync(path.join(import.meta.dirname, "..", "src", "views", "sante", f), "utf8");
     assert.doesNotMatch(src, /da-country|cf_country/, f);

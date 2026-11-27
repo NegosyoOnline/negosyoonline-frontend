@@ -1,6 +1,6 @@
 /* The delivery address picker, one script for every Santé address form (the Membership Pack onboarding address, the member Home
    address and the shop checkout; ClickUp z8uq9mkmwb, ruling ADDRESS-SHOPEE-PICKER). It replaces the three Province / City / Barangay
-   dropdowns with one field, "Region, Province, City, Barangay", that opens a panel of four tabs. Each pick moves to the next tab; the
+   dropdowns with one field, "Province, City, Barangay", that opens a panel of four tabs. Each pick moves to the next tab; the
    tabs stay clickable to go back; the field shows the path and a clear (x) resets it.
 
    The form posts normally and the server validates and re-renders with errors. The server draws plain text inputs named province,
@@ -17,10 +17,10 @@
 
   var ZIP_AUTHORITATIVE = ['barangay', 'city_unique'];
   var ZIP_ERROR = 'Enter the 4-digit ZIP code for this address.';
-  var PICK_ERROR = 'Choose your region, province, city and barangay.';
+  var PICK_ERROR = 'Choose your province, city and barangay.';
   var ZIP_SUGGESTED = 'This is the city ZIP code. Correct it if your barangay uses a different one.';
   var ZIP_MISSING = "We couldn't find the ZIP code for this barangay. Please type it.";
-  var FIELD_LABEL = 'Region, Province, City, Barangay';
+  var FIELD_LABEL = 'Province, City, Barangay';
 
   // Supervisor decision (ClickUp z8uq9mkmwb): five groups over provinces.json reg_code.
   var REGIONS = [
@@ -278,7 +278,7 @@
     btn.appendChild(txt); btn.appendChild(caret);
     var clear = make('button', { type: 'button', 'class': 'pp-pick-clear', 'aria-label': 'Clear the selected address area', hidden: '' }, '×');
     var backdrop = make('div', { 'class': 'pp-pick-backdrop', hidden: '' });
-    var panel = make('div', { id: uid + '-panel', 'class': 'pp-pick-panel', role: 'dialog', 'aria-label': 'Choose region, province, city and barangay', hidden: '' });
+    var panel = make('div', { id: uid + '-panel', 'class': 'pp-pick-panel', role: 'dialog', 'aria-label': 'Choose province, city and barangay', hidden: '' });
     var head = make('div', { 'class': 'pp-pick-head' });
     var tabs = make('div', { 'class': 'pp-pick-tabs', role: 'tablist', 'aria-label': 'Address level' });
     var tabEls = {};

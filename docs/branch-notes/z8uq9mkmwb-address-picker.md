@@ -38,3 +38,4 @@ See the Supervisor report (lint, tests, build counts). Local visual check was do
 - The field shows Province, City, Barangay only (`pathText` ignores the region; Metro Manila reads "Metro Manila, City, Barangay"); the panel keeps the Region tab first.
 - Country removed on onboarding (`da-country`) and checkout (`cf_country`). It was a disabled field with no name, so it never posted; nothing posted changes (the API still defaults `country` to Philippines).
 - `assets.ts`: `css/pack-picker.css` and `js/pack-address.js` ?v= bumped.
+- Field label is now "Province, City, Barangay *" (and the panel's aria-label and the incomplete-path message drop "region"); the Region tab stays. `js/pack-address.js` ?v= bumped to 7fea19a2.

@@ -472,8 +472,12 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
 @media (max-width: 899.98px) { .fin-sub { flex-wrap: wrap; overflow: visible; row-gap: 0; } }
 .fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 20px; }
 .fgrid .wide { grid-column: 1 / -1; }
-.fgrid.three { grid-template-columns: minmax(0, 1fr); }
-@media (min-width: 900px) { .fgrid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.fgrid.four { grid-template-columns: minmax(0, 1fr); }
+.fgrid.four .fgrid-save-gap { display: none; }
+@media (min-width: 900px) {
+  .fgrid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+  .fgrid.four .fgrid-save-gap { display: block; font-size: 15px; font-weight: 700; }
+}
 .rec-form { max-width: none; }
 .dash-card > .rec-form { margin-top: 8px; }
 .fin-lbl { font-size: 15px; font-weight: 700; }

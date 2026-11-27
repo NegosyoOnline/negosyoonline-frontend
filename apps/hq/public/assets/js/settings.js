@@ -151,8 +151,6 @@
     var bulk = typeof d.store_bulk_daily_limit === "number";
     $("s-bulk-field").hidden = !bulk;
     $("s-bulk").value = bulk ? String(d.store_bulk_daily_limit) : "";
-    var when = F.stamp(d.updated_at);
-    F.say("s-when", when ? "Last changed " + when + "." : "");
     clearSmsErrors();
   }
   function loadSms(message) {

@@ -7,7 +7,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
-  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-when", "s-save",
+  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-save",
   "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-poll-at", "g-incoming",
   "g-register", "g-rotate", "g-disable", "g-refresh",
   "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",
@@ -153,7 +153,6 @@ test("the SMS card fills the switch and both limits, and says when it was change
   assert.equal(p.node["s-stop"].checked, true);
   assert.equal(p.node["s-platform"].value, "5");
   assert.equal(p.node["s-site"].value, "0");
-  assert.equal(text(p, "s-when"), "Last changed Nov 13, 2026, 9:30 AM.");
 });
 
 test("Save confirms with plain wording, then sends all three fields", async () => {
@@ -254,15 +253,18 @@ test("the per-store text caps and the hourly note are gone, and the save body ne
   assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 200 });
 });
 
-test("the three SMS limits share one three-column row, with the stop switch above and Save below", () => {
+test("the three SMS limits and Save share one four-column row; the stop switch is above, the error and last-changed below", () => {
   const html = fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8");
-  const row = html.match(/<div class="fgrid three">([\s\S]*?)\n              <\/div>/);
-  assert.ok(row, "one three-column row");
+  const row = html.match(/<div class="fgrid four">([\s\S]*?)\n              <\/div>\n              <p class="field-err" id="s-err"/);
+  assert.ok(row, "one four-column row, closed before the form error");
   assert.deepEqual([...row[1].matchAll(/<input[^>]*id="([^"]+)"/g)].map((m) => m[1]), ["s-platform", "s-site", "s-bulk"]);
   assert.equal([...row[1].matchAll(/field-err/g)].length, 3, "each field keeps its error slot");
-  assert.ok(html.indexOf('id="s-stop"') < html.indexOf('fgrid three') && html.indexOf('fgrid three') < html.indexOf('id="s-save"'));
+  assert.match(row[1], /<button type="submit"[^>]*id="s-save"/, "Save is the fourth item of the row");
+  assert.ok(row[1].indexOf('id="s-bulk"') < row[1].indexOf('id="s-save"'), "Save comes after the bulk box");
+  assert.ok(html.indexOf('id="s-stop"') < html.indexOf('fgrid four') && html.indexOf('id="s-save"') < html.indexOf('id="s-err"') && !html.includes('s-when') && !html.includes('Last changed'));
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
-  assert.match(css, /@media \(min-width: 900px\) \{ \.fgrid\.three \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \} \}/);
+  assert.match(css, /@media \(min-width: 900px\) \{\n  \.fgrid\.four \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); align-items: start; \}/);
+  assert.match(css, /\.fgrid\.four \{ grid-template-columns: minmax\(0, 1fr\); \}/, "one column on a phone");
 });
 
 test("the bulk texts a day per store field shows with the default, saves with the other caps, and stays hidden when the server does not send it", async () => {

@@ -16,9 +16,6 @@
       cf_mobile: function (v) { return /^9\d{9}$/.test(digitsOnly(v)); },
       cf_email: function (v) { return !!v.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); },
       cf_line: function (v) { return !!v.trim(); },
-      cf_province: function (v) { return !!v; },
-      cf_city: function (v) { return !!v; },
-      cf_barangay: function (v) { return !!v; },
       cf_landmark: function (v) { return !!v.trim(); }
     };
     function checkTarget(el) {
@@ -153,6 +150,8 @@
       function close() { modal.hidden = true; }
       form.addEventListener('submit', function (e) {
         if (confirmed) return;
+        // The address picker (pack-address.js) answers first when the region, province, city, barangay or ZIP is missing.
+        if (e.defaultPrevented) return;
         var allOk = Object.keys(VALID).every(function (id) {
           var el = document.getElementById(id);
           if (!el || id === 'cf_email') return true;

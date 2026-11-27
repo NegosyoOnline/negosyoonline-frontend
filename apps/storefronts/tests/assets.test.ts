@@ -12,7 +12,7 @@ const PUBLIC = path.join(import.meta.dirname, "..", "public");
 
 test("every listed file exists, and its version is the start of its SHA-256", () => {
   const versions = assetVersions();
-  assert.equal(Object.keys(versions).length, 106); // 96 + the four Home category photos and the parcel (ClickUp z8uq9mgmjg, corrections 1) + the share image and the two icons (ClickUp z8uq9mh8n9) + Live4More's own share image (ClickUp z8uq9mhbcq) + the lesson watch script (ClickUp z8uq9mhbhd)
+  assert.equal(Object.keys(versions).length, 107); // 96 + the four Home category photos and the parcel (ClickUp z8uq9mgmjg, corrections 1) + the share image and the two icons (ClickUp z8uq9mh8n9) + Live4More's own share image (ClickUp z8uq9mhbcq) + the lesson watch script (ClickUp z8uq9mhbhd) + the address picker sheet (ClickUp z8uq9mkmwb)
   for (const [file, version] of Object.entries(versions)) {
     const bytes = readFileSync(path.join(PUBLIC, ASSET_BASE, file));
     assert.equal(version, createHash("sha256").update(bytes).digest("hex").slice(0, 8), file);

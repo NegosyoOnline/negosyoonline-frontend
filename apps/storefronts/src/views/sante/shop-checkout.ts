@@ -8,10 +8,10 @@
 
    The page keeps no checkout state of its own: the address step posts to the payment step, which carries the typed address in
    hidden fields to the one post that places the order, so nothing a buyer typed is stored anywhere before then. */
-import { asset } from "../../lib/assets.ts";
 import { html, type Markup } from "../../lib/html.ts";
 import type { Address, Quote, ShopAccount } from "../../lib/shop-api.ts";
 import { MSG_PAYMENT_UNAVAILABLE } from "../../lib/shop-flow-text.ts";
+import { addressPicker, pickerData } from "./address-picker.ts";
 import { shippingCell, shippingLabel } from "./shop-cart.ts";
 import { money, php } from "./shop-shell.ts";
 
@@ -145,43 +145,18 @@ function addressForm(m: CheckoutModel, mode: "guest" | "different" | "edit"): Ma
             <legend>Shipping Address</legend>
             ${edit ? html`<p class="sf-locked-note">Who receives your parcel and where it goes. Your account details stay as they are.</p>` : ""}
             ${receiverRows(m, edit, autofill)}
+            <div ${pickerData(ZIP_PATH)}>
+              ${addressPicker({
+                style: "sf", zipName: "zip", zipAutocomplete: autofill("postal-code"),
+                ids: { province: "cf_province", city: "cf_city", barangay: "cf_barangay", zip: "cf_zip" },
+                values: { province: p.province ?? "", city: p.city ?? "", barangay: p.barangay ?? "", zip: p.zip ?? "" },
+                errors: m.field_errors,
+              })}
+            </div>
             <div class="sf-field">
-              <label for="cf_line">Address *</label>
+              <label for="cf_line">Street name, Building, House no. *</label>
               <input type="text" id="cf_line" name="line" maxlength="120" value="${p.line ?? ""}" required autocomplete="${autofill("street-address")}"${m.field_errors.line ? html` class="sf-field-invalid"` : ""}>
               ${fieldError(m, "line")}
-            </div>
-            <div data-pp-address data-ph-provinces="${asset("data/provinces.json")}" data-ph-cities="${asset("data/city-mun.json")}" data-ph-barangays="${asset("data/barangays.json")}" data-zip-url="${ZIP_PATH}">
-              <div class="sf-field-row">
-                <div class="sf-field">
-                  <label for="cf_province" class="set-lbl">Province *</label>
-                  <select id="cf_province" name="province" data-pk-select data-placeholder="Select province" data-value="${p.province ?? ""}" disabled><option value=""></option></select>
-                  ${fieldError(m, "province")}
-                </div>
-                <div class="sf-field">
-                  <label for="cf_city" class="set-lbl">City / Municipality *</label>
-                  <select id="cf_city" name="city" data-pk-select data-placeholder="Select city / municipality" data-value="${p.city ?? ""}" disabled><option value=""></option></select>
-                  ${fieldError(m, "city")}
-                </div>
-              </div>
-              <div class="sf-field-row">
-                <div class="sf-field">
-                  <label for="cf_barangay" class="set-lbl">Barangay *</label>
-                  <select id="cf_barangay" name="barangay" data-pk-select data-placeholder="Select barangay" data-value="${p.barangay ?? ""}" disabled><option value=""></option></select>
-                  ${fieldError(m, "barangay")}
-                </div>
-                <div class="sf-field sf-field-country">
-                  <label for="cf_country" class="set-lbl">Country</label>
-                  <select id="cf_country" data-pk-select disabled><option value="Philippines" selected>Philippines</option></select>
-                </div>
-              </div>
-              <div class="sf-field-row">
-                <div class="sf-field" data-pp-zip-field${m.field_errors.zip || p.zip ? html`` : html` hidden`}>
-                  <label for="cf_zip" class="set-lbl">ZIP Code *</label>
-                  <input type="text" id="cf_zip" name="zip" value="${p.zip ?? ""}" inputmode="numeric" maxlength="4" placeholder="4 digits, e.g. 1300" autocomplete="${autofill("postal-code")}">
-                  <p class="sf-field-hint" data-pp-zip-hint></p>
-                  ${fieldError(m, "zip")}
-                </div>
-              </div>
             </div>
             <div class="sf-field">
               <label for="cf_landmark">Landmark *</label>

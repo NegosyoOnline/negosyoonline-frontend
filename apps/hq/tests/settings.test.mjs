@@ -263,7 +263,9 @@ test("the three SMS limits and Save share one four-column row; the stop switch i
   assert.ok(row[1].indexOf('id="s-bulk"') < row[1].indexOf('id="s-save"'), "Save comes after the bulk box");
   assert.ok(html.indexOf('id="s-stop"') < html.indexOf('fgrid four') && html.indexOf('id="s-save"') < html.indexOf('id="s-err"') && !html.includes('s-when') && !html.includes('Last changed'));
   const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
-  assert.match(css, /\.fgrid\.four \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) auto; align-items: start; \}/, "three input columns, Save column sized to the button");
+  assert.match(css, /\.fgrid\.four \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); align-items: start; \}/, "four equal columns, Save in the 4th");
+  assert.match(css, /\.fgrid\.four \.fgrid-save \.no-btn \{ width: 100%; \}/, "Save fills its whole column");
+  assert.match(css, /\.fgrid\.four \.fgrid-save \.fin-row \{ display: block; \}/);
   assert.match(css, /\.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: nowrap; \}/, "labels stay on one line");
   assert.match(css, /max-width: 1199\.98px\) \{\n  \.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: normal; min-height: 3\.2em; \}/, "narrow desktop: equal two-line label height keeps the boxes level");
   assert.match(css, /\.fgrid\.four \{ grid-template-columns: minmax\(0, 1fr\); \}/, "one column on a phone");
@@ -293,4 +295,24 @@ test("a 400 puts the bulk cap's message under the bulk field", async () => {
   p.node["s-form"].fire("submit");
   await confirm(p);
   assert.equal(text(p, "s-bulk-err"), "Bulk message.");
+});
+
+test("the SMS card leaves Loading and fills the inputs from a policy with none of the removed store fields", async () => {
+  const p = await page(normal({ [SGET]: [200, { sending_stopped: true, platform_daily_limit: 500, site_daily_limit: 50, updated_at: "2026-11-27T10:00:00+08:00" }] }));
+  assert.equal(p.node["s-load"].hidden, true, "the Loading line is hidden");
+  assert.equal(p.node["s-body"].hidden, false);
+  assert.equal(p.node["s-platform"].value, "500");
+  assert.equal(p.node["s-site"].value, "50");
+  assert.equal(p.node["s-stop"].checked, true);
+  assert.equal(p.node["s-bulk-field"].hidden, true);
+});
+
+test("every id settings.js looks up exists in settings.html, and the page's asset versions moved with the removal", () => {
+  const html = fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8");
+  const js = fs.readFileSync(new URL("../public/assets/js/settings.js", import.meta.url), "utf8");
+  const used = new Set([...js.matchAll(/\$\("([a-z0-9-]+)"\)/g)].map((m) => m[1]));
+  for (const id of used) assert.ok(html.includes('id="' + id + '"') || id.startsWith("gw-") || id.startsWith("tk-") || id.startsWith("m-"), "missing id in settings.html: " + id);
+  /* A browser that kept the old script (max-age 3600) hit a removed element and stayed on Loading: the URLs must carry a new version. */
+  assert.match(html, /settings\.js\?v=20261127a/);
+  assert.match(html, /hq\.css\?v=20261127a/);
 });

@@ -475,7 +475,9 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
 .fgrid.four { grid-template-columns: minmax(0, 1fr); }
 .fgrid.four .fgrid-save-gap { display: none; }
 @media (min-width: 900px) {
-  .fgrid.four { grid-template-columns: repeat(3, minmax(0, 1fr)) auto; align-items: start; }
+  .fgrid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+  .fgrid.four .fgrid-save .fin-row { display: block; }
+  .fgrid.four .fgrid-save .no-btn { width: 100%; }
   .fgrid.four .fgrid-save-gap { display: block; font-size: 15px; font-weight: 700; }
   .fgrid.four label, .fgrid.four .fgrid-save-gap { white-space: nowrap; }
 }

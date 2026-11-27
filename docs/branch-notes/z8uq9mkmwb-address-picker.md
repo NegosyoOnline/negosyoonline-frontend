@@ -25,3 +25,8 @@ Branch `feat/z8uq9mkmwb-address-picker` (from origin/main 52c1025). Ruling ADDRE
 
 ## Checks
 See the Supervisor report (lint, tests, build counts). Local visual check was done on a static harness of the real script, CSS and data (desktop, phone width, dark); the three real pages still need the Supervisor's local look.
+
+## Fix round 1 (ClickUp z8uq9mkmwb)
+- ZIP lost on server re-render: `pack-address.js` restore now hands the ZIP lookup the ZIP the server drew (read before the box is emptied), so a suggestion or missing answer keeps it (e.g. 1201 over the lookup's 1200); only an authoritative answer replaces it (read-only). A later path change still refreshes the ZIP. Test added in `tests/address-picker.test.ts`.
+- ZIP placeholder shortened to "e.g. 1300" (was clipped in the 156px box); width unchanged.
+- `assets.ts`: `js/pack-address.js` ?v= bumped to 35c9ab85.

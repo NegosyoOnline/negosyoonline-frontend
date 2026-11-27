@@ -55,7 +55,7 @@ export function addressPicker(a: PickerArgs): Markup {
   </div>
   <div class="${c.fld} pp-pick-zip" data-pp-zip-field>
     <label for="${a.ids.zip}" class="${c.lbl}">ZIP Code *</label>
-    <input type="text" id="${a.ids.zip}" class="${c.inp}${zipErr ? c.bad : ""}" name="${a.zipName}" inputmode="numeric" maxlength="4" autocomplete="${a.zipAutocomplete ?? "postal-code"}" placeholder="4 digits, e.g. 1300" value="${a.values.zip}"${zipErr ? html` aria-invalid="true"` : ""}>
+    <input type="text" id="${a.ids.zip}" class="${c.inp}${zipErr ? c.bad : ""}" name="${a.zipName}" inputmode="numeric" maxlength="4" autocomplete="${a.zipAutocomplete ?? "postal-code"}" placeholder="e.g. 1300" value="${a.values.zip}"${zipErr ? html` aria-invalid="true"` : ""}>
     <p class="${c.hint}" data-pp-zip-hint></p>
     ${zipErr ? html`<p class="${c.err}">${zipErr}</p>` : ""}
   </div>

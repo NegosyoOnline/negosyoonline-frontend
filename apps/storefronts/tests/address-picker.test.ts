@@ -190,6 +190,23 @@ test("ZIP states: authoritative is filled and read-only; any other answer is a s
   assert.equal(PP.zipState({ success: true, zip: null }, "1234").value, "1234", "no answer keeps what was typed");
 });
 
+test("restore after a server re-render: the ZIP the server drew is kept for a suggestion or no answer, and replaced only by an authoritative one", () => {
+  const drawn = "1201"; // typed by the buyer, drawn back by the server beside an error elsewhere (e.g. Landmark empty)
+  const sug = PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, drawn);
+  assert.deepEqual(plain({ k: sug.kind, v: sug.value, r: sug.readOnly }), { k: "suggested", v: "1201", r: false });
+  const none = PP.zipState({ success: true, zip: null }, drawn);
+  assert.deepEqual(plain({ k: none.kind, v: none.value, r: none.readOnly }), { k: "missing", v: "1201", r: false });
+  const failed = PP.zipState({}, drawn);
+  assert.equal(failed.value, "1201", "a failed lookup keeps it too");
+  for (const precision of ["barangay", "city_unique"]) {
+    const auth = PP.zipState({ success: true, zip: "1200", zip_precision: precision }, drawn);
+    assert.deepEqual(plain({ k: auth.kind, v: auth.value, r: auth.readOnly }), { k: "authoritative", v: "1200", r: true }, precision);
+  }
+  // The script hands the lookup the ZIP the server drew (read before the box is emptied), not the emptied box.
+  const src = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");
+  assert.match(src, /if \(M\.brgy\) lookupZip\(typedZip\);/);
+});
+
 /* ---- the server's markup: the posted names stay, and a no-JS form still posts ---- */
 
 const base = {

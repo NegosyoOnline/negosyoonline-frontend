@@ -52,7 +52,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-return.js": "15ab7bbb", // the return page polls the payment (ClickUp z8uq9mgkp1)
   "js/pack-checkout.js": "0de08ac6", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
-  "js/pack-address.js": "90f6dbdb",
+  "js/pack-address.js": "35c9ab85",
   "js/pack-details-gate.js": "e52d9e8d",
   "js/pack-terms-popup.js": "7484a35f", // this storefront's own file: the TWCinc terms popup framed the PDF; this one draws it with PDF.js
   "data/provinces.json": "1926a7f7",

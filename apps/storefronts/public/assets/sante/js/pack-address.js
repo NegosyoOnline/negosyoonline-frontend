@@ -243,8 +243,9 @@
     var IDLE = { kind: 'idle', value: '', readOnly: true, hint: '' };
     var zipSeq = 0;
     function zipIdle() { zipSeq++; applyZip(IDLE); zipClearError(); }
+    // keepTyped: true keeps the ZIP now in the box; a string keeps that ZIP (the one the server drew, on a re-render restore).
     function lookupZip(keepTyped) {
-      var typed = keepTyped && zipInput ? zipInput.value : '';
+      var typed = typeof keepTyped === 'string' ? keepTyped : (keepTyped && zipInput ? zipInput.value : '');
       if (!zipUrl || !M.complete()) { zipIdle(); return; }
       var seq = ++zipSeq;
       applyZip({ kind: 'pending', value: '', readOnly: true, hint: 'Finding your ZIP code…' });
@@ -508,7 +509,7 @@
       syncInputs();
       setReady(true);
       syncInputs();
-      if (M.brgy) lookupZip(true);
+      if (M.brgy) lookupZip(typedZip);
       else applyZip(IDLE);
     }).catch(function () {
       // The data did not load: the text inputs come back, as the page drew them, and the server validates.

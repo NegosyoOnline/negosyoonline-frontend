@@ -13,7 +13,8 @@ import { MSG_ADDRESS_LOCKED, MSG_ADDRESS_NOT_SAVED, MSG_CHECK_FIELDS } from "./s
 import { chrome, memberDocument } from "../views/sante/member.ts";
 import { ADDRESS_PAGE_PATH, EMPTY_ADDRESS, addressContent, type AddressPage } from "../views/sante/member-address.ts";
 
-const SCRIPTS = ["js/pack-dashboard.js"];
+const SCRIPTS = ["js/pack-dashboard.js", "js/pack-address.js"];
+const STYLES = ["css/pack-picker.css"];
 
 function signedOut(d: Dash): Response {
   const response = redirect("/");
@@ -24,7 +25,7 @@ function signedOut(d: Dash): Response {
 const NONE: AddressPage = { address: { ...EMPTY_ADDRESS }, field_errors: {}, error_message: "", saved: false, locked: false, unreadable: false };
 
 function page(d: Dash, name: string, p: AddressPage, status = 200): Response {
-  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "Home address", member: name, current: "account", content: addressContent(p), scripts: SCRIPTS }), status);
+  return htmlResponse(memberDocument(chrome(d.site, d.now), { title: "Home address", member: name, current: "account", content: addressContent(p), scripts: SCRIPTS, styles: STYLES }), status);
 }
 
 /** The saved address and whether it is locked. "unreadable" when the read fails (older backend, passing fault, dead session): the page then

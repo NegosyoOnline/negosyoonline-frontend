@@ -654,10 +654,12 @@ test("the edit mode shows only the address form, prefilled, with name and mobile
   assert.match(page, /<p class="sf-locked-note">Who receives your parcel and where it goes\. Your account details stay as they are\.<\/p>/);
   assert.doesNotMatch(page, /someone else will receive/);
   assert.match(page, /name="line"[^>]*value="7 Rizal St"/);
-  assert.match(page, /data-value="Metro Manila"/);
-  assert.match(page, /data-value="Makati"/);
-  assert.match(page, /data-value="Poblacion"/);
-  assert.match(page, /name="zip" value="1210"/);
+  assert.match(page, /name="province"[^>]*value="Metro Manila"/);
+  assert.match(page, /name="city"[^>]*value="Makati"/);
+  assert.match(page, /name="barangay"[^>]*value="Poblacion"/);
+  assert.match(page, /name="zip" inputmode="numeric" maxlength="4"[^>]*value="1210"/);
+  assert.match(page, /data-pp-pick-mount/);
+  assert.doesNotMatch(page, /<select id="cf_(province|city|barangay)"/);
   assert.match(page, /name="landmark" value="Blue gate"/);
   assert.match(page, /<a href="\/checkout\/" class="sf-step-back-link">Cancel<\/a>/);
   assert.match(page, /btn-cart sf-step-next">Save Address</);
@@ -696,6 +698,8 @@ test("the edit form posts the barangay with no ZIP (the row is hidden): the save
   };
   // the lookup is exact for the barangay: its ZIP
   assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), noZip), "1210");
+  // a learned ZIP (a place a buyer typed before) is as authoritative as the barangay's
+  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1215", zip_precision: "learned" } }), noZip), "1215");
   // no lookup answer, same province, city and barangay: the saved ZIP stays (names compared without case)
   assert.equal(await saved(backend(own), { ...noZip, city: "MAKATI", barangay: "POBLACION" }), "1210");
   // another barangay and no lookup answer: no ZIP is invented
@@ -714,7 +718,7 @@ test("a refusal with field errors shows each beside its field, with what was typ
   const page = await text(r);
   assert.match(page, /<p class="sf-form-error" role="alert">Check the highlighted fields\.<\/p>/);
   assert.match(page, /name="line"[^>]*class="sf-field-invalid"[\s\S]*?<p class="sf-field-error">Enter the street address\.<\/p>/);
-  assert.match(page, /<p class="sf-field-error">Enter the city or municipality\.<\/p>/);
+  assert.match(page, /<p class="sf-field-error" id="cf_city-msg">Enter the city or municipality\.<\/p>/);
   assert.match(page, /<p class="sf-field-error">Enter a 4-digit ZIP code\.<\/p>/);
   assert.match(page, /name="landmark" value="Red roof"/);
   assert.match(page, /Save Address/);

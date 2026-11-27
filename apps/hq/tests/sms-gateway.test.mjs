@@ -8,7 +8,7 @@ import { open, settle, BASE } from "./page.mjs";
 
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
-  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-store-caps", "s-store", "s-store-err", "s-allstores", "s-allstores-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-when", "s-save",
+  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-when", "s-save",
   "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-poll-at", "g-incoming",
   "g-register", "g-rotate", "g-disable", "g-refresh",
   "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",

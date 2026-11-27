@@ -231,6 +231,8 @@
   function xferOf(o) { return typeof o.transfer_centavos === "number" ? o.transfer_centavos : o.amount_centavos; }
   function covered(o) { return !!o && o.covered_by_credit === true; }
   function creditPaid(p) { return creditOf(p) > 0 && p.transfer_centavos === 0; }
+  /* The same sentence with each amount in a no-wrap span, so "PHP 1,499.00" never splits across lines. */
+  function creditNote(o, cls, tail) { return add(h("p", cls), h("span", "", "Credit applied "), h("span", "bl-nw", "−" + peso(creditOf(o))), h("span", "", ", amount to transfer "), h("span", "bl-nw", peso(xferOf(o))), h("span", "", tail || "")); }
   function creditLine(o) { return "Credit applied −" + peso(creditOf(o)) + ", amount to transfer " + peso(xferOf(o)); }
   function canPay() { return !!(S.pay && S.pay.payable && S.pay.offers && S.pay.offers.length && accounts().length && !S.billing.billing_exempt); }
   function inTrial() { return S.billing.state === "trial_active"; }
@@ -950,7 +952,7 @@
     var left = attrs(h("section", "bl-card"), { "aria-labelledby": "bl-sp" });
     add(left, attrs(h("h2", "bl-h2", "Your payment details"), { id: "bl-sp" }));
     if (underReview()) add(left, h("p", "bl-note", "Sending a new proof replaces the one under review."));
-    if (creditOf(offer) > 0) add(left, h("p", "bl-note bl-credit", creditLine(offer) + "."));
+    if (creditOf(offer) > 0) add(left, creditNote(offer, "bl-note bl-credit", "."));
     add(left, banner);
     var grid = h("div", "bl-grid2");
     [["bank", "Sender Bank", "BDO", { maxlength: "80" }], ["ref", "Reference Number", "1234 5678 90", { maxlength: "64" }], ["first", "Sender First Name", "Juan", { maxlength: "80" }],
@@ -1082,8 +1084,8 @@
     var sum = attrs(h("aside", "bl-card"), { "aria-labelledby": "bl-su" });
     add(sum, attrs(h("h2", "bl-h2", "Summary"), { id: "bl-su" }), h("p", "bl-sum-name", planOf(offer.plan).name));
     offerLines(offer, trial).forEach(function (l) { add(sum, h("p", "bl-meta", l)); });
-    if (creditOf(offer) > 0) add(sum, add(h("div", "bl-total bl-credit-row"), h("span", "", "Subscription Credit"), h("b", "", "−" + peso(creditOf(offer)))));
-    add(sum, add(h("div", "bl-total"), h("span", "", creditOf(offer) > 0 ? "Amount to transfer" : "Total"), h("b", "", peso(xferOf(offer)))));
+    if (creditOf(offer) > 0) add(sum, add(h("div", "bl-total bl-credit-row"), h("span", "", "Subscription Credit"), h("b", "bl-nw", "−" + peso(creditOf(offer)))));
+    add(sum, add(h("div", "bl-total"), h("span", "", creditOf(offer) > 0 ? "Amount to transfer" : "Total"), h("b", "bl-nw", peso(xferOf(offer)))));
     add(side, to, sum);
     add(r, add(h("div", "bl-backs"), backLink("← Change plan", function () { go("choose"); }), backLink("Back to billing", function () { go(null); })), add(h("div", "bl-pay"), left, side));
     update();

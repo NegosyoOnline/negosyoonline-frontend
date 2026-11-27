@@ -1373,6 +1373,9 @@ html[data-theme="light"] body.dash-app {
 #view-settings-billing .bl-sum-name { margin: 12px 0 6px; font-size: 18px; font-weight: 700; }
 #view-settings-billing .bl-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--bl-row-line); font-size: 18px; }
 #view-settings-billing .bl-total b { font-size: 24px; }
+#view-settings-billing .bl-nw { white-space: nowrap; }
+#view-settings-billing .bl-total { gap: 12px; }
+#view-settings-billing .bl-total b { flex: none; }
 /* pop-ups: X at the top right, Escape closes, no Cancel button */
 #view-settings-billing .bl-overlay { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(5, 10, 30, .66); }
 #view-settings-billing .bl-dialog { position: relative; max-height: calc(100vh - 48px); overflow-y: auto; width: min(480px, 100%); padding: 24px; border: 1px solid var(--card-line); border-radius: 16px; background: var(--card); color: var(--text); box-shadow: 0 20px 60px rgba(0, 0, 0, .45); }

@@ -2258,12 +2258,12 @@ test("sms inbox: with the feature on the SMS Marketing page lists only texts wit
   assert.equal(u.channelOf({ provider: "sms" }), "sms");
 });
 
-test("sms thread: no mobile under the name, delivery chips (Sending, Sent, Not sent with the server's words), no prefix and no quota line, the counter 0 / 160", async () => {
+test("sms thread: masked mobile under the name (z8uq9mknf6, replaces INBOX-FIX-8), delivery chips (Sending, Sent, Not sent with the server's words), no prefix and no quota line, the counter 0 / 160", async () => {
   const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
   d.s.smsStatus = SMS_STATUS;
   await smsOpen(d);
   const pane = d.$("ib-threadpane");
-  assert.ok(!pane.textContent.includes("+63 9** *** 1234"), "INBOX-FIX-8: the thread head drops the masked mobile (the Contact panel keeps it)");
+  assert.deepEqual(d.all(pane, "ib-hmobile").map((n) => n.textContent), ["+63 9** *** 1234"], "STORE-INBOX-MASKED-NUMBER: the head shows the masked mobile (it replaces the Text (SMS) chip)");
   assert.ok(!/\+639\d{9}/.test(pane.textContent), "no full number");
   assert.deepEqual(d.all(pane, "chip").map((n) => n.textContent).filter((t) => /Sent|Sending|Not sent/.test(t)), ["Sent", "Sending", "Not sent: The SMS phone is offline. Nothing was sent."]);
   assert.ok(!pane.textContent.includes("Every text starts with"), "no prefix line even though the thread still carries a prefix key");
@@ -2331,6 +2331,26 @@ test("sms thread: a conversation with no name or number (blanked after 180 days)
   d.s.smsStatus = SMS_STATUS;
   await smsOpen(d);
   assert.ok(d.$("ib-threadpane").textContent.includes("Customer"));
+});
+
+test("sms thread head (STORE-INBOX-MASKED-NUMBER z8uq9mknf6): the masked mobile replaces the Text (SMS) chip under the name; none given shows nothing; other channels keep their chip", async () => {
+  const d = boot({ listing: smsList(), reading: smsThread(), channels: CH_SMS });
+  d.s.smsStatus = SMS_STATUS;
+  await smsOpen(d);
+  const head = d.all(d.$("ib-threadpane"), "ib-thead")[0];
+  assert.deepEqual(d.all(head, "ib-hmobile").map((n) => n.textContent), ["+63 9** *** 1234"]);
+  assert.equal(d.all(head, "ib-ch").length, 0, "no channel chip in the head");
+  assert.ok(!head.textContent.includes("Text (SMS)"));
+  assert.deepEqual(d.all(head, "chip").map((c) => c.textContent), ["Open"], "the status chip stays");
+  const none = boot({ listing: smsList(), reading: smsThread({ contact_mobile: "" }), channels: CH_SMS });
+  none.s.smsStatus = SMS_STATUS;
+  await smsOpen(none);
+  const h2 = none.all(none.$("ib-threadpane"), "ib-thead")[0];
+  assert.equal(none.all(h2, "ib-hmobile").length, 0);
+  assert.equal(none.all(h2, "ib-ch").length, 0);
+  const em = boot({ listing: MIXED(), reading: emailThread(), channels: CHANNELS_ON });
+  await em.openInbox(); await em.click(rowsOf(em)[1]);
+  assert.deepEqual(em.all(em.all(em.$("ib-threadpane"), "ib-thead")[0], "ib-ch").map((n) => n.textContent), ["Email"]);
 });
 
 /* ---------- New SMS (INBOX-FIX-8): ONE house dropdown for members and contacts, no prefix, no quota, 0 / 160, Add contact popup ---------- */

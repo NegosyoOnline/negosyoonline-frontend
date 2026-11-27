@@ -1706,7 +1706,9 @@
     var av = avatarNode(name, o.avatar);
     var nm = h("div", "ib-tname"); nm.appendChild(h("h2", "", nameOf(name)));
     if (o.channel) {
-      var row = h("div", "ib-chrow"); add(row, channelBadge(o.channel));
+      var row = h("div", "ib-chrow");
+      /* STORE-INBOX-MASKED-NUMBER (z8uq9mknf6): a text thread's head says the contact's server-masked mobile where the channel chip would be (nothing when the API gave none). */
+      if (o.channel === "sms") { if (o.mobile) row.appendChild(h("span", "ib-hmobile", o.mobile)); } else add(row, channelBadge(o.channel));
       if (o.status) row.appendChild(h("span", "chip ib-mini " + (o.status === "closed" ? "chip-neutral" : "chip-ok"), o.status === "closed" ? "Closed" : "Open"));
       if (o.chip) row.appendChild(o.chip);
       (o.chips || []).forEach(function (c) { row.appendChild(c); });
@@ -1781,7 +1783,7 @@
     var name = nameOf(t.display_name || S.selName), now = new Date();
     var channel = channelOf(t.channel ? t : { ref: S.sel });
     var closed = t.status === "closed";
-    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: subOf(channel, t), action: statusButton(closed), avatar: typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) }));
+    p.appendChild(threadHead(name, { channel: channel, status: closed ? "closed" : "open", sub: subOf(channel, t), mobile: contactOf(channel, t).mobile, action: statusButton(closed), avatar: typeof t.avatar_url === "string" ? t.avatar_url : avatarOfRef(S.sel) }));
     var note = noteFor(channel, t);
     if (note) p.appendChild(note);
     /* messages */

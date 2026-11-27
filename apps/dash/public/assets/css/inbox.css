@@ -154,6 +154,8 @@ body.dash-app .ib-badges .ib-mini { margin-top: 0; }
 #view-inbox .ib-rs-r { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 body.dash-app .ib-chrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 body.dash-app .ib-chrow .ib-mini { margin-top: 0; }
+/* the masked mobile in a text thread's head (z8uq9mknf6): plain secondary text where the channel chip was; ellipsis, never overflow */
+#view-inbox .ib-thead .ib-hmobile { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 22px; color: var(--meta); }
 body.dash-app .ib-sub { margin: 0; font-size: 14px; color: var(--meta); overflow-wrap: anywhere; }
 body.dash-app .ib-long { white-space: normal !important; text-align: left; border-radius: 12px !important; line-height: 1.3; padding-top: 3px !important; padding-bottom: 3px !important; }
 #view-inbox .ib-meta .ib-ch { margin-left: 4px; vertical-align: middle; }

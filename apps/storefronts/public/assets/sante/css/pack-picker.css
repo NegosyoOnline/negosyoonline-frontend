@@ -14,13 +14,14 @@ html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
 
 .pp-pick[hidden], .pp-pick [hidden], .pp-pick-fallback[hidden] { display: none !important; }
 
-/* The field and the ZIP side by side; the ZIP drops under the field on a phone. */
-.pp-pick-row { display: flex; flex-wrap: wrap; gap: 0 14px; align-items: flex-start; }
-.pp-pick-main { flex: 1 1 320px; min-width: 0; }
-.pp-pick-zip { flex: 0 0 156px; min-width: 0; }
+/* The field takes the full row (ADDRESS-FORM-STANDARD). The ZIP is posted from the lookup in its own input, which stays hidden
+   (display:none still posts) unless there is no ZIP for the place (state "missing"), or no script ran: then it is a required
+   field on its own full row below. */
+.pp-pick-row { display: block; }
+.pp-pick-main, .pp-pick-zip { min-width: 0; }
+.pp-pick-zip[data-zip-state]:not([data-zip-state="missing"]) { display: none; }
 .pp-pick-zip input[readonly] { background: var(--pp-lock); color: var(--pp-ink); cursor: default; }
 .pp-pick-zip input[readonly]:focus { border-color: var(--pp-line); box-shadow: none; }
-@media (max-width: 560px) { .pp-pick-main, .pp-pick-zip { flex: 1 1 100%; } }
 
 .pp-pick .pp-pick-box { position: relative; }
 .pp-pick .pp-pick-btn {
@@ -30,7 +31,7 @@ html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
 }
 .pp-pick .has-clear .pp-pick-btn { padding-right: 72px; }
 .pp-pick .pp-pick-btn:disabled { cursor: wait; opacity: .7; }
-.pp-pick .pp-pick-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pp-pick .pp-pick-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pp-pick .pp-pick-text.is-empty { color: var(--pp-muted); }
 .pp-pick .pp-pick-caret { position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--pp-muted); border-bottom: 2px solid var(--pp-muted); transform: rotate(45deg); transition: transform .15s; pointer-events: none; }
 .pp-pick .is-open .pp-pick-caret { transform: rotate(-135deg); margin-top: -2px; }

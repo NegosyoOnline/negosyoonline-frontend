@@ -261,8 +261,6 @@ function addressStep(v: ObView): Markup {
       errors: fe,
     })}
     ${field("line", "Street name, Building, House no.", "da-line", html`maxlength="200" autocomplete="address-line1" placeholder="e.g. 12 Mabini St, Unit 3B"`, p.line || a.line)}
-    <div class="fld"><label for="da-country">Country</label>
-    <input id="da-country" class="inp" type="text" value="Philippines" disabled></div>
     ${field("landmark", "Landmark", "da-landmark", html`maxlength="200" placeholder="e.g. Near the barangay hall"`, p.landmark || a.landmark)}
   </div>
   <div class="pp-ob-actions"><button class="btn pp-ob-cta" type="submit">Save and continue<span class="pp-ob-cta-arrow" aria-hidden="true">&rarr;</span></button></div>

@@ -152,10 +152,6 @@ function addressForm(m: CheckoutModel, mode: "guest" | "different" | "edit"): Ma
                 values: { province: p.province ?? "", city: p.city ?? "", barangay: p.barangay ?? "", zip: p.zip ?? "" },
                 errors: m.field_errors,
               })}
-              <div class="sf-field sf-field-country">
-                <label for="cf_country" class="set-lbl">Country</label>
-                <select id="cf_country" data-pk-select disabled><option value="Philippines" selected>Philippines</option></select>
-              </div>
             </div>
             <div class="sf-field">
               <label for="cf_line">Street name, Building, House no. *</label>

@@ -71,7 +71,7 @@ test("each pick advances to the next tab and narrows the next list; the posted v
   assert.equal(m.complete(), false);
   assert.equal(m.pick("barangay", m.items("barangay").find((b: Brgy) => b.name === "CATALUNAN GRANDE")).next, "");
   assert.equal(m.complete(), true);
-  assert.equal(m.path(), "Mindanao, Davao Del Sur, Davao City, Catalunan Grande");
+  assert.equal(m.path(), "Davao Del Sur, Davao City, Catalunan Grande");
   assert.deepEqual(plain(m.values()), { province: "DAVAO DEL SUR", city: "DAVAO CITY", barangay: "CATALUNAN GRANDE", barangay_code: "DAVAO-DEL-SUR::DAVAO-CITY::CATALUNAN GRANDE" });
 });
 
@@ -107,7 +107,7 @@ test("going back and picking the same item keeps what is below it; a different o
   const other = m.items("region").find((r: any) => r.name === "Visayas");
   assert.equal(m.pick("region", other).reset, true);
   assert.equal(m.prov, null);
-  assert.equal(m.path(), "Visayas");
+  assert.equal(m.path(), "", "a region alone is not shown in the field");
 });
 
 test("clear resets the whole path and what the form posts", () => {
@@ -205,6 +205,24 @@ test("restore after a server re-render: the ZIP the server drew is kept for a su
   // The script hands the lookup the ZIP the server drew (read before the box is emptied), not the emptied box.
   const src = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");
   assert.match(src, /if \(M\.brgy\) lookupZip\(typedZip\);/);
+});
+
+test("the field shows Province, City, Barangay only (no region), Metro Manila says its own name, and a typed non-4-digit ZIP never survives a suggestion", () => {
+  assert.equal(PP.pathText({ name: "Mindanao" }, { name: "DAVAO DEL SUR" }, { name: "DAVAO CITY" }, { name: "AGDAO" }), "Davao Del Sur, Davao City, Agdao");
+  assert.equal(PP.pathText({ name: "Metro Manila" }, { name: "METRO MANILA" }, { name: "QUEZON CITY" }, { name: "BAGUMBAYAN" }), "Metro Manila, Quezon City, Bagumbayan");
+  assert.equal(PP.pathText({ name: "Visayas" }, null, null, null), "");
+  assert.equal(PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, "12").value, "1200");
+});
+
+test("ADDRESS-FORM-STANDARD: the ZIP box is hidden unless there is no ZIP, the field is one ellipsised line, and no form draws a Country field", () => {
+  const css = readFileSync(path.join(SANTE, "css", "pack-picker.css"), "utf8");
+  assert.match(css, /\.pp-pick-zip\[data-zip-state\]:not\(\[data-zip-state="missing"\]\) \{ display: none; \}/);
+  assert.match(css, /\.pp-pick-text \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/);
+  assert.doesNotMatch(css, /flex: 0 0 156px/);
+  for (const f of ["pack-onboarding.ts", "shop-checkout.ts", "member-address.ts"]) {
+    const src = readFileSync(path.join(import.meta.dirname, "..", "src", "views", "sante", f), "utf8");
+    assert.doesNotMatch(src, /da-country|cf_country/, f);
+  }
 });
 
 /* ---- the server's markup: the posted names stay, and a no-JS form still posts ---- */

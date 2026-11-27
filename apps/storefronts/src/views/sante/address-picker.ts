@@ -1,6 +1,6 @@
 /* The one delivery-address picker every Santé address form draws (ClickUp z8uq9mkmwb, ruling ADDRESS-SHOPEE-PICKER): the
-   Membership Pack onboarding address, the member Home address and the shop checkout. One field, "Region, Province, City,
-   Barangay", that opens a panel with four tabs, and the ZIP code beside it.
+   Membership Pack onboarding address, the member Home address and the shop checkout. One field, "Province, City, Barangay" on one
+   line, that opens a panel with four tabs (Region first), and the ZIP posted from the lookup (ADDRESS-FORM-STANDARD).
 
    The server draws only what must exist without a script: the three posted inputs (province, city, barangay, plain text, so a
    no-JS browser still posts and the server still validates), the ZIP input, and the server's own error lines. public/assets/

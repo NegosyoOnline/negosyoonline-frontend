@@ -30,3 +30,11 @@ See the Supervisor report (lint, tests, build counts). Local visual check was do
 - ZIP lost on server re-render: `pack-address.js` restore now hands the ZIP lookup the ZIP the server drew (read before the box is emptied), so a suggestion or missing answer keeps it (e.g. 1201 over the lookup's 1200); only an authoritative answer replaces it (read-only). A later path change still refreshes the ZIP. Test added in `tests/address-picker.test.ts`.
 - ZIP placeholder shortened to "e.g. 1300" (was clipped in the 156px box); width unchanged.
 - `assets.ts`: `js/pack-address.js` ?v= bumped to 35c9ab85.
+
+## Fix round 2 / standard address form (ClickUp z8uq9mkmwb, ruling ADDRESS-FORM-STANDARD, Coach Ed 2026-11-28)
+- **This picker form is the standard address form for every address form built or touched from now on** (Province/City/Barangay picker with the Region tab first, auto ZIP, Street, Landmark, no Country), in the app's colours.
+- The picker takes the full row; the chosen path is one line (`white-space: nowrap`, ellipsis; clear x and chevron stay).
+- The ZIP is still posted from the lookup in the same input (`postal_code` / `zip`), hidden by CSS (`display:none` still posts) in the authoritative and suggestion (city ZIP) states. Only when the lookup has no ZIP does the required "ZIP Code" field show, on its own full row below, with the same 4-digit error. With no script or on a data failure the box is visible (no `data-zip-state`). Round-1 behaviour kept (a ZIP the server drew survives a re-render); a drawn value that is not 4 digits no longer survives a suggestion. A submit while the lookup is still pending is held, not errored.
+- The field shows Province, City, Barangay only (`pathText` ignores the region; Metro Manila reads "Metro Manila, City, Barangay"); the panel keeps the Region tab first.
+- Country removed on onboarding (`da-country`) and checkout (`cf_country`). It was a disabled field with no name, so it never posted; nothing posted changes (the API still defaults `country` to Philippines).
+- `assets.ts`: `css/pack-picker.css` and `js/pack-address.js` ?v= bumped.

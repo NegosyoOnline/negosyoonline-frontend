@@ -71,7 +71,7 @@
   }
   function pathText(region, prov, city, brgy) {
     var parts = [];
-    if (region && !(prov && titleCase(prov.name) === region.name)) parts.push(region.name);
+    // The field shows Province, City, Barangay only (ADDRESS-FORM-STANDARD); the region is the panel's first tab, not part of the text.
     if (prov) parts.push(titleCase(prov.name));
     if (city) parts.push(titleCase(city.name));
     if (brgy) parts.push(titleCase(brgy.name));
@@ -82,7 +82,7 @@
     var zip = d && d.success && d.zip ? String(d.zip) : '';
     var precision = d && d.success ? d.zip_precision : null;
     if (zip && ZIP_AUTHORITATIVE.indexOf(precision) !== -1) return { kind: 'authoritative', value: zip, readOnly: true, hint: '' };
-    if (zip) return { kind: 'suggested', value: typed || zip, readOnly: false, hint: ZIP_SUGGESTED };
+    if (zip) return { kind: 'suggested', value: /^\d{4}$/.test(typed || '') ? typed : zip, readOnly: false, hint: ZIP_SUGGESTED };
     return { kind: 'missing', value: typed || '', readOnly: false, hint: ZIP_MISSING };
   }
 
@@ -317,7 +317,7 @@
       brgyIn.value = v.barangay;
       if (brgyCode) brgyCode.value = v.barangay_code;
       var path = M.path();
-      txt.textContent = path || 'Select region, province, city, barangay';
+      txt.textContent = path || 'Select province, city, barangay';
       txt.className = 'pp-pick-text' + (path ? '' : ' is-empty');
       btn.title = path;
       clear.hidden = !(M.region || M.prov);
@@ -487,6 +487,7 @@
         }
         if (!zipInput || /^\d{4}$/.test((zipInput.value || '').trim())) return;
         e.preventDefault();
+        if (zipField && zipField.getAttribute('data-zip-state') !== 'missing') return;  // the ZIP is still being looked up (its box is hidden); try again in a moment
         zipClearError();
         var line = make('p', { 'class': 'err sf-field-error' }, ZIP_ERROR);
         zipField.appendChild(line);

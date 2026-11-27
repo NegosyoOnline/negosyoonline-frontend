@@ -323,6 +323,14 @@
         showZipError();
       });
     }
+    // Continue wears the colours of this page's own primary button (the form's submit), read live so light and dark both match.
+    function matchPrimaryButton() {
+      var f = zipInput && zipInput.form, b = f && f.querySelector('button[type="submit"]:not([disabled]), button[type="submit"]');
+      if (!b || !window.getComputedStyle) return;
+      var cs = window.getComputedStyle(b);
+      if (cs.backgroundColor && cs.backgroundColor !== 'rgba(0, 0, 0, 0)') dlg.style.setProperty('--pp-ok-bg', cs.backgroundColor);
+      if (cs.color) dlg.style.setProperty('--pp-ok-fg', cs.color);
+    }
     function openDialog(prefill, isSuggestion) {
       if (!useDlg || !zipInput) return;
       if (!dlg) buildDialog();
@@ -332,6 +340,7 @@
       dlgErr.hidden = true;
       dlgInput.classList.remove('is-bad');
       dlgInput.removeAttribute('aria-invalid');
+      matchPrimaryButton();
       dlg.showModal();
       dlgInput.focus();
       dlgInput.select();

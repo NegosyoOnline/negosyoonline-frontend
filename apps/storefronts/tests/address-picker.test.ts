@@ -293,3 +293,16 @@ test("the holder carries the data files and the ZIP route", () => {
   const out = pickerData("/checkout/zip/").value;
   assert.match(out, /^data-pp-address data-ph-provinces="\/assets\/sante\/data\/provinces\.json\?v=[0-9a-f]{8}" data-ph-cities="[^"]*city-mun\.json[^"]*" data-ph-barangays="[^"]*barangays\.json[^"]*" data-zip-url="\/checkout\/zip\/"$/);
 });
+
+test("a long place name cannot widen the page: grid/flex/fieldset ancestors can shrink, and Continue wears the page's primary button colours", () => {
+  const picker = readFileSync(path.join(SANTE, "css", "pack-picker.css"), "utf8");
+  const store = readFileSync(path.join(SANTE, "css", "pack-storefront.css"), "utf8");
+  assert.match(picker, /\.pp-pick, \.pp-pick-main, \.pp-pick \.pp-pick-box, \.pp-pick \.pp-pick-btn \{ min-width: 0; max-width: 100%; \}/);
+  assert.match(picker, /\.pp-addr, \.sf-checkout-page \.sf-block \{ min-width: 0; \}/);
+  assert.match(store, /\.sf-checkout-grid \{[^}]*grid-template-columns: minmax\(0, 1fr\);/);
+  assert.match(store, /\.sf-checkout-grid \{ grid-template-columns: minmax\(0, 1fr\) 380px; \}/);
+  assert.match(store, /\.sf-checkout-main \{ min-width: 0; \}/);
+  assert.match(store, /\.sf-block \{ min-width: 0; \}/);
+  assert.match(picker, /\.pp-zip-dlg-ok \{[^}]*background: var\(--pp-ok-bg, var\(--pp-accent\)\)/);
+  assert.match(readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8"), /function matchPrimaryButton/);
+});

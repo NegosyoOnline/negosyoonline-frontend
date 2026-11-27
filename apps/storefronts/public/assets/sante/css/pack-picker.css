@@ -18,7 +18,11 @@ html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
    (display:none still posts). A place with no authoritative ZIP asks for it in the pop-up (.pp-zip-dlg below, ADDRESS-ZIP-POPUP-LEARN);
    the row then only shows a short note and a button to open the pop-up again (state "missing" or "entered"). Without script the ZIP is
    the required field it was; where the browser has no <dialog>, the row stays the plain field (no .pp-zip-note-mode). */
-.pp-pick-row { display: block; }
+.pp-pick-row { display: block; min-width: 0; max-width: 100%; }
+/* A long place name must never widen the page: the picker, its field and the form blocks around it can shrink below their content
+   (grid and flex items and fieldsets default to min-width:auto / min-content), so the one-line ellipsis does its job. */
+.pp-pick, .pp-pick-main, .pp-pick .pp-pick-box, .pp-pick .pp-pick-btn { min-width: 0; max-width: 100%; }
+.pp-addr, .sf-checkout-page .sf-block { min-width: 0; }
 .pp-pick-main, .pp-pick-zip { min-width: 0; }
 .pp-pick-zip[data-zip-state="authoritative"], .pp-pick-zip[data-zip-state="idle"], .pp-pick-zip[data-zip-state="pending"] { display: none; }
 .pp-pick-zip.pp-zip-note-mode[data-zip-state="suggested"] { display: none; }
@@ -124,9 +128,10 @@ html[data-theme="dark"] .pp-zip-dlg {
 .pp-zip-dlg-err { margin: 6px 0 0; color: var(--pp-bad); font-size: 14px; line-height: 1.4; }
 .pp-zip-dlg-err[hidden] { display: none; }
 .pp-zip-dlg-ok {
-  display: block; width: 100%; margin: 16px 0 0; padding: 12px 16px; border: 0; border-radius: 12px; background: var(--pp-accent); color: #fff;
+  display: block; width: 100%; margin: 16px 0 0; padding: 12px 16px; border: 0; border-radius: 12px; background: var(--pp-ok-bg, var(--pp-accent)); color: var(--pp-ok-fg, #fff);
   font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
 }
-html[data-theme="dark"] .pp-zip-dlg-ok { color: #0f1512; }
+html[data-theme="dark"] .pp-zip-dlg-ok { color: var(--pp-ok-fg, #0f1512); }
+.pp-zip-dlg-ok:hover { filter: brightness(.93); }
 .pp-zip-dlg-ok:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--pp-panel), 0 0 0 4px var(--pp-focus); }
 body:has(.pp-zip-dlg[open]) { overflow: hidden; }

@@ -154,7 +154,9 @@
 .sf-step-line.is-done { background: var(--green); }
 
 /* ── checkout ── */
-.sf-checkout-grid { display: grid; grid-template-columns: 1fr; gap: 36px; }
+.sf-checkout-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 36px; }
+.sf-checkout-main { min-width: 0; }
+.sf-block { min-width: 0; }
 .sf-block {
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface); padding: 24px; margin-bottom: 24px;
@@ -842,7 +844,7 @@ a.sf-order-cta { display: block; width: fit-content; margin: 18px auto 0; text-a
   .sf-detail-grid { grid-template-columns: 1fr 1fr; gap: 56px; }
 }
 @media (min-width: 1024px) {
-  .sf-checkout-grid { grid-template-columns: 1fr 380px; }
+  .sf-checkout-grid { grid-template-columns: minmax(0, 1fr) 380px; }
 }
 
 /* ── product-card links + add button (cards deep-link to detail; CTA adds) ── */

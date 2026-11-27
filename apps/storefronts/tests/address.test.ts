@@ -49,8 +49,18 @@ test("the page shows the saved address in the member shell with Account current,
   assert.match(b, /<form method="post" action="\/dashboard\/address\/">/);
   assert.match(b, /name="line" maxlength="200" value="7 Rizal St" required/);
   assert.match(b, /name="landmark" maxlength="200" value="Blue gate" required/);
-  assert.match(b, /name="barangay" value="Poblacion"/);
-  assert.match(b, /name="zip" value="1210" inputmode="numeric"/);
+  assert.match(b, /name="barangay"[^>]*value="Poblacion"/);
+  assert.match(b, /name="city"[^>]*value="Makati"/);
+  assert.match(b, /name="province"[^>]*value="Metro Manila"/);
+  assert.match(b, /name="zip" inputmode="numeric" maxlength="4"[^>]*value="1210"/);
+  // the one picker (ClickUp z8uq9mkmwb): its mount, the data files and the checkout's ZIP route, the script and sheet, no dropdowns
+  assert.match(b, /data-pp-pick-mount/);
+  assert.match(b, /data-zip-url="\/checkout\/zip\/"/);
+  assert.match(b, /data-ph-barangays="\/assets\/sante\/data\/barangays\.json\?v=[0-9a-f]{8}"/);
+  assert.match(b, /<script src="\/assets\/sante\/js\/pack-address\.js\?v=[0-9a-f]{8}">/);
+  assert.match(b, /<link rel="stylesheet" href="\/assets\/sante\/css\/pack-picker\.css\?v=[0-9a-f]{8}">/);
+  assert.doesNotMatch(b, /<select/);
+  assert.match(b, /Street name, Building, House no\./);
   assert.match(b, /<button class="btn" type="submit">Save address<\/button>/);
   assert.match(b, /href="\/dashboard\/account\/">Back to account/);
   assert.doesNotMatch(b, /Saved\./);

@@ -33,8 +33,9 @@ const VERSIONS: Record<string, string> = {
   "js/pack-nav-toggle.js": "8178357d", // this storefront's own file: the menu button the TWCinc shell wrote as an inline script
   "css/pack-forms.css": "67b5ecba",
   "css/pack-select.css": "aac04c44",
+  "css/pack-picker.css": "c8047103", // this storefront's own file: the delivery address picker's field, tabbed panel and ZIP (ClickUp z8uq9mkmwb)
   "css/pack-shop.css": "baacd357", // this storefront's own file: the checkout's dropdown and focus look, over the TWCinc sheets
-  "js/pack-shop.js": "6e308a84", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
+  "js/pack-shop.js": "a62f3b26", // this storefront's own file: the checkout's field checks, ship-mode cards, Copy and QR zoom
   "img/bg-package.avif": "50416d1b",
   "img/bundle-1.webp": "72508fd0",
   "img/bundle-2.webp": "26805437",
@@ -51,7 +52,7 @@ const VERSIONS: Record<string, string> = {
   "js/pack-return.js": "15ab7bbb", // the return page polls the payment (ClickUp z8uq9mgkp1)
   "js/pack-checkout.js": "0de08ac6", // this storefront's own file: the checkout's inline scripts, moved out (the policy allows none)
   "css/pack-verify.css": "010f10a2",
-  "js/pack-address.js": "5ba0f831",
+  "js/pack-address.js": "90f6dbdb",
   "js/pack-details-gate.js": "e52d9e8d",
   "js/pack-terms-popup.js": "7484a35f", // this storefront's own file: the TWCinc terms popup framed the PDF; this one draws it with PDF.js
   "data/provinces.json": "1926a7f7",

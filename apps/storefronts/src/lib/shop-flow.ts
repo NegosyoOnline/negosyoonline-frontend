@@ -298,7 +298,7 @@ function blank(over: Partial<CheckoutModel> = {}): CheckoutModel {
 function checkoutPage(s: Shop, p: { lines: CartLine[]; quote: Quote; products: CatalogProduct[]; stale: boolean }, m: CheckoutModel, status = 200): Response {
   const b: Basket = { lines: p.lines, quote: p.quote, members: p.quote.member_price, stale: p.stale, off: false, app: false };
   return page(s, b, p.products, {
-    title: "Checkout", content: checkoutContent(m), css: ["css/pack-select.css", "css/pack-shop.css"],
+    title: "Checkout", content: checkoutContent(m), css: ["css/pack-select.css", "css/pack-picker.css", "css/pack-shop.css"],
     scripts: ["js/pack-select.js", "js/pack-address.js", "js/pack-shop.js"],
   }, status);
 }

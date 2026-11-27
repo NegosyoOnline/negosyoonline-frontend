@@ -1,0 +1,86 @@
+/* This storefront's own file, not one of the approved TWCinc files. The delivery address picker (ClickUp z8uq9mkmwb, ruling
+   ADDRESS-SHOPEE-PICKER): the one "Region, Province, City, Barangay" field, its tabbed panel and the ZIP beside it, drawn by
+   js/pack-address.js on the Membership Pack onboarding address, the member Home address and the shop checkout. The interaction is
+   Shopee's; the look is ours (the page's own fonts and colours, the light-blue focus rule, no red), light and dark. */
+.pp-pick, .pp-pick-zip {
+  --pp-line: #dee2e6; --pp-bg: #fff; --pp-panel: #fff; --pp-ink: #1a1a1a; --pp-muted: #686868; --pp-hover: #f2f5f9; --pp-chosen: #eef3ff;
+  --pp-accent: var(--green, var(--color-primary-700, #1a6207)); --pp-focus: #6C8CFF; --pp-bad: #c0392b; --pp-lock: #f4f4f4;
+}
+/* Dark is the member dashboard's own switch, html[data-theme="dark"] (pack-member-bar.css); the onboarding and the checkout have none. */
+html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
+  --pp-line: #3A4A42; --pp-bg: #0f1512; --pp-panel: #17201B; --pp-ink: #E6EDE9; --pp-muted: #A9B8B0; --pp-hover: rgba(255,255,255,.07);
+  --pp-chosen: rgba(95,211,155,.14); --pp-accent: #5FD39B; --pp-lock: rgba(255,255,255,.06);
+}
+
+.pp-pick[hidden], .pp-pick [hidden], .pp-pick-fallback[hidden] { display: none !important; }
+
+/* The field and the ZIP side by side; the ZIP drops under the field on a phone. */
+.pp-pick-row { display: flex; flex-wrap: wrap; gap: 0 14px; align-items: flex-start; }
+.pp-pick-main { flex: 1 1 320px; min-width: 0; }
+.pp-pick-zip { flex: 0 0 156px; min-width: 0; }
+.pp-pick-zip input[readonly] { background: var(--pp-lock); color: var(--pp-ink); cursor: default; }
+.pp-pick-zip input[readonly]:focus { border-color: var(--pp-line); box-shadow: none; }
+@media (max-width: 560px) { .pp-pick-main, .pp-pick-zip { flex: 1 1 100%; } }
+
+.pp-pick .pp-pick-box { position: relative; }
+.pp-pick .pp-pick-btn {
+  display: flex; align-items: center; width: 100%; min-height: 48px; margin: 0; padding: 11px 44px 11px 14px; box-sizing: border-box;
+  border: 1.5px solid var(--pp-line); border-radius: 12px; background: var(--pp-bg); color: var(--pp-ink);
+  font: inherit; font-size: 16px; line-height: 1.35; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+}
+.pp-pick .has-clear .pp-pick-btn { padding-right: 72px; }
+.pp-pick .pp-pick-btn:disabled { cursor: wait; opacity: .7; }
+.pp-pick .pp-pick-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pp-pick .pp-pick-text.is-empty { color: var(--pp-muted); }
+.pp-pick .pp-pick-caret { position: absolute; right: 16px; top: 50%; width: 8px; height: 8px; margin-top: -6px; border-right: 2px solid var(--pp-muted); border-bottom: 2px solid var(--pp-muted); transform: rotate(45deg); transition: transform .15s; pointer-events: none; }
+.pp-pick .is-open .pp-pick-caret { transform: rotate(-135deg); margin-top: -2px; }
+.pp-pick .pp-pick-btn:focus-visible, .pp-pick .is-open .pp-pick-btn { outline: none; border-color: var(--pp-focus); box-shadow: 0 0 0 1px var(--pp-focus); }
+.pp-pick .is-invalid .pp-pick-btn { border-color: var(--pp-bad); border-width: 2px; padding-top: 10.5px; padding-bottom: 10.5px; }
+.pp-pick .pp-pick-clear {
+  position: absolute; right: 38px; top: 50%; width: 26px; height: 26px; margin: -13px 0 0; padding: 0; border: 0; border-radius: 50%;
+  background: var(--pp-hover); color: var(--pp-muted); font-size: 18px; line-height: 26px; text-align: center; cursor: pointer;
+}
+.pp-pick .pp-pick-clear:hover { color: var(--pp-ink); }
+.pp-pick .pp-pick-clear:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--pp-focus); }
+
+.pp-pick .pp-pick-panel {
+  position: absolute; z-index: 1060; top: calc(100% + 6px); left: 0; right: 0; display: flex; flex-direction: column; max-height: 380px;
+  background: var(--pp-panel); color: var(--pp-ink); border: 1px solid var(--pp-line); border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.18); overflow: hidden;
+}
+.pp-pick .pp-pick-head { display: flex; align-items: stretch; border-bottom: 1px solid var(--pp-line); }
+.pp-pick .pp-pick-tabs { display: flex; flex: 1; min-width: 0; }
+.pp-pick .pp-pick-tab {
+  flex: 1 1 0; min-width: 0; margin: 0; padding: 12px 2px 10px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: transparent;
+  color: var(--pp-muted); font: inherit; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pp-pick .pp-pick-tab.is-done { color: var(--pp-ink); }
+.pp-pick .pp-pick-tab.is-current { color: var(--pp-accent); border-bottom-color: var(--pp-accent); }
+.pp-pick .pp-pick-tab[aria-disabled="true"] { opacity: .45; cursor: default; }
+.pp-pick .pp-pick-tab:focus-visible { outline: none; box-shadow: inset 0 0 0 1px var(--pp-focus); }
+.pp-pick .pp-pick-close { display: none; margin: 0; padding: 0 16px; border: 0; background: transparent; color: var(--pp-muted); font-size: 26px; line-height: 1; cursor: pointer; }
+.pp-pick .pp-pick-search-wrap { padding: 10px 10px 4px; }
+.pp-pick .pp-pick-search {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 10px 12px; border: 1.5px solid var(--pp-line); border-radius: 10px;
+  background: var(--pp-bg); color: var(--pp-ink); font: inherit; font-size: 16px; line-height: 1.4;
+}
+.pp-pick .pp-pick-search:focus, .pp-pick .pp-pick-search:focus-visible { outline: none; border-color: var(--pp-focus); box-shadow: 0 0 0 1px var(--pp-focus); }
+.pp-pick .pp-pick-list { flex: 1; min-height: 0; margin: 0; padding: 4px 6px 8px; list-style: none; overflow-y: auto; overscroll-behavior: contain; max-height: 252px; }
+.pp-pick .pp-pick-list:focus { outline: none; }
+.pp-pick .pp-pick-opt { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0; padding: 11px 12px; border-radius: 8px; font-size: 15px; line-height: 1.3; cursor: pointer; }
+.pp-pick .pp-pick-opt.is-active { background: var(--pp-hover); }
+.pp-pick .pp-pick-opt.is-chosen { background: var(--pp-chosen); color: var(--pp-accent); font-weight: 600; }
+.pp-pick .pp-pick-opt.is-chosen::after { content: "\2713"; font-size: 14px; }
+.pp-pick .pp-pick-empty { margin: 0; padding: 18px 14px 20px; color: var(--pp-muted); font-size: 14px; text-align: center; }
+.pp-pick .pp-pick-backdrop { display: none; }
+
+/* Phone: the panel is a sheet from the bottom edge, the whole width. */
+@media (max-width: 640px) {
+  .pp-pick .pp-pick-backdrop { display: block; position: fixed; inset: 0; z-index: 1059; background: rgba(0,0,0,.45); }
+  .pp-pick .pp-pick-backdrop[hidden] { display: none; }
+  .pp-pick .pp-pick-panel { position: fixed; top: auto; left: 0; right: 0; bottom: 0; max-height: 82vh; max-height: 82dvh; border-width: 1px 0 0; border-radius: 16px 16px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .pp-pick .pp-pick-list { max-height: none; }
+  .pp-pick .pp-pick-close { display: block; }
+  .pp-pick .pp-pick-tab { font-size: 13px; }
+  .pp-pick .pp-pick-opt { padding: 13px 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .pp-pick *, .pp-pick-zip * { transition: none !important; } }

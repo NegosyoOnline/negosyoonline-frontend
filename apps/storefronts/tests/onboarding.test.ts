@@ -143,7 +143,12 @@ test("a step that worked goes on to the next page; a 429 keeps its status", asyn
 test("the address page carries the cascade, the data files and its words; no inline script", async () => {
   const f = fake({ "onboarding/state": [ok(state({ step: "address", mobile: { pending: false }, email: { verified: true } }))] });
   const body = await text((await onboardingPage(flowOf(f), "address"))!);
-  for (const word of ["Step 2 of 3", "Delivery address", "Tell us who receives your Membership Pack and where to deliver it.", "Receiver Name *", "Receiver Mobile *", "City / Municipality *", "Landmark *", "Save and continue"]) assert.ok(body.includes(word), word);
+  for (const word of ["Step 2 of 3", "Delivery address", "Tell us who receives your Membership Pack and where to deliver it.", "Receiver Name *", "Receiver Mobile *", "City / Municipality *", "Landmark *", "Save and continue", "Street name, Building, House no. *", "ZIP Code *"]) assert.ok(body.includes(word), word);
+  assert.match(body, /data-pp-pick-mount/);
+  assert.match(body, /name="postal_code"/);
+  assert.match(body, /<input type="hidden" name="barangay_code" value="">/);
+  assert.match(body, /css\/pack-picker\.css\?v=[0-9a-f]{8}/);
+  assert.doesNotMatch(body, /<select id="da-/);
   assert.match(body, /data-ph-provinces="\/assets\/sante\/data\/provinces\.json\?v=[0-9a-f]{8}"/);
   assert.match(body, /data-zip-url="\/funnel\/membership-pack\/onboarding\/zip\/"/);
   assert.match(body, /value="917 123 4567"/);

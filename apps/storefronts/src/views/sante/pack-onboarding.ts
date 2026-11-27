@@ -12,6 +12,7 @@
 import { asset } from "../../lib/assets.ts";
 import { html, safe, type Markup } from "../../lib/html.ts";
 import type { OnboardingState } from "../../lib/pack-api.ts";
+import { addressPicker, pickerData } from "./address-picker.ts";
 import { icon } from "./icons.ts";
 import { packDocument, type PackCtx } from "./pack-page.ts";
 import { TERMS_ERROR, termsDialog, termsField } from "./pack-terms.ts";
@@ -240,16 +241,12 @@ function addressStep(v: ObView): Markup {
       <div class="fld"><label for="${id}">${label} *</label>
       <input id="${id}" class="inp${invalid(!!fe[name])}" type="text" name="${name}" ${attrs} value="${value}">
       ${fe[name] ? html`<p class="err">${fe[name]}</p>` : hint}</div>`;
-  const select = (name: string, label: string, id: string, placeholder: string, value: string): Markup => html`
-      <div class="fld${fe[name] ? " is-invalid" : ""}"><label for="${id}">${label} *</label>
-      <select id="${id}" name="${name}" data-pk-select data-placeholder="${placeholder}" data-value="${value}" disabled><option value=""></option></select>
-      ${fe[name] ? html`<p class="err">${fe[name]}</p>` : ""}</div>`;
   return html`
 <span class="pp-next-eyebrow">Step 2 of 3</span>
 <h1>Delivery address</h1>
 <p class="pp-next-lede">Tell us who receives your Membership Pack and where to deliver it.</p>
 <form method="post" action="${ADDRESS_PATH}" novalidate data-pp-busy-msg="Saving your delivery address…">
-  <div class="pp-addr" data-pp-address data-ph-provinces="${asset("data/provinces.json")}" data-ph-cities="${asset("data/city-mun.json")}" data-ph-barangays="${asset("data/barangays.json")}" data-zip-url="${ZIP_PATH}">
+  <div class="pp-addr" ${pickerData(ZIP_PATH)}>
     <div class="pp-ob-grid">
       ${field("receiver_name", "Receiver Name", "da-name", html`maxlength="120" autocomplete="name"`, p.receiver_name || a.receiver_name)}
       <div class="fld"><label for="da-mobile">Receiver Mobile *</label>
@@ -257,20 +254,16 @@ function addressStep(v: ObView): Markup {
       <input id="da-mobile" class="pp-phone-input" type="tel" name="receiver_mobile" inputmode="numeric" autocomplete="tel-national" placeholder="9XX XXX XXXX" value="${p.receiver_mobile || localMobile}"></div>
       ${fe.receiver_mobile ? html`<p class="err">${fe.receiver_mobile}</p>` : ""}</div>
     </div>
-    ${field("line", "Address", "da-line", html`maxlength="200" autocomplete="address-line1" placeholder="House or unit number and street"`, p.line || a.line)}
-    <div class="pp-ob-grid">
-      ${select("province", "Province", "da-province", "Select province", p.province || a.province)}
-      ${select("city", "City / Municipality", "da-city", "Select city / municipality", p.city || a.city)}
-      ${select("barangay", "Barangay", "da-barangay", "Select barangay", p.barangay || a.barangay)}
-      <div class="fld"><label for="da-country">Country</label>
-      <input id="da-country" class="inp" type="text" value="Philippines" disabled></div>
-    </div>
-    <div class="fld" data-pp-zip-field${fe.postal_code ? html`` : html` hidden`}><label for="da-zip">ZIP Code *</label>
-    <input id="da-zip" class="inp${invalid(!!fe.postal_code)}" type="text" name="postal_code" inputmode="numeric" maxlength="4" autocomplete="postal-code" placeholder="4 digits, e.g. 1300" value="${p.postal_code ?? ""}">
-    <p class="hint" data-pp-zip-hint></p>
-    ${fe.postal_code ? html`<p class="err">${fe.postal_code}</p>` : ""}</div>
+    ${addressPicker({
+      style: "ob", zipName: "postal_code", barangayCode: true,
+      ids: { province: "da-province", city: "da-city", barangay: "da-barangay", zip: "da-zip" },
+      values: { province: p.province || a.province, city: p.city || a.city, barangay: p.barangay || a.barangay, zip: p.postal_code ?? "" },
+      errors: fe,
+    })}
+    ${field("line", "Street name, Building, House no.", "da-line", html`maxlength="200" autocomplete="address-line1" placeholder="e.g. 12 Mabini St, Unit 3B"`, p.line || a.line)}
+    <div class="fld"><label for="da-country">Country</label>
+    <input id="da-country" class="inp" type="text" value="Philippines" disabled></div>
     ${field("landmark", "Landmark", "da-landmark", html`maxlength="200" placeholder="e.g. Near the barangay hall"`, p.landmark || a.landmark)}
-    <input type="hidden" name="barangay_code" value="">
   </div>
   <div class="pp-ob-actions"><button class="btn pp-ob-cta" type="submit">Save and continue<span class="pp-ob-cta-arrow" aria-hidden="true">&rarr;</span></button></div>
 </form>
@@ -336,6 +329,7 @@ export function onboardingDocument(c: PackCtx, v: ObView, termsVersion: number |
     title: "Onboarding",
     content: frame(c, "onboarding", card, v.state.payment_method_label),
     head: html`<link rel="stylesheet" href="${asset("css/pack-verify.css")}">
+<link rel="stylesheet" href="${asset("css/pack-picker.css")}">
 <script src="${asset("js/pack-select.js")}" defer></script>`,
     scripts,
   });

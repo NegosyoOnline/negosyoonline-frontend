@@ -15,11 +15,20 @@ html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
 .pp-pick[hidden], .pp-pick [hidden], .pp-pick-fallback[hidden] { display: none !important; }
 
 /* The field takes the full row (ADDRESS-FORM-STANDARD). The ZIP is posted from the lookup in its own input, which stays hidden
-   (display:none still posts) unless there is no ZIP for the place (state "missing"), or no script ran: then it is a required
-   field on its own full row below. */
+   (display:none still posts). A place with no authoritative ZIP asks for it in the pop-up (.pp-zip-dlg below, ADDRESS-ZIP-POPUP-LEARN);
+   the row then only shows a short note and a button to open the pop-up again (state "missing" or "entered"). Without script the ZIP is
+   the required field it was; where the browser has no <dialog>, the row stays the plain field (no .pp-zip-note-mode). */
 .pp-pick-row { display: block; }
 .pp-pick-main, .pp-pick-zip { min-width: 0; }
-.pp-pick-zip[data-zip-state]:not([data-zip-state="missing"]) { display: none; }
+.pp-pick-zip[data-zip-state="authoritative"], .pp-pick-zip[data-zip-state="idle"], .pp-pick-zip[data-zip-state="pending"] { display: none; }
+.pp-pick-zip.pp-zip-note-mode[data-zip-state="suggested"] { display: none; }
+.pp-pick-zip.pp-zip-note-mode > label, .pp-pick-zip.pp-zip-note-mode > input { display: none; }
+.pp-pick-zip .pp-zip-edit {
+  margin: 4px 0 0; padding: 8px 14px; border: 1.5px solid var(--pp-line); border-radius: 10px; background: var(--pp-bg); color: var(--pp-ink);
+  font: inherit; font-size: 15px; line-height: 1.3; cursor: pointer;
+}
+.pp-pick-zip .pp-zip-edit:hover { background: var(--pp-hover); }
+.pp-pick-zip .pp-zip-edit:focus-visible { outline: none; border-color: var(--pp-focus); box-shadow: 0 0 0 1px var(--pp-focus); }
 .pp-pick-zip input[readonly] { background: var(--pp-lock); color: var(--pp-ink); cursor: default; }
 .pp-pick-zip input[readonly]:focus { border-color: var(--pp-line); box-shadow: none; }
 
@@ -85,3 +94,39 @@ html[data-theme="dark"] .pp-pick, html[data-theme="dark"] .pp-pick-zip {
   .pp-pick .pp-pick-opt { padding: 13px 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .pp-pick *, .pp-pick-zip * { transition: none !important; } }
+
+/* The ZIP pop-up: a native modal <dialog> appended to the page body, so its colours are set on the dialog itself. Light and dark
+   (the member dashboard's html[data-theme="dark"]); the focus rule is the light blue, never gold. */
+.pp-zip-dlg {
+  --pp-line: #dee2e6; --pp-bg: #fff; --pp-panel: #fff; --pp-ink: #1a1a1a; --pp-muted: #686868; --pp-hover: #f2f5f9;
+  --pp-accent: var(--green, var(--color-primary-700, #1a6207)); --pp-focus: #6C8CFF; --pp-bad: #c0392b;
+  position: fixed; inset: 0; width: calc(100% - 32px); max-width: 420px; height: fit-content; max-height: calc(100dvh - 32px); margin: auto; padding: 0;
+  border: 1px solid var(--pp-line); border-radius: 16px; background: var(--pp-panel); color: var(--pp-ink); font: inherit; box-shadow: 0 16px 40px rgba(0,0,0,.25);
+}
+html[data-theme="dark"] .pp-zip-dlg {
+  --pp-line: #3A4A42; --pp-bg: #0f1512; --pp-panel: #17201B; --pp-ink: #E6EDE9; --pp-muted: #A9B8B0; --pp-hover: rgba(255,255,255,.07); --pp-accent: #5FD39B;
+}
+.pp-zip-dlg::backdrop { background: rgba(20, 32, 27, .55); }
+.pp-zip-dlg-card { padding: 16px 20px 20px; }
+.pp-zip-dlg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.pp-zip-dlg-head h2 { margin: 0; font-size: 19px; font-weight: 700; line-height: 1.3; color: var(--pp-ink); }
+.pp-zip-dlg-close { flex: none; width: 40px; height: 40px; margin: -6px -10px 0 0; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--pp-muted); font-size: 26px; line-height: 1; cursor: pointer; }
+.pp-zip-dlg-close:hover { background: var(--pp-hover); color: var(--pp-ink); }
+.pp-zip-dlg-close:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--pp-focus); }
+.pp-zip-dlg-text { margin: 0 0 14px; color: var(--pp-muted); font-size: 15px; line-height: 1.45; }
+.pp-zip-dlg-label { display: block; margin: 0 0 6px; color: var(--pp-ink); font-size: 14px; font-weight: 600; }
+.pp-zip-dlg-input {
+  display: block; width: 100%; box-sizing: border-box; margin: 0; padding: 11px 14px; border: 1.5px solid var(--pp-line); border-radius: 12px;
+  background: var(--pp-bg); color: var(--pp-ink); font: inherit; font-size: 16px; letter-spacing: .08em; line-height: 1.35;
+}
+.pp-zip-dlg-input:focus, .pp-zip-dlg-input:focus-visible { outline: none; border-color: var(--pp-focus); box-shadow: 0 0 0 1px var(--pp-focus); }
+.pp-zip-dlg-input.is-bad { border-color: var(--pp-bad); }
+.pp-zip-dlg-err { margin: 6px 0 0; color: var(--pp-bad); font-size: 14px; line-height: 1.4; }
+.pp-zip-dlg-err[hidden] { display: none; }
+.pp-zip-dlg-ok {
+  display: block; width: 100%; margin: 16px 0 0; padding: 12px 16px; border: 0; border-radius: 12px; background: var(--pp-accent); color: #fff;
+  font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
+}
+html[data-theme="dark"] .pp-zip-dlg-ok { color: #0f1512; }
+.pp-zip-dlg-ok:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--pp-panel), 0 0 0 4px var(--pp-focus); }
+body:has(.pp-zip-dlg[open]) { overflow: hidden; }

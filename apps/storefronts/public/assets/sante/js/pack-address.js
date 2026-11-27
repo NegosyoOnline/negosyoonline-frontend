@@ -9,17 +9,20 @@
    Manila, North Luzon, South Luzon, Visayas, Mindanao, from each province's reg_code) only filters the provinces and is never posted.
    Without this script, or if the data files do not load, the three text inputs stay visible and still post.
 
-   The ZIP code sits beside the field and follows the existing ZIP lookup (data-zip-url): an authoritative answer (barangay or
-   city_unique) is filled and read-only; any other answer is a suggestion, filled and editable; no answer leaves it empty, editable and
-   required (4 digits). The +63 receiver mobile box is also driven here. Adapted from the merchant membership-pack address script. */
+   The ZIP follows the existing ZIP lookup (data-zip-url) and is posted from its own input (ADDRESS-FORM-STANDARD). An authoritative
+   answer (zip_precision barangay, learned or city_unique) is posted silently. Otherwise (city_approx, or no answer) a pop-up dialog
+   (ADDRESS-ZIP-POPUP-LEARN) asks for the 4-digit ZIP: pre-filled and editable for city_approx, empty for no answer; it is required, and
+   closing it without a ZIP leaves the address incomplete with the same error. A valid ZIP already in the box (a server re-render)
+   shows no dialog. The +63 receiver mobile box is also driven here. Adapted from the merchant membership-pack address script. */
 (function () {
   'use strict';
 
-  var ZIP_AUTHORITATIVE = ['barangay', 'city_unique'];
+  var ZIP_AUTHORITATIVE = ['barangay', 'learned', 'city_unique'];
   var ZIP_ERROR = 'Enter the 4-digit ZIP code for this address.';
   var PICK_ERROR = 'Choose your province, city and barangay.';
   var ZIP_SUGGESTED = 'This is the city ZIP code. Correct it if your barangay uses a different one.';
   var ZIP_MISSING = "We couldn't find the ZIP code for this barangay. Please type it.";
+  var ZIP_RE = /^\d{4}$/;
   var FIELD_LABEL = 'Province, City, Barangay';
 
   // Supervisor decision (ClickUp z8uq9mkmwb): five groups over provinces.json reg_code.
@@ -77,13 +80,18 @@
     if (brgy) parts.push(titleCase(brgy.name));
     return parts.join(', ');
   }
-  // The three ZIP states from the lookup's answer; "typed" is what the buyer already typed (kept for a suggestion or no answer).
+  // The ZIP states from the lookup's answer; "typed" is what the buyer already typed (a server re-render draws it back).
+  //   authoritative (barangay, learned, city_unique): filled, posted silently, no dialog.
+  //   entered: a valid 4-digit ZIP is already there (a re-render) and the answer is not authoritative: kept, no dialog.
+  //   suggested (city_approx): the dialog opens pre-filled with the suggestion, editable.
+  //   missing (no answer): the dialog opens empty; a ZIP is required.
   function zipState(d, typed) {
     var zip = d && d.success && d.zip ? String(d.zip) : '';
     var precision = d && d.success ? d.zip_precision : null;
-    if (zip && ZIP_AUTHORITATIVE.indexOf(precision) !== -1) return { kind: 'authoritative', value: zip, readOnly: true, hint: '' };
-    if (zip) return { kind: 'suggested', value: /^\d{4}$/.test(typed || '') ? typed : zip, readOnly: false, hint: ZIP_SUGGESTED };
-    return { kind: 'missing', value: typed || '', readOnly: false, hint: ZIP_MISSING };
+    if (zip && ZIP_AUTHORITATIVE.indexOf(precision) !== -1) return { kind: 'authoritative', value: zip, readOnly: true, hint: '', dialog: false };
+    if (ZIP_RE.test(typed || '')) return { kind: 'entered', value: typed, readOnly: false, hint: '', dialog: false };
+    if (zip) return { kind: 'suggested', value: zip, readOnly: false, hint: ZIP_SUGGESTED, dialog: true };
+    return { kind: 'missing', value: '', readOnly: false, hint: ZIP_MISSING, dialog: true };
   }
 
   // The picker's choices, apart from the page: the path (region, province, city, barangay), what each tab lists, what a pick keeps or
@@ -226,25 +234,121 @@
     var uid = 'ppk' + (++uidCount);
 
     /* ---- ZIP ---- */
+    // With a native <dialog> the ZIP input stays hidden (it still posts) and a short note with a button stands in its row; without
+    // one the row is the plain required field it was.
+    var useDlg = typeof HTMLDialogElement !== 'undefined' && typeof document.createElement('dialog').showModal === 'function';
+    var suggestion = '';
+    var zipBtn = null, dlg = null, dlgInput = null, dlgErr = null, dlgConfirmed = false;
+    if (zipField && useDlg) {
+      zipField.classList.add('pp-zip-note-mode');
+      zipBtn = make('button', { type: 'button', 'class': 'pp-zip-edit' });
+      zipField.appendChild(zipBtn);
+    }
     function zipClearError() {
       if (!zipInput) return;
       zipInput.classList.remove('bad', 'sf-field-invalid');
       zipInput.removeAttribute('aria-invalid');
       if (zipField) zipField.querySelectorAll('.err, .sf-field-error').forEach(function (el) { el.remove(); });
     }
+    function showZipError() {
+      zipClearError();
+      zipField.appendChild(make('p', { 'class': 'err sf-field-error' }, ZIP_ERROR));
+      zipInput.classList.add('bad', 'sf-field-invalid');
+      zipInput.setAttribute('aria-invalid', 'true');
+    }
     function applyZip(st) {
       if (!zipInput) return;
       zipInput.value = st.value;
       zipInput.readOnly = st.readOnly;
       if (zipField) zipField.setAttribute('data-zip-state', st.kind);
-      if (zipHint) zipHint.textContent = st.hint;
-      if (st.kind === 'authoritative' || st.kind === 'suggested') zipClearError();
+      var hint = st.hint;
+      if (useDlg && st.kind === 'entered') hint = 'ZIP code: ' + st.value;
+      if (zipHint) zipHint.textContent = hint;
+      if (zipBtn) zipBtn.textContent = st.kind === 'entered' ? 'Change' : 'Enter ZIP code';
+      if (st.kind === 'authoritative' || st.kind === 'suggested' || st.kind === 'entered') zipClearError();
     }
     var IDLE = { kind: 'idle', value: '', readOnly: true, hint: '' };
     var zipSeq = 0;
-    function zipIdle() { zipSeq++; applyZip(IDLE); zipClearError(); }
+    function zipIdle() { zipSeq++; suggestion = ''; applyZip(IDLE); zipClearError(); }
+
+    /* The ZIP pop-up: a native modal <dialog> (focus is trapped and the page behind is inert), in the app's colours. Esc, the close
+       button and the backdrop all close it; closing without a 4-digit ZIP leaves the box empty and shows the ZIP error. */
+    function buildDialog() {
+      var t = uid + '-zt', dsc = uid + '-zd', inId = uid + '-zi';
+      dlg = make('dialog', { 'class': 'pp-zip-dlg', 'aria-labelledby': t, 'aria-describedby': dsc });
+      var card = make('div', { 'class': 'pp-zip-dlg-card' });
+      var hd = make('div', { 'class': 'pp-zip-dlg-head' });
+      hd.appendChild(make('h2', { id: t }, 'Enter your ZIP code'));
+      var x = make('button', { type: 'button', 'class': 'pp-zip-dlg-close', 'aria-label': 'Close' }, '×');
+      hd.appendChild(x);
+      var p = make('p', { id: dsc, 'class': 'pp-zip-dlg-text' });
+      var lb = make('label', { 'for': inId, 'class': 'pp-zip-dlg-label' }, 'ZIP Code *');
+      dlgInput = make('input', { type: 'text', id: inId, 'class': 'pp-zip-dlg-input', inputmode: 'numeric', maxlength: '4', autocomplete: 'postal-code', placeholder: 'e.g. 1300', 'aria-describedby': dsc });
+      dlgErr = make('p', { 'class': 'pp-zip-dlg-err', role: 'alert', hidden: '' }, ZIP_ERROR);
+      var ok = make('button', { type: 'button', 'class': 'pp-zip-dlg-ok' }, 'Continue');
+      [hd, p, lb, dlgInput, dlgErr, ok].forEach(function (n) { card.appendChild(n); });
+      dlg.appendChild(card);
+      document.body.appendChild(dlg);
+      dlg._text = p;
+      function confirm() {
+        var v = (dlgInput.value || '').trim();
+        if (!ZIP_RE.test(v)) {
+          dlgErr.hidden = false;
+          dlgInput.classList.add('is-bad');
+          dlgInput.setAttribute('aria-invalid', 'true');
+          dlgInput.focus();
+          return;
+        }
+        dlgConfirmed = true;
+        suggestion = '';
+        applyZip({ kind: 'entered', value: v, readOnly: false, hint: '' });
+        dlg.close();
+      }
+      ok.addEventListener('click', confirm);
+      x.addEventListener('click', function () { dlg.close(); });
+      dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });  // the backdrop
+      dlgInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); confirm(); } });
+      dlgInput.addEventListener('input', function () {
+        var digits = dlgInput.value.replace(/\D/g, '').slice(0, 4);
+        if (digits !== dlgInput.value) dlgInput.value = digits;
+        dlgErr.hidden = true;
+        dlgInput.classList.remove('is-bad');
+        dlgInput.removeAttribute('aria-invalid');
+      });
+      dlg.addEventListener('close', function () {
+        if (dlgConfirmed) { dlgConfirmed = false; return; }
+        if (ZIP_RE.test(zipInput.value)) return;  // "Change" closed without a new ZIP: the one already entered stays
+        // Closed without a ZIP: the address stays incomplete, with the same error; the field's button opens it again.
+        applyZip({ kind: 'missing', value: '', readOnly: false, hint: ZIP_MISSING });
+        showZipError();
+      });
+    }
+    function openDialog(prefill, isSuggestion) {
+      if (!useDlg || !zipInput) return;
+      if (!dlg) buildDialog();
+      if (dlg.open) return;
+      dlg._text.textContent = isSuggestion ? ZIP_SUGGESTED : ZIP_MISSING;
+      dlgInput.value = prefill || '';
+      dlgErr.hidden = true;
+      dlgInput.classList.remove('is-bad');
+      dlgInput.removeAttribute('aria-invalid');
+      dlg.showModal();
+      dlgInput.focus();
+      dlgInput.select();
+    }
+    if (zipBtn) zipBtn.addEventListener('click', function () { openDialog(zipInput.value || suggestion, !zipInput.value && !!suggestion); });
+
+    // Shows the lookup's answer. auto: the buyer just picked the place, so a dialog opens now; otherwise (the page was just
+    // drawn) the note and its button wait and the Save check opens the dialog.
+    function settleZip(st, auto) {
+      suggestion = '';
+      if (!st.dialog || !useDlg) { applyZip(st); return; }
+      suggestion = st.kind === 'suggested' ? st.value : '';
+      applyZip({ kind: 'missing', value: '', readOnly: false, hint: ZIP_MISSING });
+      if (auto) openDialog(suggestion, !!suggestion);
+    }
     // keepTyped: true keeps the ZIP now in the box; a string keeps that ZIP (the one the server drew, on a re-render restore).
-    function lookupZip(keepTyped) {
+    function lookupZip(keepTyped, auto) {
       var typed = typeof keepTyped === 'string' ? keepTyped : (keepTyped && zipInput ? zipInput.value : '');
       if (!zipUrl || !M.complete()) { zipIdle(); return; }
       var seq = ++zipSeq;
@@ -253,8 +357,8 @@
             '&city=' + encodeURIComponent(M.city.name) +
             '&barangay=' + encodeURIComponent(M.brgy.name), { credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
-        .then(function (d) { if (seq === zipSeq) applyZip(zipState(d, typed)); })
-        .catch(function () { if (seq === zipSeq) applyZip(zipState({}, typed)); });
+        .then(function (d) { if (seq === zipSeq) settleZip(zipState(d, typed), auto); })
+        .catch(function () { if (seq === zipSeq) settleZip(zipState({}, typed), auto); });
     }
     if (zipInput) {
       zipInput.addEventListener('input', function () {
@@ -412,7 +516,7 @@
       syncInputs();
       if (r.next) { go(r.next, true); return; }
       closePanel(true);
-      lookupZip(false);
+      lookupZip(false, true);
     }
     function clearAll() {
       M.clear();
@@ -485,14 +589,12 @@
           if (btn.scrollIntoView) btn.scrollIntoView({ block: 'center' });
           return;
         }
-        if (!zipInput || /^\d{4}$/.test((zipInput.value || '').trim())) return;
+        if (!zipInput || ZIP_RE.test((zipInput.value || '').trim())) return;
         e.preventDefault();
-        if (zipField && zipField.getAttribute('data-zip-state') !== 'missing') return;  // the ZIP is still being looked up (its box is hidden); try again in a moment
-        zipClearError();
-        var line = make('p', { 'class': 'err sf-field-error' }, ZIP_ERROR);
-        zipField.appendChild(line);
-        zipInput.classList.add('bad', 'sf-field-invalid');
-        zipInput.setAttribute('aria-invalid', 'true');
+        var kind = zipField ? zipField.getAttribute('data-zip-state') : '';
+        if (kind !== 'missing' && kind !== 'suggested') return;  // the ZIP is still being looked up; try again in a moment
+        if (useDlg) { openDialog(suggestion, !!suggestion); return; }
+        showZipError();
         if (!zipInput.readOnly) zipInput.focus();
         if (zipInput.scrollIntoView) zipInput.scrollIntoView({ block: 'center' });
       });
@@ -510,7 +612,7 @@
       syncInputs();
       setReady(true);
       syncInputs();
-      if (M.brgy) lookupZip(typedZip);
+      if (M.brgy) lookupZip(typedZip, false);
       else applyZip(IDLE);
     }).catch(function () {
       // The data did not load: the text inputs come back, as the page drew them, and the server validates.

@@ -39,3 +39,10 @@ See the Supervisor report (lint, tests, build counts). Local visual check was do
 - Country removed on onboarding (`da-country`) and checkout (`cf_country`). It was a disabled field with no name, so it never posted; nothing posted changes (the API still defaults `country` to Philippines).
 - `assets.ts`: `css/pack-picker.css` and `js/pack-address.js` ?v= bumped.
 - Field label is now "Province, City, Barangay *" (and the panel's aria-label and the incomplete-path message drop "region"); the Region tab stays. `js/pack-address.js` ?v= bumped to 7fea19a2.
+
+## Fix round 3 / ZIP pop-up (ClickUp z8uq9mkmwb, ruling ADDRESS-ZIP-POPUP-LEARN, Coach Ed 2026-11-28)
+- Replaces round 2's required "ZIP Code" row with a pop-up: a native modal `<dialog class="pp-zip-dlg">` built by `pack-address.js` (house pattern: the policy popup's `<dialog>`; focus trapped and page inert via `showModal()`, Esc / x / backdrop close, `aria-labelledby` + `aria-describedby`, light-blue focus, light and dark, phone width). Continue needs 4 digits (same text "Enter the 4-digit ZIP code for this address.").
+- Precision contract: barangay | learned | city_unique = authoritative (ZIP posted silently, no dialog). city_approx = dialog pre-filled with the suggestion, editable. "" / no answer / failed lookup = dialog empty, required. `learned` also added to the shop checkout's `withZip` (`src/lib/shop-api.ts`).
+- The entered ZIP goes into the same posted input (`postal_code` / `zip`); the dialog's own input has no name. The ZIP row shows only a short note with a button ("Enter ZIP code", or "ZIP code: 1234" + "Change") after a dismissal or entry; closing without a ZIP leaves the field empty, shows the ZIP error, and Save (or the button) opens the dialog again.
+- Re-render: a valid 4-digit ZIP drawn by the server with a non-authoritative answer is kept ("entered"), no dialog; the dialog never auto-opens on page load, only after the buyer picks a place or presses Save. Routine decision: without `<dialog>` support the old plain required row is kept.
+- `assets.ts`: `css/pack-picker.css` and `js/pack-address.js` ?v= bumped.

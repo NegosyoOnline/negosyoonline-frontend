@@ -698,6 +698,8 @@ test("the edit form posts the barangay with no ZIP (the row is hidden): the save
   };
   // the lookup is exact for the barangay: its ZIP
   assert.equal(await saved(backend({ ...own, zip: { zip_code: "1210", zip_precision: "barangay" } }), noZip), "1210");
+  // a learned ZIP (a place a buyer typed before) is as authoritative as the barangay's
+  assert.equal(await saved(backend({ ...own, zip: { zip_code: "1215", zip_precision: "learned" } }), noZip), "1215");
   // no lookup answer, same province, city and barangay: the saved ZIP stays (names compared without case)
   assert.equal(await saved(backend(own), { ...noZip, city: "MAKATI", barangay: "POBLACION" }), "1210");
   // another barangay and no lookup answer: no ZIP is invented

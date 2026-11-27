@@ -172,51 +172,71 @@ test("names are shown in title case, and the posted value stays the dataset's na
   assert.equal(PP.titleCase("BARANGAY II"), "Barangay II");
 });
 
-test("ZIP states: authoritative is filled and read-only; any other answer is a suggestion, filled and editable; no answer is empty and editable", () => {
+test("ZIP states: barangay, learned and city_unique are authoritative (no dialog); city_approx opens the dialog pre-filled and editable; no answer opens it empty", () => {
   const ok = (zip_precision: string, zip = "1110") => PP.zipState({ success: true, zip, zip_precision }, "");
-  for (const precision of ["barangay", "city_unique"]) {
-    assert.deepEqual(plain(ok(precision)), { kind: "authoritative", value: "1110", readOnly: true, hint: "" }, precision);
+  for (const precision of ["barangay", "learned", "city_unique"]) {
+    assert.deepEqual(plain(ok(precision)), { kind: "authoritative", value: "1110", readOnly: true, hint: "", dialog: false }, precision);
     assert.equal(PP.zipState({ success: true, zip: "1110", zip_precision: precision }, "9999").value, "1110", "a typed value never overrides an authoritative answer");
+    assert.equal(PP.zipState({ success: true, zip: "1110", zip_precision: precision }, "").dialog, false, `${precision} never opens the dialog`);
   }
   const city = ok("city_approx", "1200");
-  assert.deepEqual(plain({ k: city.kind, v: city.value, r: city.readOnly }), { k: "suggested", v: "1200", r: false });
+  assert.deepEqual(plain({ k: city.kind, v: city.value, r: city.readOnly, d: city.dialog }), { k: "suggested", v: "1200", r: false, d: true });
   assert.match(city.hint, /^This is the city ZIP code\. Correct it if your barangay uses a different one\.$/);
-  assert.equal(PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, "1201").value, "1201", "a typed value is kept over a suggestion");
-  for (const none of [{ success: true, zip: null, zip_precision: null }, { success: false }, {}, null]) {
+  for (const none of [{ success: true, zip: null, zip_precision: null }, { success: true, zip: null, zip_precision: "" }, { success: false }, {}, null]) {
     const st = PP.zipState(none, "");
-    assert.deepEqual(plain({ k: st.kind, v: st.value, r: st.readOnly }), { k: "missing", v: "", r: false });
+    assert.deepEqual(plain({ k: st.kind, v: st.value, r: st.readOnly, d: st.dialog }), { k: "missing", v: "", r: false, d: true });
     assert.equal(st.hint, "We couldn't find the ZIP code for this barangay. Please type it.");
   }
-  assert.equal(PP.zipState({ success: true, zip: null }, "1234").value, "1234", "no answer keeps what was typed");
+  // an unknown precision with a ZIP is not authoritative either
+  assert.equal(PP.zipState({ success: true, zip: "1200", zip_precision: "other" }, "").dialog, true);
 });
 
-test("restore after a server re-render: the ZIP the server drew is kept for a suggestion or no answer, and replaced only by an authoritative one", () => {
+test("restore after a server re-render: a valid ZIP already there shows no dialog; one that is not 4 digits opens it; an authoritative answer replaces it", () => {
   const drawn = "1201"; // typed by the buyer, drawn back by the server beside an error elsewhere (e.g. Landmark empty)
-  const sug = PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, drawn);
-  assert.deepEqual(plain({ k: sug.kind, v: sug.value, r: sug.readOnly }), { k: "suggested", v: "1201", r: false });
-  const none = PP.zipState({ success: true, zip: null }, drawn);
-  assert.deepEqual(plain({ k: none.kind, v: none.value, r: none.readOnly }), { k: "missing", v: "1201", r: false });
-  const failed = PP.zipState({}, drawn);
-  assert.equal(failed.value, "1201", "a failed lookup keeps it too");
-  for (const precision of ["barangay", "city_unique"]) {
+  for (const answer of [{ success: true, zip: "1200", zip_precision: "city_approx" }, { success: true, zip: null }, {}]) {
+    const st = PP.zipState(answer, drawn);
+    assert.deepEqual(plain({ k: st.kind, v: st.value, d: st.dialog }), { k: "entered", v: "1201", d: false });
+  }
+  assert.equal(PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, "12").value, "1200", "a short typed value does not survive a suggestion");
+  assert.equal(PP.zipState({ success: true, zip: null }, "12").dialog, true);
+  for (const precision of ["barangay", "learned", "city_unique"]) {
     const auth = PP.zipState({ success: true, zip: "1200", zip_precision: precision }, drawn);
     assert.deepEqual(plain({ k: auth.kind, v: auth.value, r: auth.readOnly }), { k: "authoritative", v: "1200", r: true }, precision);
   }
-  // The script hands the lookup the ZIP the server drew (read before the box is emptied), not the emptied box.
+  // The script hands the lookup the ZIP the server drew (read before the box is emptied), not the emptied box; no dialog opens on load.
   const src = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");
-  assert.match(src, /if \(M\.brgy\) lookupZip\(typedZip\);/);
+  assert.match(src, /if \(M\.brgy\) lookupZip\(typedZip, false\);/);
+});
+
+test("ADDRESS-ZIP-POPUP-LEARN: the ZIP pop-up is an ARIA modal dialog, needs 4 digits, opens on a pick, on Save and from the field, and the posted ZIP field is unchanged", () => {
+  const js = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");
+  assert.match(js, /ZIP_AUTHORITATIVE = \['barangay', 'learned', 'city_unique'\]/);
+  assert.match(js, /make\('dialog', \{ 'class': 'pp-zip-dlg', 'aria-labelledby': t, 'aria-describedby': dsc \}\)/);
+  assert.match(js, /dlg\.showModal\(\)/);                                       // native modal: focus trapped, page inert, Esc closes
+  assert.match(js, /if \(!ZIP_RE\.test\(v\)\) \{[^}]*dlgErr\.hidden = false;/);       // required 4 digits, the ZIP error line
+  assert.match(js, /var ZIP_ERROR = 'Enter the 4-digit ZIP code for this address\.';/);
+  assert.match(js, /lookupZip\(false, true\);/);                                // a pick opens it
+  assert.match(js, /if \(useDlg\) \{ openDialog\(suggestion, !!suggestion\); return; \}/); // Save opens it again
+  assert.match(js, /zipBtn\.addEventListener\('click'/);                          // the field's button opens it again
+  assert.match(js, /Closed without a ZIP[\s\S]*showZipError\(\)/);                 // closing leaves the address incomplete with the error
+  assert.doesNotMatch(js, /name: 'zip'|name: 'postal_code'/);                      // the dialog's own input posts nothing
+  const css = readFileSync(path.join(SANTE, "css", "pack-picker.css"), "utf8");
+  assert.match(css, /\.pp-zip-dlg-input:focus[^{]*\{[^}]*var\(--pp-focus\)/);
+  assert.match(css, /html\[data-theme="dark"\] \.pp-zip-dlg \{/);
+  assert.doesNotMatch(css, /#d4af37|#ffd700|#f5c518|#ffc107/i);
+  assert.match(css, /\.pp-zip-dlg \{[^}]*width: calc\(100% - 32px\)/);
 });
 
 test("the field shows Province, City, Barangay only (no region), Metro Manila says its own name, and a typed non-4-digit ZIP never survives a suggestion", () => {
   assert.equal(PP.pathText({ name: "Mindanao" }, { name: "DAVAO DEL SUR" }, { name: "DAVAO CITY" }, { name: "AGDAO" }), "Davao Del Sur, Davao City, Agdao");
   assert.equal(PP.pathText({ name: "Metro Manila" }, { name: "METRO MANILA" }, { name: "QUEZON CITY" }, { name: "BAGUMBAYAN" }), "Metro Manila, Quezon City, Bagumbayan");
   assert.equal(PP.pathText({ name: "Visayas" }, null, null, null), "");
-  assert.equal(PP.zipState({ success: true, zip: "1200", zip_precision: "city_approx" }, "12").value, "1200");
 });
 
-test("ADDRESS-FORM-STANDARD: the ZIP box is hidden unless there is no ZIP, the field is one ellipsised line, and no form draws a Country field", () => {
+test("ADDRESS-FORM-STANDARD: the ZIP input is hidden (a note and button stand in when there is no ZIP), the field is one ellipsised line, and no form draws a Country field", () => {
   const css = readFileSync(path.join(SANTE, "css", "pack-picker.css"), "utf8");
-  assert.match(css, /\.pp-pick-zip\[data-zip-state\]:not\(\[data-zip-state="missing"\]\) \{ display: none; \}/);
+  assert.match(css, /\.pp-pick-zip\[data-zip-state="authoritative"\], \.pp-pick-zip\[data-zip-state="idle"\], \.pp-pick-zip\[data-zip-state="pending"\] \{ display: none; \}/);
+  assert.match(css, /\.pp-pick-zip\.pp-zip-note-mode > label, \.pp-pick-zip\.pp-zip-note-mode > input \{ display: none; \}/);
   assert.match(css, /\.pp-pick-text \{[^}]*white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/);
   assert.doesNotMatch(css, /flex: 0 0 156px/);
   const js = readFileSync(path.join(SANTE, "js", "pack-address.js"), "utf8");

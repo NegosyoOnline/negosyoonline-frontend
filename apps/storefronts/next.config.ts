@@ -46,9 +46,10 @@ const lessonCsp = policy([
   "https://player.vimeo.com", "https://iframe.mediadelivery.net",
 ]);
 
-/* The member Media Library (/dashboard/media/) plays a video preview from the public media store, so only that path adds media-src. */
+/* The member Media Library (/dashboard/media/) plays a video preview from the public media store, so only that path adds media-src.
+   A video kept in the store's own Bunny library (V-1, ClickUp z8uq9mkfkd) plays in Bunny's embed player, so that path also frames that one host. */
 const MEDIA = "dashboard/media";
-const mediaCsp = policy([], false, true);
+const mediaCsp = policy(["https://iframe.mediadelivery.net"], false, true);
 
 /* The other Pixel pages: the home page, the checkout page (not its /check, /qr/ or post-placement paths) and the onboarding verify
    page (the Purchase fires there; no other onboarding path, no access link, no completed page). */

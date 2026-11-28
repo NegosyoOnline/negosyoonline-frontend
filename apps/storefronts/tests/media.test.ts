@@ -193,6 +193,39 @@ test("only the Media Library page may load a video, from the media store only; e
   }
 });
 
+/* V-1 (ClickUp z8uq9mkfkd): a video in the store's own Bunny library has an embed_url and no file_url; it plays in Bunny's player. */
+const EMBED = "https://iframe.mediadelivery.net/embed/816560/0f3c2b1a-1111-4222-8333-444455556666";
+const BUNNY = (id: string, over: Record<string, unknown> = {}) => A(id, { asset_type: "video", file_url: null, thumb_url: `${BLOB}/${id}/p.jpg`, poster_url: `${BLOB}/${id}/p.jpg`, embed_url: EMBED, duration_seconds: 39, file_size: 3 * 1024 * 1024, ...over });
+
+test("a Bunny video card previews in the player: the embed address on the link, no Download, no file address", async () => {
+  const f = fake(base([PAGE([BUNNY("b1")])]));
+  const body = await text(await mediaPage(dashOf(f)));
+  assert.match(body, new RegExp(`<a class="ml-thumb" href="${EMBED}"[^>]* data-ml-open data-kind="video" data-file="" data-embed="${EMBED}"`));
+  assert.match(body, /<p class="ml-meta">Video · 0:39 · 3\.0 MB<\/p>/);
+  assert.doesNotMatch(body, /class="ml-act ml-act-go" href/, "nothing to download");
+  assert.match(body, /data-download=""/);
+});
+
+test("only a Bunny embed address is kept; anything else is dropped and the card is as a file-less video", async () => {
+  for (const bad of ["https://evil.example.test/embed/1/0f3c2b1a-1111", "http://iframe.mediadelivery.net/embed/816560/0f3c2b1a-1111-4222", "https://iframe.mediadelivery.net/embed/816560/x", `${EMBED}?autoplay=true`, 5, null]) {
+    const f = fake(base([PAGE([BUNNY("b1", { embed_url: bad })])]));
+    const body = await text(await mediaPage(dashOf(f)));
+    assert.doesNotMatch(body, /data-ml-open|evil\.example|data-embed="https/, String(bad));
+  }
+});
+
+test("a Blob video and an image carry no embed address, and the Media Library path may frame the Bunny player host only", async () => {
+  const f = fake(base([PAGE([A("a1"), A("v1", { asset_type: "video", file_url: `${BLOB}/v1/x.mp4` })])]));
+  const body = await text(await mediaPage(dashOf(f)));
+  assert.equal((body.match(/data-embed=""/g) ?? []).length, 2);
+  type Rule = { source: string; headers: { key: string; value: string }[] };
+  const rules = (await nextConfig.headers!()) as Rule[];
+  const mediaRule = rules.find((r) => r.source === "/dashboard/media{/}?")!;
+  assert.match(mediaRule.headers.find((h) => h.key === "Content-Security-Policy")!.value, /frame-src https:\/\/iframe\.mediadelivery\.net(;|$)/);
+  const js = readFileSync(new URL("../public/assets/sante/js/pack-media.js", import.meta.url), "utf8");
+  assert.match(js, /createElement\("iframe"\)/); assert.match(js, /setAttribute\("title", title \|\| "Video"\)/);
+});
+
 test("the preview popup is TWCinc's layout: media left, details right, caption box, Copy and Download, no Schedule post", async () => {
   const f = fake(base([PAGE([A("a1", { crop_ratio: "4:5", width: 1080, height: 1350, file_size: 315 * 1024, category_label: "Page Post", published_at: "2026-07-31T01:00:00Z" })])]));
   const body = await text(await mediaPage(dashOf(f)));

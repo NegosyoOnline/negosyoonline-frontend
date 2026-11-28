@@ -213,6 +213,31 @@
     body.appendChild(box);
   }
 
+  /* Subscription Credit on the referral card (B6). `ref.balance` is centavos; the card shows pesos. Draft wording for Coach Ed. */
+  function referralFigures(ref) {
+    var dl = D.el("dl", { "class": "ref-figures" });
+    var row = function (label, value) {
+      var g = D.el("div", { "class": "ref-fig" });
+      g.appendChild(D.el("dt", {}, label)); g.appendChild(D.el("dd", {}, value)); dl.appendChild(g);
+    };
+    row("Subscription Credit", peso(ref.balance / 100));
+    row("Credits earned", String(ref.earned_count || 0));
+    return dl;
+  }
+
+  /* What the Overview card shows, from GET /account/referrals/ and the first site's billing state (B6). Pure. The card is live
+     only while the programme has started AND the account has an active paid site (billing state "active"); with the programme
+     started but no active paid site it keeps today's "available once you have an active paid subscription" card; with the
+     programme off (started false, a 404 or any failure) the Overview shows no referral card at all. Returns
+     null | { pending: true } | { code, link, balance, earned_count }. */
+  function referralOverview(refRes, billingRes) {
+    var r = refRes && refRes.ok ? obj(refRes.data) : null;
+    if (!r || r.started !== true) return null;
+    var b = billingRes && billingRes.ok ? obj(billingRes.data) : null;
+    if (!b || b.state !== "active" || typeof r.code !== "string" || r.code === "" || typeof r.link !== "string" || r.link === "") return { pending: true };
+    return { code: r.code, link: r.link, balance: Number(r.balance) || 0, earned_count: Number(r.earned_count) || 0 };
+  }
+
   function referralCard(ref, headId) {
     headId = headId || "h-ref";
     var card = D.el("section", { "class": "dash-card ref-card", "aria-labelledby": headId });
@@ -226,6 +251,7 @@
     code.appendChild(D.el("span", { "class": "ref-code-label" }, "Referral code"));
     code.appendChild(D.el("strong", {}, ref.code));
     card.appendChild(code);
+    if (typeof ref.balance === "number") card.appendChild(referralFigures(ref)); /* Subscription Credit (Billing B6): balance and credits earned */
     var field = D.el("div", { "class": "ref-field" });
     var input = D.el("input", { type: "text", readonly: "", "aria-label": "Your referral link" });
     input.value = ref.link;
@@ -524,6 +550,8 @@
     if (data.trial) wrap.appendChild(trialStrip(data.trial)); /* no trial data until the billing slice: no strip */
     wrap.appendChild(kpiTiles(k));
     wrap.appendChild(needsAction(k));
+    var rv = data.referralView; /* null while the programme is off (referralOverview) */
+    if (rv) wrap.appendChild(referralCard(rv.pending ? null : rv, "h-ref-ov"));
     var bottom = D.el("div", { "class": "ov-bottom" });
     bottom.appendChild(monitoring(k));
     bottom.appendChild(moneyToWatch(k));
@@ -555,8 +583,33 @@
       renderReferral(true, null);
       var v = setupView(st);
       if (v === "error") return setupFailed(body); /* Phase 7 B1: an Account whose setup is unknown never sees the normal Overview */
-      obRoute(v, st.data);
+      loadReferral(st).then(function () { obRoute(v, st.data); });
     });
+  }
+  /* B6, rule 6: the first of the account's sites whose billing state is "active", or null. `read(id)` answers a billing read; the sites are read in
+     order and the search stops at the first active one. Pure apart from `read`. */
+  function firstActiveBilling(ids, read) {
+    return ids.reduce(function (chain, id) {
+      return chain.then(function (found) {
+        if (found) return found;
+        return read(id).then(function (r) { return r && r.ok && obj(r.data).state === "active" ? r : null; });
+      });
+    }, Promise.resolve(null));
+  }
+  /* B6: the Overview referral card's data. Never blocks or fails the Overview: any failure leaves no card. The programme switch comes first;
+     then ANY of the account's sites being active makes the card live (rule 6), not only the first. */
+  function loadReferral(st) {
+    var first = obj(obj(st.data).first_site);
+    if (!st.ok || typeof first.id !== "string" || first.id === "" || first.deleted) return Promise.resolve();
+    return D.call("GET", "/account/referrals/", null, true).then(function (rr) {
+      if (!rr || !rr.ok || obj(rr.data).started !== true) return null;
+      return D.call("GET", "/sites/", null, true).then(function (sl) {
+        var items = sl && sl.ok && Array.isArray(obj(sl.data).items) ? sl.data.items : [], ids = [];
+        items.forEach(function (it) { if (it && typeof it.id === "string" && it.id !== "") ids.push(it.id); });
+        if (ids.indexOf(first.id) < 0) ids.unshift(first.id);
+        return firstActiveBilling(ids, function (id) { return D.call("GET", "/sites/" + encodeURIComponent(id) + "/billing/", null, true); });
+      }).then(function (active) { lastDash.data.referralView = referralOverview(rr, active); });
+    }).catch(function () { /* the Overview stays as it was */ });
   }
   /* The Overview's own setup load-error state, in the dashboard's error box. Leaving and returning to "/" reads again. */
   function setupFailed(body) {

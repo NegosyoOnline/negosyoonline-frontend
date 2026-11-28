@@ -5,10 +5,12 @@
    short-lived token, and the browser sends the MP4 straight to the upload address the API returns, with exactly the headers it returns,
    (c) the API is told the stored file's address. The page decides nothing: the API does. Every status and string from the API reaches the page
    through textContent or D.el only. While the API answers 404 (members are switched off, or not a Santé site) the page says the Media Library
-   is not available yet and its links stay hidden (probe). Plain ES5. NOMedia.util holds the pure helpers (tests/media.test.mjs). */
+   is not available yet and its links stay hidden (probe). V-1 (ClickUp z8uq9mkfkd): when the token answers {host: "bunny", upload}, the video goes to
+   the store's own Bunny Stream library by TUS (tus.js, as a training lesson), the page then asks attach {video_id} until Bunny has finished
+   encoding (409 video_processing), and the asset plays in Bunny's player (embed_url, no file_url). The Blob steps are unchanged. Plain ES5. NOMedia.util holds the pure helpers (tests/media.test.mjs). */
 (function () {
   var D = window.NODash;
-  var token = 0, S = null;
+  var token = 0, S = null, ABORT = null;
   var MB = 1024 * 1024, IMAGE_MAX = 10 * MB, VIDEO_MAX = 50 * MB;
   var IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"], VIDEO_TYPE = "video/mp4";
   var TITLE_MAX = 160, CAPTION_MAX = 5000;
@@ -16,6 +18,8 @@
   var PRODUCTS = [["", "None"], ["barley", "Barley"], ["drinks", "Drinks"], ["essentials", "Essentials"], ["beauty", "Beauty"]];
   var RATIOS = [["4:5", "4:5"], ["1:1", "1:1"], ["9:16", "9:16"], ["16:9", "16:9"]];
   var TYPES = [["image", "Image"], ["video", "Video"]];
+  var POLL_MS = 3000, POLL_MAX = 200; /* attach is asked again every 3 s while Bunny encodes, for up to ten minutes */
+  var TOO_LARGE = "This video is too large to upload.";
   var NO_STORE = "Files cannot be stored yet: the media store is not set up.";
   var ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -40,6 +44,8 @@
   function labelOf(list, value) { for (var i = 0; i < list.length; i++) { if (list[i][0] === value) return list[i][1]; } return ""; }
   function has(list, value) { for (var i = 0; i < list.length; i++) { if (list[i][0] === value) return true; } return false; }
   /* An address worth showing as a picture or linking to: https, nothing else. */
+  /* Bunny's player for a video in the store's own library: https://iframe.mediadelivery.net/embed/<library>/<video>, nothing else is ever framed. */
+  function embedUrl(u) { return typeof u === "string" && /^https:\/\/iframe\.mediadelivery\.net\/embed\/\d{1,12}\/[A-Za-z0-9-]{8,64}$/.test(u) ? u : ""; }
   function httpsUrl(u) { return typeof u === "string" && /^https:\/\/[^\s"'<>]+$/.test(u) ? u : ""; }
   /* An address the browser may send a file to: https, or http on this computer for the local stand-in. */
   function safeUrl(u) { return typeof u === "string" && /^(https:\/\/|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/)[^\s"'<>]+$/.test(u) ? u : ""; }
@@ -51,7 +57,10 @@
     return { file: file };
   }
   function imageCheck(file, what) { return pick(file, IMAGE_TYPES, IMAGE_MAX, "Choose " + what + " first.", "Use a JPEG, PNG or WebP picture.", "The picture is larger than 10 MB."); }
-  function videoCheck(file) { return pick(file, [VIDEO_TYPE], VIDEO_MAX, "Choose the video first.", "Use an MP4 video.", "The video is larger than 50 MB."); }
+  /* The original check (type, 50 MB) unless the API says videos go to the store's own Bunny library (video_host "bunny" in the list answer); then the
+     type only, and the API judges the size at attach (video_too_large). */
+  function videoCheck(file, bunny) { return pick(file, [VIDEO_TYPE], bunny ? Infinity : VIDEO_MAX, "Choose the video first.", "Use an MP4 video.", "The video is larger than 50 MB."); }
+  function videoHint() { return S && S.videoHost === "bunny" ? "MP4 only." : "MP4 only, up to 50 MB."; }
   function whole(text, max) { var v = String(text || "").trim(); if (!/^\d{1,6}$/.test(v)) return null; var n = parseInt(v, 10); return n <= max ? n : null; }
   function hasErrors(errors) { for (var k in errors) { if (Object.prototype.hasOwnProperty.call(errors, k)) return true; } return false; }
   /* The fields as the API body, or {errors: {field: text}}. Text is sent trimmed. */
@@ -91,7 +100,8 @@
     return ids.map(function (i) { return map[i]; }).filter(Boolean);
   }
   function valid(a) { return !!a && typeof a.id === "string" && ID_RE.test(a.id) && typeof a.title === "string"; }
-  function pending(a) { return a.asset_type === "video" && !a.file_url; }
+  function pending(a) { return a.asset_type === "video" && !a.file_url && !embedUrl(a.embed_url); }
+  function hasVideo(a) { return !!a.file_url || !!embedUrl(a.embed_url); }
   function picture(a) { return httpsUrl(a.thumb_url) || httpsUrl(a.poster_url) || (a.asset_type === "image" ? httpsUrl(a.file_url) : ""); }
   function apiFields(res) { return res && res.data && res.data.fields ? res.data.fields : null; }
   function refused(res) {
@@ -107,7 +117,7 @@
   function show() {
     var mine = ++token, r = clear(root());
     if (S && S.sc) S.sc.stop();
-    S = { site: null, assets: [], adding: false, editing: "", confirm: "", sc: null };
+    S = { site: null, videoHost: "", assets: [], adding: false, editing: "", confirm: "", sc: null };
     r.setAttribute("aria-busy", "true");
     add(r, h("p", "ml-meta", "Loading…"));
     D.call("GET", "/sites/", null, true).then(function (res) {
@@ -120,7 +130,7 @@
       read(mine);
     });
   }
-  function hide() { token++; if (S && S.sc) S.sc.stop(); S = null; say(""); var r = root(); if (r) clear(r); }
+  function hide() { token++; if (ABORT) { try { ABORT(); } catch (e) { /* ignore */ } ABORT = null; } if (S && S.sc) S.sc.stop(); S = null; say(""); var r = root(); if (r) clear(r); }
   function read(mine) {
     D.call("GET", base(), null, true).then(function (res) {
       if (mine !== token || !S || res.status === 401) return;
@@ -128,6 +138,7 @@
       if (!res.ok) { failedPanel(res.status === 403 ? msgOf(res, "") : ""); return; }
       var d = res.data || {};
       S.assets = Array.isArray(d.assets) ? d.assets.filter(valid) : [];
+      S.videoHost = d.video_host === "bunny" ? "bunny" : "";
       render(); setNav(true);
       sharedList(mine);
     });
@@ -232,6 +243,47 @@
     });
   }
 
+  /* The upload block of a Bunny token: the TUS endpoint (https, or http on this computer for the local stand-in) and the four signed values. */
+  function uploadOk(u) {
+    return !!u && typeof u === "object" && !!safeUrl(u.endpoint) && ["library_id", "video_id", "signature", "expires"].every(function (k) { return (typeof u[k] === "string" || typeof u[k] === "number") && String(u[k]); });
+  }
+  /* Why attach refused: Bunny's too-large answer by its own words, else the field text or the API's message. */
+  function attachWhy(att) {
+    var f = apiFields(att), code = att.data && att.data.code;
+    if (code === "video_too_large") return TOO_LARGE;
+    return (f && (f.video_id || f.url)) || (att.status === 502 ? "The uploaded video could not be found. Try again." : refused(att));
+  }
+  /* A video to the store's own Bunny library: TUS with the signed headers, then attach {video_id} until Bunny has finished (409 video_processing). */
+  function sendBunny(id, file, up, line, fail, mine) {
+    var FAILED = "The video did not upload. Check the connection and try again.";
+    if (!window.NOTus || !uploadOk(up)) return Promise.resolve(fail("That did not work. Please try again."));
+    line("Uploading 0%");
+    var t = window.NOTus.upload(file, {
+      endpoint: up.endpoint,
+      headers: { AuthorizationSignature: up.signature, AuthorizationExpire: up.expires, VideoId: up.video_id, LibraryId: up.library_id },
+      metadata: { filetype: file.type, title: file.name || "video" },
+      onProgress: function (p) { if (mine === token && S) line("Uploading " + p + "%"); }
+    });
+    ABORT = t.abort;
+    function ask(n) {
+      return D.call("POST", base() + id + "/video/attach/", { video_id: String(up.video_id) }, true).then(function (att) {
+        if (att.status === 401 || mine !== token || !S) return { ok: false, message: "" };
+        if (att.ok) { line(""); return { ok: true, asset: att.data }; }
+        if (att.status === 409 && att.data && att.data.code === "video_processing") {
+          if (n >= POLL_MAX) return fail("The video is taking longer than usual to process. Try again in a few minutes.");
+          return new Promise(function (go) { setTimeout(go, POLL_MS); }).then(function () { return mine !== token || !S ? { ok: false, message: "" } : ask(n + 1); });
+        }
+        return fail(attachWhy(att));
+      });
+    }
+    return t.promise.then(function () {
+      ABORT = null;
+      if (mine !== token || !S) return { ok: false, message: "" };
+      line("Processing…");
+      return ask(0);
+    }, function () { ABORT = null; return mine !== token || !S ? { ok: false, message: "" } : fail(FAILED); });
+  }
+
   /* The video steps (b) and (c) for an existing video asset. Resolves {ok: true, asset} or {ok: false, message}. `note` shows the progress. */
   function sendVideo(id, file, note, mine) {
     function line(text) { note.textContent = text; note.hidden = !text; }
@@ -241,6 +293,7 @@
       if (tok.status === 401 || mine !== token || !S) return { ok: false, message: "" };
       var d = tok.data, headers;
       if (!tok.ok) return fail(refused(tok));
+      if (d && d.host === "bunny") return sendBunny(id, file, d.upload, line, fail, mine);
       headers = d && d.headers && typeof d.headers === "object" ? d.headers : null;
       if (!d || !safeUrl(d.upload_url) || !headers || typeof d.public_url !== "string") return fail("That did not work. Please try again.");
       if (typeof d.max_bytes === "number" && file.size > d.max_bytes) return fail("The video is larger than " + Math.floor(d.max_bytes / MB) + " MB.");
@@ -367,7 +420,7 @@
     var cat = select("category", CATEGORIES, "promo"), prod = select("product_category", PRODUCTS, ""), ratio = select("crop_ratio", RATIOS, "1:1"), cap = textarea("caption", CAPTION_MAX);
     var file = fileInput("file", IMAGE_TYPES.join(",")), poster = fileInput("poster", IMAGE_TYPES.join(",")), video = fileInput("video", VIDEO_TYPE);
     var imageBox = add(h("div", "ml-box"), field("ml-n-file", "Image", file, "JPEG, PNG or WebP, up to 10 MB."));
-    var videoBox = add(h("div", "ml-box"), field("ml-n-poster", "Poster image", poster, "Shown on the card before the video plays. JPEG, PNG or WebP, up to 10 MB."), field("ml-n-video", "Video (MP4)", video, "MP4 only, up to 50 MB."));
+    var videoBox = add(h("div", "ml-box"), field("ml-n-poster", "Poster image", poster, "Shown on the card before the video plays. JPEG, PNG or WebP, up to 10 MB."), field("ml-n-video", "Video (MP4)", video, videoHint()));
     videoBox.hidden = true;
     type.addEventListener("change", function () { var v = type.value === "video"; imageBox.hidden = v; videoBox.hidden = !v; });
     var note = h("p", "ml-meta ml-progress"); note.setAttribute("role", "status"); note.hidden = true;
@@ -381,7 +434,7 @@
       if (kind === "image") { img = imageCheck(chosen(file), "the image"); if (img.error) errors.file = img.error; }
       else {
         poster1 = imageCheck(chosen(poster), "the poster image"); if (poster1.error) errors.poster = poster1.error;
-        movie = videoCheck(chosen(video)); if (movie.error) errors.video = movie.error;
+        movie = videoCheck(chosen(video), S.videoHost === "bunny"); if (movie.error) errors.video = movie.error;
       }
       if (hasErrors(errors)) { showFields(f, errors); return; }
       showFields(f, {});
@@ -465,7 +518,8 @@
     if (links.firstChild) files.appendChild(links);
     if (!isVideo) files.appendChild(imageControl(a, "file", "e-file", "Replace the image", "Image replaced."));
     else {
-      files.appendChild(h("p", "ml-meta", a.file_url ? "A video is attached." : "No video yet. It cannot be published until one is uploaded."));
+      files.appendChild(h("p", "ml-meta", hasVideo(a) ? "A video is attached." : "No video yet. It cannot be published until one is uploaded."));
+      if (embedUrl(a.embed_url)) files.appendChild(player(a));
       files.appendChild(videoControl(a));
       files.appendChild(imageControl(a, "poster", "e-poster", "Replace the poster image", "Poster replaced."));
     }
@@ -507,12 +561,18 @@
     w.appendChild(acts);
     return w;
   }
+  /* A video in the store's own Bunny library plays in Bunny's player, 16:9, with the asset's title for screen readers. */
+  function player(a) {
+    var fr = D.el("iframe", { "class": "ml-player", src: embedUrl(a.embed_url), title: a.title, allowfullscreen: "" });
+    fr.setAttribute("loading", "lazy"); fr.setAttribute("referrerpolicy", "strict-origin-when-cross-origin"); fr.setAttribute("allow", "fullscreen; picture-in-picture; encrypted-media");
+    return fr;
+  }
   function videoControl(a) {
     var box = fileInput("video", VIDEO_TYPE), w = h("div", "ml-file"), note = h("p", "ml-meta ml-progress");
     note.setAttribute("role", "status"); note.hidden = true;
-    add(w, field("ml-e-video", a.file_url ? "Replace the video (MP4)" : "Video (MP4)", box, "MP4 only, up to 50 MB."), note);
+    add(w, field("ml-e-video", hasVideo(a) ? "Replace the video (MP4)" : "Video (MP4)", box, videoHint()), note);
     w.appendChild(add(h("div", "ml-actions"), btn("Upload video", "ghost", function (b) {
-      var m = videoCheck(chosen(box));
+      var m = videoCheck(chosen(box), S.videoHost === "bunny");
       if (m.error) { showFields({ video: box }, { video: m.error }); return; }
       showFields({ video: box }, {});
       var mine = token; busy(b, true);
@@ -527,5 +587,5 @@
   }
 
   window.NOMedia = { show: show, hide: hide, probe: probe, util: { buildAsset: buildAsset, imageCheck: imageCheck, videoCheck: videoCheck, moved: moved, upsert: upsert,
-    safeUrl: safeUrl, httpsUrl: httpsUrl, pending: pending, picture: picture, whole: whole } };
+    safeUrl: safeUrl, httpsUrl: httpsUrl, embedUrl: embedUrl, hasVideo: hasVideo, pending: pending, picture: picture, whole: whole } };
 })();

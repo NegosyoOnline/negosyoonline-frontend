@@ -37,6 +37,10 @@
   var current = null, payRun = 0, proofUrl = null, busy = false, opener = null, dialog = null;
   var HOLD = 2000;        /* how long Confirm's progress bar runs at least, in milliseconds */
 
+  /* Subscription Credit (Billing B6): the Subscriber transfers the bill less any credit, and confirmation checks that amount. */
+  function credited(p) { return typeof p.credit_centavos === "number" && p.credit_centavos > 0; }
+  function transferOf(p) { return typeof p.transfer_centavos === "number" ? p.transfer_centavos : p.amount_centavos; }
+  function creditNote(p) { return credited(p) ? " · credit -" + money(p.credit_centavos) + " · transfer " + money(transferOf(p)) : ""; }
   function el(tag, cls, text) {
     var n = document.createElement(tag);
     if (cls) n.setAttribute("class", cls);
@@ -93,7 +97,7 @@
     title.appendChild(el("span", "", site.name || ""));
     if (wait) title.appendChild(el("span", "chip chip-warn", "Waiting " + wait));
     main.appendChild(title);
-    main.appendChild(el("span", "item-sub", (plan.name || "") + " · " + money(p.amount_centavos)));
+    main.appendChild(el("span", "item-sub", (plan.name || "") + " · " + money(p.amount_centavos) + creditNote(p)));
     main.appendChild(el("span", "small", "Transferred " + day(p.transferred_on) + " · Submitted " + H.when(p.submitted_at)));
     b.setAttribute("type", "button");
     b.addEventListener("click", function () { openPayment(p.id); });
@@ -185,7 +189,8 @@
     $("p-site-id").textContent = site.id || "";
     $("p-status").textContent = status[0];
     $("p-status").setAttribute("class", "chip " + status[1]);
-    $("p-amount").textContent = money(d.amount_centavos);
+    $("p-amount").textContent = money(transferOf(d));
+    say("p-credit", credited(d) ? "Bill " + money(d.amount_centavos) + ", Subscription Credit applied -" + money(d.credit_centavos) + ". The Subscriber transfers " + money(transferOf(d)) + "." : "");
     $("p-plan").textContent = (plan.name || "") + ", " + plan.months + (plan.months === 1 ? " month" : " months");
     $("p-date").textContent = day(d.transferred_on);
     $("p-ref").textContent = d.transfer_reference || "Not given";
@@ -196,7 +201,7 @@
     $("p-sent-amount").textContent = money(d.amount_sent_centavos) || "Not given";
     /* The backend flags it (amount_sent_differs); the page only words it. The proof is still reviewed as usual. */
     say("p-mismatch", d.amount_sent_differs === true && money(d.amount_sent_centavos)
-      ? "The Subscriber typed " + money(d.amount_sent_centavos) + ", but the amount due is " + money(d.amount_centavos) + ". Check the amount that arrived before you confirm." : "");
+      ? "The Subscriber typed " + money(d.amount_sent_centavos) + ", but the amount due is " + money(transferOf(d)) + ". Check the amount that arrived before you confirm." : "");
     $("p-submitted").textContent = H.when(d.submitted_at);
     $("p-email").textContent = d.subscriber_email || "";
     say("p-decided", decided(d));
@@ -371,7 +376,7 @@
       if (res.status === 409 && res.code === "not_under_review") { closeDialog(false); toQueue(GONE); return; }
       if (res.status === 400 && res.code === "invalid_request") { where.field(); return; }
       if (res.status === 409 && res.code === "amount_mismatch") {
-        where.fail("That is not the amount due (" + money(current.amount_centavos) + "). If a different amount arrived, reject the proof.");
+        where.fail("That is not the amount due (" + money(transferOf(current)) + "). If a different amount arrived, reject the proof.");
         return;
       }
       if (res.status === 409 && words(REFUSED, res.code)) {
@@ -431,7 +436,7 @@
     say("amount-err", "");
     say("confirm-err", "");
     $("confirm-bar").hidden = true;
-    $("mc-sub").textContent = ((current.site || {}).name || "") + " · amount due " + money(current.amount_centavos);
+    $("mc-sub").textContent = ((current.site || {}).name || "") + " · amount due " + money(transferOf(current));
     openDialog("m-confirm", $("open-confirm"), $("amount"));
   });
   $("confirm-x").addEventListener("click", function () { if (!busy) closeDialog(true); });

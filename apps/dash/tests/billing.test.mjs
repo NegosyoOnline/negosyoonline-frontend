@@ -123,7 +123,7 @@ test("every request is to a /sites/{id}/billing/ route, /sites/ or /plan/; none 
     assert.equal(c.credentials, "include");
   }
   assert.ok(d.list().includes("GET " + B) && d.list().includes("GET " + B + "payment/") && d.list().includes("GET " + B + "payments/?limit=20"));
-  assert.doesNotMatch(SRC.replace("Images and videos in your Media Library.", ""), /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
+  assert.doesNotMatch(SRC.replace("Images and videos in your Media Library.", "").replace(/\/\* V-1 video start \*\/[\s\S]*?\/\* V-1 video end \*\//g, ""), /xendit|paymongo|gateway|business day|business-day|video|\/billing\/sites\/|innerHTML|localStorage|sessionStorage/i);
 });
 
 /* ---- 2. the states of the home page ---- */
@@ -694,4 +694,96 @@ test("page B: after a server-refused submit, focus is on the first invalid field
   c.click(c.root, "Send proof");
   await settle();
   assert.equal(c.doc.activeElement, c.$("h-settings-billing"));
+});
+
+/* ---- Subscription Credit (Billing B6, FE-1): wording is a draft for Coach Ed ---- */
+const CREDIT = { enabled: true, balance_centavos: 100000, reserved_centavos: 0, usage_only: { credit_centavos: 0, transfer_centavos: 0, covered_by_credit: false } };
+const withCredit = (o, credit, over = {}) => ({ ...o, credit_centavos: credit, transfer_centavos: o.amount_centavos - credit, covered_by_credit: credit >= o.amount_centavos, ...over });
+const activeBilling = () => billing({ state: "active", current_cycle: { sequence: 1, start_at: "2026-11-20T00:00:00+08:00", end_at: "2026-12-20T00:00:00+08:00", settlement: "paid" } });
+
+test("Subscription Credit: the Payment card shows the balance only when it is above zero", async () => {
+  const on = boot({ billing: activeBilling(), pay: payInfo({ credit: CREDIT, offers: [withCredit(OFFER.monthly, 100000)] }) });
+  await on.show();
+  assert.match(on.text(), /Subscription Credit: PHP 1,000\.00/);
+  const zero = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, balance_centavos: 0 }, offers: [OFFER.monthly] }) });
+  await zero.show();
+  assert.doesNotMatch(zero.text(), /Subscription Credit/);
+  const off = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, enabled: false }, offers: [OFFER.monthly] }) });
+  await off.show();
+  assert.doesNotMatch(off.text(), /Subscription Credit/);
+});
+
+test("a part-covered bill shows the credit applied and the amount to transfer, on the plan card and the pay form, and Send names the transfer amount", async () => {
+  const d = boot({ billing: activeBilling(), pay: payInfo({ credit: CREDIT, offers: [withCredit(OFFER.monthly, 100000)] }) });
+  await d.go("?site=" + A + "&pay=choose");
+  assert.match(d.text(), /Credit applied −PHP 1,000\.00, amount to transfer PHP 1,499\.00/);
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  assert.match(d.text(), /Credit applied −PHP 1,000\.00, amount to transfer PHP 1,499\.00\./);
+  assert.equal(d.$("bl-f-amount").getAttribute("placeholder"), "1,499.00");
+  assert.match(d.sendBtn().textContent, /Send proof — PHP 1,499\.00/);
+  assert.match(d.text(), /Send exactly PHP 1,499\.00 to this account/);
+  assert.match(d.text(), /Subscription Credit−PHP 1,000\.00/);
+  assert.match(d.text(), /Amount to transferPHP 1,499\.00/);
+  assert.doesNotMatch(d.text(), /Send exactly PHP 2,499\.00/);
+  assert.equal(d.$("bl-credit-pay"), null, "not covered: the proof form stays");
+});
+
+test("a bill the credit covers in full has no proof form: Pay with credit posts the plan and ends on Billing", async () => {
+  const offer = withCredit(OFFER.monthly, 249900);
+  const d = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, balance_centavos: 300000 }, offers: [offer] }) });
+  d.st.routes["POST " + B + "pay-with-credit/"] = (opts) => { d.st.sent = JSON.parse(opts.body); d.st.payments = [payment({ id: "btp_c", status: "confirmed", credit_centavos: 249900, transfer_centavos: 0, decided_at: "2026-11-21T10:00:00+08:00" })]; return { status: 201, body: d.st.payments[0] }; };
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  assert.equal(d.$("bl-f-file"), null, "no proof upload");
+  assert.equal(d.$("bl-send"), null);
+  assert.match(d.text(), /nothing to transfer and no proof to send/);
+  d.$("bl-credit-pay").fire("click");
+  await settle();
+  assert.deepEqual(d.st.sent, { plan: "monthly" });
+  assert.ok(d.toasts.some((t) => /^Paid with credit/.test(t)));
+  assert.match(d.location.search, /^\?site=site_a+$/);
+});
+
+test("Pay with credit for the Launch Promo is blocked until the consent is ticked, then sends renewal_consent and consent_version", async () => {
+  const offer = withCredit(OFFER.promo, 499900);
+  const d = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, balance_centavos: 600000 }, offers: [offer] }) });
+  d.st.routes["POST " + B + "pay-with-credit/"] = (opts) => { d.st.sent = JSON.parse(opts.body); return { status: 201, body: payment({ id: "btp_p", status: "confirmed", plan: "launch_promo", credit_centavos: 499900, transfer_centavos: 0 }) }; };
+  await d.go("?site=" + A + "&pay=send&plan=launch_promo");
+  assert.equal(d.$("bl-credit-pay").disabled, true);
+  d.$("bl-consent").checked = true; d.$("bl-consent").fire("change");
+  assert.equal(d.$("bl-credit-pay").disabled, false);
+  d.$("bl-credit-pay").fire("click");
+  await settle();
+  assert.deepEqual(d.st.sent, { plan: "launch_promo", renewal_consent: true, consent_version: "promo-consent-1" });
+});
+
+test("Pay with credit: a 409 credit_insufficient and a 404 are worded plainly and the page reads again", async () => {
+  const offer = withCredit(OFFER.monthly, 249900);
+  const d = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, balance_centavos: 300000 }, offers: [offer] }) });
+  d.st.routes["POST " + B + "pay-with-credit/"] = err(409, "credit_insufficient", "Not enough.");
+  await d.go("?site=" + A + "&pay=send&plan=monthly");
+  d.$("bl-credit-pay").fire("click");
+  await settle();
+  assert.ok(d.toasts.some((t) => /no longer covers this bill/.test(t) && /\[error\]$/.test(t)));
+  assert.ok(d.list().filter((x) => x === "GET " + B + "payment/").length >= 2, "the page read the options again");
+  const n = boot({ billing: activeBilling(), pay: payInfo({ credit: { ...CREDIT, balance_centavos: 300000 }, offers: [offer] }) });
+  n.st.routes["POST " + B + "pay-with-credit/"] = err(404, "not_found", "Not found.");
+  await n.go("?site=" + A + "&pay=send&plan=monthly");
+  n.$("bl-credit-pay").fire("click");
+  await settle();
+  assert.match(n.text(), /Paying with credit is not available right now\./);
+  assert.equal(n.$("bl-credit-pay").disabled, false);
+});
+
+test("the payments list shows credit and transfer amounts; a credit-paid bill has no proof link", async () => {
+  const part = payment({ id: "btp_a", status: "confirmed", credit_centavos: 100000, transfer_centavos: 149900, decided_at: "2026-11-21T10:00:00+08:00", submitted_at: "2026-11-20T15:00:00+08:00" });
+  const full = payment({ id: "btp_b", status: "confirmed", credit_centavos: 249900, transfer_centavos: 0, decided_at: "2026-11-22T10:00:00+08:00", submitted_at: "2026-11-22T09:00:00+08:00" });
+  const d = boot({ billing: activeBilling(), payments: [full, part], pay: payInfo({ credit: CREDIT, offers: [OFFER.monthly], latest: full }) });
+  await d.show();
+  const rows = d.has(d.root, "bl-hrow");
+  assert.equal(rows.length, 2);
+  assert.match(rows[0].textContent, /Paid with credit/);
+  assert.equal(rows[0].all((x) => x.tagName === "BUTTON").length, 0, "no proof link on a credit-paid bill");
+  assert.match(rows[1].textContent, /credit −PHP 1,000\.00, transfer PHP 1,499\.00/);
+  assert.equal(rows[1].all((x) => x.tagName === "BUTTON").length, 1);
+  assert.ok(!d.labels(d.root).includes("View proof") || d.labels(d.root).filter((l) => l === "View proof").length === 1, "the latest card offers no proof for a credit-paid bill");
 });

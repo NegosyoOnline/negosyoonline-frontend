@@ -7,7 +7,7 @@ import { open, settle, BASE, refused } from "./page.mjs";
 
 const IDS = ["boot", "v-main", "v-down", "retry", "o-load", "o-off", "o-down", "o-retry", "o-body", "o-msg", "o-cur", "o-name", "o-pid",
   "o-form", "o-site", "o-err", "o-save", "o-clear", "s-load", "s-off", "s-down", "s-retry", "s-body", "s-msg", "s-form", "s-stop", "s-stop-err",
-  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-store-caps", "s-store", "s-store-err", "s-allstores", "s-allstores-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-when", "s-save",
+  "s-platform", "s-platform-err", "s-site", "s-site-err", "s-bulk-field", "s-bulk", "s-bulk-err", "s-err", "s-save",
   "g-chip", "g-load", "g-off", "g-down", "g-retry", "g-body", "g-msg", "g-note", "g-addr", "g-addr-copy", "g-name", "g-enabled", "g-poll", "g-poll-at", "g-incoming",
   "g-register", "g-rotate", "g-disable", "g-refresh",
   "m-gw", "m-gw-h", "m-gw-sub", "gw-x", "gw-name-field", "gw-name", "gw-code-field", "gw-code", "gw-ack-field", "gw-ack", "gw-err", "gw-go", "gw-cancel",
@@ -153,7 +153,6 @@ test("the SMS card fills the switch and both limits, and says when it was change
   assert.equal(p.node["s-stop"].checked, true);
   assert.equal(p.node["s-platform"].value, "5");
   assert.equal(p.node["s-site"].value, "0");
-  assert.equal(text(p, "s-when"), "Last changed Nov 13, 2026, 9:30 AM.");
 });
 
 test("Save confirms with plain wording, then sends all three fields", async () => {
@@ -240,38 +239,49 @@ test("the page has a label for every field, light-blue focus only, alerts as rol
   assert.match(html, /<h2 id="s-h">SMS settings<\/h2>/);
 });
 
-test("the store caps show and save when the server sends them, and stay hidden when it does not", async () => {
-  const plain = await page(normal());
-  assert.equal(plain.node["s-store-caps"].hidden, true);
-  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }), [SSET]: policy({ store_daily_limit: 60, all_stores_daily_limit: 1000 }) }));
-  assert.equal(p.node["s-store-caps"].hidden, false);
-  assert.equal(p.node["s-store"].value, "50");
-  assert.equal(p.node["s-allstores"].value, "1000");
-  p.node["s-store"].value = "60";
+test("the per-store text caps and the hourly note are gone, and the save body never carries them", async () => {
+  const html = fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8");
+  assert.doesNotMatch(html, /Texts per store a day/);
+  assert.doesNotMatch(html, /Texts from all stores a day/);
+  assert.doesNotMatch(html, /20 an hour/);
+  assert.doesNotMatch(html, /s-store|s-allstores/);
+  // Even when an older server still sends the two numbers, nothing is shown or sent back.
+  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }), [SSET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }) }));
+  p.node["s-site"].value = "200";
   p.node["s-form"].fire("submit");
   await confirm(p);
-  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, store_daily_limit: 60, all_stores_daily_limit: 1000 });
-  p.node["s-allstores"].value = "x";
-  p.node["s-form"].fire("submit");
-  assert.match(text(p, "s-allstores-err"), /^Enter a whole number from 0 to 2147483647\.$/);
-  assert.equal(p.node["s-allstores"].getAttribute("aria-invalid"), "true");
+  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 200 });
 });
 
-test("the settings page says the hourly store limit is fixed at 20", () => {
-  assert.match(fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8"), /20 an hour per store, fixed\./);
+test("the three SMS limits and Save share one four-column row; the stop switch is above, the error and last-changed below", () => {
+  const html = fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8");
+  const row = html.match(/<div class="fgrid four">([\s\S]*?)\n              <\/div>\n              <p class="field-err" id="s-err"/);
+  assert.ok(row, "one four-column row, closed before the form error");
+  assert.deepEqual([...row[1].matchAll(/<input[^>]*id="([^"]+)"/g)].map((m) => m[1]), ["s-platform", "s-site", "s-bulk"]);
+  assert.equal([...row[1].matchAll(/field-err/g)].length, 3, "each field keeps its error slot");
+  assert.match(row[1], /<button type="submit"[^>]*id="s-save"/, "Save is the fourth item of the row");
+  assert.ok(row[1].indexOf('id="s-bulk"') < row[1].indexOf('id="s-save"'), "Save comes after the bulk box");
+  assert.ok(html.indexOf('id="s-stop"') < html.indexOf('fgrid four') && html.indexOf('id="s-save"') < html.indexOf('id="s-err"') && !html.includes('s-when') && !html.includes('Last changed'));
+  const css = fs.readFileSync(new URL("../public/assets/css/hq.css", import.meta.url), "utf8");
+  assert.match(css, /\.fgrid\.four \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); align-items: start; \}/, "four equal columns, Save in the 4th");
+  assert.match(css, /\.fgrid\.four \.fgrid-save \.no-btn \{ width: 100%; \}/, "Save fills its whole column");
+  assert.match(css, /\.fgrid\.four \.fgrid-save \.fin-row \{ display: block; \}/);
+  assert.match(css, /\.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: nowrap; \}/, "labels stay on one line");
+  assert.match(css, /max-width: 1199\.98px\) \{\n  \.fgrid\.four label, \.fgrid\.four \.fgrid-save-gap \{ white-space: normal; min-height: 3\.2em; \}/, "narrow desktop: equal two-line label height keeps the boxes level");
+  assert.match(css, /\.fgrid\.four \{ grid-template-columns: minmax\(0, 1fr\); \}/, "one column on a phone");
 });
 
 test("the bulk texts a day per store field shows with the default, saves with the other caps, and stays hidden when the server does not send it", async () => {
-  const none = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000 }) }));
+  const none = await page(normal());
   assert.equal(none.node["s-bulk-field"].hidden, true, "an older server: no bulk field");
-  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 2000 }), [SSET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 1500 }) }));
+  const p = await page(normal({ [SGET]: policy({ store_bulk_daily_limit: 2000 }), [SSET]: policy({ store_bulk_daily_limit: 1500 }) }));
   assert.equal(p.node["s-bulk-field"].hidden, false);
   assert.equal(p.node["s-bulk"].value, "2000");
   assert.match(fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8"), /<label for="s-bulk">Bulk texts a day per store<\/label>/);
   p.node["s-bulk"].value = "1500";
   p.node["s-form"].fire("submit");
   await confirm(p);
-  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 1500 });
+  assert.deepEqual(p.sent(SSET)[0].body, { sending_stopped: false, platform_daily_limit: 1000, site_daily_limit: 100, store_bulk_daily_limit: 1500 });
   assert.equal(p.node["s-bulk"].value, "1500", "the saved answer is painted back");
   p.node["s-bulk"].value = "-1";
   p.node["s-form"].fire("submit");
@@ -281,8 +291,28 @@ test("the bulk texts a day per store field shows with the default, saves with th
 
 test("a 400 puts the bulk cap's message under the bulk field", async () => {
   const fields = { store_bulk_daily_limit: ["Bulk message."] };
-  const p = await page(normal({ [SGET]: policy({ store_daily_limit: 50, all_stores_daily_limit: 1000, store_bulk_daily_limit: 2000 }), [SSET]: [400, { error: { code: "invalid_request", message: "x", fields } }] }));
+  const p = await page(normal({ [SGET]: policy({ store_bulk_daily_limit: 2000 }), [SSET]: [400, { error: { code: "invalid_request", message: "x", fields } }] }));
   p.node["s-form"].fire("submit");
   await confirm(p);
   assert.equal(text(p, "s-bulk-err"), "Bulk message.");
+});
+
+test("the SMS card leaves Loading and fills the inputs from a policy with none of the removed store fields", async () => {
+  const p = await page(normal({ [SGET]: [200, { sending_stopped: true, platform_daily_limit: 500, site_daily_limit: 50, updated_at: "2026-11-27T10:00:00+08:00" }] }));
+  assert.equal(p.node["s-load"].hidden, true, "the Loading line is hidden");
+  assert.equal(p.node["s-body"].hidden, false);
+  assert.equal(p.node["s-platform"].value, "500");
+  assert.equal(p.node["s-site"].value, "50");
+  assert.equal(p.node["s-stop"].checked, true);
+  assert.equal(p.node["s-bulk-field"].hidden, true);
+});
+
+test("every id settings.js looks up exists in settings.html, and the page's asset versions moved with the removal", () => {
+  const html = fs.readFileSync(new URL("../public/settings.html", import.meta.url), "utf8");
+  const js = fs.readFileSync(new URL("../public/assets/js/settings.js", import.meta.url), "utf8");
+  const used = new Set([...js.matchAll(/\$\("([a-z0-9-]+)"\)/g)].map((m) => m[1]));
+  for (const id of used) assert.ok(html.includes('id="' + id + '"') || id.startsWith("gw-") || id.startsWith("tk-") || id.startsWith("m-"), "missing id in settings.html: " + id);
+  /* A browser that kept the old script (max-age 3600) hit a removed element and stayed on Loading: the URLs must carry a new version. */
+  assert.match(html, /settings\.js\?v=20261127a/);
+  assert.match(html, /hq\.css\?v=20261127a/);
 });

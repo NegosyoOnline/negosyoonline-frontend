@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/img/icon-32.png?v=20261111a">
 <link rel="apple-touch-icon" href="/assets/img/icon-180.png?v=20261111a">
 <script src="/assets/js/theme.js?v=20261111a"></script>
-<link rel="stylesheet" href="/assets/css/hq.css?v=20261113a">
+<link rel="stylesheet" href="/assets/css/hq.css?v=20261127a">
 </head>
 <body class="dash-app">
 <a class="skip" href="#main">Skip to content</a>
@@ -84,19 +84,13 @@
                 <p class="small">When on, no SMS is sent from the platform.</p>
                 <p class="field-err" id="s-stop-err" role="alert" hidden></p>
               </div>
-              <div class="fgrid">
+              <div class="fgrid four">
                 <div class="field"><label for="s-platform">Platform daily limit</label><input class="input" id="s-platform" type="text" inputmode="numeric" autocomplete="off" aria-describedby="s-platform-err"><p class="field-err" id="s-platform-err" role="alert" hidden></p></div>
                 <div class="field"><label for="s-site">Site daily limit</label><input class="input" id="s-site" type="text" inputmode="numeric" autocomplete="off" aria-describedby="s-site-err"><p class="field-err" id="s-site-err" role="alert" hidden></p></div>
-              </div>
-              <div class="fgrid" id="s-store-caps" hidden>
-                <div class="field"><label for="s-store">Texts per store a day</label><input class="input" id="s-store" type="text" inputmode="numeric" autocomplete="off" aria-describedby="s-store-err"><p class="field-err" id="s-store-err" role="alert" hidden></p></div>
-                <div class="field"><label for="s-allstores">Texts from all stores a day</label><input class="input" id="s-allstores" type="text" inputmode="numeric" autocomplete="off" aria-describedby="s-allstores-err"><p class="field-err" id="s-allstores-err" role="alert" hidden></p></div>
                 <div class="field" id="s-bulk-field" hidden><label for="s-bulk">Bulk texts a day per store</label><input class="input" id="s-bulk" type="text" inputmode="numeric" autocomplete="off" aria-describedby="s-bulk-err"><p class="field-err" id="s-bulk-err" role="alert" hidden></p></div>
-                <p class="small">20 an hour per store, fixed.</p>
+                <div class="field fgrid-save"><span class="fgrid-save-gap" aria-hidden="true">&nbsp;</span><div class="fin-row"><button type="submit" class="no-btn no-btn-primary" id="s-save" aria-haspopup="dialog">Save</button></div></div>
               </div>
               <p class="field-err" id="s-err" role="alert" hidden></p>
-              <p class="small" id="s-when" hidden></p>
-              <div class="fin-row"><button type="submit" class="no-btn no-btn-primary" id="s-save" aria-haspopup="dialog">Save</button></div>
             </form>
           </div>
         </section>
@@ -182,6 +176,6 @@
 <script src="/assets/js/menu.js?v=20261122a"></script>
 <script src="/assets/js/shell.js?v=20261111b"></script>
 <script src="/assets/js/finance-common.js?v=20261122a"></script>
-<script src="/assets/js/settings.js?v=20261123bk1"></script>
+<script src="/assets/js/settings.js?v=20261127a"></script>
 </body>
 </html>

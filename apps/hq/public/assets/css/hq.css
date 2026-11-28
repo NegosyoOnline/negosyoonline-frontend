@@ -633,3 +633,10 @@ button.no-btn:disabled { opacity: .55; cursor: default; }
   .dm-table td.lc-act .lc-btns { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; }
   .dm-table td.lc-act .no-btn { flex: 1 1 auto; }
 }
+
+/* Referrals page (Billing B6): the account's figures, and a tighter Finance tab so eight tabs fit. */
+body.dash-app .ref-figures { display: flex; flex-wrap: wrap; gap: 12px 32px; margin: 0 0 16px; }
+body.dash-app .ref-fig { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+body.dash-app .ref-fig dt { font-size: 14px; color: var(--meta, var(--text-2)); }
+body.dash-app .ref-fig dd { margin: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+body.dash-app .fin-sub a { padding-left: 12px; padding-right: 12px; }

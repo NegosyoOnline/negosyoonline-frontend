@@ -45,7 +45,7 @@
     <main class="view" id="main" aria-live="polite">
       <h1 class="sr-only">Finance, bank transfer payments</h1>
       <p class="field-err" id="sign-out-err" role="alert" hidden>We could not sign you out. Try again.</p>
-      <nav class="set-tabs fin-sub" aria-label="Finance sections"><a href="/finance/" aria-current="page">Payments</a><a href="/finance/usage/">Usage</a><a href="/finance/issuer/">Issuer</a><a href="/finance/invoices/">Invoices</a><a href="/finance/invoices/reconcile/">Reconcile</a><a href="/finance/statements/">Statements</a><a href="/finance/accounts/">Accounts</a></nav>
+      <nav class="set-tabs fin-sub" aria-label="Finance sections"><a href="/finance/" aria-current="page">Payments</a><a href="/finance/usage/">Usage</a><a href="/finance/issuer/">Issuer</a><a href="/finance/invoices/">Invoices</a><a href="/finance/invoices/reconcile/">Reconcile</a><a href="/finance/statements/">Statements</a><a href="/finance/accounts/">Accounts</a><a href="/finance/referrals/">Referrals</a></nav>
       <p class="dash-copy" id="boot">Loading payments…</p>
       <noscript><p class="dash-copy">This page needs JavaScript.</p></noscript>
 
@@ -73,6 +73,7 @@
             <div class="batch-title"><h2 id="p-site"></h2><span class="chip chip-neutral" id="p-status"></span></div>
             <p class="small" id="p-site-id"></p>
             <div class="fin-due"><span class="small">Amount due</span><span class="fin-amount num" id="p-amount"></span></div>
+            <p class="small" id="p-credit" hidden></p>
             <dl class="fin-facts">
               <div><dt>Plan</dt><dd id="p-plan"></dd></div>
               <div><dt>Transfer date</dt><dd id="p-date"></dd></div>

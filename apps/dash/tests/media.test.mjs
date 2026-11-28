@@ -42,7 +42,7 @@ function boot({ assets = [], off = null, search = "", siteId = A } = {}) {
     const find = (id) => s.assets.find((x) => x.id === id);
     if (opts.method === "GET" && p === "/sites/") a = ok({ items: [{ id: siteId, template: "sante" }], next_cursor: null });
     else if (s.off && rest !== null) a = s.off;
-    else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets });
+    else if (rest === "" && opts.method === "GET") a = ok({ assets: s.assets, ...(s.videoHost ? { video_host: s.videoHost } : {}) });
     else if (rest === "" && opts.method === "POST") a = s.answer || (() => {
       const id = "ast_" + ++s.next;
       const row = body.asset_type === "video" ? video(id, { title: body.title, poster_url: null }) : asset(id, { title: body.title, file_url: null });
@@ -70,7 +70,7 @@ function boot({ assets = [], off = null, search = "", siteId = A } = {}) {
   const window = { NO_CONFIG: { apiBase: "http://api.test/v1", siteUrl: "http://www.test" }, addEventListener: (t, f) => { (winOn[t] = winOn[t] || []).push(f); }, removeEventListener() {}, innerHeight: 800 };
   const storage = { getItem: () => null, removeItem() {}, setItem() {} };
   const location = { search, pathname: "/media/", replace() {}, assign() {} };
-  const context = vm.createContext({ window, document: doc, location, history: {}, console, URLSearchParams, Promise, setTimeout, clearTimeout, Intl, Uint8Array, Date,
+  const context = vm.createContext({ window, document: doc, location, history: {}, console, URLSearchParams, Promise, setTimeout: (f, ms) => setTimeout(f, ms >= 1000 ? 0 : ms), clearTimeout, Intl, Uint8Array, Date,
     FormData, File, XMLHttpRequest: XHR, localStorage: storage, sessionStorage: storage, requestAnimationFrame() {}, fetch });
   vm.runInContext(read("app.js"), context, { filename: "app.js" });
   vm.runInContext(read("media.js"), context, { filename: "media.js" });
@@ -443,4 +443,179 @@ test("a sites answer with an empty site id makes no media request, in the editor
   assert.deepEqual(d.list(), ["GET /sites/", "GET /sites/"]);
   assert.ok(!d.list().some((c) => c.includes("/media/")));
   assert.deepEqual(d.nav.map((n) => n.hidden), [true, true, true]);
+});
+
+
+/* ---------- V-1 (ClickUp z8uq9mkfkd): a video in the store's own Bunny library ---------- */
+
+const LIB = 816560, GUID = "0f3c2b1a-1111-4222-8333-444455556666", EMBED = `https://iframe.mediadelivery.net/embed/${LIB}/${GUID}`;
+const UP = { endpoint: "https://video.bunnycdn.com/tusupload", library_id: String(LIB), video_id: GUID, signature: "sig123", expires: 1795800000 };
+const bunnyToken = () => ok({ host: "bunny", upload: { ...UP } });
+const bunnyAsset = (id, over = {}) => video(id, { embed_url: EMBED, file_url: null, ...over });
+/* a stand-in for tus.js: records what it was given; `done` settles the upload, `progress` reports a percentage */
+function fakeTus(d, how = "ok") {
+  const seen = { calls: [], progress: null, finish: null, aborted: 0 };
+  d.window.NOTus = { upload(f, o) {
+    seen.calls.push({ file: f, ...o }); seen.progress = o.onProgress;
+    const promise = how === "hold" ? new Promise((res, rej) => { seen.finish = (bad) => (bad ? rej({ code: "send" }) : res({ url: "x" })); }) : how === "fail" ? Promise.reject({ code: "send", status: 0 }) : Promise.resolve({ url: "x" });
+    return { promise, abort() { seen.aborted++; } };
+  } };
+  return seen;
+}
+async function addBunnyVideo(d) {
+  d.s.videoHost = "bunny";
+  await d.open();
+  await d.click(d.press(d.root(), "Add media"));
+  d.set("ml-n-type", "video"); d.$("ml-n-type").fire("change");
+  d.set("ml-n-title", "Demo");
+  d.$("ml-n-poster").files = [file("p.jpg", "image/jpeg")];
+  d.$("ml-n-video").files = [file("v.mp4", "video/mp4", 600 * 1024 * 1024)];
+  d.click(d.press(d.root(), "Add media"));
+}
+const frames = (d) => d.root().all((n) => n.tagName === "IFRAME");
+
+test("Bunny: the token's upload block goes to tus.js with the four signed headers, not to a store address, and the file never passes this server", async () => {
+  const d = boot(); d.s.tokenAnswer = bunnyToken();
+  const tus = fakeTus(d);
+  d.s.attachAnswer = ok(bunnyAsset("ast_101"));
+  await addBunnyVideo(d); await settle();
+  assert.equal(tus.calls.length, 1);
+  assert.equal(tus.calls[0].endpoint, UP.endpoint);
+  assert.deepEqual({ ...tus.calls[0].headers }, { AuthorizationSignature: "sig123", AuthorizationExpire: 1795800000, VideoId: GUID, LibraryId: String(LIB) });
+  assert.equal(tus.calls[0].metadata.filetype, "video/mp4");
+  assert.equal(d.puts.length, 0, "no PUT to a store address");
+  assert.equal(d.calls.some((c) => c.form && c.form.has("video")), false);
+});
+
+test("Bunny: attach is asked again on 409 video_processing, then the asset has no file_url and its player", async () => {
+  const d = boot(); d.s.tokenAnswer = bunnyToken();
+  fakeTus(d);
+  let n = 0;
+  Object.defineProperty(d.s, "attachAnswer", { get() { n++; return n <= 2 ? err(409, "video_processing", "The video is still being processed. Try again in a moment.") : ok(bunnyAsset("ast_101")); }, set() {} });
+  await addBunnyVideo(d); await settle(); await settle(); await settle();
+  const attaches = d.calls.filter((c) => c.path === M + "ast_101/video/attach/");
+  assert.equal(attaches.length, 3);
+  for (const a of attaches) assert.deepEqual(a.body, { video_id: GUID });
+  assert.deepEqual(chips(rowOf(d, "ast_101")), ["Draft", "Video"], "attached: no No-video-yet chip, Publish is open");
+  assert.equal(d.press(rowOf(d, "ast_101"), "Publish").disabled, false);
+  assert.ok(d.toasts.some((t) => t.startsWith("Added")));
+});
+
+test("Bunny: the note shows Uploading N% and then Processing…", async () => {
+  const d = boot(); d.s.tokenAnswer = bunnyToken();
+  const tus = fakeTus(d, "hold");
+  d.s.attachAnswer = err(409, "video_processing", "x");
+  await addBunnyVideo(d); await settle();
+  const note = () => d.root().all((n) => n.classList.contains("ml-progress")).map((n) => n.textContent).filter(Boolean)[0];
+  assert.equal(note(), "Uploading 0%");
+  tus.progress(42); assert.equal(note(), "Uploading 42%");
+  tus.finish(); await settle();
+  assert.equal(note(), "Processing…");
+  const p = d.root().all((n) => n.classList.contains("ml-progress"))[0];
+  assert.equal(p.getAttribute("role"), "status");
+});
+
+test("Bunny: too large (400 video_too_large) says so plainly, in the video field, and keeps the draft with No video yet", async () => {
+  const d = boot(); d.s.tokenAnswer = bunnyToken();
+  fakeTus(d);
+  d.s.attachAnswer = err(400, "video_too_large", "This video is too large to upload.");
+  await addBunnyVideo(d); await settle();
+  assert.equal(d.$("ml-e-video-err").textContent, "This video is too large to upload.");
+  assert.ok(d.toasts.some((t) => t.startsWith("Saved, but the video is not uploaded") && t.includes("This video is too large to upload.")));
+  assert.deepEqual(chips(rowOf(d, "ast_101")), ["Draft", "Video", "No video yet"]);
+});
+
+test("Bunny: a failed video (400 with its field), a missing one (502) and a tus failure each show a plain message", async () => {
+  for (const [att, tusHow, want] of [
+    [err(400, "invalid_request", "x", { video_id: "The video could not be processed. Upload it again." }), "ok", "The video could not be processed. Upload it again."],
+    [err(502, "video_not_confirmed", "The uploaded video could not be found. Try again."), "ok", "The uploaded video could not be found. Try again."],
+    [null, "fail", "The video did not upload. Check the connection and try again."]]) {
+    const d = boot(); d.s.tokenAnswer = bunnyToken(); fakeTus(d, tusHow); d.s.attachAnswer = att;
+    await addBunnyVideo(d); await settle();
+    assert.equal(d.$("ml-e-video-err").textContent, want);
+    assert.equal(d.calls.some((c) => c.path.endsWith("/video/attach/")), tusHow === "ok");
+  }
+});
+
+test("Bunny: a token block that cannot be used (no https endpoint, a missing value) sends nothing", async () => {
+  for (const up of [{ ...UP, endpoint: "http://evil.test/tus" }, { ...UP, signature: "" }, null]) {
+    const d = boot(); d.s.tokenAnswer = ok({ host: "bunny", upload: up });
+    const tus = fakeTus(d);
+    await addBunnyVideo(d); await settle();
+    assert.equal(tus.calls.length, 0);
+    assert.equal(d.$("ml-e-video-err").textContent, "That did not work. Please try again.");
+  }
+});
+
+test("Bunny: leaving the page stops the upload and asks nothing more", async () => {
+  const d = boot(); d.s.tokenAnswer = bunnyToken();
+  const tus = fakeTus(d, "hold");
+  await addBunnyVideo(d); await settle();
+  d.window.NOMedia.hide();
+  assert.equal(tus.aborted, 1);
+  tus.finish(true); await settle();
+  assert.equal(d.calls.some((c) => c.path.endsWith("/video/attach/")), false);
+});
+
+test("playback: an asset with embed_url plays in Bunny's iframe, titled, in its editor; one without it shows no player", async () => {
+  const d = boot({ assets: [bunnyAsset("b1", { title: "How to post" }), video("v1", { file_url: BLOB + "v1/x.mp4" })] });
+  await d.open();
+  assert.deepEqual(chips(rowOf(d, "b1")), ["Draft", "Video"]);
+  await d.click(d.press(rowOf(d, "b1"), "Edit"));
+  const f = frames(d);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].getAttribute("src"), EMBED);
+  assert.equal(f[0].getAttribute("title"), "How to post");
+  assert.ok(d.root().textContent.includes("A video is attached."));
+  assert.ok(d.root().textContent.includes("Replace the video (MP4)"));
+  await d.click(d.press(d.root(), "Close"));
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  assert.equal(frames(d).length, 0);
+});
+
+test("playback: only a Bunny embed address is framed; any other host, scheme or shape is not, and the asset counts as having no video", async () => {
+  for (const bad of ["https://evil.test/embed/1/" + GUID, "http://iframe.mediadelivery.net/embed/1/" + GUID, EMBED + "?x=1", "javascript:alert(1)", 7]) {
+    const d = boot({ assets: [bunnyAsset("b1", { embed_url: bad })] });
+    await d.open();
+    assert.deepEqual(chips(rowOf(d, "b1")), ["Draft", "Video", "No video yet"], String(bad));
+    await d.click(d.press(rowOf(d, "b1"), "Edit"));
+    assert.equal(frames(d).length, 0, String(bad));
+  }
+});
+
+test("the Blob token (no host key) still goes by PUT, exactly as before, with no tus call", async () => {
+  const d = boot({ assets: [video("v1")] });
+  const tus = fakeTus(d);
+  await d.open();
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  d.$("ml-e-video").files = [file("v.mp4", "video/mp4", 1000)];
+  await d.click(d.press(d.root(), "Upload video"));
+  assert.equal(tus.calls.length, 0);
+  assert.equal(d.puts.length, 1);
+});
+
+test("video_host absent: the original 50 MB hint and the pre-call refusal, in the Add form and in Edit", async () => {
+  const d = boot({ assets: [video("v1")] });
+  await d.open();
+  assert.ok(d.root().textContent.includes("Your media"));
+  await d.click(d.press(d.root(), "Add media"));
+  d.set("ml-n-type", "video"); d.$("ml-n-type").fire("change");
+  assert.ok(d.root().textContent.includes("MP4 only, up to 50 MB."));
+  await d.click(d.press(d.root(), "Cancel"));
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  assert.ok(d.root().textContent.includes("MP4 only, up to 50 MB."));
+});
+
+test("video_host bunny: the hint is MP4 only. and a video over 50 MB is not stopped before the token", async () => {
+  const d = boot({ assets: [video("v1")] }); d.s.videoHost = "bunny"; d.s.tokenAnswer = bunnyToken();
+  fakeTus(d); d.s.attachAnswer = ok(bunnyAsset("v1"));
+  await d.open();
+  await d.click(d.press(rowOf(d, "v1"), "Edit"));
+  assert.ok(d.root().textContent.includes("MP4 only.") && !d.root().textContent.includes("up to 50 MB"));
+  d.$("ml-e-video").files = [file("v.mp4", "video/mp4", 600 * 1024 * 1024)];
+  await d.click(d.press(d.root(), "Upload video"));
+  assert.ok(d.calls.some((c) => c.path === M + "v1/video/token/"));
+  const { videoCheck } = d.window.NOMedia.util;
+  assert.equal(videoCheck(file("v.mov", "video/quicktime"), true).error, "Use an MP4 video.");
+  assert.equal(videoCheck(file("v.mp4", "video/mp4", 51 * 1024 * 1024), false).error, "The video is larger than 50 MB.");
 });

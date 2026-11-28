@@ -274,7 +274,7 @@ test("the page makes only the five statement calls, carries the sub-navigation a
   assert.doesNotMatch(js, /innerHTML|insertAdjacentHTML|localStorage|sessionStorage/);
   for (const f of ["finance", "finance-usage", "finance-issuer", "finance-invoices", "finance-reconcile", "finance-accounts", "finance-statements"]) {
     const html = fs.readFileSync(new URL("../public/" + f + ".html", import.meta.url), "utf8");
-    assert.match(html, /<a href="\/finance\/statements\/"[^>]*>Statements<\/a><a href="\/finance\/accounts\/"[^>]*>Accounts<\/a><\/nav>/, f);
+    assert.match(html, /<a href="\/finance\/statements\/"[^>]*>Statements<\/a><a href="\/finance\/accounts\/"[^>]*>Accounts<\/a>/, f);
   }
   const html = fs.readFileSync(new URL("../public/finance-statements.html", import.meta.url), "utf8");
   assert.match(html, /<a href="\/finance\/statements\/" aria-current="page">Statements<\/a>/);

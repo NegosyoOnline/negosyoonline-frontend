@@ -90,17 +90,17 @@ test("the invoice register and reconciliation pages are covered, and load their 
   }
 });
 
-test("every Finance page carries the same sub-navigation: seven links, the page's own marked current", () => {
-  const LINKS = ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/", "/finance/statements/", "/finance/accounts/"];
+test("every Finance page carries the same sub-navigation: eight links, the page's own marked current", () => {
+  const LINKS = ["/finance/", "/finance/usage/", "/finance/issuer/", "/finance/invoices/", "/finance/invoices/reconcile/", "/finance/statements/", "/finance/accounts/", "/finance/referrals/"];
   const OWN = { "finance.html": "/finance/", "finance-usage.html": "/finance/usage/", "finance-issuer.html": "/finance/issuer/",
-    "finance-invoices.html": "/finance/invoices/", "finance-reconcile.html": "/finance/invoices/reconcile/", "finance-statements.html": "/finance/statements/", "finance-accounts.html": "/finance/accounts/" };
+    "finance-invoices.html": "/finance/invoices/", "finance-reconcile.html": "/finance/invoices/reconcile/", "finance-statements.html": "/finance/statements/", "finance-accounts.html": "/finance/accounts/", "finance-referrals.html": "/finance/referrals/" };
   for (const [page, own] of Object.entries(OWN)) {
     const html = all.find((x) => x.name === page).text;
     const nav = /<nav class="set-tabs fin-sub"[^>]*>(.*?)<\/nav>/.exec(html)[1];
     assert.deepEqual([...nav.matchAll(/<a href="([^"]+)"/g)].map((m) => m[1]), LINKS, page);
     assert.equal((nav.match(/aria-current="page"/g) || []).length, 1, page);
     assert.match(nav, new RegExp(`<a href="${own}" aria-current="page">`), page);
-    assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile.*Statements.*Accounts/, page);
+    assert.match(nav, /Payments.*Usage.*Issuer.*Invoices.*Reconcile.*Statements.*Accounts.*Referrals/, page);
   }
 });
 

@@ -74,7 +74,18 @@
     var size = link.getAttribute("data-size") || "";
     var el;
     stage.textContent = "";
-    if (kind === "video") {
+    var embed = link.getAttribute("data-embed") || "";
+    if (kind === "video" && embed) {
+      /* A video in the store's own Bunny library plays in Bunny's player (the page's policy frames that one host). */
+      el = document.createElement("iframe");
+      el.className = "ml-embed";
+      el.setAttribute("src", embed);
+      el.setAttribute("title", title || "Video");
+      el.setAttribute("allowfullscreen", "");
+      el.setAttribute("loading", "lazy");
+      el.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+      el.setAttribute("allow", "fullscreen; picture-in-picture; encrypted-media");
+    } else if (kind === "video") {
       el = document.createElement("video");
       el.setAttribute("controls", "");
       el.setAttribute("playsinline", "");

@@ -140,7 +140,7 @@ const SMS_STATUS = { phone_online: true, daily_limit: 50, left_today: 37, hourly
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const B = "/sites/" + A + "/inquiries/sms/bulk/";
 const BULK_STATUS = { available: true, blocked: "", blocked_message: "", phone_online: true, daily_limit: 2000, used_today: 0, left_today: 2000, prefix: "Test Store: ", max_length: 147,
-  window: { start: "08:00", end: "22:00", timezone: "Asia/Manila" }, in_window: true, seconds_between: { min: 18, max: 25 },
+  window: { start: "06:00", end: "22:00", timezone: "Asia/Manila" }, in_window: true, seconds_between: { min: 18, max: 25 },
   cost_note: "Texts go out from your own phone and SIM. Your carrier's normal SMS rates apply.", active_batch: null };
 const AUD_ALL = { audience: "all", total_members: 120, will_send: 95, left_out: { unverified: 10, invalid_number: 2, opted_out: 5, duplicates: 8 } };
 const batch = (over = {}) => ({ id: "sbk_aaaaaaaa", state: "sending", created_at: "2026-11-23T10:00:00+08:00", audience: "all", text: "Test Store: Sale this weekend.",
@@ -166,6 +166,7 @@ function api(o = {}) {
     if (method === "POST" && tail === "batches/") { seen.batches.push(body); return o.create ? o.create(body, seen) : ok(batch({ text: "Test Store: " + body.text, sent: 0, failed: 0, waiting: 95, state: "waiting" }), 201); }
     if (method === "GET" && tail.indexOf("batches/?") === 0) return o.history ? o.history(tail) : ok({ items: [batch({ state: "finished", paused_reason: "", seconds_left: 0, waiting: 0, sent: 94, failed: 1 })], next_cursor: null });
     if (method === "GET" && /^batches\/[^/]+\/\?/.test(tail)) return o.detail ? o.detail(tail) : ok({ ...batch({ state: "finished" }), results: [{ name: "Maria Santos", mobile: "+63917***4567", state: "sent", reason: "", reason_text: "" }, { name: "Jun Cruz", mobile: "+63918***1111", state: "not_sent", reason: "opted_out", reason_text: "Asked for no more texts." }], next: null });
+    if (method === "POST" && /\/continue\/$/.test(tail)) { seen.cont = (seen.cont || 0) + 1; return o.cont ? o.cont(tail, seen) : ok(batch({ state: "sending" })); }
     if (method === "POST" && /\/stop\/$/.test(tail)) { seen.stop++; return o.stop || ok(batch({ state: "stopped", end_reason: "stopped", end_message: "You stopped this batch." })); }
     return null;
   };
@@ -357,7 +358,7 @@ test("bulk: the compose form: Send to above Message on the left, How bulk sendin
   const h2s = pane(d).all((n) => n.tagName === "H2").map((n) => n.textContent);
   assert.deepEqual(h2s, ["New batch: write the text and choose who gets it", "How bulk sending works"], "no Check and confirm card");
   const rules = pane(d).all((n) => n.classList && n.classList.contains("ib-bk-rules"))[0].textContent;
-  assert.ok(rules.includes("No web links.") && rules.includes("Contacts who replied STOP are skipped.") && rules.includes("8:00 am to 10:00 pm, Manila time"));
+  assert.ok(rules.includes("No web links.") && rules.includes("Contacts who replied STOP are skipped.") && rules.includes("6:00 am to 10:00 pm, Manila time"));
   assert.ok(rules.includes("One text for every contact in your groups."));
   assert.ok(rules.includes("Bulk texts left today: 2000 of 2000."));
   assert.equal(d.$("ib-bk-send"), null, "the History card is not shown with the form");
@@ -495,7 +496,7 @@ test("INBOX-FIX-7: a running batch: the progress card is at the top in the Site 
   assert.ok(!/Failed|Not sent|Waiting|Started|Who gets it|Left out|Sale this weekend/.test(card.textContent.replace("Waiting to start", "")), "compact: only the bar, Sent x of N, time left and the buttons: " + card.textContent);
   assert.deepEqual(card.all((n) => n.tagName === "BUTTON").map((n) => n.textContent), ["Refresh", "Stop sending"]);
   assert.equal(card.all((n) => n.getAttribute && n.getAttribute("role") === "progressbar")[0].getAttribute("aria-valuenow"), "11", "sent + failed + not sent");
-  assert.ok(d.$("ib-bk-pause").textContent.includes("outside sending hours (8:00 am to 10:00 pm, Manila time)"));
+  assert.ok(d.$("ib-bk-pause").textContent.includes("outside sending hours (6:00 am to 10:00 pm, Manila time)"));
   assert.ok(card.textContent.includes("About 34 minutes left"));
   assert.equal(d.$("ib-bk-send"), null, "Send Bulk SMS is hidden");
   assert.equal(d.$("ib-bk-refresh").textContent, "Refresh");
@@ -1152,4 +1153,67 @@ test("fix 5: the cost note is in the label format; a field error stays on the me
   await typeText(d, "Hi {name}");
   assert.equal(d.$("ib-bk-e").hidden, false); assert.equal(d.$("ib-bk-e").textContent, "Only {first_name} can go inside { }.");
   assert.equal(d.$("ib-bk-test").disabled, true);
+});
+
+/* ---------- z8uq9mknpv: STORE-BULK-CONTINUE and BULK-HISTORY-SCROLL ---------- */
+const ENDED = (over = {}) => batch({ state: "ended", sent: 4, failed: 0, not_sent: 246, waiting: 0, seconds_left: 0, end_message: "Ended early.", finished_at: "2026-11-23T11:00:00+08:00", can_continue: true, continue_count: 246, ...over });
+const contBtns = (d) => pane(d).all((n) => n.classList && n.classList.contains("ib-bk-cont"));
+
+test("continue: the button shows only on an Ended batch with can_continue true (row and opened view); other states and false/missing show none", async () => {
+  for (const [name, b, want] of [["ended + can_continue", ENDED(), 1], ["ended, can_continue false", ENDED({ can_continue: false }), 0], ["ended, field missing", ENDED({ can_continue: undefined }), 0],
+    ["finished + can_continue", ENDED({ state: "finished" }), 0], ["stopped + can_continue", ENDED({ state: "stopped" }), 0]]) {
+    const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }), detail: () => ok({ ...b, results: [], next: null }) }, {}, { form: false });
+    assert.equal(contBtns(d).length, want, name + ": row");
+    await d.click(viewBtns(d)[0]);
+    assert.equal(contBtns(d).length, want * 2, name + ": row and opened view");
+    if (want) assert.equal(contBtns(d)[0].textContent, "Continue sending");
+  }
+});
+
+test("continue: click asks with the count, Back sends nothing; Yes POSTs continue/ once, toasts and reads the history again", async () => {
+  let n = 0;
+  const d = await openBulk({ history: () => ok({ items: [n++ ? ENDED({ state: "sending", can_continue: false, sent: 100, not_sent: 150, waiting: 150 }) : ENDED()], next_cursor: null }), cont: () => ok(batch({ state: "sending" })) }, {}, { form: false });
+  await d.click(contBtns(d)[0]); await settle();
+  assert.ok(d.$("ib-bk-dlg"), "the confirm dialog");
+  assert.ok(d.$("ib-bk-dlg").textContent.includes("Continue sending 246 texts from your phone?"), d.$("ib-bk-dlg").textContent);
+  await d.click(d.$("ib-bk-dlg-back")); await settle();
+  assert.equal(d.$("ib-bk-dlg"), null); assert.equal(d.bk.seen.cont, undefined, "Back sends nothing");
+  await d.click(contBtns(d)[0]); await settle();
+  await d.click(d.$("ib-bk-dlg-go")); await settle(); await settle();
+  assert.equal(d.bk.seen.cont, 1); assert.ok(d.list().includes("POST " + B + "batches/sbk_aaaaaaaa/continue/"));
+  assert.deepEqual(d.toasts, ["Sending continued.: 246 texts go out from your phone."]);
+  assert.ok(d.calls.filter((c) => c.path.indexOf(B + "batches/?limit=20") === 0).length >= 2, "the history was read again");
+  assert.equal(contBtns(d).length, 0, "the refreshed batch can no longer continue");
+});
+
+test("continue: a refusal is an error toast, the button comes back; a 409 reads the state again", async () => {
+  const d = await openBulk({ history: () => ok({ items: [ENDED()], next_cursor: null }), cont: () => bad(409, "not_continuable", "This batch cannot be continued.") }, {}, { form: false });
+  await d.click(contBtns(d)[0]); await settle(); await d.click(d.$("ib-bk-dlg-go")); await settle(); await settle();
+  assert.deepEqual(d.toasts, ["This batch cannot be continued.: "]); assert.deepEqual(d.kinds, ["error"]);
+  assert.equal(contBtns(d).length, 1); assert.equal(contBtns(d)[0].disabled, false);
+});
+
+test("continue: from the opened view the detail refreshes in place (recipients read again)", async () => {
+  const b = ENDED(); let reads = 0;
+  const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }), detail: () => { reads++; return ok({ ...b, results: [], next: null }); } }, {}, { form: false });
+  await d.click(viewBtns(d)[0]); await settle();
+  const first = reads;
+  await d.click(d.$("ib-bk-dcont-sbk_aaaaaaaa")); await settle(); await d.click(d.$("ib-bk-dlg-go")); await settle(); await settle();
+  assert.equal(d.bk.seen.cont, 1); assert.ok(reads > first, "the open detail was read again");
+});
+
+test("BULK-HISTORY-SCROLL: the history card has no inner scroll box and no wider-than-card table; long cells truncate; the opened batch flows with the page", () => {
+  const css = CSS9();
+  assert.match(css, /#ib-bk-hist \.ib-bk-tbox \{ overflow: hidden; \}/, "the box clips, it never scrolls");
+  assert.match(css, /#ib-bk-hist \.ib-bk-table \{ width: 100%; min-width: 0; \}/, "no 680px floor");
+  assert.match(css, /td\.ib-bk-aud, #ib-bk-hist \.ib-bk-table td\.ib-bk-rtext \{ width: 22%; max-width: 0; \}/, "Audience and Message take the rest and truncate");
+  assert.match(css, /td\.ib-bk-aud \{[^}]*text-overflow: ellipsis/); assert.match(css, /td\.ib-bk-rtext \{[^}]*text-overflow: ellipsis/);
+  assert.match(css, /#ib-bk-hist \.ib-bk-dwrap \{ position: static; width: 100%; max-width: 100%; \}/, "the opened batch is not a sticky inner box");
+  const mine = css.slice(css.indexOf("#ib-bk-hist .ib-bk-tbox"));
+  assert.doesNotMatch(mine, /overflow-y|overflow: ?(auto|scroll)|max-height|#[0-9a-fA-F]{6}\b|gold/, "no inner scroll, no gold, theme colours only");
+  assert.match(css, /tr\.ib-bk-tr\.has-cont \{ grid-template-areas: "when chip" "aud aud" "nums nums" "msg msg" "act act"; \}/, "phone: the buttons get their own row");
+});
+
+test("continue: no window text says 8:00 am anywhere in the bulk and schedule scripts", () => {
+  for (const f of ["inbox-bulk.js", "inbox-schedule.js"]) assert.doesNotMatch(fs.readFileSync(path.join(JS, f), "utf8"), /\b8:00 am|\b08:00 to|FROM = 8 \*/, f);
 });

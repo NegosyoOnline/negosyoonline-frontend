@@ -18,7 +18,7 @@
   var STATES = { waiting: "Waiting to start", sending: "Sending", finished: "Finished", stopped: "Stopped", ended: "Ended" };
   var RSTATES = { waiting: "Waiting", queued: "With your phone", sent: "Sent", failed: "Failed", not_sent: "Not sent" };
   var PAUSES = {
-    outside_window: "Paused: it is outside sending hours (8:00 am to 10:00 pm, Manila time). It goes on at 8:00 am.",
+    outside_window: "Paused: it is outside sending hours (6:00 am to 10:00 pm, Manila time). It goes on at 6:00 am.",
     daily_cap: "Paused: today's limit is reached. It goes on tomorrow morning.",
     phone_offline: "Paused: your phone is offline. It goes on when your phone is back online."
   };
@@ -173,6 +173,15 @@
     try { return new Date(iso).toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
   }
   function base(site) { return "/sites/" + site + "/inquiries/sms/bulk/"; }
+  /* The one place the Continue sending route is named (STORE-BULK-CONTINUE, backend z8uq9mknk1): POST batches/{id}/continue/, the same call style as stop/. */
+  var CONTINUE_PATH = "continue/";
+  function continuePath(site, id) { return base(site) + "batches/" + encodeURIComponent(id) + "/" + CONTINUE_PATH; }
+  /* The Continue sending button shows only on an Ended batch the API says can continue (can_continue: true); continue_count is how many texts it will send. */
+  function canContinue(b) { return !!b && b.state === "ended" && b.can_continue === true; }
+  function continueQuestion(b) {
+    var n = num(b && b.continue_count);
+    return n > 0 ? "Continue sending " + plural(n, "text", "texts") + " from your phone?" : "Continue sending the texts that were not sent, from your phone?";
+  }
   /* The ids of a pick (groups or contacts), for the audience and batch bodies. */
   function idsOf(list) { return list.map(function (x) { return x.id; }); }
   /* The contacts the picker offers (GET /sites/{id}/contacts/?q= results): { id, name, label (name and the MASKED mobile), optedOut }. A full number is never shown. */
@@ -216,7 +225,7 @@
     var D = ui.D, h = ui.h, add = ui.add, b0 = base(ui.site);
     var st = { view: "loading", status: null, audience: "all", needPick: true, pickG: [], pickC: [], groups: null, found: [], q: "", dlg: false, csrun: 0, ctimer: null, searching: false, searchErr: false, contactsOn: false, aud: null, audLoading: false, text: "", preview: null, prevErr: "",
       key: null, sure: false, sending: false, testing: false, testNote: "", err: "", note: "", timer: null, poll: null,
-      hist: { items: [], next: null, loading: false, failed: false }, open: {}, dead: false, arun: 0, prun: 0 };
+      hist: { items: [], next: null, loading: false, failed: false }, open: {}, cont: {}, dead: false, arun: 0, prun: 0 };
 
     function stop() { st.dead = true; closeDialog(false); if (st.timer) clearTimeout(st.timer); if (st.poll) clearTimeout(st.poll); if (st.ctimer) clearTimeout(st.ctimer); st.timer = st.poll = st.ctimer = null; }
     function gone() { stop(); ui.gone(); }
@@ -515,7 +524,7 @@
       var rules = h("section", "dash-card ib-bk-rules"); rules.setAttribute("aria-labelledby", "ib-bk-h-rules");
       var rh = h("h2", "", "How bulk sending works"); rh.setAttribute("id", "ib-bk-h-rules"); rules.appendChild(rh);
       var ul = h("ul", "ib-bk-left");
-      ["One text for every contact in your groups.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 8:00 am to 10:00 pm, Manila time.",
+      ["One text for every contact in your groups.", "No web links.", "Contacts who replied STOP are skipped.", "Sending runs from 6:00 am to 10:00 pm, Manila time.",
         typeof s.left_today === "number" && typeof s.daily_limit === "number" ? "Bulk texts left today: " + num(s.left_today) + " of " + num(s.daily_limit) + "." : ""].forEach(function (t2) { if (t2) ul.appendChild(h("li", "", t2)); });
       rules.appendChild(ul); aside.appendChild(rules);
       add(cols, main, aside); body.appendChild(cols);
@@ -603,16 +612,25 @@
       var d = document.getElementById("ib-bk-dlg"); if (d && d.parentNode) d.parentNode.removeChild(d);
       if (dlgKey) { document.removeEventListener("keydown", dlgKey); dlgKey = null; }
       st.dlg = false;
-      if (returnFocus) { var go = document.getElementById("ib-bk-go"); if (go && go.focus) go.focus(); }
+      if (returnFocus) { var go = document.getElementById(st.dlgRet || "ib-bk-go"); if (go && go.focus) go.focus(); }
+      st.dlgRet = null;
     }
     function openDialog() {
       if (st.sending || !readyCount() || !textOk() || !st.preview || document.getElementById("ib-bk-dlg")) return;
-      var n = num(st.aud.will_send), back = ui.btn("Back", "ghost", function () { closeDialog(true); }); back.setAttribute("id", "ib-bk-dlg-back");
-      var yes = ui.btn("Yes, send", "primary", function (x) { closeDialog(false); confirmSend(x, n); }); yes.setAttribute("id", "ib-bk-dlg-go");
+      var n = num(st.aud.will_send);
+      showDialog("Start sending?", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "contact", "contacts")) + " from your phone?", "Yes, send", "ib-bk-go",
+        function (x) { confirmSend(x, n); });
+    }
+    /* The one confirm dialog (Back and the yes button): Start sending and Continue sending both use it. retId is the button focus goes back to on Back. */
+    function showDialog(title, question, yesLabel, retId, onYes) {
+      if (document.getElementById("ib-bk-dlg")) return;
+      st.dlgRet = retId;
+      var back = ui.btn("Back", "ghost", function () { closeDialog(true); }); back.setAttribute("id", "ib-bk-dlg-back");
+      var yes = ui.btn(yesLabel, "primary", function (x) { closeDialog(false); onYes(x); }); yes.setAttribute("id", "ib-bk-dlg-go");
       var over = h("div", "ib-bk-dlg"); over.setAttribute("id", "ib-bk-dlg");
       var box = h("div", "ib-bk-dlg-box"); box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "ib-bk-dlg-h"); box.setAttribute("aria-describedby", "ib-bk-dlg-t");
-      var ttl = h("h2", "ib-bk-dlg-h", "Start sending?"); ttl.setAttribute("id", "ib-bk-dlg-h");
-      var q = h("p", "ib-bk-dlg-t", "Send to " + (st.audience === "pick" ? plural(n, "recipient", "recipients") : plural(n, "contact", "contacts")) + " from your phone?"); q.setAttribute("id", "ib-bk-dlg-t");
+      var ttl = h("h2", "ib-bk-dlg-h", title); ttl.setAttribute("id", "ib-bk-dlg-h");
+      var q = h("p", "ib-bk-dlg-t", question); q.setAttribute("id", "ib-bk-dlg-t");
       add(box, ttl, q, add(h("div", "ib-bk-dlg-btns"), back, yes));
       over.appendChild(box);
       over.addEventListener("click", function (e) { if (e.target === over) closeDialog(true); });
@@ -627,6 +645,38 @@
       };
       document.addEventListener("keydown", dlgKey);
       host.appendChild(over); st.dlg = true; if (back.focus) back.focus();
+    }
+    /* Continue sending: ask once, POST, say the result in the toast, then read the history, the open detail and the status again so the row's state and counts refresh in place. */
+    function continueButton(b) {
+      var c = ui.btn("Continue sending", "primary", function () { askContinue(b); });
+      c.classList.add("ib-bk-cont"); c.setAttribute("data-batch", b.id); c.setAttribute("id", "ib-bk-cont-" + b.id);
+      if (st.cont[b.id]) c.disabled = true;
+      return c;
+    }
+    function askContinue(b) {
+      if (st.cont[b.id]) return;
+      showDialog("Continue sending?", continueQuestion(b), "Yes, continue", "ib-bk-cont-" + b.id, function () { doContinue(b); });
+    }
+    function doContinue(b) {
+      if (st.cont[b.id]) return;
+      st.cont[b.id] = true; draw();
+      D.call("POST", continuePath(ui.site, b.id), null, true).then(function (res) {
+        delete st.cont[b.id];
+        if (!aliveRes(res)) return;
+        if (res.status === 404 && !(res.data && res.data.code)) { /* the route or the feature is off */ gone(); return; }
+        if (!res.ok) {
+          toast(refusal(res, "We could not continue sending. Please try again."), "", "error");
+          if (res.status === 409) { refreshAll(); return; } /* it already moved on: read the new state */
+          draw(); return;
+        }
+        var n = num(b.continue_count);
+        toast("Sending continued.", n > 0 ? plural(n, "text goes", "texts go") + " out from your phone." : "Your texts go out from your phone."); ui.say("Sending continued.");
+        st.aud = null; refreshAll();
+      });
+    }
+    function refreshAll() {
+      Object.keys(st.open).forEach(function (id) { var o = st.open[id]; st.open[id] = { batch: o.batch, results: [], next: null, loading: true, failed: false }; loadDetail(id, null); });
+      readStatus(); loadHistory(null, true);
     }
     function sendTest(x) {
       if (st.testing || !textOk() || st.needPick) return;
@@ -690,7 +740,7 @@
       tbl.appendChild(add(h("thead", ""), head));
       var tb = h("tbody", "");
       items.forEach(function (b) {
-        var open = !!st.open[b.id], tr = h("tr", "ib-bk-tr" + (open ? " is-open" : ""));
+        var open = !!st.open[b.id], cont = canContinue(b), tr = h("tr", "ib-bk-tr" + (open ? " is-open" : "") + (cont ? " has-cont" : ""));
         tr.appendChild(h("td", "ib-bk-when", when(b.created_at)));
         tr.appendChild(audienceCell(h, b));
         tr.appendChild(h("td", "ib-bk-nums", num(b.sent) + " / " + num(b.failed) + " / " + num(b.not_sent)));
@@ -698,7 +748,8 @@
         tr.appendChild(h("td", "ib-bk-rtext", b.text || ""));
         var ac = h("td", "ib-bk-act"), v = ui.btn(open ? "Hide" : "View", "ghost", function () { toggle(b); });
         v.classList.add("ib-bk-view"); v.setAttribute("aria-expanded", open ? "true" : "false"); v.setAttribute("aria-controls", "ib-bk-d-" + b.id); v.setAttribute("data-batch", b.id);
-        ac.appendChild(v); tr.appendChild(ac); tb.appendChild(tr);
+        if (cont) { var wrap = h("span", "ib-bk-acts"); add(wrap, continueButton(b), v); ac.appendChild(wrap); } else ac.appendChild(v);
+        tr.appendChild(ac); tb.appendChild(tr);
         if (open) {
           var dr = h("tr", "ib-bk-dr"), td = h("td", ""); td.setAttribute("colspan", "6"); td.setAttribute("id", "ib-bk-d-" + b.id);
           var dw = h("div", "ib-bk-dwrap"); drawDetail(dw, st.open[b.id]); td.appendChild(dw); dr.appendChild(td); tb.appendChild(dr);
@@ -735,6 +786,7 @@
       box.appendChild(hd);
       if (b.text) box.appendChild(h("p", "ib-bk-text", b.text));
       box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));
+      if (canContinue(b)) { var cb = continueButton(b); cb.setAttribute("id", "ib-bk-dcont-" + b.id); cb.classList.add("ib-bk-dcont"); box.appendChild(cb); }
       td.appendChild(box);
       if (d0.failed && !d0.results.length) { td.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); td.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(b.id, null); draw(); })); return; }
       if (d0.loading && !d0.results.length) { td.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }

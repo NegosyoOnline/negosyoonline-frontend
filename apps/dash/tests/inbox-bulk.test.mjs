@@ -1217,3 +1217,30 @@ test("BULK-HISTORY-SCROLL: the history card has no inner scroll box and no wider
 test("continue: no window text says 8:00 am anywhere in the bulk and schedule scripts", () => {
   for (const f of ["inbox-bulk.js", "inbox-schedule.js"]) assert.doesNotMatch(fs.readFileSync(path.join(JS, f), "utf8"), /\b8:00 am|\b08:00 to|FROM = 8 \*/, f);
 });
+
+/* ---------- CONTINUE-246: a blocked Ended batch shows Continue sending disabled with the reason ---------- */
+const offBtns = (d) => pane(d).all((n) => n.classList && n.classList.contains("ib-bk-cont-off"));
+const whys = (d) => pane(d).all((n) => n.classList && n.classList.contains("ib-bk-why"));
+
+test("continue blocked: Ended + continue_count > 0 + can_continue false shows a disabled button and the reason (row and opened view); no POST on click", async () => {
+  const b = ENDED({ can_continue: false, continue_blocked: "site_held", continue_blocked_message: "This store is on hold. Nothing can be sent." });
+  const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }), detail: () => ok({ ...b, results: [], next: null }) }, {}, { form: false });
+  assert.equal(contBtns(d).length, 0);
+  assert.equal(offBtns(d).length, 1); assert.equal(offBtns(d)[0].textContent, "Continue sending");
+  assert.equal(offBtns(d)[0].getAttribute("aria-disabled"), "true");
+  assert.deepEqual(whys(d).map((n) => n.textContent), ["This store is on hold. Nothing can be sent."]);
+  await d.click(viewBtns(d)[0]);
+  assert.equal(offBtns(d).length, 2); assert.equal(whys(d).length, 2);
+  await d.click(offBtns(d)[0]);
+  assert.equal(d.$("ib-bk-dlg"), null); assert.equal(d.bk.seen.cont || 0, 0);
+});
+
+test("continue blocked: the fallback line when the message is missing; nothing for count 0, finished, stopped or can_continue true", async () => {
+  for (const [name, b, want, line] of [["missing message", ENDED({ can_continue: false }), 1, "Continue sending is not possible right now."],
+    ["count 0", ENDED({ can_continue: false, continue_count: 0 }), 0], ["finished", ENDED({ state: "finished", can_continue: false }), 0],
+    ["stopped", ENDED({ state: "stopped", can_continue: false }), 0], ["can continue", ENDED(), 0]]) {
+    const d = await openBulk({ history: () => ok({ items: [b], next_cursor: null }) }, {}, { form: false });
+    assert.equal(offBtns(d).length, want, name);
+    if (line) assert.equal(whys(d)[0].textContent, line, name);
+  }
+});

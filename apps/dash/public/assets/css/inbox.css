@@ -704,6 +704,10 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
 #ib-bk-hist .ib-bk-acts { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }
 #ib-bk-hist .ib-bk-cont { min-height: 36px; padding: 0 14px; }
 #ib-bk-hist .ib-bk-dcont { align-self: flex-start; margin-top: 6px; }
+/* CONTINUE-246: the disabled Continue sending keeps focus (aria-disabled) and shows the reason in one muted line. */
+#ib-bk-hist .ib-bk-cont-off[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+#ib-bk-hist .ib-bk-why { margin: 4px 0 0; text-align: right; }
+#ib-bk-hist .ib-bk-flat .ib-bk-why { text-align: left; }
 #view-inbox .ib-bk-cont:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--link); }
 @media (width >= 1100px) {
   #ib-bk-hist .ib-bk-table { width: 100%; min-width: 0; }
@@ -717,6 +721,8 @@ body.dash-app .ib-combo-tag { flex: none; padding: 1px 8px; border-radius: 999px
   #view-inbox #ib-bk-hist .ib-bk-table tr.ib-bk-tr td.ib-bk-act { justify-self: stretch; }
   #ib-bk-hist .ib-bk-acts { display: flex; width: 100%; }
   #ib-bk-hist .ib-bk-acts .no-btn { flex: 1 1 0; }
+  /* the stacked action cell inherits td.ib-bk-act nowrap (table layout); only the reason line wraps inside the card, left-aligned, so the button label stays on one line */
+  #ib-bk-hist .ib-bk-why { white-space: normal; text-align: left; overflow-wrap: anywhere; }
 }
 /* 700 to 1099px the dash sidebar leaves the card under ~830px: the same stacked rows as a phone (the table would not fit), for the Bulk history only */
 @media (700px <= width < 1100px) {

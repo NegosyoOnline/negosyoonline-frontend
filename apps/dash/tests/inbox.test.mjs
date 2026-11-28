@@ -846,7 +846,7 @@ test("the page and its two scripts: no inline handler, the combo is the house dr
   assert.match(HTML, /inbox\.js\?v=20261128c1/);
   assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/);
   assert.match(HTML, /inbox-settings\.js\?v=20261124ml12/);
-  assert.match(HTML, /inbox\.css\?v=20261128c1/);
+  assert.match(HTML, /inbox\.css\?v=20261128c2/);
   assert.match(HTML, /inbox-bulk\.js\?v=20261128c1/);
   assert.match(HTML, /inbox-comments\.js\?v=20261124ml1/);
 });
@@ -2622,7 +2622,7 @@ test("SMS-MENU: the nav item, the More sheet tile and the route are in index.htm
   assert.match(sheet, /<a class="sheet-tile" href="\/sms\/" data-sheet-close data-sms-nav hidden>/, "the phone bottom bar is full: SMS Marketing is in the More sheet");
   assert.ok(!/<nav class="tabs[\s\S]*?<\/nav>/.exec(HTML)[0].includes("/sms/"), "not in the bottom bar");
   assert.ok(read("dashboard.js").includes('"/sms/": { view: "inbox", page: "sms"'));
-  assert.match(HTML, /inbox\.js\?v=20261128c1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261128c1/); assert.match(HTML, /inbox\.css\?v=20261128c1/);
+  assert.match(HTML, /inbox\.js\?v=20261128c1/); assert.match(HTML, /inbox-sms\.js\?v=20261124ml13/); assert.match(HTML, /inbox-bulk\.js\?v=20261128c1/); assert.match(HTML, /inbox\.css\?v=20261128c2/);
 });
 
 test("the reply box says where the reply goes: Messenger, email, website chat, text, per thread", async () => {
@@ -3405,5 +3405,5 @@ test("SMS nav badge: the More-sheet SMS tile gets the same bubble and aria-label
   const css = fs.readFileSync(path.join(JS, "..", "css", "inbox.css"), "utf8");
   assert.match(css, /body\.dash-app \.sheet-tile \{ position: relative; \}/);
   assert.match(css, /body\.dash-app \.sheet-tile \.ib-nb \{ position: absolute; top: 6px; right: 6px;/);
-  assert.match(HTML, /inbox\.css\?v=20261128c1/);
+  assert.match(HTML, /inbox\.css\?v=20261128c2/);
 });

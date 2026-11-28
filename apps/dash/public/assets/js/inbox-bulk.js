@@ -178,6 +178,10 @@
   function continuePath(site, id) { return base(site) + "batches/" + encodeURIComponent(id) + "/" + CONTINUE_PATH; }
   /* The Continue sending button shows only on an Ended batch the API says can continue (can_continue: true); continue_count is how many texts it will send. */
   function canContinue(b) { return !!b && b.state === "ended" && b.can_continue === true; }
+  /* CONTINUE-246: an Ended batch with texts left but can_continue not true shows the button disabled with the backend's reason under it. */
+  var CONTINUE_NOT_NOW = "Continue sending is not possible right now.";
+  function blockedContinue(b) { return !!b && b.state === "ended" && num(b.continue_count) > 0 && b.can_continue !== true; }
+  function continueWhy(b) { return typeof b.continue_blocked_message === "string" && b.continue_blocked_message ? b.continue_blocked_message : CONTINUE_NOT_NOW; }
   function continueQuestion(b) {
     var n = num(b && b.continue_count);
     return n > 0 ? "Continue sending " + plural(n, "text", "texts") + " from your phone?" : "Continue sending the texts that were not sent, from your phone?";
@@ -653,6 +657,14 @@
       if (st.cont[b.id]) c.disabled = true;
       return c;
     }
+    /* The disabled Continue sending (aria-disabled, not the native attribute, so it keeps focus) and the one muted line saying why; clicking does nothing. */
+    function blockedContinueBox(b, cls, id) {
+      var c = ui.btn("Continue sending", "primary", function () {});
+      c.classList.add("ib-bk-cont-off"); c.setAttribute("data-batch", b.id); c.setAttribute("id", id);
+      c.setAttribute("aria-disabled", "true"); c.setAttribute("aria-describedby", id + "-why");
+      var why = h("p", "pm-meta ib-bk-why", continueWhy(b)); why.setAttribute("id", id + "-why");
+      return [c, why];
+    }
     function askContinue(b) {
       if (st.cont[b.id]) return;
       showDialog("Continue sending?", continueQuestion(b), "Yes, continue", "ib-bk-cont-" + b.id, function () { doContinue(b); });
@@ -748,7 +760,9 @@
         tr.appendChild(h("td", "ib-bk-rtext", b.text || ""));
         var ac = h("td", "ib-bk-act"), v = ui.btn(open ? "Hide" : "View", "ghost", function () { toggle(b); });
         v.classList.add("ib-bk-view"); v.setAttribute("aria-expanded", open ? "true" : "false"); v.setAttribute("aria-controls", "ib-bk-d-" + b.id); v.setAttribute("data-batch", b.id);
-        if (cont) { var wrap = h("span", "ib-bk-acts"); add(wrap, continueButton(b), v); ac.appendChild(wrap); } else ac.appendChild(v);
+        if (cont) { var wrap = h("span", "ib-bk-acts"); add(wrap, continueButton(b), v); ac.appendChild(wrap); }
+        else if (blockedContinue(b)) { var bc = blockedContinueBox(b, "", "ib-bk-cont-off-" + b.id), wr2 = h("span", "ib-bk-acts"); add(wr2, bc[0], v); ac.appendChild(wr2); ac.appendChild(bc[1]); }
+        else ac.appendChild(v);
         tr.appendChild(ac); tb.appendChild(tr);
         if (open) {
           var dr = h("tr", "ib-bk-dr"), td = h("td", ""); td.setAttribute("colspan", "6"); td.setAttribute("id", "ib-bk-d-" + b.id);
@@ -787,6 +801,7 @@
       if (b.text) box.appendChild(h("p", "ib-bk-text", b.text));
       box.appendChild(h("p", "ib-bk-stat", [["Sent", b.sent], ["Failed", b.failed], ["Not sent", b.not_sent], ["Waiting", b.waiting]].map(function (p) { return p[0] + " " + num(p[1]); }).join(" \u00B7 ")));
       if (canContinue(b)) { var cb = continueButton(b); cb.setAttribute("id", "ib-bk-dcont-" + b.id); cb.classList.add("ib-bk-dcont"); box.appendChild(cb); }
+      else if (blockedContinue(b)) { var bd = blockedContinueBox(b, "", "ib-bk-dcont-off-" + b.id); bd[0].classList.add("ib-bk-dcont"); box.appendChild(bd[0]); box.appendChild(bd[1]); }
       td.appendChild(box);
       if (d0.failed && !d0.results.length) { td.appendChild(h("p", "pm-meta", "We could not load the recipients just now.")); td.appendChild(ui.btn("Try again", "ghost", function () { loadDetail(b.id, null); draw(); })); return; }
       if (d0.loading && !d0.results.length) { td.appendChild(h("p", "pm-meta ib-loading", "Loading…")); return; }
